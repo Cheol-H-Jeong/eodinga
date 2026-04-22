@@ -489,7 +489,8 @@ class LauncherWindow(LauncherPanel):
         self.setObjectName("surface")
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
         self.setWindowFlag(Qt.WindowType.Tool, True)
-        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
+        stays_on_top = True if self._config is None else self._config.launcher.always_on_top
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, stays_on_top)
         width = self._config.launcher.window_width if self._config is not None else 640
         height = self._config.launcher.window_height if self._config is not None else 480
         self.resize(width, height)
