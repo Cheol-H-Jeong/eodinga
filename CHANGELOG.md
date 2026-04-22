@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.79 - 2026-04-23
+## 0.1.100 - 2026-04-23
 
 - Added a real in-process observability registry so indexing, query execution, parser failures, and watcher ingress now increment stable counters instead of only emitting debug logs.
 - Upgraded `eodinga stats --json` to report live runtime counters plus query-latency histogram data alongside the persisted index snapshot, and pinned that behavior with same-process CLI regressions.
