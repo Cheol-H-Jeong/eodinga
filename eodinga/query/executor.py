@@ -137,11 +137,21 @@ def _filter_record(branch: CompiledBranch, record: FileRecord, content_text: str
 def _fetch_records(
     conn: sqlite3.Connection, where_sql: str, where_params: tuple[object, ...], limit: int
 ) -> dict[int, FileRecord]:
+    return _fetch_record_batch(conn, where_sql, where_params, limit=limit, offset=0)
+
+
+def _fetch_record_batch(
+    conn: sqlite3.Connection,
+    where_sql: str,
+    where_params: tuple[object, ...],
+    limit: int,
+    offset: int,
+) -> dict[int, FileRecord]:
     sql = "SELECT files.* FROM files"
     if where_sql:
         sql += f" WHERE {where_sql}"
-    sql += " ORDER BY files.name_lower ASC LIMIT ?"
-    rows = conn.execute(sql, (*where_params, limit)).fetchall()
+    sql += " ORDER BY files.name_lower ASC LIMIT ? OFFSET ?"
+    rows = conn.execute(sql, (*where_params, limit, offset)).fetchall()
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
@@ -396,6 +406,15 @@ def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[i
 def _fetch_content_backfill(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
 ) -> dict[int, FileRecord]:
+    return _fetch_content_backfill_batch(conn, branch, limit=limit, offset=0)
+
+
+def _fetch_content_backfill_batch(
+    conn: sqlite3.Connection,
+    branch: CompiledBranch,
+    limit: int,
+    offset: int,
+) -> dict[int, FileRecord]:
     sql = """
         SELECT files.*
         FROM files
@@ -405,9 +424,61 @@ def _fetch_content_backfill(
     if branch.where_sql:
         sql += " WHERE " + branch.where_sql
         params.extend(branch.where_params)
-    sql += " ORDER BY files.name_lower ASC LIMIT ?"
-    rows = conn.execute(sql, (*params, limit)).fetchall()
+    sql += " ORDER BY files.name_lower ASC LIMIT ? OFFSET ?"
+    rows = conn.execute(sql, (*params, limit, offset)).fetchall()
     return {row["id"]: _row_to_record(row) for row in rows}
+
+
+def _scan_filtered_records(
+    conn: sqlite3.Connection,
+    branch: CompiledBranch,
+    limit: int,
+) -> dict[int, FileRecord]:
+    target = max(limit, 1)
+    batch_size = max(min(target * 2, 2000), 500)
+    offset = 0
+    matched: dict[int, FileRecord] = {}
+    while len(matched) < target:
+        batch = _fetch_record_batch(
+            conn,
+            branch.where_sql,
+            branch.where_params,
+            limit=batch_size,
+            offset=offset,
+        )
+        if not batch:
+            break
+        content_texts = _fetch_content_texts(conn, batch) if _needs_record_filter(branch) else {}
+        for file_id, record in batch.items():
+            if _filter_record(branch, record, content_texts.get(file_id, "")):
+                matched[file_id] = record
+                if len(matched) >= target:
+                    break
+        offset += batch_size
+    return matched
+
+
+def _scan_filtered_content_records(
+    conn: sqlite3.Connection,
+    branch: CompiledBranch,
+    limit: int,
+) -> dict[int, FileRecord]:
+    target = max(limit, 1)
+    batch_size = max(min(target * 2, 2000), 500)
+    offset = 0
+    matched: dict[int, FileRecord] = {}
+    while len(matched) < target:
+        batch = _fetch_content_backfill_batch(conn, branch, limit=batch_size, offset=offset)
+        if not batch:
+            break
+        content_texts = _fetch_content_texts(conn, batch)
+        for file_id, record in batch.items():
+            if _filter_record(branch, record, content_texts.get(file_id, "")):
+                matched[file_id] = record
+                if len(matched) >= target:
+                    break
+        offset += batch_size
+    return matched
 
 
 def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> list[int]:
@@ -490,13 +561,22 @@ def _execute_branch(
         if content_ids:
             candidate_ids = set(content_ids)
         else:
-            content_backfill = _fetch_content_backfill(conn, branch, max(limit * 10, 1000))
+            content_backfill = _scan_filtered_content_records(
+                conn,
+                branch,
+                max(limit * 4, 1000),
+            )
             extra_records = content_backfill
             candidate_ids = set(content_backfill)
     else:
-        candidate_ids = set(
-            _fetch_records(conn, branch.where_sql, branch.where_params, max(limit * 10, 1000))
-        )
+        if _needs_record_filter(branch):
+            scanned_records = _scan_filtered_records(conn, branch, max(limit * 4, 1000))
+            extra_records = scanned_records
+            candidate_ids = set(scanned_records)
+        else:
+            candidate_ids = set(
+                _fetch_records(conn, branch.where_sql, branch.where_params, max(limit * 10, 1000))
+            )
     records = {**path_records, **content_records, **extra_records}
     if not records and candidate_ids:
         records.update(

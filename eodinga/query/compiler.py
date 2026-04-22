@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, time, timedelta
 from itertools import product
 from typing import Literal
@@ -125,6 +126,25 @@ def _parse_bool(value: str) -> bool:
     raise QuerySyntaxError(f"invalid boolean value: {value}", 0)
 
 
+def _regex_flags(flags: str) -> int:
+    compiled_flags = 0
+    for flag in flags.lower():
+        if flag == "i":
+            compiled_flags |= re.IGNORECASE
+        elif flag == "m":
+            compiled_flags |= re.MULTILINE
+        elif flag == "s":
+            compiled_flags |= re.DOTALL
+    return compiled_flags
+
+
+def _validate_regex_pattern(pattern: str, flags: str = "") -> None:
+    try:
+        re.compile(pattern, _regex_flags(flags))
+    except re.error as error:
+        raise QuerySyntaxError(f"invalid regex: {error}", 0) from error
+
+
 def _size_to_bytes(value: str) -> tuple[str, int]:
     text = value.strip()
     comparator = "="
@@ -214,12 +234,14 @@ def _compile_branch(
             )
             continue
         if isinstance(term, RegexNode):
+            _validate_regex_pattern(term.pattern, term.flags)
             path_regex_terms.append(
                 CompiledRegexTerm(pattern=term.pattern, flags=term.flags, negated=term.negated)
             )
             continue
         if term.name == "content":
             if term.value_kind == "regex":
+                _validate_regex_pattern(term.value, term.regex_flags)
                 content_regex_terms.append(
                     CompiledRegexTerm(
                         pattern=term.value, flags=term.regex_flags, negated=term.negated
@@ -234,6 +256,7 @@ def _compile_branch(
             continue
         if term.name == "path":
             if term.value_kind == "regex":
+                _validate_regex_pattern(term.value, term.regex_flags)
                 path_regex_terms.append(
                     CompiledRegexTerm(
                         pattern=term.value, flags=term.regex_flags, negated=term.negated
@@ -292,6 +315,16 @@ def _compile_branch(
             regex_mode = _parse_bool(term.value)
             continue
         raise QuerySyntaxError(f"unsupported operator: {term.name}", 0)
+
+    if regex_mode and path_terms:
+        regex_terms = []
+        for term in path_terms:
+            _validate_regex_pattern(term.value)
+            regex_terms.append(
+                CompiledRegexTerm(pattern=term.value, flags="", negated=term.negated)
+            )
+        path_regex_terms.extend(regex_terms)
+        path_terms = []
 
     positive_path_terms = tuple(term for term in path_terms if not term.negated)
     positive_content_terms = tuple(term for term in content_terms if not term.negated)
