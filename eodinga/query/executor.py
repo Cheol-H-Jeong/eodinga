@@ -342,7 +342,19 @@ def _fetch_content_candidates(
     rows = conn.execute(sql, (*params, limit)).fetchall()
     records = {row["id"]: _row_to_record(row) for row in rows}
     snippets = {row["id"]: row["snippet"] for row in rows}
-    return [row["id"] for row in rows], records, snippets
+    ids = [row["id"] for row in rows]
+    if len(ids) >= limit or not _should_scan_content_candidates(branch, ids):
+        return ids, records, snippets
+    scan_records = _scan_filtered_content_records(conn, branch, limit)
+    for file_id, record in scan_records.items():
+        if file_id in records:
+            continue
+        records[file_id] = record
+        snippets[file_id] = None
+        ids.append(file_id)
+        if len(ids) >= limit:
+            break
+    return ids, records, snippets
 
 
 def _fetch_auto_content_candidates(
@@ -368,7 +380,37 @@ def _fetch_auto_content_candidates(
     rows = conn.execute(sql, (*params, limit)).fetchall()
     records = {row["id"]: _row_to_record(row) for row in rows}
     snippets = {row["id"]: row["snippet"] for row in rows}
-    return [row["id"] for row in rows], records, snippets
+    ids = [row["id"] for row in rows]
+    if len(ids) >= limit or not _should_scan_auto_content_candidates(branch, ids):
+        return ids, records, snippets
+    scan_records = _scan_auto_content_candidates(conn, branch, limit)
+    for file_id, record in scan_records.items():
+        if file_id in records:
+            continue
+        records[file_id] = record
+        snippets[file_id] = None
+        ids.append(file_id)
+        if len(ids) >= limit:
+            break
+    return ids, records, snippets
+
+
+def _should_scan_content_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
+    positive_terms = [term for term in branch.content_terms if not term.negated]
+    if not positive_terms:
+        return False
+    if not fts_ids:
+        return True
+    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+
+
+def _should_scan_auto_content_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
+    positive_terms = [term for term in branch.path_terms if not term.negated]
+    if not positive_terms:
+        return False
+    if not fts_ids:
+        return True
+    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
 
 
 def _has_indexed_content(conn: sqlite3.Connection) -> bool:
@@ -477,6 +519,37 @@ def _scan_filtered_content_records(
                 matched[file_id] = record
                 if len(matched) >= target:
                     break
+        offset += batch_size
+    return matched
+
+
+def _scan_auto_content_candidates(
+    conn: sqlite3.Connection,
+    branch: CompiledBranch,
+    limit: int,
+) -> dict[int, FileRecord]:
+    positive_terms = [term for term in branch.path_terms if not term.negated]
+    if not positive_terms:
+        return {}
+    target = max(limit, 1)
+    batch_size = max(min(target * 2, 2000), 500)
+    offset = 0
+    matched: dict[int, FileRecord] = {}
+    while len(matched) < target:
+        batch = _fetch_content_backfill_batch(conn, branch, limit=batch_size, offset=offset)
+        if not batch:
+            break
+        content_texts = _fetch_content_texts(conn, batch)
+        for file_id, record in batch.items():
+            content_text = content_texts.get(file_id, "")
+            if not all(
+                _text_matches(content_text, term.value, branch.case_sensitive)
+                for term in positive_terms
+            ):
+                continue
+            matched[file_id] = record
+            if len(matched) >= target:
+                break
         offset += batch_size
     return matched
 
