@@ -4,6 +4,7 @@ import sqlite3
 from pathlib import Path
 from time import perf_counter, time
 
+from eodinga.content.base import ParsedContent
 from eodinga.common import FileRecord, WatchEvent
 from eodinga.index.writer import IndexWriter
 from tests.conftest import make_record
@@ -53,3 +54,82 @@ def test_writer_bulk_insert_and_incremental_apply_are_fast(tmp_db: Path, tmp_pat
     incr_elapsed = perf_counter() - started
     assert processed == 100
     assert incr_elapsed < 0.05
+
+
+def test_writer_bulk_upsert_batches_content_inserts(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    records = [_synthetic_record(index, tmp_path) for index in range(3)]
+    parsed_by_path = {
+        record.path: ParsedContent(
+            title=record.name,
+            head_text=f"head {record.name}",
+            body_text=f"body {record.name}",
+            content_sha=f"sha-{record.name}".encode(),
+        )
+        for record in records
+    }
+    writer = IndexWriter(conn, parser_callback=lambda path: parsed_by_path.get(path))
+
+    assert writer.bulk_upsert(records) == 3
+
+    rows = conn.execute(
+        """
+        SELECT files.name, content_fts.title, content_fts.body_text, content_map.content_sha
+        FROM files
+        JOIN content_map ON content_map.file_id = files.id
+        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
+        ORDER BY files.name
+        """
+    ).fetchall()
+    assert len(rows) == 3
+    assert rows[0] == (
+        "file-0.txt",
+        "file-0.txt",
+        "body file-0.txt",
+        b"sha-file-0.txt",
+    )
+
+
+def test_writer_bulk_upsert_reuses_existing_content_rowids(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    record = _synthetic_record(1, tmp_path)
+    initial = ParsedContent(
+        title=record.name,
+        head_text="head one",
+        body_text="body one",
+        content_sha=b"sha-one",
+    )
+    updated = ParsedContent(
+        title=record.name,
+        head_text="head two",
+        body_text="body two",
+        content_sha=b"sha-two",
+    )
+
+    writer = IndexWriter(conn, parser_callback=lambda _path: initial)
+    assert writer.bulk_upsert([record]) == 1
+    before = conn.execute("SELECT fts_rowid, content_sha FROM content_map").fetchone()
+
+    writer = IndexWriter(conn, parser_callback=lambda _path: updated)
+    assert writer.bulk_upsert([record]) == 1
+    after = conn.execute(
+        """
+        SELECT content_map.fts_rowid, content_map.content_sha, content_fts.body_text
+        FROM content_map
+        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
+        """
+    ).fetchone()
+
+    assert before is not None
+    assert after is not None
+    assert after[0] == before[0]
+    assert after[1] == b"sha-two"
+    assert after[2] == "body two"
