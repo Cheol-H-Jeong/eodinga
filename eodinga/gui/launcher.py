@@ -4,8 +4,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
-from PySide6.QtCore import QAbstractListModel, QModelIndex, QObject, QTimer, Qt, Signal
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtCore import QAbstractListModel, QEvent, QModelIndex, QObject, QTimer, Qt, Signal
+from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut, QShowEvent
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
 
 from eodinga.common import QueryResult, SearchHit
@@ -109,6 +109,8 @@ class LauncherPanel(QWidget):
 
         self.query_field.textChanged.connect(self._schedule_query)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
+        self.query_field.installEventFilter(self)
+        self.result_list.installEventFilter(self)
 
         self._shortcuts = [
             QShortcut(QKeySequence(Qt.Key.Key_Return), self),
@@ -127,24 +129,34 @@ class LauncherPanel(QWidget):
         self._search_fn = search_fn
 
     def activate_current_result(self) -> None:
-        index = self.result_list.currentIndex()
-        row = index.row() if index.isValid() else 0
-        self._emit_activation(row)
+        hit = self._current_hit()
+        if hit is not None:
+            self.result_activated.emit(hit)
 
     def emit_open_containing_folder(self) -> None:
-        hit = self.model.item_at(self.result_list.currentIndex().row())
+        hit = self._current_hit()
         if hit is not None:
             self.open_containing_folder.emit(hit)
 
     def emit_show_properties(self) -> None:
-        hit = self.model.item_at(self.result_list.currentIndex().row())
+        hit = self._current_hit()
         if hit is not None:
             self.show_properties.emit(hit)
 
     def emit_copy_path(self) -> None:
-        hit = self.model.item_at(self.result_list.currentIndex().row())
+        hit = self._current_hit()
         if hit is not None:
             self.copy_path_requested.emit(hit)
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if event.type() != QEvent.Type.KeyPress:
+            return super().eventFilter(watched, event)
+        key_event = cast(QKeyEvent, event)
+        if watched is self.query_field:
+            return self._handle_query_field_keypress(key_event)
+        if watched is self.result_list:
+            return self._handle_result_list_keypress(key_event)
+        return super().eventFilter(watched, event)
 
     def _emit_activation(self, row: int) -> None:
         hit = self.model.item_at(row)
@@ -159,7 +171,12 @@ class LauncherPanel(QWidget):
         self._latest_result = self._search_fn(query, self._max_results)
         self.model.set_items(self._latest_result.items, query)
         self.status_label.setText(f"{self._latest_result.total} results · {self._latest_result.elapsed_ms:.1f} ms")
-        self.status_chip.setText("Ready" if query else "Idle")
+        if not query:
+            self.status_chip.setText("Idle")
+        elif self._latest_result.total > 0:
+            self.status_chip.setText("Ready")
+        else:
+            self.status_chip.setText("No results")
         if self.model.rowCount() > 0:
             self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
         self._refresh_empty_state()
@@ -168,8 +185,53 @@ class LauncherPanel(QWidget):
 
     def _refresh_empty_state(self) -> None:
         has_results = self.model.rowCount() > 0
+        query = self.query_field.text().strip()
+        if not query:
+            self.empty_state.set_content(
+                "Type to search",
+                "Arrow keys browse matches. Enter opens the top result. Ctrl+Enter reveals its folder.",
+            )
+        else:
+            self.empty_state.set_content(
+                f'No results for "{query}"',
+                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M.",
+            )
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
+
+    def _current_hit(self) -> SearchHit | None:
+        index = self.result_list.currentIndex()
+        row = index.row() if index.isValid() else 0
+        return self.model.item_at(row)
+
+    def _handle_query_field_keypress(self, event: QKeyEvent) -> bool:
+        if self.model.rowCount() == 0:
+            return False
+        if event.key() == Qt.Key.Key_Down:
+            self.result_list.setFocus()
+            self._move_selection(1)
+            return True
+        if event.key() == Qt.Key.Key_Up:
+            self.result_list.setFocus()
+            self._move_selection(-1)
+            return True
+        return False
+
+    def _handle_result_list_keypress(self, event: QKeyEvent) -> bool:
+        if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
+            self.query_field.setFocus()
+            return True
+        return False
+
+    def _move_selection(self, delta: int) -> None:
+        if self.model.rowCount() == 0:
+            return
+        current_row = self.result_list.currentIndex().row()
+        if current_row < 0:
+            current_row = 0
+        next_row = min(max(current_row + delta, 0), self.model.rowCount() - 1)
+        self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(next_row, 0)))
+        self.result_list.scrollTo(self.result_list.currentIndex())
 
 
 class LauncherWindow(LauncherPanel):
@@ -187,3 +249,8 @@ class LauncherWindow(LauncherPanel):
             event.accept()
             return
         super().keyPressEvent(event)
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        self.query_field.setFocus()
+        self.query_field.selectAll()

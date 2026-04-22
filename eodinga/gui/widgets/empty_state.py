@@ -10,13 +10,16 @@ class EmptyState(QWidget):
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        title_label = QLabel(title, self)
-        title_label.setProperty("role", "title")
-        body_label = QLabel(body, self)
-        body_label.setProperty("role", "secondary")
-        body_label.setWordWrap(True)
-        body_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title_label = QLabel(title, self)
+        self.title_label.setProperty("role", "title")
+        self.body_label = QLabel(body, self)
+        self.body_label.setProperty("role", "secondary")
+        self.body_label.setWordWrap(True)
+        self.body_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        layout.addWidget(title_label)
-        layout.addWidget(body_label)
+        layout.addWidget(self.title_label)
+        layout.addWidget(self.body_label)
 
+    def set_content(self, title: str, body: str) -> None:
+        self.title_label.setText(title)
+        self.body_label.setText(body)
