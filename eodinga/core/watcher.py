@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from os import fsdecode
 from pathlib import Path
-from queue import Empty, Queue
+from queue import Empty, Full, Queue
 from threading import Event, Lock, Thread
 from time import monotonic
 from typing import Protocol
@@ -16,6 +16,7 @@ from eodinga.observability import increment_counter
 
 _DEBOUNCE_SECONDS = 0.1
 _FLUSH_LIMIT = 500
+_DEFAULT_QUEUE_CAPACITY = 4096
 
 
 def _event_type_for(event: FileSystemEvent) -> str:
@@ -100,8 +101,8 @@ class _Handler(FileSystemEventHandler):
 
 
 class WatchService:
-    def __init__(self) -> None:
-        self.queue: Queue[WatchEvent] = Queue()
+    def __init__(self, *, queue_capacity: int = _DEFAULT_QUEUE_CAPACITY) -> None:
+        self.queue: Queue[WatchEvent] = Queue(maxsize=max(queue_capacity, 0))
         self._pending: dict[Path, WatchEvent] = {}
         self._retired_sources: dict[Path, set[Path]] = {}
         self._flushed_retired_sources: set[Path] = set()
@@ -138,6 +139,8 @@ class WatchService:
 
     def record(self, event: WatchEvent) -> None:
         increment_counter("watcher_events", event_type=event.event_type)
+        emit_now: WatchEvent | None = None
+        force_flush = False
         with self._lock:
             if event.event_type in {"created", "modified"}:
                 self._flushed_retired_sources.discard(event.path)
@@ -160,23 +163,34 @@ class WatchService:
                 and existing.event_type == "moved"
                 and event.event_type == "deleted"
             ):
-                self.queue.put(existing)
+                emit_now = existing
                 self._pending[event.path] = event
                 self._timestamps[event.path] = monotonic()
-                return
-            merged = self._coalesce(existing, event)
-            if merged is None:
-                self._pending.pop(event.path, None)
-                self._retired_sources.pop(event.path, None)
-                self._timestamps.pop(event.path, None)
             else:
-                self._pending[event.path] = merged
-                if moved_retired_sources:
-                    moved_retired_sources.update(self._retired_sources.get(event.path, set()))
-                    self._retired_sources[event.path] = moved_retired_sources
-                self._timestamps[event.path] = monotonic()
-            if len(self._pending) >= _FLUSH_LIMIT:
-                self._flush_ready(force=True)
+                merged = self._coalesce(existing, event)
+                if merged is None:
+                    self._pending.pop(event.path, None)
+                    self._retired_sources.pop(event.path, None)
+                    self._timestamps.pop(event.path, None)
+                else:
+                    self._pending[event.path] = merged
+                    if moved_retired_sources:
+                        moved_retired_sources.update(self._retired_sources.get(event.path, set()))
+                        self._retired_sources[event.path] = moved_retired_sources
+                    self._timestamps[event.path] = monotonic()
+                force_flush = len(self._pending) >= _FLUSH_LIMIT
+        if emit_now is not None:
+            self._enqueue(emit_now)
+        if force_flush:
+            self._flush_ready(force=True)
+
+    def _enqueue(self, event: WatchEvent) -> None:
+        while not self._stop.is_set():
+            try:
+                self.queue.put(event, timeout=0.05)
+                return
+            except Full:
+                increment_counter("watcher_backpressure", event_type=event.event_type)
 
     def _is_retired_move_source(self, path: Path) -> bool:
         return any(
@@ -255,6 +269,7 @@ class WatchService:
 
     def _flush_ready(self, force: bool) -> None:
         now = monotonic()
+        pending_events: list[WatchEvent] = []
         with self._lock:
             ready_paths = [
                 path
@@ -272,7 +287,9 @@ class WatchService:
                         self._flushed_retired_sources.update(retired_sources)
                     if event.event_type in {"created", "modified", "deleted"}:
                         self._flushed_retired_sources.discard(event.path)
-                    self.queue.put(event)
+                    pending_events.append(event)
+        for event in pending_events:
+            self._enqueue(event)
 
     def _reset_state(self) -> None:
         with self._lock:

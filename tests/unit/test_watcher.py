@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 from queue import Empty
+from threading import Thread
 from time import monotonic, sleep
+from typing import cast
 
 import pytest
 from watchdog.events import FileMovedEvent
 
 from eodinga.common import WatchEvent
 from eodinga.core.watcher import WatchService, _Handler
+from eodinga.observability import reset_metrics, snapshot_metrics
 
 
 def test_watcher_handler_maps_move_leaving_root_to_delete(tmp_path: Path) -> None:
@@ -647,3 +650,28 @@ def test_watcher_start_ignores_duplicate_root_registration(
 
     assert started == [tmp_path]
     assert stopped == [tmp_path]
+
+
+def test_watcher_backpressure_waits_for_queue_capacity_and_counts_blocking(tmp_path: Path) -> None:
+    service = WatchService(queue_capacity=1)
+    first = WatchEvent(event_type="created", path=tmp_path / "first.txt", root_path=tmp_path)
+    second = WatchEvent(event_type="modified", path=tmp_path / "second.txt", root_path=tmp_path)
+    reset_metrics()
+
+    service.record(first)
+    service._flush_ready(force=True)
+    service.record(second)
+
+    flush_thread = Thread(target=lambda: service._flush_ready(force=True), daemon=True)
+    flush_thread.start()
+    sleep(0.1)
+
+    assert flush_thread.is_alive()
+    assert service.queue.get_nowait().path == first.path
+
+    flush_thread.join(timeout=0.5)
+
+    assert not flush_thread.is_alive()
+    assert service.queue.get_nowait().path == second.path
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["watcher_backpressure"] >= 1
