@@ -26,6 +26,7 @@ The individual commands are useful when you are changing one subsystem and want 
 The current perf suite covers the SPEC §6.3 scenarios with smaller local-dev datasets:
 
 - `tests/perf/test_cold_start.py`: walker + bulk index throughput on a real tmp tree.
+- `tests/perf/test_cold_start.py::test_rebuild_cold_start_throughput`: staged rebuild throughput through the real `rebuild_index()` entry point.
 - `tests/perf/test_bulk_upsert.py`: isolated writer throughput for 50k synthetic records.
 - `tests/perf/test_query_latency.py`: name-only query latency against a 50k-file index.
 - `tests/perf/test_content_query.py`: content query latency against a 5k-document corpus.
@@ -48,6 +49,7 @@ pytest -q tests/perf -s
 Supported overrides:
 
 - `EODINGA_PERF_COLD_START_FILE_COUNT`, `EODINGA_PERF_COLD_START_MIN_FPS`
+- `EODINGA_PERF_REBUILD_MIN_FPS`
 - `EODINGA_PERF_BULK_FILE_COUNT`, `EODINGA_PERF_BULK_MIN_RPS`
 - `EODINGA_PERF_QUERY_FILE_COUNT`, `EODINGA_PERF_QUERY_COUNT`, `EODINGA_PERF_QUERY_P95_MS`
 - `EODINGA_PERF_CONTENT_DOC_COUNT`, `EODINGA_PERF_CONTENT_QUERY_COUNT`, `EODINGA_PERF_CONTENT_P95_MS`
@@ -55,21 +57,23 @@ Supported overrides:
 
 ## Baseline
 
-Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed after the 0.1.68 writer event-delete batching round:
+Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed after the 0.1.69 writer no-parser fast-path round:
 
 | Benchmark | Dataset | Result |
 | --- | --- | --- |
-| Cold start | 20,201 indexed entries | 6,024 files/sec |
-| Bulk upsert | 50k synthetic records | 60,942 records/sec |
+| Cold start | 20,201 indexed entries | 6,059 files/sec |
+| Rebuild cold start | 20,201 indexed entries via `rebuild_index()` | 6,537 files/sec |
+| Bulk upsert | 50k synthetic records | 56,222 records/sec |
 | Name query latency | 2,000 queries / 50k files | p50 0.06 ms, p95 0.06 ms, p99 0.07 ms |
-| Content query latency | 500 queries / 5k docs | p50 0.60 ms, p95 0.64 ms, p99 0.66 ms |
-| Watch latency | 25 created files | p99 0.132 s |
+| Content query latency | 500 queries / 5k docs | p50 0.60 ms, p95 0.63 ms, p99 0.67 ms |
+| Watch latency | 25 created files | p99 0.133 s |
 
-These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. This round trimmed write-path SQL chatter by batching delete and move-source cleanup inside `IndexWriter.apply_events()`, which keeps watcher-driven cleanup on a single `IN (...)` lookup/delete pair per batch instead of repeating per path.
+These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. This round removes the guaranteed-empty content-upsert pass whenever `IndexWriter` is running without a parser callback, which trims metadata-only indexing and makes the staged rebuild benchmark reflect the actual `content_enabled=False` fast path instead of paying for a no-op parser loop.
 
 ## Interpreting Results
 
-- `tests/perf/test_cold_start.py` exercises walker and bulk-upsert throughput. It is the best proxy for first-index regressions.
+- `tests/perf/test_cold_start.py` exercises walker and bulk-upsert throughput. It is the best low-level proxy for first-index regressions.
+- `tests/perf/test_cold_start.py::test_rebuild_cold_start_throughput` measures the actual staged rebuild path, including temp-index creation and atomic swap.
 - `tests/perf/test_bulk_upsert.py` isolates the writer path when you want to distinguish SQLite insert churn from walker traversal cost.
 - `tests/perf/test_query_latency.py` isolates name/path lookup cost without parser noise.
 - `tests/perf/test_content_query.py` tracks content-index ranking and snippet latency.

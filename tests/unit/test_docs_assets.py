@@ -66,6 +66,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
 
     assert "SPEC §6.3" in performance
     assert "tests/perf/test_cold_start.py" in performance
+    assert "test_rebuild_cold_start_throughput" in performance
+    assert "EODINGA_PERF_REBUILD_MIN_FPS" in performance
     assert "## Running the Suite" in performance
     assert "## Baseline" in performance
     assert "## Profiling Workflow" in performance
