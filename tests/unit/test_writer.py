@@ -56,6 +56,26 @@ def test_writer_bulk_insert_and_incremental_apply_are_fast(tmp_db: Path, tmp_pat
     assert incr_elapsed < 0.05
 
 
+def test_writer_without_parser_skips_content_queries(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    records = [_synthetic_record(index, tmp_path) for index in range(3)]
+    writer = IndexWriter(conn)
+
+    statements: list[str] = []
+    conn.set_trace_callback(statements.append)
+    try:
+        assert writer.bulk_upsert(records) == 3
+    finally:
+        conn.set_trace_callback(None)
+
+    assert not any("content_map" in statement for statement in statements)
+    assert conn.execute("SELECT COUNT(*) FROM content_map").fetchone() == (0,)
+
+
 def test_writer_bulk_upsert_batches_content_inserts(tmp_db: Path, tmp_path: Path) -> None:
     conn = sqlite3.connect(tmp_db)
     conn.execute(

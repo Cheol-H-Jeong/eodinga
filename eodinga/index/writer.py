@@ -54,7 +54,7 @@ class IndexWriter:
         self, conn: sqlite3.Connection, parser_callback: ParserCallback | None = None
     ) -> None:
         self._conn = conn
-        self._parser_callback = parser_callback or (lambda _path: None)
+        self._parser_callback = parser_callback
         if current_schema_version(self._conn) == 0:
             apply_schema(self._conn)
 
@@ -148,6 +148,8 @@ class IndexWriter:
         return deleted
 
     def _upsert_content(self, records: Sequence[FileRecord]) -> None:
+        if self._parser_callback is None:
+            return
         parsed_by_path: dict[str, ParsedContent] = {}
         path_order: list[str] = []
         for record in records:
