@@ -6,6 +6,8 @@
 source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
 ```
 
+The shipped datasets stay small enough for local developer runs, but each benchmark now accepts env overrides so you can scale toward the SPEC reference-box shapes without editing test code.
+
 ## Running the Suite
 
 Use a warm local virtualenv and run the perf tests on an otherwise idle machine when you want comparable numbers.
@@ -29,19 +31,41 @@ The current perf suite covers the SPEC §6.3 scenarios with smaller local-dev da
 - `tests/perf/test_content_query.py`: content query latency against a 5k-document corpus.
 - `tests/perf/test_watch_latency.py`: file-create to query-visible latency through the watcher path.
 
+## Scaling Knobs
+
+Use env vars to raise workload size or tighten/relax the informational gate for a single run:
+
+```bash
+source .venv/bin/activate
+EODINGA_RUN_PERF=1 \
+EODINGA_PERF_COLD_START_FILE_COUNT=100000 \
+EODINGA_PERF_QUERY_FILE_COUNT=250000 \
+EODINGA_PERF_QUERY_COUNT=10000 \
+EODINGA_PERF_CONTENT_DOC_COUNT=20000 \
+pytest -q tests/perf -s
+```
+
+Supported overrides:
+
+- `EODINGA_PERF_COLD_START_FILE_COUNT`, `EODINGA_PERF_COLD_START_MIN_FPS`
+- `EODINGA_PERF_BULK_FILE_COUNT`, `EODINGA_PERF_BULK_MIN_RPS`
+- `EODINGA_PERF_QUERY_FILE_COUNT`, `EODINGA_PERF_QUERY_COUNT`, `EODINGA_PERF_QUERY_P95_MS`
+- `EODINGA_PERF_CONTENT_DOC_COUNT`, `EODINGA_PERF_CONTENT_QUERY_COUNT`, `EODINGA_PERF_CONTENT_P95_MS`
+- `EODINGA_PERF_WATCH_FILE_COUNT`, `EODINGA_PERF_WATCH_P99_SECONDS`
+
 ## Baseline
 
-Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed after the 0.1.47 bulk-write allocation trim:
+Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed after the 0.1.57 query-shape cache and perf-suite configurability round:
 
 | Benchmark | Dataset | Result |
 | --- | --- | --- |
-| Cold start | 20,201 indexed entries | 6,152 files/sec |
-| Bulk upsert | 50k synthetic records | 61,103 records/sec |
-| Name query latency | 2,000 queries / 50k files | p50 0.05 ms, p95 0.06 ms, p99 0.06 ms |
+| Cold start | 20,201 indexed entries | 6,082 files/sec |
+| Bulk upsert | 50k synthetic records | 60,854 records/sec |
+| Name query latency | 2,000 queries / 50k files | p50 0.06 ms, p95 0.06 ms, p99 0.07 ms |
 | Content query latency | 500 queries / 5k docs | p50 0.60 ms, p95 0.63 ms, p99 0.67 ms |
 | Watch latency | 25 created files | p99 0.133 s |
 
-These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. This round’s cold-start gain comes from trimming `IndexWriter.bulk_upsert()` overhead: list batches are now reused instead of copied, SQLite row tuples stream directly into `executemany()`, and unchanged content rows no longer trigger a `MAX(rowid)` probe on every pass.
+These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. This round tightened the measurement story by making the suite env-scalable and trimmed repeated executor overhead by caching stable SQL shapes for recurring search plans, especially on launcher-style repeated queries that vary parameters more often than structure.
 
 ## Interpreting Results
 
