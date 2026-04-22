@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8 - 2026-04-23
+
+- Added an offscreen screenshot renderer that captures the real application and launcher surfaces into stable documentation assets.
+- Expanded the README with screenshots, architecture/performance links, and a clearer DSL guide path for the v0.1 acceptance docs.
+- Added `docs/ARCHITECTURE.md` and `docs/DSL.md`, and pinned the docs contract with tests so required guide sections and screenshot references stay present.
+
 ## 0.1.7 - 2026-04-23
 
 - Hardened index replacement so staged SQLite WAL data is checkpointed into the database file before the atomic swap, leaving no stale sidecars behind at the target path.
