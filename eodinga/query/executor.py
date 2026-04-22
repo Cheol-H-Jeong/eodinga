@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 from eodinga.common import FileRecord
 from eodinga.query.compiler import CompiledBranch, CompiledQuery
 from eodinga.query.ranker import rank_results
+from eodinga.observability import increment_counter, observe_query_latency
 
 
 class SearchHit(BaseModel):
@@ -824,6 +825,8 @@ def execute(
         for file_id in ordered_ids
     ]
     elapsed_ms = (time.perf_counter() - started) * 1000
+    increment_counter("queries_served")
+    observe_query_latency(elapsed_ms)
     total_estimate = _metadata_only_total_estimate(conn, scoped_branches)
     if total_estimate is None:
         total_estimate = len(merged_scores)

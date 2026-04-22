@@ -14,8 +14,9 @@ from eodinga.common import SearchResult, StatsSnapshot
 from eodinga.config import AppConfig, RootConfig, load
 from eodinga.doctor import run_diagnostics
 from eodinga.index.build import rebuild_index
+from eodinga.index.reader import stats as read_index_stats
 from eodinga.index.storage import open_index
-from eodinga.observability import configure_logging
+from eodinga.observability import configure_logging, install_crash_handler, metrics_snapshot
 from eodinga.query import QuerySyntaxError, search as run_search
 
 
@@ -152,11 +153,24 @@ def _cmd_search(args: argparse.Namespace) -> int:
 
 def _cmd_stats(args: argparse.Namespace) -> int:
     config = _resolve_config(args)
+    db_path = args.db or config.index.db_path
+    files_indexed = 0
+    documents_indexed = 0
+    roots = [root.path for root in config.roots]
+    if db_path.expanduser().exists():
+        with closing(open_index(db_path)) as conn:
+            snapshot = read_index_stats(conn)
+        files_indexed = snapshot.file_count
+        documents_indexed = snapshot.content_count
+        roots = list(snapshot.roots)
+    counters, query_latency_histogram = metrics_snapshot()
     snapshot = StatsSnapshot(
-        files_indexed=0,
-        documents_indexed=0,
-        roots=[root.path for root in config.roots],
-        db_path=args.db or config.index.db_path,
+        files_indexed=files_indexed,
+        documents_indexed=documents_indexed,
+        roots=roots,
+        db_path=db_path,
+        counters=counters,
+        query_latency_histogram=query_latency_histogram,
     ).model_dump(mode="json")
     return _emit(snapshot, as_json=bool(args.json))
 
@@ -192,6 +206,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     configure_logging(args.log_level)
+    install_crash_handler()
     return args.handler(args)
 
 

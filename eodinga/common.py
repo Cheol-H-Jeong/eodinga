@@ -99,6 +99,8 @@ class StatsSnapshot(BaseModel):
     documents_indexed: int = 0
     roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None
+    counters: dict[str, int] = Field(default_factory=dict)
+    query_latency_histogram: dict[str, int] = Field(default_factory=dict)
 
 
 __all__ = [
