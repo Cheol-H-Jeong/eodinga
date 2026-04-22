@@ -51,12 +51,22 @@ def _matches(spec: PathSpec, path: Path, root: Path | None) -> bool:
     return any(spec.match_file(candidate) for candidate in candidates)
 
 
+def _is_within_root(path: Path, root: Path | None) -> bool:
+    if root is None:
+        return False
+    try:
+        absolute_safe(path).relative_to(absolute_safe(root))
+    except ValueError:
+        return False
+    return True
+
+
 def should_index(path: Path, rules: PathRules) -> bool:
     include_spec = _compile(rules.include)
     exclude_spec = _compile(rules.exclude)
     explicitly_included = rules.include != ("**/*",) and _matches(include_spec, path, rules.root)
     if _matches(exclude_spec, path, rules.root):
         return False
-    if _matches_default_denylist(path) and not explicitly_included:
+    if _matches_default_denylist(path) and not explicitly_included and not _is_within_root(path, rules.root):
         return False
     return True

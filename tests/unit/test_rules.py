@@ -49,3 +49,15 @@ def test_user_exclude_glob_applies_to_symlink_alias_paths(tmp_path: Path) -> Non
 def test_user_include_overrides_default_denylist() -> None:
     rules = PathRules(include=("/tmp/project/**",))
     assert should_index(Path("/tmp/project/file.txt"), rules)
+
+
+def test_explicit_root_overrides_default_denylist(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    target = root / "notes.txt"
+    target.parent.mkdir(parents=True)
+    target.write_text("hello\n", encoding="utf-8")
+
+    rules = PathRules(root=root)
+
+    assert should_index(root, rules)
+    assert should_index(target, rules)
