@@ -234,7 +234,10 @@ class _Parser:
             if value.count("/") < 2 or value.endswith("\\"):
                 raise QuerySyntaxError("unterminated regex", self.index - len(value))
             last = value.rfind("/")
-            return value[1:last], "regex", value[last + 1 :]
+            pattern = value[1:last]
+            if not pattern:
+                raise QuerySyntaxError("empty regex", self.index - len(value) + 1)
+            return pattern, "regex", value[last + 1 :]
         return value, "word", ""
 
     def _with_negation(self, node: PhraseNode | RegexNode, negated: bool) -> PhraseNode | RegexNode:

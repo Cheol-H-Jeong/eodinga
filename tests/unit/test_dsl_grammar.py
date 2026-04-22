@@ -70,6 +70,12 @@ def test_parse_operator_regex_value() -> None:
     assert node.regex_flags == "i"
 
 
+@pytest.mark.parametrize("query", ["content://i", "path://", "regex://i"])
+def test_parse_inline_operator_empty_regex_errors(query: str) -> None:
+    with pytest.raises(QuerySyntaxError, match="empty regex"):
+        parse(query)
+
+
 @pytest.mark.parametrize(
     ("query", "expected_name", "expected_value", "expected_kind"),
     [
@@ -130,7 +136,20 @@ def test_parse_errors(query: str) -> None:
             lambda value: f"/{value}",
             st.text(min_size=1, max_size=20).filter(lambda value: "/" not in value),
         ),
-        st.sampled_from(["content:", 'content:"', "content:/", "(", "alpha |", "((alpha)"]),
+        st.sampled_from(
+            [
+                "content:",
+                'content:"',
+                "content:/",
+                "content://",
+                "content://i",
+                "path://",
+                "regex://i",
+                "(",
+                "alpha |",
+                "((alpha)",
+            ]
+        ),
     )
 )
 def test_invalid_query_fuzz_raises_cleanly(query: str) -> None:
