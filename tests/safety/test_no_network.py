@@ -14,6 +14,28 @@ _BANNED_CALLS = {
     "socket.socket",
     "urllib.request.urlopen",
 }
+_SKIPPED_DIRS = {".git", ".pytest_cache", ".venv", "__pycache__"}
+_SKIPPED_PATHS = {"tests/safety/test_no_network.py"}
+_SKIPPED_PREFIXES = {"packaging/dist/", "tests/fixtures/"}
+_SKIPPED_SUFFIXES = {
+    ".db",
+    ".dll",
+    ".docx",
+    ".epub",
+    ".exe",
+    ".hwp",
+    ".ico",
+    ".png",
+    ".pdf",
+    ".pptx",
+    ".pyc",
+    ".shm",
+    ".sqlite3",
+    ".svg",
+    ".wal",
+    ".xlsx",
+}
+_MAX_SCAN_BYTES = 1_000_000
 
 
 def _dotted_name(node: ast.AST) -> str | None:
@@ -49,6 +71,27 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
     return violations
 
 
+def _should_skip(path: Path, root: Path) -> bool:
+    relative = path.relative_to(root).as_posix()
+    if relative in _SKIPPED_PATHS:
+        return True
+    if any(relative.startswith(prefix) for prefix in _SKIPPED_PREFIXES):
+        return True
+    return any(part in _SKIPPED_DIRS for part in path.parts)
+
+
+def _is_text_candidate(path: Path) -> bool:
+    if path.suffix.lower() in _SKIPPED_SUFFIXES:
+        return False
+    try:
+        sample = path.read_bytes()
+    except OSError:
+        return False
+    if len(sample) > _MAX_SCAN_BYTES:
+        return False
+    return b"\x00" not in sample
+
+
 def test_no_network_in_source() -> None:
     root = Path(__file__).resolve().parents[2]
     banned = (
@@ -58,15 +101,10 @@ def test_no_network_in_source() -> None:
         "urllib.request." "urlopen",
         "socket." "socket",
     )
-    allowed_suffixes = {".py", ".toml", ".yml", ".yaml", ".ini", ".cfg", ".json"}
-    skipped_parts = {".git", ".venv", "__pycache__", "tests/fixtures", "tests/safety/test_no_network.py"}
     violations: list[str] = []
 
     for path in root.rglob("*"):
-        if not path.is_file() or path.suffix not in allowed_suffixes:
-            continue
-        normalized = path.as_posix()
-        if any(part in normalized for part in skipped_parts):
+        if not path.is_file() or _should_skip(path, root) or not _is_text_candidate(path):
             continue
         if path.suffix == ".py":
             violations.extend(_scan_python_source(path, root))
