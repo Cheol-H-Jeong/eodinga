@@ -40,6 +40,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Config and Data Paths" in readme
     assert "## Recovery and Troubleshooting" in readme
     assert "## Limitations" in readme
+    assert "## Packaging" in readme
+    assert "linux-deb-dry-run" in readme
     assert "docs/DSL.md" in readme
     assert "docs/ARCHITECTURE.md" in readme
     assert "docs/PERFORMANCE.md" in readme
@@ -50,6 +52,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Startup Recovery" in architecture
     assert "## Query Execution" in architecture
     assert "## Packaging Surfaces" in architecture
+    assert "compressed changelog" in architecture
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl

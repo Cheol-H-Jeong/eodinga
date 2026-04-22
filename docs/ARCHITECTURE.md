@@ -53,6 +53,7 @@
 
 - Editable local development targets `pip install -e .[all]` on Python 3.11.
 - Linux packaging lives under `packaging/linux/` for `.deb` and AppImage recipes.
+- The Debian recipe stages the launcher shim, desktop entry, SVG icon, license, and compressed changelog into the package root before emitting the audit manifest.
 - Windows packaging uses `packaging/pyinstaller.spec`, `packaging/windows/eodinga.iss`, and `packaging/build.py --target windows-dry-run`.
 - Documentation screenshots are rendered from the real Qt surfaces through `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
 

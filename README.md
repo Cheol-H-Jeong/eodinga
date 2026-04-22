@@ -25,6 +25,7 @@ python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]
 ```
 
 Use `.[all]` for the full v0.1 local-dev surface, including GUI, parser, hotkey, lint, and test dependencies. For packaged builds, use the AppImage or `.deb` artifacts produced by CI.
+The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs the desktop entry, SVG icon, and packaged changelog under `/usr/share/doc/eodinga/`.
 
 ### Windows
 
@@ -120,6 +121,12 @@ source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
 ```
 
 Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/path lookups at about 0.06 ms p95, content queries at about 0.62 ms p95, and watch visibility at about 0.133 s p99.
+
+## Packaging
+
+- Validate Windows packaging inputs with `python packaging/build.py --target windows-dry-run`.
+- Validate Linux AppImage packaging with `python packaging/build.py --target linux-appimage-dry-run`.
+- Validate Linux Debian packaging with `python packaging/build.py --target linux-deb-dry-run`.
 
 ## Recovery and Troubleshooting
 
