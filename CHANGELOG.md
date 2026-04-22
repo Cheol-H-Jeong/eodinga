@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.41 - 2026-04-23
+
+- Restored watcher incremental-write throughput by batching record and content upserts per flushed event batch instead of issuing a full writer round-trip for every single filesystem event.
+- Completed the launcher's keyboard action path end to end by wiring popup and embedded-search-panel results to real desktop actions for open, reveal, properties, and clipboard copy.
+- Added GUI regressions for launcher action wiring plus clipboard copy behavior, keeping the UX polish round pinned to concrete user-visible behavior.
+
 ## 0.1.40 - 2026-04-23
 
 - Fixed walker traversal for symlinked roots by preserving the configured alias path during discovery and allowing descent into that root when it resolves to a directory, restoring indexing for aliased or bind-mounted root entries without re-enabling recursive child symlink traversal.
