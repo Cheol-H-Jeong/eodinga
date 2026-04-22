@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -15,7 +15,8 @@ from eodinga.query import search
 
 
 def _build_fixture_tree(root: Path) -> None:
-    today = datetime.now(tz=UTC).replace(hour=12, minute=0, second=0, microsecond=0)
+    local_now = datetime.now().astimezone()
+    today = local_now.replace(hour=12, minute=0, second=0, microsecond=0)
     yesterday = today - timedelta(days=1)
     files = {
         "docs/launch-plan.md": "# Launch Plan\nAlpha launch checklist for spring release.\n",
