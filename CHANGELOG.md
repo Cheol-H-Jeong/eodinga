@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.65 - 2026-04-23
+
+- Persisted launcher window geometry in config so the popup now reopens at the user's last size and screen position instead of resetting to the 640x480 default every session.
+- Wired the GUI bootstrap path to pass the active config into the standalone launcher, and added focused config plus offscreen GUI regressions that prove the saved geometry survives a full close-and-reopen cycle.
+- Polished tray activation so a click on the tray indicator now works as a toggle: first activation shows the launcher, second activation hides it again, with regression coverage to keep the behavior pinned.
+
 ## 0.1.64 - 2026-04-23
 
 - Fixed the DSL phrase parser so escaped quotes (`\"`) and escaped backslashes (`\\`) now round-trip as literal phrase characters instead of prematurely terminating the query token.
