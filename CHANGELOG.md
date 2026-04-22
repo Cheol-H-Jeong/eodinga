@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.61 - 2026-04-23
+
+- Made config persistence use a staged temp file plus atomic replace, so failed or interrupted saves no longer risk truncating the live `config.toml` while updating launcher or root settings.
+- Added config regressions that prove failed replace operations preserve the previous config payload and clean up temporary files instead of leaving recovery debris in the config directory.
+- Tightened the safety gates by expanding the no-network audit to catch more common client libraries and connection entry points, and by extending the runtime write trap to cover `open()` and `os.open()` in addition to `Path.open()`.
+
 ## 0.1.60 - 2026-04-23
 
 - Hardened walker directory metadata so symlink targets are classified through the read-only FS wrapper instead of direct `Path.is_dir()` syscalls, keeping traversal aligned with the SPEC's wrapper-only rule while still marking symlinked directories correctly.
