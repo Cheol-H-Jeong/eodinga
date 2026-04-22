@@ -89,6 +89,10 @@ class WatchService:
 
     def record(self, event: WatchEvent) -> None:
         with self._lock:
+            if event.event_type == "moved" and event.src_path is not None:
+                source_existing = self._pending.pop(event.src_path, None)
+                self._timestamps.pop(event.src_path, None)
+                event = self._merge_move(source_existing, event)
             existing = self._pending.get(event.path)
             if (
                 existing is not None
@@ -109,6 +113,26 @@ class WatchService:
             if len(self._pending) >= _FLUSH_LIMIT:
                 self._flush_ready(force=True)
 
+    def _merge_move(self, existing: WatchEvent | None, moved: WatchEvent) -> WatchEvent:
+        if existing is None:
+            return moved
+        if existing.event_type == "created":
+            return WatchEvent(
+                event_type="created",
+                path=moved.path,
+                root_path=moved.root_path,
+                happened_at=moved.happened_at,
+            )
+        if existing.event_type == "moved":
+            return WatchEvent(
+                event_type="moved",
+                path=moved.path,
+                src_path=existing.src_path,
+                root_path=moved.root_path,
+                happened_at=moved.happened_at,
+            )
+        return moved
+
     def _coalesce(self, existing: WatchEvent | None, new: WatchEvent) -> WatchEvent | None:
         if existing is None:
             return new
@@ -120,6 +144,14 @@ class WatchService:
             return WatchEvent(
                 event_type="deleted",
                 path=new.path,
+                src_path=existing.src_path,
+                root_path=new.root_path,
+                happened_at=new.happened_at,
+            )
+        if existing.event_type == "moved" and new.event_type == "modified":
+            return WatchEvent(
+                event_type="moved",
+                path=existing.path,
                 src_path=existing.src_path,
                 root_path=new.root_path,
                 happened_at=new.happened_at,
