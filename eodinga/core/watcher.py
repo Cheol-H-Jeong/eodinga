@@ -99,7 +99,7 @@ class WatchService:
                 source_existing = self._pending.pop(event.src_path, None)
                 moved_retired_sources = self._retired_sources.pop(event.src_path, set())
                 self._timestamps.pop(event.src_path, None)
-                if source_existing is not None and source_existing.event_type == "created":
+                if source_existing is not None and source_existing.event_type in {"created", "moved"}:
                     moved_retired_sources.add(event.src_path)
                 event = self._merge_move(source_existing, event)
             if event.event_type == "deleted" and self._is_pending_move_source(event.path):

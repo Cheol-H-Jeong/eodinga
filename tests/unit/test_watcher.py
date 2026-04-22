@@ -168,6 +168,49 @@ def test_watcher_move_then_source_delete_keeps_single_move_event(tmp_path: Path)
         service.queue.get_nowait()
 
 
+def test_watcher_chained_move_ignores_intermediate_delete(tmp_path: Path) -> None:
+    service = WatchService()
+    source = tmp_path / "before.txt"
+    intermediate = tmp_path / "middle.txt"
+    destination = tmp_path / "after.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="moved",
+            path=intermediate,
+            src_path=source,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="moved",
+            path=destination,
+            src_path=intermediate,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="deleted",
+            path=intermediate,
+            root_path=tmp_path,
+            happened_at=3.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "moved"
+    assert event.path == destination
+    assert event.src_path == source
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+
 def test_watcher_can_restart_after_stop(tmp_path: Path) -> None:
     service = WatchService()
     service.start(tmp_path)
