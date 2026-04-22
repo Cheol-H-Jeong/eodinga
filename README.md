@@ -88,6 +88,8 @@ eodinga stats --json
 eodinga doctor
 ```
 
+`eodinga stats --json` emits the persisted index snapshot plus live runtime counters and histograms for the current process. Plain `eodinga stats` prints the same data in a readable text summary for shell use.
+
 ## Query DSL
 
 - `report` : plain lexical term
