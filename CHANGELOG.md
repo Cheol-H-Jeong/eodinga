@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.72 - 2026-04-23
+
+- Fixed watcher move normalization at watched-root boundaries so a rename that leaves a configured root now emits a `deleted` event for the source path, while a rename that enters a root emits `created` for the destination instead of leaking an out-of-root `moved` event downstream.
+- Added queue-level watcher regressions for move-within-root, move-into-root, and move-out-of-root handling, pinning the per-root semantics required by the SPEC's watcher contract.
+- Added end-to-end indexer regressions proving raw moved events from watchdog correctly delete rows for files leaving a root and create rows for files entering one, closing a multi-root correctness gap in incremental indexing.
+
 ## 0.1.71 - 2026-04-23
 
 - Tightened the Windows packaging audit so the PyInstaller hidden-import contract now covers the dynamically loaded Linux hotkey backend modules (`pynput.keyboard` and `Xlib.*`) instead of only the statically imported runtime surface.
