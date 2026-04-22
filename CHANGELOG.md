@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.57 - 2026-04-23
+
+- Cached recurring executor SQL shapes for record fetches, FTS candidate reads, scan fallbacks, and content backfill queries so launcher-style repeated searches stop rebuilding identical statement text on every call.
+- Added executor regressions that prove repeated name and content searches reuse those cached SQL builders, keeping the optimization pinned at the unit level instead of relying on incidental perf numbers.
+- Made the opt-in SPEC §6.3 perf suite configurable through `EODINGA_PERF_*` environment variables, refreshed `docs/PERFORMANCE.md` with the new scaling knobs, and recorded the current local baseline: 6,082 files/sec cold start, 60,854 records/sec bulk upsert, 0.06 ms p95 name query latency, 0.63 ms p95 content query latency, and 0.132 s p99 watch visibility.
+
 ## 0.1.56 - 2026-04-23
 
 - Tightened the no-network safety gate so it now scans the repository's text files beyond just Python and config extensions, while still ignoring generated outputs, fixtures, and binary assets that are outside the runtime policy surface.
