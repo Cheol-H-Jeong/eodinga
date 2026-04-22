@@ -52,6 +52,31 @@ def test_compile_regex_mode_promotes_plain_terms_to_regex() -> None:
     assert branch.path_regex_terms[0].negated is False
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_case_sensitive", "expected_regex_mode"),
+    [
+        ("case:true alpha", True, False),
+        ("-case:true alpha", False, False),
+        ("case:false alpha", False, False),
+        ("-case:false alpha", True, False),
+        ("regex:true alpha", False, True),
+        ("-regex:true alpha", False, False),
+        ("regex:false alpha", False, False),
+        ("-regex:false alpha", False, True),
+    ],
+)
+def test_compile_negated_boolean_operators_invert_requested_mode(
+    query: str,
+    expected_case_sensitive: bool,
+    expected_regex_mode: bool,
+) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+
+    assert branch.case_sensitive is expected_case_sensitive
+    assert branch.regex_mode is expected_regex_mode
+
+
 def test_compile_date_alias_uses_mtime_range() -> None:
     compiled = compile_query(parse("date:this-week"))
     branch = compiled.branches[0]

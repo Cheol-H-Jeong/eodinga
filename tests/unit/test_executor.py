@@ -180,6 +180,34 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     assert "old.txt" not in this_month_hits
 
 
+def test_execute_negated_case_true_restores_case_insensitive_matching(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/Report.txt", 512, now, "txt", body_text="mixed case")
+    tmp_db.commit()
+
+    assert search(tmp_db, "case:true report", limit=5).hits == []
+    hits = [hit.file.name for hit in search(tmp_db, "-case:true report", limit=5).hits]
+
+    assert hits == ["Report.txt"]
+
+
+def test_execute_negated_regex_true_restores_literal_term_matching(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/report-7.txt", 512, now, "txt", body_text="regex candidate")
+    _insert_file(tmp_db, 2, "/workspace/report-[0-9]+.txt", 512, now - 60, "txt", body_text="literal token")
+    tmp_db.commit()
+
+    regex_hits = [hit.file.name for hit in search(tmp_db, "regex:true report-[0-9]+", limit=5).hits]
+    literal_hits = [hit.file.name for hit in search(tmp_db, "-regex:true report-[0-9]+", limit=5).hits]
+
+    assert "report-7.txt" in regex_hits
+    assert literal_hits == ["report-[0-9]+.txt"]
+
+
 def test_execute_escaped_phrase_query_matches_literal_quotes_and_backslashes(
     tmp_db: sqlite3.Connection,
 ) -> None:

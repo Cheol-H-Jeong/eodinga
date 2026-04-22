@@ -337,9 +337,13 @@ def _compile_branch(
             continue
         if term.name == "case":
             case_sensitive = _parse_bool(term.value)
+            if term.negated:
+                case_sensitive = not case_sensitive
             continue
         if term.name == "regex":
             regex_mode = _parse_bool(term.value)
+            if term.negated:
+                regex_mode = not regex_mode
             continue
         raise QuerySyntaxError(f"unsupported operator: {term.name}", 0)
 
