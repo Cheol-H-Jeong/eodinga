@@ -220,7 +220,9 @@ class _Parser:
             self.index += 1
         if not pattern:
             raise QuerySyntaxError("empty regex", pattern_start)
-        return RegexNode(pattern=pattern, flags=self.source[flags_start:self.index])
+        flags = self.source[flags_start:self.index]
+        self._validate_regex_flags(flags, flags_start)
+        return RegexNode(pattern=pattern, flags=flags)
 
     def _decode_inline_value(
         self, value: str
@@ -237,7 +239,9 @@ class _Parser:
             pattern = value[1:last]
             if not pattern:
                 raise QuerySyntaxError("empty regex", self.index - len(value) + 1)
-            return pattern, "regex", value[last + 1 :]
+            flags = value[last + 1 :]
+            self._validate_regex_flags(flags, self.index - len(value) + last + 1)
+            return pattern, "regex", flags
         return value, "word", ""
 
     def _with_negation(self, node: PhraseNode | RegexNode, negated: bool) -> PhraseNode | RegexNode:
@@ -265,6 +269,16 @@ class _Parser:
         while (char := self._peek()) is not None and char.isspace():
             self.index += 1
         return self.index > start
+
+    def _validate_regex_flags(self, flags: str, position: int) -> None:
+        allowed = {"i", "m", "s"}
+        seen: set[str] = set()
+        for offset, flag in enumerate(flags.lower()):
+            if flag not in allowed:
+                raise QuerySyntaxError(f"unsupported regex flag: {flags[offset]}", position + offset)
+            if flag in seen:
+                raise QuerySyntaxError(f"duplicate regex flag: {flags[offset]}", position + offset)
+            seen.add(flag)
 
 
 def parse(source: str) -> AstNode:

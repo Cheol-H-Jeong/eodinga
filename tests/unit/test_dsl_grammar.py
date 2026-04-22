@@ -76,6 +76,12 @@ def test_parse_inline_operator_empty_regex_errors(query: str) -> None:
         parse(query)
 
 
+@pytest.mark.parametrize("query", ["/todo/x", "content:/todo/mii", "path:/todo/ix"])
+def test_parse_regex_flags_must_be_supported_and_unique(query: str) -> None:
+    with pytest.raises(QuerySyntaxError, match="regex flag"):
+        parse(query)
+
+
 @pytest.mark.parametrize(
     ("query", "expected_name", "expected_value", "expected_kind"),
     [
@@ -198,3 +204,19 @@ VALID_QUERY_STRATEGY = st.recursive(
 @given(VALID_QUERY_STRATEGY)
 def test_valid_query_fuzz_parses_and_compiles(query: str) -> None:
     compile_query(parse(query))
+
+
+INVALID_REGEX_FLAGS = st.text(
+    alphabet=st.characters(min_codepoint=97, max_codepoint=122),
+    min_size=1,
+    max_size=4,
+).filter(
+    lambda flags: any(flag not in {"i", "m", "s"} for flag in flags)
+    or len(set(flags)) != len(flags)
+)
+
+
+@given(INVALID_REGEX_FLAGS)
+def test_invalid_regex_flags_fuzz_raise_cleanly(flags: str) -> None:
+    with pytest.raises(QuerySyntaxError):
+        parse(f"content:/todo/{flags}")
