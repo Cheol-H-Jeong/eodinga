@@ -506,6 +506,34 @@ def _needs_record_filter(branch: CompiledBranch) -> bool:
     )
 
 
+def _is_metadata_only_branch(branch: CompiledBranch) -> bool:
+    return not branch.path_match_sql and not branch.content_required and not _needs_record_filter(branch)
+
+
+def _metadata_only_total_estimate(
+    conn: sqlite3.Connection,
+    branches: tuple[CompiledBranch, ...],
+    *,
+    cap: int = 10_000,
+) -> int | None:
+    if not branches or not all(_is_metadata_only_branch(branch) for branch in branches):
+        return None
+    selects: list[str] = []
+    params: list[object] = []
+    for branch in branches:
+        select_sql = "SELECT files.id FROM files"
+        if branch.where_sql:
+            select_sql += f" WHERE {branch.where_sql}"
+            params.extend(branch.where_params)
+        selects.append(select_sql)
+    union_sql = " UNION ".join(selects)
+    row = conn.execute(
+        f"SELECT COUNT(*) FROM ({union_sql} LIMIT {int(cap)}) AS metadata_matches",
+        tuple(params),
+    ).fetchone()
+    return int(row[0]) if row is not None else 0
+
+
 def _derive_name_path_hits(
     records: Mapping[int, FileRecord], branch: CompiledBranch
 ) -> tuple[list[int], list[int]]:
@@ -621,8 +649,8 @@ def execute(
     merged_scores: dict[int, float] = {}
     merged_snippets: dict[int, str | None] = {}
     has_indexed_content = _has_indexed_content(conn)
-    for branch in compiled.branches:
-        scoped_branch = _scoped_branch(branch, root)
+    scoped_branches = tuple(_scoped_branch(branch, root) for branch in compiled.branches)
+    for scoped_branch in scoped_branches:
         branch_records, branch_scores, branch_snippets = _execute_branch(
             conn,
             scoped_branch,
@@ -648,7 +676,10 @@ def execute(
         for file_id in ordered_ids
     ]
     elapsed_ms = (time.perf_counter() - started) * 1000
-    return QueryResult(hits=hits, total_estimate=len(merged_scores), elapsed_ms=elapsed_ms)
+    total_estimate = _metadata_only_total_estimate(conn, scoped_branches)
+    if total_estimate is None:
+        total_estimate = len(merged_scores)
+    return QueryResult(hits=hits, total_estimate=total_estimate, elapsed_ms=elapsed_ms)
 
 
 __all__ = ["QueryResult", "SearchHit", "execute"]

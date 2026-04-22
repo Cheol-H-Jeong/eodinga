@@ -318,6 +318,80 @@ def test_execute_duplicate_and_negated_size_queries(tmp_db: sqlite3.Connection) 
     assert unique_hits == ["beta.txt"]
 
 
+def test_execute_metadata_only_query_reports_uncapped_total_estimate(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    total_files = 1_205
+    for index in range(1, total_files + 1):
+        _insert_file(
+            tmp_db,
+            index,
+            f"/workspace/archive-{index:04d}.txt",
+            2_048,
+            now - index,
+            "txt",
+        )
+    tmp_db.commit()
+
+    result = search(tmp_db, "size:>1K", limit=5)
+
+    assert [hit.file.name for hit in result.hits] == [
+        "archive-0001.txt",
+        "archive-0002.txt",
+        "archive-0003.txt",
+        "archive-0004.txt",
+        "archive-0005.txt",
+    ]
+    assert result.total_estimate == total_files
+
+
+def test_execute_metadata_only_or_query_reports_union_total_estimate(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    for index in range(1, 901):
+        _insert_file(
+            tmp_db,
+            index,
+            f"/workspace/dupe-{index:04d}.txt",
+            12 * 1024 * 1024,
+            now - index,
+            "txt",
+            content_hash=b"shared-dupe",
+        )
+    for index in range(901, 1_251):
+        _insert_file(
+            tmp_db,
+            index,
+            f"/workspace/large-{index:04d}.txt",
+            12 * 1024 * 1024,
+            now - index,
+            "txt",
+            content_hash=f"unique-{index}".encode(),
+        )
+    for index in range(1_251, 1_401):
+        _insert_file(
+            tmp_db,
+            index,
+            f"/workspace/small-{index:04d}.txt",
+            512,
+            now - index,
+            "txt",
+            content_hash=f"small-{index}".encode(),
+        )
+    tmp_db.commit()
+
+    result = search(tmp_db, "is:duplicate | size:>10M", limit=3)
+
+    assert [hit.file.name for hit in result.hits] == [
+        "dupe-0001.txt",
+        "dupe-0002.txt",
+        "dupe-0003.txt",
+    ]
+    assert result.total_estimate == 1_250
+
+
 def test_execute_regex_true_query(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/report-011.py", 1024, now, "py", body_text="launch")
