@@ -464,3 +464,35 @@ def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
 
     assert properties == ["release-notes.txt"]
     assert copied == ["/tmp/release-notes.txt"]
+
+
+def test_launcher_alt_number_quick_picks_results(qapp) -> None:
+    activated: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        items = [
+            SearchHit(path=Path(f"/tmp/item-{index}.txt"), parent_path=Path("/tmp"), name=f"item-{index}.txt")
+            for index in range(5)
+        ]
+        return QueryResult(items=items[:limit], total=len(items), elapsed_ms=2.0)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: activated.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("item")
+    _wait(60)
+    launcher.query_field.setFocus()
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_3, Qt.KeyboardModifier.AltModifier)
+
+    assert activated == ["item-2.txt"]
+    assert launcher.result_list.currentIndex().row() == 2
+    assert "Alt+1..9 quick-picks" in launcher.shortcut_label.text()
+
+
+def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState())
+    launcher.show()
+
+    assert "Alt+1 through Alt+9" in launcher.empty_state.body_label.text()

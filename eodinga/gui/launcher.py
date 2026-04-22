@@ -202,6 +202,11 @@ class LauncherPanel(QWidget):
         self._shortcuts[4].activated.connect(self.focus_query_field)
         self._shortcuts[5].activated.connect(self.recall_previous_query)
         self._shortcuts[6].activated.connect(self.recall_next_query)
+        self._quick_pick_shortcuts: list[QShortcut] = []
+        for index in range(9):
+            shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
+            shortcut.activated.connect(lambda row=index: self.activate_result_at(row))
+            self._quick_pick_shortcuts.append(shortcut)
 
         if self._state is not None:
             self._state.recent_queries_changed.connect(self.set_recent_queries)
@@ -229,6 +234,14 @@ class LauncherPanel(QWidget):
         hit = self._current_hit()
         if hit is not None:
             self.result_activated.emit(hit)
+
+    def activate_result_at(self, row: int) -> None:
+        self._flush_pending_query()
+        hit = self.model.item_at(row)
+        if hit is None:
+            return
+        self._set_selection(row)
+        self.result_activated.emit(hit)
 
     def focus_query_field(self) -> None:
         self.query_field.setFocus()
@@ -328,7 +341,7 @@ class LauncherPanel(QWidget):
             recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
             self.empty_state.set_content(
                 "Type to search",
-                f"Recent: {recent_queries} Press Alt+Up to recall recent queries, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
+                f"Recent: {recent_queries} Press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
                 details,
             )
         else:
@@ -348,9 +361,9 @@ class LauncherPanel(QWidget):
             else:
                 hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
         elif self.result_list.hasFocus():
-            hint = "Enter opens. Up/Down wraps. PgUp/PgDn jumps. Ctrl+Enter reveals. Ctrl+L returns to filter."
+            hint = "Enter opens. Alt+1..9 quick-picks. Up/Down wraps. PgUp/PgDn jumps. Ctrl+Enter reveals. Ctrl+L returns to filter."
         else:
-            hint = "Tab moves to results. Down/Up navigate. Enter opens the top hit. Alt+Up recalls recent queries."
+            hint = "Tab moves to results. Down/Up navigate. Enter opens the top hit. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
 
     def _current_hit(self) -> SearchHit | None:
