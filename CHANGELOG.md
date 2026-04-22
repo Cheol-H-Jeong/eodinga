@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.101 - 2026-04-23
+
+- Added a multi-root integration regression that rebuilds one index from two configured roots, proves both roots are persisted, and pins `search(..., root=...)` scoping against cross-root result leakage.
+- Added a real watchdog-driven live-update integration test that creates a file in a temporary watched directory and requires it to become query-visible within 500 ms after event ingestion.
+- Added a hot-restart integration regression that reopens an existing on-disk index, verifies preexisting queries still work, and proves the reopened connection can accept fresh watcher events without a full rewalk.
+
 ## 0.1.100 - 2026-04-23
 
 - Added a real in-process observability registry so indexing, query execution, parser failures, and watcher ingress now increment stable counters instead of only emitting debug logs.
