@@ -22,6 +22,7 @@ INNO_VERSION_TOKEN = "@@APP_VERSION@@"
 INNO_GUI_DIST_TOKEN = "@@GUI_DIST_NAME@@"
 INNO_CLI_DIST_TOKEN = "@@CLI_DIST_NAME@@"
 INNO_GUI_EXE_TOKEN = "@@GUI_EXE_NAME@@"
+_INNO_APP_ID_PATTERN = re.compile(r"^\{\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$")
 
 
 def _read_project_version() -> str:
@@ -66,9 +67,18 @@ def _source_entries(text: str) -> list[str]:
     return re.findall(r'Source:\s*"([^"]+)"', text)
 
 
+def _macro_value(text: str, macro_name: str) -> str | None:
+    match = re.search(rf'^#define\s+{re.escape(macro_name)}\s+"([^"]+)"', text, flags=re.MULTILINE)
+    if match is None:
+        return None
+    return match.group(1)
+
+
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     spec_namespace = _load_windows_spec_namespace()
     inno_text = INNO_SCRIPT.read_text(encoding="utf-8")
+    app_id = _macro_value(inno_text, "AppId")
+    app_version = _macro_value(inno_text, "AppVersion")
     cli_dist_name = str(spec_namespace.get("CLI_DIST_NAME", "eodinga-cli"))
     gui_dist_name = str(spec_namespace.get("GUI_DIST_NAME", "eodinga-gui"))
     cli_exe_name = str(spec_namespace.get("CLI_EXE_NAME", f"{cli_dist_name}.exe"))
@@ -113,6 +123,10 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
         "inno_setup": {
             "path": str(INNO_SCRIPT),
             "exists": INNO_SCRIPT.exists(),
+            "app_id": app_id,
+            "app_id_is_guid_macro": app_id is not None and bool(_INNO_APP_ID_PATTERN.fullmatch(app_id)),
+            "app_version_macro": app_version,
+            "app_version_uses_template": app_version == INNO_VERSION_TOKEN,
             "source_entries": source_entries,
             "source_entries_match_pyinstaller_dist": source_entries == expected_source_entries,
             "contains_app_version_template": INNO_VERSION_TOKEN in inno_text,
@@ -122,6 +136,10 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "rendered_source_entries_match_pyinstaller_dist": _source_entries(rendered_text) == rendered_source_entries,
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
             "contains_user_install_dir": _inno_contains(rendered_text, r"DefaultDirName={userappdata}\eodinga"),
+            "contains_rendered_uninstall_display_icon": _inno_contains(
+                rendered_text,
+                f"UninstallDisplayIcon={{app}}\\{gui_exe_name}",
+            ),
             "contains_start_menu_shortcut": _inno_contains(
                 rendered_text,
                 f'Name: "{{group}}\\\\eodinga"; Filename: "{{app}}\\\\{gui_exe_name}"',

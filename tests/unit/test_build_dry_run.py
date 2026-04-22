@@ -44,8 +44,13 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert "@@CLI_DIST_NAME@@" not in rendered_text
     assert "@@GUI_EXE_NAME@@" not in rendered_text
     assert payload["inno_setup"]["output_base_filename"] == f"eodinga-{__version__}-win-x64-setup"
+    assert payload["inno_setup"]["app_id"] == "{{B4D25A04-71A1-45A2-A0BB-7B3F612E9E68}"
+    assert payload["inno_setup"]["app_id_is_guid_macro"] is True
+    assert payload["inno_setup"]["app_version_macro"] == "@@APP_VERSION@@"
+    assert payload["inno_setup"]["app_version_uses_template"] is True
     assert payload["inno_setup"]["contains_versioned_output_macro"] is True
     assert payload["inno_setup"]["contains_user_install_dir"] is True
+    assert payload["inno_setup"]["contains_rendered_uninstall_display_icon"] is True
     assert payload["inno_setup"]["contains_start_menu_shortcut"] is True
     assert payload["inno_setup"]["contains_desktop_shortcut_task"] is True
     assert payload["inno_setup"]["contains_postinstall_launch"] is True

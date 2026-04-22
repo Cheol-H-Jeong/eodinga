@@ -17,7 +17,7 @@ PrivilegesRequired=lowest
 OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup
 Compression=lzma
 SolidCompression=yes
-UninstallDisplayIcon={app}\eodinga-gui.exe
+UninstallDisplayIcon={app}\@@GUI_EXE_NAME@@
 LicenseFile=LICENSE
 WizardStyle=modern
 
