@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.19 - 2026-04-23
+
+- Fixed watcher coalescing so `created -> moved -> deleted(source)` bursts no longer leak a phantom delete for the transient source path after the create collapses onto its destination.
+- Reset watcher lifecycle state on stop/start so the same `WatchService` instance can be restarted in-process and still emit new filesystem events.
+- Added regression coverage for both watcher edge cases, bringing the round gate to 161 passing tests with 4 skipped.
+
 ## 0.1.18 - 2026-04-23
 
 - Fixed walker cycle tracking so distinct hardlinked file paths are no longer collapsed just because they share an inode, while repeated directory inodes still stop traversal from re-entering the same subtree.
