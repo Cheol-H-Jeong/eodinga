@@ -97,6 +97,7 @@ class WatchService:
 
     def record(self, event: WatchEvent) -> None:
         with self._lock:
+            existing = self._pending.get(event.path)
             moved_retired_sources: set[Path] = set()
             if event.event_type == "moved" and event.src_path is not None:
                 source_existing = self._pending.pop(event.src_path, None)
@@ -105,9 +106,9 @@ class WatchService:
                 if source_existing is not None and source_existing.event_type in {"created", "moved"}:
                     moved_retired_sources.add(event.src_path)
                 event = self._merge_move(source_existing, event)
-            if event.event_type == "deleted" and self._is_pending_move_source(event.path):
+                existing = self._pending.get(event.path)
+            if event.event_type == "deleted" and existing is None and self._is_retired_move_source(event.path):
                 return
-            existing = self._pending.get(event.path)
             if (
                 existing is not None
                 and existing.event_type == "moved"
@@ -131,7 +132,7 @@ class WatchService:
             if len(self._pending) >= _FLUSH_LIMIT:
                 self._flush_ready(force=True)
 
-    def _is_pending_move_source(self, path: Path) -> bool:
+    def _is_retired_move_source(self, path: Path) -> bool:
         return any(
             pending.event_type == "moved" and pending.src_path == path
             for pending in self._pending.values()

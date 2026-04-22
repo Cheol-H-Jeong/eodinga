@@ -211,6 +211,92 @@ def test_watcher_chained_move_ignores_intermediate_delete(tmp_path: Path) -> Non
         service.queue.get_nowait()
 
 
+def test_watcher_reused_source_path_delete_coalesces_new_entry(tmp_path: Path) -> None:
+    service = WatchService()
+    source = tmp_path / "draft.txt"
+    backup = tmp_path / "draft.bak"
+
+    service.record(
+        WatchEvent(
+            event_type="moved",
+            path=backup,
+            src_path=source,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=source,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="deleted",
+            path=source,
+            root_path=tmp_path,
+            happened_at=3.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "moved"
+    assert event.path == backup
+    assert event.src_path == source
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+
+def test_watcher_reused_source_path_modify_then_delete_keeps_real_delete(tmp_path: Path) -> None:
+    service = WatchService()
+    source = tmp_path / "draft.txt"
+    backup = tmp_path / "draft.bak"
+
+    service.record(
+        WatchEvent(
+            event_type="moved",
+            path=backup,
+            src_path=source,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="modified",
+            path=source,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="deleted",
+            path=source,
+            root_path=tmp_path,
+            happened_at=3.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "moved"
+    assert event.path == backup
+    assert event.src_path == source
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "deleted"
+    assert event.path == source
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+
 def test_watcher_can_restart_after_stop(tmp_path: Path) -> None:
     service = WatchService()
     service.start(tmp_path)
