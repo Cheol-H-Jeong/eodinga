@@ -156,6 +156,13 @@ class WatchService:
                 happened_at=moved.happened_at,
             )
         if existing.event_type == "moved":
+            if existing.src_path == moved.path:
+                return WatchEvent(
+                    event_type="modified",
+                    path=moved.path,
+                    root_path=moved.root_path,
+                    happened_at=moved.happened_at,
+                )
             return WatchEvent(
                 event_type="moved",
                 path=moved.path,
@@ -219,9 +226,10 @@ class WatchService:
                 self._timestamps.pop(path, None)
                 if event is not None:
                     if event.event_type == "moved" and event.src_path is not None:
-                        self._flushed_retired_sources.add(event.src_path)
+                        retired_sources = {event.src_path, *retired_sources}
+                    if retired_sources:
                         self._flushed_retired_sources.update(retired_sources)
-                    elif event.event_type in {"created", "modified", "deleted"}:
+                    if event.event_type in {"created", "modified", "deleted"}:
                         self._flushed_retired_sources.discard(event.path)
                     self.queue.put(event)
 

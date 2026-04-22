@@ -328,6 +328,48 @@ def test_watcher_flushed_chained_move_still_ignores_intermediate_delete(tmp_path
         service.queue.get_nowait()
 
 
+def test_watcher_flushed_create_then_move_ignores_late_source_delete(tmp_path: Path) -> None:
+    service = WatchService()
+    source = tmp_path / "draft.txt"
+    destination = tmp_path / "report.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=source,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="moved",
+            path=destination,
+            src_path=source,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "created"
+    assert event.path == destination
+
+    service.record(
+        WatchEvent(
+            event_type="deleted",
+            path=source,
+            root_path=tmp_path,
+            happened_at=3.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+
 def test_watcher_reused_source_path_delete_coalesces_new_entry(tmp_path: Path) -> None:
     service = WatchService()
     source = tmp_path / "draft.txt"
@@ -364,6 +406,52 @@ def test_watcher_reused_source_path_delete_coalesces_new_entry(tmp_path: Path) -
     assert event.event_type == "moved"
     assert event.path == backup
     assert event.src_path == source
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+
+def test_watcher_move_round_trip_collapses_to_modify_and_ignores_intermediate_delete(
+    tmp_path: Path,
+) -> None:
+    service = WatchService()
+    source = tmp_path / "draft.txt"
+    intermediate = tmp_path / "draft-renamed.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="moved",
+            path=intermediate,
+            src_path=source,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="moved",
+            path=source,
+            src_path=intermediate,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "modified"
+    assert event.path == source
+    assert event.src_path is None
+
+    service.record(
+        WatchEvent(
+            event_type="deleted",
+            path=intermediate,
+            root_path=tmp_path,
+            happened_at=3.0,
+        )
+    )
+    service._flush_ready(force=True)
 
     with pytest.raises(Empty):
         service.queue.get_nowait()
