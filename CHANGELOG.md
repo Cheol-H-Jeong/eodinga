@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.64 - 2026-04-23
+
+- Fixed the DSL phrase parser so escaped quotes (`\"`) and escaped backslashes (`\\`) now round-trip as literal phrase characters instead of prematurely terminating the query token.
+- Expanded parser and executor regressions for escaped phrase queries, including end-to-end matching of literal quotes in filenames and literal backslashes in document content.
+- Added a launcher-renderer regression that proves escaped quoted phrases still highlight correctly in result rows after HTML escaping.
+
 ## 0.1.63 - 2026-04-23
 
 - Fixed Unicode-normalized `path:` filtering so decomposed Hangul filenames are no longer dropped by SQLite `LIKE` prefilters before the normalized Python record scan can validate them.
