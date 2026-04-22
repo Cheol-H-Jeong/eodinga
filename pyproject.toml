@@ -8,7 +8,6 @@ version = "0.1.0"
 description = "Instant lexical file search"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
 dependencies = [
   "loguru>=0.7.2",
   "pydantic>=2.7,<3",
@@ -16,29 +15,54 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-  "hypothesis>=6.112",
-  "pyright>=1.1.397",
-  "pytest>=8.3",
-  "ruff>=0.11",
+  "pytest>=8.2",
+  "pytest-cov>=5.0",
+  "ruff>=0.4",
+  "pyright>=1.1.360",
 ]
-parsers = []
+parsers = [
+  "pypdf>=4.2",
+  "pdfminer.six>=20231228",
+  "python-docx>=1.1.2",
+  "python-pptx>=0.6.23",
+  "openpyxl>=3.1.2",
+  "olefile>=0.47",
+  "charset-normalizer>=3.3.2",
+  "selectolax>=0.3.21",
+  "ebooklib>=0.18",
+]
 gui = []
+all = [
+  "eodinga[dev,parsers,gui]",
+]
+
+[project.entry-points."eodinga.parsers"]
+text = "eodinga.content.text:get_parser_spec"
+code = "eodinga.content.code:get_parser_spec"
+html = "eodinga.content.html:get_parser_spec"
+pdf = "eodinga.content.pdf:get_parser_spec"
+office_docx = "eodinga.content.office:get_docx_parser_spec"
+office_pptx = "eodinga.content.office:get_pptx_parser_spec"
+office_xlsx = "eodinga.content.office:get_xlsx_parser_spec"
+hwp = "eodinga.content.hwp:get_parser_spec"
+epub = "eodinga.content.epub:get_parser_spec"
+
+[tool.setuptools]
+include-package-data = true
 
 [tool.setuptools.packages.find]
-include = ["eodinga*"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["."]
+include = ["eodinga*", "tests*"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+extend-exclude = ["tests/fixtures/parsers"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "N", "PT"]
+select = ["E", "F", "I", "B", "UP", "N", "PTH"]
 
 [tool.pyright]
 include = ["eodinga", "tests"]
+exclude = ["tests/fixtures/parsers"]
 pythonVersion = "3.11"
 typeCheckingMode = "basic"
