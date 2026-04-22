@@ -105,3 +105,19 @@ def test_format_hit_html_shows_parent_path_line_for_path_filters() -> None:
 
     assert "/workspace/<mark>reports</mark>" in rendered
     assert "release-notes.txt</div><div" not in rendered
+
+
+def test_format_hit_html_prefers_precomputed_highlighted_path() -> None:
+    rendered = format_hit_html(
+        SearchHit(
+            path=Path("/workspace/reports/release-notes.txt"),
+            parent_path=Path("/workspace/reports"),
+            name="release-notes.txt",
+            ext="txt",
+            highlighted_path="/workspace/<mark>reports</mark>",
+        ),
+        "path:ignored",
+    )
+
+    assert "/workspace/<mark>reports</mark>" in rendered
+    assert "path:ignored" not in rendered
