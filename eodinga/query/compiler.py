@@ -154,6 +154,19 @@ def _validate_regex_pattern(pattern: str, flags: str = "") -> None:
         raise QuerySyntaxError(f"invalid regex: {error}", 0) from error
 
 
+def _size_literal_to_bytes(value: str) -> int:
+    text = value.strip()
+    unit = text[-1].upper() if text and text[-1].isalpha() else "B"
+    number_text = text[:-1] if unit != "B" or (text and text[-1].isalpha()) else text
+    factor = {"B": 1, "K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}.get(unit)
+    if factor is None:
+        raise QuerySyntaxError(f"invalid size literal: {value}", 0)
+    try:
+        return int(float(number_text) * factor)
+    except ValueError as error:
+        raise QuerySyntaxError(f"invalid size literal: {value}", 0) from error
+
+
 def _size_to_bytes(value: str) -> tuple[str, int]:
     text = value.strip()
     comparator = "="
@@ -162,15 +175,19 @@ def _size_to_bytes(value: str) -> tuple[str, int]:
             comparator = prefix
             text = text[len(prefix) :]
             break
-    unit = text[-1].upper() if text and text[-1].isalpha() else "B"
-    number_text = text[:-1] if unit != "B" or (text and text[-1].isalpha()) else text
-    factor = {"B": 1, "K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}.get(unit)
-    if factor is None:
+    return comparator, _size_literal_to_bytes(text)
+
+
+def _size_to_range(value: str) -> tuple[int, int] | None:
+    text = value.strip()
+    if ".." not in text:
+        return None
+    left, right = text.split("..", 1)
+    if not left or not right:
         raise QuerySyntaxError(f"invalid size literal: {value}", 0)
-    try:
-        return comparator, int(float(number_text) * factor)
-    except ValueError as error:
-        raise QuerySyntaxError(f"invalid size literal: {value}", 0) from error
+    start = _size_literal_to_bytes(left)
+    end = _size_literal_to_bytes(right)
+    return (start, end) if start <= end else (end, start)
 
 
 def _day_bounds(day: date) -> tuple[int, int]:
@@ -340,11 +357,15 @@ def _compile_branch(
             where_params.extend([start, end])
             continue
         if term.name == "size":
+            size_range = _size_to_range(term.value)
+            if size_range is not None:
+                lower, upper = size_range
+                clause = "files.size >= ? AND files.size <= ?"
+                where_parts.append(f"NOT ({clause})" if term.negated else clause)
+                where_params.extend([lower, upper])
+                continue
             comparator, size_bytes = _size_to_bytes(term.value)
-            if term.negated:
-                where_parts.append(f"NOT (files.size {comparator} ?)")
-            else:
-                where_parts.append(f"files.size {comparator} ?")
+            where_parts.append(f"NOT (files.size {comparator} ?)" if term.negated else f"files.size {comparator} ?")
             where_params.append(size_bytes)
             continue
         if term.name == "is":
