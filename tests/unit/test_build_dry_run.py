@@ -27,6 +27,10 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
         "cli": "eodinga-cli",
         "gui": "eodinga-gui",
     }
+    assert payload["pyinstaller_spec"]["exe_names"] == {
+        "cli": "eodinga-cli.exe",
+        "gui": "eodinga-gui.exe",
+    }
     datas = {tuple(item) for item in payload["pyinstaller_spec"]["datas"]}
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
     assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas
@@ -35,6 +39,9 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     rendered_text = rendered_path.read_text(encoding="utf-8")
     assert f'#define AppVersion "{__version__}"' in rendered_text
     assert "@@APP_VERSION@@" not in rendered_text
+    assert "@@GUI_DIST_NAME@@" not in rendered_text
+    assert "@@CLI_DIST_NAME@@" not in rendered_text
+    assert "@@GUI_EXE_NAME@@" not in rendered_text
     assert payload["inno_setup"]["output_base_filename"] == f"eodinga-{__version__}-win-x64-setup"
     assert payload["inno_setup"]["contains_versioned_output_macro"] is True
     assert payload["inno_setup"]["contains_user_install_dir"] is True
@@ -42,16 +49,22 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["contains_desktop_shortcut_task"] is True
     assert payload["inno_setup"]["contains_postinstall_launch"] is True
     assert payload["inno_setup"]["source_entries"] == [
+        'dist\\\\@@GUI_DIST_NAME@@\\\\*',
+        'dist\\\\@@CLI_DIST_NAME@@\\\\*',
+    ]
+    assert payload["inno_setup"]["source_entries_match_pyinstaller_dist"] is True
+    assert payload["inno_setup"]["rendered_source_entries"] == [
         'dist\\\\eodinga-gui\\\\*',
         'dist\\\\eodinga-cli\\\\*',
     ]
-    assert payload["inno_setup"]["source_entries_match_pyinstaller_dist"] is True
+    assert payload["inno_setup"]["rendered_source_entries_match_pyinstaller_dist"] is True
     assert payload["inno_setup"]["privileges_lowest"] is True
     assert payload["inno_setup"]["disables_program_group_page"] is True
     assert payload["inno_setup"]["disables_dir_page"] is True
     assert payload["inno_setup"]["includes_korean_language"] is True
     assert payload["inno_setup"]["contains_autostart_task"] is True
     assert payload["inno_setup"]["contains_autostart_registry"] is True
+    assert payload["inno_setup"]["rendered_autostart_registry_matches_gui_exe"] is True
     assert payload["inno_setup"]["contains_uninstall_purge_prompt"] is True
 
 

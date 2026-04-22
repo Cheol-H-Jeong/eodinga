@@ -36,6 +36,8 @@ def test_pyinstaller_spec_exposes_expected_windows_dist_names() -> None:
 
     assert namespace["CLI_DIST_NAME"] == "eodinga-cli"
     assert namespace["GUI_DIST_NAME"] == "eodinga-gui"
+    assert namespace["CLI_EXE_NAME"] == "eodinga-cli.exe"
+    assert namespace["GUI_EXE_NAME"] == "eodinga-gui.exe"
 
 
 def test_pyinstaller_runtime_modules_map_to_real_sources() -> None:
