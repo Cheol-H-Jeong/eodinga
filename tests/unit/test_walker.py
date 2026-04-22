@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from stat import S_IFDIR, S_IFREG
 
 import pytest
 
@@ -60,3 +61,57 @@ def test_walk_batched_reuses_discovery_stat_result(
     assert stat_calls.count(root) == 1
     assert stat_calls.count(nested) == 1
     assert stat_calls.count(sample) == 1
+
+
+def test_walk_batched_keeps_distinct_hardlink_paths(tmp_path: Path) -> None:
+    root = tmp_path / "tree"
+    root.mkdir()
+    original = root / "original.txt"
+    original.write_text("same inode", encoding="utf-8")
+    linked = root / "linked.txt"
+    os.link(original, linked)
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+    file_paths = {record.path.name for record in records if not record.is_dir}
+
+    assert file_paths == {"original.txt", "linked.txt"}
+
+
+def test_walk_batched_records_directory_alias_but_skips_reentering_same_inode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "tree"
+    real = root / "real"
+    alias = root / "real" / "mirror"
+    sample = real / "sample.txt"
+
+    def fake_stat(path: Path) -> os.stat_result:
+        inode_map = {
+            root: (S_IFDIR | 0o755, 1),
+            real: (S_IFDIR | 0o755, 2),
+            alias: (S_IFDIR | 0o755, 2),
+            sample: (S_IFREG | 0o644, 3),
+        }
+        mode, inode = inode_map[path]
+        return os.stat_result((mode, inode, 1, 1, 1000, 1000, 1, 1, 1, 1))
+
+    def fake_scandir(path: Path) -> list[Path]:
+        children = {
+            root: [real],
+            real: [sample, alias],
+            alias: [sample, alias],
+        }
+        return children.get(path, [])
+
+    monkeypatch.setattr(walker_module, "resolve_safe", lambda path: path)
+    monkeypatch.setattr(walker_module, "stat_safe", fake_stat)
+    monkeypatch.setattr(walker_module, "scandir_safe", fake_scandir)
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+    paths = [record.path for record in records]
+
+    assert paths.count(real) == 1
+    assert paths.count(alias) == 1
+    assert paths.count(sample) == 1
