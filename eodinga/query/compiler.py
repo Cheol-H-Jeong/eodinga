@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date, datetime, time, timedelta
 from itertools import product
 from typing import Literal
@@ -117,6 +118,10 @@ def _fts_literal(value: str, kind: Literal["word", "phrase"]) -> str:
     return f'"{escaped}"'
 
 
+def _normalize_literal(value: str) -> str:
+    return unicodedata.normalize("NFC", value)
+
+
 def _parse_bool(value: str) -> bool:
     normalized = value.lower()
     if normalized in {"1", "true", "yes", "on"}:
@@ -226,11 +231,21 @@ def _compile_branch(
 
     for term in terms:
         if isinstance(term, WordNode):
-            path_terms.append(CompiledTextTerm(value=term.value, kind="word", negated=term.negated))
+            path_terms.append(
+                CompiledTextTerm(
+                    value=_normalize_literal(term.value),
+                    kind="word",
+                    negated=term.negated,
+                )
+            )
             continue
         if isinstance(term, PhraseNode):
             path_terms.append(
-                CompiledTextTerm(value=term.value, kind="phrase", negated=term.negated)
+                CompiledTextTerm(
+                    value=_normalize_literal(term.value),
+                    kind="phrase",
+                    negated=term.negated,
+                )
             )
             continue
         if isinstance(term, RegexNode):
@@ -250,7 +265,9 @@ def _compile_branch(
             else:
                 content_terms.append(
                     CompiledTextTerm(
-                        value=term.value, kind=term.value_kind, negated=term.negated
+                        value=_normalize_literal(term.value),
+                        kind=term.value_kind,
+                        negated=term.negated,
                     )
                 )
             continue
@@ -263,12 +280,17 @@ def _compile_branch(
                     )
                 )
             else:
+                normalized_value = _normalize_literal(term.value)
                 path_filters.append(
-                    CompiledTextTerm(value=term.value, kind=term.value_kind, negated=term.negated)
+                    CompiledTextTerm(
+                        value=normalized_value,
+                        kind=term.value_kind,
+                        negated=term.negated,
+                    )
                 )
                 comparator = "NOT LIKE" if term.negated else "LIKE"
                 where_parts.append(f"files.path {comparator} ?")
-                where_params.append(f"%{term.value}%")
+                where_params.append(f"%{normalized_value}%")
             continue
         if term.name == "ext":
             comparator = "!=" if term.negated else "="

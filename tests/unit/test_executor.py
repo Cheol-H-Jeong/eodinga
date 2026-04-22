@@ -247,6 +247,34 @@ def test_execute_reversed_date_range_query(tmp_db: sqlite3.Connection) -> None:
     assert hits == ["jan-1.txt", "jan-2.txt", "jan-3.txt"]
 
 
+def test_execute_decomposed_korean_path_filter_matches_nfc_paths(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    path = "/workspace/korean/회의록-봄.txt"
+    _insert_file(tmp_db, 1, path, 512, 1_713_528_000, "txt", body_text="회의록 본문")
+    tmp_db.commit()
+
+    decomposed = unicodedata.normalize("NFD", "회의록")
+    hits = [hit.file.name for hit in search(tmp_db, f"path:{decomposed}", limit=5).hits]
+
+    assert hits == ["회의록-봄.txt"]
+
+
+def test_execute_decomposed_korean_content_query_keeps_snippets(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    path = "/workspace/korean/회의록-봄.txt"
+    _insert_file(tmp_db, 1, path, 512, 1_713_528_000, "txt", body_text="회의록 본문과 정리")
+    tmp_db.commit()
+
+    decomposed = unicodedata.normalize("NFD", "회의록")
+    result = search(tmp_db, f"content:{decomposed}", limit=5)
+
+    assert result.hits[0].file.name == "회의록-봄.txt"
+    assert result.hits[0].snippet is not None
+    assert "회의록" in result.hits[0].snippet
+
+
 def test_execute_duplicate_and_negated_size_queries(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     duplicate_hash = b"same-content"
