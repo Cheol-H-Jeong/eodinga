@@ -489,3 +489,12 @@ def test_launcher_alt_number_shortcuts_activate_top_n_results(qapp) -> None:
 
     assert activated == ["item-2.txt"]
     assert launcher.result_list.currentIndex().row() == 2
+
+
+def test_launcher_interactive_widgets_expose_accessible_names(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    assert launcher.query_field.accessibleName() == "Search query"
+    assert launcher.result_list.accessibleName() == "Search results"
+    assert launcher.empty_state.accessibleName() == "Launcher empty state"

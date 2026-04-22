@@ -13,10 +13,12 @@ class SettingsTab(QWidget):
         title.setProperty("role", "title")
         body = QLabel("Configure the hotkey, theme, and launcher behavior.", self)
         body.setProperty("role", "secondary")
+        self.use_system_theme_checkbox = QCheckBox("Use system theme", self)
+        self.use_system_theme_checkbox.setAccessibleName("Use system theme")
+        self.remap_hotkey_button = SecondaryButton("Remap hotkey", self)
 
         layout.addWidget(title)
         layout.addWidget(body)
-        layout.addWidget(QCheckBox("Use system theme", self))
-        layout.addWidget(SecondaryButton("Remap hotkey", self))
+        layout.addWidget(self.use_system_theme_checkbox)
+        layout.addWidget(self.remap_hotkey_button)
         layout.addStretch(1)
-

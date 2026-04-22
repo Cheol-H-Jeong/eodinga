@@ -111,12 +111,18 @@ class EodingaWindow(QMainWindow):
         container = QWidget(self)
         layout = QVBoxLayout(container)
         self.tab_widget = QTabWidget(container)
+        self.tab_widget.setAccessibleName("Primary navigation")
 
         self.roots_tab = RootsTab(self)
         self.index_tab = IndexTab(self)
         self.search_tab = SearchTab(search_fn=search_fn, state=self.launcher_state, parent=self)
         self.settings_tab = SettingsTab(self)
         self.about_tab = AboutTab(self)
+        self.roots_tab.setAccessibleName("Roots tab")
+        self.index_tab.setAccessibleName("Index tab")
+        self.search_tab.setAccessibleName("Search tab")
+        self.settings_tab.setAccessibleName("Settings tab")
+        self.about_tab.setAccessibleName("About tab")
 
         self.tab_widget.addTab(self.roots_tab, "Roots")
         self.tab_widget.addTab(self.index_tab, "Index")
