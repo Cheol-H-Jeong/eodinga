@@ -379,3 +379,40 @@ NEGATABLE_VALID_QUERY_STRATEGY = st.recursive(
 @given(NEGATABLE_VALID_QUERY_STRATEGY)
 def test_negated_operator_query_fuzz_parses_and_compiles(query: str) -> None:
     compile_query(parse(query))
+
+
+@given(
+    st.one_of(
+        st.tuples(
+            st.just("case"),
+            st.booleans(),
+            st.text(
+                alphabet=st.characters(
+                    blacklist_characters='()|" /',
+                    blacklist_categories=("Cs",),
+                ),
+                min_size=1,
+                max_size=12,
+            ).filter(lambda value: value.strip() and value != "-"),
+        ),
+        st.tuples(
+            st.just("regex"),
+            st.booleans(),
+            st.from_regex(r"[A-Za-z0-9._+-]{1,12}", fullmatch=True),
+        ),
+    )
+)
+def test_negated_boolean_operator_fuzz_inverts_compiled_mode(
+    payload: tuple[str, bool, str],
+) -> None:
+    operator, value, term = payload
+    literal = str(value).lower()
+    enabled = compile_query(parse(f"{operator}:{literal} {term}")).branches[0]
+    negated = compile_query(parse(f"-{operator}:{literal} {term}")).branches[0]
+
+    if operator == "case":
+        assert negated.case_sensitive is (not enabled.case_sensitive)
+        assert negated.regex_mode is enabled.regex_mode
+    else:
+        assert negated.regex_mode is (not enabled.regex_mode)
+        assert negated.case_sensitive is enabled.case_sensitive
