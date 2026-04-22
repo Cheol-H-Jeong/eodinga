@@ -5,7 +5,7 @@ from pathlib import Path
 from pathspec import PathSpec
 
 from eodinga.common import PathRules
-from eodinga.core.fs import DENYLIST, resolve_safe
+from eodinga.core.fs import DENYLIST, absolute_safe, resolve_safe
 
 
 def _normalize(path: Path) -> str:
@@ -41,11 +41,11 @@ def _matches_default_denylist(path: Path) -> bool:
 
 
 def _matches(spec: PathSpec, path: Path, root: Path | None) -> bool:
-    normalized = _normalize(resolve_safe(path))
+    normalized = _normalize(absolute_safe(path))
     candidates = [normalized]
     if root is not None:
         try:
-            candidates.append(_normalize(resolve_safe(path).relative_to(resolve_safe(root))))
+            candidates.append(_normalize(absolute_safe(path).relative_to(absolute_safe(root))))
         except ValueError:
             pass
     return any(spec.match_file(candidate) for candidate in candidates)

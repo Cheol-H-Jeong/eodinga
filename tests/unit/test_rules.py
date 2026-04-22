@@ -27,6 +27,25 @@ def test_user_exclude_glob_applies(tmp_path: Path) -> None:
     assert not should_index(target, rules)
 
 
+def test_user_exclude_glob_applies_to_symlink_alias_paths(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    real = root / "real"
+    alias = root / "alias"
+    target = alias / "artifact.txt"
+    real.mkdir(parents=True)
+    (real / "artifact.txt").write_text("x", encoding="utf-8")
+    alias.symlink_to(real, target_is_directory=True)
+
+    rules = PathRules(
+        root=root,
+        include=(str(root), f"{root}/**"),
+        exclude=("**/alias", "**/alias/**"),
+    )
+
+    assert not should_index(alias, rules)
+    assert not should_index(target, rules)
+
+
 def test_user_include_overrides_default_denylist() -> None:
     rules = PathRules(include=("/tmp/project/**",))
     assert should_index(Path("/tmp/project/file.txt"), rules)

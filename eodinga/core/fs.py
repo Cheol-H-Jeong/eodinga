@@ -49,6 +49,16 @@ def resolve_safe(path: Path) -> Path:
     return path.expanduser().resolve(strict=False)
 
 
+def absolute_safe(path: Path) -> Path:
+    raw = str(path).replace("\\", "/")
+    if _WINDOWS_ABS_RE.match(raw):
+        return Path(raw)
+    expanded = path.expanduser()
+    if expanded.is_absolute():
+        return expanded
+    return Path.cwd() / expanded
+
+
 def stat_safe(path: Path) -> os.stat_result:
     return path.lstat()
 
@@ -64,6 +74,7 @@ def is_hidden(path: Path) -> bool:
 
 
 __all__ = [
+    "absolute_safe",
     "DENYLIST",
     "is_hidden",
     "open_readonly",

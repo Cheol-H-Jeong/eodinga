@@ -115,3 +115,25 @@ def test_walk_batched_records_directory_alias_but_skips_reentering_same_inode(
     assert paths.count(real) == 1
     assert paths.count(alias) == 1
     assert paths.count(sample) == 1
+
+
+def test_walk_batched_honors_symlink_alias_excludes(tmp_path: Path) -> None:
+    root = tmp_path / "tree"
+    real = root / "real"
+    alias = root / "alias"
+    root.mkdir()
+    real.mkdir()
+    (real / "sample.txt").write_text("sample", encoding="utf-8")
+    alias.symlink_to(real, target_is_directory=True)
+
+    rules = PathRules(
+        root=root,
+        include=(str(root), f"{root}/**"),
+        exclude=("**/alias", "**/alias/**"),
+    )
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+    paths = {record.path.relative_to(root) for record in records}
+
+    assert Path("real") in paths
+    assert Path("real/sample.txt") in paths
+    assert Path("alias") not in paths
