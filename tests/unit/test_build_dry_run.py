@@ -76,6 +76,13 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["desktop_entry"]["icon"] == "eodinga"
     assert payload["desktop_entry"]["categories"] == "Utility;FileTools;"
     assert payload["desktop_entry"]["startup_notify"] == "true"
+    assert payload["recipe"]["exists"] is True
+    assert payload["recipe"]["references_desktop_entry"] is True
+    assert payload["recipe"]["references_icon_asset"] is True
+    assert payload["recipe"]["launches_gui"] is True
+    assert payload["icon"]["exists"] is True
+    assert payload["icon"]["diricon_exists"] is True
+    assert payload["icon"]["desktop_icon_matches_asset"] is True
     assert payload["apprun"]["is_executable"] is True
     assert payload["apprun"]["launches_gui"] is True
     assert payload["launcher"]["is_executable"] is True
