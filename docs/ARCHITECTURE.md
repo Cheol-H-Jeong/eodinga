@@ -10,6 +10,39 @@
 4. `eodinga.query.dsl.parse()` and `eodinga.query.compiler.compile_query()` lower the DSL into SQLite filters plus in-memory fallback checks.
 5. `eodinga.query.executor.search()` fetches candidates, merges name/path/content rankings, and returns hits to the CLI or GUI.
 
+## Data Flow Diagram
+
+```text
+configured roots
+      |
+      v
++-------------------+
+| walker + fs rules |
++-------------------+
+      |
+      v
++-------------------+      +------------------+
+|  IndexWriter      | ---> | SQLite tables    |
+|  bulk + updates   |      | files / roots    |
++-------------------+      +------------------+
+      |                           |
+      |                           v
+      |                    +------------------+
+      +------------------> | FTS mirrors      |
+                           | paths_fts        |
+                           | content_fts      |
+                           +------------------+
+                                   |
+                                   v
+                           +------------------+
+                           | query executor   |
+                           | rank + snippets  |
+                           +------------------+
+                                   |
+                                   v
+                           CLI / GUI / launcher
+```
+
 ## Module Map
 
 | Area | Primary modules | Responsibility |
@@ -36,12 +69,57 @@
 - `eodinga doctor` reports both resumed staged rebuild/recovery work and unrecoverable stale-WAL failures so the operator sees the same startup path the runtime takes.
 - This keeps crash recovery local to the database directory and avoids mutating indexed user roots.
 
+## Startup Sequence
+
+```text
+process start
+    |
+    v
+load config
+    |
+    v
+open_index()
+    |
+    +--> promote staged rebuild (.next) if present
+    |
+    +--> resume staged recovery (.recover) if present
+    |
+    +--> replay stale WAL on staged copy if needed
+    |
+    v
+open clean live database
+    |
+    +--> CLI command / GUI bootstrap / watcher
+```
+
 ## Query Execution
 
 - The DSL supports terms, phrases, regex, grouped `|` branches, and negation.
 - Structured operators such as `ext:`, `path:`, `content:`, `size:`, `date:`, `modified:`, `created:`, and `is:` compile into SQLite predicates where possible.
 - Regex and mixed path/content terms are finalized in Python against the candidate set so the CLI and GUI share identical behavior.
 - `eodinga.query.ranker` applies reciprocal rank fusion, filename prefix boosts, and path deboosting for noisy trees such as `node_modules`.
+
+## Query Sequence
+
+```text
+user query
+   |
+   v
+parse() ---> AST
+   |
+   v
+compile_query() ---> SQL predicates + fallback term checks
+   |
+   v
+executor.search()
+   |
+   +--> SQLite candidate fetch
+   +--> Python regex / path / content fallback checks
+   +--> reciprocal-rank fusion + boosts
+   |
+   v
+hits returned to CLI / GUI / launcher
+```
 
 ## Operational Model
 

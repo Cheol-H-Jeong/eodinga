@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.82 - 2026-04-23
+
+- Added shipped `docs/CONTRIBUTING.md` and `docs/RELEASE.md` guides, and expanded the README docs map plus feature overview so contributor and release workflow stops depending on scattered repository knowledge.
+- Deepened `docs/ARCHITECTURE.md` with ASCII data-flow, startup-sequence, and query-sequence diagrams, and tightened the docs regression to pin the new architecture and guide sections as part of the shipped surface.
+- Restored compatibility with persisted `launcher.always_on_top` config values and narrowed a DSL fuzz strategy that previously generated invalid regex combinations inside the valid-query corpus, keeping the baseline gate green while the docs round landed.
+
 ## 0.1.78 - 2026-04-23
 
 - Tightened the Windows packaging audit so the rendered Inno installer now verifies its escaped `AppId`, template-driven `AppVersion`, and GUI uninstall icon path instead of relying on looser substring checks.

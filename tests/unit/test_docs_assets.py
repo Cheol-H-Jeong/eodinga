@@ -83,10 +83,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "python scripts/render_docs_screenshots.py" in contributing
 
     assert "## Runtime Flow" in architecture
+    assert "## Data Flow Diagram" in architecture
     assert "## Module Map" in architecture
     assert "## Index Storage" in architecture
     assert "## Startup Recovery" in architecture
+    assert "## Startup Sequence" in architecture
     assert "## Query Execution" in architecture
+    assert "## Query Sequence" in architecture
     assert "## Packaging Surfaces" in architecture
     assert "compressed changelog" in architecture
 
