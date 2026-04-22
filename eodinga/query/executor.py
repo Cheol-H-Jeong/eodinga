@@ -12,6 +12,7 @@ from typing import NamedTuple
 from pydantic import BaseModel, ConfigDict
 
 from eodinga.common import FileRecord
+from eodinga.observability import increment_counter, record_histogram
 from eodinga.query.compiler import CompiledBranch, CompiledQuery
 from eodinga.query.ranker import rank_results
 
@@ -827,6 +828,8 @@ def execute(
     total_estimate = _metadata_only_total_estimate(conn, scoped_branches)
     if total_estimate is None:
         total_estimate = len(merged_scores)
+    increment_counter("queries_served")
+    record_histogram("query_latency_ms", elapsed_ms)
     return QueryResult(hits=hits, total_estimate=total_estimate, elapsed_ms=elapsed_ms)
 
 

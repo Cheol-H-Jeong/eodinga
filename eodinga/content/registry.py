@@ -41,6 +41,7 @@ def load_specs() -> tuple[ParserSpec, ...]:
         try:
             spec = entry_point.load()()
         except Exception:
+            increment_counter("parser_errors")
             increment_counter("parsers.entrypoint_load_error")
             logger.exception("Failed to load parser entry point {}", entry_point.name)
             continue
@@ -69,6 +70,7 @@ def parse(path: Path, max_body_chars: int) -> ParsedContent:
             return empty_content(path)
         return spec.parse(path, max_body_chars)
     except Exception:
+        increment_counter("parser_errors")
         increment_counter(f"parsers.{spec.name}.error")
         logger.exception("Failed to parse {}", path)
         return empty_content(path)

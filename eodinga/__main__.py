@@ -14,8 +14,14 @@ from eodinga.common import SearchResult, StatsSnapshot
 from eodinga.config import AppConfig, RootConfig, load
 from eodinga.doctor import run_diagnostics
 from eodinga.index.build import rebuild_index
+from eodinga.index.reader import stats as read_index_stats
 from eodinga.index.storage import open_index
-from eodinga.observability import configure_logging
+from eodinga.observability import (
+    configure_logging,
+    counter_value,
+    histogram_snapshot,
+    write_crash_log,
+)
 from eodinga.query import QuerySyntaxError, search as run_search
 
 
@@ -152,11 +158,18 @@ def _cmd_search(args: argparse.Namespace) -> int:
 
 def _cmd_stats(args: argparse.Namespace) -> int:
     config = _resolve_config(args)
+    db_path = args.db or config.index.db_path
+    with closing(open_index(db_path)) as conn:
+        index_snapshot = read_index_stats(conn)
     snapshot = StatsSnapshot(
-        files_indexed=0,
-        documents_indexed=0,
-        roots=[root.path for root in config.roots],
-        db_path=args.db or config.index.db_path,
+        files_indexed=index_snapshot.file_count,
+        documents_indexed=index_snapshot.content_count,
+        queries_served=counter_value("queries_served"),
+        parser_errors=counter_value("parser_errors"),
+        watcher_events=counter_value("watcher_events"),
+        query_latency_histogram=histogram_snapshot("query_latency_ms"),
+        roots=list(index_snapshot.roots) or [root.path for root in config.roots],
+        db_path=db_path,
     ).model_dump(mode="json")
     return _emit(snapshot, as_json=bool(args.json))
 
@@ -192,7 +205,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     configure_logging(args.log_level)
-    return args.handler(args)
+    try:
+        return args.handler(args)
+    except KeyboardInterrupt:
+        raise
+    except Exception as error:
+        crash_path = write_crash_log(error)
+        sys.stderr.write(f"unhandled exception; crash log written to {crash_path}\n")
+        return 1
 
 
 if __name__ == "__main__":

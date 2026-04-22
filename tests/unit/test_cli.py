@@ -8,7 +8,9 @@ from pathlib import Path, PureWindowsPath
 import pytest
 
 from eodinga import __version__
+from eodinga.__main__ import main
 from eodinga.index.schema import apply_schema
+from eodinga.observability import reset_metrics
 
 
 def _insert_file(
@@ -444,3 +446,25 @@ def test_index_requires_at_least_one_root(cli_runner, tmp_path: Path) -> None:
 
     assert result.returncode == 2
     assert "requires at least one root" in result.stderr
+
+
+def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    search_exit = main(["--db", str(db_path), "search", "duplicate", "--json"])
+    search_output = capsys.readouterr()
+    assert search_exit == 0
+    assert json.loads(search_output.out)["count"] == 2
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["files_indexed"] == 3
+    assert payload["documents_indexed"] == 3
+    assert payload["queries_served"] == 1
+    assert payload["parser_errors"] == 0
+    assert payload["watcher_events"] == 0
+    assert payload["query_latency_histogram"]["count"] == 1

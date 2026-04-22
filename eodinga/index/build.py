@@ -11,6 +11,7 @@ from eodinga.content.registry import parse
 from eodinga.core.walker import walk_batched
 from eodinga.index.storage import _cleanup_index_files, atomic_replace_index
 from eodinga.index.writer import IndexWriter
+from eodinga.observability import increment_counter
 
 DEFAULT_MAX_BODY_CHARS = 4096
 
@@ -74,7 +75,10 @@ def rebuild_index(
                     exclude=tuple(root.exclude),
                 )
                 for batch in walk_batched(root.path, rules, root_id=root_id):
-                    files_indexed += writer.bulk_upsert(batch)
+                    indexed = writer.bulk_upsert(batch)
+                    files_indexed += indexed
+                    if indexed:
+                        increment_counter("files_indexed", indexed, root=str(root.path))
     except Exception:
         conn.close()
         _cleanup_index_files(staged_path)
