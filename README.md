@@ -185,6 +185,7 @@ If search looks stale, run `eodinga stats` to confirm the active database path, 
 - [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md): runtime flow, index lifecycle, and packaging surfaces.
 - [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, current baselines, and profiling workflow.
 - [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md): contributor workflow, test expectations, and release hygiene.
+- [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md): repository-local version bump, validation, and local-tag workflow.
 
 ## FAQ
 

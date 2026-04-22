@@ -30,6 +30,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     contributing = (root / "docs" / "CONTRIBUTING.md").read_text(encoding="utf-8")
     dsl = (root / "docs" / "DSL.md").read_text(encoding="utf-8")
     performance = (root / "docs" / "PERFORMANCE.md").read_text(encoding="utf-8")
+    release = (root / "docs" / "RELEASE.md").read_text(encoding="utf-8")
 
     assert "![Main application window]" in readme
     assert "![Launcher window]" in readme
@@ -51,6 +52,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "docs/ARCHITECTURE.md" in readme
     assert "docs/CONTRIBUTING.md" in readme
     assert "docs/PERFORMANCE.md" in readme
+    assert "docs/RELEASE.md" in readme
     assert "pytest -q tests && ruff check eodinga tests" in readme
     assert "python packaging/build.py --target windows-dry-run" in readme
     assert "yamllint .github/workflows/release-windows.yml" in readme
@@ -105,3 +107,11 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Running the Suite" in performance
     assert "## Baseline" in performance
     assert "## Profiling Workflow" in performance
+
+    assert "## Preconditions" in release
+    assert "## Quality Gate" in release
+    assert "## Release Edits" in release
+    assert "## Local Tag" in release
+    assert "python packaging/build.py --target linux-appimage-dry-run" in release
+    assert "python packaging/build.py --target linux-deb-dry-run" in release
+    assert "git tag v0.1.N" in release
