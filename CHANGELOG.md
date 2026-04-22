@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.43 - 2026-04-23
+
+- Improved launcher result rendering so highlights now respect positive DSL operators and regex terms across filename, path, extension badge, and content-snippet targets instead of only plain free-text tokens.
+- Added visible result snippets in launcher rows when the query matches indexed document text, including correct rendering of SQLite FTS snippet markers for the actual matched phrase.
+- Fixed `eodinga gui` to use the configured local index by default rather than the placeholder demo backend, and added GUI regressions for real-index searches plus graceful handling of incomplete query input.
+
 ## 0.1.42 - 2026-04-23
 
 - Added a committed `packaging/linux/appimage-builder.yml` plus a shipped Linux SVG icon so the AppImage path now has explicit recipe inputs instead of relying on shell-script-only staging.
