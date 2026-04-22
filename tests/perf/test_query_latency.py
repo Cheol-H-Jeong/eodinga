@@ -7,13 +7,20 @@ from time import perf_counter
 
 from eodinga.query import search
 from eodinga.index.writer import IndexWriter
-from tests.perf._helpers import insert_root, make_file_record, open_perf_db, perf_only
+from tests.perf._helpers import (
+    insert_root,
+    make_file_record,
+    open_perf_db,
+    perf_float_env,
+    perf_int_env,
+    perf_only,
+)
 
 pytestmark = perf_only
 
-FILE_COUNT = 50_000
-QUERY_COUNT = 2_000
-P95_LIMIT_MS = 30.0
+FILE_COUNT = perf_int_env("EODINGA_PERF_QUERY_FILE_COUNT", 50_000)
+QUERY_COUNT = perf_int_env("EODINGA_PERF_QUERY_COUNT", 2_000)
+P95_LIMIT_MS = perf_float_env("EODINGA_PERF_QUERY_P95_MS", 30.0)
 
 
 def test_name_query_latency(tmp_path: Path) -> None:
@@ -41,7 +48,12 @@ def test_name_query_latency(tmp_path: Path) -> None:
         p50 = statistics.quantiles(latencies_ms, n=100)[49]
         p95 = statistics.quantiles(latencies_ms, n=100)[94]
         p99 = statistics.quantiles(latencies_ms, n=100)[98]
-        print(f"query_latency count={QUERY_COUNT} p50={p50:.2f}ms p95={p95:.2f}ms p99={p99:.2f}ms")
+        print(
+            "query_latency "
+            f"files={FILE_COUNT} count={QUERY_COUNT} "
+            f"p50={p50:.2f}ms p95={p95:.2f}ms p99={p99:.2f}ms "
+            f"limit_p95={P95_LIMIT_MS:.2f}ms"
+        )
         assert p95 <= P95_LIMIT_MS
     finally:
         conn.close()

@@ -15,6 +15,26 @@ RUN_PERF = os.getenv("EODINGA_RUN_PERF") == "1"
 perf_only = pytest.mark.skipif(not RUN_PERF, reason="set EODINGA_RUN_PERF=1 to run perf tests")
 
 
+def perf_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = int(raw)
+    if value <= 0:
+        raise ValueError(f"{name} must be > 0")
+    return value
+
+
+def perf_float_env(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = float(raw)
+    if value <= 0:
+        raise ValueError(f"{name} must be > 0")
+    return value
+
+
 def open_perf_db(path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row

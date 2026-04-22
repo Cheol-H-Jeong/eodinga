@@ -12,14 +12,16 @@ from tests.perf._helpers import (
     make_file_record,
     make_parsed,
     open_perf_db,
+    perf_float_env,
+    perf_int_env,
     perf_only,
 )
 
 pytestmark = perf_only
 
-DOC_COUNT = 5_000
-QUERY_COUNT = 500
-P95_LIMIT_MS = 150.0
+DOC_COUNT = perf_int_env("EODINGA_PERF_CONTENT_DOC_COUNT", 5_000)
+QUERY_COUNT = perf_int_env("EODINGA_PERF_CONTENT_QUERY_COUNT", 500)
+P95_LIMIT_MS = perf_float_env("EODINGA_PERF_CONTENT_P95_MS", 150.0)
 
 
 def test_content_query_latency(tmp_path: Path) -> None:
@@ -50,8 +52,12 @@ def test_content_query_latency(tmp_path: Path) -> None:
         p50 = statistics.quantiles(latencies_ms, n=100)[49]
         p95 = statistics.quantiles(latencies_ms, n=100)[94]
         p99 = statistics.quantiles(latencies_ms, n=100)[98]
-        print(f"content_query count={QUERY_COUNT} p50={p50:.2f}ms p95={p95:.2f}ms p99={p99:.2f}ms")
+        print(
+            "content_query "
+            f"docs={DOC_COUNT} count={QUERY_COUNT} "
+            f"p50={p50:.2f}ms p95={p95:.2f}ms p99={p99:.2f}ms "
+            f"limit_p95={P95_LIMIT_MS:.2f}ms"
+        )
         assert p95 <= P95_LIMIT_MS
     finally:
         conn.close()
-

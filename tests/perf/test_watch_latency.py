@@ -8,12 +8,18 @@ from eodinga.core.watcher import WatchService
 from eodinga.index.reader import find_by_path
 from eodinga.index.writer import IndexWriter
 from tests.conftest import make_record
-from tests.perf._helpers import insert_root, open_perf_db, perf_only
+from tests.perf._helpers import (
+    insert_root,
+    open_perf_db,
+    perf_float_env,
+    perf_int_env,
+    perf_only,
+)
 
 pytestmark = perf_only
 
-FILE_COUNT = 25
-P99_LIMIT_SECONDS = 2.0
+FILE_COUNT = perf_int_env("EODINGA_PERF_WATCH_FILE_COUNT", 25)
+P99_LIMIT_SECONDS = perf_float_env("EODINGA_PERF_WATCH_P99_SECONDS", 2.0)
 
 
 def test_watch_update_visibility_latency(tmp_path: Path) -> None:
@@ -47,7 +53,10 @@ def test_watch_update_visibility_latency(tmp_path: Path) -> None:
         latencies.sort()
         p99_index = max(0, int(len(latencies) * 0.99) - 1)
         p99 = latencies[p99_index]
-        print(f"watch_latency count={len(latencies)} p99={p99:.3f}s")
+        print(
+            "watch_latency "
+            f"count={len(latencies)} p99={p99:.3f}s limit_p99={P99_LIMIT_SECONDS:.3f}s"
+        )
         assert p99 <= P99_LIMIT_SECONDS
     finally:
         service.stop()
