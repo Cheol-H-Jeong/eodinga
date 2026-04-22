@@ -125,7 +125,8 @@ def _cmd_search(args: argparse.Namespace) -> int:
     payload = {
         "query": args.query,
         "results": results,
-        "count": len(results),
+        "count": query_result.total_estimate,
+        "returned": len(results),
         "elapsed_ms": query_result.elapsed_ms,
     }
     return _emit(payload, as_json=bool(args.json))

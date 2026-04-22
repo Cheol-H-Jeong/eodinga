@@ -146,6 +146,41 @@ def test_search_json_queries_real_index(cli_runner, tmp_path: Path) -> None:
     ]
 
 
+def test_search_json_reports_total_count_not_page_length(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        for file_id in range(1, 1_206):
+            _insert_file(
+                conn,
+                file_id,
+                f"/workspace/bulk/doc-{file_id:04d}.txt",
+                2_048,
+                1_713_528_000 - file_id,
+                "txt",
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "size:>1K",
+        "--json",
+        "--limit",
+        "5",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["count"] == 1_205
+    assert payload["returned"] == 5
+    assert len(payload["results"]) == 5
+
+
 def test_search_json_executes_regex_mode_query(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
