@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.10 - 2026-04-23
+
+- Wired `eodinga gui` into the real Qt app flow so offscreen smoke now instantiates both the main window and popup launcher instead of returning a placeholder payload.
+- Added shared launcher session state for recent queries and indexing progress, and surfaced that state in the popup empty state, docked Search tab, Index tab, and tray tooltip.
+- Expanded GUI coverage for the offscreen CLI smoke path, shared launcher state, and indexing-status UI updates.
+
 ## 0.1.9 - 2026-04-23
 
 - Fixed watcher event coalescing so create-then-rename bursts now collapse to the destination path instead of emitting both the transient source create and the later move.
