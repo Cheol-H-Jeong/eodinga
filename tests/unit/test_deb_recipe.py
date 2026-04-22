@@ -1,0 +1,17 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+
+def test_deb_recipe_tracks_desktop_icon_and_docs_assets() -> None:
+    desktop = Path("packaging/linux/eodinga.desktop").read_text(encoding="utf-8")
+    icon = Path("packaging/linux/eodinga.svg").read_text(encoding="utf-8")
+    changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
+
+    assert "Name=eodinga" in desktop
+    assert "Exec=eodinga gui" in desktop
+    assert "Icon=eodinga" in desktop
+    assert "Categories=Utility;FileTools;" in desktop
+    assert "<svg" in icon
+    assert "<title" in icon
+    assert "# Changelog" in changelog

@@ -138,6 +138,24 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert Path(payload["package_dir"]).exists()
     assert Path(payload["control_path"]).exists()
     assert Path(payload["archive"]).exists()
+    assert payload["control"] == {
+        "package": "eodinga",
+        "version": __version__,
+        "architecture": "amd64",
+        "depends": "python3 (>= 3.11)",
+        "description": "Instant lexical file search for Windows and Linux",
+    }
+    assert payload["desktop_entry"]["name"] == "eodinga"
+    assert payload["desktop_entry"]["exec"] == "eodinga gui"
+    assert payload["desktop_entry"]["icon"] == "eodinga"
+    assert payload["desktop_entry"]["categories"] == "Utility;FileTools;"
+    assert payload["desktop_entry"]["startup_notify"] == "true"
+    assert payload["icon"]["exists"] is True
+    assert payload["icon"]["desktop_icon_matches_asset"] is True
+    assert payload["launcher"]["is_executable"] is True
+    assert payload["launcher"]["executes_python_module"] is True
+    assert payload["docs"]["license_exists"] is True
+    assert payload["docs"]["changelog_exists"] is True
 
 
 def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
@@ -157,3 +175,5 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert Path(payload["package_dir"]).exists()
     assert Path(payload["control_path"]).exists()
     assert Path(payload["deb_path"]).exists()
+    assert payload["icon"]["exists"] is True
+    assert payload["docs"]["changelog_exists"] is True
