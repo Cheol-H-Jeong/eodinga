@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +12,9 @@ from eodinga import __version__
 from eodinga.common import SearchResult, StatsSnapshot
 from eodinga.config import AppConfig, load
 from eodinga.doctor import run_diagnostics
+from eodinga.index.storage import open_index
 from eodinga.observability import configure_logging
+from eodinga.query import QuerySyntaxError, search as run_search
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -91,15 +94,33 @@ def _cmd_watch(args: argparse.Namespace) -> int:
 
 def _cmd_search(args: argparse.Namespace) -> int:
     _resolve_config(args)
+    limit = max(int(args.limit), 0)
+    root = args.root.resolve() if args.root is not None else None
+    fetch_limit = max(limit * 10, limit, 50) if root is not None else limit
+    try:
+        with closing(open_index(args.db or _resolve_config(args).index.db_path)) as conn:
+            query_result = run_search(conn, args.query, limit=fetch_limit)
+    except (QuerySyntaxError, ValueError) as error:
+        sys.stderr.write(f"{error}\n")
+        return 2
+
+    hits = query_result.hits
+    if root is not None:
+        hits = [hit for hit in hits if hit.file.path.is_relative_to(root)]
     results = [
         SearchResult(
-            path=(args.root or Path.cwd()) / f"mock-result-{index + 1}.txt",
-            score=max(0.0, 1.0 - (index * 0.1)),
-            snippet=args.query,
+            path=hit.file.path,
+            score=hit.match_score,
+            snippet=hit.snippet,
         ).model_dump(mode="json")
-        for index in range(min(max(args.limit, 0), 3))
+        for hit in hits[:limit]
     ]
-    payload = {"query": args.query, "results": results, "count": len(results)}
+    payload = {
+        "query": args.query,
+        "results": results,
+        "count": len(results),
+        "elapsed_ms": query_result.elapsed_ms,
+    }
     return _emit(payload, as_json=bool(args.json))
 
 
