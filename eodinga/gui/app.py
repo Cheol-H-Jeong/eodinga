@@ -111,6 +111,7 @@ class EodingaWindow(QMainWindow):
         container = QWidget(self)
         layout = QVBoxLayout(container)
         self.tab_widget = QTabWidget(container)
+        self.tab_widget.setAccessibleName("Main tabs")
 
         self.roots_tab = RootsTab(self)
         self.index_tab = IndexTab(self)

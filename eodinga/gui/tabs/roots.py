@@ -15,10 +15,11 @@ class RootsTab(QWidget):
         body = QLabel("Manage indexed paths and exclude patterns.", self)
         body.setProperty("role", "secondary")
         body.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.add_root_button = PrimaryButton("Add root", self)
+        self.remove_root_button = SecondaryButton("Remove selected", self)
 
         layout.addWidget(title)
         layout.addWidget(body)
-        layout.addWidget(PrimaryButton("Add root", self))
-        layout.addWidget(SecondaryButton("Remove selected", self))
+        layout.addWidget(self.add_root_button)
+        layout.addWidget(self.remove_root_button)
         layout.addStretch(1)
-

@@ -27,6 +27,17 @@ def test_app_window_has_expected_tabs_and_launcher(qapp) -> None:
     assert isinstance(window.about_tab, AboutTab)
     assert launcher is window.launcher_window
     assert window.launcher_window.parent() is None
+    assert window.tab_widget.accessibleName() == "Main tabs"
+
+
+def test_app_tab_actions_have_accessible_names(qapp) -> None:
+    window = EodingaWindow()
+
+    assert window.roots_tab.add_root_button.accessibleName() == "Add root"
+    assert window.roots_tab.remove_root_button.accessibleName() == "Remove selected"
+    assert window.index_tab.rebuild_button.accessibleName() == "Rebuild index"
+    assert window.settings_tab.use_system_theme_checkbox.accessibleName() == "Use system theme"
+    assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
 
 
 def test_app_updates_index_status_in_tab_and_tray(qapp) -> None:

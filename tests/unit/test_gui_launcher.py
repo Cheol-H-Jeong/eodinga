@@ -369,6 +369,15 @@ def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> No
     assert "budget, report" in launcher.empty_state.body_label.text()
 
 
+def test_launcher_interactive_controls_have_accessible_names(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    assert launcher.query_field.accessibleName() == "Search query"
+    assert launcher.result_list.accessibleName() == "Search results"
+    assert launcher.empty_state.accessibleName() == "Search empty state"
+
+
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(

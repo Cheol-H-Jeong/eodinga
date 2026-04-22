@@ -149,6 +149,7 @@ class LauncherPanel(QWidget):
 
         self.query_field = SearchField(parent=self)
         self.result_list = QListView(self)
+        self.result_list.setAccessibleName("Search results")
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
         self.result_list.setUniformItemSizes(False)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
@@ -158,6 +159,7 @@ class LauncherPanel(QWidget):
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
         self.empty_state = EmptyState("Type to search", "Recent queries and indexing progress will appear here.", self)
+        self.empty_state.setAccessibleName("Search empty state")
 
         self.model = ResultListModel(self)
         self.result_list.setModel(self.model)
