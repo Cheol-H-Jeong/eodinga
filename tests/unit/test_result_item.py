@@ -36,6 +36,29 @@ def test_highlight_text_ignores_negated_terms() -> None:
     assert "<mark>draft</mark>" not in rendered
 
 
+def test_highlight_text_supports_path_and_extension_filters_by_target() -> None:
+    rendered_path = highlight_text("/tmp/reports/quarterly.pdf", "path:reports ext:pdf", target="path")
+    rendered_ext = highlight_text("pdf", "path:reports ext:pdf", target="ext")
+
+    assert "/tmp/<mark>reports</mark>/quarterly.pdf" in rendered_path
+    assert "<mark>pdf</mark>" in rendered_ext
+
+
+def test_highlight_text_supports_regex_and_content_filters() -> None:
+    rendered_name = highlight_text("release-notes.txt", "/release[- ]notes/i", target="name")
+    rendered_snippet = highlight_text("release notes are attached", 'content:"release notes"', target="snippet")
+
+    assert "<mark>release-notes</mark>.txt" in rendered_name
+    assert "<mark>release notes</mark>" in rendered_snippet
+
+
+def test_highlight_text_respects_case_true_for_literals() -> None:
+    rendered = highlight_text("Report report", "case:true Report", target="name")
+
+    assert "<mark>Report</mark>" in rendered
+    assert "<mark>report</mark>" not in rendered
+
+
 def test_format_hit_html_renders_extension_badge() -> None:
     rendered = format_hit_html(
         SearchHit(
@@ -49,3 +72,19 @@ def test_format_hit_html_renders_extension_badge() -> None:
 
     assert "<mark>report</mark>.pdf" in rendered
     assert ">pdf</span>" in rendered
+
+
+def test_format_hit_html_renders_highlighted_snippet() -> None:
+    rendered = format_hit_html(
+        SearchHit(
+            path=Path("/tmp/release-notes.txt"),
+            parent_path=Path("/tmp"),
+            name="release-notes.txt",
+            ext="txt",
+            snippet="...the [release notes] are attached...",
+        ),
+        'content:"release notes"',
+    )
+
+    assert "<mark>release notes</mark>" in rendered
+    assert "the " in rendered

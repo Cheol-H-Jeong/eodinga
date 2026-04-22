@@ -62,6 +62,7 @@ class SearchHit(BaseModel):
     parent_path: Path
     name: str
     ext: str = ""
+    snippet: str | None = None
     highlighted_name: str | None = None
     highlighted_path: str | None = None
 
