@@ -33,6 +33,11 @@ def test_app_updates_index_status_in_tab_and_tray(qapp) -> None:
     assert "12/40 files indexed" in window.index_tab.progress_label.text()
     assert "/tmp/docs" in window.tray_indicator.tooltip
     assert "(30%)" in window.tray_indicator.status_text
+    assert window.tray_indicator.icon_state == "indexing"
+
+    window.set_indexing_status(IndexingStatus())
+
+    assert window.tray_indicator.icon_state == "idle"
 
 
 def test_launcher_state_is_shared_between_popup_and_search_tab(qapp) -> None:

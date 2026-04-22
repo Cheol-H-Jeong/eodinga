@@ -14,12 +14,14 @@ from eodinga.gui.theme import apply_theme
 
 class TrayIndicatorController:
     def __init__(self, app: QApplication, launcher_window: LauncherWindow, parent: QWidget) -> None:
+        self._app = app
         self._tray: QSystemTrayIcon | None = None
         self.tooltip = format_indexing_status(IndexingStatus())
         self.status_text = self.tooltip
+        self.icon_state = "idle"
         if not QSystemTrayIcon.isSystemTrayAvailable():
             return
-        icon = app.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogContentsView)
+        icon = self._icon_for_state(self.icon_state)
         tray = QSystemTrayIcon(icon, parent)
         menu = QMenu(parent)
         self._status_action = QAction(self.status_text, menu)
@@ -38,12 +40,19 @@ class TrayIndicatorController:
     def visible(self) -> bool:
         return self._tray is not None and self._tray.isVisible()
 
+    def _icon_for_state(self, state: str):
+        if state == "indexing":
+            return self._app.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
+        return self._app.style().standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton)
+
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self.tooltip = format_indexing_status(status)
         self.status_text = self.tooltip
+        self.icon_state = "indexing" if status.phase == "indexing" else "idle"
         if hasattr(self, "_status_action"):
             self._status_action.setText(self.status_text)
         if self._tray is not None:
+            self._tray.setIcon(self._icon_for_state(self.icon_state))
             self._tray.setToolTip(self.tooltip)
 
 
