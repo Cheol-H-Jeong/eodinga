@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.100 - 2026-04-23
+## 0.1.102 - 2026-04-23
 
 - Hardened startup and CLI reliability by tolerating the legacy `launcher.always_on_top` config key during load, so existing user configs no longer crash every CLI subcommand on startup.
 - Added explicit watcher queue backpressure with a bounded event queue and saturation warnings, preventing silent backlog growth while preserving queued file events until consumers catch up.
