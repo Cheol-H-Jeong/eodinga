@@ -131,6 +131,7 @@ def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) ->
     assert launcher.result_list.hasFocus()
     assert launcher.result_list.currentIndex().row() == 0
     assert "Ctrl+Enter reveals" in launcher.shortcut_label.text()
+    assert "Ctrl+L returns to filter" in launcher.shortcut_label.text()
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_End)
     assert launcher.result_list.currentIndex().row() == 2
@@ -284,12 +285,13 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
 
     assert launcher.empty_state.title_label.text() == "Type to search"
     assert "No recent queries yet" in launcher.empty_state.body_label.text()
+    assert "Alt+Up" in launcher.empty_state.body_label.text()
     assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
     assert "(20%)" in launcher.empty_state.details_label.text()
     assert launcher.status_chip.text() == "Indexing"
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
-    assert launcher.shortcut_label.text() == "Type a filename, path, or content term."
+    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Alt+Up recalls recent queries."
 
     launcher.query_field.setText("missing")
     _wait(60)
@@ -300,6 +302,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
     assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
+    assert "Alt+Up recalls recent queries" in launcher.shortcut_label.text()
 
 
 def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> None:
@@ -311,6 +314,71 @@ def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> No
     state.remember_query("budget")
 
     assert "budget, report" in launcher.empty_state.body_label.text()
+
+
+def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+            ][:limit],
+            total=2,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("alpha")
+    _wait(60)
+    launcher.result_list.setFocus()
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Down)
+
+    assert launcher.result_list.hasFocus()
+    assert launcher.result_list.currentIndex().row() == 1
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_L, Qt.KeyboardModifier.ControlModifier)
+
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.selectedText() == "alpha"
+
+
+def test_launcher_alt_up_and_down_recall_recent_queries(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path(f"/tmp/{query}.txt"), parent_path=Path("/tmp"), name=f"{query}.txt")][:limit]
+            if query
+            else [],
+            total=1 if query else 0,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn, state=LauncherState())
+    launcher.show()
+
+    launcher.query_field.setText("alpha")
+    _wait(60)
+    launcher.query_field.setText("beta")
+    _wait(60)
+    launcher.query_field.setText("")
+    _wait(60)
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Up, Qt.KeyboardModifier.AltModifier)
+    _wait(60)
+    assert launcher.query_field.text() == "beta"
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Up, Qt.KeyboardModifier.AltModifier)
+    _wait(60)
+    assert launcher.query_field.text() == "alpha"
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Down, Qt.KeyboardModifier.AltModifier)
+    _wait(60)
+    assert launcher.query_field.text() == "beta"
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Down, Qt.KeyboardModifier.AltModifier)
+    _wait(60)
+    assert launcher.query_field.text() == ""
 
 
 def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
