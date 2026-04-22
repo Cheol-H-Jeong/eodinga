@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.79 - 2026-04-23
+
+- Added an in-process observability registry that tracks rebuild throughput, served queries, parser failures, watcher activity, and a latency histogram, then exposes the live snapshot through `eodinga stats --json`.
+- Added platform-correct rotating log files plus crash report emission for unhandled exceptions, so operational failures now leave durable diagnostics under the app log directory instead of only hitting stderr.
+- Improved `eodinga stats` without `--json` into a readable terminal summary and expanded unit coverage to pin the stats, logging, watcher, parser-error, and crash-report contracts end to end.
+
 ## 0.1.76 - 2026-04-23
 
 - Polished launcher keyboard navigation so the result list now wraps on `Up` / `Down` and supports `PgUp` / `PgDn` jumps for longer result sets, keeping the popup usable without reaching for the mouse.
