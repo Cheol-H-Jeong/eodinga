@@ -29,6 +29,12 @@ def test_highlight_text_marks_quoted_phrases() -> None:
     assert "<mark>release notes</mark>" in rendered
 
 
+def test_highlight_text_marks_escaped_quoted_phrases() -> None:
+    rendered = highlight_text('release "candidate" notes.txt', r'"release \"candidate\""')
+
+    assert "<mark>release &quot;candidate&quot;</mark>" in rendered
+
+
 def test_highlight_text_ignores_negated_terms() -> None:
     rendered = highlight_text("draft release notes.txt", 'release -"draft"')
 
