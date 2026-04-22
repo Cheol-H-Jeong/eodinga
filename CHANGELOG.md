@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.107 - 2026-04-23
+
+- Fixed launcher topmost behavior so the frameless popup now follows `launcher.always_on_top` from config instead of forcing a pinned-above-all-windows state on every run.
+- Added `Alt+1` through `Alt+9` launcher quick-picks, letting the top nine visible hits open directly without moving focus out of the query field.
+- Labeled the launcher window, search field, and results list with explicit accessible names and expanded the offscreen GUI regressions around the new launcher contracts.
+
 ## 0.1.104 - 2026-04-23
 
 - Added a multi-root integration regression that rebuilds one index from two configured roots, proves both roots are persisted, and pins `search(..., root=...)` scoping against cross-root result leakage.
