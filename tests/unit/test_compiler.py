@@ -132,6 +132,14 @@ def test_compile_duplicate_filter_shape() -> None:
     assert "NOT (files.is_symlink = 1)" in branch.where_sql
 
 
+def test_compile_empty_filter_shape() -> None:
+    compiled = compile_query(parse("is:empty -is:dir"))
+    branch = compiled.branches[0]
+
+    assert "files.is_dir = 0 AND files.size = 0" in branch.where_sql
+    assert "NOT (files.is_dir = 1)" in branch.where_sql
+
+
 def test_compile_non_ascii_path_filter_uses_python_normalized_scan() -> None:
     compiled = compile_query(parse("path:회의록 ext:txt"))
     branch = compiled.branches[0]

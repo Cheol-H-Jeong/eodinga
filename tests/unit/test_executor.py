@@ -443,6 +443,20 @@ def test_execute_duplicate_and_negated_size_queries(tmp_db: sqlite3.Connection) 
     assert unique_hits == ["beta.txt"]
 
 
+def test_execute_empty_filter_matches_only_zero_byte_files(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/empty.txt", 0, now, "txt")
+    _insert_file(tmp_db, 2, "/workspace/non-empty.txt", 1, now - 60, "txt")
+    _insert_file(tmp_db, 3, "/workspace/folder", 0, now - 120, "", is_dir=1)
+    tmp_db.commit()
+
+    empty_hits = [hit.file.name for hit in search(tmp_db, "is:empty", limit=10).hits]
+    non_empty_hits = [hit.file.name for hit in search(tmp_db, "-is:empty is:file", limit=10).hits]
+
+    assert empty_hits == ["empty.txt"]
+    assert non_empty_hits == ["non-empty.txt"]
+
+
 def test_execute_metadata_only_query_reports_uncapped_total_estimate(
     tmp_db: sqlite3.Connection,
 ) -> None:
