@@ -190,11 +190,24 @@ class _Parser:
             raise QuerySyntaxError('expected \'"\'', start)
         self.index += 1
         phrase_start = self.index
-        while self._peek() not in ('"', None):
+        value_chars: list[str] = []
+        while True:
+            char = self._peek()
+            if char is None:
+                raise QuerySyntaxError("unterminated phrase", start)
+            if char == '"':
+                break
+            if char == "\\":
+                next_char = self._peek(offset=1)
+                if next_char in {'"', "\\"}:
+                    value_chars.append(next_char)
+                    self.index += 2
+                    continue
+            value_chars.append(char)
             self.index += 1
         if self._peek() != '"':
             raise QuerySyntaxError("unterminated phrase", start)
-        value = self.source[phrase_start:self.index]
+        value = "".join(value_chars)
         self.index += 1
         if not value:
             raise QuerySyntaxError("empty phrase", phrase_start)
@@ -282,10 +295,11 @@ class _Parser:
             self.index += 1
         return self.source[start:self.index]
 
-    def _peek(self) -> str | None:
-        if self.index >= self.length:
+    def _peek(self, *, offset: int = 0) -> str | None:
+        index = self.index + offset
+        if index >= self.length:
             return None
-        return self.source[self.index]
+        return self.source[index]
 
     def _skip_ws(self) -> bool:
         start = self.index

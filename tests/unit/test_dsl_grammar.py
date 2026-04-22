@@ -70,6 +70,31 @@ def test_parse_operator_regex_value() -> None:
     assert node.regex_flags == "i"
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_name", "expected_value"),
+    [
+        ('"release \\"candidate\\""', None, 'release "candidate"'),
+        ('content:"release \\"candidate\\""', "content", 'release "candidate"'),
+        ('path:"C:\\\\workspace\\\\notes"', "path", r"C:\workspace\notes"),
+    ],
+)
+def test_parse_phrase_supports_escaped_quotes_and_backslashes(
+    query: str,
+    expected_name: str | None,
+    expected_value: str,
+) -> None:
+    node = parse(query)
+
+    if expected_name is None:
+        assert isinstance(node, PhraseNode)
+        assert node.value == expected_value
+        return
+    assert isinstance(node, OperatorNode)
+    assert node.name == expected_name
+    assert node.value_kind == "phrase"
+    assert node.value == expected_value
+
+
 @pytest.mark.parametrize("query", ["content://i", "path://", "regex://i"])
 def test_parse_inline_operator_empty_regex_errors(query: str) -> None:
     with pytest.raises(QuerySyntaxError, match="empty regex"):
