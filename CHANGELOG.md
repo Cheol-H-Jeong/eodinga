@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.46 - 2026-04-23
+
+- Fixed the DSL parser so slash-prefixed `path:` filters like `path:/tmp/log` and `path:/a/b` stay literal path terms instead of being misread as inline regexes when the basename is 1-3 letters long.
+- Preserved explicit inline path-regex behavior for unambiguous cases such as `path:/tmp/log/i`, so valid flag-bearing path regex filters still compile as regex terms.
+- Expanded correctness coverage with targeted parser fuzzing plus unit and end-to-end search regressions for short slash-prefixed path literals.
+
 ## 0.1.45 - 2026-04-23
 
 - Fixed metadata-only query totals so `date:*`, `size:*`, and `is:duplicate` filters now report distinct match counts from the full branch union instead of the executor's prefetch window.
