@@ -50,6 +50,15 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 6. Use `Alt+Up` to recall recent queries, `Ctrl+L` to jump back to the filter, and `PgUp` / `PgDn` to move through longer result sets without leaving the keyboard.
 7. Re-run `python scripts/render_docs_screenshots.py` if you update the Qt surfaces and want the shipped screenshots refreshed.
 
+## Feature Highlights
+
+- Local-only indexing and search across filenames, paths, and supported document text.
+- Shared query engine across CLI, main GUI, and hotkey launcher.
+- DSL filters for path, extension, content, size, dates, booleans, duplicates, and regex.
+- Crash-safe staged index replacement with startup recovery for interrupted rebuilds and WAL replay.
+- Live updates through filesystem notifications without requiring a network service or cloud sync.
+- Packaging support for Windows installer, Linux AppImage, and Debian package dry runs.
+
 ## Acceptance Quickcheck
 
 Use this when you want to validate the shipped v0.1 surface before cutting a release:
@@ -174,7 +183,9 @@ If search looks stale, run `eodinga stats` to confirm the active database path, 
 - [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md): query cheatsheet and operator notes.
 - [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md): SPEC §9 release checklist and validation commands.
 - [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md): runtime flow, index lifecycle, and packaging surfaces.
+- [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md): local development loop, scope rules, and test expectations.
 - [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, current baselines, and profiling workflow.
+- [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md): version bump, dry-run packaging, and local tag workflow.
 
 ## FAQ
 

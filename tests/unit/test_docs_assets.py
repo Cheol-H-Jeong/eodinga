@@ -27,8 +27,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     readme = (root / "README.md").read_text(encoding="utf-8")
     acceptance = (root / "docs" / "ACCEPTANCE.md").read_text(encoding="utf-8")
     architecture = (root / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+    contributing = (root / "docs" / "CONTRIBUTING.md").read_text(encoding="utf-8")
     dsl = (root / "docs" / "DSL.md").read_text(encoding="utf-8")
     performance = (root / "docs" / "PERFORMANCE.md").read_text(encoding="utf-8")
+    release = (root / "docs" / "RELEASE.md").read_text(encoding="utf-8")
 
     assert "![Main application window]" in readme
     assert "![Launcher window]" in readme
@@ -36,6 +38,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "![Settings window]" in readme
     assert "## Install" in readme
     assert "## Quick Start" in readme
+    assert "## Feature Highlights" in readme
     assert "## Acceptance Quickcheck" in readme
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
@@ -47,7 +50,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "docs/DSL.md" in readme
     assert "docs/ACCEPTANCE.md" in readme
     assert "docs/ARCHITECTURE.md" in readme
+    assert "docs/CONTRIBUTING.md" in readme
     assert "docs/PERFORMANCE.md" in readme
+    assert "docs/RELEASE.md" in readme
     assert "pytest -q tests && ruff check eodinga tests" in readme
     assert "python packaging/build.py --target windows-dry-run" in readme
     assert "yamllint .github/workflows/release-windows.yml" in readme
@@ -69,12 +74,22 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "git tag v0.1.N" in acceptance
 
     assert "## Runtime Flow" in architecture
+    assert "## Data Flow" in architecture
     assert "## Module Map" in architecture
     assert "## Index Storage" in architecture
     assert "## Startup Recovery" in architecture
+    assert "## Sequence Snapshots" in architecture
     assert "## Query Execution" in architecture
     assert "## Packaging Surfaces" in architecture
+    assert "## Release Artifacts" in architecture
+    assert "query DSL -> compiler -> executor -> ranker" in architecture
     assert "compressed changelog" in architecture
+
+    assert "## Development Loop" in contributing
+    assert "pytest -q tests/unit" in contributing
+    assert "ruff check eodinga tests" in contributing
+    assert "pyright" in contributing
+    assert "render_docs_screenshots.py" in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl
@@ -92,4 +107,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "EODINGA_PERF_REBUILD_MIN_FPS" in performance
     assert "## Running the Suite" in performance
     assert "## Baseline" in performance
+    assert "## Reproducing The Current HEAD Baseline" in performance
+    assert "throughput=60024 records/s" in performance
+    assert "watch_latency count=25 p99=0.131s" in performance
     assert "## Profiling Workflow" in performance
+
+    assert "## Release Inputs" in release
+    assert "windows-dry-run" in release
+    assert "linux-appimage-dry-run" in release
+    assert "linux-deb-dry-run" in release
+    assert "git tag v0.1.N" in release

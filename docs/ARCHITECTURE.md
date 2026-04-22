@@ -2,6 +2,24 @@
 
 `eodinga` is a local-first lexical search stack. The v0.1 line keeps the system deliberately small: read-only filesystem access, SQLite/FTS5 storage, a shared query engine, and thin CLI/GUI launch surfaces on top.
 
+## Data Flow
+
+```text
+configured roots
+    |
+    v
+read-only fs wrappers -> walker batches -> IndexWriter -> files / paths_fts / content_fts
+                                                    |
+                                                    v
+                                           WatchService updates
+                                                    |
+                                                    v
+                                           same writer transaction path
+                                                    |
+                                                    v
+query DSL -> compiler -> executor -> ranker -> CLI / GUI / launcher results
+```
+
 ## Runtime Flow
 
 1. `eodinga.core.walker.walk_batched()` enumerates roots through the read-only wrappers in `eodinga.core.fs`.
@@ -36,6 +54,29 @@
 - `eodinga doctor` reports both resumed staged rebuild/recovery work and unrecoverable stale-WAL failures so the operator sees the same startup path the runtime takes.
 - This keeps crash recovery local to the database directory and avoids mutating indexed user roots.
 
+## Sequence Snapshots
+
+Cold start:
+
+```text
+GUI / CLI index command
+    -> walk_batched()
+    -> IndexWriter.bulk_upsert()
+    -> optional content parsers
+    -> commit transaction
+    -> query surfaces read new index
+```
+
+Live update:
+
+```text
+filesystem event
+    -> WatchService debounce + coalesce
+    -> incremental writer update
+    -> commit transaction
+    -> next search sees updated row
+```
+
 ## Query Execution
 
 - The DSL supports terms, phrases, regex, grouped `|` branches, and negation.
@@ -64,6 +105,12 @@
 - `eodinga.gui.app.EodingaWindow` is the settings and diagnostics shell.
 - `eodinga.gui.launcher.LauncherWindow` is the hotkey-first search surface with keyboard navigation and match highlighting.
 - Both UI paths reuse the same query models from `eodinga.common`.
+
+## Release Artifacts
+
+- The Windows release path packages the PyInstaller app bundle, Inno Setup installer, and release workflow validation described in `docs/RELEASE.md`.
+- The Linux release path emits AppImage and `.deb` artifacts from the recipes under `packaging/linux/`.
+- Screenshot assets in `docs/screenshots/` are generated from live offscreen Qt renders so documentation stays tied to the actual UI contract.
 
 ## Safety Boundaries
 

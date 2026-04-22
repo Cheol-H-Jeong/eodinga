@@ -57,18 +57,37 @@ Supported overrides:
 
 ## Baseline
 
-Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed after the 0.1.69 writer no-parser fast-path round:
+Measured on 2026-04-23 at current `HEAD` in this repository’s Linux dev environment with `.venv` dependencies installed:
 
 | Benchmark | Dataset | Result |
 | --- | --- | --- |
-| Cold start | 20,201 indexed entries | 6,059 files/sec |
-| Rebuild cold start | 20,201 indexed entries via `rebuild_index()` | 6,537 files/sec |
-| Bulk upsert | 50k synthetic records | 56,222 records/sec |
-| Name query latency | 2,000 queries / 50k files | p50 0.06 ms, p95 0.06 ms, p99 0.07 ms |
-| Content query latency | 500 queries / 5k docs | p50 0.60 ms, p95 0.63 ms, p99 0.67 ms |
-| Watch latency | 25 created files | p99 0.133 s |
+| Cold start | 20,201 indexed entries | 5,761 files/sec |
+| Rebuild cold start | 20,201 indexed entries via `rebuild_index()` | 6,152 files/sec |
+| Bulk upsert | 50k synthetic records | 60,024 records/sec |
+| Name query latency | 2,000 queries / 50k files | p50 0.06 ms, p95 0.07 ms, p99 0.09 ms |
+| Content query latency | 500 queries / 5k docs | p50 0.65 ms, p95 0.68 ms, p99 0.72 ms |
+| Watch latency | 25 created files | p99 0.131 s |
 
-These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. This round removes the guaranteed-empty content-upsert pass whenever `IndexWriter` is running without a parser callback, which trims metadata-only indexing and makes the staged rebuild benchmark reflect the actual `content_enabled=False` fast path instead of paying for a no-op parser loop.
+These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets.
+
+## Reproducing The Current HEAD Baseline
+
+The numbers above came from a single local run of:
+
+```bash
+source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
+```
+
+Captured output:
+
+```text
+bulk_upsert records=50000 elapsed=0.833s throughput=60024 records/s
+cold_start files=20201 elapsed=3.506s throughput=5761 files/s
+rebuild_cold_start files=20201 elapsed=3.283s throughput=6152 files/s
+content_query docs=5000 count=500 p50=0.65ms p95=0.68ms p99=0.72ms
+query_latency files=50000 count=2000 p50=0.06ms p95=0.07ms p99=0.09ms
+watch_latency count=25 p99=0.131s
+```
 
 ## Interpreting Results
 
