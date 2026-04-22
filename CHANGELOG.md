@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.39 - 2026-04-23
+
+- Hardened walker traversal against bind-mount style alias cycles by deduplicating directory expansion on canonical resolved paths as well as `(st_dev, st_ino)`, which prevents repeated subtree re-entry when the same directory is surfaced under a different device/inode view.
+- Normalized non-regex text query literals to NFC before compiling SQL and FTS clauses, restoring decomposed Korean `path:` and `content:` searches against the NFC-heavy filenames and parsed text stored in the index.
+- Added focused walker and executor regressions for canonical alias-cycle traversal plus decomposed-Hangul query behavior, including snippet preservation for Korean content matches.
+
 ## 0.1.38 - 2026-04-23
 
 - Fixed the query engine so `regex:true` now promotes plain free-text terms into validated path/name regex filters instead of silently falling back to literal substring search.
