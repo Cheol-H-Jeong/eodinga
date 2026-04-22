@@ -71,20 +71,19 @@ def recover_stale_wal(path: Path) -> bool:
     finally:
         conn.close()
     _checkpoint_wal(path)
-    recovered = True
     for suffix in ("-wal", "-shm"):
         sidecar = _sidecar(path, suffix)
         if sidecar.exists() and sidecar.stat().st_size > 0:
-            recovered = False
-            continue
+            return False
         if sidecar.exists():
             sidecar.unlink()
-    return recovered
+    return True
 
 
 def open_index(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
-    recover_stale_wal(path)
+    if has_stale_wal(path) and not recover_stale_wal(path):
+        raise RuntimeError(f"failed to recover stale WAL for {path}")
     conn = _configure_connection(sqlite3.connect(path))
     migrate(conn)
     return conn

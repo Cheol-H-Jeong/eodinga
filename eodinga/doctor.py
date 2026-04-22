@@ -62,6 +62,11 @@ def run_diagnostics(config: AppConfig | None = None, db_path: Path | None = None
     effective_db_path = db_path or effective_config.index.db_path or default_db_path()
     stale_wal_present = has_stale_wal(effective_db_path)
     stale_wal_recovered = recover_stale_wal(effective_db_path) if stale_wal_present else False
+    stale_wal_error = (
+        f"failed to recover stale WAL for {effective_db_path}"
+        if stale_wal_present and not stale_wal_recovered
+        else None
+    )
     required = {name: _is_importable(module) for name, module in REQUIRED_IMPORTS.items()}
     optional = {name: _is_importable(module) for name, module in OPTIONAL_IMPORTS.items()}
     roots = _roots_readable(effective_config)
@@ -80,6 +85,7 @@ def run_diagnostics(config: AppConfig | None = None, db_path: Path | None = None
             "writable": _is_db_writable(effective_db_path),
             "stale_wal_present": stale_wal_present,
             "stale_wal_recovered": stale_wal_recovered,
+            "stale_wal_error": stale_wal_error,
         },
         "roots": roots,
         "hotkey_backend": _detect_hotkey_backend(),
@@ -90,6 +96,8 @@ def run_diagnostics(config: AppConfig | None = None, db_path: Path | None = None
     }
     exit_code = 0
     if not result["python"]["supported"] or not all(required.values()) or not result["db"]["writable"]:
+        exit_code = 1
+    if stale_wal_error is not None:
         exit_code = 1
     if roots and not all(roots.values()):
         exit_code = 1
