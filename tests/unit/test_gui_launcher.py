@@ -239,6 +239,36 @@ def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> 
     assert launcher.model.rowCount() == 1
 
 
+def test_launcher_enter_and_ctrl_enter_work_while_query_field_keeps_focus(qapp) -> None:
+    activated: list[str] = []
+    revealed: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/report.txt"), parent_path=Path("/tmp"), name="report.txt")][:limit],
+            total=1,
+            elapsed_ms=2.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: activated.append(hit.name))
+    launcher.open_containing_folder.connect(lambda hit: revealed.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("report")
+    launcher.query_field.setFocus()
+    _wait(10)
+    assert launcher.query_field.hasFocus()
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Return)
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Return, Qt.KeyboardModifier.ControlModifier)
+
+    assert activated == ["report.txt"]
+    assert revealed == ["report.txt"]
+    assert launcher.query_field.hasFocus()
+    assert launcher.model.rowCount() == 1
+
+
 def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         if not query:
