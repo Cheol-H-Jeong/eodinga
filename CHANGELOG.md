@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.14 - 2026-04-23
+
+- Routed bare path/name lookups through `paths_fts` first, with a substring-scan fallback only when FTS misses entirely, so existing path-match behavior stays intact while the hot query path uses the indexed lookup.
+- Short-circuited the executor’s common name-only branch so it skips the expensive per-record content-text filter pass unless the query actually includes negation, regex, path filters, or content terms.
+- Refreshed the opt-in perf baseline after the query-path optimization: cold-start throughput measured 7,361 files/sec and name-only query latency dropped to p50 0.06 ms / p95 0.06 ms / p99 0.07 ms on the local dev box.
+
 ## 0.1.13 - 2026-04-23
 
 - Made launcher match highlighting DSL-aware so free-text terms and quoted phrases still highlight even when the query also includes filters or negation.

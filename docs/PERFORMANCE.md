@@ -19,8 +19,8 @@ Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv`
 
 | Benchmark | Dataset | Result |
 | --- | --- | --- |
-| Cold start | 20,201 indexed entries | 7,222 files/sec |
-| Name query latency | 2,000 queries / 50k files | p50 9.71 ms, p95 10.51 ms, p99 11.83 ms |
+| Cold start | 20,201 indexed entries | 7,361 files/sec |
+| Name query latency | 2,000 queries / 50k files | p50 0.06 ms, p95 0.06 ms, p99 0.07 ms |
 | Content query latency | 500 queries / 5k docs | p50 0.63 ms, p95 0.66 ms, p99 0.68 ms |
 | Watch latency | 25 created files | p99 0.132 s |
 
