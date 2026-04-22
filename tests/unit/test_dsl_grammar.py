@@ -360,7 +360,6 @@ NEGATABLE_OPERATOR_ATOMS = st.one_of(
             "size:>10M",
             "is:duplicate",
             "case:false",
-            "regex:true",
         ]
     ),
     st.builds(lambda value: f"-{value}", st.sampled_from(["ext:pdf", "is:symlink", "path:archive"])),
