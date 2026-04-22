@@ -7,7 +7,7 @@ APPDIR="${DIST_DIR}/eodinga.AppDir"
 AUDIT_PATH="${DIST_DIR}/linux-appimage-audit.json"
 APPIMAGE_RECIPE="${ROOT_DIR}/packaging/linux/appimage-builder.yml"
 APPIMAGE_ICON="${ROOT_DIR}/packaging/linux/eodinga.svg"
-VERSION="$(python3 - <<'PY'
+PACKAGE_VERSION="$(python3 - <<'PY'
 import pathlib
 import re
 
@@ -18,6 +18,19 @@ if match is None:
 print(match.group(1))
 PY
 )"
+PROJECT_VERSION="$(python3 - <<'PY'
+import pathlib
+import tomllib
+
+payload = tomllib.loads(pathlib.Path("pyproject.toml").read_text(encoding="utf-8"))
+print(payload["project"]["version"])
+PY
+)"
+if [[ "${PACKAGE_VERSION}" != "${PROJECT_VERSION}" ]]; then
+  echo "version mismatch: pyproject.toml=${PROJECT_VERSION} eodinga/__init__.py=${PACKAGE_VERSION}" >&2
+  exit 1
+fi
+VERSION="${PACKAGE_VERSION}"
 ARCHIVE_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-appdir.tar.gz"
 DRY_RUN=0
 
@@ -71,7 +84,9 @@ recipe_path = Path("${APPIMAGE_RECIPE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
 payload = {
     "target": "linux-appimage-dry-run" if ${DRY_RUN} else "linux-appimage",
-    "version": "${VERSION}",
+    "version": "${PROJECT_VERSION}",
+    "package_version": "${PACKAGE_VERSION}",
+    "version_matches_package": "${PROJECT_VERSION}" == "${PACKAGE_VERSION}",
     "appdir": "${APPDIR}",
     "archive": "${ARCHIVE_PATH}",
     "dry_run": bool(${DRY_RUN}),

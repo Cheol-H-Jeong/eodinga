@@ -114,6 +114,8 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-appimage-dry-run"
     assert payload["version"] == __version__
+    assert payload["package_version"] == __version__
+    assert payload["version_matches_package"] is True
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
     assert payload["desktop_entry"]["name"] == "eodinga"
@@ -147,6 +149,9 @@ def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
     assert manifest_path.exists()
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-appimage"
+    assert payload["version"] == __version__
+    assert payload["package_version"] == __version__
+    assert payload["version_matches_package"] is True
     assert payload["dry_run"] is False
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
@@ -166,6 +171,8 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-deb-dry-run"
     assert payload["version"] == __version__
+    assert payload["package_version"] == __version__
+    assert payload["version_matches_package"] is True
     assert payload["arch"] == "amd64"
     assert Path(payload["package_dir"]).exists()
     assert Path(payload["control_path"]).exists()
@@ -203,6 +210,9 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert manifest_path.exists()
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-deb"
+    assert payload["version"] == __version__
+    assert payload["package_version"] == __version__
+    assert payload["version_matches_package"] is True
     assert payload["dry_run"] is False
     assert Path(payload["package_dir"]).exists()
     assert Path(payload["control_path"]).exists()

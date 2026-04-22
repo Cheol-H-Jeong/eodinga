@@ -7,7 +7,7 @@ BUILD_ROOT="${DIST_DIR}/deb-root"
 AUDIT_PATH="${DIST_DIR}/linux-deb-audit.json"
 DESKTOP_ENTRY="${ROOT_DIR}/packaging/linux/eodinga.desktop"
 ICON_ASSET="${ROOT_DIR}/packaging/linux/eodinga.svg"
-VERSION="$(python3 - <<'PY'
+PACKAGE_VERSION="$(python3 - <<'PY'
 import pathlib
 import re
 
@@ -18,6 +18,19 @@ if match is None:
 print(match.group(1))
 PY
 )"
+PROJECT_VERSION="$(python3 - <<'PY'
+import pathlib
+import tomllib
+
+payload = tomllib.loads(pathlib.Path("pyproject.toml").read_text(encoding="utf-8"))
+print(payload["project"]["version"])
+PY
+)"
+if [[ "${PACKAGE_VERSION}" != "${PROJECT_VERSION}" ]]; then
+  echo "version mismatch: pyproject.toml=${PROJECT_VERSION} eodinga/__init__.py=${PACKAGE_VERSION}" >&2
+  exit 1
+fi
+VERSION="${PACKAGE_VERSION}"
 ARCH="${TARGET_ARCH:-amd64}"
 PACKAGE_DIR="${BUILD_ROOT}/eodinga_${VERSION}_${ARCH}"
 ARCHIVE_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}_debroot.tar.gz"
@@ -91,7 +104,9 @@ license_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE")
 changelog_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
 payload = {
     "target": "linux-deb-dry-run" if ${DRY_RUN} else "linux-deb",
-    "version": "${VERSION}",
+    "version": "${PROJECT_VERSION}",
+    "package_version": "${PACKAGE_VERSION}",
+    "version_matches_package": "${PROJECT_VERSION}" == "${PACKAGE_VERSION}",
     "arch": "${ARCH}",
     "package_dir": "${PACKAGE_DIR}",
     "control_path": str(control_path),
