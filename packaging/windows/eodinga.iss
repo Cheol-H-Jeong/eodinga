@@ -1,6 +1,6 @@
 ; eodinga Windows installer
 #define AppName "eodinga"
-#define AppVersion "0.1.0"
+#define AppVersion "@@APP_VERSION@@"
 #define AppPublisher "Cheol-H-Jeong"
 #define AppId "{{B4D25A04-71A1-45A2-A0BB-7B3F612E9E68}"
 
@@ -55,4 +55,3 @@ end;
 [CustomMessages]
 english.LaunchAtStartup=Launch eodinga at login
 korean.LaunchAtStartup=로그인 시 eodinga 자동 실행
-
