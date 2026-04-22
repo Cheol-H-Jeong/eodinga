@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.102 - 2026-04-23
+## 0.1.103 - 2026-04-23
 
 - Added shipped `docs/CONTRIBUTING.md` and `docs/RELEASE.md` guides, and expanded the README docs map plus feature overview so contributor and release workflow stops depending on scattered repository knowledge.
 - Deepened `docs/ARCHITECTURE.md` with ASCII data-flow, startup-sequence, and query-sequence diagrams, and tightened the docs regression to pin the new architecture and guide sections as part of the shipped surface.
