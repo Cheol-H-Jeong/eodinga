@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from os import fsdecode
 from pathlib import Path
-from queue import Queue
+from queue import Empty, Queue
 from threading import Event, Lock, Thread
 from time import monotonic
 from typing import Protocol
@@ -71,6 +71,8 @@ class WatchService:
         self._observers: dict[Path, _ManagedObserver] = {}
 
     def start(self, root: Path) -> None:
+        if root in self._observers:
+            return
         if self._stop.is_set():
             self._stop = Event()
         if self._flush_thread is None or not self._flush_thread.is_alive():
@@ -91,6 +93,7 @@ class WatchService:
             self._flush_thread.join(timeout=1)
         self._flush_thread = None
         self._observers.clear()
+        self._reset_state()
 
     def record(self, event: WatchEvent) -> None:
         with self._lock:
@@ -200,3 +203,14 @@ class WatchService:
                 self._timestamps.pop(path, None)
                 if event is not None:
                     self.queue.put(event)
+
+    def _reset_state(self) -> None:
+        with self._lock:
+            self._pending.clear()
+            self._retired_sources.clear()
+            self._timestamps.clear()
+        while True:
+            try:
+                self.queue.get_nowait()
+            except Empty:
+                break
