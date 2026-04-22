@@ -87,7 +87,7 @@ def test_tray_indicator_can_open_main_window_without_tray_backend(qapp) -> None:
     assert window.isVisible()
 
 
-def test_tray_indicator_quit_action_requests_application_exit(qapp, monkeypatch) -> None:
+def test_tray_indicator_quit_action_stops_app(qapp, monkeypatch) -> None:
     requested: list[bool] = []
     window = EodingaWindow()
 

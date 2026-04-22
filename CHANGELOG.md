@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.79 - 2026-04-23
+
+- Restored launcher config compatibility for persisted `always_on_top` settings, so existing `config.toml` files no longer crash every CLI subcommand during startup validation and the popup once again applies the saved on-top preference explicitly.
+- Added `Alt+1` through `Alt+9` quick-pick shortcuts for launcher results, letting keyboard-only users open the top nine hits directly from either the popup or the embedded search panel without stepping through list navigation first.
+- Expanded the tray menu with explicit `Open eodinga` and `Quit` actions, and split launcher result/status helpers into a dedicated module so the launcher implementation stays under the repository's 500-line module cap.
+
 ## 0.1.78 - 2026-04-23
 
 - Tightened the Windows packaging audit so the rendered Inno installer now verifies its escaped `AppId`, template-driven `AppVersion`, and GUI uninstall icon path instead of relying on looser substring checks.
