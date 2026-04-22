@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from os import fsdecode
 from pathlib import Path
-from queue import Empty, Queue
+from queue import Empty, Full, Queue
 from threading import Event, Lock, Thread
 from time import monotonic
 from typing import Protocol
@@ -12,9 +12,11 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from eodinga.common import WatchEvent
+from eodinga.observability import get_logger
 
 _DEBOUNCE_SECONDS = 0.1
 _FLUSH_LIMIT = 500
+_QUEUE_MAXSIZE = 2048
 
 
 def _event_type_for(event: FileSystemEvent) -> str:
@@ -99,8 +101,8 @@ class _Handler(FileSystemEventHandler):
 
 
 class WatchService:
-    def __init__(self) -> None:
-        self.queue: Queue[WatchEvent] = Queue()
+    def __init__(self, *, queue_maxsize: int = _QUEUE_MAXSIZE) -> None:
+        self.queue: Queue[WatchEvent] = Queue(maxsize=max(queue_maxsize, 1))
         self._pending: dict[Path, WatchEvent] = {}
         self._retired_sources: dict[Path, set[Path]] = {}
         self._flushed_retired_sources: set[Path] = set()
@@ -109,6 +111,7 @@ class WatchService:
         self._stop = Event()
         self._flush_thread = None
         self._observers: dict[Path, _ManagedObserver] = {}
+        self._logger = get_logger("core.watcher")
 
     def start(self, root: Path) -> None:
         if root in self._observers:
@@ -270,7 +273,22 @@ class WatchService:
                         self._flushed_retired_sources.update(retired_sources)
                     if event.event_type in {"created", "modified", "deleted"}:
                         self._flushed_retired_sources.discard(event.path)
-                    self.queue.put(event)
+                    self._enqueue(event)
+
+    def _enqueue(self, event: WatchEvent) -> None:
+        warned = False
+        while not self._stop.is_set():
+            try:
+                self.queue.put(event, timeout=0.05)
+                return
+            except Full:
+                if not warned:
+                    self._logger.warning(
+                        "watcher queue full; applying backpressure path={} maxsize={}",
+                        event.path,
+                        self.queue.maxsize,
+                    )
+                    warned = True
 
     def _reset_state(self) -> None:
         with self._lock:

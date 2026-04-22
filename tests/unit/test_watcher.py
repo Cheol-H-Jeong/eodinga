@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from queue import Empty
+from threading import Thread
 from time import monotonic, sleep
 
 import pytest
@@ -647,3 +648,43 @@ def test_watcher_start_ignores_duplicate_root_registration(
 
     assert started == [tmp_path]
     assert stopped == [tmp_path]
+
+
+def test_watcher_queue_backpressure_blocks_until_consumer_drains(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import eodinga.core.watcher as watcher_module
+
+    warnings: list[str] = []
+
+    class FakeLogger:
+        def warning(self, message: str, *args: object) -> None:
+            warnings.append(message.format(*args))
+
+    monkeypatch.setattr(watcher_module, "get_logger", lambda _name: FakeLogger())
+
+    service = watcher_module.WatchService(queue_maxsize=1)
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+
+    service.record(WatchEvent(event_type="created", path=first, root_path=tmp_path, happened_at=1.0))
+    service._flush_ready(force=True)
+
+    service.record(WatchEvent(event_type="created", path=second, root_path=tmp_path, happened_at=2.0))
+    flush_thread = Thread(target=lambda: service._flush_ready(force=True), daemon=True)
+    flush_thread.start()
+    sleep(0.1)
+
+    assert flush_thread.is_alive()
+
+    drained = service.queue.get_nowait()
+    assert drained.path == first
+
+    flush_thread.join(timeout=0.5)
+    assert not flush_thread.is_alive()
+
+    delivered = service.queue.get(timeout=0.2)
+    assert delivered.path == second
+    assert len(warnings) == 1
+    assert "watcher queue full; applying backpressure" in warnings[0]
+    assert str(second) in warnings[0]
