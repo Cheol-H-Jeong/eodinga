@@ -6,10 +6,11 @@ from pathlib import Path
 from queue import Empty
 
 import pytest
+from watchdog.events import FileMovedEvent
 
 from eodinga.common import PathRules, WatchEvent
 from eodinga.content.registry import parse
-from eodinga.core.watcher import WatchService
+from eodinga.core.watcher import WatchService, _Handler
 from eodinga.index import open_index
 from eodinga.index.writer import IndexWriter
 from eodinga.core.walker import walk_batched
@@ -323,6 +324,74 @@ def test_e2e_watch_move_then_destination_create_deletes_source_row(tmp_path: Pat
         indexed_paths = {
             Path(row[0])
             for row in conn.execute("SELECT path FROM files WHERE is_dir = 0 ORDER BY path").fetchall()
+        }
+    finally:
+        conn.close()
+
+    assert indexed_paths == {destination}
+
+
+def test_e2e_watch_handler_move_leaving_root_deletes_indexed_row(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    outside = tmp_path / "outside"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    outside.mkdir()
+    source = root / "draft.txt"
+    destination = outside / "draft.txt"
+    source.write_text("draft body\n", encoding="utf-8")
+    _index_tree(root, db_path)
+
+    conn = open_index(db_path)
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        handler = _Handler(WatchService(), root)
+
+        source.rename(destination)
+        handler.on_any_event(FileMovedEvent(str(source), str(destination)))
+        handler._service._flush_ready(force=True)
+
+        event = handler._service.queue.get_nowait()
+        assert event.event_type == "deleted"
+        assert writer.apply_events([event], record_loader=make_record) == 1
+
+        indexed_paths = {
+            Path(row[0])
+            for row in conn.execute("SELECT path FROM files WHERE is_dir = 0").fetchall()
+        }
+    finally:
+        conn.close()
+
+    assert indexed_paths == set()
+
+
+def test_e2e_watch_handler_move_entering_root_creates_indexed_row(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    outside = tmp_path / "outside"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    outside.mkdir()
+    source = outside / "draft.txt"
+    destination = root / "draft.txt"
+    source.write_text("draft body\n", encoding="utf-8")
+    _index_tree(root, db_path)
+
+    conn = open_index(db_path)
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        handler = _Handler(WatchService(), root)
+
+        source.rename(destination)
+        handler.on_any_event(FileMovedEvent(str(source), str(destination)))
+        handler._service._flush_ready(force=True)
+
+        event = handler._service.queue.get_nowait()
+        assert event.event_type == "created"
+        assert writer.apply_events([event], record_loader=make_record) == 1
+
+        indexed_paths = {
+            Path(row[0])
+            for row in conn.execute("SELECT path FROM files WHERE is_dir = 0").fetchall()
         }
     finally:
         conn.close()
