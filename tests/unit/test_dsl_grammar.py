@@ -18,6 +18,10 @@ from eodinga.query.dsl import (
 from eodinga.query.compiler import compile_query
 
 
+def _escape_phrase(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
 @pytest.mark.parametrize(
     ("query", "expected_type"),
     [
@@ -105,6 +109,11 @@ def test_parse_inline_operator_empty_regex_errors(query: str) -> None:
 def test_parse_regex_flags_must_be_supported_and_unique(query: str) -> None:
     with pytest.raises(QuerySyntaxError, match="regex flag"):
         parse(query)
+
+
+def test_parse_phrase_with_dangling_escape_errors() -> None:
+    with pytest.raises(QuerySyntaxError, match="unterminated phrase"):
+        parse('"\\\"')
 
 
 @pytest.mark.parametrize("query", ["path:/workspace/projects", "path:/tmp/log", "path:/a/b"])
@@ -236,7 +245,7 @@ ATOMS = st.one_of(
         max_size=12,
     ).filter(lambda value: value.strip() and value != "-"),
     st.builds(
-        lambda value: f'"{value}"',
+        lambda value: f'"{_escape_phrase(value)}"',
         st.text(
             st.characters(blacklist_characters='"', blacklist_categories=("Cs",)),
             min_size=1,
