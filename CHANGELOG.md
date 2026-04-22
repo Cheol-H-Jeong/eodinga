@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.40 - 2026-04-23
+
+- Fixed walker traversal for symlinked roots by preserving the configured alias path during discovery and allowing descent into that root when it resolves to a directory, restoring indexing for aliased or bind-mounted root entries without re-enabling recursive child symlink traversal.
+- Corrected walker records for symlinked directories so they are now tagged as both `is_symlink` and `is_dir`, which keeps `is:file` and `is:dir` query semantics aligned with the visible filesystem entry type.
+- Added unit and end-to-end regressions proving symlink-root indexing, alias-path preservation, and aliased directory metadata through the real index-and-search path.
+
 ## 0.1.39 - 2026-04-23
 
 - Hardened walker traversal against bind-mount style alias cycles by deduplicating directory expansion on canonical resolved paths as well as `(st_dev, st_ino)`, which prevents repeated subtree re-entry when the same directory is surfaced under a different device/inode view.
