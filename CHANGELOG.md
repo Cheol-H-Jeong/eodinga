@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.104 - 2026-04-23
+## 0.1.109 - 2026-04-23
 
 - Preserved committed `.index.db.next` rebuild progress on interruption instead of deleting the staged database, so startup recovery can finish the swap after an aborted index run.
 - Returned clean `130` / `143` style CLI exit codes for interrupted rebuilds and surfaced the preserved staged path in stderr instead of treating the stop as a generic failure.
