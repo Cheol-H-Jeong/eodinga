@@ -54,7 +54,6 @@ CREATE VIRTUAL TABLE IF NOT EXISTS paths_fts USING fts5(
 
 CREATE VIRTUAL TABLE IF NOT EXISTS content_fts USING fts5(
   title, head_text, body_text,
-  content='',
   tokenize="unicode61 remove_diacritics 2 tokenchars '._-'"
 );
 

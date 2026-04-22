@@ -90,6 +90,15 @@ class WatchService:
     def record(self, event: WatchEvent) -> None:
         with self._lock:
             existing = self._pending.get(event.path)
+            if (
+                existing is not None
+                and existing.event_type == "moved"
+                and event.event_type == "deleted"
+            ):
+                self.queue.put(existing)
+                self._pending[event.path] = event
+                self._timestamps[event.path] = monotonic()
+                return
             merged = self._coalesce(existing, event)
             if merged is None:
                 self._pending.pop(event.path, None)
