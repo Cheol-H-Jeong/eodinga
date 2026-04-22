@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-from typing import cast
+from typing import Callable, cast
 
 
 def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
@@ -68,7 +68,7 @@ def test_pyinstaller_spec_discovers_importlib_import_module_variants() -> None:
     namespace["__file__"] = str(spec_path.resolve())
     exec(spec_path.read_text(encoding="utf-8"), namespace)
 
-    discover_hidden_imports = cast(object, namespace["_discover_hidden_imports"])
+    discover_hidden_imports = cast(Callable[[Path], list[str]], namespace["_discover_hidden_imports"])
     source_root = Path("tests/fixtures/pyinstaller_imports")
     discovered = cast(list[str], discover_hidden_imports(source_root))
 
@@ -84,15 +84,21 @@ def test_pyinstaller_spec_resolves_relative_import_targets() -> None:
     namespace["__file__"] = str(spec_path.resolve())
     exec(spec_path.read_text(encoding="utf-8"), namespace)
 
-    resolve_import_target = cast(object, namespace["_resolve_import_target"])
-    relative_call = ast.parse(
+    resolve_import_target = cast(Callable[[ast.Call], str | None], namespace["_resolve_import_target"])
+    relative_call = cast(
+        ast.Call,
+        ast.parse(
         'importlib.import_module(".hotkey_win", package="eodinga.launcher")',
         mode="eval",
-    ).body
-    package_call = ast.parse(
+    ).body,
+    )
+    package_call = cast(
+        ast.Call,
+        ast.parse(
         'import_module(".widgets.search_field", package="eodinga.gui")',
         mode="eval",
-    ).body
+    ).body,
+    )
 
     assert cast(str, resolve_import_target(relative_call)) == "eodinga.launcher.hotkey_win"
     assert cast(str, resolve_import_target(package_call)) == "eodinga.gui.widgets.search_field"
