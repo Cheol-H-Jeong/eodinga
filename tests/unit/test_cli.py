@@ -162,6 +162,55 @@ def test_search_json_honors_root_filter(cli_runner, tmp_path: Path) -> None:
     assert [Path(item["path"]).parent.name for item in payload["results"]] == ["reports", "reports"]
 
 
+def test_search_json_root_filter_pushes_scope_into_query(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        conn.execute(
+            "INSERT INTO roots(id, path, include, exclude, added_at) VALUES (?, ?, ?, ?, ?)",
+            (1, "/workspace", "[]", "[]", 1),
+        )
+        for file_id in range(1, 61):
+            _insert_file(
+                conn,
+                file_id,
+                f"/workspace/other/alpha-{file_id:03d}.txt",
+                1024,
+                1_713_528_000 - file_id,
+                "txt",
+                body_text="alpha outside root",
+            )
+        _insert_file(
+            conn,
+            999,
+            "/workspace/reports/alpha-target.txt",
+            1024,
+            1_713_528_000,
+            "txt",
+            body_text="alpha inside scoped root",
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "alpha",
+        "--json",
+        "--limit",
+        "1",
+        "--root",
+        "/workspace/reports",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == ["alpha-target.txt"]
+
+
 def test_search_reports_invalid_query_cleanly(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)

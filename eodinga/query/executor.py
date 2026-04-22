@@ -4,6 +4,7 @@ import re
 import sqlite3
 import time
 from collections.abc import Iterable, Mapping
+from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
@@ -127,6 +128,26 @@ def _fetch_records(
     sql += " ORDER BY files.name_lower ASC LIMIT ?"
     rows = conn.execute(sql, (*where_params, limit)).fetchall()
     return {row["id"]: _row_to_record(row) for row in rows}
+
+
+def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
+    if root is None:
+        return "", ()
+    root_text = str(root)
+    return "(files.path = ? OR files.path LIKE ?)", (root_text, f"{root_text}/%")
+
+
+def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:
+    scope_sql, scope_params = _root_scope_clause(root)
+    if not scope_sql:
+        return branch
+    if branch.where_sql:
+        where_sql = f"{branch.where_sql} AND {scope_sql}"
+        where_params = (*branch.where_params, *scope_params)
+    else:
+        where_sql = scope_sql
+        where_params = scope_params
+    return branch.model_copy(update={"where_sql": where_sql, "where_params": where_params})
 
 
 def _fetch_path_candidates(
@@ -414,13 +435,19 @@ def _execute_branch(
     return filtered_records, scores, branch_snippets
 
 
-def execute(conn: sqlite3.Connection, compiled: CompiledQuery, limit: int = 200) -> QueryResult:
+def execute(
+    conn: sqlite3.Connection,
+    compiled: CompiledQuery,
+    limit: int = 200,
+    root: Path | None = None,
+) -> QueryResult:
     started = time.perf_counter()
     merged_records: dict[int, FileRecord] = {}
     merged_scores: dict[int, float] = {}
     merged_snippets: dict[int, str | None] = {}
     for branch in compiled.branches:
-        branch_records, branch_scores, branch_snippets = _execute_branch(conn, branch, limit)
+        scoped_branch = _scoped_branch(branch, root)
+        branch_records, branch_scores, branch_snippets = _execute_branch(conn, scoped_branch, limit)
         merged_records.update(branch_records)
         for file_id, score in branch_scores.items():
             merged_scores[file_id] = max(score, merged_scores.get(file_id, 0.0))

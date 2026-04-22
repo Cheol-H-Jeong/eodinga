@@ -96,17 +96,14 @@ def _cmd_search(args: argparse.Namespace) -> int:
     _resolve_config(args)
     limit = max(int(args.limit), 0)
     root = args.root.resolve() if args.root is not None else None
-    fetch_limit = max(limit * 10, limit, 50) if root is not None else limit
     try:
         with closing(open_index(args.db or _resolve_config(args).index.db_path)) as conn:
-            query_result = run_search(conn, args.query, limit=fetch_limit)
+            query_result = run_search(conn, args.query, limit=limit, root=root)
     except (QuerySyntaxError, ValueError) as error:
         sys.stderr.write(f"{error}\n")
         return 2
 
     hits = query_result.hits
-    if root is not None:
-        hits = [hit for hit in hits if hit.file.path.is_relative_to(root)]
     results = [
         SearchResult(
             path=hit.file.path,

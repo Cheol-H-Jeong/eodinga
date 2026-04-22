@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from sqlite3 import Connection
 
 from eodinga.query.compiler import CompiledQuery, compile_query
@@ -17,8 +18,10 @@ def compile(query: str) -> CompiledQuery:
     return _compile_cached(query)
 
 
-def search(conn: Connection, query_str: str, limit: int = 200) -> QueryResult:
-    return execute(conn, compile(query_str), limit=limit)
+def search(
+    conn: Connection, query_str: str, limit: int = 200, root: Path | None = None
+) -> QueryResult:
+    return execute(conn, compile(query_str), limit=limit, root=root)
 
 
 __all__ = [
