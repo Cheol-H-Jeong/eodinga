@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.11 - 2026-04-23
+
+- Hardened staged-index replacement with explicit file and directory `fsync` calls around the atomic swap so SQLite snapshots survive power-loss style interruptions more reliably.
+- Extended storage coverage to assert the durable-swap sync sequence in addition to staged-WAL checkpointing and sidecar cleanup.
+- Taught `eodinga doctor` to detect and replay stale index WAL files before reporting DB health, with regression coverage for the repaired startup path.
+
 ## 0.1.10 - 2026-04-23
 
 - Wired `eodinga gui` into the real Qt app flow so offscreen smoke now instantiates both the main window and popup launcher instead of returning a placeholder payload.
