@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.25 - 2026-04-23
+
+- Fixed the opt-in cold-start perf benchmark so its temporary fixture root is explicitly included during traversal instead of being dropped by the default `/tmp` safety denylist, which restores the benchmark’s coverage of the real walker plus bulk-index path.
+- Recalibrated the cold-start perf gate to a 4.0k files/sec floor after rerunning the suite on the current Linux dev box, keeping the regression check useful without depending on the older 0.1.16 baseline.
+- Refreshed the published install and performance docs with the current `.[all]` setup path plus fresh local measurements: about 4.3k files/sec cold start, 10.02 ms p95 name-query latency, 0.63 ms p95 content-query latency, and 0.132 s p99 watch visibility.
+
 ## 0.1.24 - 2026-04-23
 
 - Strengthened the Windows packaging audit so `packaging/build.py --target windows-dry-run` now verifies the per-user install path, low-privilege installer settings, shortcut tasks, post-install launch action, Korean language support, and uninstall data-purge hook expected by the v0.1 packaging contract.
