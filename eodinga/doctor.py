@@ -7,24 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from eodinga.config import AppConfig, default_db_path
+from eodinga.core.fs import DENYLIST
 from eodinga.index import has_stale_wal, recover_stale_wal
 
-DEFAULT_EXCLUDES = [
-    "/proc",
-    "/sys",
-    "/dev",
-    "/snap",
-    "/run",
-    "/var/cache",
-    "/var/lib/docker",
-    "/tmp",
-    "~/.cache",
-    "~/.local/share/Trash",
-    "~/snap",
-    "C:\\Windows",
-    "C:\\$Recycle.Bin",
-    "%SystemRoot%",
-]
+DEFAULT_EXCLUDES = list(DENYLIST) + ["/var/lib/docker"]
 
 REQUIRED_IMPORTS = {
     "pydantic": "pydantic",

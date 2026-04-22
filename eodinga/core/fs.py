@@ -10,9 +10,16 @@ DENYLIST = (
     "/proc",
     "/sys",
     "/dev",
+    "/snap",
     "/run",
+    "/var/cache",
     "/var/lib",
+    "/tmp",
+    "~/.cache",
+    "~/.local/share/Trash",
+    "~/snap",
     "%SystemRoot%",
+    "C:/$Recycle.Bin",
     "~/AppData/Local/Temp",
 )
 
