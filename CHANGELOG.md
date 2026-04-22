@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.59 - 2026-04-23
+
+- Strengthened the Linux Debian packaging path so the staged `.deb` now includes the desktop entry, SVG app icon, launcher shim, license, and a compressed changelog instead of shipping only the bare command wrapper plus control metadata.
+- Expanded the Debian packaging audit manifest and regression coverage to assert control fields, desktop-launch metadata, icon installation, launcher executability, and packaged docs through both dry-run and real-build targets.
+- Documented the Linux packaging validation commands and the installed Debian asset surface in the README and architecture guide so the release workflow and operator docs describe the same audited package contract.
+
 ## 0.1.58 - 2026-04-23
 
 - Fixed launcher row rendering so precomputed secondary-path highlights are now respected, which keeps GUI result rows aligned with the query engine's actual path matches instead of recomputing and potentially losing those spans.
