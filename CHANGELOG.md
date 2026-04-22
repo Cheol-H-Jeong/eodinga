@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.22 - 2026-04-23
+
+- Hardened `test_no_network_in_source` so Python sources are now checked with AST-level import/call detection in addition to raw URL token scanning, which closes easy evasion paths such as split imports of `socket`, `urllib.request`, or `http.*`.
+- Tightened the readonly filesystem safety contract by expanding `test_fs_readonly` to cover write-capable mode variants and to reject write-oriented filesystem calls inside `eodinga/core/fs.py`.
+- Kept the round focused on reliability enforcement rather than new runtime behavior, so the existing index/search/watch paths remain unchanged while the v0.1 safety guarantees are more credibly pinned down.
+
 ## 0.1.21 - 2026-04-23
 
 - Pushed CLI `search --root` scoping into the query executor so root-constrained searches now rank and limit within the requested subtree instead of post-filtering a lossy overfetch window.
