@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "eodinga"
+version = "0.1.0"
+description = "Instant lexical file search for Windows and Linux."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+  "loguru>=0.7.2",
+  "pydantic>=2.7,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pyright>=1.1.397",
+  "pytest>=8.3",
+  "ruff>=0.11.0",
+]
+gui = [
+  "PySide6>=6.7",
+]
+hotkey = [
+  "pywin32; sys_platform == 'win32'",
+  "python-xlib; sys_platform == 'linux'",
+  "pynput>=1.7.7",
+]
+parsers = []
+all = [
+  "eodinga[dev,gui,hotkey,parsers]",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["eodinga"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.pyright]
+include = ["eodinga", "tests"]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+
