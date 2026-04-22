@@ -86,7 +86,7 @@ Perf gates remain opt-in in v0.1, but the suite and local baseline are documente
 source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
 ```
 
-Current local-dev baseline for `0.1.16`: cold start at roughly 7.1k files/sec and 50k-file name/path lookups at about 0.07 ms p95.
+Current local-dev baseline for `0.1.16`: cold start at roughly 5.1k files/sec and 50k-file name/path lookups at about 0.10 ms p95.
 
 ## Diagnostics
 

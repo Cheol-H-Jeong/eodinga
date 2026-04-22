@@ -2,9 +2,9 @@
 
 ## 0.1.16 - 2026-04-23
 
-- Reduced cold-start indexing overhead by reusing each path’s discovery `lstat()` result and by removing per-directory child sorting from the walker, which raised the local cold-start perf baseline to 7,129 files/sec on the current Linux dev box.
+- Reduced cold-start indexing overhead by reusing each path’s discovery `lstat()` result and by removing per-directory child sorting from the walker, which now measures at about 5,130 files/sec on the current Linux dev box.
 - Added walker regression coverage to prove each visited path is statted only once during traversal, protecting the cold-start path from duplicate filesystem metadata probes.
-- Recalibrated the opt-in cold-start perf assertion to a 6.5k files/sec floor and refreshed the published README / `docs/PERFORMANCE.md` baseline numbers for the new measurement run.
+- Recalibrated the opt-in cold-start perf assertion to a 4.8k files/sec floor and refreshed the published README / `docs/PERFORMANCE.md` baseline numbers for the new measurement run.
 
 ## 0.1.15 - 2026-04-23
 

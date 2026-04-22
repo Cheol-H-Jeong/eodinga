@@ -19,12 +19,12 @@ Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv`
 
 | Benchmark | Dataset | Result |
 | --- | --- | --- |
-| Cold start | 20,201 indexed entries | 7,129 files/sec |
-| Name query latency | 2,000 queries / 50k files | p50 0.06 ms, p95 0.07 ms, p99 0.07 ms |
-| Content query latency | 500 queries / 5k docs | p50 0.61 ms, p95 0.65 ms, p99 0.69 ms |
+| Cold start | 20,201 indexed entries | 5,130 files/sec |
+| Name query latency | 2,000 queries / 50k files | p50 0.09 ms, p95 0.10 ms, p99 0.12 ms |
+| Content query latency | 500 queries / 5k docs | p50 0.99 ms, p95 1.09 ms, p99 1.29 ms |
 | Watch latency | 25 created files | p99 0.132 s |
 
-These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. The cold-start gate is intentionally set below the measured baseline so small machine-to-machine variance does not create false failures.
+These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. The cold-start gate is intentionally set below the measured baseline so machine variance and background load do not create false failures.
 
 ## Interpreting Results
 
