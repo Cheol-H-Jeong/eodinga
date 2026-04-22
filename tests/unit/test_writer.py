@@ -139,6 +139,76 @@ def test_writer_bulk_upsert_reuses_existing_content_rowids(tmp_db: Path, tmp_pat
     assert file_hash == (b"sha-two",)
 
 
+def test_writer_bulk_upsert_skips_unchanged_content_rewrite(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    record = _synthetic_record(1, tmp_path)
+    parsed = ParsedContent(
+        title=record.name,
+        head_text="head stable",
+        body_text="body stable",
+        content_sha=b"sha-stable",
+    )
+
+    writer = IndexWriter(conn, parser_callback=lambda _path: parsed)
+    assert writer.bulk_upsert([record]) == 1
+    before = conn.execute(
+        """
+        SELECT content_map.fts_rowid, content_map.content_sha, content_fts.body_text
+        FROM content_map
+        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
+        """
+    ).fetchone()
+
+    statements: list[str] = []
+    conn.set_trace_callback(statements.append)
+    try:
+        assert writer.bulk_upsert([record]) == 1
+    finally:
+        conn.set_trace_callback(None)
+
+    after = conn.execute(
+        """
+        SELECT content_map.fts_rowid, content_map.content_sha, content_fts.body_text
+        FROM content_map
+        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
+        """
+    ).fetchone()
+
+    assert before == after
+    assert not any("DELETE FROM content_fts" in statement for statement in statements)
+    assert not any("INSERT INTO content_fts" in statement for statement in statements)
+
+
+def test_writer_bulk_upsert_preserves_existing_content_hash_when_record_has_none(
+    tmp_db: Path, tmp_path: Path
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    record = _synthetic_record(1, tmp_path)
+    parsed = ParsedContent(
+        title=record.name,
+        head_text="head one",
+        body_text="body one",
+        content_sha=b"sha-one",
+    )
+
+    writer = IndexWriter(conn, parser_callback=lambda _path: parsed)
+    assert writer.bulk_upsert([record]) == 1
+
+    # Plain record upserts should not clear a persisted content hash before the parser runs.
+    writer._upsert_records([record])
+
+    file_hash = conn.execute("SELECT content_hash FROM files WHERE path = ?", (str(record.path),)).fetchone()
+    assert file_hash == (b"sha-one",)
+
+
 def test_writer_clears_file_content_hash_for_empty_parsed_content(tmp_db: Path, tmp_path: Path) -> None:
     conn = sqlite3.connect(tmp_db)
     conn.execute(

@@ -4,7 +4,7 @@ import sqlite3
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from time import time
-from typing import TypeVar
+from typing import NamedTuple, TypeVar
 
 from eodinga.common import FileRecord, ParsedContent, WatchEvent
 from eodinga.index.schema import apply_schema, current_schema_version
@@ -12,6 +12,12 @@ from eodinga.index.schema import apply_schema, current_schema_version
 ParserCallback = Callable[[Path], ParsedContent | None]
 RecordLoader = Callable[[Path], FileRecord | None]
 T = TypeVar("T")
+
+
+class ExistingContentRow(NamedTuple):
+    file_id: int
+    rowid: int | None
+    content_sha: bytes | None
 
 
 def _record_tuple(record: FileRecord) -> tuple[object, ...]:
@@ -93,7 +99,7 @@ class IndexWriter:
               ctime=excluded.ctime,
               is_dir=excluded.is_dir,
               is_symlink=excluded.is_symlink,
-              content_hash=excluded.content_hash,
+              content_hash=COALESCE(excluded.content_hash, files.content_hash),
               indexed_at=excluded.indexed_at
             """,
             [_record_tuple(record) for record in records],
@@ -126,12 +132,20 @@ class IndexWriter:
         if not parsed_by_path:
             return
 
-        file_ids = self._select_file_ids(path_order)
-        if not file_ids:
+        existing_rows = self._select_existing_content_rows(path_order)
+        if not existing_rows:
             return
-        existing_rowids = self._select_content_rowids(tuple(file_ids.values()))
-
-        reused_rowids = list(existing_rowids.values())
+        changed_paths = [
+            path_text
+            for path_text in path_order
+            if path_text in existing_rows
+            and existing_rows[path_text].content_sha != (parsed_by_path[path_text].content_sha or None)
+        ]
+        reused_rowids = [
+            row.rowid
+            for path_text in changed_paths
+            if (row := existing_rows[path_text]).rowid is not None
+        ]
         if reused_rowids:
             self._delete_content_rows(reused_rowids)
 
@@ -141,11 +155,14 @@ class IndexWriter:
         hash_rows: list[tuple[object, ...]] = []
         now = int(time())
         for path_text in path_order:
-            file_id = file_ids.get(path_text)
+            row = existing_rows.get(path_text)
             parsed = parsed_by_path[path_text]
-            if file_id is None:
+            if row is None:
                 continue
-            rowid = existing_rowids.get(file_id)
+            file_id = row.file_id
+            rowid = row.rowid
+            if row.content_sha == (parsed.content_sha or None):
+                continue
             if rowid is None:
                 rowid = next_rowid
                 next_rowid += 1
@@ -175,28 +192,26 @@ class IndexWriter:
                 hash_rows,
             )
 
-    def _select_file_ids(self, paths: Sequence[str]) -> dict[str, int]:
-        results: dict[str, int] = {}
+    def _select_existing_content_rows(self, paths: Sequence[str]) -> dict[str, ExistingContentRow]:
+        results: dict[str, ExistingContentRow] = {}
         for chunk in _chunked(paths):
             placeholders = ", ".join("?" for _ in chunk)
             rows = self._conn.execute(
-                f"SELECT id, path FROM files WHERE path IN ({placeholders})",
+                f"""
+                SELECT files.path, files.id, content_map.fts_rowid, content_map.content_sha
+                FROM files
+                LEFT JOIN content_map ON content_map.file_id = files.id
+                WHERE files.path IN ({placeholders})
+                """,
                 tuple(chunk),
             ).fetchall()
             for row in rows:
-                results[str(row[1])] = int(row[0])
-        return results
-
-    def _select_content_rowids(self, file_ids: Sequence[int]) -> dict[int, int]:
-        results: dict[int, int] = {}
-        for chunk in _chunked(file_ids):
-            placeholders = ", ".join("?" for _ in chunk)
-            rows = self._conn.execute(
-                f"SELECT file_id, fts_rowid FROM content_map WHERE file_id IN ({placeholders})",
-                tuple(chunk),
-            ).fetchall()
-            for row in rows:
-                results[int(row[0])] = int(row[1])
+                rowid = row[2]
+                results[str(row[0])] = ExistingContentRow(
+                    file_id=int(row[1]),
+                    rowid=int(rowid) if rowid is not None else None,
+                    content_sha=bytes(row[3]) if row[3] is not None else None,
+                )
         return results
 
     def _next_content_rowid(self) -> int:
@@ -204,7 +219,9 @@ class IndexWriter:
         return int(row[0])
 
     def _delete_content_rows(self, rowids: Sequence[int]) -> None:
-        self._conn.executemany(
-            "DELETE FROM content_fts WHERE rowid = ?",
-            [(rowid,) for rowid in rowids],
-        )
+        for chunk in _chunked(tuple(dict.fromkeys(rowids))):
+            placeholders = ", ".join("?" for _ in chunk)
+            self._conn.execute(
+                f"DELETE FROM content_fts WHERE rowid IN ({placeholders})",
+                tuple(chunk),
+            )
