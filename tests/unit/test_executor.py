@@ -510,6 +510,17 @@ def test_execute_plain_korean_query_supplements_partial_auto_content_hits(
     assert hits == ["회의록-요약.txt", "meeting-nfd.txt"]
 
 
+def test_execute_plain_negated_term_filters_auto_content_hits(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/reports/alpha.txt", 1024, now, "txt", body_text="note launch")
+    _insert_file(tmp_db, 2, "/workspace/reports/beta.txt", 1024, now - 60, "txt", body_text="note archive")
+    _insert_file(tmp_db, 3, "/workspace/reports/gamma.txt", 1024, now - 120, "txt", body_text="archive only")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "note -launch", limit=10).hits]
+    assert hits == ["beta.txt"]
+
+
 def test_path_queries_use_paths_fts(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/projects/report-011.py", 1024, now, "py", body_text="launch")

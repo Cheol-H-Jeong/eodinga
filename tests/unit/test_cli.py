@@ -220,6 +220,23 @@ def test_search_json_honors_root_filter(cli_runner, tmp_path: Path) -> None:
     assert [Path(item["path"]).parent.name for item in payload["results"]] == ["reports", "reports"]
 
 
+def test_search_json_plain_negated_term_filters_auto_content_hits(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "note -launch",
+        "--json",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == ["yesterday-beta.txt"]
+
+
 def test_search_json_root_filter_pushes_scope_into_query(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     conn = sqlite3.connect(db_path)
