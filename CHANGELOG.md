@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.55 - 2026-04-23
+
+- Fixed plain bare-term negation so queries like `note -launch` now exclude files whose indexed document content contains the negated term, instead of only checking filename and path text.
+- Added focused executor and CLI regressions for negated bare-term searches that resolve through auto-content matching, pinning the bug at both the API and command surface.
+- Added an end-to-end indexed-tree regression proving the same negation rule holds after a real filesystem crawl and content parse.
+
 ## 0.1.54 - 2026-04-23
 
 - Polished the launcher results list so the secondary line now shows the containing folder instead of repeating the filename in the full path, which makes scan-heavy result sets easier to parse at a glance.
