@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.7 - 2026-04-23
+
+- Hardened index replacement so staged SQLite WAL data is checkpointed into the database file before the atomic swap, leaving no stale sidecars behind at the target path.
+- Expanded storage recovery coverage for WAL-backed staged databases and no-op recovery paths.
+- Added a runtime safety test that exercises index, watch-event apply, and query flow while failing on any write-mode file open under indexed user roots.
+
 ## 0.1.6 - 2026-04-23
 
 - Added end-to-end support for negated grouped query clauses such as `-(alpha | beta) ext:txt`, aligning the parser and compiler with the SPEC grammar.
