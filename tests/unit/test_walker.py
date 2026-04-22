@@ -8,6 +8,7 @@ import pytest
 
 import eodinga.core.walker as walker_module
 from eodinga.common import PathRules
+from eodinga.core.fs import ScandirEntry
 from eodinga.core.walker import walk_batched
 
 
@@ -59,8 +60,38 @@ def test_walk_batched_reuses_discovery_stat_result(
 
     assert {record.path for record in records} == {root, nested, sample}
     assert stat_calls.count(root) == 1
-    assert stat_calls.count(nested) == 1
-    assert stat_calls.count(sample) == 1
+    assert nested not in stat_calls
+    assert sample not in stat_calls
+
+
+def test_walk_batched_uses_scandir_cached_stat_for_children(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "tree"
+    nested = root / "nested"
+    sample = nested / "sample.txt"
+    nested.mkdir(parents=True)
+    sample.write_text("sample", encoding="utf-8")
+
+    original_scandir_safe = walker_module.scandir_safe
+    original_stat_safe = walker_module.stat_safe
+    stat_calls: list[Path] = []
+
+    def wrapped_scandir(path: Path):
+        yield from original_scandir_safe(path)
+
+    def counting_stat(path: Path) -> os.stat_result:
+        stat_calls.append(path)
+        return original_stat_safe(path)
+
+    monkeypatch.setattr(walker_module, "scandir_safe", wrapped_scandir)
+    monkeypatch.setattr(walker_module, "stat_safe", counting_stat)
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+
+    assert {record.path for record in records} == {root, nested, sample}
+    assert stat_calls == [root]
 
 
 def test_walk_batched_uses_fs_wrapper_to_detect_symlinked_directories(
@@ -128,11 +159,11 @@ def test_walk_batched_records_directory_alias_but_skips_reentering_same_inode(
         mode, inode = inode_map[path]
         return os.stat_result((mode, inode, 1, 1, 1000, 1000, 1, 1, 1, 1))
 
-    def fake_scandir(path: Path) -> list[Path]:
+    def fake_scandir(path: Path) -> list[ScandirEntry]:
         children = {
-            root: [real],
-            real: [sample, alias],
-            alias: [sample, alias],
+            root: [ScandirEntry(real)],
+            real: [ScandirEntry(sample), ScandirEntry(alias)],
+            alias: [ScandirEntry(sample), ScandirEntry(alias)],
         }
         return children.get(path, [])
 
@@ -226,11 +257,11 @@ def test_walk_batched_skips_resolved_alias_cycles_even_when_inode_keys_differ(
         device, inode, mode = inode_map[path]
         return os.stat_result((mode, inode, device, 1, 1000, 1000, 1, 1, 1, 1))
 
-    def fake_scandir(path: Path) -> list[Path]:
+    def fake_scandir(path: Path) -> list[ScandirEntry]:
         children = {
-            root: [canonical],
-            canonical: [sample, mirror],
-            mirror: [sample, mirror],
+            root: [ScandirEntry(canonical)],
+            canonical: [ScandirEntry(sample), ScandirEntry(mirror)],
+            mirror: [ScandirEntry(sample), ScandirEntry(mirror)],
         }
         return children.get(path, [])
 
