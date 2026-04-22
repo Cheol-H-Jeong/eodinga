@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.42 - 2026-04-23
+
+- Added a committed `packaging/linux/appimage-builder.yml` plus a shipped Linux SVG icon so the AppImage path now has explicit recipe inputs instead of relying on shell-script-only staging.
+- Hardened the AppImage staging audit to verify the recipe, desktop entry, icon payload, and `.DirIcon` are all present and aligned inside the generated AppDir.
+- Added focused packaging regressions that pin the AppImage recipe fields and the richer dry-run audit contract, keeping the packaging slice measurable without changing runtime behavior.
+
 ## 0.1.41 - 2026-04-23
 
 - Restored watcher incremental-write throughput by batching record and content upserts per flushed event batch instead of issuing a full writer round-trip for every single filesystem event.
