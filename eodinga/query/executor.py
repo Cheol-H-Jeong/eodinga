@@ -140,7 +140,23 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
     root_text = str(root)
-    return "(files.path = ? OR files.path LIKE ?)", (root_text, f"{root_text}/%")
+    normalized = root_text.rstrip("/\\") or root_text
+    variants = tuple(
+        dict.fromkeys(
+            (
+                normalized,
+                normalized.replace("\\", "/"),
+                normalized.replace("/", "\\"),
+            )
+        )
+    )
+    exact_params = variants
+    like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
+        f"{variant}\\%" for variant in variants
+    )
+    exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
+    like_clause = " OR ".join("files.path LIKE ?" for _ in like_params)
+    return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
 
 
 def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:

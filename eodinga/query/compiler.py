@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from itertools import product
 from typing import Literal
 
@@ -145,13 +145,14 @@ def _size_to_bytes(value: str) -> tuple[str, int]:
 
 
 def _day_bounds(day: date) -> tuple[int, int]:
-    start = datetime.combine(day, time.min, tzinfo=UTC)
-    end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=UTC)
+    local_tz = datetime.now().astimezone().tzinfo
+    start = datetime.combine(day, time.min, tzinfo=local_tz)
+    end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=local_tz)
     return int(start.timestamp()), int(end.timestamp())
 
 
 def _date_to_range(value: str) -> tuple[int, int]:
-    today = datetime.now(tz=UTC).date()
+    today = datetime.now().astimezone().date()
     if value == "today":
         return _day_bounds(today)
     if value == "yesterday":

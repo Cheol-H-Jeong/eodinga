@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from contextlib import closing
 from pathlib import Path
@@ -77,6 +78,15 @@ def _resolve_config(args: argparse.Namespace) -> AppConfig:
     return load(args.config)
 
 
+def _normalize_search_root(root: Path | None) -> Path | None:
+    if root is None:
+        return None
+    root_text = str(root)
+    if re.match(r"^[A-Za-z]:[\\/]", root_text) or root_text.startswith("\\\\"):
+        return Path(root_text)
+    return root.resolve()
+
+
 def _cmd_index(args: argparse.Namespace) -> int:
     payload = {
         "command": "index",
@@ -95,7 +105,7 @@ def _cmd_watch(args: argparse.Namespace) -> int:
 def _cmd_search(args: argparse.Namespace) -> int:
     _resolve_config(args)
     limit = max(int(args.limit), 0)
-    root = args.root.resolve() if args.root is not None else None
+    root = _normalize_search_root(args.root)
     try:
         with closing(open_index(args.db or _resolve_config(args).index.db_path)) as conn:
             query_result = run_search(conn, args.query, limit=limit, root=root)
