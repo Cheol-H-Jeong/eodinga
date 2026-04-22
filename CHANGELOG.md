@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.37 - 2026-04-23
+
+- Refreshed the offscreen documentation screenshot pipeline so the published assets now show the real search surface, launcher results, and live indexing progress instead of a thinner static capture set.
+- Expanded the README quick-start, CLI, DSL, config-path, and diagnostics sections so the v0.1 install and usage contract is easier to follow from a cold start.
+- Deepened `docs/ARCHITECTURE.md`, `docs/DSL.md`, and `docs/PERFORMANCE.md`, and tightened docs-asset tests so screenshot references and core guide sections do not drift from the shipped product.
+
 ## 0.1.36 - 2026-04-23
 
 - Switched stale-WAL startup recovery to a staged-copy flow in the database directory, replaying SQLite recovery work against the staged snapshot first and atomically replacing the live index only after replay succeeds.
