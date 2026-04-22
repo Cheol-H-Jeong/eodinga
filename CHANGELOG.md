@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.66 - 2026-04-23
+
+- Hardened the staged index swap path so `atomic_replace_index()` no longer deletes the live database's `-wal` and `-shm` sidecars before `os.replace()` succeeds, avoiding sidecar loss if the atomic swap itself fails.
+- Added a focused storage regression that simulates a failed replace and proves the existing live database plus its sidecars survive intact while the staged database remains available for cleanup or retry.
+
 ## 0.1.65 - 2026-04-23
 
 - Persisted launcher window geometry in config so the popup now reopens at the user's last size and screen position instead of resetting to the 640x480 default every session.
