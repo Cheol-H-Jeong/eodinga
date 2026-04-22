@@ -30,9 +30,10 @@
 
 ## Startup Recovery
 
+- `open_index()` first resumes an interrupted staged rebuild database such as `.index.db.next`, promoting the fully built replacement index on the next startup if a crash happened before the final atomic swap.
 - `open_index()` first checks for an interrupted staged recovery database such as `.index.db.recover` and resumes the atomic swap before touching the live file.
 - If the live database still has a non-empty `-wal` sidecar, recovery is replayed against a staged copy first; only a clean checkpointed database is swapped into place.
-- `eodinga doctor` reports both resumed staged recovery and unrecoverable stale-WAL failures so the operator sees the same startup path the runtime takes.
+- `eodinga doctor` reports both resumed staged rebuild/recovery work and unrecoverable stale-WAL failures so the operator sees the same startup path the runtime takes.
 - This keeps crash recovery local to the database directory and avoids mutating indexed user roots.
 
 ## Query Execution

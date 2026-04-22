@@ -130,7 +130,7 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 
 ## Recovery and Troubleshooting
 
-- Startup automatically resumes interrupted staged recovery and replays stale SQLite WAL sidecars before opening the live index.
+- Startup automatically resumes interrupted staged rebuilds (`.index.db.next`), interrupted recovery swaps (`.index.db.recover`), and stale SQLite WAL replay before opening the live index.
 - If results look stale, run `eodinga doctor`, then `eodinga stats` to confirm the active database path before rebuilding.
 - A one-shot recovery path is `eodinga index --rebuild`; live updates still require `eodinga watch` or the packaged background service flow.
 - Documentation and screenshots are part of the shipped contract; refresh the gallery with `python scripts/render_docs_screenshots.py` after visible UI changes.
