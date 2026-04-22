@@ -64,6 +64,7 @@ class WatchService:
         self.queue: Queue[WatchEvent] = Queue()
         self._pending: dict[Path, WatchEvent] = {}
         self._retired_sources: dict[Path, set[Path]] = {}
+        self._flushed_retired_sources: set[Path] = set()
         self._timestamps: dict[Path, float] = {}
         self._lock = Lock()
         self._stop = Event()
@@ -97,11 +98,15 @@ class WatchService:
 
     def record(self, event: WatchEvent) -> None:
         with self._lock:
+            if event.event_type in {"created", "modified"}:
+                self._flushed_retired_sources.discard(event.path)
             existing = self._pending.get(event.path)
             moved_retired_sources: set[Path] = set()
             if event.event_type == "moved" and event.src_path is not None:
                 source_existing = self._pending.pop(event.src_path, None)
                 moved_retired_sources = self._retired_sources.pop(event.src_path, set())
+                self._flushed_retired_sources.discard(event.path)
+                self._flushed_retired_sources.discard(event.src_path)
                 self._timestamps.pop(event.src_path, None)
                 if source_existing is not None and source_existing.event_type in {"created", "moved"}:
                     moved_retired_sources.add(event.src_path)
@@ -136,7 +141,9 @@ class WatchService:
         return any(
             pending.event_type == "moved" and pending.src_path == path
             for pending in self._pending.values()
-        ) or any(path in retired_sources for retired_sources in self._retired_sources.values())
+        ) or any(path in retired_sources for retired_sources in self._retired_sources.values()) or (
+            path in self._flushed_retired_sources
+        )
 
     def _merge_move(self, existing: WatchEvent | None, moved: WatchEvent) -> WatchEvent:
         if existing is None:
@@ -200,15 +207,21 @@ class WatchService:
             ]
             for path in ready_paths:
                 event = self._pending.pop(path, None)
-                self._retired_sources.pop(path, None)
+                retired_sources = self._retired_sources.pop(path, set())
                 self._timestamps.pop(path, None)
                 if event is not None:
+                    if event.event_type == "moved" and event.src_path is not None:
+                        self._flushed_retired_sources.add(event.src_path)
+                        self._flushed_retired_sources.update(retired_sources)
+                    elif event.event_type in {"created", "modified", "deleted"}:
+                        self._flushed_retired_sources.discard(event.path)
                     self.queue.put(event)
 
     def _reset_state(self) -> None:
         with self._lock:
             self._pending.clear()
             self._retired_sources.clear()
+            self._flushed_retired_sources.clear()
             self._timestamps.clear()
         while True:
             try:
