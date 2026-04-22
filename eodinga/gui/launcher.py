@@ -348,7 +348,7 @@ class LauncherPanel(QWidget):
             else:
                 hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
         elif self.result_list.hasFocus():
-            hint = "Enter opens. Ctrl+Enter reveals. Shift+Enter shows properties. Alt+C copies path. Ctrl+L returns to filter."
+            hint = "Enter opens. Up/Down wraps. PgUp/PgDn jumps. Ctrl+Enter reveals. Ctrl+L returns to filter."
         else:
             hint = "Tab moves to results. Down/Up navigate. Enter opens the top hit. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
@@ -387,22 +387,40 @@ class LauncherPanel(QWidget):
         if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
             self.query_field.setFocus()
             return True
+        if event.key() == Qt.Key.Key_Down:
+            self._move_selection(1, wrap=True)
+            return True
+        if event.key() == Qt.Key.Key_Up:
+            self._move_selection(-1, wrap=True)
+            return True
         if event.key() == Qt.Key.Key_Home:
-            self._move_selection(-self.model.rowCount())
+            self._set_selection(0)
             return True
         if event.key() == Qt.Key.Key_End:
-            self._move_selection(self.model.rowCount())
+            self._set_selection(self.model.rowCount() - 1)
+            return True
+        if event.key() == Qt.Key.Key_PageDown:
+            self._move_selection(self._page_step())
+            return True
+        if event.key() == Qt.Key.Key_PageUp:
+            self._move_selection(-self._page_step())
             return True
         return False
 
-    def _move_selection(self, delta: int) -> None:
+    def _move_selection(self, delta: int, *, wrap: bool = False) -> None:
         if self.model.rowCount() == 0:
             return
         current_row = self.result_list.currentIndex().row()
         if current_row < 0:
             current_row = 0
-        next_row = min(max(current_row + delta, 0), self.model.rowCount() - 1)
+        if wrap:
+            next_row = (current_row + delta) % self.model.rowCount()
+        else:
+            next_row = min(max(current_row + delta, 0), self.model.rowCount() - 1)
         self._set_selection(next_row)
+
+    def _page_step(self) -> int:
+        return min(max(self.model.rowCount() // 2, 1), 10)
 
     def _restore_selection(self, previous_hit: SearchHit | None) -> None:
         if self.model.rowCount() == 0:
