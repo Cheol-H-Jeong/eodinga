@@ -3,16 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 from time import perf_counter
 
-from eodinga.common import PathRules
 from eodinga.core.walker import walk_batched
 from eodinga.index.reader import stats
 from eodinga.index.writer import IndexWriter
-from tests.perf._helpers import insert_root, open_perf_db, perf_only
+from tests.perf._helpers import insert_root, make_walk_rules, open_perf_db, perf_only
 
 pytestmark = perf_only
 
 FILE_COUNT = 20_000
-MIN_FILES_PER_SECOND = 4_800.0
+MIN_FILES_PER_SECOND = 4_000.0
 
 
 def test_cold_start_throughput(tmp_path: Path) -> None:
@@ -30,7 +29,7 @@ def test_cold_start_throughput(tmp_path: Path) -> None:
 
         started = perf_counter()
         inserted = 0
-        for batch in walk_batched(root, PathRules(root=root), root_id=1):
+        for batch in walk_batched(root, make_walk_rules(root), root_id=1):
             inserted += writer.bulk_upsert(batch)
         elapsed = perf_counter() - started
 

@@ -7,7 +7,7 @@ from time import time
 
 import pytest
 
-from eodinga.common import FileRecord
+from eodinga.common import FileRecord, PathRules
 from eodinga.content.base import ParsedContent
 from eodinga.index.schema import apply_schema
 
@@ -28,6 +28,11 @@ def insert_root(conn: sqlite3.Connection, root: Path) -> None:
         (str(root), "[]", "[]", 1),
     )
     conn.commit()
+
+
+def make_walk_rules(root: Path) -> PathRules:
+    root_text = str(root)
+    return PathRules(root=root, include=(root_text, f"{root_text}/**"), exclude=())
 
 
 def make_file_record(path: Path, root_id: int = 1, size: int = 0) -> FileRecord:
@@ -55,4 +60,3 @@ def make_parsed(path: Path, token: str) -> ParsedContent:
         body_text=f"{token} body text for {path.name}",
         content_sha=f"sha-{path.name}-{token}".encode(),
     )
-
