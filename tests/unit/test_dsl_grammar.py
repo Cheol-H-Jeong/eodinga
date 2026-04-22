@@ -268,3 +268,38 @@ INVALID_REGEX_FLAGS = st.text(
 def test_invalid_regex_flags_fuzz_raise_cleanly(flags: str) -> None:
     with pytest.raises(QuerySyntaxError):
         parse(f"content:/todo/{flags}")
+
+
+NEGATABLE_OPERATOR_ATOMS = st.one_of(
+    st.sampled_from(
+        [
+            "content:/todo|fixme/i",
+            'content:"alpha beta"',
+            'path:"team notes"',
+            "path:/workspace/projects",
+            "path:/tmp/log/i",
+            "date:this-week",
+            "size:>10M",
+            "is:duplicate",
+            "case:false",
+            "regex:true",
+        ]
+    ),
+    st.builds(lambda value: f"-{value}", st.sampled_from(["ext:pdf", "is:symlink", "path:archive"])),
+)
+
+NEGATABLE_VALID_QUERY_STRATEGY = st.recursive(
+    st.one_of(ATOMS, NEGATABLE_OPERATOR_ATOMS).map(str),
+    lambda children: st.one_of(
+        st.builds(lambda items: " ".join(items), st.lists(children, min_size=2, max_size=3)),
+        st.builds(lambda items: " | ".join(items), st.lists(children, min_size=2, max_size=3)),
+        st.builds(lambda child: f"({child})", children),
+        st.builds(lambda child: f"-({child})", children),
+    ),
+    max_leaves=10,
+)
+
+
+@given(NEGATABLE_VALID_QUERY_STRATEGY)
+def test_negated_operator_query_fuzz_parses_and_compiles(query: str) -> None:
+    compile_query(parse(query))
