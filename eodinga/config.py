@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import tomllib
+from collections.abc import Mapping
 from pathlib import Path
 
 import tomli_w
@@ -124,6 +125,28 @@ class AppConfig(BaseModel):
         _atomic_write_text(target, tomli_w.dumps(payload))
 
 
+def _filter_model_payload(payload: object, model_type: type[BaseModel]) -> object:
+    if not isinstance(payload, Mapping):
+        return payload
+    filtered: dict[str, object] = {}
+    for field_name, field_info in model_type.model_fields.items():
+        if field_name not in payload:
+            continue
+        value = payload[field_name]
+        annotation = field_info.annotation
+        if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+            filtered[field_name] = _filter_model_payload(value, annotation)
+            continue
+        origin = getattr(annotation, "__origin__", None)
+        args = getattr(annotation, "__args__", ())
+        if origin is list and len(args) == 1 and isinstance(args[0], type) and issubclass(args[0], BaseModel):
+            if isinstance(value, list):
+                filtered[field_name] = [_filter_model_payload(item, args[0]) for item in value]
+            continue
+        filtered[field_name] = value
+    return filtered
+
+
 def default_config_dir() -> Path:
     if sys.platform.startswith("win"):
         appdata = os.environ.get("APPDATA")
@@ -161,4 +184,4 @@ def load(path: Path | None = None) -> AppConfig:
     if not config_path.exists():
         return AppConfig()
     raw = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    return AppConfig.model_validate(raw)
+    return AppConfig.model_validate(_filter_model_payload(raw, AppConfig))

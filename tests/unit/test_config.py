@@ -25,6 +25,30 @@ def test_config_round_trip_save_and_load(temp_config_path: Path, tmp_path: Path)
     assert loaded.model_dump() == config.model_dump()
 
 
+def test_load_ignores_unknown_legacy_keys(temp_config_path: Path, tmp_path: Path) -> None:
+    temp_config_path.write_text(
+        """
+[launcher]
+hotkey = "ctrl+shift+space"
+always_on_top = true
+
+[index]
+db_path = "{db_path}"
+
+[[roots]]
+path = "{root_path}"
+unknown = "ignored"
+""".strip().format(db_path=tmp_path / "index.db", root_path=tmp_path / "docs"),
+        encoding="utf-8",
+    )
+
+    config = load(temp_config_path)
+
+    assert config.launcher.hotkey == "ctrl+shift+space"
+    assert len(config.roots) == 1
+    assert config.roots[0].path == tmp_path / "docs"
+
+
 def test_config_save_is_atomic_and_cleans_temp_file_on_replace_failure(
     temp_config_path: Path,
     tmp_path: Path,
