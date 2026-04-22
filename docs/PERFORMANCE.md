@@ -55,17 +55,17 @@ Supported overrides:
 
 ## Baseline
 
-Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed after the 0.1.57 query-shape cache and perf-suite configurability round:
+Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed after the 0.1.68 writer event-delete batching round:
 
 | Benchmark | Dataset | Result |
 | --- | --- | --- |
-| Cold start | 20,201 indexed entries | 6,082 files/sec |
-| Bulk upsert | 50k synthetic records | 60,854 records/sec |
+| Cold start | 20,201 indexed entries | 6,024 files/sec |
+| Bulk upsert | 50k synthetic records | 60,942 records/sec |
 | Name query latency | 2,000 queries / 50k files | p50 0.06 ms, p95 0.06 ms, p99 0.07 ms |
-| Content query latency | 500 queries / 5k docs | p50 0.60 ms, p95 0.63 ms, p99 0.67 ms |
-| Watch latency | 25 created files | p99 0.133 s |
+| Content query latency | 500 queries / 5k docs | p50 0.60 ms, p95 0.64 ms, p99 0.66 ms |
+| Watch latency | 25 created files | p99 0.132 s |
 
-These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. This round tightened the measurement story by making the suite env-scalable and trimmed repeated executor overhead by caching stable SQL shapes for recurring search plans, especially on launcher-style repeated queries that vary parameters more often than structure.
+These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. This round trimmed write-path SQL chatter by batching delete and move-source cleanup inside `IndexWriter.apply_events()`, which keeps watcher-driven cleanup on a single `IN (...)` lookup/delete pair per batch instead of repeating per path.
 
 ## Interpreting Results
 
