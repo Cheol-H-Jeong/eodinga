@@ -11,6 +11,7 @@ from eodinga.index.storage import (
     atomic_replace_index,
     has_stale_wal,
     open_index,
+    recover_interrupted_build,
     recover_interrupted_recovery,
     recover_stale_wal,
 )
@@ -331,6 +332,67 @@ def test_recover_interrupted_recovery_swaps_existing_staged_database(tmp_path: P
     assert not staged.exists()
 
 
+def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/old", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/rebuilt", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    assert recover_interrupted_build(target) is True
+    assert _read_root_paths(target) == ["/rebuilt"]
+    assert not staged.exists()
+
+
+def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/old", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/rebuilt-startup", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    reopened = open_index(target)
+    try:
+        rows = reopened.execute("SELECT path FROM roots ORDER BY path").fetchall()
+        assert [str(row[0]) for row in rows] == ["/rebuilt-startup"]
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.next-wal").exists()
+    assert not staged.with_name(".index.db.next-shm").exists()
+
+
 def test_open_index_resumes_interrupted_recovery_with_staged_wal(tmp_path: Path) -> None:
     source = tmp_path / "source.db"
     target = tmp_path / "index.db"
@@ -385,3 +447,22 @@ def test_open_index_cleans_orphaned_recovery_sidecars_before_open(tmp_path: Path
     assert not staged.exists()
     assert not staged.with_name(".index.db.recover-wal").exists()
     assert not staged.with_name(".index.db.recover-shm").exists()
+
+
+def test_open_index_cleans_orphaned_build_sidecars_before_open(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+    staged.with_name(".index.db.next-wal").write_bytes(b"orphaned")
+    staged.with_name(".index.db.next-shm").write_bytes(b"orphaned")
+
+    reopened = open_index(path)
+    try:
+        rows = reopened.execute("SELECT COUNT(*) FROM roots").fetchone()
+        assert rows is not None
+        assert int(rows[0]) == 0
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.next-wal").exists()
+    assert not staged.with_name(".index.db.next-shm").exists()
