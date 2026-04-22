@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.45 - 2026-04-23
+
+- Fixed metadata-only query totals so `date:*`, `size:*`, and `is:duplicate` filters now report distinct match counts from the full branch union instead of the executor's prefetch window.
+- Updated `eodinga search --json` to return the total match count in `count` and the current page length in `returned`, which keeps CLI output aligned with the launcher's result totals.
+- Added focused executor and CLI regressions for large metadata-filter result sets, including `is:duplicate | size:>10M` union counting and paged JSON output.
+
 ## 0.1.44 - 2026-04-23
 
 - Fixed watcher coalescing for move-source reuse so a file that is moved away, recreated at the original path, and then deleted in the same debounce window no longer leaves behind a phantom `created` event.
