@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.78 - 2026-04-23
+
+- Added launcher quick-pick shortcuts on `Alt+1` through `Alt+9`, so keyboard users can open a top result directly without stepping through the list first.
+- Labeled the launcher and main app's interactive controls with explicit `accessibleName` values, tightening the screen-reader and UI-automation contract across the popup and settings surfaces.
+- Split launcher state/model helpers into a dedicated GUI module so `eodinga/gui/launcher.py` drops back under the module-size cap while preserving the existing offscreen launcher behavior.
+
 ## 0.1.76 - 2026-04-23
 
 - Polished launcher keyboard navigation so the result list now wraps on `Up` / `Down` and supports `PgUp` / `PgDn` jumps for longer result sets, keeping the popup usable without reaching for the mouse.
