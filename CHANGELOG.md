@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.76 - 2026-04-23
+
+- Polished launcher keyboard navigation so the result list now wraps on `Up` / `Down` and supports `PgUp` / `PgDn` jumps for longer result sets, keeping the popup usable without reaching for the mouse.
+- Expanded offscreen launcher regressions to pin the wrapped-selection and page-jump flows, and refreshed the shortcut hint text to advertise the stronger keyboard contract in-context.
+- Updated the README launcher quick-start and hotkey docs to describe the new navigation behavior alongside the existing recent-query and reveal shortcuts.
+
 ## 0.1.75 - 2026-04-23
 
 - Fixed negated boolean query operators so `-case:true` now restores case-insensitive matching and `-regex:true` now restores literal-term matching instead of silently behaving like their non-negated forms.

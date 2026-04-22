@@ -47,7 +47,7 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 3. Hit `Ctrl+Shift+Space` to open the launcher anywhere.
 4. Start with plain terms, then narrow with operators like `ext:pdf`, `path:docs`, `date:this-week`, or `size:>10M`.
 5. Use `Enter` to open the selected result or `Ctrl+Enter` to reveal it in the file manager.
-6. Use `Alt+Up` to recall recent queries and `Ctrl+L` to jump back to the filter without leaving the keyboard.
+6. Use `Alt+Up` to recall recent queries, `Ctrl+L` to jump back to the filter, and `PgUp` / `PgDn` to move through longer result sets without leaving the keyboard.
 7. Re-run `python scripts/render_docs_screenshots.py` if you update the Qt surfaces and want the shipped screenshots refreshed.
 
 ## Acceptance Quickcheck
@@ -119,6 +119,8 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 - `Ctrl+Enter` opens the containing folder
 - `Shift+Enter` shows file properties
 - `Alt+Up` / `Alt+Down` recalls recent queries
+- `Up` / `Down` wraps through the result list once focus is in the list
+- `PgUp` / `PgDn` jumps through longer result sets
 - `Ctrl+L` returns focus to the filter field
 
 ## Architecture
