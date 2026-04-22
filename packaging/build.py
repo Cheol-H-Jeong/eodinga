@@ -45,6 +45,10 @@ def _render_inno_script(version: str) -> Path:
     return rendered_path
 
 
+def _inno_contains(text: str, needle: str) -> bool:
+    return needle in text
+
+
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     spec_namespace: dict[str, Any] = {"__file__": str(WINDOWS_SPEC)}
     exec(WINDOWS_SPEC.read_text(encoding="utf-8"), spec_namespace)
@@ -70,10 +74,22 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "rendered_path": str(rendered_path),
             "output_base_filename": output_base_filename,
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
+            "contains_user_install_dir": _inno_contains(rendered_text, r"DefaultDirName={userappdata}\eodinga"),
+            "contains_start_menu_shortcut": _inno_contains(rendered_text, 'Name: "{group}\\\\eodinga"; Filename: "{app}\\\\eodinga-gui.exe"'),
+            "contains_desktop_shortcut_task": _inno_contains(inno_text, 'Name: "desktopicon"'),
+            "contains_postinstall_launch": _inno_contains(
+                rendered_text,
+                'Filename: "{app}\\\\eodinga-gui.exe"; Description: "{cm:LaunchProgram,eodinga}"; Flags: nowait postinstall skipifsilent',
+            ),
+            "privileges_lowest": _inno_contains(rendered_text, "PrivilegesRequired=lowest"),
+            "disables_program_group_page": _inno_contains(rendered_text, "DisableProgramGroupPage=yes"),
+            "disables_dir_page": _inno_contains(rendered_text, "DisableDirPage=yes"),
+            "includes_korean_language": _inno_contains(rendered_text, 'Name: "korean"; MessagesFile: "compiler:Languages\\Korean.isl"'),
             "contains_autostart_task": 'Name: "autostart"' in inno_text,
             "contains_autostart_registry": 'Subkey: "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run"' in inno_text
             and 'ValueName: "eodinga"' in inno_text
             and 'Tasks: autostart' in inno_text,
+            "contains_uninstall_purge_prompt": _inno_contains(rendered_text, r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);"),
         },
     }
 

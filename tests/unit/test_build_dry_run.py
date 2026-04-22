@@ -33,8 +33,17 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert "@@APP_VERSION@@" not in rendered_text
     assert payload["inno_setup"]["output_base_filename"] == f"eodinga-{__version__}-win-x64-setup"
     assert payload["inno_setup"]["contains_versioned_output_macro"] is True
+    assert payload["inno_setup"]["contains_user_install_dir"] is True
+    assert payload["inno_setup"]["contains_start_menu_shortcut"] is True
+    assert payload["inno_setup"]["contains_desktop_shortcut_task"] is True
+    assert payload["inno_setup"]["contains_postinstall_launch"] is True
+    assert payload["inno_setup"]["privileges_lowest"] is True
+    assert payload["inno_setup"]["disables_program_group_page"] is True
+    assert payload["inno_setup"]["disables_dir_page"] is True
+    assert payload["inno_setup"]["includes_korean_language"] is True
     assert payload["inno_setup"]["contains_autostart_task"] is True
     assert payload["inno_setup"]["contains_autostart_registry"] is True
+    assert payload["inno_setup"]["contains_uninstall_purge_prompt"] is True
 
 
 def test_linux_appimage_dry_run_stages_recipe() -> None:
@@ -53,6 +62,15 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["version"] == __version__
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
+    assert payload["desktop_entry"]["name"] == "eodinga"
+    assert payload["desktop_entry"]["exec"] == "eodinga gui"
+    assert payload["desktop_entry"]["icon"] == "eodinga"
+    assert payload["desktop_entry"]["categories"] == "Utility;FileTools;"
+    assert payload["desktop_entry"]["startup_notify"] == "true"
+    assert payload["apprun"]["is_executable"] is True
+    assert payload["apprun"]["launches_gui"] is True
+    assert payload["launcher"]["is_executable"] is True
+    assert payload["launcher"]["executes_python_module"] is True
 
 
 def test_linux_deb_dry_run_stages_recipe() -> None:
