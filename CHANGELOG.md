@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.71 - 2026-04-23
+
+- Tightened the Windows packaging audit so the PyInstaller hidden-import contract now covers the dynamically loaded Linux hotkey backend modules (`pynput.keyboard` and `Xlib.*`) instead of only the statically imported runtime surface.
+- Added a packaging regression that extracts the `import_module()` targets from `eodinga.launcher.hotkey_linux` and proves the generated Windows dry-run audit includes each of them, pinning the bundle against future launcher-backend drift.
+- Added a workflow acceptance regression that runs `yamllint` over `release-windows.yml` and `release-linux.yml`, so the v0.1 release-checklist lint requirement is exercised in the normal test suite instead of relying on manual validation.
+
 ## 0.1.70 - 2026-04-23
 
 - Hardened startup crash recovery so `open_index()` now resumes interrupted staged rebuilds from `.index.db.next` in addition to the existing staged WAL recovery flow, promoting a fully built replacement index on the next launch after a crash before the final swap.
