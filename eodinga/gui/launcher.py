@@ -129,6 +129,7 @@ class LauncherPanel(QWidget):
     open_containing_folder = Signal(object)
     show_properties = Signal(object)
     copy_path_requested = Signal(object)
+    copy_name_requested = Signal(object)
 
     def __init__(
         self,
@@ -193,6 +194,7 @@ class LauncherPanel(QWidget):
             QShortcut(QKeySequence("Ctrl+Return"), self),
             QShortcut(QKeySequence("Shift+Return"), self),
             QShortcut(QKeySequence("Alt+C"), self),
+            QShortcut(QKeySequence("Alt+N"), self),
             QShortcut(QKeySequence("Ctrl+L"), self),
             QShortcut(QKeySequence("Alt+Up"), self),
             QShortcut(QKeySequence("Alt+Down"), self),
@@ -201,9 +203,10 @@ class LauncherPanel(QWidget):
         self._shortcuts[1].activated.connect(self.emit_open_containing_folder)
         self._shortcuts[2].activated.connect(self.emit_show_properties)
         self._shortcuts[3].activated.connect(self.emit_copy_path)
-        self._shortcuts[4].activated.connect(self.focus_query_field)
-        self._shortcuts[5].activated.connect(self.recall_previous_query)
-        self._shortcuts[6].activated.connect(self.recall_next_query)
+        self._shortcuts[4].activated.connect(self.emit_copy_name)
+        self._shortcuts[5].activated.connect(self.focus_query_field)
+        self._shortcuts[6].activated.connect(self.recall_previous_query)
+        self._shortcuts[7].activated.connect(self.recall_next_query)
 
         if self._state is not None:
             self._state.recent_queries_changed.connect(self.set_recent_queries)
@@ -253,6 +256,12 @@ class LauncherPanel(QWidget):
         hit = self._current_hit()
         if hit is not None:
             self.copy_path_requested.emit(hit)
+
+    def emit_copy_name(self) -> None:
+        self._flush_pending_query()
+        hit = self._current_hit()
+        if hit is not None:
+            self.copy_name_requested.emit(hit)
 
     def recall_previous_query(self) -> None:
         self._navigate_recent_queries(-1)
