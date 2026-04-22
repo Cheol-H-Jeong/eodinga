@@ -1,0 +1,21 @@
+version: 1
+
+script:
+  - rm -rf AppDir
+  - mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/scalable/apps
+  - cp packaging/linux/eodinga.desktop AppDir/usr/share/applications/eodinga.desktop
+  - cp packaging/linux/eodinga.svg AppDir/usr/share/icons/hicolor/scalable/apps/eodinga.svg
+
+AppDir:
+  path: AppDir
+  app_info:
+    id: io.github.cheolhjeong.eodinga
+    name: eodinga
+    icon: eodinga
+    version: latest
+    exec: usr/bin/eodinga
+    exec_args: gui
+  files:
+    include:
+      - packaging/linux/eodinga.desktop
+      - packaging/linux/eodinga.svg

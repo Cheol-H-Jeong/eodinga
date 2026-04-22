@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">eodinga icon</title>
+  <desc id="desc">Rounded search lens over index cards.</desc>
+  <defs>
+    <linearGradient id="bg" x1="18" y1="16" x2="110" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F6BD60"/>
+      <stop offset="1" stop-color="#F28482"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="url(#bg)"/>
+  <rect x="28" y="28" width="48" height="14" rx="7" fill="#FFF7ED"/>
+  <rect x="28" y="50" width="40" height="10" rx="5" fill="#FFE8D6"/>
+  <rect x="28" y="66" width="34" height="10" rx="5" fill="#FFE8D6"/>
+  <circle cx="76" cy="72" r="20" fill="none" stroke="#1F2937" stroke-width="10"/>
+  <path d="M91 87L106 102" fill="none" stroke="#1F2937" stroke-linecap="round" stroke-width="10"/>
+</svg>

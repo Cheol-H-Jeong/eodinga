@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DIST_DIR="${ROOT_DIR}/packaging/dist"
 APPDIR="${DIST_DIR}/eodinga.AppDir"
 AUDIT_PATH="${DIST_DIR}/linux-appimage-audit.json"
+APPIMAGE_RECIPE="${ROOT_DIR}/packaging/linux/appimage-builder.yml"
+APPIMAGE_ICON="${ROOT_DIR}/packaging/linux/eodinga.svg"
 VERSION="$(python3 - <<'PY'
 import pathlib
 import re
@@ -25,9 +27,12 @@ fi
 
 rm -rf "${APPDIR}"
 mkdir -p "${APPDIR}/usr/bin" "${APPDIR}/usr/share/applications"
+mkdir -p "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
 mkdir -p "${DIST_DIR}"
 
 cp "${ROOT_DIR}/packaging/linux/eodinga.desktop" "${APPDIR}/usr/share/applications/eodinga.desktop"
+cp "${APPIMAGE_ICON}" "${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg"
+cp "${APPIMAGE_ICON}" "${APPDIR}/.DirIcon"
 cat > "${APPDIR}/AppRun" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -60,6 +65,10 @@ for line in desktop_lines:
 
 apprun_path = Path("${APPDIR}/AppRun")
 launcher_path = Path("${APPDIR}/usr/bin/eodinga")
+icon_path = Path("${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
+diricon_path = Path("${APPDIR}/.DirIcon")
+recipe_path = Path("${APPIMAGE_RECIPE}")
+recipe_text = recipe_path.read_text(encoding="utf-8")
 payload = {
     "target": "linux-appimage-dry-run" if ${DRY_RUN} else "linux-appimage",
     "version": "${VERSION}",
@@ -73,6 +82,20 @@ payload = {
         "icon": desktop_entries.get("Icon"),
         "categories": desktop_entries.get("Categories"),
         "startup_notify": desktop_entries.get("StartupNotify"),
+    },
+    "recipe": {
+        "path": str(recipe_path),
+        "exists": recipe_path.exists(),
+        "references_desktop_entry": "packaging/linux/eodinga.desktop" in recipe_text,
+        "references_icon_asset": "packaging/linux/eodinga.svg" in recipe_text,
+        "launches_gui": "exec_args: gui" in recipe_text,
+    },
+    "icon": {
+        "path": str(icon_path),
+        "exists": icon_path.exists(),
+        "diricon_path": str(diricon_path),
+        "diricon_exists": diricon_path.exists(),
+        "desktop_icon_matches_asset": desktop_entries.get("Icon") == icon_path.stem,
     },
     "apprun": {
         "path": str(apprun_path),
