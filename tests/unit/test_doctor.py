@@ -18,6 +18,7 @@ def test_doctor_returns_expected_shape(tmp_path: Path) -> None:
     assert report["db"]["exists"] is False
     assert report["db"]["stale_wal_present"] is False
     assert report["db"]["stale_wal_recovered"] is False
+    assert report["db"]["stale_wal_error"] is None
 
 
 def test_doctor_flags_missing_dependency(monkeypatch, tmp_path: Path) -> None:
@@ -53,5 +54,23 @@ def test_doctor_recovers_stale_wal_before_reporting(tmp_path: Path) -> None:
     assert report["db"]["exists"] is True
     assert report["db"]["stale_wal_present"] is True
     assert report["db"]["stale_wal_recovered"] is True
+    assert report["db"]["stale_wal_error"] is None
     wal_path = db_path.with_name("index.db-wal")
     assert not wal_path.exists() or wal_path.stat().st_size == 0
+
+
+def test_doctor_fails_when_stale_wal_recovery_fails(monkeypatch, tmp_path: Path) -> None:
+    from eodinga import doctor
+
+    db_path = tmp_path / "index.db"
+    db_path.write_bytes(b"sqlite")
+
+    monkeypatch.setattr(doctor, "has_stale_wal", lambda _path: True)
+    monkeypatch.setattr(doctor, "recover_stale_wal", lambda _path: False)
+
+    report, exit_code = run_diagnostics(config=AppConfig(), db_path=db_path)
+
+    assert exit_code == 1
+    assert report["db"]["stale_wal_present"] is True
+    assert report["db"]["stale_wal_recovered"] is False
+    assert report["db"]["stale_wal_error"] == f"failed to recover stale WAL for {db_path}"

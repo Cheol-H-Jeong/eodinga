@@ -4,6 +4,8 @@ import shutil
 import sqlite3
 from pathlib import Path
 
+import pytest
+
 from eodinga.index.schema import apply_schema
 from eodinga.index.storage import atomic_replace_index, has_stale_wal, open_index, recover_stale_wal
 
@@ -150,3 +152,35 @@ def test_recover_stale_wal_returns_false_without_sidecars(tmp_path: Path) -> Non
     conn.close()
 
     assert recover_stale_wal(path) is False
+
+
+def test_recover_stale_wal_returns_false_when_nonempty_sidecar_survives(
+    tmp_path: Path, monkeypatch
+) -> None:
+    path = tmp_path / "index.db"
+    conn = sqlite3.connect(path)
+    apply_schema(conn)
+    conn.close()
+    wal_path = path.with_name("index.db-wal")
+    wal_path.write_bytes(b"stale")
+
+    def leave_nonempty_sidecar(_path: Path) -> None:
+        wal_path.write_bytes(b"stale")
+
+    monkeypatch.setattr("eodinga.index.storage._checkpoint_wal", leave_nonempty_sidecar)
+
+    assert recover_stale_wal(path) is False
+    assert wal_path.read_bytes() == b"stale"
+
+
+def test_open_index_raises_when_stale_wal_recovery_fails(tmp_path: Path, monkeypatch) -> None:
+    path = tmp_path / "index.db"
+    conn = sqlite3.connect(path)
+    apply_schema(conn)
+    conn.close()
+
+    monkeypatch.setattr("eodinga.index.storage.has_stale_wal", lambda _path: True)
+    monkeypatch.setattr("eodinga.index.storage.recover_stale_wal", lambda _path: False)
+
+    with pytest.raises(RuntimeError, match="failed to recover stale WAL"):
+        open_index(path)
