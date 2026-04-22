@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.24 - 2026-04-23
+
+- Strengthened the Windows packaging audit so `packaging/build.py --target windows-dry-run` now verifies the per-user install path, low-privilege installer settings, shortcut tasks, post-install launch action, Korean language support, and uninstall data-purge hook expected by the v0.1 packaging contract.
+- Hardened the Linux AppImage dry run to audit the staged desktop entry plus the `AppRun` and launcher shims, proving the recipe launches `eodinga gui` through the packaged wrapper instead of only checking that files exist.
+- Expanded packaging regression coverage so the PyInstaller spec must keep every declared runtime module in `hiddenimports` and every declared module path mapped to a real source file, reducing the risk of silent packaging drift.
+
 ## 0.1.23 - 2026-04-23
 
 - Tightened the launcher’s keyboard-first flow so pending debounced queries are flushed before open/reveal actions fire, `Shift+Tab` can move into results, `Home`/`End` jump within the result list, and the footer now shows context-aware shortcut guidance.
