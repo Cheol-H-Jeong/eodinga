@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.48 - 2026-04-23
+
+- Resumed interrupted staged-index recovery on startup by detecting leftover `.db.recover` databases, replaying their WAL if needed, and atomically swapping them into place before normal index open proceeds.
+- Added unit and hot-restart integration regressions that cover both clean staged-resume and staged-resume-with-WAL flows, so recovery survives crashes in the middle of the earlier staged replay path.
+- Extended `eodinga doctor` to report whether it resumed an interrupted recovery stage before checking stale WAL state, keeping diagnostics aligned with the startup path.
+
 ## 0.1.47 - 2026-04-23
 
 - Trimmed `IndexWriter.bulk_upsert()` overhead on the cold-start path by reusing list-backed batches instead of copying them, streaming row tuples directly into SQLite `executemany()`, and skipping `MAX(rowid)` probes when unchanged content rows do not need new FTS ids.
