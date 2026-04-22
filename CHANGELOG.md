@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.56 - 2026-04-23
+
+- Tightened the no-network safety gate so it now scans the repository's text files beyond just Python and config extensions, while still ignoring generated outputs, fixtures, and binary assets that are outside the runtime policy surface.
+- Hardened startup recovery hygiene by deleting orphaned `.recover-wal` and `.recover-shm` sidecars before opening the index, which prevents interrupted staged swaps from leaving stale recovery debris behind on the next launch.
+- Added focused storage regressions for orphaned recovery cleanup so the startup path now proves it can reopen cleanly after partial staged-recovery artifacts are left on disk.
+
 ## 0.1.55 - 2026-04-23
 
 - Fixed plain bare-term negation so queries like `note -launch` now exclude files whose indexed document content contains the negated term, instead of only checking filename and path text.
