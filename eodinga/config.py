@@ -161,4 +161,7 @@ def load(path: Path | None = None) -> AppConfig:
     if not config_path.exists():
         return AppConfig()
     raw = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    launcher = raw.get("launcher")
+    if isinstance(launcher, dict):
+        launcher.pop("always_on_top", None)
     return AppConfig.model_validate(raw)
