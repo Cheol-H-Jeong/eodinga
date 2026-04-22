@@ -64,6 +64,7 @@ class IndexWriter:
     def apply_events(self, events: Sequence[WatchEvent], record_loader: RecordLoader) -> int:
         processed = 0
         content_deletes: list[int] = []
+        pending_records: list[FileRecord] = []
         with self._conn:
             for event in events:
                 if event.event_type == "deleted":
@@ -74,9 +75,11 @@ class IndexWriter:
                 record = record_loader(event.path)
                 if record is None:
                     continue
-                self._upsert_records([record])
-                self._upsert_content([record])
+                pending_records.append(record)
                 processed += 1
+            if pending_records:
+                self._upsert_records(pending_records)
+                self._upsert_content(pending_records)
             if content_deletes:
                 self._delete_content_rows(content_deletes)
         return processed
