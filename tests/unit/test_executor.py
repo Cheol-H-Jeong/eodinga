@@ -470,6 +470,24 @@ def test_execute_size_range_queries(tmp_db: sqlite3.Connection) -> None:
     assert negated_hits == ["large.txt"]
 
 
+def test_execute_is_empty_queries(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/empty-file.txt", 0, now, "txt")
+    _insert_file(tmp_db, 2, "/workspace/nonempty-file.txt", 12, now - 60, "txt")
+    _insert_file(tmp_db, 3, "/workspace/empty-dir", 4_096, now - 120, "", is_dir=1)
+    _insert_file(tmp_db, 4, "/workspace/nonempty-dir", 4_096, now - 180, "", is_dir=1)
+    _insert_file(tmp_db, 5, "/workspace/nonempty-dir/child.txt", 32, now - 240, "txt")
+    tmp_db.commit()
+
+    empty_hits = {hit.file.path.as_posix() for hit in search(tmp_db, "is:empty", limit=10).hits}
+    assert empty_hits == {"/workspace/empty-file.txt", "/workspace/empty-dir"}
+
+    nonempty_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "-is:empty", limit=10).hits]
+    assert "/workspace/nonempty-file.txt" in nonempty_hits
+    assert "/workspace/nonempty-dir" in nonempty_hits
+    assert "/workspace/nonempty-dir/child.txt" in nonempty_hits
+
+
 def test_execute_metadata_only_query_reports_uncapped_total_estimate(
     tmp_db: sqlite3.Connection,
 ) -> None:
