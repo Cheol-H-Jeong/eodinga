@@ -1,7 +1,23 @@
 from __future__ import annotations
 
+import os
+import re
+from collections.abc import Iterator
 from pathlib import Path
-from typing import IO
+from typing import IO, cast
+
+DENYLIST = (
+    "/proc",
+    "/sys",
+    "/dev",
+    "/run",
+    "/var/lib",
+    "%SystemRoot%",
+    "~/AppData/Local/Temp",
+)
+
+_HIDDEN_NAMES = {".git", ".hg", ".svn", ".cache", "__pycache__"}
+_WINDOWS_ABS_RE = re.compile(r"^[A-Za-z]:[\\/]")
 
 
 def open_readonly(path: Path, mode: str = "rb", encoding: str | None = None) -> IO[str] | IO[bytes]:
@@ -10,14 +26,41 @@ def open_readonly(path: Path, mode: str = "rb", encoding: str | None = None) -> 
     return path.open(mode=mode, encoding=encoding)
 
 
-def exists(path: Path) -> bool:
-    return path.exists()
+def read_bytes(path: Path) -> bytes:
+    with open_readonly(path, mode="rb") as handle:
+        return cast(bytes, handle.read())
 
 
-def is_dir(path: Path) -> bool:
-    return path.is_dir()
+def file_size(path: Path) -> int:
+    return stat_safe(path).st_size
 
 
-def is_file(path: Path) -> bool:
-    return path.is_file()
+def resolve_safe(path: Path) -> Path:
+    raw = str(path).replace("\\", "/")
+    if _WINDOWS_ABS_RE.match(raw):
+        return Path(raw)
+    return path.expanduser().resolve(strict=False)
 
+
+def stat_safe(path: Path) -> os.stat_result:
+    return path.lstat()
+
+
+def scandir_safe(path: Path) -> Iterator[Path]:
+    with os.scandir(path) as entries:
+        for entry in entries:
+            yield Path(entry.path)
+
+
+def is_hidden(path: Path) -> bool:
+    return any(part.startswith(".") or part in _HIDDEN_NAMES for part in path.parts)
+
+
+__all__ = [
+    "DENYLIST",
+    "is_hidden",
+    "open_readonly",
+    "resolve_safe",
+    "scandir_safe",
+    "stat_safe",
+]

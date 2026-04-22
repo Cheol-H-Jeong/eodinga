@@ -2,7 +2,76 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+from eodinga.content.base import ParsedContent
+
+
+class FileRecord(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    id: int | None = None
+    root_id: int
+    path: Path
+    parent_path: Path
+    name: str
+    name_lower: str
+    ext: str
+    size: int
+    mtime: int
+    ctime: int
+    is_dir: bool
+    is_symlink: bool
+    content_hash: bytes | None = None
+    indexed_at: int
+
+
+class WatchEvent(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    event_type: str
+    path: Path
+    src_path: Path | None = None
+    is_dir: bool = False
+    root_path: Path | None = None
+    happened_at: float = 0.0
+
+
+class PathRules(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    root: Path | None = None
+    include: tuple[str, ...] = ("**/*",)
+    exclude: tuple[str, ...] = ()
+
+
+class IndexStats(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    file_count: int = 0
+    dir_count: int = 0
+    content_count: int = 0
+    total_size: int = 0
+    roots: tuple[Path, ...] = ()
+
+
+class SearchHit(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    path: Path
+    parent_path: Path
+    name: str
+    ext: str = ""
+    highlighted_name: str | None = None
+    highlighted_path: str | None = None
+
+
+class QueryResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    items: list[SearchHit] = Field(default_factory=list)
+    total: int = 0
+    elapsed_ms: float = 0.0
 
 
 class SearchResult(BaseModel):
@@ -18,6 +87,18 @@ class StatsSnapshot(BaseModel):
 
     files_indexed: int = 0
     documents_indexed: int = 0
-    roots: list[Path] = []
+    roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None
 
+
+__all__ = [
+    "FileRecord",
+    "IndexStats",
+    "ParsedContent",
+    "PathRules",
+    "QueryResult",
+    "SearchHit",
+    "SearchResult",
+    "StatsSnapshot",
+    "WatchEvent",
+]

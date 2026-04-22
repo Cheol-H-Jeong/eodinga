@@ -15,12 +15,15 @@ def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None
         logger.add(log_path, rotation="5 MB", retention=5, level=level.upper())
 
 
-def get_logger(name: str) -> Any:
-    return logger.bind(component=name)
+def get_logger(name: str | None = None) -> Any:
+    return logger.bind(component=name or "eodinga")
+
+def increment_counter(name: str, value: int = 1, **fields: object) -> None:
+    logger.bind(metric=name, **fields).debug("counter +{value}", value=value)
 
 
 def record_counter(name: str, value: int = 1, **fields: object) -> None:
-    logger.bind(metric=name, **fields).debug("counter +{value}", value=value)
+    increment_counter(name, value=value, **fields)
 
 
 def record_snapshot(name: str, payload: Mapping[str, object]) -> None:

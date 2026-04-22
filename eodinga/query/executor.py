@@ -87,7 +87,7 @@ def _filter_record(branch: CompiledBranch, record: FileRecord, content_text: str
             continue
         return False
     for term in branch.path_filters:
-        if not _term_ok(record.path, term.value, branch.case_sensitive, term.negated):
+        if not _term_ok(str(record.path), term.value, branch.case_sensitive, term.negated):
             return False
     for term in branch.content_terms:
         if not _term_ok(content_text, term.value, branch.case_sensitive, term.negated):
@@ -266,11 +266,13 @@ def _derive_name_path_hits(
     path_hits: list[int] = []
     if not positive_terms:
         ordered = sorted(records.values(), key=lambda item: item.name_lower)
-        ids = [record.id for record in ordered]
+        ids = [record.id for record in ordered if record.id is not None]
         return ids, ids
     for record in records.values():
+        if record.id is None:
+            continue
         target_name = record.name
-        target_path = record.path
+        target_path = str(record.path)
         if any(
             _text_matches(target_name, term.value, branch.case_sensitive)
             for term in positive_terms
@@ -334,7 +336,7 @@ def _execute_branch(
         path_hits=path_hits,
         content_hits=content_hits,
         prefix_hits=prefix_hits,
-        paths={file_id: record.path for file_id, record in filtered_records.items()},
+        paths={file_id: str(record.path) for file_id, record in filtered_records.items()},
     )
     branch_snippets = {file_id: snippets.get(file_id) for file_id in filtered_records}
     return filtered_records, scores, branch_snippets

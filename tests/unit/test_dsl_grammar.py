@@ -82,7 +82,10 @@ def test_parse_errors(query: str) -> None:
 
 @given(
     st.one_of(
-        st.builds(lambda value: f'"{value}', st.text(min_size=1, max_size=20)),
+        st.builds(
+            lambda value: f'"{value}',
+            st.text(min_size=1, max_size=20).filter(lambda value: '"' not in value),
+        ),
         st.builds(
             lambda value: f"/{value}",
             st.text(min_size=1, max_size=20).filter(lambda value: "/" not in value),
