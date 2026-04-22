@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.21 - 2026-04-23
+
+- Pushed CLI `search --root` scoping into the query executor so root-constrained searches now rank and limit within the requested subtree instead of post-filtering a lossy overfetch window.
+- Persisted parsed content hashes onto `files.content_hash` during indexing, which makes `is:duplicate` work through the real writer/index/search path while still leaving empty or unparsed content out of duplicate matches.
+- Expanded regression and integration coverage for scoped CLI search, writer-side content-hash persistence, and end-to-end `date`/`size`/`is:duplicate`/negation queries against an indexed filesystem tree.
+
 ## 0.1.20 - 2026-04-23
 
 - Aligned the runtime denylist with the documented safe excludes so walker-based indexing now blocks volatile system/cache roots such as `/tmp`, `/snap`, and `%SystemRoot%` consistently with `eodinga doctor`.
