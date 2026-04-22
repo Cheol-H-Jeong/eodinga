@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.78 - 2026-04-23
+
+- Expanded the query DSL with `date:last-week` and `date:last-month`, so relative time filters now cover the previous full calendar week and month in addition to the existing current-period shortcuts.
+- Added inclusive `size:min..max` ranges with unit inheritance, allowing filters like `size:100..500K` without repeating the suffix on both bounds.
+- Introduced `is:empty` for zero-byte files and extended the query compiler, executor, and grammar/fuzz regressions to pin the new operator semantics end to end.
+
 ## 0.1.76 - 2026-04-23
 
 - Polished launcher keyboard navigation so the result list now wraps on `Up` / `Down` and supports `PgUp` / `PgDn` jumps for longer result sets, keeping the popup usable without reaching for the mouse.
