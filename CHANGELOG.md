@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.50 - 2026-04-23
+
+- Fixed Unicode-normalization misses in content search so explicit `content:` terms now supplement partial FTS hits with scanned content candidates instead of dropping decomposed Hangul matches once a precomposed hit exists.
+- Fixed the same partial-hit gap for plain text queries that auto-search indexed content, restoring mixed NFC/NFD Korean content matches even when filename/path FTS already returned other candidates.
+- Expanded query correctness coverage with executor regressions for both Unicode content fallback paths plus broader DSL fuzzing around negated operators, inline regex values, and grouped expressions.
+
 ## 0.1.49 - 2026-04-23
 
 - Expanded the shipped documentation set with a fourth offscreen-rendered screenshot for the settings surface, plus README coverage for supported content types, recovery flow, and the docs map.
