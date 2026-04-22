@@ -74,6 +74,15 @@ class QueryResult(BaseModel):
     elapsed_ms: float = 0.0
 
 
+class IndexingStatus(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    phase: str = "idle"
+    processed_files: int = 0
+    total_files: int = 0
+    current_root: Path | None = None
+
+
 class SearchResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -94,6 +103,7 @@ class StatsSnapshot(BaseModel):
 __all__ = [
     "FileRecord",
     "IndexStats",
+    "IndexingStatus",
     "ParsedContent",
     "PathRules",
     "QueryResult",

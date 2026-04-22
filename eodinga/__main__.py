@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -41,6 +42,7 @@ def _build_parser() -> argparse.ArgumentParser:
     stats_parser.set_defaults(handler=_cmd_stats)
 
     gui_parser = subparsers.add_parser("gui")
+    gui_parser.add_argument("--test-mode", action="store_true")
     gui_parser.set_defaults(handler=_cmd_gui)
 
     doctor_parser = subparsers.add_parser("doctor")
@@ -113,8 +115,17 @@ def _cmd_stats(args: argparse.Namespace) -> int:
 
 
 def _cmd_gui(args: argparse.Namespace) -> int:
-    payload = {"command": "gui", "status": "not-implemented"}
-    return _emit(payload, as_json=True)
+    from eodinga.gui.app import launch_gui
+
+    test_mode = bool(args.test_mode) or os.environ.get("QT_QPA_PLATFORM") == "offscreen"
+    if test_mode:
+        launched = launch_gui(test_mode=True)
+        app, window, launcher = launched
+        launcher.close()
+        window.close()
+        app.processEvents()
+        return 0
+    return int(launch_gui(test_mode=False))
 
 
 def _cmd_doctor(args: argparse.Namespace) -> int:
@@ -137,4 +148,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

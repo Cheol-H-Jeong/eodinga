@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Callable
 from pathlib import Path
 from typing import cast
@@ -8,7 +9,7 @@ from PySide6.QtCore import QAbstractListModel, QEvent, QModelIndex, QObject, QTi
 from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut, QShowEvent
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
 
-from eodinga.common import QueryResult, SearchHit
+from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.widgets import EmptyState, ResultItemDelegate, SearchField, StatusChip
 from eodinga.gui.widgets.result_item import format_hit_html
@@ -28,6 +29,45 @@ def _default_search(query: str, limit: int) -> QueryResult:
     )
     items = [hit] if query else []
     return QueryResult(items=items[:limit], total=len(items), elapsed_ms=2.0)
+
+
+def format_indexing_status(status: IndexingStatus) -> str:
+    if status.phase != "indexing":
+        return "Indexing idle. Results update automatically when your roots change."
+    total = str(status.total_files) if status.total_files > 0 else "?"
+    root_label = f" in {status.current_root}" if status.current_root is not None else ""
+    return f"Indexing {status.processed_files}/{total} files{root_label}."
+
+
+class LauncherState(QObject):
+    recent_queries_changed = Signal(list)
+    indexing_status_changed = Signal(object)
+
+    def __init__(self, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._recent_queries: deque[str] = deque(maxlen=5)
+        self._indexing_status = IndexingStatus()
+
+    @property
+    def recent_queries(self) -> list[str]:
+        return list(self._recent_queries)
+
+    @property
+    def indexing_status(self) -> IndexingStatus:
+        return self._indexing_status
+
+    def remember_query(self, query: str) -> None:
+        normalized = query.strip()
+        if not normalized:
+            return
+        items = [item for item in self._recent_queries if item != normalized]
+        items.insert(0, normalized)
+        self._recent_queries = deque(items[: self._recent_queries.maxlen], maxlen=self._recent_queries.maxlen)
+        self.recent_queries_changed.emit(self.recent_queries)
+
+    def set_indexing_status(self, status: IndexingStatus) -> None:
+        self._indexing_status = status
+        self.indexing_status_changed.emit(status)
 
 
 class ResultListModel(QAbstractListModel):
@@ -70,11 +110,20 @@ class LauncherPanel(QWidget):
     show_properties = Signal(object)
     copy_path_requested = Signal(object)
 
-    def __init__(self, search_fn: SearchFn | None = None, max_results: int = 200, parent=None) -> None:
+    def __init__(
+        self,
+        search_fn: SearchFn | None = None,
+        max_results: int = 200,
+        state: LauncherState | None = None,
+        parent=None,
+    ) -> None:
         super().__init__(parent)
         self._search_fn = search_fn or _default_search
         self._max_results = max_results
         self._latest_result = QueryResult()
+        self._recent_queries: list[str] = []
+        self._indexing_status = IndexingStatus()
+        self._state = state
 
         self.query_field = SearchField(parent=self)
         self.result_list = QListView(self)
@@ -123,10 +172,24 @@ class LauncherPanel(QWidget):
         self._shortcuts[2].activated.connect(self.emit_show_properties)
         self._shortcuts[3].activated.connect(self.emit_copy_path)
 
+        if self._state is not None:
+            self._state.recent_queries_changed.connect(self.set_recent_queries)
+            self._state.indexing_status_changed.connect(self.set_indexing_status)
+            self.set_recent_queries(self._state.recent_queries)
+            self.set_indexing_status(self._state.indexing_status)
+
         self._refresh_empty_state()
 
     def set_search_fn(self, search_fn: SearchFn) -> None:
         self._search_fn = search_fn
+
+    def set_recent_queries(self, queries: list[str]) -> None:
+        self._recent_queries = queries
+        self._refresh_empty_state()
+
+    def set_indexing_status(self, status: IndexingStatus) -> None:
+        self._indexing_status = status
+        self._refresh_empty_state()
 
     def activate_current_result(self) -> None:
         hit = self._current_hit()
@@ -169,6 +232,8 @@ class LauncherPanel(QWidget):
     def _run_query(self) -> None:
         query = self.query_field.text().strip()
         self._latest_result = self._search_fn(query, self._max_results)
+        if self._state is not None and query:
+            self._state.remember_query(query)
         self.model.set_items(self._latest_result.items, query)
         self.status_label.setText(f"{self._latest_result.total} results · {self._latest_result.elapsed_ms:.1f} ms")
         if not query:
@@ -186,15 +251,19 @@ class LauncherPanel(QWidget):
     def _refresh_empty_state(self) -> None:
         has_results = self.model.rowCount() > 0
         query = self.query_field.text().strip()
+        details = format_indexing_status(self._indexing_status)
         if not query:
+            recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
             self.empty_state.set_content(
                 "Type to search",
-                "Arrow keys browse matches. Enter opens the top result. Ctrl+Enter reveals its folder.",
+                f"Recent: {recent_queries}",
+                details,
             )
         else:
             self.empty_state.set_content(
                 f'No results for "{query}"',
                 "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M.",
+                details,
             )
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
@@ -235,8 +304,14 @@ class LauncherPanel(QWidget):
 
 
 class LauncherWindow(LauncherPanel):
-    def __init__(self, search_fn: SearchFn | None = None, max_results: int = 200, parent=None) -> None:
-        super().__init__(search_fn=search_fn, max_results=max_results, parent=parent)
+    def __init__(
+        self,
+        search_fn: SearchFn | None = None,
+        max_results: int = 200,
+        state: LauncherState | None = None,
+        parent=None,
+    ) -> None:
+        super().__init__(search_fn=search_fn, max_results=max_results, state=state, parent=parent)
         self.setObjectName("surface")
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
         self.setWindowFlag(Qt.WindowType.Tool, True)

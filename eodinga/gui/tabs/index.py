@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from eodinga.common import IndexingStatus
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from eodinga.gui.widgets import PrimaryButton, StatusChip
@@ -13,10 +14,23 @@ class IndexTab(QWidget):
         title.setProperty("role", "title")
         body = QLabel("Observe index health, rebuild, and vacuum.", self)
         body.setProperty("role", "secondary")
+        self.status_chip = StatusChip("Idle", self)
+        self.progress_label = QLabel("Index is idle.", self)
+        self.progress_label.setProperty("role", "secondary")
 
         layout.addWidget(title)
         layout.addWidget(body)
-        layout.addWidget(StatusChip("Idle", self))
+        layout.addWidget(self.status_chip)
+        layout.addWidget(self.progress_label)
         layout.addWidget(PrimaryButton("Rebuild index", self))
         layout.addStretch(1)
 
+    def set_indexing_status(self, status: IndexingStatus) -> None:
+        if status.phase == "indexing":
+            total = status.total_files if status.total_files > 0 else "?"
+            root_label = f" · {status.current_root}" if status.current_root is not None else ""
+            self.status_chip.setText("Indexing")
+            self.progress_label.setText(f"{status.processed_files}/{total} files indexed{root_label}")
+            return
+        self.status_chip.setText("Idle")
+        self.progress_label.setText("Index is idle.")

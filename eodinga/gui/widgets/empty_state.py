@@ -16,10 +16,18 @@ class EmptyState(QWidget):
         self.body_label.setProperty("role", "secondary")
         self.body_label.setWordWrap(True)
         self.body_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.details_label = QLabel("", self)
+        self.details_label.setProperty("role", "secondary")
+        self.details_label.setWordWrap(True)
+        self.details_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.details_label.setVisible(False)
 
         layout.addWidget(self.title_label)
         layout.addWidget(self.body_label)
+        layout.addWidget(self.details_label)
 
-    def set_content(self, title: str, body: str) -> None:
+    def set_content(self, title: str, body: str, details: str = "") -> None:
         self.title_label.setText(title)
         self.body_label.setText(body)
+        self.details_label.setText(details)
+        self.details_label.setVisible(bool(details))
