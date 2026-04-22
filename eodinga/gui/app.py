@@ -1,15 +1,24 @@
 from __future__ import annotations
 
 import sys
-from typing import Literal, cast, overload
+from typing import Literal, Protocol, cast, overload
 
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QStyle, QSystemTrayIcon, QTabWidget, QVBoxLayout, QWidget
 
-from eodinga.common import IndexingStatus
+from eodinga.common import IndexingStatus, SearchHit
+from eodinga.gui.actions import DesktopActions
 from eodinga.gui.launcher import LauncherState, LauncherWindow, SearchFn, format_indexing_status
+from eodinga.gui.launcher import LauncherPanel
 from eodinga.gui.tabs import AboutTab, IndexTab, RootsTab, SearchTab, SettingsTab
 from eodinga.gui.theme import apply_theme
+
+
+class _DesktopActionsLike(Protocol):
+    def open_hit(self, hit: SearchHit) -> None: ...
+    def reveal_hit(self, hit: SearchHit) -> None: ...
+    def show_properties(self, hit: SearchHit) -> None: ...
+    def copy_hit_path(self, hit: SearchHit) -> None: ...
 
 
 class TrayIndicatorController:
@@ -71,7 +80,12 @@ class TrayIndicatorController:
 
 
 class EodingaWindow(QMainWindow):
-    def __init__(self, search_fn: SearchFn | None = None, parent=None) -> None:
+    def __init__(
+        self,
+        search_fn: SearchFn | None = None,
+        desktop_actions: _DesktopActionsLike | None = None,
+        parent=None,
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle("eodinga")
         self.resize(960, 640)
@@ -98,10 +112,19 @@ class EodingaWindow(QMainWindow):
         self.setCentralWidget(container)
 
         app = cast(QApplication, QApplication.instance())
+        self.desktop_actions = desktop_actions or DesktopActions(app)
+        self._connect_launcher_actions(self.launcher_window)
+        self._connect_launcher_actions(self.search_tab.launcher_panel)
         self.tray_indicator = TrayIndicatorController(app, self.launcher_window, self)
         self.launcher_state.indexing_status_changed.connect(self.index_tab.set_indexing_status)
         self.launcher_state.indexing_status_changed.connect(self.tray_indicator.set_indexing_status)
         self.set_indexing_status(IndexingStatus())
+
+    def _connect_launcher_actions(self, launcher: LauncherPanel) -> None:
+        launcher.result_activated.connect(self.desktop_actions.open_hit)
+        launcher.open_containing_folder.connect(self.desktop_actions.reveal_hit)
+        launcher.show_properties.connect(self.desktop_actions.show_properties)
+        launcher.copy_path_requested.connect(self.desktop_actions.copy_hit_path)
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self.launcher_state.set_indexing_status(status)
