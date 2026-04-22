@@ -22,6 +22,7 @@ INNO_VERSION_TOKEN = "@@APP_VERSION@@"
 INNO_GUI_DIST_TOKEN = "@@GUI_DIST_NAME@@"
 INNO_CLI_DIST_TOKEN = "@@CLI_DIST_NAME@@"
 INNO_GUI_EXE_TOKEN = "@@GUI_EXE_NAME@@"
+_INNO_TEMPLATE_TOKEN_PATTERN = re.compile(r"@@[A-Z_]+@@")
 _INNO_APP_ID_PATTERN = re.compile(r"^\{\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$")
 
 
@@ -74,6 +75,13 @@ def _macro_value(text: str, macro_name: str) -> str | None:
     return match.group(1)
 
 
+def _setup_value(text: str, key: str) -> str | None:
+    match = re.search(rf"^{re.escape(key)}=(.+)$", text, flags=re.MULTILINE)
+    if match is None:
+        return None
+    return match.group(1).strip()
+
+
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     spec_namespace = _load_windows_spec_namespace()
     inno_text = INNO_SCRIPT.read_text(encoding="utf-8")
@@ -91,6 +99,12 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     )
     rendered_text = rendered_path.read_text(encoding="utf-8")
     output_base_filename = f"eodinga-{version}-win-x64-setup"
+    rendered_app_id = _macro_value(rendered_text, "AppId")
+    rendered_app_version = _macro_value(rendered_text, "AppVersion")
+    rendered_output_base_filename = _setup_value(rendered_text, "OutputBaseFilename")
+    resolved_output_base_filename = None
+    if rendered_output_base_filename is not None:
+        resolved_output_base_filename = rendered_output_base_filename.replace("{#AppVersion}", version)
     source_entries = _source_entries(inno_text)
     expected_source_entries = [
         f"dist\\\\{INNO_GUI_DIST_TOKEN}\\\\*",
@@ -131,7 +145,15 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "source_entries_match_pyinstaller_dist": source_entries == expected_source_entries,
             "contains_app_version_template": INNO_VERSION_TOKEN in inno_text,
             "rendered_path": str(rendered_path),
+            "unresolved_template_tokens": _INNO_TEMPLATE_TOKEN_PATTERN.findall(rendered_text),
+            "rendered_app_id_macro": rendered_app_id,
+            "rendered_app_id_matches_template": rendered_app_id == app_id,
+            "rendered_app_version_macro": rendered_app_version,
+            "rendered_app_version_matches_package": rendered_app_version == version,
             "output_base_filename": output_base_filename,
+            "rendered_output_base_filename": rendered_output_base_filename,
+            "resolved_output_base_filename": resolved_output_base_filename,
+            "rendered_output_base_filename_matches_version": resolved_output_base_filename == output_base_filename,
             "rendered_source_entries": _source_entries(rendered_text),
             "rendered_source_entries_match_pyinstaller_dist": _source_entries(rendered_text) == rendered_source_entries,
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
