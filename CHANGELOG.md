@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.104 - 2026-04-23
+
+- Restored CLI startup compatibility with older config files by ignoring the retired `launcher.always_on_top` key during load, preventing `pydantic extra_forbidden` crashes in search, index, and GUI entrypoints.
+- Expanded launcher keyboard flow with `Alt+1` through `Alt+9` quick-pick activation for visible hits and made `Ctrl+A` reliably return focus to the filter and select the current query from the results list.
+- Added explicit accessible names to launcher controls and the main tab actions so screen readers can identify the search field, results list, tab strip, and primary action buttons consistently in offscreen GUI tests.
+
 ## 0.1.78 - 2026-04-23
 
 - Tightened the Windows packaging audit so the rendered Inno installer now verifies its escaped `AppId`, template-driven `AppVersion`, and GUI uninstall icon path instead of relying on looser substring checks.
