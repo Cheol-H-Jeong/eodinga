@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4 - 2026-04-23
+
+- Batched content-index upserts so bulk indexing reuses file/content row IDs without per-record lookup queries.
+- Added opt-in performance tests under `tests/perf` for cold-start throughput, name query latency, content query latency, and watcher visibility latency behind `EODINGA_RUN_PERF=1`.
+- Documented the current local performance baseline in `docs/PERFORMANCE.md` and linked the opt-in perf workflow from the README.
+
 ## 0.1.3 - 2026-04-23
 
 - Improved launcher keyboard flow so the popup focuses the filter field when shown, arrow keys move into result navigation, and `Tab` returns to filtering without grabbing the mouse.
