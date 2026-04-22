@@ -146,14 +146,16 @@ def _cmd_gui(args: argparse.Namespace) -> int:
     from eodinga.gui.app import launch_gui
 
     test_mode = bool(args.test_mode) or os.environ.get("QT_QPA_PLATFORM") == "offscreen"
+    config = _resolve_config(args)
+    db_path = args.db or config.index.db_path
     if test_mode:
-        launched = launch_gui(test_mode=True)
+        launched = launch_gui(test_mode=True, db_path=db_path)
         app, window, launcher = launched
         launcher.close()
         window.close()
         app.processEvents()
         return 0
-    return int(launch_gui(test_mode=False))
+    return int(launch_gui(test_mode=False, db_path=db_path))
 
 
 def _cmd_doctor(args: argparse.Namespace) -> int:

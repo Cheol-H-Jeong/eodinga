@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+from contextlib import closing
 import sys
 from typing import Literal, Protocol, cast, overload
 
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QStyle, QSystemTrayIcon, QTabWidget, QVBoxLayout, QWidget
 
-from eodinga.common import IndexingStatus, SearchHit
+from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.actions import DesktopActions
 from eodinga.gui.launcher import LauncherState, LauncherWindow, SearchFn, format_indexing_status
 from eodinga.gui.launcher import LauncherPanel
 from eodinga.gui.tabs import AboutTab, IndexTab, RootsTab, SearchTab, SettingsTab
 from eodinga.gui.theme import apply_theme
+from eodinga.index.storage import open_index
+from eodinga.query import QuerySyntaxError, search as run_search
 
 
 class _DesktopActionsLike(Protocol):
@@ -130,10 +133,36 @@ class EodingaWindow(QMainWindow):
         self.launcher_state.set_indexing_status(status)
 
 
+def build_index_search_fn(db_path) -> SearchFn:
+    def _search(query: str, limit: int) -> QueryResult:
+        normalized = query.strip()
+        if not normalized or limit <= 0:
+            return QueryResult(items=[], total=0, elapsed_ms=0.0)
+        try:
+            with closing(open_index(db_path)) as conn:
+                result = run_search(conn, normalized, limit=limit)
+        except (QuerySyntaxError, ValueError):
+            return QueryResult(items=[], total=0, elapsed_ms=0.0)
+        items = [
+            SearchHit(
+                path=hit.file.path,
+                parent_path=hit.file.parent_path,
+                name=hit.file.name,
+                ext=hit.file.ext,
+                snippet=hit.snippet,
+            )
+            for hit in result.hits[:limit]
+        ]
+        return QueryResult(items=items, total=result.total_estimate, elapsed_ms=result.elapsed_ms)
+
+    return _search
+
+
 @overload
 def launch_gui(
     test_mode: Literal[True],
     search_fn: SearchFn | None = None,
+    db_path=None,
 ) -> tuple[QApplication, EodingaWindow, LauncherWindow]: ...
 
 
@@ -141,15 +170,19 @@ def launch_gui(
 def launch_gui(
     test_mode: Literal[False] = False,
     search_fn: SearchFn | None = None,
+    db_path=None,
 ) -> int: ...
 
 
 def launch_gui(
     test_mode: bool = False,
     search_fn: SearchFn | None = None,
+    db_path=None,
 ) -> tuple[QApplication, EodingaWindow, LauncherWindow] | int:
     app = cast(QApplication, QApplication.instance() or QApplication(sys.argv))
     apply_theme(app, "light")
+    if search_fn is None and db_path is not None:
+        search_fn = build_index_search_fn(db_path)
     window = EodingaWindow(search_fn=search_fn)
     window.show()
     window.launcher_window.hide()

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sqlite3
 from typing import cast
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.actions import DesktopActions
-from eodinga.gui.app import EodingaWindow, launch_gui
+from eodinga.gui.app import EodingaWindow, build_index_search_fn, launch_gui
 from eodinga.gui.launcher import LauncherWindow
 from eodinga.gui.tabs import AboutTab, IndexTab, RootsTab, SearchTab, SettingsTab
+from eodinga.index.schema import apply_schema
 
 
 def test_app_window_has_expected_tabs_and_launcher(qapp) -> None:
@@ -129,3 +131,69 @@ def test_desktop_actions_copy_path_updates_clipboard(qapp) -> None:
     actions.copy_hit_path(hit)
 
     assert qapp.clipboard().text() == "/tmp/report.txt"
+
+
+def test_build_index_search_fn_queries_real_index(tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        conn.execute(
+            "INSERT INTO roots(id, path, include, exclude, added_at) VALUES (?, ?, ?, ?, ?)",
+            (1, str(tmp_path), "[]", "[]", 1),
+        )
+        target_path = tmp_path / "docs" / "release-notes.txt"
+        conn.execute(
+            """
+            INSERT INTO files (
+              id, root_id, path, parent_path, name, name_lower, ext, size, mtime, ctime,
+              is_dir, is_symlink, content_hash, indexed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                1,
+                1,
+                str(target_path),
+                str(target_path.parent),
+                target_path.name,
+                target_path.name.lower(),
+                "txt",
+                1024,
+                1,
+                1,
+                0,
+                0,
+                b"release",
+                1,
+            ),
+        )
+        conn.execute(
+            "INSERT INTO content_fts(rowid, title, head_text, body_text) VALUES (?, ?, ?, ?)",
+            (1, target_path.name, "release notes", "release notes are attached"),
+        )
+        conn.execute(
+            """
+            INSERT INTO content_map(file_id, fts_rowid, parser, parsed_at, content_sha)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (1, 1, "text", 1, b"release"),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    search_fn = build_index_search_fn(db_path)
+    result = search_fn('content:"release notes"', 5)
+
+    assert result.total == 1
+    assert result.items[0].name == "release-notes.txt"
+    assert result.items[0].snippet is not None
+
+
+def test_build_index_search_fn_returns_empty_results_for_invalid_query(tmp_path: Path) -> None:
+    search_fn = build_index_search_fn(tmp_path / "index.db")
+
+    result = search_fn('content:"unterminated', 5)
+
+    assert result.total == 0
+    assert result.items == []
