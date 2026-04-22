@@ -11,7 +11,7 @@ PRAGMAS = (
     "PRAGMA foreign_keys=ON;",
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS roots (
@@ -45,6 +45,7 @@ CREATE INDEX IF NOT EXISTS idx_files_ext ON files(ext);
 CREATE INDEX IF NOT EXISTS idx_files_mtime ON files(mtime);
 CREATE INDEX IF NOT EXISTS idx_files_size ON files(size);
 CREATE INDEX IF NOT EXISTS idx_files_parent ON files(parent_path);
+CREATE INDEX IF NOT EXISTS idx_files_content_hash ON files(content_hash);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS paths_fts USING fts5(
   name, parent_path, path,

@@ -36,3 +36,18 @@ def test_compile_regex_and_case_flags() -> None:
     assert branch.regex_mode is True
     assert branch.path_regex_terms[0].pattern == "todo.*"
     assert branch.content_regex_terms[0].flags == "i"
+
+
+def test_compile_date_alias_uses_mtime_range() -> None:
+    compiled = compile_query(parse("date:this-week"))
+    branch = compiled.branches[0]
+    assert branch.where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert len(branch.where_params) == 2
+
+
+def test_compile_duplicate_filter_shape() -> None:
+    compiled = compile_query(parse("is:duplicate -is:symlink"))
+    branch = compiled.branches[0]
+    assert "files.content_hash IS NOT NULL" in branch.where_sql
+    assert "duplicates.content_hash = files.content_hash" in branch.where_sql
+    assert "NOT (files.is_symlink = 1)" in branch.where_sql

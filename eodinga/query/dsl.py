@@ -4,7 +4,18 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-OP_NAMES = {"ext", "path", "size", "modified", "created", "is", "content", "case", "regex"}
+OP_NAMES = {
+    "date",
+    "ext",
+    "path",
+    "size",
+    "modified",
+    "created",
+    "is",
+    "content",
+    "case",
+    "regex",
+}
 
 
 class QueryNode(BaseModel):

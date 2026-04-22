@@ -8,7 +8,13 @@ from eodinga.index.schema import apply_schema, current_schema_version
 def test_schema_apply_and_fts_triggers_and_cascade() -> None:
     conn = sqlite3.connect(":memory:")
     apply_schema(conn)
-    assert current_schema_version(conn) == 1
+    assert current_schema_version(conn) == 2
+    assert (
+        conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_files_content_hash'"
+        ).fetchone()[0]
+        == "idx_files_content_hash"
+    )
 
     conn.execute(
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",

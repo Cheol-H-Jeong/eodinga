@@ -135,6 +135,16 @@ def _date_to_range(value: str) -> tuple[int, int]:
     return _day_bounds(day)
 
 
+def _duplicate_clause(negated: bool) -> str:
+    clause = (
+        "files.content_hash IS NOT NULL AND EXISTS ("
+        "SELECT 1 FROM files AS duplicates "
+        "WHERE duplicates.content_hash = files.content_hash "
+        "AND duplicates.id != files.id)"
+    )
+    return f"NOT ({clause})" if negated else clause
+
+
 def _compile_branch(
     terms: list[WordNode | PhraseNode | RegexNode | OperatorNode],
 ) -> CompiledBranch:
@@ -196,9 +206,9 @@ def _compile_branch(
             where_parts.append(f"files.ext {comparator} ?")
             where_params.append(term.value.lower())
             continue
-        if term.name in {"modified", "created"}:
+        if term.name in {"date", "modified", "created"}:
             start, end = _date_to_range(term.value)
-            column = "mtime" if term.name == "modified" else "ctime"
+            column = "ctime" if term.name == "created" else "mtime"
             if term.negated:
                 where_parts.append(f"NOT (files.{column} >= ? AND files.{column} < ?)")
             else:
@@ -221,6 +231,10 @@ def _compile_branch(
                 clause = "files.is_dir = 0"
             elif normalized == "symlink":
                 clause = "files.is_symlink = 1"
+            elif normalized == "duplicate":
+                clause = _duplicate_clause(term.negated)
+                where_parts.append(clause)
+                continue
             else:
                 raise ValueError(f"invalid is: value: {term.value}")
             where_parts.append(f"NOT ({clause})" if term.negated else clause)
