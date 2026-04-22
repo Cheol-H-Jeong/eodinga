@@ -7,7 +7,7 @@ import tomllib
 from pathlib import Path
 
 import tomli_w
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 def _expand_path(value: str | Path) -> Path:
@@ -69,6 +69,15 @@ class LauncherConfig(BaseModel):
     window_y: int | None = None
     window_width: int = 640
     window_height: int = 480
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_legacy_fields(cls, value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        normalized.pop("always_on_top", None)
+        return normalized
 
 
 class IndexConfig(BaseModel):

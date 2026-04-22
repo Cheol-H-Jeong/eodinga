@@ -25,6 +25,21 @@ def test_config_round_trip_save_and_load(temp_config_path: Path, tmp_path: Path)
     assert loaded.model_dump() == config.model_dump()
 
 
+def test_load_ignores_legacy_launcher_always_on_top_field(temp_config_path: Path) -> None:
+    temp_config_path.write_text(
+        """
+[launcher]
+hotkey = "ctrl+space"
+always_on_top = true
+""".strip(),
+        encoding="utf-8",
+    )
+
+    loaded = load(temp_config_path)
+
+    assert loaded.launcher.hotkey == "ctrl+space"
+
+
 def test_config_save_is_atomic_and_cleans_temp_file_on_replace_failure(
     temp_config_path: Path,
     tmp_path: Path,
