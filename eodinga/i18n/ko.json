@@ -1,0 +1,9 @@
+{
+  "app.title": "이오딩가",
+  "cli.search.no_results": "검색 결과가 없습니다",
+  "cli.doctor.ok": "진단이 정상입니다",
+  "cli.doctor.fail": "진단에서 문제가 발견되었습니다",
+  "installer.language.en": "영어",
+  "installer.language.ko": "한국어"
+}
+

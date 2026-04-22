@@ -1,0 +1,27 @@
+---
+name: release-linux
+
+"on":
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install -e .[dev,parsers,gui]
+      - name: Build dry run
+        run: python packaging/build.py --target windows-dry-run
+      - name: Package AppImage
+        run: bash packaging/linux/appimage.sh
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: eodinga-linux
+          path: packaging/dist/*

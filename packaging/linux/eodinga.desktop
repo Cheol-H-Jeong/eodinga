@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=eodinga
+Exec=eodinga gui
+Icon=eodinga
+Terminal=false
+Categories=Utility;FileTools;
+StartupNotify=true
+
