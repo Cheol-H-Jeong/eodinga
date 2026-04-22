@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.81 - 2026-04-23
+
+- Reissued the observability round under the next free local release number after the shared parallel-worktree tag namespace had already consumed `v0.1.80`, without changing the shipped code in this slice.
+
 ## 0.1.80 - 2026-04-23
 
 - Reissued the observability round under a fresh local release number after a shared parallel-worktree tag collision on `v0.1.79`, without changing the shipped code in this slice.
