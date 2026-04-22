@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.75 - 2026-04-23
+
+- Fixed negated boolean query operators so `-case:true` now restores case-insensitive matching and `-regex:true` now restores literal-term matching instead of silently behaving like their non-negated forms.
+- Added compiler and executor regressions that pin the inverted semantics end to end, covering both mode compilation and actual query results against mixed-case and regex-looking filenames.
+- Expanded the DSL fuzz suite with property tests that prove negated `case:` and `regex:` operators compile as semantic inverses of their positive boolean counterparts.
+
 ## 0.1.74 - 2026-04-23
 
 - Polished launcher keyboard flow with `Alt+Up` / `Alt+Down` recent-query recall, so repeated searches no longer require retyping the last few filters during a desktop-search session.
