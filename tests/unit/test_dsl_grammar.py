@@ -76,19 +76,30 @@ def test_parse_inline_operator_empty_regex_errors(query: str) -> None:
         parse(query)
 
 
-@pytest.mark.parametrize("query", ["/todo/x", "content:/todo/mii", "path:/todo/ix"])
+@pytest.mark.parametrize("query", ["/todo/x", "content:/todo/mii", "regex:/todo/ix"])
 def test_parse_regex_flags_must_be_supported_and_unique(query: str) -> None:
     with pytest.raises(QuerySyntaxError, match="regex flag"):
         parse(query)
 
 
-def test_parse_slash_prefixed_path_literal_as_word_value() -> None:
-    node = parse("path:/workspace/projects")
+@pytest.mark.parametrize("query", ["path:/workspace/projects", "path:/tmp/log", "path:/a/b"])
+def test_parse_slash_prefixed_path_literal_as_word_value(query: str) -> None:
+    node = parse(query)
 
     assert isinstance(node, OperatorNode)
     assert node.name == "path"
-    assert node.value == "/workspace/projects"
+    assert node.value == query.removeprefix("path:")
     assert node.value_kind == "word"
+
+
+def test_parse_slash_prefixed_path_regex_with_valid_flags() -> None:
+    node = parse("path:/tmp/log/i")
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "path"
+    assert node.value == "tmp/log"
+    assert node.value_kind == "regex"
+    assert node.regex_flags == "i"
 
 
 @pytest.mark.parametrize(
@@ -213,6 +224,34 @@ VALID_QUERY_STRATEGY = st.recursive(
 @given(VALID_QUERY_STRATEGY)
 def test_valid_query_fuzz_parses_and_compiles(query: str) -> None:
     compile_query(parse(query))
+
+
+@given(
+    st.tuples(
+        st.text(
+            alphabet=st.characters(min_codepoint=97, max_codepoint=122),
+            min_size=1,
+            max_size=8,
+        ),
+        st.text(
+            alphabet=st.characters(min_codepoint=97, max_codepoint=122),
+            min_size=1,
+            max_size=3,
+        ).filter(
+            lambda value: len(set(value)) != len(value) or any(flag not in {"i", "m", "s"} for flag in value)
+        ),
+    )
+)
+def test_slash_prefixed_path_literal_with_short_basename_fuzz_parses_as_word(
+    segments: tuple[str, str],
+) -> None:
+    left, right = segments
+    node = parse(f"path:/{left}/{right}")
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "path"
+    assert node.value == f"/{left}/{right}"
+    assert node.value_kind == "word"
 
 
 INVALID_REGEX_FLAGS = st.text(

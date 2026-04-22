@@ -155,7 +155,7 @@ class _Parser:
 
     def _parse_operator(self, name: str, initial_value: str, negated: bool) -> OperatorNode:
         if initial_value:
-            value, value_kind, regex_flags = self._decode_inline_value(initial_value)
+            value, value_kind, regex_flags = self._decode_inline_value(name, initial_value)
             return OperatorNode(
                 name=name,
                 value=value,
@@ -225,7 +225,7 @@ class _Parser:
         return RegexNode(pattern=pattern, flags=flags)
 
     def _decode_inline_value(
-        self, value: str
+        self, name: str, value: str
     ) -> tuple[str, Literal["word", "phrase", "regex"], str]:
         if value.startswith('"'):
             start = self.index - len(value)
@@ -239,6 +239,11 @@ class _Parser:
             suffix = value[last + 1 :]
             if suffix and (len(suffix) > 3 or not suffix.isalpha()):
                 return value, "word", ""
+            if name == "path" and suffix:
+                try:
+                    self._validate_regex_flags(suffix, self.index - len(value) + last + 1)
+                except QuerySyntaxError:
+                    return value, "word", ""
             pattern = value[1:last]
             if not pattern:
                 raise QuerySyntaxError("empty regex", self.index - len(value) + 1)
