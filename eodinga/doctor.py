@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from eodinga.config import AppConfig, default_db_path
+from eodinga.index import has_stale_wal, recover_stale_wal
 
 DEFAULT_EXCLUDES = [
     "/proc",
@@ -73,6 +74,8 @@ def _detect_hotkey_backend() -> str:
 def run_diagnostics(config: AppConfig | None = None, db_path: Path | None = None) -> tuple[dict[str, Any], int]:
     effective_config = config or AppConfig()
     effective_db_path = db_path or effective_config.index.db_path or default_db_path()
+    stale_wal_present = has_stale_wal(effective_db_path)
+    stale_wal_recovered = recover_stale_wal(effective_db_path) if stale_wal_present else False
     required = {name: _is_importable(module) for name, module in REQUIRED_IMPORTS.items()}
     optional = {name: _is_importable(module) for name, module in OPTIONAL_IMPORTS.items()}
     roots = _roots_readable(effective_config)
@@ -87,7 +90,10 @@ def run_diagnostics(config: AppConfig | None = None, db_path: Path | None = None
         },
         "db": {
             "path": str(effective_db_path),
+            "exists": effective_db_path.expanduser().exists(),
             "writable": _is_db_writable(effective_db_path),
+            "stale_wal_present": stale_wal_present,
+            "stale_wal_recovered": stale_wal_recovered,
         },
         "roots": roots,
         "hotkey_backend": _detect_hotkey_backend(),
