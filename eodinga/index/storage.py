@@ -71,6 +71,19 @@ def _staged_recovery_path(path: Path) -> Path:
     return path.with_name(f".{path.name}.recover")
 
 
+def _cleanup_orphan_recovery_sidecars(path: Path) -> bool:
+    staged_path = _staged_recovery_path(path)
+    if staged_path.exists():
+        return False
+    cleaned = False
+    for suffix in ("-wal", "-shm"):
+        orphan = _sidecar(staged_path, suffix)
+        if orphan.exists():
+            orphan.unlink()
+            cleaned = True
+    return cleaned
+
+
 def _copy_index_with_sidecars(source_path: Path, target_path: Path) -> None:
     target_path.parent.mkdir(parents=True, exist_ok=True)
     _cleanup_index_files(target_path)
@@ -136,6 +149,7 @@ def recover_interrupted_recovery(path: Path) -> bool:
 
 def open_index(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
+    _cleanup_orphan_recovery_sidecars(path)
     if recover_interrupted_recovery(path):
         pass
     if has_stale_wal(path) and not recover_stale_wal(path):

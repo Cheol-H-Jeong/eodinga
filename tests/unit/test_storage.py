@@ -324,3 +324,22 @@ def test_open_index_resumes_interrupted_recovery_with_staged_wal(tmp_path: Path)
     assert not staged.exists()
     assert not staged.with_name(".index.db.recover-wal").exists()
     assert not staged.with_name(".index.db.recover-shm").exists()
+
+
+def test_open_index_cleans_orphaned_recovery_sidecars_before_open(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+    staged.with_name(".index.db.recover-wal").write_bytes(b"orphaned")
+    staged.with_name(".index.db.recover-shm").write_bytes(b"orphaned")
+
+    reopened = open_index(path)
+    try:
+        rows = reopened.execute("SELECT COUNT(*) FROM roots").fetchone()
+        assert rows is not None
+        assert int(rows[0]) == 0
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.recover-wal").exists()
+    assert not staged.with_name(".index.db.recover-shm").exists()
