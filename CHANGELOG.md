@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.18 - 2026-04-23
+
+- Fixed walker cycle tracking so distinct hardlinked file paths are no longer collapsed just because they share an inode, while repeated directory inodes still stop traversal from re-entering the same subtree.
+- Added traversal coverage for hardlinked files and aliased-directory inodes to pin the bind-mount/cycle behavior without requiring privileged fixtures.
+- Tightened watcher coalescing so a rename followed by a redundant delete on the source path now stays a single move event, matching the same-root update semantics in the SPEC.
+
 ## 0.1.17 - 2026-04-23
 
 - Normalized reversed ISO date ranges in the query compiler so `date:2026-01-03..2026-01-01` now behaves like the same inclusive window in forward order instead of returning no hits.
