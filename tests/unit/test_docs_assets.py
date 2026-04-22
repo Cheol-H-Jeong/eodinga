@@ -10,14 +10,15 @@ def _repo_root() -> Path:
 
 
 def test_render_doc_screenshots_writes_expected_assets(tmp_path: Path, qapp) -> None:
-    app_path, launcher_path = render_doc_screenshots(tmp_path)
+    screenshots = render_doc_screenshots(tmp_path)
 
-    assert app_path.name == "app-window.png"
-    assert launcher_path.name == "launcher-window.png"
-    assert app_path.exists()
-    assert launcher_path.exists()
-    assert app_path.stat().st_size > 0
-    assert launcher_path.stat().st_size > 0
+    assert set(screenshots) == {"app-window", "launcher-window", "index-progress"}
+    assert screenshots["app-window"].name == "app-window.png"
+    assert screenshots["launcher-window"].name == "launcher-window.png"
+    assert screenshots["index-progress"].name == "index-progress.png"
+    for asset in screenshots.values():
+        assert asset.exists()
+        assert asset.stat().st_size > 0
 
 
 def test_docs_reference_expected_assets_and_guides() -> None:
@@ -29,20 +30,30 @@ def test_docs_reference_expected_assets_and_guides() -> None:
 
     assert "![Main application window]" in readme
     assert "![Launcher window]" in readme
+    assert "![Index progress window]" in readme
     assert "## Install" in readme
+    assert "## Quick Start" in readme
     assert "## Hotkey" in readme
+    assert "## Config and Data Paths" in readme
     assert "## Limitations" in readme
     assert "docs/DSL.md" in readme
     assert "docs/ARCHITECTURE.md" in readme
     assert "docs/PERFORMANCE.md" in readme
 
     assert "## Runtime Flow" in architecture
+    assert "## Module Map" in architecture
     assert "## Index Storage" in architecture
     assert "## Query Execution" in architecture
+    assert "## Packaging Surfaces" in architecture
 
     assert "date:this-week" in dsl
+    assert "date:yesterday" in dsl
     assert "size:>10M" in dsl
+    assert "is:duplicate" in dsl
     assert "-path:node_modules" in dsl
+    assert "## Operator Notes" in dsl
 
     assert "SPEC §6.3" in performance
     assert "tests/perf/test_cold_start.py" in performance
+    assert "## Running the Suite" in performance
+    assert "## Baseline" in performance
