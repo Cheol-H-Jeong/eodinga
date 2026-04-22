@@ -93,6 +93,8 @@ class WatchService:
                 source_existing = self._pending.pop(event.src_path, None)
                 self._timestamps.pop(event.src_path, None)
                 event = self._merge_move(source_existing, event)
+            if event.event_type == "deleted" and self._is_pending_move_source(event.path):
+                return
             existing = self._pending.get(event.path)
             if (
                 existing is not None
@@ -112,6 +114,12 @@ class WatchService:
                 self._timestamps[event.path] = monotonic()
             if len(self._pending) >= _FLUSH_LIMIT:
                 self._flush_ready(force=True)
+
+    def _is_pending_move_source(self, path: Path) -> bool:
+        return any(
+            pending.event_type == "moved" and pending.src_path == path
+            for pending in self._pending.values()
+        )
 
     def _merge_move(self, existing: WatchEvent | None, moved: WatchEvent) -> WatchEvent:
         if existing is None:
