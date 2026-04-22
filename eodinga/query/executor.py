@@ -5,6 +5,7 @@ import sqlite3
 import time
 import unicodedata
 from collections.abc import Iterable, Mapping
+from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
 
@@ -37,6 +38,108 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+
+
+@lru_cache(maxsize=256)
+def _record_batch_sql(has_where: bool) -> str:
+    sql = "SELECT files.* FROM files"
+    if has_where:
+        sql += " WHERE {where_sql}"
+    sql += " ORDER BY files.name_lower ASC LIMIT ? OFFSET ?"
+    return sql
+
+
+@lru_cache(maxsize=256)
+def _path_candidates_fts_sql(
+    has_path_match_sql: bool,
+    has_where_sql: bool,
+    case_sensitive: bool,
+) -> str:
+    sql = """
+        SELECT files.*
+        FROM paths_fts
+        JOIN files ON files.id = paths_fts.rowid
+    """
+    filters: list[str] = []
+    if has_path_match_sql:
+        filters.append("{path_match_sql}")
+    if has_where_sql:
+        filters.append("{where_sql}")
+    if filters:
+        sql += " WHERE " + " AND ".join(filters)
+    order_expr = "files.name" if case_sensitive else "files.name_lower"
+    prefix_expr = "files.name LIKE ?" if case_sensitive else "files.name_lower LIKE ?"
+    sql += (
+        f" ORDER BY CASE WHEN {prefix_expr} THEN 0 ELSE 1 END,"
+        f" bm25(paths_fts, 8.0, 2.0, 1.0) ASC, {order_expr} ASC LIMIT ?"
+    )
+    return sql
+
+
+@lru_cache(maxsize=256)
+def _path_candidates_scan_sql(
+    positive_term_count: int,
+    has_where_sql: bool,
+    case_sensitive: bool,
+) -> str:
+    sql = "SELECT files.* FROM files"
+    filters: list[str] = []
+    for _ in range(positive_term_count):
+        if case_sensitive:
+            filters.append("(instr(files.name, ?) > 0 OR instr(files.path, ?) > 0)")
+        else:
+            filters.append("(instr(lower(files.name), ?) > 0 OR instr(lower(files.path), ?) > 0)")
+    if has_where_sql:
+        filters.append("{where_sql}")
+    if filters:
+        sql += " WHERE " + " AND ".join(filters)
+    order_expr = "files.name" if case_sensitive else "files.name_lower"
+    prefix_expr = "files.name LIKE ?" if case_sensitive else "files.name_lower LIKE ?"
+    sql += f" ORDER BY CASE WHEN {prefix_expr} THEN 0 ELSE 1 END, {order_expr} ASC LIMIT ?"
+    return sql
+
+
+@lru_cache(maxsize=256)
+def _content_candidates_sql(has_where_sql: bool) -> str:
+    sql = """
+        SELECT files.*, snippet(content_fts, 2, '[', ']', '...', 12) AS snippet
+        FROM content_fts
+        JOIN content_map ON content_map.fts_rowid = content_fts.rowid
+        JOIN files ON files.id = content_map.file_id
+        WHERE {content_match_sql}
+    """
+    if has_where_sql:
+        sql += " AND {where_sql}"
+    sql += " ORDER BY bm25(content_fts, 3.0, 1.5, 1.0) ASC LIMIT ?"
+    return sql
+
+
+@lru_cache(maxsize=256)
+def _auto_content_candidates_sql(has_where_sql: bool) -> str:
+    sql = """
+        SELECT files.*, snippet(content_fts, 2, '[', ']', '...', 12) AS snippet
+        FROM content_fts
+        JOIN content_map ON content_map.fts_rowid = content_fts.rowid
+        JOIN files ON files.id = content_map.file_id
+        WHERE content_fts MATCH ?
+    """
+    if has_where_sql:
+        sql += " AND {where_sql}"
+    sql += " ORDER BY bm25(content_fts, 3.0, 1.5, 1.0) ASC LIMIT ?"
+    return sql
+
+
+@lru_cache(maxsize=256)
+def _content_backfill_sql(has_where_sql: bool) -> str:
+    sql = """
+        SELECT files.*
+        FROM files
+        JOIN content_map ON content_map.file_id = files.id
+    """
+    if has_where_sql:
+        sql += " WHERE {where_sql}"
+    sql += " ORDER BY files.name_lower ASC LIMIT ? OFFSET ?"
+    return sql
 
 
 def _row_to_record(row: Mapping[str, object]) -> FileRecord:
@@ -160,10 +263,7 @@ def _fetch_record_batch(
     limit: int,
     offset: int,
 ) -> dict[int, FileRecord]:
-    sql = "SELECT files.* FROM files"
-    if where_sql:
-        sql += f" WHERE {where_sql}"
-    sql += " ORDER BY files.name_lower ASC LIMIT ? OFFSET ?"
+    sql = _record_batch_sql(bool(where_sql)).format(where_sql=where_sql)
     rows = conn.execute(sql, (*where_params, limit, offset)).fetchall()
     return {row["id"]: _row_to_record(row) for row in rows}
 
@@ -239,26 +339,17 @@ def _fetch_path_candidates_fts(
     if not positive_terms:
         return [], {}
     path_query = " ".join(_fts_prefix_literal(term.value) for term in positive_terms)
-    sql = """
-        SELECT files.*
-        FROM paths_fts
-        JOIN files ON files.id = paths_fts.rowid
-    """
     params: list[object] = [path_query]
-    filters: list[str] = []
-    if branch.path_match_sql:
-        filters.append(branch.path_match_sql)
     prefix_term = positive_terms[0].value if positive_terms else ""
     if branch.where_sql:
-        filters.append(branch.where_sql)
         params.extend(branch.where_params)
-    if filters:
-        sql += " WHERE " + " AND ".join(filters)
-    order_expr = "files.name" if branch.case_sensitive else "files.name_lower"
-    prefix_expr = "files.name LIKE ?" if branch.case_sensitive else "files.name_lower LIKE ?"
-    sql += (
-        f" ORDER BY CASE WHEN {prefix_expr} THEN 0 ELSE 1 END,"
-        f" bm25(paths_fts, 8.0, 2.0, 1.0) ASC, {order_expr} ASC LIMIT ?"
+    sql = _path_candidates_fts_sql(
+        bool(branch.path_match_sql),
+        bool(branch.where_sql),
+        branch.case_sensitive,
+    ).format(
+        path_match_sql=branch.path_match_sql or "",
+        where_sql=branch.where_sql,
     )
     params.append(f"{prefix_term}%")
     rows = conn.execute(sql, (*params, limit)).fetchall()
@@ -274,26 +365,18 @@ def _fetch_path_candidates_scan(
         return [], {}
     if any(any(ord(char) > 127 for char in term.value) for term in positive_terms):
         return _fetch_path_candidates_python_scan(conn, branch, limit)
-    sql = "SELECT files.* FROM files"
     params: list[object] = []
-    filters: list[str] = []
     prefix_term = positive_terms[0].value if positive_terms else ""
     for term in positive_terms:
-        if branch.case_sensitive:
-            filters.append("(instr(files.name, ?) > 0 OR instr(files.path, ?) > 0)")
-            params.extend([term.value, term.value])
-        else:
-            filters.append("(instr(lower(files.name), ?) > 0 OR instr(lower(files.path), ?) > 0)")
-            lowered = term.value.lower()
-            params.extend([lowered, lowered])
+        value = term.value if branch.case_sensitive else term.value.lower()
+        params.extend([value, value])
     if branch.where_sql:
-        filters.append(branch.where_sql)
         params.extend(branch.where_params)
-    if filters:
-        sql += " WHERE " + " AND ".join(filters)
-    order_expr = "files.name" if branch.case_sensitive else "files.name_lower"
-    prefix_expr = "files.name LIKE ?" if branch.case_sensitive else "files.name_lower LIKE ?"
-    sql += f" ORDER BY CASE WHEN {prefix_expr} THEN 0 ELSE 1 END, {order_expr} ASC LIMIT ?"
+    sql = _path_candidates_scan_sql(
+        len(positive_terms),
+        bool(branch.where_sql),
+        branch.case_sensitive,
+    ).format(where_sql=branch.where_sql)
     params.append(f"{prefix_term}%")
     rows = conn.execute(sql, (*params, limit)).fetchall()
     records = {row["id"]: _row_to_record(row) for row in rows}
@@ -339,19 +422,13 @@ def _fetch_content_candidates(
 ) -> tuple[list[int], dict[int, FileRecord], dict[int, str]]:
     if not branch.content_match_sql:
         return [], {}, {}
-    sql = """
-        SELECT files.*, snippet(content_fts, 2, '[', ']', '...', 12) AS snippet
-        FROM content_fts
-        JOIN content_map ON content_map.fts_rowid = content_fts.rowid
-        JOIN files ON files.id = content_map.file_id
-    """
     params: list[object] = list(branch.content_match_params)
-    filters: list[str] = [branch.content_match_sql]
     if branch.where_sql:
-        filters.append(branch.where_sql)
         params.extend(branch.where_params)
-    sql += " WHERE " + " AND ".join(filters)
-    sql += " ORDER BY bm25(content_fts, 3.0, 1.5, 1.0) ASC LIMIT ?"
+    sql = _content_candidates_sql(bool(branch.where_sql)).format(
+        content_match_sql=branch.content_match_sql,
+        where_sql=branch.where_sql,
+    )
     rows = conn.execute(sql, (*params, limit)).fetchall()
     records = {row["id"]: _row_to_record(row) for row in rows}
     snippets = {row["id"]: row["snippet"] for row in rows}
@@ -377,19 +454,10 @@ def _fetch_auto_content_candidates(
     if branch.content_required or not positive_terms:
         return [], {}, {}
     query = " ".join(f'"{term.value.replace(chr(34), chr(34) * 2)}"' for term in positive_terms)
-    sql = """
-        SELECT files.*, snippet(content_fts, 2, '[', ']', '...', 12) AS snippet
-        FROM content_fts
-        JOIN content_map ON content_map.fts_rowid = content_fts.rowid
-        JOIN files ON files.id = content_map.file_id
-    """
     params: list[object] = [query]
-    filters = ["content_fts MATCH ?"]
     if branch.where_sql:
-        filters.append(branch.where_sql)
         params.extend(branch.where_params)
-    sql += " WHERE " + " AND ".join(filters)
-    sql += " ORDER BY bm25(content_fts, 3.0, 1.5, 1.0) ASC LIMIT ?"
+    sql = _auto_content_candidates_sql(bool(branch.where_sql)).format(where_sql=branch.where_sql)
     rows = conn.execute(sql, (*params, limit)).fetchall()
     records = {row["id"]: _row_to_record(row) for row in rows}
     snippets = {row["id"]: row["snippet"] for row in rows}
@@ -470,16 +538,10 @@ def _fetch_content_backfill_batch(
     limit: int,
     offset: int,
 ) -> dict[int, FileRecord]:
-    sql = """
-        SELECT files.*
-        FROM files
-        JOIN content_map ON content_map.file_id = files.id
-    """
     params: list[object] = []
     if branch.where_sql:
-        sql += " WHERE " + branch.where_sql
         params.extend(branch.where_params)
-    sql += " ORDER BY files.name_lower ASC LIMIT ? OFFSET ?"
+    sql = _content_backfill_sql(bool(branch.where_sql)).format(where_sql=branch.where_sql)
     rows = conn.execute(sql, (*params, limit, offset)).fetchall()
     return {row["id"]: _row_to_record(row) for row in rows}
 
