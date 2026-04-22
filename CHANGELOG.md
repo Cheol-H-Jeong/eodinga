@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.12 - 2026-04-23
+
+- Tightened DSL fuzz coverage so whitespace-only tokens are rejected as invalid queries instead of slipping into the valid-query generator.
+- Replaced the mocked `eodinga search` command with real indexed-query execution, including clean invalid-query errors and `--root` filtering on actual results.
+- Added a 128-entry LRU cache for compiled query plans and expanded CLI coverage to prove `date:today`, `size:>10M`, `is:duplicate`, and negation work end-to-end against a real SQLite index.
+
 ## 0.1.11 - 2026-04-23
 
 - Hardened staged-index replacement with explicit file and directory `fsync` calls around the atomic swap so SQLite snapshots survive power-loss style interruptions more reliably.
