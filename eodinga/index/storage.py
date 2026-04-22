@@ -71,8 +71,15 @@ def recover_stale_wal(path: Path) -> bool:
     finally:
         conn.close()
     _checkpoint_wal(path)
-    wal_path = _sidecar(path, "-wal")
-    return not wal_path.exists() or wal_path.stat().st_size == 0
+    recovered = True
+    for suffix in ("-wal", "-shm"):
+        sidecar = _sidecar(path, suffix)
+        if sidecar.exists() and sidecar.stat().st_size > 0:
+            recovered = False
+            continue
+        if sidecar.exists():
+            sidecar.unlink()
+    return recovered
 
 
 def open_index(path: Path) -> sqlite3.Connection:
