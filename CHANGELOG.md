@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.79 - 2026-04-23
+## 0.1.81 - 2026-04-23
 
 - Expanded the shipped documentation set with a contributor guide, a release workflow guide, and richer architecture coverage including ASCII data-flow and sequence snapshots of indexing and live-update behavior.
 - Refreshed the README and performance guide so the docs now highlight the full local-first feature surface and include a perf baseline measured at current `HEAD` instead of pointing back to an older tuning round.
