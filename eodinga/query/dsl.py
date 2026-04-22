@@ -60,7 +60,12 @@ class OrNode(QueryNode):
     clauses: tuple[AstNode, ...]
 
 
-AstNode = WordNode | PhraseNode | RegexNode | OperatorNode | AndNode | OrNode
+class NotNode(QueryNode):
+    kind: Literal["not"] = "not"
+    clause: AstNode
+
+
+AstNode = WordNode | PhraseNode | RegexNode | OperatorNode | AndNode | OrNode | NotNode
 
 
 class QuerySyntaxError(ValueError):
@@ -128,9 +133,7 @@ class _Parser:
             if self._peek() != ")":
                 raise QuerySyntaxError("expected closing ')'", self.index)
             self.index += 1
-            if negated:
-                raise QuerySyntaxError("negated groups are not supported", self.index - 1)
-            return inner
+            return NotNode(clause=inner) if negated else inner
         if char == '"':
             return self._with_negation(self._parse_phrase(), negated)
         if char == "/":
@@ -268,6 +271,7 @@ def parse(source: str) -> AstNode:
 __all__ = [
     "AndNode",
     "AstNode",
+    "NotNode",
     "OperatorNode",
     "OrNode",
     "PhraseNode",

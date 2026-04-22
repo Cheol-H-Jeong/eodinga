@@ -51,3 +51,14 @@ def test_compile_duplicate_filter_shape() -> None:
     assert "files.content_hash IS NOT NULL" in branch.where_sql
     assert "duplicates.content_hash = files.content_hash" in branch.where_sql
     assert "NOT (files.is_symlink = 1)" in branch.where_sql
+
+
+def test_compile_negated_group_pushes_negation_to_leaf_terms() -> None:
+    compiled = compile_query(parse("-(alpha | beta) ext:txt"))
+    branch = compiled.branches[0]
+
+    assert branch.path_match_sql is None
+    assert branch.where_sql == "files.ext = ?"
+    assert branch.where_params == ("txt",)
+    assert [term.value for term in branch.path_terms] == ["alpha", "beta"]
+    assert all(term.negated for term in branch.path_terms)

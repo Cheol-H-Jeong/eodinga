@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from eodinga.query.dsl import (
     AndNode,
     AstNode,
+    NotNode,
     OperatorNode,
     OrNode,
     PhraseNode,
@@ -74,6 +75,38 @@ def _to_dnf(node: AstNode) -> list[list[WordNode | PhraseNode | RegexNode | Oper
         for child in node.clauses:
             branches.extend(_to_dnf(child))
         return branches
+    if isinstance(node, NotNode):
+        raise TypeError("compile_query expected negations to be normalized")
+    raise TypeError(f"unsupported node: {type(node)!r}")
+
+
+def _negate_term(node: WordNode | PhraseNode | RegexNode | OperatorNode) -> AstNode:
+    if isinstance(node, WordNode):
+        return WordNode(value=node.value, negated=not node.negated)
+    if isinstance(node, PhraseNode):
+        return PhraseNode(value=node.value, negated=not node.negated)
+    if isinstance(node, RegexNode):
+        return RegexNode(pattern=node.pattern, flags=node.flags, negated=not node.negated)
+    return OperatorNode(
+        name=node.name,
+        value=node.value,
+        value_kind=node.value_kind,
+        regex_flags=node.regex_flags,
+        negated=not node.negated,
+    )
+
+
+def _to_nnf(node: AstNode, negated: bool = False) -> AstNode:
+    if isinstance(node, (WordNode, PhraseNode, RegexNode, OperatorNode)):
+        return _negate_term(node) if negated else node
+    if isinstance(node, NotNode):
+        return _to_nnf(node.clause, not negated)
+    if isinstance(node, AndNode):
+        clauses = tuple(_to_nnf(child, negated) for child in node.clauses)
+        return OrNode(clauses=clauses) if negated else AndNode(clauses=clauses)
+    if isinstance(node, OrNode):
+        clauses = tuple(_to_nnf(child, negated) for child in node.clauses)
+        return AndNode(clauses=clauses) if negated else OrNode(clauses=clauses)
     raise TypeError(f"unsupported node: {type(node)!r}")
 
 
@@ -272,7 +305,8 @@ def _compile_branch(
 
 
 def compile_query(ast: AstNode) -> CompiledQuery:
-    branches = tuple(_compile_branch(branch) for branch in _to_dnf(ast))
+    normalized = _to_nnf(ast)
+    branches = tuple(_compile_branch(branch) for branch in _to_dnf(normalized))
     return CompiledQuery(branches=branches)
 
 

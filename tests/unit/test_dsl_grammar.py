@@ -6,6 +6,7 @@ from hypothesis import strategies as st
 
 from eodinga.query.dsl import (
     AndNode,
+    NotNode,
     OperatorNode,
     OrNode,
     PhraseNode,
@@ -14,6 +15,7 @@ from eodinga.query.dsl import (
     WordNode,
     parse,
 )
+from eodinga.query.compiler import compile_query
 
 
 @pytest.mark.parametrize(
@@ -55,6 +57,12 @@ def test_parse_negation() -> None:
     assert node.negated is True
 
 
+def test_parse_negated_group() -> None:
+    node = parse("-(alpha | beta)")
+    assert isinstance(node, NotNode)
+    assert isinstance(node.clause, OrNode)
+
+
 def test_parse_operator_regex_value() -> None:
     node = parse("content:/todo|fixme/i")
     assert isinstance(node, OperatorNode)
@@ -71,7 +79,6 @@ def test_parse_operator_regex_value() -> None:
         "()",
         "alpha |",
         "content:",
-        "-(alpha beta)",
         "((alpha)",
     ],
 )
@@ -91,9 +98,51 @@ def test_parse_errors(query: str) -> None:
             st.text(min_size=1, max_size=20).filter(lambda value: "/" not in value),
         ),
         st.sampled_from(["content:", 'content:"', "content:/", "(", "alpha |", "((alpha)"]),
-        st.just("-(alpha beta)"),
     )
 )
 def test_invalid_query_fuzz_raises_cleanly(query: str) -> None:
     with pytest.raises(QuerySyntaxError):
         parse(query)
+
+
+OPERATOR_ATOMS = st.one_of(
+    st.builds(lambda value: f"content:{value}", st.sampled_from(["alpha", '"hello world"'])),
+    st.builds(lambda value: f"date:{value}", st.sampled_from(["today", "yesterday", "this-week", "this-month", "2026-01-01", "2026-01-01..2026-01-03"])),
+    st.builds(lambda value: f"ext:{value}", st.sampled_from(["pdf", "txt", "md"])),
+    st.builds(lambda value: f"is:{value}", st.sampled_from(["file", "dir", "symlink", "duplicate"])),
+    st.builds(lambda value: f"path:{value}", st.sampled_from(["workspace", "프로젝트", '"team notes"'])),
+    st.builds(lambda value: f"size:{value}", st.sampled_from([">10M", "<=42K", "=512B"])),
+)
+
+ATOMS = st.one_of(
+    st.text(
+        st.characters(blacklist_characters='()|" /', blacklist_categories=("Cs",)),
+        min_size=1,
+        max_size=12,
+    ),
+    st.builds(
+        lambda value: f'"{value}"',
+        st.text(
+            st.characters(blacklist_characters='"', blacklist_categories=("Cs",)),
+            min_size=1,
+            max_size=12,
+        ),
+    ),
+    OPERATOR_ATOMS,
+)
+
+VALID_QUERY_STRATEGY = st.recursive(
+    ATOMS.map(str),
+    lambda children: st.one_of(
+        st.builds(lambda items: " ".join(items), st.lists(children, min_size=2, max_size=3)),
+        st.builds(lambda items: " | ".join(items), st.lists(children, min_size=2, max_size=3)),
+        st.builds(lambda child: f"({child})", children),
+        st.builds(lambda child: f"-({child})", children),
+    ),
+    max_leaves=8,
+)
+
+
+@given(VALID_QUERY_STRATEGY)
+def test_valid_query_fuzz_parses_and_compiles(query: str) -> None:
+    compile_query(parse(query))
