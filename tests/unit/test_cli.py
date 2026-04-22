@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import signal
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path, PureWindowsPath
 
 import pytest
 
+import eodinga.__main__ as cli_module
 from eodinga import __version__
 from eodinga.index.schema import apply_schema
 
@@ -444,3 +446,25 @@ def test_index_requires_at_least_one_root(cli_runner, tmp_path: Path) -> None:
 
     assert result.returncode == 2
     assert "requires at least one root" in result.stderr
+
+
+def test_index_returns_signal_exit_code_when_rebuild_is_interrupted(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    root = tmp_path / "reports"
+    root.mkdir()
+    config_path = tmp_path / "config.toml"
+
+    monkeypatch.setattr(
+        cli_module,
+        "rebuild_index",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            cli_module.RebuildInterrupted(signal.SIGTERM)
+        ),
+    )
+
+    exit_code = cli_module.main(
+        ["--config", str(config_path), "index", "--root", str(root), "--rebuild"]
+    )
+
+    assert exit_code == 128 + signal.SIGTERM
