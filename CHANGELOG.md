@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.101 - 2026-04-23
+## 0.1.104 - 2026-04-23
 
 - Added a multi-root integration regression that rebuilds one index from two configured roots, proves both roots are persisted, and pins `search(..., root=...)` scoping against cross-root result leakage.
 - Added a real watchdog-driven live-update integration test that creates a file in a temporary watched directory and requires it to become query-visible within 500 ms after event ingestion.
