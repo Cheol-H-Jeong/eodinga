@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.33 - 2026-04-23
+
+- Polished the launcher’s keyboard-first flow so `Up` from the query jumps straight to the last hit, `Down` still enters the list from the top, and selection now stays anchored to the same file when a refined query keeps that result visible.
+- Tightened match rendering by skipping negated free-text terms in UI highlights and adding an extension badge to each launcher row, making the result list closer to the v0.1 launcher contract without touching query semantics.
+- Made the tray indicator actionable by wiring click and double-click activation to show the launcher, while keeping focused offscreen regressions for tray-triggered launcher open, launcher navigation, and highlight behavior.
+
 ## 0.1.32 - 2026-04-23
 
 - Reset `WatchService` lifecycle state on `stop()`, clearing pending coalesced events and draining stale queued notifications so a reused watcher instance cannot replay pre-stop filesystem events after restart.
