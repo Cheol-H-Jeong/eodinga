@@ -27,6 +27,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     readme = (root / "README.md").read_text(encoding="utf-8")
     acceptance = (root / "docs" / "ACCEPTANCE.md").read_text(encoding="utf-8")
     architecture = (root / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+    contributing = (root / "docs" / "CONTRIBUTING.md").read_text(encoding="utf-8")
     dsl = (root / "docs" / "DSL.md").read_text(encoding="utf-8")
     performance = (root / "docs" / "PERFORMANCE.md").read_text(encoding="utf-8")
 
@@ -35,6 +36,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "![Index progress window]" in readme
     assert "![Settings window]" in readme
     assert "## Install" in readme
+    assert "## Feature List" in readme
     assert "## Quick Start" in readme
     assert "## Acceptance Quickcheck" in readme
     assert "## Supported Content Types" in readme
@@ -47,6 +49,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "docs/DSL.md" in readme
     assert "docs/ACCEPTANCE.md" in readme
     assert "docs/ARCHITECTURE.md" in readme
+    assert "docs/CONTRIBUTING.md" in readme
     assert "docs/PERFORMANCE.md" in readme
     assert "pytest -q tests && ruff check eodinga tests" in readme
     assert "python packaging/build.py --target windows-dry-run" in readme
@@ -67,6 +70,15 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "yamllint .github/workflows/release-windows.yml" in acceptance
     assert "README is part of the acceptance surface" in acceptance
     assert "git tag v0.1.N" in acceptance
+
+    assert "## Environment" in contributing
+    assert "## Daily Workflow" in contributing
+    assert "## Scope Rules" in contributing
+    assert "## Testing Expectations" in contributing
+    assert "## Commit And Release Hygiene" in contributing
+    assert "pytest -q tests/unit" in contributing
+    assert "ruff check eodinga tests" in contributing
+    assert "python scripts/render_docs_screenshots.py" in contributing
 
     assert "## Runtime Flow" in architecture
     assert "## Module Map" in architecture

@@ -40,6 +40,15 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 3. Keep content indexing enabled if you want document-text matches.
 4. Wait for the initial cold start to finish, then use the launcher hotkey.
 
+## Feature List
+
+- Local-first filename, path, and supported-document content search backed by SQLite and FTS5.
+- Shared query engine across CLI, main GUI, and hotkey launcher, so search behavior stays consistent across surfaces.
+- Live incremental indexing through filesystem notifications after the initial walk completes.
+- Query DSL with terms, phrases, regex, boolean grouping, relative-date filters, size filters, and duplicate detection.
+- Packaging surfaces for editable installs, Windows dry runs, Linux AppImage dry runs, and Linux `.deb` dry runs.
+- Release and diagnostics commands that keep acceptance, doctor, stats, and packaging checks reproducible on a developer machine.
+
 ## Quick Start
 
 1. Install with `pip install -e .[all]`.
@@ -175,6 +184,7 @@ If search looks stale, run `eodinga stats` to confirm the active database path, 
 - [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md): SPEC §9 release checklist and validation commands.
 - [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md): runtime flow, index lifecycle, and packaging surfaces.
 - [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, current baselines, and profiling workflow.
+- [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md): contributor workflow, test expectations, and release hygiene.
 
 ## FAQ
 
