@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.78 - 2026-04-23
+## 0.1.80 - 2026-04-23
 
 - Added launcher quick-pick shortcuts on `Alt+1` through `Alt+9`, so keyboard users can open a top result directly without stepping through the list first.
 - Labeled the launcher and main app's interactive controls with explicit `accessibleName` values, tightening the screen-reader and UI-automation contract across the popup and settings surfaces.
