@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.78 - 2026-04-23
+
+- Reused `os.scandir()` directory-entry metadata in the walker so discovered child paths no longer pay an immediate second `lstat()` just to build index records, trimming avoidable cold-start traversal work.
+- Reworked the Unicode path-query fallback to scan ordered batches and stop as soon as the prefix-priority result window is filled, replacing the old eager 100k-row materialization path for Hangul-heavy searches.
+- Added an opt-in Unicode query latency benchmark and refreshed the current perf baseline: cold start 5,632 files/sec, staged rebuild 5,956 files/sec, bulk upsert 50,589 records/sec, ASCII name-query p95 0.07 ms, Unicode name-query p95 11.29 ms, content-query p95 0.71 ms, and watch visibility p99 0.131 s.
+
 ## 0.1.76 - 2026-04-23
 
 - Polished launcher keyboard navigation so the result list now wraps on `Up` / `Down` and supports `PgUp` / `PgDn` jumps for longer result sets, keeping the popup usable without reaching for the mouse.
