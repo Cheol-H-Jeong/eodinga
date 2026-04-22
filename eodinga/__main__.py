@@ -11,8 +11,9 @@ from typing import Any
 
 from eodinga import __version__
 from eodinga.common import SearchResult, StatsSnapshot
-from eodinga.config import AppConfig, load
+from eodinga.config import AppConfig, RootConfig, load
 from eodinga.doctor import run_diagnostics
+from eodinga.index.build import rebuild_index
 from eodinga.index.storage import open_index
 from eodinga.observability import configure_logging
 from eodinga.query import QuerySyntaxError, search as run_search
@@ -27,7 +28,7 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     index_parser = subparsers.add_parser("index")
-    index_parser.add_argument("--root", type=Path)
+    index_parser.add_argument("--root", type=Path, action="append")
     index_parser.add_argument("--rebuild", action="store_true")
     index_parser.set_defaults(handler=_cmd_index)
 
@@ -87,12 +88,29 @@ def _normalize_search_root(root: Path | None) -> Path | None:
     return root.resolve()
 
 
+def _resolve_index_roots(args: argparse.Namespace, config: AppConfig) -> list[RootConfig]:
+    if args.root:
+        return [RootConfig(path=path) for path in args.root]
+    return list(config.roots)
+
+
 def _cmd_index(args: argparse.Namespace) -> int:
+    config = _resolve_config(args)
+    roots = _resolve_index_roots(args, config)
+    if not roots:
+        sys.stderr.write("index rebuild requires at least one root\n")
+        return 2
+    result = rebuild_index(
+        args.db or config.index.db_path,
+        roots,
+        content_enabled=config.index.content_enabled,
+    )
     payload = {
         "command": "index",
-        "root": str(args.root) if args.root else None,
         "rebuild": bool(args.rebuild),
-        "db": str(args.db) if args.db else None,
+        "db": str(result.db_path),
+        "roots": [str(root.path) for root in roots],
+        "files_indexed": result.files_indexed,
     }
     return _emit(payload, as_json=True)
 
