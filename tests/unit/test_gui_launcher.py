@@ -85,6 +85,29 @@ def test_launcher_keyboard_flow_supports_arrow_navigation_and_tab_return(qapp) -
     assert launcher.query_field.hasFocus()
 
 
+def test_launcher_tab_moves_focus_into_results_without_mouse(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+            ][:limit],
+            total=1,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("alpha")
+    _wait(60)
+
+    assert launcher.query_field.hasFocus()
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Tab)
+
+    assert launcher.result_list.hasFocus()
+    assert launcher.result_list.currentIndex().row() == 0
+
+
 def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         if not query:
@@ -101,6 +124,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.empty_state.title_label.text() == "Type to search"
     assert "No recent queries yet" in launcher.empty_state.body_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
+    assert "(20%)" in launcher.empty_state.details_label.text()
 
     launcher.query_field.setText("missing")
     _wait(60)

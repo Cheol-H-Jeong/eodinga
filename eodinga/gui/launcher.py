@@ -35,8 +35,12 @@ def format_indexing_status(status: IndexingStatus) -> str:
     if status.phase != "indexing":
         return "Indexing idle. Results update automatically when your roots change."
     total = str(status.total_files) if status.total_files > 0 else "?"
+    progress = ""
+    if status.total_files > 0:
+        percent = round((status.processed_files / status.total_files) * 100)
+        progress = f" ({percent}%)"
     root_label = f" in {status.current_root}" if status.current_root is not None else ""
-    return f"Indexing {status.processed_files}/{total} files{root_label}."
+    return f"Indexing {status.processed_files}/{total} files{progress}{root_label}."
 
 
 class LauncherState(QObject):
@@ -283,6 +287,12 @@ class LauncherPanel(QWidget):
         if event.key() == Qt.Key.Key_Up:
             self.result_list.setFocus()
             self._move_selection(-1)
+            return True
+        if event.key() == Qt.Key.Key_Tab:
+            self.result_list.setFocus()
+            current_index = self.result_list.currentIndex()
+            if not current_index.isValid() and self.model.rowCount() > 0:
+                self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
             return True
         return False
 

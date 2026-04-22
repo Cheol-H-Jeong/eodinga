@@ -16,11 +16,16 @@ class TrayIndicatorController:
     def __init__(self, app: QApplication, launcher_window: LauncherWindow, parent: QWidget) -> None:
         self._tray: QSystemTrayIcon | None = None
         self.tooltip = format_indexing_status(IndexingStatus())
+        self.status_text = self.tooltip
         if not QSystemTrayIcon.isSystemTrayAvailable():
             return
         icon = app.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogContentsView)
         tray = QSystemTrayIcon(icon, parent)
         menu = QMenu(parent)
+        self._status_action = QAction(self.status_text, menu)
+        self._status_action.setEnabled(False)
+        menu.addAction(self._status_action)
+        menu.addSeparator()
         show_launcher = QAction("Show launcher", menu)
         show_launcher.triggered.connect(launcher_window.show)
         menu.addAction(show_launcher)
@@ -35,6 +40,9 @@ class TrayIndicatorController:
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self.tooltip = format_indexing_status(status)
+        self.status_text = self.tooltip
+        if hasattr(self, "_status_action"):
+            self._status_action.setText(self.status_text)
         if self._tray is not None:
             self._tray.setToolTip(self.tooltip)
 

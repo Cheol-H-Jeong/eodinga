@@ -12,16 +12,46 @@ from eodinga.common import SearchHit
 HTML_MARGIN = 8
 
 
+def _query_highlight_terms(query: str) -> tuple[str, ...]:
+    terms: list[str] = []
+    seen: set[str] = set()
+    for raw in re.findall(r'"[^"]+"|\S+', query):
+        normalized = raw.strip()
+        if normalized in {"|", "-", ""}:
+            continue
+        while normalized.startswith("-"):
+            normalized = normalized[1:].lstrip()
+        normalized = normalized.strip("()")
+        if not normalized:
+            continue
+        if normalized.startswith('"') and normalized.endswith('"') and len(normalized) > 1:
+            normalized = normalized[1:-1]
+        if ":" in normalized:
+            continue
+        folded = normalized.casefold()
+        if folded in seen:
+            continue
+        seen.add(folded)
+        terms.append(normalized)
+    return tuple(terms)
+
+
 def highlight_text(text: str, query: str) -> str:
-    if not query:
+    terms = sorted(_query_highlight_terms(query), key=len, reverse=True)
+    if not terms:
         return escape(text)
-    pattern = re.compile(re.escape(query), re.IGNORECASE)
-    if pattern.search(text) is None:
+    spans: list[tuple[int, int]] = []
+    for term in terms:
+        pattern = re.compile(re.escape(term), re.IGNORECASE)
+        spans.extend(match.span() for match in pattern.finditer(text))
+    if not spans:
         return escape(text)
+    spans.sort(key=lambda span: (span[0], -(span[1] - span[0])))
     parts: list[str] = []
     cursor = 0
-    for match in pattern.finditer(text):
-        start, end = match.span()
+    for start, end in spans:
+        if start < cursor:
+            continue
         parts.append(escape(text[cursor:start]))
         parts.append(f"<mark>{escape(text[start:end])}</mark>")
         cursor = end
