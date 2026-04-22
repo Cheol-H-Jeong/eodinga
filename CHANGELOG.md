@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.107 - 2026-04-23
+## 0.1.109 - 2026-04-23
 
 - Fixed launcher topmost behavior so the frameless popup now follows `launcher.always_on_top` from config instead of forcing a pinned-above-all-windows state on every run.
 - Added `Alt+1` through `Alt+9` launcher quick-picks, letting the top nine visible hits open directly without moving focus out of the query field.
