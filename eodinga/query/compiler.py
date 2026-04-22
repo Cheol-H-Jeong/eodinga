@@ -154,23 +154,40 @@ def _validate_regex_pattern(pattern: str, flags: str = "") -> None:
         raise QuerySyntaxError(f"invalid regex: {error}", 0) from error
 
 
-def _size_to_bytes(value: str) -> tuple[str, int]:
+def _size_bound_to_bytes(value: str, *, default_unit: str | None = None) -> int:
     text = value.strip()
+    has_explicit_unit = bool(text) and text[-1].isalpha()
+    unit = text[-1].upper() if has_explicit_unit else (default_unit or "B")
+    number_text = text[:-1] if has_explicit_unit else text
+    factor = {"B": 1, "K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}.get(unit)
+    if factor is None:
+        raise QuerySyntaxError(f"invalid size literal: {value}", 0)
+    try:
+        return int(float(number_text) * factor)
+    except ValueError as error:
+        raise QuerySyntaxError(f"invalid size literal: {value}", 0) from error
+
+
+def _size_to_sql(value: str) -> tuple[str, tuple[int, ...]]:
+    text = value.strip()
+    if ".." in text:
+        left_text, right_text = (part.strip() for part in text.split("..", 1))
+        left_unit = left_text[-1].upper() if left_text and left_text[-1].isalpha() else None
+        right_unit = right_text[-1].upper() if right_text and right_text[-1].isalpha() else None
+        shared_unit = right_unit or left_unit
+        start = _size_bound_to_bytes(left_text, default_unit=shared_unit)
+        end = _size_bound_to_bytes(right_text, default_unit=shared_unit)
+        if end < start:
+            start, end = end, start
+        return "files.size >= ? AND files.size <= ?", (start, end)
+
     comparator = "="
     for prefix in (">=", "<=", ">", "<", "="):
         if text.startswith(prefix):
             comparator = prefix
             text = text[len(prefix) :]
             break
-    unit = text[-1].upper() if text and text[-1].isalpha() else "B"
-    number_text = text[:-1] if unit != "B" or (text and text[-1].isalpha()) else text
-    factor = {"B": 1, "K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}.get(unit)
-    if factor is None:
-        raise QuerySyntaxError(f"invalid size literal: {value}", 0)
-    try:
-        return comparator, int(float(number_text) * factor)
-    except ValueError as error:
-        raise QuerySyntaxError(f"invalid size literal: {value}", 0) from error
+    return f"files.size {comparator} ?", (_size_bound_to_bytes(text),)
 
 
 def _day_bounds(day: date) -> tuple[int, int]:
@@ -320,12 +337,12 @@ def _compile_branch(
             where_params.extend([start, end])
             continue
         if term.name == "size":
-            comparator, size_bytes = _size_to_bytes(term.value)
+            size_sql, size_params = _size_to_sql(term.value)
             if term.negated:
-                where_parts.append(f"NOT (files.size {comparator} ?)")
+                where_parts.append(f"NOT ({size_sql})")
             else:
-                where_parts.append(f"files.size {comparator} ?")
-            where_params.append(size_bytes)
+                where_parts.append(size_sql)
+            where_params.extend(size_params)
             continue
         if term.name == "is":
             normalized = term.value.lower()

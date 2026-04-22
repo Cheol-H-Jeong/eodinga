@@ -471,6 +471,20 @@ def test_execute_metadata_only_query_reports_uncapped_total_estimate(
     assert result.total_estimate == total_files
 
 
+def test_execute_size_range_query_uses_inclusive_bounds(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/tiny.txt", 99 * 1024, now, "txt")
+    _insert_file(tmp_db, 2, "/workspace/small.txt", 100 * 1024, now - 60, "txt")
+    _insert_file(tmp_db, 3, "/workspace/medium.txt", 350 * 1024, now - 120, "txt")
+    _insert_file(tmp_db, 4, "/workspace/large.txt", 500 * 1024, now - 180, "txt")
+    _insert_file(tmp_db, 5, "/workspace/huge.txt", 501 * 1024, now - 240, "txt")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "size:100..500K", limit=10).hits]
+
+    assert hits == ["large.txt", "medium.txt", "small.txt"]
+
+
 def test_execute_metadata_only_or_query_reports_union_total_estimate(
     tmp_db: sqlite3.Connection,
 ) -> None:
