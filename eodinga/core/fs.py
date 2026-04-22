@@ -74,7 +74,6 @@ def is_hidden(path: Path) -> bool:
 
 
 __all__ = [
-    "absolute_safe",
     "DENYLIST",
     "is_hidden",
     "open_readonly",
