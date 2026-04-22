@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.79 - 2026-04-23
+## 0.1.101 - 2026-04-23
 
 - Restored launcher config compatibility for persisted `always_on_top` settings, so existing `config.toml` files no longer crash every CLI subcommand during startup validation and the popup once again applies the saved on-top preference explicitly.
 - Added `Alt+1` through `Alt+9` quick-pick shortcuts for launcher results, letting keyboard-only users open the top nine hits directly from either the popup or the embedded search panel without stepping through list navigation first.
