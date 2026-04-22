@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.9 - 2026-04-23
+
+- Fixed watcher event coalescing so create-then-rename bursts now collapse to the destination path instead of emitting both the transient source create and the later move.
+- Preserved rename metadata when a moved file receives a follow-up modify event inside the debounce window, preventing the source path from being lost before incremental indexing runs.
+- Added regression coverage for both rename-coalescing cases with real watcher activity and deterministic queue flushing.
+
 ## 0.1.8 - 2026-04-23
 
 - Added an offscreen screenshot renderer that captures the real application and launcher surfaces into stable documentation assets.
