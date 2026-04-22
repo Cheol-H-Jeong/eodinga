@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.20 - 2026-04-23
+
+- Aligned the runtime denylist with the documented safe excludes so walker-based indexing now blocks volatile system/cache roots such as `/tmp`, `/snap`, and `%SystemRoot%` consistently with `eodinga doctor`.
+- Hardened stale-WAL startup recovery to remove zero-length SQLite sidecars after replay, leaving recovered indexes clean for the next hot restart instead of carrying empty `-wal`/`-shm` files forward.
+- Added missing safety and integration coverage for the denylist policy, end-to-end index/search flow, and hot-restart recovery from a copied stale-WAL snapshot, bringing the round gate to 173 passing tests with 4 skipped.
+
 ## 0.1.19 - 2026-04-23
 
 - Fixed watcher coalescing so `created -> moved -> deleted(source)` bursts no longer leak a phantom delete for the transient source path after the create collapses onto its destination.
