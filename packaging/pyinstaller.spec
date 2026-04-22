@@ -8,6 +8,8 @@ ENTRY_GUI = PROJECT_ROOT / "eodinga" / "__main__.py"
 I18N_DIR = PROJECT_ROOT / "eodinga" / "i18n"
 CLI_DIST_NAME = "eodinga-cli"
 GUI_DIST_NAME = "eodinga-gui"
+CLI_EXE_NAME = f"{CLI_DIST_NAME}.exe"
+GUI_EXE_NAME = f"{GUI_DIST_NAME}.exe"
 
 RUNTIME_MODULES = [
     "eodinga.content.code",
@@ -72,6 +74,8 @@ SPEC_AUDIT = {
     "gui_entry": str(ENTRY_GUI),
     "cli_dist_name": CLI_DIST_NAME,
     "gui_dist_name": GUI_DIST_NAME,
+    "cli_exe_name": CLI_EXE_NAME,
+    "gui_exe_name": GUI_EXE_NAME,
     "hiddenimports": HIDDEN_IMPORTS,
     "datas": DATAS,
     "mode": "onedir",
