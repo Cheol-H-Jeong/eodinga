@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
@@ -398,7 +400,9 @@ def test_negated_operator_query_fuzz_parses_and_compiles(query: str) -> None:
         st.tuples(
             st.just("regex"),
             st.booleans(),
-            st.from_regex(r"[A-Za-z0-9._+-]{1,12}", fullmatch=True),
+            st.from_regex(r"[A-Za-z0-9._+-]{1,12}", fullmatch=True).filter(
+                lambda value: value != "-" and _is_valid_regex_pattern(value)
+            ),
         ),
     )
 )
@@ -416,3 +420,11 @@ def test_negated_boolean_operator_fuzz_inverts_compiled_mode(
     else:
         assert negated.regex_mode is (not enabled.regex_mode)
         assert negated.case_sensitive is enabled.case_sensitive
+
+
+def _is_valid_regex_pattern(value: str) -> bool:
+    try:
+        re.compile(value)
+    except re.error:
+        return False
+    return True
