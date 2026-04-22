@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3 - 2026-04-23
+
+- Improved launcher keyboard flow so the popup focuses the filter field when shown, arrow keys move into result navigation, and `Tab` returns to filtering without grabbing the mouse.
+- Added clearer launcher empty states with shortcut and DSL guidance when there are no results.
+- Updated launcher highlighting to mark every case-insensitive match instead of only the first occurrence.
+
 ## 0.1.2 - 2026-04-23
 
 - Added end-to-end query support for `date:today|yesterday|this-week|this-month` as an alias for modified-time filtering.
