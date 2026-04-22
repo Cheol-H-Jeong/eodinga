@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import re
+import signal
 import sys
 from contextlib import closing
 from pathlib import Path
@@ -13,7 +14,7 @@ from eodinga import __version__
 from eodinga.common import SearchResult, StatsSnapshot
 from eodinga.config import AppConfig, RootConfig, load
 from eodinga.doctor import run_diagnostics
-from eodinga.index.build import rebuild_index
+from eodinga.index.build import InterruptedBuildError, rebuild_index
 from eodinga.index.reader import stats as read_index_stats
 from eodinga.index.storage import open_index
 from eodinga.observability import (
@@ -100,17 +101,59 @@ def _resolve_index_roots(args: argparse.Namespace, config: AppConfig) -> list[Ro
     return list(config.roots)
 
 
+class _StopSignalController:
+    def __init__(self) -> None:
+        self._requested_signal: int | None = None
+        self._previous_handlers: dict[int, Any] = {}
+
+    def __enter__(self) -> "_StopSignalController":
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            self._previous_handlers[signum] = signal.getsignal(signum)
+            signal.signal(signum, self._handle_signal)
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        for signum, handler in self._previous_handlers.items():
+            signal.signal(signum, handler)
+        self._previous_handlers.clear()
+
+    def stop_requested(self) -> bool:
+        return self._requested_signal is not None
+
+    def exit_code(self) -> int:
+        return 128 + (self._requested_signal or signal.SIGINT)
+
+    def signal_name(self) -> str:
+        requested = self._requested_signal
+        if requested is None:
+            return "interrupt"
+        return signal.Signals(requested).name
+
+    def _handle_signal(self, signum: int, _frame: Any) -> None:
+        if self._requested_signal is None:
+            self._requested_signal = signum
+
+
 def _cmd_index(args: argparse.Namespace) -> int:
     config = _resolve_config(args)
     roots = _resolve_index_roots(args, config)
     if not roots:
         sys.stderr.write("index rebuild requires at least one root\n")
         return 2
-    result = rebuild_index(
-        args.db or config.index.db_path,
-        roots,
-        content_enabled=config.index.content_enabled,
-    )
+    with _StopSignalController() as stop_signals:
+        try:
+            result = rebuild_index(
+                args.db or config.index.db_path,
+                roots,
+                content_enabled=config.index.content_enabled,
+                stop_requested=stop_signals.stop_requested,
+            )
+        except InterruptedBuildError as error:
+            sys.stderr.write(
+                f"index interrupted by {stop_signals.signal_name()}; "
+                f"staged rebuild preserved at {error.staged_path}\n"
+            )
+            return stop_signals.exit_code()
     payload = {
         "command": "index",
         "rebuild": bool(args.rebuild),

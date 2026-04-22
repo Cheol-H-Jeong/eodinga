@@ -4,11 +4,13 @@ import json
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path, PureWindowsPath
+import signal
 
 import pytest
 
+import eodinga.__main__ as main_module
 from eodinga import __version__
-from eodinga.__main__ import main
+from eodinga.__main__ import _StopSignalController, main
 from eodinga.index.schema import apply_schema
 from eodinga.observability import reset_metrics
 
@@ -446,6 +448,56 @@ def test_index_requires_at_least_one_root(cli_runner, tmp_path: Path) -> None:
 
     assert result.returncode == 2
     assert "requires at least one root" in result.stderr
+
+
+def test_stop_signal_controller_reports_requested_signal() -> None:
+    controller = _StopSignalController()
+
+    controller._handle_signal(signal.SIGTERM, None)
+
+    assert controller.stop_requested() is True
+    assert controller.exit_code() == 143
+    assert controller.signal_name() == "SIGTERM"
+
+
+def test_index_returns_signal_exit_code_when_rebuild_is_interrupted(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    staged_path = tmp_path / ".index.db.next"
+
+    class FakeController:
+        def __enter__(self) -> "FakeController":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+        def stop_requested(self) -> bool:
+            return True
+
+        def exit_code(self) -> int:
+            return 143
+
+        def signal_name(self) -> str:
+            return "SIGTERM"
+
+    def interrupted_rebuild(*args, **kwargs):
+        assert callable(kwargs["stop_requested"])
+        raise main_module.InterruptedBuildError(staged_path)
+
+    monkeypatch.setattr(main_module, "_StopSignalController", FakeController)
+    monkeypatch.setattr(main_module, "rebuild_index", interrupted_rebuild)
+
+    exit_code = main(["--db", str(tmp_path / "index.db"), "index", "--root", str(root)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 143
+    assert "index interrupted by SIGTERM" in captured.err
+    assert str(staged_path) in captured.err
 
 
 def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
