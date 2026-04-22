@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.67 - 2026-04-23
+
+- Tightened the DSL grammar fuzz gate so quoted phrase atoms are escaped before generation, and added an explicit regression for dangling phrase escapes to keep malformed input on the syntax-error path instead of the valid-query corpus.
+- Fixed watcher coalescing for rename round-trips inside one debounce window so `A -> B -> A` now collapses to a safe `modified` event on the original path instead of emitting a self-move with identical source and destination.
+- Preserved retired move-source suppression after flush for move-derived `created` and `modified` events, preventing late backend source deletes from generating ghost removals after a coalesced rename has already been applied.
+
 ## 0.1.66 - 2026-04-23
 
 - Hardened the staged index swap path so `atomic_replace_index()` no longer deletes the live database's `-wal` and `-shm` sidecars before `os.replace()` succeeds, avoiding sidecar loss if the atomic swap itself fails.
