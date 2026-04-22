@@ -156,9 +156,21 @@ def default_path() -> Path:
     return default_config_dir() / "config.toml"
 
 
+def _migrate_legacy_config(raw: object) -> object:
+    if not isinstance(raw, dict):
+        return raw
+    migrated = dict(raw)
+    launcher = migrated.get("launcher")
+    if isinstance(launcher, dict):
+        migrated_launcher = dict(launcher)
+        migrated_launcher.pop("always_on_top", None)
+        migrated["launcher"] = migrated_launcher
+    return migrated
+
+
 def load(path: Path | None = None) -> AppConfig:
     config_path = path.expanduser() if path is not None else default_path()
     if not config_path.exists():
         return AppConfig()
-    raw = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    raw = _migrate_legacy_config(tomllib.loads(config_path.read_text(encoding="utf-8")))
     return AppConfig.model_validate(raw)

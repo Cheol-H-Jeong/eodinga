@@ -53,3 +53,19 @@ def test_config_save_is_atomic_and_cleans_temp_file_on_replace_failure(
 
 def test_default_path_ends_with_config_toml() -> None:
     assert default_path().name == "config.toml"
+
+
+def test_load_ignores_legacy_launcher_always_on_top(temp_config_path: Path) -> None:
+    temp_config_path.write_text(
+        """
+[launcher]
+hotkey = "ctrl+shift+space"
+always_on_top = true
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    config = load(temp_config_path)
+
+    assert config.launcher.hotkey == "ctrl+shift+space"
