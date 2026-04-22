@@ -72,14 +72,63 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
         for node in ast.walk(module):
             if not isinstance(node, ast.Call):
                 continue
-            if not isinstance(node.func, ast.Name) or node.func.id != "import_module":
+            if not _is_import_module_call(node.func):
                 continue
-            if not node.args or not isinstance(node.args[0], ast.Constant):
+            module_name = _resolve_import_target(node)
+            if module_name is None:
                 continue
-            if not isinstance(node.args[0].value, str):
-                continue
-            discovered.add(node.args[0].value)
+            discovered.add(module_name)
     return sorted(discovered)
+
+
+def _is_import_module_call(func: ast.expr) -> bool:
+    if isinstance(func, ast.Name):
+        return func.id == "import_module"
+    return (
+        isinstance(func, ast.Attribute)
+        and func.attr == "import_module"
+        and isinstance(func.value, ast.Name)
+        and func.value.id == "importlib"
+    )
+
+
+def _resolve_import_target(node: ast.Call) -> str | None:
+    if not node.args:
+        return None
+    module_name = _string_constant(node.args[0])
+    if module_name is None:
+        return None
+    package_name = _keyword_string_constant(node.keywords, "package")
+    if package_name and module_name.startswith("."):
+        return _resolve_relative_module(module_name, package_name)
+    return module_name
+
+
+def _string_constant(expr: ast.expr) -> str | None:
+    if isinstance(expr, ast.Constant) and isinstance(expr.value, str):
+        return expr.value
+    return None
+
+
+def _keyword_string_constant(keywords: list[ast.keyword], name: str) -> str | None:
+    for keyword in keywords:
+        if keyword.arg != name:
+            continue
+        return _string_constant(keyword.value)
+    return None
+
+
+def _resolve_relative_module(module_name: str, package_name: str) -> str:
+    levels = len(module_name) - len(module_name.lstrip("."))
+    suffix = module_name[levels:]
+    package_parts = package_name.split(".")
+    parent_levels = max(levels - 1, 0)
+    if parent_levels > len(package_parts):
+        return module_name
+    parent_parts = package_parts[: len(package_parts) - parent_levels]
+    if not suffix:
+        return ".".join(parent_parts)
+    return ".".join([*parent_parts, suffix])
 
 
 DISCOVERED_HIDDEN_IMPORTS = _discover_hidden_imports(SOURCE_ROOT)
