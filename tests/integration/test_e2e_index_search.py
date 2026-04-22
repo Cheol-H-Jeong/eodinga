@@ -103,6 +103,24 @@ def test_e2e_index_search_returns_expected_file_in_top_three(
     assert expected_name in hits
 
 
+def test_e2e_index_search_accepts_short_slash_prefixed_path_literals(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    _build_fixture_tree(root)
+    short_path = root / "tmp" / "log"
+    short_path.parent.mkdir(parents=True, exist_ok=True)
+    short_path.write_text("short path literal\n", encoding="utf-8")
+    _index_tree(root, db_path)
+
+    conn = open_index(db_path)
+    try:
+        hits = [hit.file.path for hit in search(conn, f"path:{short_path}", limit=3).hits]
+    finally:
+        conn.close()
+
+    assert hits == [short_path]
+
+
 def test_e2e_index_search_preserves_symlink_root_alias_paths(tmp_path: Path) -> None:
     real_root = tmp_path / "workspace-real"
     alias_root = tmp_path / "workspace"
