@@ -15,16 +15,16 @@ The current perf suite covers the SPEC §6.3 scenarios with smaller local-dev da
 
 ## Baseline
 
-Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed:
+Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed after the 0.1.35 bulk-write and query hot-path tuning round:
 
 | Benchmark | Dataset | Result |
 | --- | --- | --- |
-| Cold start | 20,201 indexed entries | 4,333 files/sec |
-| Name query latency | 2,000 queries / 50k files | p50 0.05 ms, p95 0.06 ms, p99 0.08 ms |
-| Content query latency | 500 queries / 5k docs | p50 0.60 ms, p95 0.63 ms, p99 0.66 ms |
-| Watch latency | 25 created files | p99 0.132 s |
+| Cold start | 20,201 indexed entries | 5,988 files/sec |
+| Name query latency | 2,000 queries / 50k files | p50 0.05 ms, p95 0.06 ms, p99 0.06 ms |
+| Content query latency | 500 queries / 5k docs | p50 0.59 ms, p95 0.62 ms, p99 0.65 ms |
+| Watch latency | 25 created files | p99 0.133 s |
 
-These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. The cold-start benchmark now uses an explicit include rule for its temporary fixture root so it exercises the real walker path without being filtered by the default `/tmp` safety denylist, and its guardrail is intentionally set below the measured baseline so machine variance and background load do not create false failures.
+These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. This round’s higher cold-start throughput comes from reducing bulk-write churn in the content index: unchanged parsed documents now keep their prior rowids and hashes instead of being deleted and reinserted, and repeated name-only searches on the same connection no longer re-probe `content_map` when the connection’s contents have not changed.
 
 ## Interpreting Results
 
