@@ -16,6 +16,7 @@ def test_doctor_returns_expected_shape(tmp_path: Path) -> None:
     assert set(report) == {"python", "dependencies", "db", "roots", "hotkey_backend", "default_excludes"}
     assert report["default_excludes"]["effective"] is True
     assert report["db"]["exists"] is False
+    assert report["db"]["interrupted_recovery_resumed"] is False
     assert report["db"]["stale_wal_present"] is False
     assert report["db"]["stale_wal_recovered"] is False
     assert report["db"]["stale_wal_error"] is None
@@ -52,6 +53,7 @@ def test_doctor_recovers_stale_wal_before_reporting(tmp_path: Path) -> None:
 
     assert exit_code == 0
     assert report["db"]["exists"] is True
+    assert report["db"]["interrupted_recovery_resumed"] is False
     assert report["db"]["stale_wal_present"] is True
     assert report["db"]["stale_wal_recovered"] is True
     assert report["db"]["stale_wal_error"] is None
@@ -74,3 +76,27 @@ def test_doctor_fails_when_stale_wal_recovery_fails(monkeypatch, tmp_path: Path)
     assert report["db"]["stale_wal_present"] is True
     assert report["db"]["stale_wal_recovered"] is False
     assert report["db"]["stale_wal_error"] == f"failed to recover stale WAL for {db_path}"
+
+
+def test_doctor_resumes_interrupted_recovery_before_reporting(tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    staged_path = tmp_path / ".index.db.recover"
+
+    conn = sqlite3.connect(staged_path)
+    apply_schema(conn)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    conn.commit()
+    conn.close()
+
+    report, exit_code = run_diagnostics(config=AppConfig(), db_path=db_path)
+
+    assert exit_code == 0
+    assert report["db"]["exists"] is True
+    assert report["db"]["interrupted_recovery_resumed"] is True
+    assert report["db"]["stale_wal_present"] is False
+    assert report["db"]["stale_wal_recovered"] is False
+    assert report["db"]["stale_wal_error"] is None
+    assert not staged_path.exists()
