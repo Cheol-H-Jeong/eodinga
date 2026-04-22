@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.60 - 2026-04-23
+
+- Hardened walker directory metadata so symlink targets are classified through the read-only FS wrapper instead of direct `Path.is_dir()` syscalls, keeping traversal aligned with the SPEC's wrapper-only rule while still marking symlinked directories correctly.
+- Made traversal fail soft when a directory can no longer be canonicalized during cycle detection, which lets indexing keep the current entry and skip only the broken subtree instead of aborting the walk.
+- Added focused walker regressions for wrapper-backed symlink directory detection and resolve-failure descent suppression, pinning the bind-mount and disappearing-alias edge cases called out by the correctness slice.
+
 ## 0.1.59 - 2026-04-23
 
 - Strengthened the Linux Debian packaging path so the staged `.deb` now includes the desktop entry, SVG app icon, launcher shim, license, and a compressed changelog instead of shipping only the bare command wrapper plus control metadata.
