@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.104 - 2026-04-23
+## 0.1.106 - 2026-04-23
 
 - Restored compatibility with persisted launcher config by accepting the saved `always_on_top` flag, so CLI and offscreen GUI entrypoints no longer crash when a user already has that setting in `config.toml`.
 - Added a real watchdog-driven integration regression that indexes a temp workspace, creates a file under an active watcher, applies the queued filesystem event, and proves the new result becomes searchable within 500 ms.
