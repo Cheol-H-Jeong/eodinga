@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.70 - 2026-04-23
+
+- Hardened startup crash recovery so `open_index()` now resumes interrupted staged rebuilds from `.index.db.next` in addition to the existing staged WAL recovery flow, promoting a fully built replacement index on the next launch after a crash before the final swap.
+- Extended `eodinga doctor` to run and report the same interrupted-build recovery path, keeping diagnostics aligned with runtime startup behavior instead of hiding stranded staged indexes.
+- Added focused storage and doctor regressions for interrupted staged-build promotion and orphaned `.next` sidecar cleanup, pinning the new reliability path end to end.
+
 ## 0.1.69 - 2026-04-23
 
 - Skipped the `IndexWriter` content-upsert phase entirely when no parser callback is configured, removing a guaranteed-empty pass from metadata-only indexing paths such as watcher updates and rebuilds with `content_enabled=False`.
