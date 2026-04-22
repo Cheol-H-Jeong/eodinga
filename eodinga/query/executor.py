@@ -6,6 +6,7 @@ import time
 import unicodedata
 from collections.abc import Iterable, Mapping
 from pathlib import Path
+from typing import NamedTuple
 
 from pydantic import BaseModel, ConfigDict
 
@@ -28,6 +29,14 @@ class QueryResult(BaseModel):
     hits: list[SearchHit]
     total_estimate: int
     elapsed_ms: float
+
+
+class _ContentPresenceCache(NamedTuple):
+    total_changes: int
+    has_indexed_content: bool
+
+
+_CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
 
 
 def _row_to_record(row: Mapping[str, object]) -> FileRecord:
@@ -353,7 +362,15 @@ def _fetch_auto_content_candidates(
 
 
 def _has_indexed_content(conn: sqlite3.Connection) -> bool:
-    return conn.execute("SELECT 1 FROM content_map LIMIT 1").fetchone() is not None
+    cached = _CONTENT_PRESENCE_BY_CONNECTION.get(id(conn))
+    if cached is not None and cached.total_changes == conn.total_changes:
+        return cached.has_indexed_content
+    has_indexed_content = conn.execute("SELECT 1 FROM content_map LIMIT 1").fetchone() is not None
+    _CONTENT_PRESENCE_BY_CONNECTION[id(conn)] = _ContentPresenceCache(
+        total_changes=conn.total_changes,
+        has_indexed_content=has_indexed_content,
+    )
+    return has_indexed_content
 
 
 def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[int, str]:

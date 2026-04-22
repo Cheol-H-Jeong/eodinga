@@ -372,6 +372,44 @@ def test_plain_query_skips_content_fts_when_no_content_is_indexed(tmp_db: sqlite
     assert not any("FROM content_fts" in statement for statement in statements)
 
 
+def test_plain_query_caches_content_presence_probe_until_connection_changes(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/projects/report-011.py", 1024, now, "py")
+    tmp_db.commit()
+
+    statements: list[str] = []
+    tmp_db.set_trace_callback(statements.append)
+    try:
+        search(tmp_db, "report-011", limit=10)
+        search(tmp_db, "report-011", limit=10)
+    finally:
+        tmp_db.set_trace_callback(None)
+
+    assert sum("SELECT 1 FROM content_map LIMIT 1" in statement for statement in statements) == 1
+
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/projects/report-012.py",
+        1024,
+        now - 60,
+        "py",
+        body_text="launch",
+    )
+    tmp_db.commit()
+
+    statements = []
+    tmp_db.set_trace_callback(statements.append)
+    try:
+        search(tmp_db, "report", limit=10)
+    finally:
+        tmp_db.set_trace_callback(None)
+
+    assert sum("SELECT 1 FROM content_map LIMIT 1" in statement for statement in statements) == 1
+
+
 def test_plain_ascii_query_skips_substring_scan_when_fts_already_hits(
     tmp_db: sqlite3.Connection,
 ) -> None:
