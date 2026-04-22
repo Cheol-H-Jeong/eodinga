@@ -1,0 +1,39 @@
+# Architecture
+
+`eodinga` is a local-first lexical search stack. The v0.1 line keeps the system deliberately small: read-only filesystem access, SQLite/FTS5 storage, a shared query engine, and thin CLI/GUI launch surfaces on top.
+
+## Runtime Flow
+
+1. `eodinga.core.walker.walk_batched()` enumerates roots through the read-only wrappers in `eodinga.core.fs`.
+2. `eodinga.index.writer.IndexWriter` persists file metadata into `files` and mirrors searchable fields into the `paths_fts` and `content_fts` virtual tables.
+3. `eodinga.core.watcher.WatchService` coalesces live filesystem events and feeds incremental updates back through the same writer.
+4. `eodinga.query.dsl.parse()` and `eodinga.query.compiler.compile_query()` lower the DSL into SQLite filters plus in-memory fallback checks.
+5. `eodinga.query.executor.search()` fetches candidates, merges name/path/content rankings, and returns hits to the CLI or GUI.
+
+## Index Storage
+
+- `files` is the source-of-truth table for root membership, timestamps, size, extension, and duplicate detection via `content_hash`.
+- `paths_fts` mirrors filename and path fields for fast lexical lookups.
+- `content_fts` stores parsed document text when parser extras are installed.
+- `content_map` keeps the FTS row IDs stable across updates so incremental reindexing does not balloon the content index.
+- `eodinga.index.storage` owns WAL replay on startup and atomic staged-index replacement.
+
+## Query Execution
+
+- The DSL supports terms, phrases, regex, grouped `|` branches, and negation.
+- Structured operators such as `ext:`, `path:`, `content:`, `size:`, `date:`, and `is:` compile into SQLite predicates where possible.
+- Regex and mixed path/content terms are finalized in Python against the candidate set so the CLI and GUI share identical behavior.
+- `eodinga.query.ranker` applies reciprocal rank fusion, filename prefix boosts, and path deboosting for noisy trees such as `node_modules`.
+
+## UI Surfaces
+
+- `eodinga.__main__` exposes the seven subcommands required by the v0.1 contract.
+- `eodinga.gui.app.EodingaWindow` is the settings and diagnostics shell.
+- `eodinga.gui.launcher.LauncherWindow` is the hotkey-first search surface with keyboard navigation and match highlighting.
+- Both UI paths reuse the same query models from `eodinga.common`.
+
+## Safety Boundaries
+
+- No runtime network access is allowed; `tests/safety/test_no_network.py` enforces that at source level.
+- Filesystem writes are limited to the application database/config area; the read-only wrappers prevent mutating indexed user roots.
+- Performance tests exist under `tests/perf`, but they stay opt-in for v0.1 so the default gate remains deterministic on developer machines.

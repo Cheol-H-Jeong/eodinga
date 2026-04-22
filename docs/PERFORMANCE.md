@@ -1,6 +1,6 @@
 # Performance
 
-`eodinga` keeps the v0.1 perf checks opt-in. Run them locally with:
+`eodinga` keeps the v0.1 perf checks opt-in. The suite is aligned with SPEC §6.3 and can be run locally with:
 
 ```bash
 source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
@@ -25,3 +25,12 @@ Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv`
 | Watch latency | 25 created files | p99 0.132 s |
 
 These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets.
+
+## Interpreting Results
+
+- `tests/perf/test_cold_start.py` exercises walker and bulk-upsert throughput. It is the best proxy for first-index regressions.
+- `tests/perf/test_query_latency.py` isolates name/path lookup cost without parser noise.
+- `tests/perf/test_content_query.py` tracks content-index ranking and snippet latency.
+- `tests/perf/test_watch_latency.py` measures file-create to query-visible lag through the watcher path.
+
+The benchmarks intentionally stay below the full SPEC-scale datasets so they are practical in CI-like local runs, while still catching obvious algorithmic regressions.

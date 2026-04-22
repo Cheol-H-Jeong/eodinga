@@ -6,6 +6,12 @@ Everything-class instant file search for Windows + Linux. `eodinga` indexes file
 
 This repository tracks the `0.1.x` lexical-search release defined in `SPEC.md`. Semantic search is out of scope for this version.
 
+## Screenshots
+
+![Main application window](docs/screenshots/app-window.png)
+
+![Launcher window](docs/screenshots/launcher-window.png)
+
 ## Install
 
 ### Linux
@@ -47,7 +53,7 @@ Global flags:
 - `--config`
 - `--db`
 
-## Query DSL Cheatsheet
+## Query DSL
 
 - `report` : plain lexical term
 - `ext:pdf invoice` : extension filter plus term
@@ -58,7 +64,7 @@ Global flags:
 - `-path:node_modules` : negation
 - `(invoice | receipt) ext:pdf` : grouping
 
-Full perf notes and local benchmark baselines live in [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md).
+Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md).
 
 ## Hotkey
 
@@ -67,6 +73,18 @@ Full perf notes and local benchmark baselines live in [docs/PERFORMANCE.md](/hom
 - `Enter` opens the top result
 - `Ctrl+Enter` opens the containing folder
 - `Shift+Enter` shows file properties
+
+## Architecture
+
+The runtime stack is intentionally small: read-only filesystem traversal, SQLite/FTS-backed indexing, a shared DSL compiler/executor, and thin CLI/GUI surfaces. The component map and data flow are documented in [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md).
+
+## Performance
+
+Perf gates remain opt-in in v0.1, but the suite and local baseline are documented in [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md). Run them locally with:
+
+```bash
+source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
+```
 
 ## Diagnostics
 
@@ -101,6 +119,7 @@ No. `0.1.x` is lexical only.
 - Perf gates are opt-in in v0.1. Run `EODINGA_RUN_PERF=1 pytest -q tests/perf -s` for local baselines and regression checks.
 - Query quality is lexical-only. There is no semantic ranking, OCR, or cloud sync in this release.
 - Content search only covers the parser set bundled in `.[parsers]`; unsupported or encrypted documents fall back to filename/path-only search.
+- Live indexing depends on the local watchdog backend. Very large bursty file operations may appear after the debounce window rather than instantly.
 
 ## Uninstall
 
