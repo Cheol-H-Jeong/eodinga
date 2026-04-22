@@ -2,25 +2,22 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
-class SearchHit(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+class SearchResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
 
     path: Path
-    name: str
-    parent_path: Path = Field(default_factory=Path)
-    ext: str = ""
-    size: int = 0
-    mtime: int = 0
     score: float = 0.0
-    highlighted_name: str = ""
-    highlighted_path: str = ""
+    snippet: str | None = None
 
 
-class QueryResult(BaseModel):
-    items: list[SearchHit] = Field(default_factory=list)
-    total: int = 0
-    elapsed_ms: float = 0.0
+class StatsSnapshot(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    files_indexed: int = 0
+    documents_indexed: int = 0
+    roots: list[Path] = []
+    db_path: Path | None = None
 

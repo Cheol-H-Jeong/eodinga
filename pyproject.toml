@@ -1,46 +1,86 @@
 [build-system]
-requires = ["hatchling>=1.25"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "eodinga"
 version = "0.1.0"
-description = "Instant lexical file search for Windows and Linux."
+description = "Everything-class instant file search for Windows and Linux"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = { file = "LICENSE" }
+authors = [
+  { name = "Cheol-H-Jeong" },
+]
 dependencies = [
   "loguru>=0.7.2",
   "pydantic>=2.7,<3",
+  "tomli-w>=1.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "pyright>=1.1.397",
-  "pytest>=8.3",
-  "ruff>=0.11.0",
+  "pyright>=1.1.390",
+  "pytest>=8.3.0",
+  "ruff>=0.9.0",
+  "yamllint>=1.35.0",
+]
+parsers = [
+  "ebooklib>=0.18",
+  "olefile>=0.47",
+  "openpyxl>=3.1.5",
+  "pdfminer.six>=20240706",
+  "pypdf>=5.1.0",
+  "python-docx>=1.1.2",
+  "python-pptx>=1.0.2",
+  "selectolax>=0.3.26",
 ]
 gui = [
-  "PySide6>=6.7",
+  "PySide6>=6.8.0",
+  "watchdog>=6.0.0",
 ]
 hotkey = [
-  "pywin32; sys_platform == 'win32'",
-  "python-xlib; sys_platform == 'linux'",
-  "pynput>=1.7.7",
+  "pynput>=1.7.7; platform_system == 'Linux'",
+  "python-xlib>=0.33; platform_system == 'Linux'",
 ]
-parsers = []
 all = [
-  "eodinga[dev,gui,hotkey,parsers]",
+  "ebooklib>=0.18",
+  "loguru>=0.7.2",
+  "olefile>=0.47",
+  "openpyxl>=3.1.5",
+  "pdfminer.six>=20240706",
+  "pydantic>=2.7,<3",
+  "PySide6>=6.8.0",
+  "pynput>=1.7.7; platform_system == 'Linux'",
+  "pyright>=1.1.390",
+  "pytest>=8.3.0",
+  "python-docx>=1.1.2",
+  "python-pptx>=1.0.2",
+  "python-xlib>=0.33; platform_system == 'Linux'",
+  "pypdf>=5.1.0",
+  "ruff>=0.9.0",
+  "selectolax>=0.3.26",
+  "tomli-w>=1.0.0",
+  "watchdog>=6.0.0",
+  "yamllint>=1.35.0",
 ]
 
-[tool.hatch.build.targets.wheel]
-packages = ["eodinga"]
+[project.scripts]
+eodinga = "eodinga.__main__:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["eodinga*"]
+
+[tool.setuptools.package-data]
+eodinga = ["i18n/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [tool.pyright]
-include = ["eodinga", "tests"]
 pythonVersion = "3.11"
+include = ["eodinga", "tests", "packaging/build.py"]
 typeCheckingMode = "basic"
-

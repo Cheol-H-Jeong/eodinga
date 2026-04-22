@@ -1,0 +1,9 @@
+{
+  "app.title": "eodinga",
+  "cli.search.no_results": "No results",
+  "cli.doctor.ok": "Diagnostics passed",
+  "cli.doctor.fail": "Diagnostics found issues",
+  "installer.language.en": "English",
+  "installer.language.ko": "Korean"
+}
+

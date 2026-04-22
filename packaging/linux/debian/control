@@ -1,0 +1,12 @@
+Source: eodinga
+Section: utils
+Priority: optional
+Maintainer: Cheol-H-Jeong
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+
+Package: eodinga
+Architecture: any
+Depends: ${misc:Depends}, ${python3:Depends}
+Description: Instant lexical file search for Windows and Linux
+

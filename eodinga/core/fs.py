@@ -1,21 +1,23 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import IO
 
 
-def open_readonly(path: Path, mode: str = "rb"):
+def open_readonly(path: Path, mode: str = "rb", encoding: str | None = None) -> IO[str] | IO[bytes]:
     if any(flag in mode for flag in ("w", "a", "+", "x")):
-        raise ValueError("open_readonly only allows read modes")
-    return path.open(mode)
+        raise ValueError("open_readonly only supports read modes")
+    return path.open(mode=mode, encoding=encoding)
 
 
-def read_bytes(path: Path, max_bytes: int | None = None) -> bytes:
-    with open_readonly(path, "rb") as handle:
-        if max_bytes is None:
-            return handle.read()
-        return handle.read(max_bytes)
+def exists(path: Path) -> bool:
+    return path.exists()
 
 
-def file_size(path: Path) -> int:
-    return path.stat().st_size
+def is_dir(path: Path) -> bool:
+    return path.is_dir()
+
+
+def is_file(path: Path) -> bool:
+    return path.is_file()
 
