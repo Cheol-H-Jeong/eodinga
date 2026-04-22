@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.74 - 2026-04-23
+
+- Polished launcher keyboard flow with `Alt+Up` / `Alt+Down` recent-query recall, so repeated searches no longer require retyping the last few filters during a desktop-search session.
+- Added `Ctrl+L` as a direct return-to-filter shortcut from the results list, tightening keyboard-only launcher use without forcing a Tab cycle back through the popup.
+- Expanded offscreen GUI regressions and README hotkey docs to pin the new launcher shortcuts and the updated empty-state guidance.
+
 ## 0.1.73 - 2026-04-23
 
 - Added a shipped `docs/ACCEPTANCE.md` guide that turns SPEC §9 into a concrete release checklist with the exact local install, quality-gate, packaging, workflow-lint, and tagging commands used in this repository.
