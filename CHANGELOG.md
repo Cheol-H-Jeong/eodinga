@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.100 - 2026-04-23
+
+- Restored compatibility with persisted launcher config by accepting the saved `always_on_top` flag, so CLI and offscreen GUI entrypoints no longer crash when a user already has that setting in `config.toml`.
+- Added a real watchdog-driven integration regression that indexes a temp workspace, creates a file under an active watcher, applies the queued filesystem event, and proves the new result becomes searchable within 500 ms.
+- Expanded integration coverage for multi-root live updates and post-update restart behavior, pinning that watcher-applied changes from either root remain queryable after closing and reopening the index without a rebuild.
+
 ## 0.1.78 - 2026-04-23
 
 - Tightened the Windows packaging audit so the rendered Inno installer now verifies its escaped `AppId`, template-driven `AppVersion`, and GUI uninstall icon path instead of relying on looser substring checks.
