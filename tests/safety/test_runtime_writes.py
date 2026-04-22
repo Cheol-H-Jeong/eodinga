@@ -4,6 +4,7 @@ import builtins
 import os
 from pathlib import Path
 from queue import Empty
+from typing import TypeAlias
 
 import pytest
 
@@ -26,13 +27,13 @@ def _is_write_flags(flags: int) -> bool:
     return bool(flags & write_mask)
 
 
-def _path_under_root(candidate: object, root: Path) -> Path | None:
+_OpenPath: TypeAlias = int | str | bytes | os.PathLike[str] | os.PathLike[bytes]
+
+
+def _path_under_root(candidate: _OpenPath, root: Path) -> Path | None:
     if isinstance(candidate, int):
         return None
-    try:
-        resolved = Path(os.fspath(candidate))
-    except TypeError:
-        return None
+    resolved = Path(os.fsdecode(os.fspath(candidate)))
     return resolved if resolved.is_relative_to(root) else None
 
 
@@ -78,7 +79,7 @@ def test_runtime_never_writes_user_files(tmp_path: Path, monkeypatch: pytest.Mon
             )
 
         def guarded_builtin_open(
-            file: object,
+            file: _OpenPath,
             mode: str = "r",
             buffering: int = -1,
             encoding: str | None = None,
