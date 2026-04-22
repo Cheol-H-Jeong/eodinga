@@ -49,6 +49,8 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     exec(WINDOWS_SPEC.read_text(encoding="utf-8"), spec_namespace)
     inno_text = INNO_SCRIPT.read_text(encoding="utf-8")
     rendered_path = _render_inno_script(version)
+    rendered_text = rendered_path.read_text(encoding="utf-8")
+    output_base_filename = f"eodinga-{version}-win-x64-setup"
     return {
         "target": "windows-dry-run",
         "version": version,
@@ -64,7 +66,12 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "exists": INNO_SCRIPT.exists(),
             "contains_app_version_template": INNO_VERSION_TOKEN in inno_text,
             "rendered_path": str(rendered_path),
-            "contains_output_name": "OutputBaseFilename=eodinga-setup" in inno_text,
+            "output_base_filename": output_base_filename,
+            "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
+            "contains_autostart_task": 'Name: "autostart"' in inno_text,
+            "contains_autostart_registry": 'Subkey: "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run"' in inno_text
+            and 'ValueName: "eodinga"' in inno_text
+            and 'Tasks: autostart' in inno_text,
         },
     }
 

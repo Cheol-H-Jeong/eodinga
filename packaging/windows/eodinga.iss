@@ -14,7 +14,7 @@ DefaultGroupName=eodinga
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
-OutputBaseFilename=eodinga-setup
+OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup
 Compression=lzma
 SolidCompression=yes
 UninstallDisplayIcon={app}\eodinga-gui.exe
@@ -32,6 +32,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"
 [Files]
 Source: "dist\\eodinga-gui\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "dist\\eodinga-cli\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[Registry]
+Root: HKCU; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; ValueType: string; ValueName: "eodinga"; ValueData: """{app}\\eodinga-gui.exe"""; Flags: uninsdeletevalue; Tasks: autostart
 
 [Icons]
 Name: "{group}\\eodinga"; Filename: "{app}\\eodinga-gui.exe"

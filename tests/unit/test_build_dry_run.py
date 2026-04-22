@@ -28,6 +28,10 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     rendered_text = rendered_path.read_text(encoding="utf-8")
     assert f'#define AppVersion "{__version__}"' in rendered_text
     assert "@@APP_VERSION@@" not in rendered_text
+    assert payload["inno_setup"]["output_base_filename"] == f"eodinga-{__version__}-win-x64-setup"
+    assert payload["inno_setup"]["contains_versioned_output_macro"] is True
+    assert payload["inno_setup"]["contains_autostart_task"] is True
+    assert payload["inno_setup"]["contains_autostart_registry"] is True
 
 
 def test_linux_appimage_dry_run_stages_recipe() -> None:
