@@ -20,6 +20,23 @@ def _configure_connection(conn: sqlite3.Connection) -> sqlite3.Connection:
     return conn
 
 
+def _checkpoint_wal(path: Path) -> None:
+    if not path.exists():
+        return
+    conn = _configure_connection(sqlite3.connect(path))
+    try:
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE);").fetchall()
+    finally:
+        conn.close()
+
+
+def _cleanup_sidecars(path: Path) -> None:
+    for suffix in ("-wal", "-shm"):
+        sidecar = _sidecar(path, suffix)
+        if sidecar.exists():
+            sidecar.unlink()
+
+
 def has_stale_wal(path: Path) -> bool:
     wal_path = _sidecar(path, "-wal")
     return path.exists() and wal_path.exists() and wal_path.stat().st_size > 0
@@ -33,9 +50,9 @@ def recover_stale_wal(path: Path) -> bool:
     conn = _configure_connection(sqlite3.connect(path))
     try:
         migrate(conn)
-        conn.execute("PRAGMA wal_checkpoint(TRUNCATE);").fetchall()
     finally:
         conn.close()
+    _checkpoint_wal(path)
     wal_path = _sidecar(path, "-wal")
     return not wal_path.exists() or wal_path.stat().st_size == 0
 
@@ -52,18 +69,10 @@ def atomic_replace_index(staged_path: Path, target_path: Path) -> None:
     if not staged_path.exists():
         raise FileNotFoundError(staged_path)
     target_path.parent.mkdir(parents=True, exist_ok=True)
-
-    for suffix in ("-wal", "-shm"):
-        sidecar = _sidecar(target_path, suffix)
-        if sidecar.exists():
-            sidecar.unlink()
-
+    _checkpoint_wal(staged_path)
+    _cleanup_sidecars(target_path)
     os.replace(staged_path, target_path)
-    for suffix in ("-wal", "-shm"):
-        staged_sidecar = _sidecar(staged_path, suffix)
-        target_sidecar = _sidecar(target_path, suffix)
-        if staged_sidecar.exists():
-            os.replace(staged_sidecar, target_sidecar)
+    _cleanup_sidecars(staged_path)
 
 
 __all__ = [

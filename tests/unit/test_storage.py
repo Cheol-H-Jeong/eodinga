@@ -46,6 +46,37 @@ def test_atomic_replace_index_swaps_in_staged_database(tmp_path: Path) -> None:
     assert _read_root_paths(target) == ["/new"]
     assert not target.with_name("index.db-wal").exists()
     assert not target.with_name("index.db-shm").exists()
+    assert not staged.exists()
+    assert not staged.with_name("index.staged.db-wal").exists()
+    assert not staged.with_name("index.staged.db-shm").exists()
+
+
+def test_atomic_replace_index_checkpoints_staged_wal_before_swap(tmp_path: Path) -> None:
+    source = tmp_path / "source.db"
+    target = tmp_path / "index.db"
+    staged = tmp_path / "index.staged.db"
+
+    source_conn = sqlite3.connect(source)
+    apply_schema(source_conn)
+    source_conn.execute("PRAGMA wal_autocheckpoint=0;")
+    source_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/checkpointed", "[]", "[]", 1),
+    )
+    source_conn.commit()
+
+    shutil.copy2(source, staged)
+    shutil.copy2(source.with_name("source.db-wal"), staged.with_name("index.staged.db-wal"))
+    shutil.copy2(source.with_name("source.db-shm"), staged.with_name("index.staged.db-shm"))
+    source_conn.close()
+
+    assert staged.with_name("index.staged.db-wal").exists()
+
+    atomic_replace_index(staged, target)
+
+    assert _read_root_paths(target) == ["/checkpointed"]
+    assert not target.with_name("index.db-wal").exists()
+    assert not target.with_name("index.db-shm").exists()
 
 
 def test_open_index_replays_stale_wal_on_startup(tmp_path: Path) -> None:
@@ -79,3 +110,12 @@ def test_open_index_replays_stale_wal_on_startup(tmp_path: Path) -> None:
         reopened.close()
     wal_path = snapshot.with_name("snapshot.db-wal")
     assert not wal_path.exists() or wal_path.stat().st_size == 0
+
+
+def test_recover_stale_wal_returns_false_without_sidecars(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    conn = sqlite3.connect(path)
+    apply_schema(conn)
+    conn.close()
+
+    assert recover_stale_wal(path) is False
