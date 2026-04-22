@@ -17,10 +17,10 @@ This repository tracks the `0.1.x` lexical-search release defined in `SPEC.md`. 
 ### Linux
 
 ```bash
-python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[dev,parsers,gui]
+python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]
 ```
 
-For packaged builds, use the AppImage or `.deb` artifacts produced by CI.
+Use `.[all]` for the full v0.1 local-dev surface, including GUI, parser, hotkey, lint, and test dependencies. For packaged builds, use the AppImage or `.deb` artifacts produced by CI.
 
 ### Windows
 
@@ -86,7 +86,7 @@ Perf gates remain opt-in in v0.1, but the suite and local baseline are documente
 source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
 ```
 
-Current local-dev baseline for `0.1.16`: cold start at roughly 5.1k files/sec and 50k-file name/path lookups at about 0.10 ms p95.
+Current local-dev baseline: cold start at roughly 4.3k files/sec, 50k-file name/path lookups at about 10.0 ms p95, content queries at about 0.63 ms p95, and watch visibility at about 0.132 s p99.
 
 ## Diagnostics
 
