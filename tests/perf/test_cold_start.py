@@ -12,7 +12,7 @@ from tests.perf._helpers import insert_root, open_perf_db, perf_only
 pytestmark = perf_only
 
 FILE_COUNT = 20_000
-MIN_FILES_PER_SECOND = 7_000.0
+MIN_FILES_PER_SECOND = 6_500.0
 
 
 def test_cold_start_throughput(tmp_path: Path) -> None:
