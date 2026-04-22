@@ -46,6 +46,18 @@ def test_compile_date_alias_uses_mtime_range() -> None:
     assert len(branch.where_params) == 2
 
 
+def test_compile_reversed_date_range_normalizes_bounds() -> None:
+    compiled = compile_query(parse("date:2026-01-03..2026-01-01"))
+    branch = compiled.branches[0]
+    start, end = branch.where_params
+
+    assert branch.where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert len(branch.where_params) == 2
+    assert isinstance(start, int)
+    assert isinstance(end, int)
+    assert start < end
+
+
 def test_compile_duplicate_filter_shape() -> None:
     compiled = compile_query(parse("is:duplicate -is:symlink"))
     branch = compiled.branches[0]
