@@ -7,7 +7,13 @@ from pathlib import Path
 import pytest
 
 from eodinga.index.schema import apply_schema
-from eodinga.index.storage import atomic_replace_index, has_stale_wal, open_index, recover_stale_wal
+from eodinga.index.storage import (
+    atomic_replace_index,
+    has_stale_wal,
+    open_index,
+    recover_interrupted_recovery,
+    recover_stale_wal,
+)
 
 
 def _read_root_paths(db_path: Path) -> list[str]:
@@ -17,6 +23,12 @@ def _read_root_paths(db_path: Path) -> list[str]:
         return [str(row[0]) for row in rows]
     finally:
         conn.close()
+
+
+def _make_recovery_snapshot(source: Path, snapshot: Path) -> None:
+    shutil.copy2(source, snapshot)
+    shutil.copy2(source.with_name(f"{source.name}-wal"), snapshot.with_name(f"{snapshot.name}-wal"))
+    shutil.copy2(source.with_name(f"{source.name}-shm"), snapshot.with_name(f"{snapshot.name}-shm"))
 
 
 def test_atomic_replace_index_swaps_in_staged_database(tmp_path: Path) -> None:
@@ -125,9 +137,7 @@ def test_open_index_replays_stale_wal_on_startup(tmp_path: Path) -> None:
     )
     conn.commit()
 
-    shutil.copy2(source, snapshot)
-    shutil.copy2(source.with_name("source.db-wal"), snapshot.with_name("snapshot.db-wal"))
-    shutil.copy2(source.with_name("source.db-shm"), snapshot.with_name("snapshot.db-shm"))
+    _make_recovery_snapshot(source, snapshot)
     conn.close()
 
     assert has_stale_wal(snapshot)
@@ -194,9 +204,7 @@ def test_recover_stale_wal_uses_staged_copy_before_atomic_swap(
     )
     conn.commit()
 
-    shutil.copy2(source, snapshot)
-    shutil.copy2(source.with_name("source.db-wal"), snapshot.with_name("snapshot.db-wal"))
-    shutil.copy2(source.with_name("source.db-shm"), snapshot.with_name("snapshot.db-shm"))
+    _make_recovery_snapshot(source, snapshot)
     conn.close()
 
     seen: dict[str, bool] = {"target_stale_before_swap": False}
@@ -238,9 +246,7 @@ def test_open_index_recovers_from_staged_copy_and_cleans_recovery_files(tmp_path
     )
     conn.commit()
 
-    shutil.copy2(source, snapshot)
-    shutil.copy2(source.with_name("source.db-wal"), snapshot.with_name("snapshot.db-wal"))
-    shutil.copy2(source.with_name("source.db-shm"), snapshot.with_name("snapshot.db-shm"))
+    _make_recovery_snapshot(source, snapshot)
     conn.close()
 
     reopened = open_index(snapshot)
@@ -254,3 +260,67 @@ def test_open_index_recovers_from_staged_copy_and_cleans_recovery_files(tmp_path
     assert not staged_path.exists()
     assert not staged_path.with_name(".snapshot.db.recover-wal").exists()
     assert not staged_path.with_name(".snapshot.db.recover-shm").exists()
+
+
+def test_recover_interrupted_recovery_swaps_existing_staged_database(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/old", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/resumed", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    assert recover_interrupted_recovery(target) is True
+    assert _read_root_paths(target) == ["/resumed"]
+    assert not staged.exists()
+
+
+def test_open_index_resumes_interrupted_recovery_with_staged_wal(tmp_path: Path) -> None:
+    source = tmp_path / "source.db"
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/old", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    source_conn = sqlite3.connect(source)
+    apply_schema(source_conn)
+    source_conn.execute("PRAGMA wal_autocheckpoint=0;")
+    source_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/resumed-from-wal", "[]", "[]", 1),
+    )
+    source_conn.commit()
+    _make_recovery_snapshot(source, staged)
+    source_conn.close()
+
+    reopened = open_index(target)
+    try:
+        rows = reopened.execute("SELECT path FROM roots").fetchall()
+        assert [str(row[0]) for row in rows] == ["/resumed-from-wal"]
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.recover-wal").exists()
+    assert not staged.with_name(".index.db.recover-shm").exists()

@@ -116,8 +116,28 @@ def recover_stale_wal(path: Path) -> bool:
     return not has_stale_wal(path)
 
 
+def recover_interrupted_recovery(path: Path) -> bool:
+    staged_path = _staged_recovery_path(path)
+    if not staged_path.exists():
+        return False
+    logger = get_logger("index.storage")
+    logger.warning("resuming interrupted recovery for {}", path)
+    try:
+        if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
+            return False
+        atomic_replace_index(staged_path, path)
+    except (OSError, sqlite3.DatabaseError):
+        logger.exception("failed interrupted recovery resume for {}", path)
+        return False
+    finally:
+        _cleanup_index_files(staged_path)
+    return path.exists() and not staged_path.exists() and not has_stale_wal(path)
+
+
 def open_index(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
+    if recover_interrupted_recovery(path):
+        pass
     if has_stale_wal(path) and not recover_stale_wal(path):
         raise RuntimeError(f"failed to recover stale WAL for {path}")
     conn = _configure_connection(sqlite3.connect(path))
@@ -144,5 +164,6 @@ __all__ = [
     "atomic_replace_index",
     "has_stale_wal",
     "open_index",
+    "recover_interrupted_recovery",
     "recover_stale_wal",
 ]
