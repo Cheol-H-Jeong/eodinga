@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.49 - 2026-04-23
+
+- Expanded the shipped documentation set with a fourth offscreen-rendered screenshot for the settings surface, plus README coverage for supported content types, recovery flow, and the docs map.
+- Deepened the DSL, architecture, and performance guides with timestamp-operator coverage, startup-recovery notes, and a concrete profiling workflow for the opt-in perf suite.
+- Tightened `tests/unit/test_docs_assets.py` so the screenshot gallery and core documentation sections stay pinned to the shipped product surface.
+
 ## 0.1.48 - 2026-04-23
 
 - Resumed interrupted staged-index recovery on startup by detecting leftover `.db.recover` databases, replaying their WAL if needed, and atomically swapping them into place before normal index open proceeds.
