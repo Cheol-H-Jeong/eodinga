@@ -277,3 +277,54 @@ def test_e2e_watch_flushed_move_then_late_source_delete_keeps_destination(tmp_pa
         conn.close()
 
     assert indexed_paths == {backup}
+
+
+def test_e2e_watch_move_then_destination_create_deletes_source_row(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    source = root / "draft.txt"
+    destination = root / "report.txt"
+    source.write_text("draft body\n", encoding="utf-8")
+    _index_tree(root, db_path)
+
+    conn = open_index(db_path)
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+
+        source.rename(destination)
+        service = WatchService()
+        service.record(
+            WatchEvent(
+                event_type="moved",
+                path=destination,
+                src_path=source,
+                root_path=root,
+                happened_at=1.0,
+            )
+        )
+        service.record(
+            WatchEvent(
+                event_type="created",
+                path=destination,
+                root_path=root,
+                happened_at=2.0,
+            )
+        )
+        service._flush_ready(force=True)
+
+        events = []
+        while not service.queue.empty():
+            events.append(service.queue.get_nowait())
+
+        assert [(event.event_type, event.path.name) for event in events] == [("moved", "report.txt")]
+        assert writer.apply_events(events, record_loader=make_record) == 1
+
+        indexed_paths = {
+            Path(row[0])
+            for row in conn.execute("SELECT path FROM files WHERE is_dir = 0 ORDER BY path").fetchall()
+        }
+    finally:
+        conn.close()
+
+    assert indexed_paths == {destination}

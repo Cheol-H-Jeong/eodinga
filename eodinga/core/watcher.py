@@ -188,6 +188,14 @@ class WatchService:
                 root_path=new.root_path,
                 happened_at=new.happened_at,
             )
+        if existing.event_type == "moved" and new.event_type == "created":
+            return WatchEvent(
+                event_type="moved",
+                path=existing.path,
+                src_path=existing.src_path,
+                root_path=new.root_path,
+                happened_at=new.happened_at,
+            )
         if new.event_type == "moved":
             return new
         return new

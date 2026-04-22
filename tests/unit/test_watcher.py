@@ -135,6 +135,36 @@ def test_watcher_move_then_modify_preserves_move_metadata(tmp_path: Path) -> Non
     assert event.src_path == source
 
 
+def test_watcher_move_then_destination_create_preserves_move_metadata(tmp_path: Path) -> None:
+    service = WatchService()
+    source = tmp_path / "before.txt"
+    destination = tmp_path / "after.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="moved",
+            path=destination,
+            src_path=source,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=destination,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "moved"
+    assert event.path == destination
+    assert event.src_path == source
+
+
 def test_watcher_move_then_source_delete_keeps_single_move_event(tmp_path: Path) -> None:
     service = WatchService()
     source = tmp_path / "before.txt"
