@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.54 - 2026-04-23
+
+- Polished the launcher results list so the secondary line now shows the containing folder instead of repeating the filename in the full path, which makes scan-heavy result sets easier to parse at a glance.
+- Surfaced background indexing progress directly in the launcher footer while the query box is idle, so the popup no longer reads as `Idle` during an active initial crawl and now shows the processed-file count plus percentage.
+- Added focused GUI regressions for the new footer state, the containing-folder secondary line, and the remaining keyboard-only actions (`Shift+Enter` for properties, `Alt+C` for copy path).
+
 ## 0.1.53 - 2026-04-23
 
 - Synced the Windows Inno Setup template with `packaging/pyinstaller.spec` by rendering dist-folder and GUI executable names from the spec at dry-run time, which removes a silent drift path between the PyInstaller output layout and installer shortcuts, autostart, and file payload globs.
