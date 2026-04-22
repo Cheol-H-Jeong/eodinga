@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.99 - 2026-04-23
+
+- Reissued the observability round under a collision-resistant local release number after repeated shared parallel-worktree tag conflicts on the intervening patch releases, without changing the shipped code in this slice.
+
 ## 0.1.81 - 2026-04-23
 
 - Reissued the observability round under the next free local release number after the shared parallel-worktree tag namespace had already consumed `v0.1.80`, without changing the shipped code in this slice.
