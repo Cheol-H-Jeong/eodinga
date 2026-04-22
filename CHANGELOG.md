@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.73 - 2026-04-23
+
+- Added a shipped `docs/ACCEPTANCE.md` guide that turns SPEC §9 into a concrete release checklist with the exact local install, quality-gate, packaging, workflow-lint, and tagging commands used in this repository.
+- Expanded the README with an acceptance quickcheck command block and linked the new guide from the docs map so release validation stops depending on tribal knowledge.
+- Added documentation regressions that pin the acceptance guide and a top-level CLI contract test that proves `eodinga --help` continues to expose the seven required v0.1 subcommands.
+
 ## 0.1.72 - 2026-04-23
 
 - Fixed watcher move normalization at watched-root boundaries so a rename that leaves a configured root now emits a `deleted` event for the source path, while a rename that enters a root emits `created` for the destination instead of leaking an out-of-root `moved` event downstream.
