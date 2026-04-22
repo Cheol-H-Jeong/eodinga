@@ -163,6 +163,15 @@ def _run_linux_deb_dry_run() -> int:
     return result.returncode
 
 
+def _run_linux_deb() -> int:
+    result = subprocess.run(
+        ["bash", str(DEB_SCRIPT)],
+        cwd=PROJECT_ROOT,
+        check=False,
+    )
+    return result.returncode
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -171,6 +180,7 @@ def main(argv: list[str] | None = None) -> int:
             "linux-appimage-dry-run",
             "linux-appimage",
             "linux-deb-dry-run",
+            "linux-deb",
             "windows-dry-run",
             "windows",
         ),
@@ -183,6 +193,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_linux_appimage()
     if args.target == "linux-deb-dry-run":
         return _run_linux_deb_dry_run()
+    if args.target == "linux-deb":
+        return _run_linux_deb()
     if args.target == "windows-dry-run":
         return _run_windows_dry_run()
     return _run_windows()

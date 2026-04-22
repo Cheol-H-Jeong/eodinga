@@ -118,3 +118,22 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert Path(payload["package_dir"]).exists()
     assert Path(payload["control_path"]).exists()
     assert Path(payload["archive"]).exists()
+
+
+def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
+    result = subprocess.run(
+        [sys.executable, "packaging/build.py", "--target", "linux-deb"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    manifest_path = Path("packaging/dist/linux-deb-audit.json")
+    assert manifest_path.exists()
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert payload["target"] == "linux-deb"
+    assert payload["dry_run"] is False
+    assert Path(payload["package_dir"]).exists()
+    assert Path(payload["control_path"]).exists()
+    assert Path(payload["deb_path"]).exists()

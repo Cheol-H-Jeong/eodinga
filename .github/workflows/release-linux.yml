@@ -23,7 +23,7 @@ jobs:
       - name: Package AppImage
         run: python packaging/build.py --target linux-appimage
       - name: Package Debian
-        run: bash packaging/linux/deb.sh
+        run: python packaging/build.py --target linux-deb
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

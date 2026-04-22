@@ -8,7 +8,7 @@ def test_release_linux_workflow_uses_linux_appimage_dry_run() -> None:
     assert "python packaging/build.py --target linux-appimage-dry-run" in workflow
     assert "python packaging/build.py --target linux-deb-dry-run" in workflow
     assert "python packaging/build.py --target linux-appimage" in workflow
-    assert "bash packaging/linux/deb.sh" in workflow
+    assert "python packaging/build.py --target linux-deb" in workflow
 
 
 def test_release_windows_workflow_runs_dry_run_before_build() -> None:
