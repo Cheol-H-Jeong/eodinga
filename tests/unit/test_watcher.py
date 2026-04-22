@@ -166,3 +166,21 @@ def test_watcher_move_then_source_delete_keeps_single_move_event(tmp_path: Path)
 
     with pytest.raises(Empty):
         service.queue.get_nowait()
+
+
+def test_watcher_can_restart_after_stop(tmp_path: Path) -> None:
+    service = WatchService()
+    service.start(tmp_path)
+    service.stop()
+
+    service.start(tmp_path)
+    try:
+        target = tmp_path / "restarted.txt"
+        target.write_text("hello", encoding="utf-8")
+        sleep(0.3)
+
+        event = service.queue.get(timeout=0.2)
+        assert event.event_type == "created"
+        assert event.path == target
+    finally:
+        service.stop()

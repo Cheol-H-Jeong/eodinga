@@ -71,6 +71,8 @@ class WatchService:
         self._observers: dict[Path, _ManagedObserver] = {}
 
     def start(self, root: Path) -> None:
+        if self._stop.is_set():
+            self._stop = Event()
         if self._flush_thread is None or not self._flush_thread.is_alive():
             self._flush_thread = _spawn_thread(self._flush_loop)
             self._flush_thread.start()
@@ -87,6 +89,8 @@ class WatchService:
             observer.join(timeout=1)
         if self._flush_thread is not None and self._flush_thread.is_alive():
             self._flush_thread.join(timeout=1)
+        self._flush_thread = None
+        self._observers.clear()
 
     def record(self, event: WatchEvent) -> None:
         with self._lock:
