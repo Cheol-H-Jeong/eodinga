@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.107 - 2026-04-23
+
+- Expanded the query date DSL with `last-week` and `last-month`, and widened ISO range parsing so exact datetime bounds now work alongside the existing day-based filters.
+- Added inclusive `size:min..max` ranges, including reversed-bound normalization, so storage filters can express windows like `size:100..500K` without decomposing them into multiple clauses.
+- Added `is:empty` for zero-byte files and directories without indexed children, with end-to-end executor coverage for both positive and negated matches.
+
 ## 0.1.100 - 2026-04-23
 
 - Added a real in-process observability registry so indexing, query execution, parser failures, and watcher ingress now increment stable counters instead of only emitting debug logs.
