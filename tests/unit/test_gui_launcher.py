@@ -130,10 +130,10 @@ def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) ->
     QTest.keyClick(launcher.query_field, Qt.Key.Key_Backtab)
     assert launcher.result_list.hasFocus()
     assert launcher.result_list.currentIndex().row() == 0
-    assert "Ctrl+Enter reveals" in launcher.shortcut_label.text()
+    assert "Alt+1..9 opens a hit" in launcher.shortcut_label.text()
     assert "Up/Down wraps" in launcher.shortcut_label.text()
     assert "PgUp/PgDn jumps" in launcher.shortcut_label.text()
-    assert "Ctrl+L returns to filter" in launcher.shortcut_label.text()
+    assert "Ctrl+A selects the filter" in launcher.shortcut_label.text()
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_End)
     assert launcher.result_list.currentIndex().row() == 2
@@ -397,6 +397,31 @@ def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> 
     assert launcher.query_field.selectedText() == "alpha"
 
 
+def test_launcher_ctrl_a_from_results_focuses_query_and_selects_text(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+            ][:limit],
+            total=2,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("alpha")
+    _wait(60)
+    launcher.result_list.setFocus()
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Down)
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
+
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.selectedText() == "alpha"
+
+
 def test_launcher_alt_up_and_down_recall_recent_queries(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
@@ -464,3 +489,29 @@ def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
 
     assert properties == ["release-notes.txt"]
     assert copied == ["/tmp/release-notes.txt"]
+
+
+def test_launcher_alt_number_opens_ranked_result(qapp) -> None:
+    activated: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path(f"/tmp/item-{index}.txt"), parent_path=Path("/tmp"), name=f"item-{index}.txt")
+                for index in range(1, 5)
+            ][:limit],
+            total=4,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: activated.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("item")
+    _wait(60)
+
+    QTest.keyClick(launcher, Qt.Key.Key_3, Qt.KeyboardModifier.AltModifier)
+
+    assert activated == ["item-3.txt"]
+    assert launcher.result_list.currentIndex().row() == 2

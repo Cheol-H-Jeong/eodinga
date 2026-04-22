@@ -191,6 +191,7 @@ class LauncherPanel(QWidget):
             QShortcut(QKeySequence("Ctrl+Return"), self),
             QShortcut(QKeySequence("Shift+Return"), self),
             QShortcut(QKeySequence("Alt+C"), self),
+            QShortcut(QKeySequence("Ctrl+A"), self),
             QShortcut(QKeySequence("Ctrl+L"), self),
             QShortcut(QKeySequence("Alt+Up"), self),
             QShortcut(QKeySequence("Alt+Down"), self),
@@ -199,9 +200,13 @@ class LauncherPanel(QWidget):
         self._shortcuts[1].activated.connect(self.emit_open_containing_folder)
         self._shortcuts[2].activated.connect(self.emit_show_properties)
         self._shortcuts[3].activated.connect(self.emit_copy_path)
-        self._shortcuts[4].activated.connect(self.focus_query_field)
-        self._shortcuts[5].activated.connect(self.recall_previous_query)
-        self._shortcuts[6].activated.connect(self.recall_next_query)
+        self._shortcuts[4].activated.connect(self.select_query_text)
+        self._shortcuts[5].activated.connect(self.focus_query_field)
+        self._shortcuts[6].activated.connect(self.recall_previous_query)
+        self._shortcuts[7].activated.connect(self.recall_next_query)
+        self._quick_pick_shortcuts = [QShortcut(QKeySequence(f"Alt+{index}"), self) for index in range(1, 10)]
+        for index, shortcut in enumerate(self._quick_pick_shortcuts, start=1):
+            shortcut.activated.connect(lambda selected=index: self.activate_result_at(selected - 1))
 
         if self._state is not None:
             self._state.recent_queries_changed.connect(self.set_recent_queries)
@@ -233,6 +238,17 @@ class LauncherPanel(QWidget):
     def focus_query_field(self) -> None:
         self.query_field.setFocus()
         self.query_field.selectAll()
+
+    def select_query_text(self) -> None:
+        self.focus_query_field()
+
+    def activate_result_at(self, row: int) -> None:
+        self._flush_pending_query()
+        hit = self.model.item_at(row)
+        if hit is None:
+            return
+        self._set_selection(row)
+        self.result_activated.emit(hit)
 
     def emit_open_containing_folder(self) -> None:
         self._flush_pending_query()
@@ -348,9 +364,9 @@ class LauncherPanel(QWidget):
             else:
                 hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
         elif self.result_list.hasFocus():
-            hint = "Enter opens. Up/Down wraps. PgUp/PgDn jumps. Ctrl+Enter reveals. Ctrl+L returns to filter."
+            hint = "Enter opens. Up/Down wraps. PgUp/PgDn jumps. Alt+1..9 opens a hit. Ctrl+A selects the filter."
         else:
-            hint = "Tab moves to results. Down/Up navigate. Enter opens the top hit. Alt+Up recalls recent queries."
+            hint = "Tab moves to results. Down/Up navigate. Enter opens the top hit. Alt+1..9 opens a visible hit."
         self.shortcut_label.setText(hint)
 
     def _current_hit(self) -> SearchHit | None:
@@ -386,6 +402,9 @@ class LauncherPanel(QWidget):
     def _handle_result_list_keypress(self, event: QKeyEvent) -> bool:
         if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
             self.query_field.setFocus()
+            return True
+        if event.key() == Qt.Key.Key_A and event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            self.select_query_text()
             return True
         if event.key() == Qt.Key.Key_Down:
             self._move_selection(1, wrap=True)
