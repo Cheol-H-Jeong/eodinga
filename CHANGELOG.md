@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.32 - 2026-04-23
+
+- Reset `WatchService` lifecycle state on `stop()`, clearing pending coalesced events and draining stale queued notifications so a reused watcher instance cannot replay pre-stop filesystem events after restart.
+- Ignore duplicate `start(root)` calls for the same watched path, preventing redundant observer startup and same-root double registration inside a single process.
+- Added focused watcher regressions for stale restart events and duplicate root registration, keeping the correctness round pinned to concrete lifecycle failures instead of broad refactors.
+
 ## 0.1.31 - 2026-04-23
 
 - Switched relative `date:` filters (`today`, `yesterday`, `this-week`, `this-month`) to local timezone day boundaries instead of UTC midnight windows, so end-to-end query results now match the user’s machine clock around day rollover.
