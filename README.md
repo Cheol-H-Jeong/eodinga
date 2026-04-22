@@ -14,6 +14,8 @@ This repository tracks the `0.1.x` lexical-search release defined in `SPEC.md`. 
 
 ![Index progress window](docs/screenshots/index-progress.png)
 
+![Settings window](docs/screenshots/settings-window.png)
+
 ## Install
 
 ### Linux
@@ -44,6 +46,7 @@ Use `.[all]` for the full v0.1 local-dev surface, including GUI, parser, hotkey,
 3. Hit `Ctrl+Shift+Space` to open the launcher anywhere.
 4. Start with plain terms, then narrow with operators like `ext:pdf`, `path:docs`, `date:this-week`, or `size:>10M`.
 5. Use `Enter` to open the selected result or `Ctrl+Enter` to reveal it in the file manager.
+6. Re-run `python scripts/render_docs_screenshots.py` if you update the Qt surfaces and want the shipped screenshots refreshed.
 
 ## CLI
 
@@ -80,12 +83,21 @@ eodinga doctor
 - `path:projects content:"design review"` : path and content filters
 - `size:>10M modified:today` : size and date filters
 - `date:yesterday is:duplicate` : relative date plus duplicate detection
+- `created:2026-04-23` : creation-time filter
+- `regex:true report-\\d+` : treat plain terms as regex
 - `regex:/todo|fixme/i` : regex search
 - `ext:py | ext:rs` : OR
 - `-path:node_modules` : negation
 - `(invoice | receipt) ext:pdf` : grouping
 
 Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md).
+
+## Supported Content Types
+
+- Plain text and source code: `.txt`, `.md`, `.py`, and similar text-first formats.
+- Office documents: `.docx`, `.pptx`, `.xlsx`, plus legacy OLE-backed formats handled by the parser extras.
+- Publishing formats: `.pdf`, `.epub`, `.html`, and `.hwp` when the parser dependencies are installed.
+- Filename and path search still works even when a file type has no content parser or the file is malformed.
 
 ## Hotkey
 
@@ -109,6 +121,13 @@ source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
 
 Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/path lookups at about 0.06 ms p95, content queries at about 0.62 ms p95, and watch visibility at about 0.133 s p99.
 
+## Recovery and Troubleshooting
+
+- Startup automatically resumes interrupted staged recovery and replays stale SQLite WAL sidecars before opening the live index.
+- If results look stale, run `eodinga doctor`, then `eodinga stats` to confirm the active database path before rebuilding.
+- A one-shot recovery path is `eodinga index --rebuild`; live updates still require `eodinga watch` or the packaged background service flow.
+- Documentation and screenshots are part of the shipped contract; refresh the gallery with `python scripts/render_docs_screenshots.py` after visible UI changes.
+
 ## Config and Data Paths
 
 - Linux config defaults to `~/.config/eodinga/config.toml` and the index database to `~/.local/share/eodinga/index.db`.
@@ -127,6 +146,12 @@ eodinga doctor
 The doctor command checks Python compatibility, importable dependencies, database writability, readable roots, the detectable hotkey backend, and the default safe excludes.
 
 If search looks stale, run `eodinga stats` to confirm the active database path, then either `eodinga watch` for live updates or `eodinga index --rebuild` to rebuild once.
+
+## Docs Map
+
+- [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md): query cheatsheet and operator notes.
+- [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md): runtime flow, index lifecycle, and packaging surfaces.
+- [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, current baselines, and profiling workflow.
 
 ## FAQ
 

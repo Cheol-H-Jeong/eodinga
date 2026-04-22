@@ -28,12 +28,26 @@
 - `content_map` keeps the FTS row IDs stable across updates so incremental reindexing does not balloon the content index.
 - `eodinga.index.storage` owns WAL replay on startup and atomic staged-index replacement.
 
+## Startup Recovery
+
+- `open_index()` first checks for an interrupted staged recovery database such as `.index.db.recover` and resumes the atomic swap before touching the live file.
+- If the live database still has a non-empty `-wal` sidecar, recovery is replayed against a staged copy first; only a clean checkpointed database is swapped into place.
+- `eodinga doctor` reports both resumed staged recovery and unrecoverable stale-WAL failures so the operator sees the same startup path the runtime takes.
+- This keeps crash recovery local to the database directory and avoids mutating indexed user roots.
+
 ## Query Execution
 
 - The DSL supports terms, phrases, regex, grouped `|` branches, and negation.
-- Structured operators such as `ext:`, `path:`, `content:`, `size:`, `date:`, and `is:` compile into SQLite predicates where possible.
+- Structured operators such as `ext:`, `path:`, `content:`, `size:`, `date:`, `modified:`, `created:`, and `is:` compile into SQLite predicates where possible.
 - Regex and mixed path/content terms are finalized in Python against the candidate set so the CLI and GUI share identical behavior.
 - `eodinga.query.ranker` applies reciprocal rank fusion, filename prefix boosts, and path deboosting for noisy trees such as `node_modules`.
+
+## Operational Model
+
+- Cold start is walker-driven: discover roots, write metadata in bulk, then parse supported documents for content rows.
+- Steady state is watcher-driven: coalesced filesystem events reuse the same writer path and preserve FTS row stability for changed documents.
+- Search is read-only against the index: CLI, launcher, and embedded search tab all call the same compiler and executor stack.
+- Packaging keeps the app local-first: no network services, no daemon dependency outside the local watchdog flow, and no writes outside config/database state.
 
 ## Packaging Surfaces
 

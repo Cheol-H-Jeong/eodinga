@@ -58,3 +58,17 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 - Re-run the same benchmark at least twice if the first sample is noisy; filesystem cache warmth heavily affects cold-start throughput.
 - Treat query p95/p99 shifts as more meaningful than p50 for launcher responsiveness.
 - Watch latency is end-to-end, so a regression there can come from debounce, event coalescing, or index commit timing rather than raw filesystem speed.
+
+## Profiling Workflow
+
+1. Start with the narrowest perf target that matches the subsystem you changed.
+2. Re-run the same test once to separate one-off cache noise from a real regression.
+3. If the regression is in cold start, compare `test_cold_start.py` with `test_bulk_upsert.py` to decide whether the walker or writer moved.
+4. If the regression is in watch visibility, inspect coalescing, debounce, and commit timing before touching query ranking.
+5. Refresh this document only after you have rerun the benchmark in the same local environment and the result is stable enough to be explanatory.
+
+## Practical Threshold Notes
+
+- The shipped thresholds are intentionally lower than the SPEC reference-box targets so developer laptops and CI-like hosts can still catch algorithmic regressions.
+- Query latency benchmarks are most useful as relative comparisons across rounds; the absolute number depends heavily on cache warmth and SQLite page cache state.
+- Content-query numbers move with parser output volume as much as with ranking logic, so compare corpus shape before attributing a slowdown to the executor.
