@@ -9,6 +9,7 @@ from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga.observability import (
+    counter_value,
     configure_logging,
     default_crash_dir,
     default_log_path,
@@ -44,6 +45,7 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
+    reset_metrics()
     try:
         raise RuntimeError("boom")
     except RuntimeError as error:
@@ -54,6 +56,7 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert "Traceback" in contents
     assert "timestamp=" in contents
     assert "pid=" in contents
+    assert counter_value("crash_logs_written") == 1
 
 
 def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:

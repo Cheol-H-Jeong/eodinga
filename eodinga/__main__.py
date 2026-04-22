@@ -7,7 +7,7 @@ import re
 import sys
 from contextlib import closing
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from eodinga import __version__
 from eodinga.common import SearchResult, StatsSnapshot
@@ -20,6 +20,7 @@ from eodinga.observability import (
     configure_logging,
     counter_value,
     histogram_snapshot,
+    snapshot_metrics,
     write_crash_log,
 )
 from eodinga.query import QuerySyntaxError, search as run_search
@@ -79,6 +80,36 @@ def _emit(payload: Any, as_json: bool = False) -> int:
         return 0
     sys.stdout.write(f"{payload}\n")
     return 0
+
+
+def _format_stats_text(snapshot: StatsSnapshot) -> str:
+    lines = [
+        f"db_path: {snapshot.db_path}",
+        f"roots: {', '.join(str(root) for root in snapshot.roots) if snapshot.roots else '-'}",
+        f"files_indexed: {snapshot.files_indexed}",
+        f"documents_indexed: {snapshot.documents_indexed}",
+        f"queries_served: {snapshot.queries_served}",
+        f"parser_errors: {snapshot.parser_errors}",
+        f"watcher_events: {snapshot.watcher_events}",
+    ]
+    if snapshot.query_latency_histogram:
+        lines.append(
+            "query_latency_histogram: "
+            f"count={snapshot.query_latency_histogram.get('count', 0)} "
+            f"min_ms={snapshot.query_latency_histogram.get('min_ms', 0.0)} "
+            f"max_ms={snapshot.query_latency_histogram.get('max_ms', 0.0)}"
+        )
+    if snapshot.runtime_counters:
+        lines.append("runtime_counters:")
+        lines.extend(f"  {name}: {value}" for name, value in snapshot.runtime_counters.items())
+    if snapshot.runtime_histograms:
+        lines.append("runtime_histograms:")
+        for name, histogram in snapshot.runtime_histograms.items():
+            lines.append(
+                f"  {name}: count={histogram.get('count', 0)} "
+                f"min_ms={histogram.get('min_ms', 0.0)} max_ms={histogram.get('max_ms', 0.0)}"
+            )
+    return "\n".join(lines)
 
 
 def _resolve_config(args: argparse.Namespace) -> AppConfig:
@@ -161,6 +192,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     db_path = args.db or config.index.db_path
     with closing(open_index(db_path)) as conn:
         index_snapshot = read_index_stats(conn)
+    metrics_snapshot = snapshot_metrics()
+    runtime_counters = cast(dict[str, int], metrics_snapshot["counters"])
+    runtime_histograms = cast(dict[str, dict[str, object]], metrics_snapshot["histograms"])
     snapshot = StatsSnapshot(
         files_indexed=index_snapshot.file_count,
         documents_indexed=index_snapshot.content_count,
@@ -168,10 +202,14 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         parser_errors=counter_value("parser_errors"),
         watcher_events=counter_value("watcher_events"),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
+        runtime_counters=runtime_counters,
+        runtime_histograms=runtime_histograms,
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
-    ).model_dump(mode="json")
-    return _emit(snapshot, as_json=bool(args.json))
+    )
+    if args.json:
+        return _emit(snapshot.model_dump(mode="json"), as_json=True)
+    return _emit(_format_stats_text(snapshot))
 
 
 def _cmd_gui(args: argparse.Namespace) -> int:

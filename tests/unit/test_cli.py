@@ -9,8 +9,11 @@ import pytest
 
 from eodinga import __version__
 from eodinga.__main__ import main
+from eodinga.common import WatchEvent
+from eodinga.content.base import ParserSpec
+from eodinga.core.watcher import WatchService
 from eodinga.index.schema import apply_schema
-from eodinga.observability import reset_metrics
+from eodinga.observability import reset_metrics, write_crash_log
 
 
 def _insert_file(
@@ -468,3 +471,82 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["parser_errors"] == 0
     assert payload["watcher_events"] == 0
     assert payload["query_latency_histogram"]["count"] == 1
+    assert payload["runtime_counters"]["queries_served"] == 1
+    assert payload["runtime_histograms"]["query_latency_ms"]["count"] == 1
+
+
+def test_stats_json_exposes_runtime_metric_snapshot(tmp_path: Path, monkeypatch, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    root = tmp_path / "root"
+    root.mkdir()
+    healthy = root / "healthy.txt"
+    healthy.write_text("healthy", encoding="utf-8")
+    broken = root / "broken.txt"
+    broken.write_text("broken", encoding="utf-8")
+    broken_spec = ParserSpec(
+        name="broken",
+        parse=lambda path, _max_body_chars: (_ for _ in ()).throw(ValueError(path.name)),
+        extensions=frozenset({"txt"}),
+        max_bytes=1024,
+    )
+    reset_metrics()
+    monkeypatch.setattr("eodinga.content.registry.get_spec_for", lambda _path: broken_spec)
+
+    index_exit = main(["--db", str(db_path), "index", "--root", str(root), "--rebuild"])
+    index_output = capsys.readouterr()
+    assert index_exit == 0
+    assert json.loads(index_output.out)["files_indexed"] == 3
+
+    service = WatchService()
+    service.record(WatchEvent(event_type="created", path=healthy))
+
+    search_exit = main(["--db", str(db_path), "search", "healthy", "--json"])
+    search_output = capsys.readouterr()
+    assert search_exit == 0
+    assert json.loads(search_output.out)["count"] == 1
+
+    try:
+        raise RuntimeError("cli crash")
+    except RuntimeError as error:
+        write_crash_log(error, crash_dir=tmp_path / "crashes")
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+
+    assert payload["files_indexed"] == 3
+    assert payload["documents_indexed"] == 0
+    assert payload["queries_served"] == 1
+    assert payload["parser_errors"] == 2
+    assert payload["watcher_events"] == 1
+    assert payload["runtime_counters"] == {
+        "crash_logs_written": 1,
+        "files_indexed": 3,
+        "parser_errors": 2,
+        "parsers.broken.error": 2,
+        "queries_served": 1,
+        "watcher_events": 1,
+    }
+    assert payload["runtime_histograms"]["query_latency_ms"]["count"] == 1
+
+
+def test_stats_text_emits_readable_runtime_summary(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    assert main(["--db", str(db_path), "search", "duplicate", "--json"]) == 0
+    capsys.readouterr()
+
+    stats_exit = main(["--db", str(db_path), "stats"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+
+    assert "db_path:" in stats_output.out
+    assert "files_indexed: 3" in stats_output.out
+    assert "queries_served: 1" in stats_output.out
+    assert "runtime_counters:" in stats_output.out
+    assert "  queries_served: 1" in stats_output.out
+    assert "runtime_histograms:" in stats_output.out
+    assert "  query_latency_ms: count=1" in stats_output.out
