@@ -154,7 +154,7 @@ def _fetch_path_candidates(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
 ) -> tuple[list[int], dict[int, FileRecord]]:
     ids, records = _fetch_path_candidates_fts(conn, branch, limit)
-    if len(ids) >= limit:
+    if len(ids) >= limit or not _should_scan_path_candidates(branch, ids):
         return ids, records
     scan_ids, scan_records = _fetch_path_candidates_scan(conn, branch, limit)
     for file_id in scan_ids:
@@ -166,6 +166,16 @@ def _fetch_path_candidates(
         if len(ids) >= limit:
             break
     return ids, records
+
+
+def _should_scan_path_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
+    positive_terms = [term for term in branch.path_terms if not term.negated]
+    if not positive_terms:
+        return False
+    if not fts_ids:
+        return True
+    # Keep the scan supplement for scripts where unicode token boundaries are less predictable.
+    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
 
 
 def _fetch_path_candidates_fts(
@@ -284,6 +294,10 @@ def _fetch_auto_content_candidates(
     return [row["id"] for row in rows], records, snippets
 
 
+def _has_indexed_content(conn: sqlite3.Connection) -> bool:
+    return conn.execute("SELECT 1 FROM content_map LIMIT 1").fetchone() is not None
+
+
 def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[int, str]:
     id_list = tuple(dict.fromkeys(ids))
     if not id_list:
@@ -375,14 +389,20 @@ def _derive_name_path_hits(
 
 
 def _execute_branch(
-    conn: sqlite3.Connection, branch: CompiledBranch, limit: int
+    conn: sqlite3.Connection,
+    branch: CompiledBranch,
+    limit: int,
+    has_indexed_content: bool,
 ) -> tuple[dict[int, FileRecord], dict[int, float], dict[int, str | None]]:
     path_ids, path_records = _fetch_path_candidates(conn, branch, limit * 4)
     content_ids, content_records, snippets = _fetch_content_candidates(conn, branch, limit * 4)
     extra_records: dict[int, FileRecord] = {}
-    auto_content_ids, auto_content_records, auto_snippets = _fetch_auto_content_candidates(
-        conn, branch, limit * 4
-    )
+    if has_indexed_content:
+        auto_content_ids, auto_content_records, auto_snippets = _fetch_auto_content_candidates(
+            conn, branch, limit * 4
+        )
+    else:
+        auto_content_ids, auto_content_records, auto_snippets = [], {}, {}
     if not content_ids:
         content_ids = auto_content_ids
         content_records = auto_content_records
@@ -445,9 +465,15 @@ def execute(
     merged_records: dict[int, FileRecord] = {}
     merged_scores: dict[int, float] = {}
     merged_snippets: dict[int, str | None] = {}
+    has_indexed_content = _has_indexed_content(conn)
     for branch in compiled.branches:
         scoped_branch = _scoped_branch(branch, root)
-        branch_records, branch_scores, branch_snippets = _execute_branch(conn, scoped_branch, limit)
+        branch_records, branch_scores, branch_snippets = _execute_branch(
+            conn,
+            scoped_branch,
+            limit,
+            has_indexed_content=has_indexed_content,
+        )
         merged_records.update(branch_records)
         for file_id, score in branch_scores.items():
             merged_scores[file_id] = max(score, merged_scores.get(file_id, 0.0))

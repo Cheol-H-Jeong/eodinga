@@ -290,6 +290,53 @@ def test_path_queries_use_paths_fts(tmp_db: sqlite3.Connection) -> None:
     assert any("FROM paths_fts" in statement and "MATCH" in statement for statement in statements)
 
 
+def test_plain_query_skips_content_fts_when_no_content_is_indexed(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/projects/report-011.py", 1024, now, "py")
+    _insert_file(tmp_db, 2, "/workspace/archive/report-011.txt", 1024, now - 60, "txt")
+    tmp_db.commit()
+
+    statements: list[str] = []
+    tmp_db.set_trace_callback(statements.append)
+    try:
+        hits = [hit.file.name for hit in search(tmp_db, "report-011", limit=10).hits]
+    finally:
+        tmp_db.set_trace_callback(None)
+
+    assert hits == ["report-011.py", "report-011.txt"]
+    assert not any("FROM content_fts" in statement for statement in statements)
+
+
+def test_plain_ascii_query_skips_substring_scan_when_fts_already_hits(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/projects/report-011.py", 1024, now, "py")
+    _insert_file(tmp_db, 2, "/workspace/archive/report-011.txt", 1024, now - 60, "txt")
+    tmp_db.commit()
+
+    statements: list[str] = []
+    tmp_db.set_trace_callback(statements.append)
+    try:
+        hits = [hit.file.name for hit in search(tmp_db, "report-011", limit=10).hits]
+    finally:
+        tmp_db.set_trace_callback(None)
+
+    assert hits == ["report-011.py", "report-011.txt"]
+    assert not any("instr(lower(files.name)" in statement for statement in statements)
+
+
+def test_plain_query_can_fall_back_to_content_matches(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/projects/alpha.txt", 1024, now, "txt", body_text="launch checklist")
+    _insert_file(tmp_db, 2, "/workspace/projects/beta.txt", 1024, now - 60, "txt", body_text="meeting notes")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "launch", limit=10).hits]
+
+    assert hits == ["alpha.txt"]
+
+
 def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/alpha.txt", 1024, now, "txt", body_text="alpha")
