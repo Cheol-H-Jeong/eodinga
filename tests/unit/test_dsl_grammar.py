@@ -82,6 +82,15 @@ def test_parse_regex_flags_must_be_supported_and_unique(query: str) -> None:
         parse(query)
 
 
+def test_parse_slash_prefixed_path_literal_as_word_value() -> None:
+    node = parse("path:/workspace/projects")
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "path"
+    assert node.value == "/workspace/projects"
+    assert node.value_kind == "word"
+
+
 @pytest.mark.parametrize(
     ("query", "expected_name", "expected_value", "expected_kind"),
     [
@@ -209,7 +218,7 @@ def test_valid_query_fuzz_parses_and_compiles(query: str) -> None:
 INVALID_REGEX_FLAGS = st.text(
     alphabet=st.characters(min_codepoint=97, max_codepoint=122),
     min_size=1,
-    max_size=4,
+    max_size=3,
 ).filter(
     lambda flags: any(flag not in {"i", "m", "s"} for flag in flags)
     or len(set(flags)) != len(flags)

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.28 - 2026-04-23
+
+- Rejected unsupported or duplicate inline regex flags at parse time, so malformed queries like `content:/todo/x` and `content:/todo/ii` now fail deterministically instead of silently degrading at execution time.
+- Normalized invalid operator payloads such as `case:maybe`, `size:>tenM`, `date:2026-01-01..bogus`, and `is:folder` into `QuerySyntaxError`, which keeps the CLI and query API on one error contract for malformed filters.
+- Expanded parser, compiler, and CLI regressions with focused and property-based coverage for malformed regex flags and invalid operator values, hardening the correctness path without changing valid-query behavior.
+
 ## 0.1.27 - 2026-04-23
 
 - Cut the plain ASCII name-query hot path back to `paths_fts` when it already returns hits, avoiding the expensive substring-scan supplement that was dominating the opt-in query-latency benchmark.

@@ -236,10 +236,13 @@ class _Parser:
             if value.count("/") < 2 or value.endswith("\\"):
                 raise QuerySyntaxError("unterminated regex", self.index - len(value))
             last = value.rfind("/")
+            suffix = value[last + 1 :]
+            if suffix and (len(suffix) > 3 or not suffix.isalpha()):
+                return value, "word", ""
             pattern = value[1:last]
             if not pattern:
                 raise QuerySyntaxError("empty regex", self.index - len(value) + 1)
-            flags = value[last + 1 :]
+            flags = suffix
             self._validate_regex_flags(flags, self.index - len(value) + last + 1)
             return pattern, "regex", flags
         return value, "word", ""
