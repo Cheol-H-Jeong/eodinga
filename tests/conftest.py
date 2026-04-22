@@ -1,56 +1,57 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Callable
-from pathlib import Path
-from time import time
+from collections.abc import Iterator
 
 import pytest
 
-from eodinga.common import FileRecord
-from eodinga.index.migrations import migrate
 
+@pytest.fixture
+def tmp_db() -> Iterator[sqlite3.Connection]:
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.executescript(
+        """
+        CREATE TABLE files (
+          id INTEGER PRIMARY KEY,
+          root_id INTEGER NOT NULL,
+          path TEXT NOT NULL,
+          parent_path TEXT NOT NULL,
+          name TEXT NOT NULL,
+          name_lower TEXT NOT NULL,
+          ext TEXT NOT NULL,
+          size INTEGER NOT NULL,
+          mtime INTEGER NOT NULL,
+          ctime INTEGER NOT NULL,
+          is_dir INTEGER NOT NULL,
+          is_symlink INTEGER NOT NULL,
+          content_hash BLOB,
+          indexed_at INTEGER NOT NULL
+        );
+        CREATE INDEX idx_files_name_lower_prefix ON files(name_lower COLLATE BINARY);
+        CREATE INDEX idx_files_ext ON files(ext);
+        CREATE INDEX idx_files_mtime ON files(mtime);
+        CREATE INDEX idx_files_size ON files(size);
+        CREATE INDEX idx_files_parent ON files(parent_path);
 
-@pytest.fixture()
-def tmp_db(tmp_path: Path) -> Path:
-    db_path = tmp_path / "index.db"
-    conn = sqlite3.connect(db_path)
-    migrate(conn)
-    conn.close()
-    return db_path
+        CREATE VIRTUAL TABLE paths_fts USING fts5(
+          name, parent_path, path,
+          tokenize="unicode61 remove_diacritics 2 tokenchars '._-/'"
+        );
 
+        CREATE VIRTUAL TABLE content_fts USING fts5(
+          title, head_text, body_text,
+          tokenize="unicode61 remove_diacritics 2 tokenchars '._-'"
+        );
 
-@pytest.fixture()
-def sample_tree(tmp_path: Path) -> Callable[[str], Path]:
-    def factory(name: str = "workspace") -> Path:
-        root = tmp_path / name
-        (root / "docs").mkdir(parents=True)
-        (root / "code").mkdir()
-        (root / ".git").mkdir()
-        (root / "node_modules").mkdir()
-        (root / "docs" / "guide.md").write_text("# guide\nhello", encoding="utf-8")
-        (root / "docs" / "report.txt").write_text("report", encoding="utf-8")
-        (root / "code" / "main.py").write_text("print('x')\n", encoding="utf-8")
-        (root / ".git" / "config").write_text("[core]\n", encoding="utf-8")
-        (root / "node_modules" / "pkg.js").write_text("module.exports = 1;\n", encoding="utf-8")
-        return root
-
-    return factory
-
-
-def make_record(path: Path, root_id: int = 1, indexed_at: int | None = None) -> FileRecord:
-    stat_result = path.stat(follow_symlinks=False)
-    return FileRecord(
-        root_id=root_id,
-        path=path,
-        parent_path=path.parent,
-        name=path.name,
-        name_lower=path.name.lower(),
-        ext=path.suffix.lower().lstrip("."),
-        size=stat_result.st_size,
-        mtime=int(stat_result.st_mtime),
-        ctime=int(stat_result.st_ctime),
-        is_dir=path.is_dir(),
-        is_symlink=path.is_symlink(),
-        indexed_at=indexed_at or int(time()),
+        CREATE TABLE content_map (
+          file_id INTEGER PRIMARY KEY,
+          fts_rowid INTEGER NOT NULL UNIQUE,
+          parser TEXT NOT NULL,
+          parsed_at INTEGER NOT NULL,
+          content_sha BLOB NOT NULL
+        );
+        """
     )
+    yield conn
+    conn.close()

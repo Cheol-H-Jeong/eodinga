@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,36 +8,37 @@ version = "0.1.0"
 description = "Instant lexical file search"
 readme = "README.md"
 requires-python = ">=3.11"
+license = {text = "MIT"}
 dependencies = [
-  "loguru",
-  "pydantic>=2",
-  "watchdog",
-  "pathspec",
+  "loguru>=0.7.2",
+  "pydantic>=2.7,<3",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "pytest",
-  "ruff",
-  "pyright",
+  "hypothesis>=6.112",
+  "pyright>=1.1.397",
+  "pytest>=8.3",
+  "ruff>=0.11",
 ]
 parsers = []
 gui = []
 
-[tool.setuptools]
-packages = ["eodinga", "eodinga.core", "eodinga.index"]
+[tool.setuptools.packages.find]
+include = ["eodinga*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "N", "PTH"]
+select = ["E", "F", "I", "B", "UP", "N", "PT"]
 
 [tool.pyright]
 include = ["eodinga", "tests"]
 pythonVersion = "3.11"
-typeCheckingMode = "standard"
+typeCheckingMode = "basic"
