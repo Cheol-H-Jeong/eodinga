@@ -1,17 +1,22 @@
 from __future__ import annotations
 
-from collections import Counter
-from typing import Final
+from collections.abc import Iterator
+from contextlib import contextmanager
+from time import perf_counter
 
-from loguru import logger as _logger
-
-_COUNTERS: Final[Counter[str]] = Counter()
-logger = _logger
+from loguru import logger
 
 
-def increment_counter(name: str) -> None:
-    _COUNTERS[name] += 1
+def get_logger():
+    return logger.bind(component="eodinga")
 
 
-def get_counter_value(name: str) -> int:
-    return _COUNTERS[name]
+@contextmanager
+def observe_timing(metric_name: str) -> Iterator[None]:
+    start = perf_counter()
+    try:
+        yield
+    finally:
+        elapsed_ms = (perf_counter() - start) * 1000
+        get_logger().debug("{metric}={elapsed_ms:.2f}ms", metric=metric_name, elapsed_ms=elapsed_ms)
+
