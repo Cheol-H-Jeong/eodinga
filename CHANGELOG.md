@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.104 - 2026-04-23
+## 0.1.105 - 2026-04-23
 
 - Restored CLI startup compatibility with older config files by ignoring the retired `launcher.always_on_top` key during load, preventing `pydantic extra_forbidden` crashes in search, index, and GUI entrypoints.
 - Expanded launcher keyboard flow with `Alt+1` through `Alt+9` quick-pick activation for visible hits and made `Ctrl+A` reliably return focus to the filter and select the current query from the results list.
