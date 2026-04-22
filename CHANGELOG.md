@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.104 - 2026-04-23
+
+- Expanded the PyInstaller hidden-import audit to resolve relative `import_module(...)` and `importlib.import_module(...)` calls, so packaging regressions now catch a broader class of dynamic runtime imports under `eodinga/`.
+- Tightened the Windows dry-run audit around the rendered Inno script itself, including unresolved placeholder detection and exact checks for rendered `AppId`, `AppVersion`, and setup output naming.
+- Added Linux packaging version-alignment guards so AppImage and Debian dry-runs fail fast if `pyproject.toml` and `eodinga/__init__.py` drift, and now record that consistency explicitly in their audit manifests.
+
 ## 0.1.100 - 2026-04-23
 
 - Added a real in-process observability registry so indexing, query execution, parser failures, and watcher ingress now increment stable counters instead of only emitting debug logs.
