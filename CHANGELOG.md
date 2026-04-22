@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.78 - 2026-04-23
+
+- Tightened the Windows packaging audit so the rendered Inno installer now verifies its escaped `AppId`, template-driven `AppVersion`, and GUI uninstall icon path instead of relying on looser substring checks.
+- Fixed the Inno template to keep `UninstallDisplayIcon` tied to the rendered GUI executable name, preventing installer metadata drift if the PyInstaller output name changes.
+- Switched the PyInstaller spec to auto-discover literal `import_module(...)` dependencies from the `eodinga/` source tree and added regressions that pin the discovered hidden-import set alongside the existing runtime module contract.
+
 ## 0.1.76 - 2026-04-23
 
 - Polished launcher keyboard navigation so the result list now wraps on `Up` / `Down` and supports `PgUp` / `PgDn` jumps for longer result sets, keeping the popup usable without reaching for the mouse.
