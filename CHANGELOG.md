@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.79 - 2026-04-23
+
+- Added a real in-process observability registry so indexing, query execution, parser failures, and watcher ingress now increment stable counters instead of only emitting debug logs.
+- Upgraded `eodinga stats --json` to report live runtime counters plus query-latency histogram data alongside the persisted index snapshot, and pinned that behavior with same-process CLI regressions.
+- Added platform-aware rotating log defaults, richer `crash-<ts>.log` output, and explicit `EODINGA_LOG_PATH` / `EODINGA_CRASH_DIR` overrides so diagnostics can be redirected without patching code.
+
 ## 0.1.78 - 2026-04-23
 
 - Tightened the Windows packaging audit so the rendered Inno installer now verifies its escaped `AppId`, template-driven `AppVersion`, and GUI uninstall icon path instead of relying on looser substring checks.
