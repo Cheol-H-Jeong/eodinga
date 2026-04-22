@@ -10,6 +10,9 @@ import pytest
 
 from eodinga.query import executor as executor_module
 from eodinga.query import search
+from eodinga.query.compiler import compile_query
+from eodinga.query.dsl import parse
+from eodinga.common import FileRecord
 
 
 def _insert_file(
@@ -732,6 +735,52 @@ def test_plain_ascii_query_skips_substring_scan_when_fts_already_hits(
 
     assert hits == ["report-011.py", "report-011.txt"]
     assert not any("instr(lower(files.name)" in statement for statement in statements)
+
+
+def test_unicode_path_scan_stops_after_filling_prefix_window(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = 1_713_528_000
+    for index in range(12):
+        _insert_file(
+            tmp_db,
+            index + 1,
+            f"/workspace/회의록-{index:02d}.txt",
+            1024,
+            now - index,
+            "txt",
+        )
+    for index in range(12, 24):
+        _insert_file(
+            tmp_db,
+            index + 1,
+            f"/workspace/archive-{index:02d}-회의록.txt",
+            1024,
+            now - index,
+            "txt",
+        )
+    tmp_db.commit()
+
+    compiled = compile_query(parse("회의록")).branches[0]
+    original_fetch_record_batch = executor_module._fetch_record_batch
+    offsets: list[int] = []
+
+    def tracing_fetch_record_batch(
+        conn: sqlite3.Connection,
+        where_sql: str,
+        where_params: tuple[object, ...],
+        limit: int,
+        offset: int,
+    ) -> dict[int, FileRecord]:
+        offsets.append(offset)
+        return original_fetch_record_batch(conn, where_sql, where_params, limit=limit, offset=offset)
+
+    monkeypatch.setattr(executor_module, "_fetch_record_batch", tracing_fetch_record_batch)
+
+    ids, records = executor_module._fetch_path_candidates_python_scan(tmp_db, compiled, limit=5)
+
+    assert offsets == [0]
+    assert [records[file_id].name for file_id in ids] == [f"회의록-{index:02d}.txt" for index in range(5)]
 
 
 def test_search_root_scope_matches_windows_style_paths(tmp_db: sqlite3.Connection) -> None:

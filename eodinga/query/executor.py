@@ -389,30 +389,45 @@ def _fetch_path_candidates_python_scan(
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return [], {}
-    records = _fetch_records(conn, branch.where_sql, branch.where_params, limit=100_000)
-    matched = {
-        file_id: record
-        for file_id, record in records.items()
-        if all(
-            _text_matches(record.name, term.value, branch.case_sensitive)
-            or _text_matches(str(record.path), term.value, branch.case_sensitive)
-            for term in positive_terms
+    target = max(limit, 1)
+    batch_size = max(min(target * 4, 2000), 500)
+    offset = 0
+    prefix_matches: list[FileRecord] = []
+    substring_matches: list[FileRecord] = []
+    while True:
+        batch = _fetch_record_batch(
+            conn,
+            branch.where_sql,
+            branch.where_params,
+            limit=batch_size,
+            offset=offset,
         )
-    }
-    ordered = sorted(
-        matched.values(),
-        key=lambda record: (
-            0
+        if not batch:
+            break
+        for record in batch.values():
+            if not all(
+                _text_matches(record.name, term.value, branch.case_sensitive)
+                or _text_matches(str(record.path), term.value, branch.case_sensitive)
+                for term in positive_terms
+            ):
+                continue
             if any(
                 _normalize_search_text(record.name, case_sensitive=branch.case_sensitive).startswith(
                     _normalize_search_text(term.value, case_sensitive=branch.case_sensitive)
                 )
                 for term in positive_terms
-            )
-            else 1,
-            record.name if branch.case_sensitive else record.name_lower,
-        ),
-    )[:limit]
+            ):
+                prefix_matches.append(record)
+                if len(prefix_matches) >= target:
+                    break
+            else:
+                substring_matches.append(record)
+        if len(prefix_matches) >= target:
+            break
+        offset += batch_size
+    ordered = prefix_matches[:target]
+    if len(ordered) < target:
+        ordered.extend(substring_matches[: target - len(ordered)])
     ids = [record.id for record in ordered if record.id is not None]
     return ids, {record.id: record for record in ordered if record.id is not None}
 
