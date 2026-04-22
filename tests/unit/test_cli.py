@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from datetime import datetime, timedelta
+from pathlib import Path, PureWindowsPath
 
 import pytest
 
@@ -71,8 +71,9 @@ def _build_search_db(db_path: Path) -> None:
     try:
         apply_schema(conn)
         duplicate_hash = b"same-content"
+        local_now = datetime.now().astimezone()
         today_start = int(
-            datetime.now(tz=UTC).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+            local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
         )
         yesterday_start = today_start - int(timedelta(days=1).total_seconds())
         _insert_file(
@@ -211,6 +212,74 @@ def test_search_json_root_filter_pushes_scope_into_query(cli_runner, tmp_path: P
     assert result.returncode == 0
     payload = json.loads(result.stdout)
     assert [Path(item["path"]).name for item in payload["results"]] == ["alpha-target.txt"]
+
+
+def test_search_json_honors_windows_style_root_filter(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        conn.execute(
+            "INSERT INTO roots(id, path, include, exclude, added_at) VALUES (?, ?, ?, ?, ?)",
+            (1, r"C:\workspace", "[]", "[]", 1),
+        )
+        for file_id, raw_path, mtime, body_text in (
+            (1, r"C:\workspace\reports\alpha.txt", 1_713_528_000, "alpha inside scoped root"),
+            (2, r"C:\workspace\archive\alpha.txt", 1_713_527_000, "alpha outside scoped root"),
+        ):
+            path_obj = PureWindowsPath(raw_path)
+            conn.execute(
+                """
+                INSERT INTO files (
+                  id, root_id, path, parent_path, name, name_lower, ext, size, mtime, ctime,
+                  is_dir, is_symlink, content_hash, indexed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    file_id,
+                    1,
+                    raw_path,
+                    str(path_obj.parent),
+                    path_obj.name,
+                    path_obj.name.lower(),
+                    "txt",
+                    1024,
+                    mtime,
+                    mtime,
+                    0,
+                    0,
+                    None,
+                    mtime,
+                ),
+            )
+            conn.execute(
+                "INSERT INTO content_fts(rowid, title, head_text, body_text) VALUES (?, ?, ?, ?)",
+                (file_id, path_obj.name, body_text[:80], body_text),
+            )
+            conn.execute(
+                """
+                INSERT INTO content_map(file_id, fts_rowid, parser, parsed_at, content_sha)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (file_id, file_id, "text", mtime, f"sha-{file_id}".encode()),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "alpha",
+        "--json",
+        "--root",
+        "C:/workspace/reports",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [item["path"] for item in payload["results"]] == [r"C:\workspace\reports\alpha.txt"]
 
 
 def test_search_reports_invalid_query_cleanly(cli_runner, tmp_path: Path) -> None:

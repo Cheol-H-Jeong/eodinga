@@ -4,6 +4,7 @@ import sqlite3
 import unicodedata
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -132,10 +133,11 @@ def test_content_snippet_is_present(populated_db: sqlite3.Connection) -> None:
 
 
 def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
-    today_start = int(datetime.now(tz=UTC).replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    local_now = datetime.now().astimezone()
+    today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
     yesterday_start = today_start - 86_400
-    this_week_start = today_start - datetime.now(tz=UTC).weekday() * 86_400
-    last_month = int((datetime.now(tz=UTC) - timedelta(days=40)).timestamp())
+    this_week_start = today_start - local_now.weekday() * 86_400
+    last_month = int((local_now - timedelta(days=40)).timestamp())
 
     _insert_file(tmp_db, 1, "/workspace/today.txt", 512, today_start + 60, "txt", body_text="today note")
     _insert_file(
@@ -175,6 +177,57 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     assert "week.txt" in this_week_hits
     this_month_hits = [hit.file.name for hit in search(tmp_db, "date:this-month", limit=10).hits]
     assert "old.txt" not in this_month_hits
+
+
+def test_execute_relative_date_queries_use_local_day_boundaries(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    frozen_now = datetime(2026, 4, 23, 0, 30, tzinfo=seoul)
+    just_after_local_midnight = int(datetime(2026, 4, 23, 0, 5, tzinfo=seoul).timestamp())
+    just_before_local_midnight = int(datetime(2026, 4, 22, 23, 55, tzinfo=seoul).timestamp())
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.compiler.datetime", _FrozenDateTime)
+
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/local-today.txt",
+        512,
+        just_after_local_midnight,
+        "txt",
+        body_text="today note",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/local-yesterday.txt",
+        512,
+        just_before_local_midnight,
+        "txt",
+        body_text="yesterday note",
+    )
+    tmp_db.commit()
+
+    today_hits = [
+        hit.file.name
+        for hit in search(
+            tmp_db,
+            "date:today",
+            limit=10,
+        ).hits
+    ]
+    yesterday_hits = [hit.file.name for hit in search(tmp_db, "date:yesterday", limit=10).hits]
+
+    assert today_hits == ["local-today.txt"]
+    assert yesterday_hits == ["local-yesterday.txt"]
 
 
 def test_execute_reversed_date_range_query(tmp_db: sqlite3.Connection) -> None:
@@ -336,6 +389,28 @@ def test_plain_ascii_query_skips_substring_scan_when_fts_already_hits(
 
     assert hits == ["report-011.py", "report-011.txt"]
     assert not any("instr(lower(files.name)" in statement for statement in statements)
+
+
+def test_search_root_scope_matches_windows_style_paths(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, r"C:\workspace\reports\alpha.txt", 1024, now, "txt", body_text="alpha")
+    _insert_file(
+        tmp_db,
+        2,
+        r"C:\workspace\archive\alpha.txt",
+        1024,
+        now - 60,
+        "txt",
+        body_text="alpha archive",
+    )
+    tmp_db.commit()
+
+    hits = [
+        hit.file.path
+        for hit in search(tmp_db, "alpha", limit=10, root=Path("C:/workspace/reports")).hits
+    ]
+
+    assert hits == [Path(r"C:\workspace\reports\alpha.txt")]
 
 
 def test_plain_query_can_fall_back_to_content_matches(tmp_db: sqlite3.Connection) -> None:
