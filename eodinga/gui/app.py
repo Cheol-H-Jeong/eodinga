@@ -15,6 +15,7 @@ from eodinga.gui.theme import apply_theme
 class TrayIndicatorController:
     def __init__(self, app: QApplication, launcher_window: LauncherWindow, parent: QWidget) -> None:
         self._app = app
+        self._launcher_window = launcher_window
         self._tray: QSystemTrayIcon | None = None
         self.tooltip = format_indexing_status(IndexingStatus())
         self.status_text = self.tooltip
@@ -29,10 +30,11 @@ class TrayIndicatorController:
         menu.addAction(self._status_action)
         menu.addSeparator()
         show_launcher = QAction("Show launcher", menu)
-        show_launcher.triggered.connect(launcher_window.show)
+        show_launcher.triggered.connect(self.show_launcher)
         menu.addAction(show_launcher)
         tray.setContextMenu(menu)
         tray.setToolTip(self.tooltip)
+        tray.activated.connect(self._handle_activation)
         tray.show()
         self._tray = tray
 
@@ -54,6 +56,18 @@ class TrayIndicatorController:
         if self._tray is not None:
             self._tray.setIcon(self._icon_for_state(self.icon_state))
             self._tray.setToolTip(self.tooltip)
+
+    def show_launcher(self) -> None:
+        self._launcher_window.show()
+        self._launcher_window.raise_()
+        self._launcher_window.activateWindow()
+
+    def _handle_activation(self, reason: QSystemTrayIcon.ActivationReason) -> None:
+        if reason in {
+            QSystemTrayIcon.ActivationReason.Trigger,
+            QSystemTrayIcon.ActivationReason.DoubleClick,
+        }:
+            self.show_launcher()
 
 
 class EodingaWindow(QMainWindow):

@@ -58,3 +58,13 @@ def test_launcher_state_is_shared_between_popup_and_search_tab(qapp) -> None:
     launcher._run_query()
 
     assert "release" in window.search_tab.launcher_panel.empty_state.body_label.text()
+
+
+def test_tray_indicator_can_show_launcher_without_tray_backend(qapp) -> None:
+    window = EodingaWindow()
+
+    assert not window.launcher_window.isVisible()
+
+    window.tray_indicator.show_launcher()
+
+    assert window.launcher_window.isVisible()
