@@ -10,6 +10,7 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     namespace["__file__"] = str(spec_path.resolve())
     exec(spec_path.read_text(encoding="utf-8"), namespace)
     hiddenimports = cast(list[str], namespace["HIDDEN_IMPORTS"])
+    runtime_modules = cast(list[str], namespace["RUNTIME_MODULES"])
     datas = cast(list[tuple[str, str]], namespace["DATAS"])
     assert "watchdog" in hiddenimports
     assert "PySide6.QtWidgets" in hiddenimports
@@ -17,5 +18,18 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     assert "eodinga.gui.app" in hiddenimports
     assert "eodinga.content.registry" in hiddenimports
     assert "eodinga.launcher.hotkey_win" in hiddenimports
+    assert set(runtime_modules).issubset(set(hiddenimports))
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
     assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas
+
+
+def test_pyinstaller_runtime_modules_map_to_real_sources() -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    runtime_modules = cast(list[str], namespace["RUNTIME_MODULES"])
+
+    for module_name in runtime_modules:
+        module_path = Path(*module_name.split(".")).with_suffix(".py")
+        assert module_path.exists(), module_name

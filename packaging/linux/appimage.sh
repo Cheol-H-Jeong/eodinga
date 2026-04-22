@@ -46,14 +46,44 @@ chmod +x "${APPDIR}/AppRun" "${APPDIR}/usr/bin/eodinga"
 tar -czf "${ARCHIVE_PATH}" -C "${DIST_DIR}" "$(basename "${APPDIR}")"
 python3 - <<PY
 import json
+import os
 from pathlib import Path
 
+desktop_path = Path("${APPDIR}/usr/share/applications/eodinga.desktop")
+desktop_lines = desktop_path.read_text(encoding="utf-8").splitlines()
+desktop_entries = {}
+for line in desktop_lines:
+    if not line or line.startswith("[") or "=" not in line:
+        continue
+    key, value = line.split("=", 1)
+    desktop_entries[key] = value
+
+apprun_path = Path("${APPDIR}/AppRun")
+launcher_path = Path("${APPDIR}/usr/bin/eodinga")
 payload = {
     "target": "linux-appimage-dry-run",
     "version": "${VERSION}",
     "appdir": "${APPDIR}",
     "archive": "${ARCHIVE_PATH}",
     "dry_run": bool(${DRY_RUN}),
+    "desktop_entry": {
+        "path": str(desktop_path),
+        "name": desktop_entries.get("Name"),
+        "exec": desktop_entries.get("Exec"),
+        "icon": desktop_entries.get("Icon"),
+        "categories": desktop_entries.get("Categories"),
+        "startup_notify": desktop_entries.get("StartupNotify"),
+    },
+    "apprun": {
+        "path": str(apprun_path),
+        "is_executable": os.access(apprun_path, os.X_OK),
+        "launches_gui": 'usr/bin/eodinga" gui ' in apprun_path.read_text(encoding="utf-8"),
+    },
+    "launcher": {
+        "path": str(launcher_path),
+        "is_executable": os.access(launcher_path, os.X_OK),
+        "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
+    },
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 PY
