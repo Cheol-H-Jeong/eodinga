@@ -25,3 +25,7 @@ def test_version_matches_package(cli_runner) -> None:
     assert result.returncode == 0
     assert result.stdout.strip() == __version__
 
+
+def test_gui_smoke_succeeds_offscreen(cli_runner) -> None:
+    result = cli_runner("gui")
+    assert result.returncode == 0

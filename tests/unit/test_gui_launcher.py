@@ -6,8 +6,8 @@ from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 
-from eodinga.common import QueryResult, SearchHit
-from eodinga.gui.launcher import LauncherWindow
+from eodinga.common import IndexingStatus, QueryResult, SearchHit
+from eodinga.gui.launcher import LauncherState, LauncherWindow
 
 
 def _wait(milliseconds: int) -> None:
@@ -91,11 +91,16 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
             return QueryResult(items=[], total=0, elapsed_ms=1.0)
         return QueryResult(items=[], total=0, elapsed_ms=2.0)
 
-    launcher = LauncherWindow(search_fn=search_fn)
+    state = LauncherState()
+    state.set_indexing_status(
+        IndexingStatus(phase="indexing", processed_files=24, total_files=120, current_root=Path("/tmp/archive"))
+    )
+    launcher = LauncherWindow(search_fn=search_fn, state=state)
     launcher.show()
 
     assert launcher.empty_state.title_label.text() == "Type to search"
-    assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
+    assert "No recent queries yet" in launcher.empty_state.body_label.text()
+    assert "24/120" in launcher.empty_state.details_label.text()
 
     launcher.query_field.setText("missing")
     _wait(60)
@@ -103,3 +108,15 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.status_chip.text() == "No results"
     assert launcher.empty_state.title_label.text() == 'No results for "missing"'
     assert "date:this-week" in launcher.empty_state.body_label.text()
+    assert "/tmp/archive" in launcher.empty_state.details_label.text()
+
+
+def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    state.remember_query("report")
+    state.remember_query("budget")
+
+    assert "budget, report" in launcher.empty_state.body_label.text()
