@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -66,6 +67,24 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["contains_autostart_registry"] is True
     assert payload["inno_setup"]["rendered_autostart_registry_matches_gui_exe"] is True
     assert payload["inno_setup"]["contains_uninstall_purge_prompt"] is True
+
+
+def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
+    result = subprocess.run(
+        [sys.executable, "packaging/build.py", "--target", "windows-dry-run"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+
+    audit_path = Path("packaging/dist/windows-dry-run-audit.json")
+    payload = json.loads(audit_path.read_text(encoding="utf-8"))
+    hidden_imports = set(payload["pyinstaller_spec"]["hiddenimports"])
+
+    hotkey_module = Path("eodinga/launcher/hotkey_linux.py").read_text(encoding="utf-8")
+    expected_modules = set(re.findall(r'import_module\\("([^"]+)"\\)', hotkey_module))
+    assert expected_modules <= hidden_imports
 
 
 def test_linux_appimage_dry_run_stages_recipe() -> None:
