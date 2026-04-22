@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.17 - 2026-04-23
+
+- Normalized reversed ISO date ranges in the query compiler so `date:2026-01-03..2026-01-01` now behaves like the same inclusive window in forward order instead of returning no hits.
+- Fixed path candidate collection to let substring-scan matches supplement partial `paths_fts` results, which restores Korean middle-token filename hits such as `회의록` for `프로젝트-회의록.txt` without regressing the FTS-first path.
+- Expanded DSL/compiler/executor coverage for spaced operator values, inline OR parsing, reversed date windows, and Korean path-token edge cases.
+
 ## 0.1.16 - 2026-04-23
 
 - Reduced cold-start indexing overhead by reusing each path’s discovery `lstat()` result and by removing per-directory child sorting from the walker, which now measures at about 5,130 files/sec on the current Linux dev box.
