@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.35 - 2026-04-23
+
+- Reduced content-index write churn during bulk upserts by preserving existing file content hashes, reusing prior FTS rowids for changed documents, skipping no-op rewrites when parsed content is unchanged, and batching stale FTS row deletes instead of deleting one row at a time.
+- Removed a repeated `content_map` presence probe from steady-state searches on the same SQLite connection by caching whether indexed content exists until that connection performs another write.
+- Refreshed the opt-in perf baselines after rerunning `EODINGA_RUN_PERF=1 pytest -q tests/perf -s`: cold start measured about 5,988 files/sec, name/path query latency stayed at 0.06 ms p95, content query latency measured 0.62 ms p95, and watch visibility measured 0.133 s p99.
+
 ## 0.1.34 - 2026-04-23
 
 - Tightened the Windows packaging contract by exposing the expected CLI and GUI dist names in `packaging/pyinstaller.spec`, requiring the cross-platform watchdog and `shiboken6` hidden imports, and auditing that the rendered Inno `Source` entries still match those bundle names.
