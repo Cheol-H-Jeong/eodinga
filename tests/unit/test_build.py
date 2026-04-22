@@ -7,8 +7,9 @@ import pytest
 
 import eodinga.index.build as build_module
 from eodinga.config import RootConfig
-from eodinga.index.build import rebuild_index
+from eodinga.index.build import InterruptedBuildError, rebuild_index
 from eodinga.index.schema import apply_schema
+from eodinga.index.storage import open_index
 
 
 def test_rebuild_index_failure_keeps_existing_target_database(
@@ -76,3 +77,39 @@ def test_rebuild_index_failure_keeps_existing_target_database(
     assert not staged_path.exists()
     assert not staged_path.with_name(".index.db.next-wal").exists()
 
+
+def test_rebuild_index_interrupt_preserves_staged_database_for_resume(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "fresh.txt").write_text("fresh content\n", encoding="utf-8")
+
+    db_path = tmp_path / "index.db"
+    stop_checks = {"count": 0}
+
+    def stop_requested() -> bool:
+        stop_checks["count"] += 1
+        return stop_checks["count"] >= 2
+
+    with pytest.raises(InterruptedBuildError, match="staged progress preserved"):
+        rebuild_index(db_path, [RootConfig(path=root)], stop_requested=stop_requested)
+
+    staged_path = db_path.with_name(".index.db.next")
+    assert not db_path.exists()
+    assert staged_path.exists()
+
+    staged_conn = sqlite3.connect(staged_path)
+    try:
+        rows = staged_conn.execute("SELECT path FROM files ORDER BY path").fetchall()
+        assert [str(row[0]) for row in rows] == [str(root), str(root / "fresh.txt")]
+    finally:
+        staged_conn.close()
+
+    reopened = open_index(db_path)
+    try:
+        rows = reopened.execute("SELECT path FROM files ORDER BY path").fetchall()
+        assert [str(row[0]) for row in rows] == [str(root), str(root / "fresh.txt")]
+    finally:
+        reopened.close()
+
+    assert not staged_path.exists()
+    assert not staged_path.with_name(".index.db.next-wal").exists()

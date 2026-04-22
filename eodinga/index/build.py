@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
-from typing import NamedTuple
+from typing import Callable, NamedTuple
 
 from eodinga.common import PathRules
 from eodinga.config import RootConfig
@@ -22,6 +22,12 @@ class RebuildResult(NamedTuple):
     roots_indexed: int
 
 
+class InterruptedBuildError(RuntimeError):
+    def __init__(self, staged_path: Path) -> None:
+        super().__init__(f"index rebuild interrupted; staged progress preserved at {staged_path}")
+        self.staged_path = staged_path
+
+
 def _staged_build_path(db_path: Path) -> Path:
     return db_path.with_name(f".{db_path.name}.next")
 
@@ -30,12 +36,21 @@ def _normalize_root(root: RootConfig) -> RootConfig:
     return root.model_copy(update={"path": root.path.expanduser()})
 
 
+def _raise_if_stop_requested(
+    stop_requested: Callable[[], bool] | None,
+    staged_path: Path,
+) -> None:
+    if stop_requested is not None and stop_requested():
+        raise InterruptedBuildError(staged_path)
+
+
 def rebuild_index(
     db_path: Path,
     roots: list[RootConfig],
     *,
     content_enabled: bool = True,
     max_body_chars: int = DEFAULT_MAX_BODY_CHARS,
+    stop_requested: Callable[[], bool] | None = None,
 ) -> RebuildResult:
     effective_roots = [_normalize_root(root) for root in roots]
     if not effective_roots:
@@ -55,8 +70,8 @@ def rebuild_index(
     )
     try:
         writer = IndexWriter(conn, parser_callback=parser_callback)
-        with conn:
-            for root_id, root in enumerate(effective_roots, start=1):
+        for root_id, root in enumerate(effective_roots, start=1):
+            with conn:
                 conn.execute(
                     """
                     INSERT INTO roots(id, path, include, exclude, added_at)
@@ -69,16 +84,21 @@ def rebuild_index(
                         json.dumps(root.exclude),
                     ),
                 )
-                rules = PathRules(
-                    root=root.path,
-                    include=tuple(root.include),
-                    exclude=tuple(root.exclude),
-                )
-                for batch in walk_batched(root.path, rules, root_id=root_id):
-                    indexed = writer.bulk_upsert(batch)
-                    files_indexed += indexed
-                    if indexed:
-                        increment_counter("files_indexed", indexed, root=str(root.path))
+            _raise_if_stop_requested(stop_requested, staged_path)
+            rules = PathRules(
+                root=root.path,
+                include=tuple(root.include),
+                exclude=tuple(root.exclude),
+            )
+            for batch in walk_batched(root.path, rules, root_id=root_id):
+                indexed = writer.bulk_upsert(batch)
+                files_indexed += indexed
+                if indexed:
+                    increment_counter("files_indexed", indexed, root=str(root.path))
+                _raise_if_stop_requested(stop_requested, staged_path)
+    except InterruptedBuildError:
+        conn.close()
+        raise
     except Exception:
         conn.close()
         _cleanup_index_files(staged_path)
@@ -95,5 +115,4 @@ def rebuild_index(
         roots_indexed=len(effective_roots),
     )
 
-
-__all__ = ["DEFAULT_MAX_BODY_CHARS", "RebuildResult", "rebuild_index"]
+__all__ = ["DEFAULT_MAX_BODY_CHARS", "InterruptedBuildError", "RebuildResult", "rebuild_index"]
