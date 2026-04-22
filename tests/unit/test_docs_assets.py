@@ -12,10 +12,11 @@ def _repo_root() -> Path:
 def test_render_doc_screenshots_writes_expected_assets(tmp_path: Path, qapp) -> None:
     screenshots = render_doc_screenshots(tmp_path)
 
-    assert set(screenshots) == {"app-window", "launcher-window", "index-progress"}
+    assert set(screenshots) == {"app-window", "launcher-window", "index-progress", "settings-window"}
     assert screenshots["app-window"].name == "app-window.png"
     assert screenshots["launcher-window"].name == "launcher-window.png"
     assert screenshots["index-progress"].name == "index-progress.png"
+    assert screenshots["settings-window"].name == "settings-window.png"
     for asset in screenshots.values():
         assert asset.exists()
         assert asset.stat().st_size > 0
@@ -31,10 +32,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "![Main application window]" in readme
     assert "![Launcher window]" in readme
     assert "![Index progress window]" in readme
+    assert "![Settings window]" in readme
     assert "## Install" in readme
     assert "## Quick Start" in readme
+    assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
     assert "## Config and Data Paths" in readme
+    assert "## Recovery and Troubleshooting" in readme
     assert "## Limitations" in readme
     assert "docs/DSL.md" in readme
     assert "docs/ARCHITECTURE.md" in readme
@@ -43,13 +47,17 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Runtime Flow" in architecture
     assert "## Module Map" in architecture
     assert "## Index Storage" in architecture
+    assert "## Startup Recovery" in architecture
     assert "## Query Execution" in architecture
     assert "## Packaging Surfaces" in architecture
 
+    assert "modified:today" in dsl
+    assert "created:2026-04-23" in dsl
     assert "date:this-week" in dsl
     assert "date:yesterday" in dsl
     assert "size:>10M" in dsl
     assert "is:duplicate" in dsl
+    assert "regex:true" in dsl
     assert "-path:node_modules" in dsl
     assert "## Operator Notes" in dsl
 
@@ -57,3 +65,4 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "tests/perf/test_cold_start.py" in performance
     assert "## Running the Suite" in performance
     assert "## Baseline" in performance
+    assert "## Profiling Workflow" in performance
