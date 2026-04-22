@@ -69,8 +69,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "version" in acceptance
     assert "QT_QPA_PLATFORM=offscreen" in acceptance
     assert "windows-dry-run" in acceptance
+    assert "linux-appimage-dry-run" in acceptance
+    assert "linux-deb-dry-run" in acceptance
     assert "yamllint .github/workflows/release-windows.yml" in acceptance
+    assert "release-linux.yml" in acceptance
     assert "README is part of the acceptance surface" in acceptance
+    assert "feature highlights" in acceptance
+    assert "docs/RELEASE.md" in acceptance
     assert "git tag v0.1.N" in acceptance
 
     assert "## Runtime Flow" in architecture
