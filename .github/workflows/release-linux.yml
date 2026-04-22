@@ -16,10 +16,14 @@ jobs:
           python-version: "3.11"
       - name: Install
         run: pip install -e .[dev,parsers,gui]
-      - name: Build dry run
+      - name: Build AppImage dry run
         run: python packaging/build.py --target linux-appimage-dry-run
+      - name: Build Debian dry run
+        run: python packaging/build.py --target linux-deb-dry-run
       - name: Package AppImage
         run: bash packaging/linux/appimage.sh
+      - name: Package Debian
+        run: bash packaging/linux/deb.sh
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

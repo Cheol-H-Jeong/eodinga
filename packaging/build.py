@@ -16,6 +16,7 @@ INNO_SCRIPT = PROJECT_ROOT / "packaging" / "windows" / "eodinga.iss"
 PACKAGE_INIT = PROJECT_ROOT / "eodinga" / "__init__.py"
 PYPROJECT = PROJECT_ROOT / "pyproject.toml"
 APPIMAGE_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "appimage.sh"
+DEB_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "deb.sh"
 APPIMAGE_DESKTOP = PROJECT_ROOT / "packaging" / "linux" / "eodinga.desktop"
 INNO_VERSION_TOKEN = "@@APP_VERSION@@"
 
@@ -110,16 +111,27 @@ def _run_linux_appimage_dry_run() -> int:
     return result.returncode
 
 
+def _run_linux_deb_dry_run() -> int:
+    result = subprocess.run(
+        ["bash", str(DEB_SCRIPT), "--dry-run"],
+        cwd=PROJECT_ROOT,
+        check=False,
+    )
+    return result.returncode
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--target",
-        choices=("linux-appimage-dry-run", "windows-dry-run", "windows"),
+        choices=("linux-appimage-dry-run", "linux-deb-dry-run", "windows-dry-run", "windows"),
         required=True,
     )
     args = parser.parse_args(argv)
     if args.target == "linux-appimage-dry-run":
         return _run_linux_appimage_dry_run()
+    if args.target == "linux-deb-dry-run":
+        return _run_linux_deb_dry_run()
     if args.target == "windows-dry-run":
         return _run_windows_dry_run()
     return _run_windows()
