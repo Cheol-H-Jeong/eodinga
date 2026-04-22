@@ -63,6 +63,10 @@ def stat_safe(path: Path) -> os.stat_result:
     return path.lstat()
 
 
+def stat_follow_safe(path: Path) -> os.stat_result:
+    return path.stat()
+
+
 def scandir_safe(path: Path) -> Iterator[Path]:
     with os.scandir(path) as entries:
         for entry in entries:
@@ -79,5 +83,6 @@ __all__ = [
     "open_readonly",
     "resolve_safe",
     "scandir_safe",
+    "stat_follow_safe",
     "stat_safe",
 ]

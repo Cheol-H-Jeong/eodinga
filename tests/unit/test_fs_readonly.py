@@ -14,6 +14,7 @@ def test_fs_exports_are_exact() -> None:
         "open_readonly",
         "resolve_safe",
         "scandir_safe",
+        "stat_follow_safe",
         "stat_safe",
     }
 
