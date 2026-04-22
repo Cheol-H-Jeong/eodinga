@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.51 - 2026-04-23
+
+- Made `eodinga index` perform a real one-shot rebuild into a staged SQLite database and atomically swap it into place once the walk completes, so interrupted rebuilds no longer risk replacing the live index with a partial snapshot.
+- Fixed root selection reliability by treating explicitly configured roots as stronger than the global denylist, which restores indexing for valid roots located under paths like `/tmp` during tests and local scratch workflows.
+- Added CLI and unit regressions for staged rebuild success, missing-root errors, and failed rebuild rollback so the new rebuild path stays pinned end to end.
+
 ## 0.1.50 - 2026-04-23
 
 - Fixed Unicode-normalization misses in content search so explicit `content:` terms now supplement partial FTS hits with scanned content candidates instead of dropping decomposed Hangul matches once a precomposed hit exists.
