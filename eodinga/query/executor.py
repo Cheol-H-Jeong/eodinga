@@ -95,21 +95,34 @@ def _regex_ok(
     return not matched if negated else matched
 
 
-def _filter_record(branch: CompiledBranch, record: FileRecord, content_text: str) -> bool:
+def _plain_term_matches_record(
+    record: FileRecord,
+    content_text: str,
+    term_value: str,
+    case_sensitive: bool,
+) -> bool:
     target_text = f"{record.name} {record.parent_path} {record.path}"
+    return _text_matches(target_text, term_value, case_sensitive) or (
+        bool(content_text) and _text_matches(content_text, term_value, case_sensitive)
+    )
+
+
+def _filter_record(branch: CompiledBranch, record: FileRecord, content_text: str) -> bool:
     for term in branch.path_terms:
-        if term.negated:
-            if not _term_ok(target_text, term.value, branch.case_sensitive, True):
-                return False
-            continue
-        if _text_matches(target_text, term.value, branch.case_sensitive):
-            continue
-        if content_text and _text_matches(content_text, term.value, branch.case_sensitive):
-            continue
-        return False
+        matched = _plain_term_matches_record(
+            record,
+            content_text,
+            term.value,
+            branch.case_sensitive,
+        )
+        if term.negated and matched:
+            return False
+        if not term.negated and not matched:
+            return False
     for term in branch.path_filters:
         if not _term_ok(str(record.path), term.value, branch.case_sensitive, term.negated):
             return False
+    target_text = f"{record.name} {record.parent_path} {record.path}"
     for term in branch.content_terms:
         if not _term_ok(content_text, term.value, branch.case_sensitive, term.negated):
             return False
