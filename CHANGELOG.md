@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.100 - 2026-04-23
+
+- Hardened startup and CLI reliability by tolerating the legacy `launcher.always_on_top` config key during load, so existing user configs no longer crash every CLI subcommand on startup.
+- Added explicit watcher queue backpressure with a bounded event queue and saturation warnings, preventing silent backlog growth while preserving queued file events until consumers catch up.
+- Made staged index rebuilds treat `SIGINT` and `SIGTERM` as graceful stop requests that finish the current batch, clean the staged `.next` database, and return a signal-style exit code without risking promotion of a partial rebuild.
+- Stabilized the release workflow lint regression by invoking `yamllint` through the active Python interpreter, keeping the unit gate green inside isolated virtualenv runs.
+
 ## 0.1.78 - 2026-04-23
 
 - Tightened the Windows packaging audit so the rendered Inno installer now verifies its escaped `AppId`, template-driven `AppVersion`, and GUI uninstall icon path instead of relying on looser substring checks.
