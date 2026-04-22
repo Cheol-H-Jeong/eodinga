@@ -19,6 +19,9 @@ APPIMAGE_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "appimage.sh"
 DEB_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "deb.sh"
 APPIMAGE_DESKTOP = PROJECT_ROOT / "packaging" / "linux" / "eodinga.desktop"
 INNO_VERSION_TOKEN = "@@APP_VERSION@@"
+INNO_GUI_DIST_TOKEN = "@@GUI_DIST_NAME@@"
+INNO_CLI_DIST_TOKEN = "@@CLI_DIST_NAME@@"
+INNO_GUI_EXE_TOKEN = "@@GUI_EXE_NAME@@"
 
 
 def _read_project_version() -> str:
@@ -37,8 +40,18 @@ def _read_package_version() -> str:
     return match.group("version")
 
 
-def _render_inno_script(version: str) -> Path:
-    rendered = INNO_SCRIPT.read_text(encoding="utf-8").replace(INNO_VERSION_TOKEN, version)
+def _load_windows_spec_namespace() -> dict[str, Any]:
+    spec_namespace: dict[str, Any] = {"__file__": str(WINDOWS_SPEC)}
+    exec(WINDOWS_SPEC.read_text(encoding="utf-8"), spec_namespace)
+    return spec_namespace
+
+
+def _render_inno_script(version: str, *, gui_dist_name: str, cli_dist_name: str, gui_exe_name: str) -> Path:
+    rendered = INNO_SCRIPT.read_text(encoding="utf-8")
+    rendered = rendered.replace(INNO_VERSION_TOKEN, version)
+    rendered = rendered.replace(INNO_GUI_DIST_TOKEN, gui_dist_name)
+    rendered = rendered.replace(INNO_CLI_DIST_TOKEN, cli_dist_name)
+    rendered = rendered.replace(INNO_GUI_EXE_TOKEN, gui_exe_name)
     rendered_path = DIST_DIR / "windows" / "eodinga.iss"
     rendered_path.parent.mkdir(parents=True, exist_ok=True)
     rendered_path.write_text(rendered, encoding="utf-8")
@@ -54,16 +67,26 @@ def _source_entries(text: str) -> list[str]:
 
 
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
-    spec_namespace: dict[str, Any] = {"__file__": str(WINDOWS_SPEC)}
-    exec(WINDOWS_SPEC.read_text(encoding="utf-8"), spec_namespace)
+    spec_namespace = _load_windows_spec_namespace()
     inno_text = INNO_SCRIPT.read_text(encoding="utf-8")
-    rendered_path = _render_inno_script(version)
-    rendered_text = rendered_path.read_text(encoding="utf-8")
-    output_base_filename = f"eodinga-{version}-win-x64-setup"
     cli_dist_name = str(spec_namespace.get("CLI_DIST_NAME", "eodinga-cli"))
     gui_dist_name = str(spec_namespace.get("GUI_DIST_NAME", "eodinga-gui"))
+    cli_exe_name = str(spec_namespace.get("CLI_EXE_NAME", f"{cli_dist_name}.exe"))
+    gui_exe_name = str(spec_namespace.get("GUI_EXE_NAME", f"{gui_dist_name}.exe"))
+    rendered_path = _render_inno_script(
+        version,
+        gui_dist_name=gui_dist_name,
+        cli_dist_name=cli_dist_name,
+        gui_exe_name=gui_exe_name,
+    )
+    rendered_text = rendered_path.read_text(encoding="utf-8")
+    output_base_filename = f"eodinga-{version}-win-x64-setup"
     source_entries = _source_entries(inno_text)
     expected_source_entries = [
+        f"dist\\\\{INNO_GUI_DIST_TOKEN}\\\\*",
+        f"dist\\\\{INNO_CLI_DIST_TOKEN}\\\\*",
+    ]
+    rendered_source_entries = [
         f"dist\\\\{gui_dist_name}\\\\*",
         f"dist\\\\{cli_dist_name}\\\\*",
     ]
@@ -79,6 +102,10 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
                 "cli": cli_dist_name,
                 "gui": gui_dist_name,
             },
+            "exe_names": {
+                "cli": cli_exe_name,
+                "gui": gui_exe_name,
+            },
             "required_hiddenimports": spec_namespace.get("REQUIRED_HIDDEN_IMPORTS", []),
             "hiddenimports": spec_namespace.get("HIDDEN_IMPORTS", []),
             "datas": spec_namespace.get("DATAS", []),
@@ -91,13 +118,18 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "contains_app_version_template": INNO_VERSION_TOKEN in inno_text,
             "rendered_path": str(rendered_path),
             "output_base_filename": output_base_filename,
+            "rendered_source_entries": _source_entries(rendered_text),
+            "rendered_source_entries_match_pyinstaller_dist": _source_entries(rendered_text) == rendered_source_entries,
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
             "contains_user_install_dir": _inno_contains(rendered_text, r"DefaultDirName={userappdata}\eodinga"),
-            "contains_start_menu_shortcut": _inno_contains(rendered_text, 'Name: "{group}\\\\eodinga"; Filename: "{app}\\\\eodinga-gui.exe"'),
+            "contains_start_menu_shortcut": _inno_contains(
+                rendered_text,
+                f'Name: "{{group}}\\\\eodinga"; Filename: "{{app}}\\\\{gui_exe_name}"',
+            ),
             "contains_desktop_shortcut_task": _inno_contains(inno_text, 'Name: "desktopicon"'),
             "contains_postinstall_launch": _inno_contains(
                 rendered_text,
-                'Filename: "{app}\\\\eodinga-gui.exe"; Description: "{cm:LaunchProgram,eodinga}"; Flags: nowait postinstall skipifsilent',
+                f'Filename: "{{app}}\\\\{gui_exe_name}"; Description: "{{cm:LaunchProgram,eodinga}}"; Flags: nowait postinstall skipifsilent',
             ),
             "privileges_lowest": _inno_contains(rendered_text, "PrivilegesRequired=lowest"),
             "disables_program_group_page": _inno_contains(rendered_text, "DisableProgramGroupPage=yes"),
@@ -106,7 +138,9 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "contains_autostart_task": 'Name: "autostart"' in inno_text,
             "contains_autostart_registry": 'Subkey: "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run"' in inno_text
             and 'ValueName: "eodinga"' in inno_text
+            and f'ValueData: """{{app}}\\\\{INNO_GUI_EXE_TOKEN}"""' in inno_text
             and 'Tasks: autostart' in inno_text,
+            "rendered_autostart_registry_matches_gui_exe": f'ValueData: """{{app}}\\\\{gui_exe_name}"""' in rendered_text,
             "contains_uninstall_purge_prompt": _inno_contains(rendered_text, r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);"),
         },
     }

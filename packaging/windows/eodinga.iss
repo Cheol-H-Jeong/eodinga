@@ -30,18 +30,18 @@ Name: "autostart"; Description: "{cm:LaunchAtStartup,en} / {cm:LaunchAtStartup,k
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"
 
 [Files]
-Source: "dist\\eodinga-gui\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "dist\\eodinga-cli\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\\@@GUI_DIST_NAME@@\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\\@@CLI_DIST_NAME@@\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Registry]
-Root: HKCU; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; ValueType: string; ValueName: "eodinga"; ValueData: """{app}\\eodinga-gui.exe"""; Flags: uninsdeletevalue; Tasks: autostart
+Root: HKCU; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; ValueType: string; ValueName: "eodinga"; ValueData: """{app}\\@@GUI_EXE_NAME@@"""; Flags: uninsdeletevalue; Tasks: autostart
 
 [Icons]
-Name: "{group}\\eodinga"; Filename: "{app}\\eodinga-gui.exe"
-Name: "{commondesktop}\\eodinga"; Filename: "{app}\\eodinga-gui.exe"; Tasks: desktopicon
+Name: "{group}\\eodinga"; Filename: "{app}\\@@GUI_EXE_NAME@@"
+Name: "{commondesktop}\\eodinga"; Filename: "{app}\\@@GUI_EXE_NAME@@"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\\eodinga-gui.exe"; Description: "{cm:LaunchProgram,eodinga}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\\@@GUI_EXE_NAME@@"; Description: "{cm:LaunchProgram,eodinga}"; Flags: nowait postinstall skipifsilent
 
 [Code]
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
