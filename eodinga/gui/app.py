@@ -82,6 +82,9 @@ class TrayIndicatorController:
             QSystemTrayIcon.ActivationReason.Trigger,
             QSystemTrayIcon.ActivationReason.DoubleClick,
         }:
+            if self._launcher_window.isVisible():
+                self._launcher_window.hide()
+                return
             self.show_launcher()
 
 

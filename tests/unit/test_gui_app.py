@@ -4,6 +4,8 @@ from pathlib import Path
 import sqlite3
 from typing import cast
 
+from PySide6.QtWidgets import QSystemTrayIcon
+
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.config import AppConfig, load
 from eodinga.gui.actions import DesktopActions
@@ -110,6 +112,20 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
 
     restored_window.close()
     qapp.processEvents()
+
+
+def test_tray_activation_toggles_launcher_visibility(qapp) -> None:
+    window = EodingaWindow()
+
+    window.tray_indicator._handle_activation(QSystemTrayIcon.ActivationReason.Trigger)
+    qapp.processEvents()
+    assert window.launcher_window.isVisible()
+
+    window.tray_indicator._handle_activation(QSystemTrayIcon.ActivationReason.Trigger)
+    qapp.processEvents()
+    assert not window.launcher_window.isVisible()
+
+
 class _ActionSpy:
     def __init__(self) -> None:
         self.opened: list[str] = []
