@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.69 - 2026-04-23
+
+- Skipped the `IndexWriter` content-upsert phase entirely when no parser callback is configured, removing a guaranteed-empty pass from metadata-only indexing paths such as watcher updates and rebuilds with `content_enabled=False`.
+- Added an opt-in staged rebuild benchmark to `tests/perf/test_cold_start.py`, so the SPEC §6.3 perf suite now measures the real `rebuild_index()` path alongside the lower-level walker-plus-writer throughput check.
+- Refreshed `docs/PERFORMANCE.md` with the new rebuild benchmark, the additional `EODINGA_PERF_REBUILD_MIN_FPS` tuning knob, and the current local baseline: 6,059 files/sec cold start, 6,537 files/sec staged rebuild cold start, 56,222 records/sec bulk upsert, and 0.133 s watch visibility p99.
+
 ## 0.1.68 - 2026-04-23
 
 - Batched delete and move-source cleanup inside `IndexWriter.apply_events()` so watcher-driven retirements now collapse path lookups and file deletes into chunked `IN (...)` statements instead of issuing one SQL round-trip per removed path.
