@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,7 @@ def _insert_file(
     ext: str,
     body_text: str = "",
     is_dir: int = 0,
+    content_hash: bytes | None = None,
 ) -> None:
     path_obj = Path(path)
     conn.execute(
@@ -39,7 +41,7 @@ def _insert_file(
             mtime,
             is_dir,
             0,
-            None,
+            content_hash,
             mtime,
         ),
     )
@@ -126,3 +128,92 @@ def test_content_snippet_is_present(populated_db: sqlite3.Connection) -> None:
     result = search(populated_db, "content:launch", limit=5)
     assert result.hits[0].snippet is not None
     assert "launch" in result.hits[0].snippet.lower()
+
+
+def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
+    today_start = int(datetime.now(tz=UTC).replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    yesterday_start = today_start - 86_400
+    this_week_start = today_start - datetime.now(tz=UTC).weekday() * 86_400
+    last_month = int((datetime.now(tz=UTC) - timedelta(days=40)).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/today.txt", 512, today_start + 60, "txt", body_text="today note")
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/yesterday.txt",
+        1024,
+        yesterday_start + 60,
+        "txt",
+        body_text="yesterday note",
+    )
+    _insert_file(
+        tmp_db,
+        3,
+        "/workspace/week.txt",
+        2048,
+        this_week_start + 120,
+        "txt",
+        body_text="week note",
+    )
+    _insert_file(
+        tmp_db,
+        4,
+        "/workspace/old.txt",
+        4096,
+        last_month,
+        "txt",
+        body_text="old note",
+    )
+    tmp_db.commit()
+
+    assert search(tmp_db, "date:today", limit=5).hits[0].file.name == "today.txt"
+    assert search(tmp_db, "date:yesterday", limit=5).hits[0].file.name == "yesterday.txt"
+    this_week_hits = [hit.file.name for hit in search(tmp_db, "date:this-week", limit=10).hits]
+    assert "today.txt" in this_week_hits
+    assert "yesterday.txt" in this_week_hits
+    assert "week.txt" in this_week_hits
+    this_month_hits = [hit.file.name for hit in search(tmp_db, "date:this-month", limit=10).hits]
+    assert "old.txt" not in this_month_hits
+
+
+def test_execute_duplicate_and_negated_size_queries(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    duplicate_hash = b"same-content"
+
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/alpha-copy.txt",
+        12 * 1024 * 1024,
+        now,
+        "txt",
+        body_text="alpha duplicate one",
+        content_hash=duplicate_hash,
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/alpha-clone.txt",
+        11 * 1024 * 1024,
+        now - 60,
+        "txt",
+        body_text="alpha duplicate two",
+        content_hash=duplicate_hash,
+    )
+    _insert_file(
+        tmp_db,
+        3,
+        "/workspace/beta.txt",
+        9 * 1024 * 1024,
+        now - 120,
+        "txt",
+        body_text="beta unique",
+        content_hash=b"unique-content",
+    )
+    tmp_db.commit()
+
+    duplicate_hits = [hit.file.name for hit in search(tmp_db, "is:duplicate size:>10M", limit=10).hits]
+    assert duplicate_hits == ["alpha-clone.txt", "alpha-copy.txt"]
+
+    unique_hits = [hit.file.name for hit in search(tmp_db, "-is:duplicate -size:>10M", limit=10).hits]
+    assert unique_hits == ["beta.txt"]
