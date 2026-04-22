@@ -12,6 +12,8 @@ This repository tracks the `0.1.x` lexical-search release defined in `SPEC.md`. 
 
 ![Launcher window](docs/screenshots/launcher-window.png)
 
+![Index progress window](docs/screenshots/index-progress.png)
+
 ## Install
 
 ### Linux
@@ -35,6 +37,14 @@ Use `.[all]` for the full v0.1 local-dev surface, including GUI, parser, hotkey,
 3. Keep content indexing enabled if you want document-text matches.
 4. Wait for the initial cold start to finish, then use the launcher hotkey.
 
+## Quick Start
+
+1. Install with `pip install -e .[all]`.
+2. Open `eodinga gui`, add your project or document roots, and let the first index finish.
+3. Hit `Ctrl+Shift+Space` to open the launcher anywhere.
+4. Start with plain terms, then narrow with operators like `ext:pdf`, `path:docs`, `date:this-week`, or `size:>10M`.
+5. Use `Enter` to open the selected result or `Ctrl+Enter` to reveal it in the file manager.
+
 ## CLI
 
 ```bash
@@ -53,12 +63,23 @@ Global flags:
 - `--config`
 - `--db`
 
+Typical flows:
+
+```bash
+eodinga index --root ~/projects --root ~/docs
+eodinga watch
+eodinga search 'ext:pdf content:"release checklist"' --limit 20
+eodinga stats --json
+eodinga doctor
+```
+
 ## Query DSL
 
 - `report` : plain lexical term
 - `ext:pdf invoice` : extension filter plus term
 - `path:projects content:"design review"` : path and content filters
 - `size:>10M modified:today` : size and date filters
+- `date:yesterday is:duplicate` : relative date plus duplicate detection
 - `regex:/todo|fixme/i` : regex search
 - `ext:py | ext:rs` : OR
 - `-path:node_modules` : negation
@@ -88,6 +109,13 @@ source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
 
 Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/path lookups at about 0.06 ms p95, content queries at about 0.62 ms p95, and watch visibility at about 0.133 s p99.
 
+## Config and Data Paths
+
+- Linux config defaults to `~/.config/eodinga/config.toml` and the index database to `~/.local/share/eodinga/index.db`.
+- Windows uses `%APPDATA%\\eodinga\\config.toml` for config and `%LOCALAPPDATA%\\eodinga\\index.db` for the database.
+- Override either location with `--config` or `--db` when running CLI commands.
+- Runtime writes stay inside those config/database areas; indexed roots are treated as read-only inputs.
+
 ## Diagnostics
 
 Run:
@@ -97,6 +125,8 @@ eodinga doctor
 ```
 
 The doctor command checks Python compatibility, importable dependencies, database writability, readable roots, the detectable hotkey backend, and the default safe excludes.
+
+If search looks stale, run `eodinga stats` to confirm the active database path, then either `eodinga watch` for live updates or `eodinga index --rebuild` to rebuild once.
 
 ## FAQ
 
@@ -122,6 +152,7 @@ No. `0.1.x` is lexical only.
 - Query quality is lexical-only. There is no semantic ranking, OCR, or cloud sync in this release.
 - Content search only covers the parser set bundled in `.[parsers]`; unsupported or encrypted documents fall back to filename/path-only search.
 - Live indexing depends on the local watchdog backend. Very large bursty file operations may appear after the debounce window rather than instantly.
+- Duplicate detection is content-hash based, so files without parsed content or stable hashes may only match by name/path.
 
 ## Uninstall
 

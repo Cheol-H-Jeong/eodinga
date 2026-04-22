@@ -6,6 +6,20 @@
 source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
 ```
 
+## Running the Suite
+
+Use a warm local virtualenv and run the perf tests on an otherwise idle machine when you want comparable numbers.
+
+```bash
+source .venv/bin/activate
+EODINGA_RUN_PERF=1 pytest -q tests/perf/test_cold_start.py -s
+EODINGA_RUN_PERF=1 pytest -q tests/perf/test_query_latency.py -s
+EODINGA_RUN_PERF=1 pytest -q tests/perf/test_content_query.py -s
+EODINGA_RUN_PERF=1 pytest -q tests/perf/test_watch_latency.py -s
+```
+
+The individual commands are useful when you are changing one subsystem and want a narrower regression signal before running the whole suite.
+
 The current perf suite covers the SPEC §6.3 scenarios with smaller local-dev datasets:
 
 - `tests/perf/test_cold_start.py`: walker + bulk index throughput on a real tmp tree.
@@ -34,3 +48,9 @@ These numbers are informational for v0.1, not release-blocking. The thresholds i
 - `tests/perf/test_watch_latency.py` measures file-create to query-visible lag through the watcher path.
 
 The benchmarks intentionally stay below the full SPEC-scale datasets so they are practical in CI-like local runs, while still catching obvious algorithmic regressions.
+
+## Reading the Numbers
+
+- Re-run the same benchmark at least twice if the first sample is noisy; filesystem cache warmth heavily affects cold-start throughput.
+- Treat query p95/p99 shifts as more meaningful than p50 for launcher responsiveness.
+- Watch latency is end-to-end, so a regression there can come from debounce, event coalescing, or index commit timing rather than raw filesystem speed.

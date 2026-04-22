@@ -36,8 +36,17 @@ size:>10M date:this-month
 regex:/launch|ship/i path:docs
 ```
 
-## Notes
+## Operator Notes
 
 - Path/name terms are case-insensitive unless `case:true` is set.
 - Content operators only match indexed document text; unsupported files fall back to filename/path search.
+- `date:` accepts `today`, `yesterday`, `this-week`, `this-month`, a single ISO date, or an ISO date range.
+- `size:` comparisons use binary suffixes, so `10M` means `10 * 1024 * 1024` bytes.
+- `is:duplicate` matches entries that share a content hash with at least one other indexed file.
 - Negation applies to the next term or the entire parenthesized group.
+
+## Practical Limits
+
+- Regex terms are evaluated against the candidate set after SQL filtering, so broad regex queries are naturally slower than indexed term searches.
+- `content:` and plain quoted phrases need content indexing enabled for document-body matches.
+- Exact duplicate detection depends on parsed content and stored hashes; unsupported formats still participate in filename/path search but may not be marked as duplicates.
