@@ -77,9 +77,12 @@ def temp_config_path(tmp_path: Path) -> Path:
 @pytest.fixture()
 def cli_runner(tmp_path: Path) -> Iterator[Callable[..., subprocess.CompletedProcess[str]]]:
     def run(*args: str) -> subprocess.CompletedProcess[str]:
+        env = os.environ.copy()
+        env.setdefault("QT_QPA_PLATFORM", "offscreen")
         return subprocess.run(
             [sys.executable, "-m", "eodinga", *args],
             cwd=tmp_path,
+            env=env,
             capture_output=True,
             text=True,
             check=False,
