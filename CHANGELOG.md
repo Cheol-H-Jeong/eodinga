@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.38 - 2026-04-23
+
+- Fixed the query engine so `regex:true` now promotes plain free-text terms into validated path/name regex filters instead of silently falling back to literal substring search.
+- Corrected regex-only branch execution to keep scanning ordered records until it has enough real matches, which restores late-alphabet hits that previously vanished behind the executor's initial candidate window.
+- Added focused compiler, executor, and CLI regressions for regex-mode execution, large-window regex scans, and invalid regex error reporting so the query contract stays pinned end to end.
+
 ## 0.1.37 - 2026-04-23
 
 - Refreshed the offscreen documentation screenshot pipeline so the published assets now show the real search surface, launcher results, and live indexing progress instead of a thinner static capture set.
