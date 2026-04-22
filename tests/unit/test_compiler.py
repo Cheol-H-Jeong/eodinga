@@ -62,3 +62,11 @@ def test_compile_negated_group_pushes_negation_to_leaf_terms() -> None:
     assert branch.where_params == ("txt",)
     assert [term.value for term in branch.path_terms] == ["alpha", "beta"]
     assert all(term.negated for term in branch.path_terms)
+
+
+def test_compile_double_negated_group_restores_positive_branches() -> None:
+    compiled = compile_query(parse("-(-(alpha | beta))"))
+
+    assert len(compiled.branches) == 2
+    assert {branch.path_match_params for branch in compiled.branches} == {('"alpha"',), ('"beta"',)}
+    assert all(not branch.path_terms[0].negated for branch in compiled.branches)

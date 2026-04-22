@@ -243,3 +243,14 @@ def test_execute_korean_filename_queries(tmp_db: sqlite3.Connection) -> None:
 
     receipt_hits = [hit.file.name for hit in search(tmp_db, "문서 영수증", limit=10).hits]
     assert receipt_hits == ["영수증.pdf"]
+
+
+def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/alpha.txt", 1024, now, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, "/workspace/beta.txt", 1024, now - 60, "txt", body_text="beta")
+    _insert_file(tmp_db, 3, "/workspace/gamma.txt", 1024, now - 120, "txt", body_text="gamma")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "-(-(alpha | beta))", limit=10).hits]
+    assert hits == ["alpha.txt", "beta.txt"]
