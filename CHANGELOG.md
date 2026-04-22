@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.34 - 2026-04-23
+
+- Tightened the Windows packaging contract by exposing the expected CLI and GUI dist names in `packaging/pyinstaller.spec`, requiring the cross-platform watchdog and `shiboken6` hidden imports, and auditing that the rendered Inno `Source` entries still match those bundle names.
+- Added a Windows release-workflow validation step so `release-windows.yml` now runs `packaging/build.py --target windows-dry-run` before the packaging job, catching spec or installer drift earlier in CI.
+- Fixed the AppImage audit target to report real build vs dry-run mode correctly, added non-dry-run Linux package wrapper targets in `packaging/build.py`, and routed both AppImage and Debian release packaging through that single wrapper entrypoint.
+
 ## 0.1.33 - 2026-04-23
 
 - Polished the launcher’s keyboard-first flow so `Up` from the query jumps straight to the last hit, `Down` still enters the list from the top, and selection now stays anchored to the same file when a refined query keeps that result visible.
