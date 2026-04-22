@@ -77,6 +77,7 @@ def render_doc_screenshots(output_dir: Path) -> dict[str, Path]:
         app_path = output_dir / "app-window.png"
         launcher_path = output_dir / "launcher-window.png"
         index_path = output_dir / "index-progress.png"
+        settings_path = output_dir / "settings-window.png"
 
         if not window.grab().save(str(app_path)):
             raise RuntimeError(f"failed to save screenshot: {app_path}")
@@ -89,10 +90,17 @@ def render_doc_screenshots(output_dir: Path) -> dict[str, Path]:
 
         if not window.grab().save(str(index_path)):
             raise RuntimeError(f"failed to save screenshot: {index_path}")
+        window.tab_widget.setCurrentWidget(window.settings_tab)
+        _wait(40)
+        app.processEvents()
+
+        if not window.grab().save(str(settings_path)):
+            raise RuntimeError(f"failed to save screenshot: {settings_path}")
         return {
             "app-window": app_path,
             "launcher-window": launcher_path,
             "index-progress": index_path,
+            "settings-window": settings_path,
         }
     finally:
         launcher.close()
