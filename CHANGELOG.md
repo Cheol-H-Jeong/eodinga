@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.104 - 2026-04-23
+
+- Preserved committed `.index.db.next` rebuild progress on interruption instead of deleting the staged database, so startup recovery can finish the swap after an aborted index run.
+- Returned clean `130` / `143` style CLI exit codes for interrupted rebuilds and surfaced the preserved staged path in stderr instead of treating the stop as a generic failure.
+- Added bounded watcher-queue backpressure with an explicit `watcher_backpressure` counter so slow consumers block producers rather than silently dropping or indefinitely accumulating events.
+
 ## 0.1.100 - 2026-04-23
 
 - Added a real in-process observability registry so indexing, query execution, parser failures, and watcher ingress now increment stable counters instead of only emitting debug logs.
