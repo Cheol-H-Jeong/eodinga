@@ -74,6 +74,8 @@ def test_parse_operator_regex_value() -> None:
     "query",
     [
         "",
+        "   ",
+        "\r",
         "-",
         "(-)",
         '"unterminated',
@@ -121,7 +123,7 @@ ATOMS = st.one_of(
         st.characters(blacklist_characters='()|" /', blacklist_categories=("Cs",)),
         min_size=1,
         max_size=12,
-    ).filter(lambda value: value != "-"),
+    ).filter(lambda value: value.strip() and value != "-"),
     st.builds(
         lambda value: f'"{value}"',
         st.text(
