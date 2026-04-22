@@ -193,6 +193,32 @@ def test_launcher_page_keys_jump_through_results(qapp) -> None:
     assert launcher.result_list.currentIndex().row() == 2
 
 
+def test_launcher_alt_number_quick_picks_top_results(qapp) -> None:
+    activated: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        items = [
+            SearchHit(path=Path(f"/tmp/item-{index}.txt"), parent_path=Path("/tmp"), name=f"item-{index}.txt")
+            for index in range(1, 12)
+        ]
+        return QueryResult(items=items[:limit], total=len(items), elapsed_ms=1.5)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: activated.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("item")
+    _wait(60)
+
+    QTest.keyClick(launcher, Qt.Key.Key_3, Qt.KeyboardModifier.AltModifier)
+    QTest.keyClick(launcher, Qt.Key.Key_9, Qt.KeyboardModifier.AltModifier)
+    QTest.keyClick(launcher, Qt.Key.Key_0, Qt.KeyboardModifier.AltModifier)
+
+    assert activated == ["item-3.txt", "item-9.txt"]
+    assert launcher.result_list.currentIndex().row() == 8
+    assert "Alt+1-9" in launcher.shortcut_label.text()
+
+
 def test_launcher_up_from_query_field_selects_last_result(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
