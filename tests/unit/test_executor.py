@@ -290,6 +290,39 @@ def test_execute_duplicate_and_negated_size_queries(tmp_db: sqlite3.Connection) 
     assert unique_hits == ["beta.txt"]
 
 
+def test_execute_regex_true_query(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/report-011.py", 1024, now, "py", body_text="launch")
+    _insert_file(tmp_db, 2, "/workspace/notes.txt", 1024, now - 60, "txt", body_text="misc")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "regex:true report-[0-9]+", limit=10).hits]
+
+    assert hits == ["report-011.py"]
+
+
+def test_execute_regex_only_query_scans_beyond_initial_window(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    for index in range(1, 1501):
+        name = f"alpha-{index:04d}.txt"
+        if index == 1500:
+            name = "needle-1500.txt"
+        _insert_file(
+            tmp_db,
+            index,
+            f"/workspace/{name}",
+            1024,
+            now - index,
+            "txt",
+            body_text="bulk",
+        )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "/needle-[0-9]+/", limit=10).hits]
+
+    assert hits == ["needle-1500.txt"]
+
+
 def test_execute_negated_group_query(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/alpha-plan.txt", 1024, now, "txt", body_text="alpha")

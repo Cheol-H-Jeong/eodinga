@@ -41,6 +41,17 @@ def test_compile_regex_and_case_flags() -> None:
     assert branch.content_regex_terms[0].flags == "i"
 
 
+def test_compile_regex_mode_promotes_plain_terms_to_regex() -> None:
+    compiled = compile_query(parse("regex:true report-[0-9]+"))
+    branch = compiled.branches[0]
+
+    assert branch.path_match_sql is None
+    assert branch.path_terms == ()
+    assert branch.path_regex_terms == (branch.path_regex_terms[0],)
+    assert branch.path_regex_terms[0].pattern == "report-[0-9]+"
+    assert branch.path_regex_terms[0].negated is False
+
+
 def test_compile_date_alias_uses_mtime_range() -> None:
     compiled = compile_query(parse("date:this-week"))
     branch = compiled.branches[0]
@@ -98,6 +109,8 @@ def test_compile_reuses_cached_queries() -> None:
     "query",
     [
         "case:maybe report",
+        "/[a-/",
+        "regex:true [a-",
         "size:>tenM report",
         "date:2026-01-01..bogus report",
         "is:folder report",

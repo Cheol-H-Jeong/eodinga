@@ -146,6 +146,26 @@ def test_search_json_queries_real_index(cli_runner, tmp_path: Path) -> None:
     ]
 
 
+def test_search_json_executes_regex_mode_query(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "regex:true today-alpha-.*",
+        "--json",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == [
+        "today-alpha-clone.txt",
+        "today-alpha-copy.txt",
+    ]
+
+
 def test_search_json_honors_root_filter(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
@@ -297,6 +317,7 @@ def test_search_reports_invalid_query_cleanly(cli_runner, tmp_path: Path) -> Non
     [
         ("case:maybe duplicate", "invalid boolean value"),
         ("date:2026-01-01..bogus duplicate", "invalid date literal"),
+        ("/[a-/", "invalid regex"),
         ("content:/todo/ii", "duplicate regex flag"),
     ],
 )
