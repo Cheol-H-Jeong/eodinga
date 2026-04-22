@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.26 - 2026-04-23
+
+- Fixed rule matching so user include and exclude globs now evaluate against the visible alias path instead of silently resolving symlink targets first, which restores predictable excludes for symlinked or bind-mounted subtrees during traversal.
+- Added walker and rules regressions for alias-path excludes, proving excluded symlink aliases are no longer emitted into the index while real sibling paths still traverse normally.
+- Tightened the DSL parser to reject empty inline regex operator values such as `content://i`, and expanded hypothesis-invalid coverage so those malformed filters fail cleanly instead of compiling into empty regex terms.
+
 ## 0.1.25 - 2026-04-23
 
 - Fixed the opt-in cold-start perf benchmark so its temporary fixture root is explicitly included during traversal instead of being dropped by the default `/tmp` safety denylist, which restores the benchmark’s coverage of the real walker plus bulk-index path.
