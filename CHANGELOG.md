@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.78 - 2026-04-23
+## 0.1.79 - 2026-04-23
 
 - Expanded the query DSL with `date:last-week` and `date:last-month`, so relative time filters now cover the previous full calendar week and month in addition to the existing current-period shortcuts.
 - Added inclusive `size:min..max` ranges with unit inheritance, allowing filters like `size:100..500K` without repeating the suffix on both bounds.
