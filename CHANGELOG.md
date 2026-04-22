@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.23 - 2026-04-23
+
+- Tightened the launcher’s keyboard-first flow so pending debounced queries are flushed before open/reveal actions fire, `Shift+Tab` can move into results, `Home`/`End` jump within the result list, and the footer now shows context-aware shortcut guidance.
+- Made tray indexing state easier to read at a glance by switching the tray icon between idle and indexing modes while keeping the status text synchronized with the current indexing progress.
+- Expanded GUI regression coverage for the new launcher actions, focus cycling, shortcut hints, and tray-state transitions, bringing the round gate to 190 passing tests with 4 skipped.
+
 ## 0.1.22 - 2026-04-23
 
 - Hardened `test_no_network_in_source` so Python sources are now checked with AST-level import/call detection in addition to raw URL token scanning, which closes easy evasion paths such as split imports of `socket`, `urllib.request`, or `http.*`.
