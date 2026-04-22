@@ -6,7 +6,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 from threading import current_thread, main_thread
-from typing import NamedTuple
+from typing import Any, NamedTuple, cast
 
 from eodinga.common import PathRules
 from eodinga.config import RootConfig
@@ -62,7 +62,7 @@ def _rebuild_interrupts():
     if hasattr(signal, "SIGTERM"):
         handled_signals.append(signal.SIGTERM)
 
-    previous_handlers: dict[signal.Signals, object] = {}
+    previous_handlers: dict[signal.Signals, Any] = {}
 
     def _handle(signum: int, _frame) -> None:
         controller.request(signum)
@@ -74,7 +74,7 @@ def _rebuild_interrupts():
         yield controller
     finally:
         for signum, handler in previous_handlers.items():
-            signal.signal(signum, handler)
+            signal.signal(signum, cast(Any, handler))
 
 
 def rebuild_index(

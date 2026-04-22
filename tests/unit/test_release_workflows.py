@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import subprocess
+import sys
 
 
 def test_release_linux_workflow_uses_linux_appimage_dry_run() -> None:
@@ -21,7 +22,13 @@ def test_release_windows_workflow_runs_dry_run_before_build() -> None:
 
 def test_release_workflows_pass_yamllint() -> None:
     result = subprocess.run(
-        ["yamllint", ".github/workflows/release-windows.yml", ".github/workflows/release-linux.yml"],
+        [
+            sys.executable,
+            "-m",
+            "yamllint",
+            ".github/workflows/release-windows.yml",
+            ".github/workflows/release-linux.yml",
+        ],
         capture_output=True,
         text=True,
         check=False,
