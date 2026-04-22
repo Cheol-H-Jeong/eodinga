@@ -25,6 +25,7 @@ def test_render_doc_screenshots_writes_expected_assets(tmp_path: Path, qapp) -> 
 def test_docs_reference_expected_assets_and_guides() -> None:
     root = _repo_root()
     readme = (root / "README.md").read_text(encoding="utf-8")
+    acceptance = (root / "docs" / "ACCEPTANCE.md").read_text(encoding="utf-8")
     architecture = (root / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
     dsl = (root / "docs" / "DSL.md").read_text(encoding="utf-8")
     performance = (root / "docs" / "PERFORMANCE.md").read_text(encoding="utf-8")
@@ -35,6 +36,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "![Settings window]" in readme
     assert "## Install" in readme
     assert "## Quick Start" in readme
+    assert "## Acceptance Quickcheck" in readme
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
     assert "## Config and Data Paths" in readme
@@ -43,8 +45,28 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Packaging" in readme
     assert "linux-deb-dry-run" in readme
     assert "docs/DSL.md" in readme
+    assert "docs/ACCEPTANCE.md" in readme
     assert "docs/ARCHITECTURE.md" in readme
     assert "docs/PERFORMANCE.md" in readme
+    assert "pytest -q tests && ruff check eodinga tests" in readme
+    assert "python packaging/build.py --target windows-dry-run" in readme
+    assert "yamllint .github/workflows/release-windows.yml" in readme
+
+    assert "## Required Commands" in acceptance
+    assert "pip install -e .[all]" in acceptance
+    assert "eodinga --help" in acceptance
+    assert "index" in acceptance
+    assert "watch" in acceptance
+    assert "search" in acceptance
+    assert "stats" in acceptance
+    assert "gui" in acceptance
+    assert "doctor" in acceptance
+    assert "version" in acceptance
+    assert "QT_QPA_PLATFORM=offscreen" in acceptance
+    assert "windows-dry-run" in acceptance
+    assert "yamllint .github/workflows/release-windows.yml" in acceptance
+    assert "README is part of the acceptance surface" in acceptance
+    assert "git tag v0.1.N" in acceptance
 
     assert "## Runtime Flow" in architecture
     assert "## Module Map" in architecture

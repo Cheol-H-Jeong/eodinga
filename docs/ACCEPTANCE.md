@@ -1,0 +1,71 @@
+# Acceptance Guide
+
+This guide turns SPEC §9 into a concrete release checklist for the current repository state.
+
+## Required Commands
+
+Install the full local-dev surface on Python 3.11:
+
+```bash
+python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]
+```
+
+Check the CLI surface:
+
+```bash
+eodinga --help
+```
+
+The top-level help must list exactly these seven subcommands:
+
+- `index`
+- `watch`
+- `search`
+- `stats`
+- `gui`
+- `doctor`
+- `version`
+
+Run the default quality gate:
+
+```bash
+pytest -q tests
+ruff check eodinga tests
+pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)"
+QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"
+```
+
+Run the packaging and workflow checks:
+
+```bash
+python packaging/build.py --target windows-dry-run
+yamllint .github/workflows/release-windows.yml
+```
+
+## What The Gate Covers
+
+- `pytest -q tests` exercises the unit, integration, safety, packaging, and GUI-offscreen regressions, including the end-to-end index-and-search path.
+- `ruff check eodinga tests` keeps the runtime and tests lint-clean.
+- `pyright --outputjson` must report `errorCount: 0`.
+- The offscreen GUI smoke command must instantiate the main window and launcher without a display server.
+- `windows-dry-run` must render the PyInstaller and Inno Setup inputs and write the audit manifest under `packaging/dist/`.
+- `yamllint` validates the release workflow YAML shipped in `.github/workflows/release-windows.yml`.
+
+## Documentation Contract
+
+The README is part of the acceptance surface. Before tagging a release, confirm it still documents:
+
+- installation on Linux and Windows
+- the default launcher hotkey and keyboard actions
+- the DSL entry points and a link to `docs/DSL.md`
+- current limitations for lexical-only search, parser coverage, and watcher behavior
+
+## Release Cut
+
+For each improvement round:
+
+1. Bump `pyproject.toml` and `eodinga/__init__.py` to the next `0.1.N` patch version.
+2. Add a new top entry to `CHANGELOG.md` summarizing the measurable improvements in that round.
+3. Create the local tag with `git tag v0.1.N`.
+
+Publishing the GitHub Release stays outside this repository-local checklist, but the local tag and changelog entry are required before handing off to the orchestrator.
