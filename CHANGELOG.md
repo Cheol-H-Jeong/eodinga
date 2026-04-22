@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.29 - 2026-04-23
+
+- Fixed watcher coalescing for chained same-root renames so late deletes for intermediate paths no longer leak a bogus `deleted` event after `before -> middle -> after` bursts.
+- Normalized plain Korean filename fallback matching to NFC before substring and prefix checks, which restores queries like `회의록` against decomposed Hangul filenames commonly seen on some filesystems.
+- Added regression coverage for both edge cases, bringing the round gate to 213 passing tests with 4 skipped.
+
 ## 0.1.28 - 2026-04-23
 
 - Rejected unsupported or duplicate inline regex flags at parse time, so malformed queries like `content:/todo/x` and `content:/todo/ii` now fail deterministically instead of silently degrading at execution time.
