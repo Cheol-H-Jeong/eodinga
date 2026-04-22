@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.13 - 2026-04-23
+
+- Made launcher match highlighting DSL-aware so free-text terms and quoted phrases still highlight even when the query also includes filters or negation.
+- Tightened keyboard-first launcher flow with `Tab` into results, clearer indexing progress percentages, and tray-menu status text that mirrors current indexing state.
+- Enriched launcher empty states with actionable shortcut guidance for opening hits, revealing folders, and returning to the filter without reaching for the mouse.
+
 ## 0.1.12 - 2026-04-23
 
 - Tightened DSL fuzz coverage so whitespace-only tokens are rejected as invalid queries instead of slipping into the valid-query generator.
