@@ -65,6 +65,46 @@ def test_watcher_create_then_move_coalesces_to_destination_path(tmp_path: Path) 
         service.stop()
 
 
+def test_watcher_create_then_move_ignores_late_source_delete(tmp_path: Path) -> None:
+    service = WatchService()
+    source = tmp_path / "draft.txt"
+    destination = tmp_path / "report.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=source,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="moved",
+            path=destination,
+            src_path=source,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="deleted",
+            path=source,
+            root_path=tmp_path,
+            happened_at=3.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "created"
+    assert event.path == destination
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+
 def test_watcher_move_then_modify_preserves_move_metadata(tmp_path: Path) -> None:
     service = WatchService()
     source = tmp_path / "before.txt"

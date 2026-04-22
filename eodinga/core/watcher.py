@@ -63,6 +63,7 @@ class WatchService:
     def __init__(self) -> None:
         self.queue: Queue[WatchEvent] = Queue()
         self._pending: dict[Path, WatchEvent] = {}
+        self._retired_sources: dict[Path, set[Path]] = {}
         self._timestamps: dict[Path, float] = {}
         self._lock = Lock()
         self._stop = Event()
@@ -89,9 +90,13 @@ class WatchService:
 
     def record(self, event: WatchEvent) -> None:
         with self._lock:
+            moved_retired_sources: set[Path] = set()
             if event.event_type == "moved" and event.src_path is not None:
                 source_existing = self._pending.pop(event.src_path, None)
+                moved_retired_sources = self._retired_sources.pop(event.src_path, set())
                 self._timestamps.pop(event.src_path, None)
+                if source_existing is not None and source_existing.event_type == "created":
+                    moved_retired_sources.add(event.src_path)
                 event = self._merge_move(source_existing, event)
             if event.event_type == "deleted" and self._is_pending_move_source(event.path):
                 return
@@ -108,9 +113,13 @@ class WatchService:
             merged = self._coalesce(existing, event)
             if merged is None:
                 self._pending.pop(event.path, None)
+                self._retired_sources.pop(event.path, None)
                 self._timestamps.pop(event.path, None)
             else:
                 self._pending[event.path] = merged
+                if moved_retired_sources:
+                    moved_retired_sources.update(self._retired_sources.get(event.path, set()))
+                    self._retired_sources[event.path] = moved_retired_sources
                 self._timestamps[event.path] = monotonic()
             if len(self._pending) >= _FLUSH_LIMIT:
                 self._flush_ready(force=True)
@@ -119,7 +128,7 @@ class WatchService:
         return any(
             pending.event_type == "moved" and pending.src_path == path
             for pending in self._pending.values()
-        )
+        ) or any(path in retired_sources for retired_sources in self._retired_sources.values())
 
     def _merge_move(self, existing: WatchEvent | None, moved: WatchEvent) -> WatchEvent:
         if existing is None:
@@ -183,6 +192,7 @@ class WatchService:
             ]
             for path in ready_paths:
                 event = self._pending.pop(path, None)
+                self._retired_sources.pop(path, None)
                 self._timestamps.pop(path, None)
                 if event is not None:
                     self.queue.put(event)
