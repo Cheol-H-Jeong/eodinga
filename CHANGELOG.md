@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.62 - 2026-04-23
+
+- Fixed watcher coalescing for backends that emit `moved` plus a duplicate destination `created`, so the move keeps its `src_path` metadata and the index writer still removes the old source row instead of leaving a ghost entry behind.
+- Tightened the end-to-end watch regressions around move handling with both queue-level and index-writer coverage, pinning the stale-source cleanup path after real rename activity.
+- Corrected `path:` inline parsing so absolute literals such as `/tmp/ms` and `/tmp/ims` stay literal path filters instead of being misread as regex patterns with valid-looking flag suffixes, while malformed `path://` input still raises a clean syntax error.
+
 ## 0.1.61 - 2026-04-23
 
 - Made config persistence use a staged temp file plus atomic replace, so failed or interrupted saves no longer risk truncating the live `config.toml` while updating launcher or root settings.
