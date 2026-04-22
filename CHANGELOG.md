@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.47 - 2026-04-23
+
+- Trimmed `IndexWriter.bulk_upsert()` overhead on the cold-start path by reusing list-backed batches instead of copying them, streaming row tuples directly into SQLite `executemany()`, and skipping `MAX(rowid)` probes when unchanged content rows do not need new FTS ids.
+- Added an opt-in `tests/perf/test_bulk_upsert.py` benchmark so the isolated writer throughput path is measured alongside the existing cold-start, query-latency, content-query, and watch-latency checks.
+- Refreshed `docs/PERFORMANCE.md` with the current local perf baseline after the write-path tuning round: cold-start measured 6,152 files/sec and isolated bulk upsert measured 61,103 records/sec on this Linux dev box.
+
 ## 0.1.46 - 2026-04-23
 
 - Fixed the DSL parser so slash-prefixed `path:` filters like `path:/tmp/log` and `path:/a/b` stay literal path terms instead of being misread as inline regexes when the basename is 1-3 letters long.
