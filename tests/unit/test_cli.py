@@ -377,3 +377,53 @@ def test_version_matches_package(cli_runner) -> None:
 def test_gui_smoke_succeeds_offscreen(cli_runner) -> None:
     result = cli_runner("gui")
     assert result.returncode == 0
+
+
+def test_index_json_rebuilds_searchable_database(cli_runner, tmp_path: Path) -> None:
+    reports = tmp_path / "reports"
+    docs = tmp_path / "docs"
+    reports.mkdir()
+    docs.mkdir()
+    (reports / "launch-plan.txt").write_text("launcher recovery checklist\n", encoding="utf-8")
+    (docs / "notes.md").write_text("secondary workspace note\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "index",
+        "--root",
+        str(reports),
+        "--root",
+        str(docs),
+        "--rebuild",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["command"] == "index"
+    assert payload["db"] == str(db_path)
+    assert payload["roots"] == [str(reports), str(docs)]
+    assert payload["files_indexed"] >= 2
+    assert not db_path.with_name(".index.db.next").exists()
+
+    search_result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "launcher",
+        "--json",
+    )
+
+    assert search_result.returncode == 0
+    search_payload = json.loads(search_result.stdout)
+    assert [Path(item["path"]).name for item in search_payload["results"]] == ["launch-plan.txt"]
+
+
+def test_index_requires_at_least_one_root(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+
+    result = cli_runner("--db", str(db_path), "index", "--rebuild")
+
+    assert result.returncode == 2
+    assert "requires at least one root" in result.stderr
