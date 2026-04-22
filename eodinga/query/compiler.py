@@ -122,6 +122,10 @@ def _normalize_literal(value: str) -> str:
     return unicodedata.normalize("NFC", value)
 
 
+def _has_non_ascii(value: str) -> bool:
+    return any(ord(char) > 127 for char in value)
+
+
 def _parse_bool(value: str) -> bool:
     normalized = value.lower()
     if normalized in {"1", "true", "yes", "on"}:
@@ -288,9 +292,10 @@ def _compile_branch(
                         negated=term.negated,
                     )
                 )
-                comparator = "NOT LIKE" if term.negated else "LIKE"
-                where_parts.append(f"files.path {comparator} ?")
-                where_params.append(f"%{normalized_value}%")
+                if not _has_non_ascii(normalized_value):
+                    comparator = "NOT LIKE" if term.negated else "LIKE"
+                    where_parts.append(f"files.path {comparator} ?")
+                    where_params.append(f"%{normalized_value}%")
             continue
         if term.name == "ext":
             comparator = "!=" if term.negated else "="
