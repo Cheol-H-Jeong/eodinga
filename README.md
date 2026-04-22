@@ -4,7 +4,7 @@ Everything-class instant file search for Windows + Linux. `eodinga` indexes file
 
 ## Status
 
-This repository tracks the `0.1.0` lexical-search release defined in `SPEC.md`. Semantic search is out of scope for this version.
+This repository tracks the `0.1.x` lexical-search release defined in `SPEC.md`. Semantic search is out of scope for this version.
 
 ## Install
 
@@ -18,7 +18,7 @@ For packaged builds, use the AppImage or `.deb` artifacts produced by CI.
 
 ### Windows
 
-- Download the `eodinga-0.1.0-win-x64-setup.exe` release asset.
+- Download the latest `eodinga-0.1.x-win-x64-setup.exe` release asset.
 - Install per-user with the Inno Setup wizard.
 - Optionally enable auto-start at login during install.
 
@@ -58,6 +58,8 @@ Global flags:
 - `-path:node_modules` : negation
 - `(invoice | receipt) ext:pdf` : grouping
 
+Full perf notes and local benchmark baselines live in [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md).
+
 ## Hotkey
 
 - Default launcher shortcut: `Ctrl+Shift+Space`
@@ -92,7 +94,13 @@ No. The Windows installer preserves `%LOCALAPPDATA%\eodinga\` unless the uninsta
 
 ### Is semantic search included?
 
-No. `0.1.0` is lexical only.
+No. `0.1.x` is lexical only.
+
+## Limitations
+
+- Perf gates are opt-in in v0.1. Run `EODINGA_RUN_PERF=1 pytest -q tests/perf -s` for local baselines and regression checks.
+- Query quality is lexical-only. There is no semantic ranking, OCR, or cloud sync in this release.
+- Content search only covers the parser set bundled in `.[parsers]`; unsupported or encrypted documents fall back to filename/path-only search.
 
 ## Uninstall
 
