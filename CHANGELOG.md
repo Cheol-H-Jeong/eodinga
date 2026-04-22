@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.52 - 2026-04-23
+
+- Fixed watcher coalescing so a `moved` event keeps its source path retired even after the move has already flushed, preventing late OS delete notifications from generating a second stale delete event for the old path.
+- Added focused watcher regressions for flushed move-source deletes and chained flushed moves, plus an end-to-end index update test that proves the destination record survives a late delete from the original source path.
+
 ## 0.1.51 - 2026-04-23
 
 - Made `eodinga index` perform a real one-shot rebuild into a staged SQLite database and atomically swap it into place once the walk completes, so interrupted rebuilds no longer risk replacing the live index with a partial snapshot.
