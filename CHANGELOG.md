@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2 - 2026-04-23
+
+- Added end-to-end query support for `date:today|yesterday|this-week|this-month` as an alias for modified-time filtering.
+- Added `is:duplicate` query support backed by indexed `content_hash` lookups, including schema migration coverage for existing databases.
+- Expanded query tests to cover relative-date filters, duplicate detection, and negated size/duplicate combinations.
+
 ## 0.1.1 - 2026-04-23
 
 - Repaired merge regressions in shared models, filesystem helpers, observability exports, and test fixtures so the baseline gate is green again.
