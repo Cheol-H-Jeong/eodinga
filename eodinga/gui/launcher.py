@@ -136,6 +136,7 @@ class LauncherPanel(QWidget):
         parent=None,
     ) -> None:
         super().__init__(parent)
+        self.setAccessibleName("Launcher panel")
         self._search_fn = search_fn or _default_search
         self._max_results = max_results
         self._latest_result = QueryResult()
@@ -148,7 +149,9 @@ class LauncherPanel(QWidget):
         self._skip_remember_query = False
 
         self.query_field = SearchField(parent=self)
+        self.query_field.setAccessibleName("Launcher search field")
         self.result_list = QListView(self)
+        self.result_list.setAccessibleName("Launcher results list")
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
         self.result_list.setUniformItemSizes(False)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
@@ -500,6 +503,7 @@ class LauncherWindow(LauncherPanel):
         self._geometry_save_timer.setInterval(150)
         self._geometry_save_timer.timeout.connect(self._persist_geometry)
         self.setObjectName("surface")
+        self.setAccessibleName("Launcher window")
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
         self.setWindowFlag(Qt.WindowType.Tool, True)
         always_on_top = self._config.launcher.always_on_top if self._config is not None else False

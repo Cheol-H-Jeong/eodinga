@@ -496,3 +496,12 @@ def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     launcher.show()
 
     assert "Alt+1 through Alt+9" in launcher.empty_state.body_label.text()
+
+
+def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    assert launcher.accessibleName() == "Launcher window"
+    assert launcher.query_field.accessibleName() == "Launcher search field"
+    assert launcher.result_list.accessibleName() == "Launcher results list"
