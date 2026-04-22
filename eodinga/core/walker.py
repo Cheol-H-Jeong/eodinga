@@ -34,6 +34,7 @@ def _to_record(root_id: int, path: Path, stat_result: stat_result) -> FileRecord
 def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[list[FileRecord]]:
     queue: deque[Path] = deque([resolve_safe(root)])
     visited_dirs: set[tuple[int, int]] = set()
+    visited_resolved_dirs: set[Path] = set()
     batch: list[FileRecord] = []
     while queue:
         current = queue.popleft()
@@ -51,7 +52,11 @@ def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[lis
             inode_key = (stat_result.st_dev, stat_result.st_ino)
             if inode_key in visited_dirs:
                 continue
+            resolved_dir = resolve_safe(current)
+            if resolved_dir in visited_resolved_dirs:
+                continue
             visited_dirs.add(inode_key)
+            visited_resolved_dirs.add(resolved_dir)
             try:
                 children = scandir_safe(current)
             except OSError:

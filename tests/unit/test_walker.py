@@ -137,3 +137,45 @@ def test_walk_batched_honors_symlink_alias_excludes(tmp_path: Path) -> None:
     assert Path("real") in paths
     assert Path("real/sample.txt") in paths
     assert Path("alias") not in paths
+
+
+def test_walk_batched_skips_resolved_alias_cycles_even_when_inode_keys_differ(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "tree"
+    canonical = root / "canonical"
+    mirror = root / "mirror"
+    sample = canonical / "sample.txt"
+
+    def fake_stat(path: Path) -> os.stat_result:
+        inode_map = {
+            root: (10, 1, S_IFDIR | 0o755),
+            canonical: (10, 2, S_IFDIR | 0o755),
+            mirror: (11, 200, S_IFDIR | 0o755),
+            sample: (10, 3, S_IFREG | 0o644),
+        }
+        device, inode, mode = inode_map[path]
+        return os.stat_result((mode, inode, device, 1, 1000, 1000, 1, 1, 1, 1))
+
+    def fake_scandir(path: Path) -> list[Path]:
+        children = {
+            root: [canonical],
+            canonical: [sample, mirror],
+            mirror: [sample, mirror],
+        }
+        return children.get(path, [])
+
+    def fake_resolve(path: Path) -> Path:
+        return canonical if path == mirror else path
+
+    monkeypatch.setattr(walker_module, "resolve_safe", fake_resolve)
+    monkeypatch.setattr(walker_module, "stat_safe", fake_stat)
+    monkeypatch.setattr(walker_module, "scandir_safe", fake_scandir)
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+    paths = [record.path for record in records]
+
+    assert paths.count(canonical) == 1
+    assert paths.count(mirror) == 1
+    assert paths.count(sample) == 1
