@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.68 - 2026-04-23
+
+- Batched delete and move-source cleanup inside `IndexWriter.apply_events()` so watcher-driven retirements now collapse path lookups and file deletes into chunked `IN (...)` statements instead of issuing one SQL round-trip per removed path.
+- Added focused writer regressions that trace SQLite statements for multi-delete and multi-move batches, pinning both the reduced SQL shape and the preserved file-set outcome after event application.
+- Refreshed the opt-in SPEC §6.3 perf baseline after rerunning `EODINGA_RUN_PERF=1 pytest -q tests/perf -s`: cold start measured 6,024 files/sec, bulk upsert 60,942 records/sec, content-query p95 0.64 ms, and watch visibility p99 0.132 s in the current Linux dev environment.
+
 ## 0.1.67 - 2026-04-23
 
 - Tightened the DSL grammar fuzz gate so quoted phrase atoms are escaped before generation, and added an explicit regression for dangling phrase escapes to keep malformed input on the syntax-error path instead of the valid-query corpus.
