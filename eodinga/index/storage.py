@@ -166,12 +166,12 @@ def atomic_replace_index(staged_path: Path, target_path: Path) -> None:
     target_dir.mkdir(parents=True, exist_ok=True)
     _checkpoint_wal(staged_path)
     _fsync_file(staged_path)
-    _cleanup_sidecars(target_path)
     _fsync_directory(target_dir)
     os.replace(staged_path, target_path)
     _fsync_file(target_path)
-    _fsync_directory(target_dir)
+    _cleanup_sidecars(target_path)
     _cleanup_sidecars(staged_path)
+    _fsync_directory(target_dir)
 
 
 __all__ = [
