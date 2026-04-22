@@ -23,6 +23,10 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["version"] == __version__
     assert payload["version_matches_package"] is True
     assert payload["pyinstaller_spec"]["exists"] is True
+    assert payload["pyinstaller_spec"]["dist_names"] == {
+        "cli": "eodinga-cli",
+        "gui": "eodinga-gui",
+    }
     datas = {tuple(item) for item in payload["pyinstaller_spec"]["datas"]}
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
     assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas
@@ -37,6 +41,11 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["contains_start_menu_shortcut"] is True
     assert payload["inno_setup"]["contains_desktop_shortcut_task"] is True
     assert payload["inno_setup"]["contains_postinstall_launch"] is True
+    assert payload["inno_setup"]["source_entries"] == [
+        'dist\\\\eodinga-gui\\\\*',
+        'dist\\\\eodinga-cli\\\\*',
+    ]
+    assert payload["inno_setup"]["source_entries_match_pyinstaller_dist"] is True
     assert payload["inno_setup"]["privileges_lowest"] is True
     assert payload["inno_setup"]["disables_program_group_page"] is True
     assert payload["inno_setup"]["disables_dir_page"] is True
@@ -71,6 +80,24 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["apprun"]["launches_gui"] is True
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["executes_python_module"] is True
+
+
+def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
+    result = subprocess.run(
+        [sys.executable, "packaging/build.py", "--target", "linux-appimage"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    manifest_path = Path("packaging/dist/linux-appimage-audit.json")
+    assert manifest_path.exists()
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert payload["target"] == "linux-appimage"
+    assert payload["dry_run"] is False
+    assert Path(payload["appdir"]).exists()
+    assert Path(payload["archive"]).exists()
 
 
 def test_linux_deb_dry_run_stages_recipe() -> None:

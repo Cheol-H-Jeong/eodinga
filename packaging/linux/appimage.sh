@@ -61,7 +61,7 @@ for line in desktop_lines:
 apprun_path = Path("${APPDIR}/AppRun")
 launcher_path = Path("${APPDIR}/usr/bin/eodinga")
 payload = {
-    "target": "linux-appimage-dry-run",
+    "target": "linux-appimage-dry-run" if ${DRY_RUN} else "linux-appimage",
     "version": "${VERSION}",
     "appdir": "${APPDIR}",
     "archive": "${ARCHIVE_PATH}",

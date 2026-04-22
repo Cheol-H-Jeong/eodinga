@@ -16,6 +16,8 @@ jobs:
           python-version: "3.11"
       - name: Install
         run: pip install -e .[dev,parsers,gui]
+      - name: Validate packaging inputs
+        run: python packaging/build.py --target windows-dry-run
       - name: Build
         run: python packaging/build.py --target windows
       - name: Upload artifact

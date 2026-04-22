@@ -49,6 +49,10 @@ def _inno_contains(text: str, needle: str) -> bool:
     return needle in text
 
 
+def _source_entries(text: str) -> list[str]:
+    return re.findall(r'Source:\s*"([^"]+)"', text)
+
+
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     spec_namespace: dict[str, Any] = {"__file__": str(WINDOWS_SPEC)}
     exec(WINDOWS_SPEC.read_text(encoding="utf-8"), spec_namespace)
@@ -56,6 +60,13 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     rendered_path = _render_inno_script(version)
     rendered_text = rendered_path.read_text(encoding="utf-8")
     output_base_filename = f"eodinga-{version}-win-x64-setup"
+    cli_dist_name = str(spec_namespace.get("CLI_DIST_NAME", "eodinga-cli"))
+    gui_dist_name = str(spec_namespace.get("GUI_DIST_NAME", "eodinga-gui"))
+    source_entries = _source_entries(inno_text)
+    expected_source_entries = [
+        f"dist\\\\{gui_dist_name}\\\\*",
+        f"dist\\\\{cli_dist_name}\\\\*",
+    ]
     return {
         "target": "windows-dry-run",
         "version": version,
@@ -64,12 +75,19 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
         "pyinstaller_spec": {
             "path": str(WINDOWS_SPEC),
             "exists": WINDOWS_SPEC.exists(),
+            "dist_names": {
+                "cli": cli_dist_name,
+                "gui": gui_dist_name,
+            },
+            "required_hiddenimports": spec_namespace.get("REQUIRED_HIDDEN_IMPORTS", []),
             "hiddenimports": spec_namespace.get("HIDDEN_IMPORTS", []),
             "datas": spec_namespace.get("DATAS", []),
         },
         "inno_setup": {
             "path": str(INNO_SCRIPT),
             "exists": INNO_SCRIPT.exists(),
+            "source_entries": source_entries,
+            "source_entries_match_pyinstaller_dist": source_entries == expected_source_entries,
             "contains_app_version_template": INNO_VERSION_TOKEN in inno_text,
             "rendered_path": str(rendered_path),
             "output_base_filename": output_base_filename,
@@ -127,6 +145,15 @@ def _run_linux_appimage_dry_run() -> int:
     return result.returncode
 
 
+def _run_linux_appimage() -> int:
+    result = subprocess.run(
+        ["bash", str(APPIMAGE_SCRIPT)],
+        cwd=PROJECT_ROOT,
+        check=False,
+    )
+    return result.returncode
+
+
 def _run_linux_deb_dry_run() -> int:
     result = subprocess.run(
         ["bash", str(DEB_SCRIPT), "--dry-run"],
@@ -140,12 +167,20 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--target",
-        choices=("linux-appimage-dry-run", "linux-deb-dry-run", "windows-dry-run", "windows"),
+        choices=(
+            "linux-appimage-dry-run",
+            "linux-appimage",
+            "linux-deb-dry-run",
+            "windows-dry-run",
+            "windows",
+        ),
         required=True,
     )
     args = parser.parse_args(argv)
     if args.target == "linux-appimage-dry-run":
         return _run_linux_appimage_dry_run()
+    if args.target == "linux-appimage":
+        return _run_linux_appimage()
     if args.target == "linux-deb-dry-run":
         return _run_linux_deb_dry_run()
     if args.target == "windows-dry-run":

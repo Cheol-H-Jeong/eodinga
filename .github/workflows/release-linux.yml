@@ -21,7 +21,7 @@ jobs:
       - name: Build Debian dry run
         run: python packaging/build.py --target linux-deb-dry-run
       - name: Package AppImage
-        run: bash packaging/linux/appimage.sh
+        run: python packaging/build.py --target linux-appimage
       - name: Package Debian
         run: bash packaging/linux/deb.sh
       - name: Upload artifact

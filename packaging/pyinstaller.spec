@@ -6,6 +6,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENTRY_CLI = PROJECT_ROOT / "eodinga" / "__main__.py"
 ENTRY_GUI = PROJECT_ROOT / "eodinga" / "__main__.py"
 I18N_DIR = PROJECT_ROOT / "eodinga" / "i18n"
+CLI_DIST_NAME = "eodinga-cli"
+GUI_DIST_NAME = "eodinga-gui"
 
 RUNTIME_MODULES = [
     "eodinga.content.code",
@@ -33,14 +35,17 @@ RUNTIME_MODULES = [
     "eodinga.launcher.hotkey_win",
 ]
 
-HIDDEN_IMPORTS = [
+REQUIRED_HIDDEN_IMPORTS = [
     "PySide6",
     "PySide6.QtCore",
     "PySide6.QtGui",
     "PySide6.QtWidgets",
+    "shiboken6",
     "watchdog",
     "watchdog.events",
     "watchdog.observers",
+    "watchdog.observers.inotify",
+    "watchdog.observers.read_directory_changes",
     "pypdf",
     "pdfminer",
     "docx",
@@ -49,6 +54,10 @@ HIDDEN_IMPORTS = [
     "olefile",
     "selectolax",
     "ebooklib",
+]
+
+HIDDEN_IMPORTS = [
+    *REQUIRED_HIDDEN_IMPORTS,
     *RUNTIME_MODULES,
 ]
 
@@ -61,6 +70,8 @@ DATAS = [
 SPEC_AUDIT = {
     "cli_entry": str(ENTRY_CLI),
     "gui_entry": str(ENTRY_GUI),
+    "cli_dist_name": CLI_DIST_NAME,
+    "gui_dist_name": GUI_DIST_NAME,
     "hiddenimports": HIDDEN_IMPORTS,
     "datas": DATAS,
     "mode": "onedir",

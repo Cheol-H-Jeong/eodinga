@@ -10,17 +10,32 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     namespace["__file__"] = str(spec_path.resolve())
     exec(spec_path.read_text(encoding="utf-8"), namespace)
     hiddenimports = cast(list[str], namespace["HIDDEN_IMPORTS"])
+    required_hiddenimports = cast(list[str], namespace["REQUIRED_HIDDEN_IMPORTS"])
     runtime_modules = cast(list[str], namespace["RUNTIME_MODULES"])
     datas = cast(list[tuple[str, str]], namespace["DATAS"])
     assert "watchdog" in hiddenimports
+    assert "watchdog.observers.inotify" in hiddenimports
+    assert "watchdog.observers.read_directory_changes" in hiddenimports
     assert "PySide6.QtWidgets" in hiddenimports
+    assert "shiboken6" in hiddenimports
     assert "pypdf" in hiddenimports
     assert "eodinga.gui.app" in hiddenimports
     assert "eodinga.content.registry" in hiddenimports
     assert "eodinga.launcher.hotkey_win" in hiddenimports
+    assert set(required_hiddenimports).issubset(set(hiddenimports))
     assert set(runtime_modules).issubset(set(hiddenimports))
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
     assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas
+
+
+def test_pyinstaller_spec_exposes_expected_windows_dist_names() -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+
+    assert namespace["CLI_DIST_NAME"] == "eodinga-cli"
+    assert namespace["GUI_DIST_NAME"] == "eodinga-gui"
 
 
 def test_pyinstaller_runtime_modules_map_to_real_sources() -> None:
