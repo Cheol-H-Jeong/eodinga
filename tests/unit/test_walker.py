@@ -63,6 +63,38 @@ def test_walk_batched_reuses_discovery_stat_result(
     assert stat_calls.count(sample) == 1
 
 
+def test_walk_batched_uses_fs_wrapper_to_detect_symlinked_directories(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "tree"
+    real = root / "real"
+    alias = root / "alias"
+    root.mkdir()
+    real.mkdir()
+    alias.symlink_to(real, target_is_directory=True)
+
+    follow_calls: list[Path] = []
+    original_follow_stat = walker_module.stat_follow_safe
+
+    def counting_follow_stat(path: Path) -> os.stat_result:
+        follow_calls.append(path)
+        return original_follow_stat(path)
+
+    def fail_is_dir(self: Path) -> bool:
+        raise AssertionError("walker should use eodinga.core.fs.stat_follow_safe")
+
+    monkeypatch.setattr(walker_module, "stat_follow_safe", counting_follow_stat)
+    monkeypatch.setattr(Path, "is_dir", fail_is_dir)
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+    alias_record = next(record for record in records if record.path == alias)
+
+    assert alias_record.is_symlink is True
+    assert alias_record.is_dir is True
+    assert follow_calls == [alias]
+
+
 def test_walk_batched_keeps_distinct_hardlink_paths(tmp_path: Path) -> None:
     root = tmp_path / "tree"
     root.mkdir()
@@ -216,3 +248,31 @@ def test_walk_batched_skips_resolved_alias_cycles_even_when_inode_keys_differ(
     assert paths.count(canonical) == 1
     assert paths.count(mirror) == 1
     assert paths.count(sample) == 1
+
+
+def test_walk_batched_skips_descending_when_resolve_safe_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "tree"
+    child = root / "child"
+    nested = child / "nested.txt"
+    root.mkdir()
+    child.mkdir()
+    nested.write_text("nested", encoding="utf-8")
+
+    original_resolve_safe = walker_module.resolve_safe
+
+    def flaky_resolve(path: Path) -> Path:
+        if path == child:
+            raise OSError("bind mount disappeared")
+        return original_resolve_safe(path)
+
+    monkeypatch.setattr(walker_module, "resolve_safe", flaky_resolve)
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+    paths = {record.path for record in records}
+
+    assert root in paths
+    assert child in paths
+    assert nested not in paths
