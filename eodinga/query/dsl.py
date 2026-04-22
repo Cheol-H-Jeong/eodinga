@@ -233,24 +233,39 @@ class _Parser:
                 raise QuerySyntaxError("unterminated phrase", start)
             return value[1:-1], "phrase", ""
         if value.startswith("/"):
-            if value.count("/") < 2 or value.endswith("\\"):
+            delimiters = self._regex_delimiters(value)
+            if len(delimiters) < 2 or value.endswith("\\"):
                 raise QuerySyntaxError("unterminated regex", self.index - len(value))
-            last = value.rfind("/")
+            last = delimiters[-1]
+            pattern = value[1:last]
+            if not pattern:
+                raise QuerySyntaxError("empty regex", self.index - len(value) + 1)
             suffix = value[last + 1 :]
             if suffix and (len(suffix) > 3 or not suffix.isalpha()):
+                return value, "word", ""
+            if name == "path" and value.startswith("/") and (len(delimiters) < 3 or not suffix):
                 return value, "word", ""
             if name == "path" and suffix:
                 try:
                     self._validate_regex_flags(suffix, self.index - len(value) + last + 1)
                 except QuerySyntaxError:
                     return value, "word", ""
-            pattern = value[1:last]
-            if not pattern:
-                raise QuerySyntaxError("empty regex", self.index - len(value) + 1)
             flags = suffix
             self._validate_regex_flags(flags, self.index - len(value) + last + 1)
             return pattern, "regex", flags
         return value, "word", ""
+
+    def _regex_delimiters(self, value: str) -> list[int]:
+        delimiters: list[int] = []
+        backslashes = 0
+        for index, char in enumerate(value):
+            if char == "\\":
+                backslashes += 1
+                continue
+            if char == "/" and backslashes % 2 == 0:
+                delimiters.append(index)
+            backslashes = 0
+        return delimiters
 
     def _with_negation(self, node: PhraseNode | RegexNode, negated: bool) -> PhraseNode | RegexNode:
         if not negated:

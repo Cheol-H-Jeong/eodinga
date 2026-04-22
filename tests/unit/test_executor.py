@@ -300,6 +300,19 @@ def test_execute_path_filter_with_short_unix_basename_literal(tmp_db: sqlite3.Co
     assert hits == ["/tmp/log"]
 
 
+def test_execute_path_filter_with_regex_like_short_unix_basename_literal(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/tmp/ms", 512, now, "", body_text="literal path")
+    _insert_file(tmp_db, 2, "/tmp/notes", 512, now - 60, "", body_text="other path")
+    tmp_db.commit()
+
+    hits = [hit.file.path.as_posix() for hit in search(tmp_db, "path:/tmp/ms", limit=5).hits]
+
+    assert hits == ["/tmp/ms"]
+
+
 def test_execute_decomposed_korean_content_query_keeps_snippets(
     tmp_db: sqlite3.Connection,
 ) -> None:

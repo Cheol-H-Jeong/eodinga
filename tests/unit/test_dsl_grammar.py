@@ -92,6 +92,18 @@ def test_parse_slash_prefixed_path_literal_as_word_value(query: str) -> None:
     assert node.value_kind == "word"
 
 
+@pytest.mark.parametrize("query", ["path:/tmp/ms", "path:/tmp/ims", "path:/tmp/is"])
+def test_parse_slash_prefixed_path_literal_does_not_treat_short_basename_as_regex_flags(
+    query: str,
+) -> None:
+    node = parse(query)
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "path"
+    assert node.value == query.removeprefix("path:")
+    assert node.value_kind == "word"
+
+
 def test_parse_slash_prefixed_path_regex_with_valid_flags() -> None:
     node = parse("path:/tmp/log/i")
 
@@ -251,6 +263,18 @@ def test_slash_prefixed_path_literal_with_short_basename_fuzz_parses_as_word(
     assert isinstance(node, OperatorNode)
     assert node.name == "path"
     assert node.value == f"/{left}/{right}"
+    assert node.value_kind == "word"
+
+
+@given(st.sampled_from(["i", "m", "s", "im", "is", "ms", "ims"]))
+def test_slash_prefixed_path_literal_with_regex_like_basename_fuzz_stays_word(
+    basename: str,
+) -> None:
+    node = parse(f"path:/tmp/{basename}")
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "path"
+    assert node.value == f"/tmp/{basename}"
     assert node.value_kind == "word"
 
 
