@@ -145,6 +145,24 @@ def test_e2e_index_search_preserves_symlink_root_alias_paths(tmp_path: Path) -> 
     assert all(str(path).startswith(str(alias_root)) for path in indexed_paths)
 
 
+def test_e2e_plain_negated_term_filters_auto_content_hits(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    (root / "alpha.txt").write_text("note launch\n", encoding="utf-8")
+    (root / "beta.txt").write_text("note archive\n", encoding="utf-8")
+    (root / "gamma.txt").write_text("archive only\n", encoding="utf-8")
+    _index_tree(root, db_path)
+
+    conn = open_index(db_path)
+    try:
+        hits = [hit.file.name for hit in search(conn, "note -launch", limit=5).hits]
+    finally:
+        conn.close()
+
+    assert hits == ["beta.txt"]
+
+
 def test_e2e_watch_move_then_recreate_delete_does_not_leave_ghost_source(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     db_path = tmp_path / "database" / "index.db"
