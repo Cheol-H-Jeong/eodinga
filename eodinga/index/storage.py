@@ -37,6 +37,24 @@ def _cleanup_sidecars(path: Path) -> None:
             sidecar.unlink()
 
 
+def _fsync_file(path: Path) -> None:
+    if not path.exists():
+        return
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _fsync_directory(path: Path) -> None:
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 def has_stale_wal(path: Path) -> bool:
     wal_path = _sidecar(path, "-wal")
     return path.exists() and wal_path.exists() and wal_path.stat().st_size > 0
@@ -68,10 +86,15 @@ def open_index(path: Path) -> sqlite3.Connection:
 def atomic_replace_index(staged_path: Path, target_path: Path) -> None:
     if not staged_path.exists():
         raise FileNotFoundError(staged_path)
-    target_path.parent.mkdir(parents=True, exist_ok=True)
+    target_dir = target_path.parent
+    target_dir.mkdir(parents=True, exist_ok=True)
     _checkpoint_wal(staged_path)
+    _fsync_file(staged_path)
     _cleanup_sidecars(target_path)
+    _fsync_directory(target_dir)
     os.replace(staged_path, target_path)
+    _fsync_file(target_path)
+    _fsync_directory(target_dir)
     _cleanup_sidecars(staged_path)
 
 

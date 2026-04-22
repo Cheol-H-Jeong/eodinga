@@ -79,6 +79,37 @@ def test_atomic_replace_index_checkpoints_staged_wal_before_swap(tmp_path: Path)
     assert not target.with_name("index.db-shm").exists()
 
 
+def test_atomic_replace_index_fsyncs_staged_file_and_target_directory(
+    tmp_path: Path, monkeypatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / "index.staged.db"
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.close()
+
+    calls: list[tuple[str, Path]] = []
+
+    def record_file(path: Path) -> None:
+        calls.append(("file", path))
+
+    def record_directory(path: Path) -> None:
+        calls.append(("dir", path))
+
+    monkeypatch.setattr("eodinga.index.storage._fsync_file", record_file)
+    monkeypatch.setattr("eodinga.index.storage._fsync_directory", record_directory)
+
+    atomic_replace_index(staged, target)
+
+    assert calls == [
+        ("file", staged),
+        ("dir", target.parent),
+        ("file", target),
+        ("dir", target.parent),
+    ]
+
+
 def test_open_index_replays_stale_wal_on_startup(tmp_path: Path) -> None:
     source = tmp_path / "source.db"
     snapshot = tmp_path / "snapshot.db"
