@@ -10,6 +10,7 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     namespace["__file__"] = str(spec_path.resolve())
     exec(spec_path.read_text(encoding="utf-8"), namespace)
     hiddenimports = cast(list[str], namespace["HIDDEN_IMPORTS"])
+    discovered_hiddenimports = cast(list[str], namespace["DISCOVERED_HIDDEN_IMPORTS"])
     required_hiddenimports = cast(list[str], namespace["REQUIRED_HIDDEN_IMPORTS"])
     runtime_modules = cast(list[str], namespace["RUNTIME_MODULES"])
     datas = cast(list[tuple[str, str]], namespace["DATAS"])
@@ -22,8 +23,16 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     assert "eodinga.gui.app" in hiddenimports
     assert "eodinga.content.registry" in hiddenimports
     assert "eodinga.launcher.hotkey_win" in hiddenimports
+    assert discovered_hiddenimports == [
+        "Xlib.X",
+        "Xlib.XK",
+        "Xlib.display",
+        "pynput.keyboard",
+    ]
     assert set(required_hiddenimports).issubset(set(hiddenimports))
     assert set(runtime_modules).issubset(set(hiddenimports))
+    assert set(discovered_hiddenimports).issubset(set(hiddenimports))
+    assert {"eodinga.launcher.hotkey_linux", "eodinga.launcher.hotkey_win"} <= set(runtime_modules)
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
     assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas
 

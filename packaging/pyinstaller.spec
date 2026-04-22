@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -10,6 +11,7 @@ CLI_DIST_NAME = "eodinga-cli"
 GUI_DIST_NAME = "eodinga-gui"
 CLI_EXE_NAME = f"{CLI_DIST_NAME}.exe"
 GUI_EXE_NAME = f"{GUI_DIST_NAME}.exe"
+SOURCE_ROOT = PROJECT_ROOT / "eodinga"
 
 RUNTIME_MODULES = [
     "eodinga.content.code",
@@ -62,10 +64,33 @@ REQUIRED_HIDDEN_IMPORTS = [
     "ebooklib",
 ]
 
-HIDDEN_IMPORTS = [
-    *REQUIRED_HIDDEN_IMPORTS,
-    *RUNTIME_MODULES,
-]
+
+def _discover_hidden_imports(source_root: Path) -> list[str]:
+    discovered: set[str] = set()
+    for source_path in source_root.rglob("*.py"):
+        module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+        for node in ast.walk(module):
+            if not isinstance(node, ast.Call):
+                continue
+            if not isinstance(node.func, ast.Name) or node.func.id != "import_module":
+                continue
+            if not node.args or not isinstance(node.args[0], ast.Constant):
+                continue
+            if not isinstance(node.args[0].value, str):
+                continue
+            discovered.add(node.args[0].value)
+    return sorted(discovered)
+
+
+DISCOVERED_HIDDEN_IMPORTS = _discover_hidden_imports(SOURCE_ROOT)
+
+HIDDEN_IMPORTS = sorted(
+    {
+        *REQUIRED_HIDDEN_IMPORTS,
+        *RUNTIME_MODULES,
+        *DISCOVERED_HIDDEN_IMPORTS,
+    }
+)
 
 DATAS = [
     (str(I18N_DIR / "en.json"), "eodinga/i18n"),
