@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.101 - 2026-04-23
+## 0.1.108 - 2026-04-23
 
 - Expanded `eodinga stats` so the JSON output now carries the full in-process counter and histogram snapshot, while the plain-text form renders the same data as a readable terminal summary.
 - Counted successful `crash-<ts>.log` writes as a first-class runtime metric, so crash handling is now visible in the same observability surface as query, parser, watcher, and indexing activity.
