@@ -5,6 +5,8 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 from eodinga import __version__
 from eodinga.index.schema import apply_schema
 
@@ -219,6 +221,26 @@ def test_search_reports_invalid_query_cleanly(cli_runner, tmp_path: Path) -> Non
 
     assert result.returncode == 2
     assert "expected operator value" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_message"),
+    [
+        ("case:maybe duplicate", "invalid boolean value"),
+        ("date:2026-01-01..bogus duplicate", "invalid date literal"),
+        ("content:/todo/ii", "duplicate regex flag"),
+    ],
+)
+def test_search_reports_invalid_semantic_query_cleanly(
+    cli_runner, tmp_path: Path, query: str, expected_message: str
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+
+    result = cli_runner("--db", str(db_path), "search", query, "--json")
+
+    assert result.returncode == 2
+    assert expected_message in result.stderr
 
 
 def test_version_matches_package(cli_runner) -> None:

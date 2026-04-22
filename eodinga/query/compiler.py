@@ -13,6 +13,7 @@ from eodinga.query.dsl import (
     OperatorNode,
     OrNode,
     PhraseNode,
+    QuerySyntaxError,
     RegexNode,
     WordNode,
 )
@@ -121,7 +122,7 @@ def _parse_bool(value: str) -> bool:
         return True
     if normalized in {"0", "false", "no", "off"}:
         return False
-    raise ValueError(f"invalid boolean value: {value}")
+    raise QuerySyntaxError(f"invalid boolean value: {value}", 0)
 
 
 def _size_to_bytes(value: str) -> tuple[str, int]:
@@ -136,8 +137,11 @@ def _size_to_bytes(value: str) -> tuple[str, int]:
     number_text = text[:-1] if unit != "B" or (text and text[-1].isalpha()) else text
     factor = {"B": 1, "K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}.get(unit)
     if factor is None:
-        raise ValueError(f"invalid size literal: {value}")
-    return comparator, int(float(number_text) * factor)
+        raise QuerySyntaxError(f"invalid size literal: {value}", 0)
+    try:
+        return comparator, int(float(number_text) * factor)
+    except ValueError as error:
+        raise QuerySyntaxError(f"invalid size literal: {value}", 0) from error
 
 
 def _day_bounds(day: date) -> tuple[int, int]:
@@ -161,12 +165,18 @@ def _date_to_range(value: str) -> tuple[int, int]:
         return _day_bounds(start)[0], _day_bounds(next_month)[0]
     if ".." in value:
         left, right = value.split("..", 1)
-        start = datetime.fromisoformat(left).date()
-        end = datetime.fromisoformat(right).date()
+        try:
+            start = datetime.fromisoformat(left).date()
+            end = datetime.fromisoformat(right).date()
+        except ValueError as error:
+            raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
         if end < start:
             start, end = end, start
         return _day_bounds(start)[0], _day_bounds(end + timedelta(days=1))[0]
-    day = datetime.fromisoformat(value).date()
+    try:
+        day = datetime.fromisoformat(value).date()
+    except ValueError as error:
+        raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
     return _day_bounds(day)
 
 
@@ -271,7 +281,7 @@ def _compile_branch(
                 where_parts.append(clause)
                 continue
             else:
-                raise ValueError(f"invalid is: value: {term.value}")
+                raise QuerySyntaxError(f"invalid is: value: {term.value}", 0)
             where_parts.append(f"NOT ({clause})" if term.negated else clause)
             continue
         if term.name == "case":
@@ -280,7 +290,7 @@ def _compile_branch(
         if term.name == "regex":
             regex_mode = _parse_bool(term.value)
             continue
-        raise ValueError(f"unsupported operator: {term.name}")
+        raise QuerySyntaxError(f"unsupported operator: {term.name}", 0)
 
     positive_path_terms = tuple(term for term in path_terms if not term.negated)
     positive_content_terms = tuple(term for term in content_terms if not term.negated)
