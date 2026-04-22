@@ -65,6 +65,10 @@ class LauncherConfig(BaseModel):
     hotkey: str = "ctrl+shift+space"
     debounce_ms: int = 30
     max_results: int = 200
+    window_x: int | None = None
+    window_y: int | None = None
+    window_width: int = 640
+    window_height: int = 480
 
 
 class IndexConfig(BaseModel):
@@ -103,7 +107,7 @@ class AppConfig(BaseModel):
         target = path.expanduser()
         payload = {
             "general": self.general.model_dump(mode="json"),
-            "launcher": self.launcher.model_dump(mode="json"),
+            "launcher": self.launcher.model_dump(mode="json", exclude_none=True),
             "index": {
                 **self.index.model_dump(mode="json"),
                 "db_path": str(self.index.db_path),

@@ -168,13 +168,13 @@ def _cmd_gui(args: argparse.Namespace) -> int:
     config = _resolve_config(args)
     db_path = args.db or config.index.db_path
     if test_mode:
-        launched = launch_gui(test_mode=True, db_path=db_path)
+        launched = launch_gui(test_mode=True, db_path=db_path, config=config, config_path=args.config)
         app, window, launcher = launched
         launcher.close()
         window.close()
         app.processEvents()
         return 0
-    return int(launch_gui(test_mode=False, db_path=db_path))
+    return int(launch_gui(test_mode=False, db_path=db_path, config=config, config_path=args.config))
 
 
 def _cmd_doctor(args: argparse.Namespace) -> int:

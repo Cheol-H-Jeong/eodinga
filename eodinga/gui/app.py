@@ -8,6 +8,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QStyle, QSystemTrayIcon, QTabWidget, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
+from eodinga.config import AppConfig
 from eodinga.gui.actions import DesktopActions
 from eodinga.gui.launcher import LauncherState, LauncherWindow, SearchFn, format_indexing_status
 from eodinga.gui.launcher import LauncherPanel
@@ -73,6 +74,8 @@ class TrayIndicatorController:
         self._launcher_window.show()
         self._launcher_window.raise_()
         self._launcher_window.activateWindow()
+        self._launcher_window.query_field.setFocus()
+        self._launcher_window.query_field.selectAll()
 
     def _handle_activation(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason in {
@@ -87,13 +90,20 @@ class EodingaWindow(QMainWindow):
         self,
         search_fn: SearchFn | None = None,
         desktop_actions: _DesktopActionsLike | None = None,
+        config: AppConfig | None = None,
+        config_path=None,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("eodinga")
         self.resize(960, 640)
         self.launcher_state = LauncherState(self)
-        self.launcher_window = LauncherWindow(search_fn=search_fn, state=self.launcher_state)
+        self.launcher_window = LauncherWindow(
+            search_fn=search_fn,
+            state=self.launcher_state,
+            config=config,
+            config_path=config_path,
+        )
 
         container = QWidget(self)
         layout = QVBoxLayout(container)
@@ -163,6 +173,8 @@ def launch_gui(
     test_mode: Literal[True],
     search_fn: SearchFn | None = None,
     db_path=None,
+    config: AppConfig | None = None,
+    config_path=None,
 ) -> tuple[QApplication, EodingaWindow, LauncherWindow]: ...
 
 
@@ -171,6 +183,8 @@ def launch_gui(
     test_mode: Literal[False] = False,
     search_fn: SearchFn | None = None,
     db_path=None,
+    config: AppConfig | None = None,
+    config_path=None,
 ) -> int: ...
 
 
@@ -178,12 +192,14 @@ def launch_gui(
     test_mode: bool = False,
     search_fn: SearchFn | None = None,
     db_path=None,
+    config: AppConfig | None = None,
+    config_path=None,
 ) -> tuple[QApplication, EodingaWindow, LauncherWindow] | int:
     app = cast(QApplication, QApplication.instance() or QApplication(sys.argv))
     apply_theme(app, "light")
     if search_fn is None and db_path is not None:
         search_fn = build_index_search_fn(db_path)
-    window = EodingaWindow(search_fn=search_fn)
+    window = EodingaWindow(search_fn=search_fn, config=config, config_path=config_path)
     window.show()
     window.launcher_window.hide()
     if test_mode:

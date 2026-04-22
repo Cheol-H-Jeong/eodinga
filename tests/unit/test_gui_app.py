@@ -5,6 +5,7 @@ import sqlite3
 from typing import cast
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
+from eodinga.config import AppConfig, load
 from eodinga.gui.actions import DesktopActions
 from eodinga.gui.app import EodingaWindow, build_index_search_fn, launch_gui
 from eodinga.gui.launcher import LauncherWindow
@@ -73,6 +74,42 @@ def test_tray_indicator_can_show_launcher_without_tray_backend(qapp) -> None:
     assert window.launcher_window.isVisible()
 
 
+def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher.show()
+    launcher.move(180, 96)
+    launcher.resize(720, 520)
+    qapp.processEvents()
+    launcher.hide()
+    qapp.processEvents()
+    window.close()
+    qapp.processEvents()
+
+    stored = load(temp_config_path)
+    assert stored.launcher.window_x == 180
+    assert stored.launcher.window_y == 96
+    assert stored.launcher.window_width == 720
+    assert stored.launcher.window_height == 520
+
+    _, restored_window, restored_launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=stored, config_path=temp_config_path),
+    )
+    restored_launcher.show()
+    qapp.processEvents()
+
+    assert restored_launcher.width() == 720
+    assert restored_launcher.height() == 520
+    assert restored_launcher.pos().x() == 180
+    assert restored_launcher.pos().y() == 96
+
+    restored_window.close()
+    qapp.processEvents()
 class _ActionSpy:
     def __init__(self) -> None:
         self.opened: list[str] = []
