@@ -484,6 +484,32 @@ def test_execute_korean_filename_query_matches_decomposed_hangul(tmp_db: sqlite3
     assert hits == [decomposed]
 
 
+def test_execute_korean_content_query_supplements_partial_fts_hits(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    decomposed = unicodedata.normalize("NFD", "회의록 본문")
+    _insert_file(tmp_db, 1, "/workspace/문서함/meeting-nfc.txt", 1024, now, "txt", body_text="회의록 본문")
+    _insert_file(tmp_db, 2, "/workspace/문서함/meeting-nfd.txt", 1024, now - 60, "txt", body_text=decomposed)
+    _insert_file(tmp_db, 3, "/workspace/문서함/report.txt", 1024, now - 120, "txt", body_text="보고서 본문")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "content:회의록", limit=10).hits]
+    assert hits == ["meeting-nfc.txt", "meeting-nfd.txt"]
+
+
+def test_execute_plain_korean_query_supplements_partial_auto_content_hits(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    decomposed = unicodedata.normalize("NFD", "회의록 본문")
+    _insert_file(tmp_db, 1, "/workspace/문서함/회의록-요약.txt", 1024, now, "txt", body_text="summary")
+    _insert_file(tmp_db, 2, "/workspace/문서함/meeting-nfd.txt", 1024, now - 60, "txt", body_text=decomposed)
+    _insert_file(tmp_db, 3, "/workspace/문서함/report.txt", 1024, now - 120, "txt", body_text="보고서 본문")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "회의록", limit=10).hits]
+    assert hits == ["회의록-요약.txt", "meeting-nfd.txt"]
+
+
 def test_path_queries_use_paths_fts(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/projects/report-011.py", 1024, now, "py", body_text="launch")
