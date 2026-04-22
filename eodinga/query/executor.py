@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import sqlite3
 import time
+import unicodedata
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
@@ -49,9 +50,14 @@ def _make_flags(flag_text: str) -> int:
 
 
 def _text_matches(value: str, needle: str, case_sensitive: bool) -> bool:
-    if case_sensitive:
-        return needle in value
-    return needle.lower() in value.lower()
+    haystack = _normalize_search_text(value, case_sensitive=case_sensitive)
+    normalized_needle = _normalize_search_text(needle, case_sensitive=case_sensitive)
+    return normalized_needle in haystack
+
+
+def _normalize_search_text(value: str, case_sensitive: bool) -> str:
+    normalized = unicodedata.normalize("NFC", value)
+    return normalized if case_sensitive else normalized.casefold()
 
 
 def _fts_prefix_literal(value: str) -> str:
@@ -218,6 +224,8 @@ def _fetch_path_candidates_scan(
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return [], {}
+    if any(any(ord(char) > 127 for char in term.value) for term in positive_terms):
+        return _fetch_path_candidates_python_scan(conn, branch, limit)
     sql = "SELECT files.* FROM files"
     params: list[object] = []
     filters: list[str] = []
@@ -242,6 +250,40 @@ def _fetch_path_candidates_scan(
     rows = conn.execute(sql, (*params, limit)).fetchall()
     records = {row["id"]: _row_to_record(row) for row in rows}
     return [row["id"] for row in rows], records
+
+
+def _fetch_path_candidates_python_scan(
+    conn: sqlite3.Connection, branch: CompiledBranch, limit: int
+) -> tuple[list[int], dict[int, FileRecord]]:
+    positive_terms = [term for term in branch.path_terms if not term.negated]
+    if not positive_terms:
+        return [], {}
+    records = _fetch_records(conn, branch.where_sql, branch.where_params, limit=100_000)
+    matched = {
+        file_id: record
+        for file_id, record in records.items()
+        if all(
+            _text_matches(record.name, term.value, branch.case_sensitive)
+            or _text_matches(str(record.path), term.value, branch.case_sensitive)
+            for term in positive_terms
+        )
+    }
+    ordered = sorted(
+        matched.values(),
+        key=lambda record: (
+            0
+            if any(
+                _normalize_search_text(record.name, case_sensitive=branch.case_sensitive).startswith(
+                    _normalize_search_text(term.value, case_sensitive=branch.case_sensitive)
+                )
+                for term in positive_terms
+            )
+            else 1,
+            record.name if branch.case_sensitive else record.name_lower,
+        ),
+    )[:limit]
+    ids = [record.id for record in ordered if record.id is not None]
+    return ids, {record.id: record for record in ordered if record.id is not None}
 
 
 def _fetch_content_candidates(
@@ -341,9 +383,9 @@ def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> l
         return []
     hits: list[int] = []
     for file_id, record in records.items():
-        check_name = record.name if branch.case_sensitive else record.name_lower
+        check_name = _normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
         for term in positives:
-            needle = term if branch.case_sensitive else term.lower()
+            needle = _normalize_search_text(term, case_sensitive=branch.case_sensitive)
             if check_name.startswith(needle):
                 hits.append(file_id)
                 break
