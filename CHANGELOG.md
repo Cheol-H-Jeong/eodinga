@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.30 - 2026-04-23
+
+- Tightened stale-WAL startup recovery so `open_index()` now fails fast when SQLite replay cannot clear non-empty recovery sidecars, instead of reopening the index in an ambiguous state.
+- Extended `eodinga doctor` to report stale-WAL recovery failure explicitly and return a failing exit code when the database still needs manual repair.
+- Added focused storage and diagnostics regressions for unrecovered WAL sidecars and the fail-fast startup path, keeping the round green at the targeted reliability boundary.
+
 ## 0.1.29 - 2026-04-23
 
 - Fixed watcher coalescing for chained same-root renames so late deletes for intermediate paths no longer leak a bogus `deleted` event after `before -> middle -> after` bursts.
