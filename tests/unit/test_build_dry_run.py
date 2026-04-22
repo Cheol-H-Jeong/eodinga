@@ -23,6 +23,8 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["target"] == "windows-dry-run"
     assert payload["version"] == __version__
     assert payload["version_matches_package"] is True
+    assert payload["valid"] is True
+    assert payload["validation_errors"] == []
     assert payload["pyinstaller_spec"]["exists"] is True
     assert payload["pyinstaller_spec"]["dist_names"] == {
         "cli": "eodinga-cli",
@@ -106,6 +108,8 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-appimage-dry-run"
     assert payload["version"] == __version__
+    assert payload["valid"] is True
+    assert payload["validation_errors"] == []
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
     assert payload["desktop_entry"]["name"] == "eodinga"
@@ -140,6 +144,8 @@ def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-appimage"
     assert payload["dry_run"] is False
+    assert payload["valid"] is True
+    assert payload["validation_errors"] == []
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
 
@@ -158,6 +164,8 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-deb-dry-run"
     assert payload["version"] == __version__
+    assert payload["valid"] is True
+    assert payload["validation_errors"] == []
     assert payload["arch"] == "amd64"
     assert Path(payload["package_dir"]).exists()
     assert Path(payload["control_path"]).exists()
@@ -196,6 +204,8 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-deb"
     assert payload["dry_run"] is False
+    assert payload["valid"] is True
+    assert payload["validation_errors"] == []
     assert Path(payload["package_dir"]).exists()
     assert Path(payload["control_path"]).exists()
     assert Path(payload["deb_path"]).exists()

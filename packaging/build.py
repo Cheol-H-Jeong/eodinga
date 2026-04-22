@@ -74,6 +74,39 @@ def _macro_value(text: str, macro_name: str) -> str | None:
     return match.group(1)
 
 
+def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    if not payload["version_matches_package"]:
+        errors.append("pyproject.toml version does not match eodinga.__version__")
+    spec = payload["pyinstaller_spec"]
+    if not spec["exists"]:
+        errors.append("PyInstaller spec is missing")
+    if not spec["hiddenimports"]:
+        errors.append("PyInstaller hidden imports are empty")
+    if not spec["datas"]:
+        errors.append("PyInstaller data files are empty")
+    inno = payload["inno_setup"]
+    if not inno["exists"]:
+        errors.append("Inno Setup script is missing")
+    if not inno["app_id_is_guid_macro"]:
+        errors.append("Inno Setup AppId macro is not a GUID")
+    if not inno["app_version_uses_template"]:
+        errors.append("Inno Setup AppVersion no longer uses the version template token")
+    if not inno["source_entries_match_pyinstaller_dist"]:
+        errors.append("Inno Setup source entries drifted from the PyInstaller dist names")
+    if not inno["rendered_source_entries_match_pyinstaller_dist"]:
+        errors.append("Rendered Inno Setup source entries drifted from the PyInstaller dist names")
+    if not inno["contains_versioned_output_macro"]:
+        errors.append("Inno Setup output filename is no longer versioned")
+    if not inno["contains_user_install_dir"]:
+        errors.append("Inno Setup install directory is not user-scoped")
+    rendered_text = Path(inno["rendered_path"]).read_text(encoding="utf-8")
+    unresolved_tokens = sorted(set(re.findall(r"@@[A-Z_]+@@", rendered_text)))
+    if unresolved_tokens:
+        errors.append(f"Rendered Inno Setup script still contains template tokens: {', '.join(unresolved_tokens)}")
+    return errors
+
+
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     spec_namespace = _load_windows_spec_namespace()
     inno_text = INNO_SCRIPT.read_text(encoding="utf-8")
@@ -100,7 +133,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
         f"dist\\\\{gui_dist_name}\\\\*",
         f"dist\\\\{cli_dist_name}\\\\*",
     ]
-    return {
+    payload = {
         "target": "windows-dry-run",
         "version": version,
         "package_version": package_version,
@@ -162,6 +195,10 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "contains_uninstall_purge_prompt": _inno_contains(rendered_text, r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);"),
         },
     }
+    validation_errors = _validate_windows_audit(payload)
+    payload["valid"] = not validation_errors
+    payload["validation_errors"] = validation_errors
+    return payload
 
 
 def _write_audit(payload: dict[str, Any]) -> Path:
@@ -176,7 +213,7 @@ def _run_windows_dry_run() -> int:
     package_version = _read_package_version()
     payload = _audit_windows_inputs(version, package_version)
     _write_audit(payload)
-    return 0
+    return 0 if payload["valid"] else 1
 
 
 def _run_windows() -> int:
@@ -185,7 +222,7 @@ def _run_windows() -> int:
     payload = _audit_windows_inputs(version, package_version)
     payload["platform_tools"] = ["pyinstaller", "iscc"]
     _write_audit(payload)
-    return 0
+    return 0 if payload["valid"] else 1
 
 
 def _run_linux_appimage_dry_run() -> int:

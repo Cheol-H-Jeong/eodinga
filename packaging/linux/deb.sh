@@ -89,6 +89,23 @@ launcher_path = Path("${PACKAGE_DIR}/usr/bin/eodinga")
 icon_path = Path("${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 license_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE")
 changelog_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
+validation_errors = []
+if control_entries.get("Package") != "eodinga":
+    validation_errors.append("control Package must be eodinga")
+if control_entries.get("Version") != "${VERSION}":
+    validation_errors.append("control Version must match eodinga.__version__")
+if desktop_entries.get("Name") != "eodinga":
+    validation_errors.append("desktop entry name must be eodinga")
+if desktop_entries.get("Exec") != "eodinga gui":
+    validation_errors.append("desktop entry Exec must be 'eodinga gui'")
+if desktop_entries.get("Icon") != icon_path.stem:
+    validation_errors.append("desktop entry Icon must match the staged icon asset")
+if not os.access(launcher_path, os.X_OK):
+    validation_errors.append("launcher is not executable")
+if not license_path.exists():
+    validation_errors.append("LICENSE is missing from the package docs")
+if not changelog_path.exists():
+    validation_errors.append("changelog.gz is missing from the package docs")
 payload = {
     "target": "linux-deb-dry-run" if ${DRY_RUN} else "linux-deb",
     "version": "${VERSION}",
@@ -129,8 +146,12 @@ payload = {
         "changelog_path": str(changelog_path),
         "changelog_exists": changelog_path.exists(),
     },
+    "valid": not validation_errors,
+    "validation_errors": validation_errors,
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+if validation_errors:
+    raise SystemExit("\\n".join(validation_errors))
 PY
 
 if [[ "${DRY_RUN}" -eq 1 ]]; then

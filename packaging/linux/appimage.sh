@@ -69,6 +69,19 @@ icon_path = Path("${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 diricon_path = Path("${APPDIR}/.DirIcon")
 recipe_path = Path("${APPIMAGE_RECIPE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
+validation_errors = []
+if desktop_entries.get("Name") != "eodinga":
+    validation_errors.append("desktop entry name must be eodinga")
+if desktop_entries.get("Exec") != "eodinga gui":
+    validation_errors.append("desktop entry Exec must be 'eodinga gui'")
+if desktop_entries.get("Icon") != icon_path.stem:
+    validation_errors.append("desktop entry Icon must match the staged icon asset")
+if not recipe_path.exists():
+    validation_errors.append("appimage-builder recipe is missing")
+if not os.access(apprun_path, os.X_OK):
+    validation_errors.append("AppRun is not executable")
+if not os.access(launcher_path, os.X_OK):
+    validation_errors.append("launcher is not executable")
 payload = {
     "target": "linux-appimage-dry-run" if ${DRY_RUN} else "linux-appimage",
     "version": "${VERSION}",
@@ -107,8 +120,12 @@ payload = {
         "is_executable": os.access(launcher_path, os.X_OK),
         "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
     },
+    "valid": not validation_errors,
+    "validation_errors": validation_errors,
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+if validation_errors:
+    raise SystemExit("\\n".join(validation_errors))
 PY
 
 if [[ "${DRY_RUN}" -eq 1 ]]; then
