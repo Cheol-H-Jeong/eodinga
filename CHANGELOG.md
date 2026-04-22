@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.53 - 2026-04-23
+
+- Synced the Windows Inno Setup template with `packaging/pyinstaller.spec` by rendering dist-folder and GUI executable names from the spec at dry-run time, which removes a silent drift path between the PyInstaller output layout and installer shortcuts, autostart, and file payload globs.
+- Expanded the Windows packaging audit to verify rendered source globs, rendered GUI executable references, and the autostart registry entry against the spec-derived names.
+- Added focused packaging regressions for the new executable-name metadata and tokenized Inno template so `packaging/build.py --target windows-dry-run` stays pinned to the rendered installer contract.
+
 ## 0.1.52 - 2026-04-23
 
 - Fixed watcher coalescing so a `moved` event keeps its source path retired even after the move has already flushed, preventing late OS delete notifications from generating a second stale delete event for the old path.
