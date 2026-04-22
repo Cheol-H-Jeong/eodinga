@@ -73,18 +73,18 @@ class IndexWriter:
         deleted_paths: list[Path] = []
         retired_paths: list[Path] = []
         pending_records: list[FileRecord] = []
+        for event in events:
+            if event.event_type == "deleted":
+                deleted_paths.append(event.path)
+                continue
+            if event.event_type == "moved" and event.src_path is not None:
+                retired_paths.append(event.src_path)
+            record = record_loader(event.path)
+            if record is None:
+                continue
+            pending_records.append(record)
+            processed += 1
         with self._conn:
-            for event in events:
-                if event.event_type == "deleted":
-                    deleted_paths.append(event.path)
-                    continue
-                if event.event_type == "moved" and event.src_path is not None:
-                    retired_paths.append(event.src_path)
-                record = record_loader(event.path)
-                if record is None:
-                    continue
-                pending_records.append(record)
-                processed += 1
             if deleted_paths:
                 processed += self._delete_paths(deleted_paths, content_deletes)
             if retired_paths:
