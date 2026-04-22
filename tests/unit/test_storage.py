@@ -124,6 +124,48 @@ def test_atomic_replace_index_fsyncs_staged_file_and_target_directory(
     ]
 
 
+def test_atomic_replace_index_preserves_live_sidecars_when_swap_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / "index.staged.db"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+    target_wal = target.with_name("index.db-wal")
+    target_shm = target.with_name("index.db-shm")
+    target_wal.write_bytes(b"live-wal")
+    target_shm.write_bytes(b"live-shm")
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/staged", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    def fail_replace(_source: Path, _target: Path) -> None:
+        raise OSError("simulated replace failure")
+
+    monkeypatch.setattr("eodinga.index.storage.os.replace", fail_replace)
+
+    with pytest.raises(OSError, match="simulated replace failure"):
+        atomic_replace_index(staged, target)
+
+    assert target_wal.read_bytes() == b"live-wal"
+    assert target_shm.read_bytes() == b"live-shm"
+    assert staged.exists()
+    assert _read_root_paths(target) == ["/live"]
+
+
 def test_open_index_replays_stale_wal_on_startup(tmp_path: Path) -> None:
     source = tmp_path / "source.db"
     snapshot = tmp_path / "snapshot.db"
