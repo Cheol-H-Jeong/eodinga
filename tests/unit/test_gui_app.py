@@ -4,6 +4,7 @@ from pathlib import Path
 import sqlite3
 from typing import cast
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QSystemTrayIcon
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
@@ -111,6 +112,31 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     assert restored_launcher.pos().y() == 96
 
     restored_window.close()
+    qapp.processEvents()
+
+
+def test_launcher_respects_always_on_top_config(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"always_on_top": False})
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    assert not bool(launcher.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
+
+    window.close()
+    qapp.processEvents()
+
+    config.launcher = config.launcher.model_copy(update={"always_on_top": True})
+    _, top_window, top_launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    assert bool(top_launcher.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
+
+    top_window.close()
     qapp.processEvents()
 
 
