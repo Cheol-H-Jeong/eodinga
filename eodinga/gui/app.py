@@ -29,6 +29,7 @@ class TrayIndicatorController:
     def __init__(self, app: QApplication, launcher_window: LauncherWindow, parent: QWidget) -> None:
         self._app = app
         self._launcher_window = launcher_window
+        self._parent = parent
         self._tray: QSystemTrayIcon | None = None
         self.tooltip = format_indexing_status(IndexingStatus())
         self.status_text = self.tooltip
@@ -42,9 +43,15 @@ class TrayIndicatorController:
         self._status_action.setEnabled(False)
         menu.addAction(self._status_action)
         menu.addSeparator()
+        open_app = QAction("Open eodinga", menu)
+        open_app.triggered.connect(self.show_main_window)
+        menu.addAction(open_app)
         show_launcher = QAction("Show launcher", menu)
         show_launcher.triggered.connect(self.show_launcher)
         menu.addAction(show_launcher)
+        quit_action = QAction("Quit", menu)
+        quit_action.triggered.connect(self.quit_application)
+        menu.addAction(quit_action)
         tray.setContextMenu(menu)
         tray.setToolTip(self.tooltip)
         tray.activated.connect(self._handle_activation)
@@ -76,6 +83,14 @@ class TrayIndicatorController:
         self._launcher_window.activateWindow()
         self._launcher_window.query_field.setFocus()
         self._launcher_window.query_field.selectAll()
+
+    def show_main_window(self) -> None:
+        self._parent.show()
+        self._parent.raise_()
+        self._parent.activateWindow()
+
+    def quit_application(self) -> None:
+        self._app.quit()
 
     def _handle_activation(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason in {

@@ -77,6 +77,27 @@ def test_tray_indicator_can_show_launcher_without_tray_backend(qapp) -> None:
     assert window.launcher_window.isVisible()
 
 
+def test_tray_indicator_can_open_main_window_without_tray_backend(qapp) -> None:
+    window = EodingaWindow()
+    window.hide()
+    qapp.processEvents()
+
+    window.tray_indicator.show_main_window()
+
+    assert window.isVisible()
+
+
+def test_tray_indicator_quit_action_requests_application_exit(qapp, monkeypatch) -> None:
+    requested: list[bool] = []
+    window = EodingaWindow()
+
+    monkeypatch.setattr(qapp, "quit", lambda: requested.append(True))
+
+    window.tray_indicator.quit_application()
+
+    assert requested == [True]
+
+
 def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_path: Path) -> None:
     config = AppConfig()
     _, window, launcher = cast(
