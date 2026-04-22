@@ -139,6 +139,43 @@ def test_walk_batched_honors_symlink_alias_excludes(tmp_path: Path) -> None:
     assert Path("alias") not in paths
 
 
+def test_walk_batched_indexes_symlinked_root_using_alias_paths(tmp_path: Path) -> None:
+    real = tmp_path / "real"
+    real.mkdir()
+    (real / "docs").mkdir()
+    (real / "docs" / "guide.txt").write_text("guide", encoding="utf-8")
+    alias = tmp_path / "alias"
+    alias.symlink_to(real, target_is_directory=True)
+
+    rules = PathRules(root=alias, include=(str(alias), f"{alias}/**"), exclude=())
+    records = [record for batch in walk_batched(alias, rules) for record in batch]
+    paths = {record.path for record in records}
+    record_by_path = {record.path: record for record in records}
+
+    assert alias in paths
+    assert alias / "docs" in paths
+    assert alias / "docs" / "guide.txt" in paths
+    assert all(str(path).startswith(str(alias)) for path in paths)
+    assert record_by_path[alias].is_symlink is True
+    assert record_by_path[alias].is_dir is True
+
+
+def test_walk_batched_marks_symlinked_directories_as_directories(tmp_path: Path) -> None:
+    root = tmp_path / "tree"
+    real = root / "real"
+    alias = root / "alias"
+    root.mkdir()
+    real.mkdir()
+    alias.symlink_to(real, target_is_directory=True)
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+    alias_record = next(record for record in records if record.path == alias)
+
+    assert alias_record.is_symlink is True
+    assert alias_record.is_dir is True
+
+
 def test_walk_batched_skips_resolved_alias_cycles_even_when_inode_keys_differ(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

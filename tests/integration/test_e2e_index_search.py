@@ -99,3 +99,26 @@ def test_e2e_index_search_returns_expected_file_in_top_three(
         conn.close()
 
     assert expected_name in hits
+
+
+def test_e2e_index_search_preserves_symlink_root_alias_paths(tmp_path: Path) -> None:
+    real_root = tmp_path / "workspace-real"
+    alias_root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    _build_fixture_tree(real_root)
+    alias_root.symlink_to(real_root, target_is_directory=True)
+    _index_tree(alias_root, db_path)
+
+    conn = open_index(db_path)
+    try:
+        hit = search(conn, "회의록", limit=1).hits[0]
+        indexed_paths = {
+            Path(row[0])
+            for row in conn.execute("SELECT path FROM files").fetchall()
+        }
+    finally:
+        conn.close()
+
+    assert hit.file.path == alias_root / "korean" / "회의록-봄.txt"
+    assert alias_root in indexed_paths
+    assert all(str(path).startswith(str(alias_root)) for path in indexed_paths)
