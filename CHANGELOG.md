@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.27 - 2026-04-23
+
+- Cut the plain ASCII name-query hot path back to `paths_fts` when it already returns hits, avoiding the expensive substring-scan supplement that was dominating the opt-in query-latency benchmark.
+- Skipped the free-text `content_fts` probe entirely when the index has no parsed content, removing another no-value query from filename-only corpora.
+- Added executor regressions proving plain `report-011` lookups avoid both the redundant scan fallback and the empty-content probe while still preserving content fallback and Korean-token coverage where needed.
+
 ## 0.1.26 - 2026-04-23
 
 - Fixed rule matching so user include and exclude globs now evaluate against the visible alias path instead of silently resolving symlink targets first, which restores predictable excludes for symlinked or bind-mounted subtrees during traversal.
