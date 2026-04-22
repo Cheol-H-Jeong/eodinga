@@ -72,6 +72,8 @@ def test_format_hit_html_renders_extension_badge() -> None:
 
     assert "<mark>report</mark>.pdf" in rendered
     assert ">pdf</span>" in rendered
+    assert ">report.pdf</div><div" not in rendered
+    assert ">/tmp</div>" in rendered
 
 
 def test_format_hit_html_renders_highlighted_snippet() -> None:
@@ -88,3 +90,18 @@ def test_format_hit_html_renders_highlighted_snippet() -> None:
 
     assert "<mark>release notes</mark>" in rendered
     assert "the " in rendered
+
+
+def test_format_hit_html_shows_parent_path_line_for_path_filters() -> None:
+    rendered = format_hit_html(
+        SearchHit(
+            path=Path("/workspace/reports/release-notes.txt"),
+            parent_path=Path("/workspace/reports"),
+            name="release-notes.txt",
+            ext="txt",
+        ),
+        "path:reports",
+    )
+
+    assert "/workspace/<mark>reports</mark>" in rendered
+    assert "release-notes.txt</div><div" not in rendered

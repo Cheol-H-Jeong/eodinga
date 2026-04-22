@@ -217,7 +217,7 @@ def _highlight_fts_snippet(snippet: str) -> str:
 
 def format_hit_html(hit: SearchHit, query: str) -> str:
     primary = hit.highlighted_name or highlight_text(hit.name, query, target="name")
-    secondary = hit.highlighted_path or highlight_text(str(hit.path), query, target="path")
+    secondary = highlight_text(str(hit.parent_path), query, target="path")
     snippet_html = ""
     if hit.snippet:
         rendered_snippet = (
