@@ -53,6 +53,11 @@ def _text_matches(value: str, needle: str, case_sensitive: bool) -> bool:
     return needle.lower() in value.lower()
 
 
+def _fts_prefix_literal(value: str) -> str:
+    escaped = value.replace('"', '""')
+    return f'"{escaped}"*'
+
+
 def _term_ok(text: str, term_value: str, case_sensitive: bool, negated: bool) -> bool:
     matched = _text_matches(text, term_value, case_sensitive)
     return not matched if negated else matched
@@ -125,6 +130,58 @@ def _fetch_records(
 
 
 def _fetch_path_candidates(
+    conn: sqlite3.Connection, branch: CompiledBranch, limit: int
+) -> tuple[list[int], dict[int, FileRecord]]:
+    ids, records = _fetch_path_candidates_fts(conn, branch, limit)
+    if ids:
+        return ids, records
+    scan_ids, scan_records = _fetch_path_candidates_scan(conn, branch, limit)
+    for file_id in scan_ids:
+        if file_id in records:
+            continue
+        record = scan_records[file_id]
+        records[file_id] = record
+        ids.append(file_id)
+        if len(ids) >= limit:
+            break
+    return ids, records
+
+
+def _fetch_path_candidates_fts(
+    conn: sqlite3.Connection, branch: CompiledBranch, limit: int
+) -> tuple[list[int], dict[int, FileRecord]]:
+    positive_terms = [term for term in branch.path_terms if not term.negated]
+    if not positive_terms:
+        return [], {}
+    path_query = " ".join(_fts_prefix_literal(term.value) for term in positive_terms)
+    sql = """
+        SELECT files.*
+        FROM paths_fts
+        JOIN files ON files.id = paths_fts.rowid
+    """
+    params: list[object] = [path_query]
+    filters: list[str] = []
+    if branch.path_match_sql:
+        filters.append(branch.path_match_sql)
+    prefix_term = positive_terms[0].value if positive_terms else ""
+    if branch.where_sql:
+        filters.append(branch.where_sql)
+        params.extend(branch.where_params)
+    if filters:
+        sql += " WHERE " + " AND ".join(filters)
+    order_expr = "files.name" if branch.case_sensitive else "files.name_lower"
+    prefix_expr = "files.name LIKE ?" if branch.case_sensitive else "files.name_lower LIKE ?"
+    sql += (
+        f" ORDER BY CASE WHEN {prefix_expr} THEN 0 ELSE 1 END,"
+        f" bm25(paths_fts, 8.0, 2.0, 1.0) ASC, {order_expr} ASC LIMIT ?"
+    )
+    params.append(f"{prefix_term}%")
+    rows = conn.execute(sql, (*params, limit)).fetchall()
+    records = {row["id"]: _row_to_record(row) for row in rows}
+    return [row["id"] for row in rows], records
+
+
+def _fetch_path_candidates_scan(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
 ) -> tuple[list[int], dict[int, FileRecord]]:
     positive_terms = [term for term in branch.path_terms if not term.negated]
@@ -258,6 +315,16 @@ def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> l
     return hits
 
 
+def _needs_record_filter(branch: CompiledBranch) -> bool:
+    return bool(
+        branch.path_filters
+        or branch.path_regex_terms
+        or branch.content_terms
+        or branch.content_regex_terms
+        or any(term.negated for term in branch.path_terms)
+    )
+
+
 def _derive_name_path_hits(
     records: Mapping[int, FileRecord], branch: CompiledBranch
 ) -> tuple[list[int], list[int]]:
@@ -321,13 +388,18 @@ def _execute_branch(
         )
     if not candidate_ids and not branch.path_match_sql and not branch.content_required:
         candidate_ids = set(records)
-    content_texts = _fetch_content_texts(conn, candidate_ids)
-    filtered_records = {
-        file_id: records[file_id]
-        for file_id in candidate_ids
-        if file_id in records
-        and _filter_record(branch, records[file_id], content_texts.get(file_id, ""))
-    }
+    if _needs_record_filter(branch):
+        content_texts = _fetch_content_texts(conn, candidate_ids)
+        filtered_records = {
+            file_id: records[file_id]
+            for file_id in candidate_ids
+            if file_id in records
+            and _filter_record(branch, records[file_id], content_texts.get(file_id, ""))
+        }
+    else:
+        filtered_records = {
+            file_id: records[file_id] for file_id in candidate_ids if file_id in records
+        }
     name_hits, path_hits = _derive_name_path_hits(filtered_records, branch)
     content_hits = [file_id for file_id in content_ids if file_id in filtered_records]
     prefix_hits = _prefix_hits(filtered_records, branch)

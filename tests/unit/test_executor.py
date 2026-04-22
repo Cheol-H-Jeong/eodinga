@@ -245,6 +245,23 @@ def test_execute_korean_filename_queries(tmp_db: sqlite3.Connection) -> None:
     assert receipt_hits == ["영수증.pdf"]
 
 
+def test_path_queries_use_paths_fts(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/projects/report-011.py", 1024, now, "py", body_text="launch")
+    _insert_file(tmp_db, 2, "/workspace/archive/report-011.txt", 1024, now - 60, "txt")
+    tmp_db.commit()
+
+    statements: list[str] = []
+    tmp_db.set_trace_callback(statements.append)
+    try:
+        hits = [hit.file.name for hit in search(tmp_db, "report-011", limit=10).hits]
+    finally:
+        tmp_db.set_trace_callback(None)
+
+    assert hits == ["report-011.py", "report-011.txt"]
+    assert any("FROM paths_fts" in statement and "MATCH" in statement for statement in statements)
+
+
 def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/alpha.txt", 1024, now, "txt", body_text="alpha")
