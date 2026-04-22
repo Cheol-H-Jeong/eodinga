@@ -92,6 +92,8 @@ def test_writer_bulk_upsert_batches_content_inserts(tmp_db: Path, tmp_path: Path
         "body file-0.txt",
         b"sha-file-0.txt",
     )
+    hashes = conn.execute("SELECT name, content_hash FROM files ORDER BY name").fetchall()
+    assert hashes[0] == ("file-0.txt", b"sha-file-0.txt")
 
 
 def test_writer_bulk_upsert_reuses_existing_content_rowids(tmp_db: Path, tmp_path: Path) -> None:
@@ -133,3 +135,26 @@ def test_writer_bulk_upsert_reuses_existing_content_rowids(tmp_db: Path, tmp_pat
     assert after[0] == before[0]
     assert after[1] == b"sha-two"
     assert after[2] == "body two"
+    file_hash = conn.execute("SELECT content_hash FROM files WHERE path = ?", (str(record.path),)).fetchone()
+    assert file_hash == (b"sha-two",)
+
+
+def test_writer_clears_file_content_hash_for_empty_parsed_content(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    record = _synthetic_record(1, tmp_path)
+    parsed = ParsedContent(
+        title=record.name,
+        head_text="",
+        body_text="",
+        content_sha=b"",
+    )
+    writer = IndexWriter(conn, parser_callback=lambda _path: parsed)
+
+    assert writer.bulk_upsert([record]) == 1
+
+    file_hash = conn.execute("SELECT content_hash FROM files WHERE path = ?", (str(record.path),)).fetchone()
+    assert file_hash == (None,)

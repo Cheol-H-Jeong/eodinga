@@ -138,6 +138,7 @@ class IndexWriter:
         next_rowid = self._next_content_rowid()
         content_rows: list[tuple[object, ...]] = []
         mapping_rows: list[tuple[object, ...]] = []
+        hash_rows: list[tuple[object, ...]] = []
         now = int(time())
         for path_text in path_order:
             file_id = file_ids.get(path_text)
@@ -150,6 +151,7 @@ class IndexWriter:
                 next_rowid += 1
             content_rows.append((rowid, parsed.title, parsed.head_text, parsed.body_text))
             mapping_rows.append((file_id, rowid, "injected", now, parsed.content_sha))
+            hash_rows.append((parsed.content_sha or None, file_id))
 
         if content_rows:
             self._conn.executemany(
@@ -167,6 +169,10 @@ class IndexWriter:
                   content_sha=excluded.content_sha
                 """,
                 mapping_rows,
+            )
+            self._conn.executemany(
+                "UPDATE files SET content_hash = ? WHERE id = ?",
+                hash_rows,
             )
 
     def _select_file_ids(self, paths: Sequence[str]) -> dict[str, int]:

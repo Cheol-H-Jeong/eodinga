@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -13,6 +15,8 @@ from eodinga.query import search
 
 
 def _build_fixture_tree(root: Path) -> None:
+    today = datetime.now(tz=UTC).replace(hour=12, minute=0, second=0, microsecond=0)
+    yesterday = today - timedelta(days=1)
     files = {
         "docs/launch-plan.md": "# Launch Plan\nAlpha launch checklist for spring release.\n",
         "docs/invoice-budget.txt": "Invoice budget for the alpha launch.\n",
@@ -21,11 +25,25 @@ def _build_fixture_tree(root: Path) -> None:
         "src/watch_coalesce.py": "EVENT_NAME = 'coalesce'\n",
         "korean/회의록-봄.txt": "봄 프로젝트 회의록과 실행 항목.\n",
         "korean/영수증-정산.txt": "정산 영수증과 비용 내역.\n",
+        "reports/today-alpha-copy.txt": "alpha duplicate launch note\n",
+        "reports/today-alpha-clone.txt": "alpha duplicate launch note\n",
+        "archive/yesterday-beta.txt": "beta archive note\n",
     }
     for relative_path, body in files.items():
         path = root / relative_path
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(body, encoding="utf-8")
+    large_paths = [
+        root / "reports" / "today-alpha-copy.txt",
+        root / "reports" / "today-alpha-clone.txt",
+        root / "archive" / "yesterday-beta.txt",
+    ]
+    sizes = [12 * 1024 * 1024, 11 * 1024 * 1024, 9 * 1024 * 1024]
+    mtimes = [today.timestamp(), today.timestamp() + 60, yesterday.timestamp()]
+    for path, size, mtime in zip(large_paths, sizes, mtimes, strict=True):
+        with path.open("ab") as handle:
+            handle.truncate(size)
+        os.utime(path, (mtime, mtime))
 
 
 def _index_tree(root: Path, db_path: Path) -> None:
@@ -61,6 +79,8 @@ def _index_tree(root: Path, db_path: Path) -> None:
         ("content:정산", "영수증-정산.txt"),
         ("path:korean 영수증", "영수증-정산.txt"),
         ("invoice budget", "invoice-budget.txt"),
+        ("date:today size:>10M is:duplicate -path:archive", "today-alpha-copy.txt"),
+        ("date:yesterday -is:duplicate", "yesterday-beta.txt"),
     ],
 )
 def test_e2e_index_search_returns_expected_file_in_top_three(
