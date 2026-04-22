@@ -8,7 +8,7 @@ from stat import S_ISDIR, S_ISLNK
 from time import time
 
 from eodinga.common import FileRecord, PathRules
-from eodinga.core.fs import resolve_safe, scandir_safe, stat_safe
+from eodinga.core.fs import resolve_safe, scandir_safe, stat_follow_safe, stat_safe
 from eodinga.core.rules import should_index
 
 BATCH_SIZE = 8192
@@ -19,7 +19,7 @@ def _to_record(root_id: int, path: Path, stat_result: stat_result) -> FileRecord
     is_dir = S_ISDIR(stat_result.st_mode)
     if is_symlink and not is_dir:
         try:
-            is_dir = path.is_dir()
+            is_dir = S_ISDIR(stat_follow_safe(path).st_mode)
         except OSError:
             is_dir = False
     return FileRecord(
@@ -71,7 +71,10 @@ def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[lis
         inode_key = (stat_result.st_dev, stat_result.st_ino)
         if inode_key in visited_dirs:
             continue
-        resolved_dir = resolve_safe(current)
+        try:
+            resolved_dir = resolve_safe(current)
+        except OSError:
+            continue
         if resolved_dir in visited_resolved_dirs:
             continue
         visited_dirs.add(inode_key)
