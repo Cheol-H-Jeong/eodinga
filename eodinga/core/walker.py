@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import deque
 from collections.abc import Iterator
 from pathlib import Path
+from os import stat_result
 from stat import S_ISDIR, S_ISLNK
 from time import time
 
@@ -13,8 +14,7 @@ from eodinga.core.rules import should_index
 BATCH_SIZE = 8192
 
 
-def _to_record(root_id: int, path: Path) -> FileRecord:
-    stat_result = stat_safe(path)
+def _to_record(root_id: int, path: Path, stat_result: stat_result) -> FileRecord:
     return FileRecord(
         root_id=root_id,
         path=path,
@@ -47,13 +47,13 @@ def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[lis
         visited.add(inode_key)
         if not should_index(current, rules):
             continue
-        batch.append(_to_record(root_id=root_id, path=current))
+        batch.append(_to_record(root_id=root_id, path=current, stat_result=stat_result))
         if len(batch) >= BATCH_SIZE:
             yield batch
             batch = []
         if S_ISDIR(stat_result.st_mode) and not S_ISLNK(stat_result.st_mode):
             try:
-                children = sorted(scandir_safe(current), key=lambda item: item.name)
+                children = scandir_safe(current)
             except OSError:
                 continue
             queue.extend(children)
