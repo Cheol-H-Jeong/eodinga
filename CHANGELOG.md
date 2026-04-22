@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.36 - 2026-04-23
+
+- Switched stale-WAL startup recovery to a staged-copy flow in the database directory, replaying SQLite recovery work against the staged snapshot first and atomically replacing the live index only after replay succeeds.
+- Hardened failure handling for startup recovery by cleaning up temporary recovery files on both success and failure while leaving the original index plus sidecars untouched if replay cannot be completed.
+- Added focused storage regressions for staged stale-WAL replay, pre-swap atomicity, and recovery-file cleanup so the reliability path is exercised through both direct recovery and `open_index()` startup.
+
 ## 0.1.35 - 2026-04-23
 
 - Reduced content-index write churn during bulk upserts by preserving existing file content hashes, reusing prior FTS rowids for changed documents, skipping no-op rewrites when parsed content is unchanged, and batching stale FTS row deletes instead of deleting one row at a time.
