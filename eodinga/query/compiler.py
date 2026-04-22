@@ -163,6 +163,8 @@ def _date_to_range(value: str) -> tuple[int, int]:
         left, right = value.split("..", 1)
         start = datetime.fromisoformat(left).date()
         end = datetime.fromisoformat(right).date()
+        if end < start:
+            start, end = end, start
         return _day_bounds(start)[0], _day_bounds(end + timedelta(days=1))[0]
     day = datetime.fromisoformat(value).date()
     return _day_bounds(day)

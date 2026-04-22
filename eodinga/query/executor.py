@@ -133,7 +133,7 @@ def _fetch_path_candidates(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
 ) -> tuple[list[int], dict[int, FileRecord]]:
     ids, records = _fetch_path_candidates_fts(conn, branch, limit)
-    if ids:
+    if len(ids) >= limit:
         return ids, records
     scan_ids, scan_records = _fetch_path_candidates_scan(conn, branch, limit)
     for file_id in scan_ids:
