@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.82 - 2026-04-23
+
+- Restored CLI compatibility with legacy `config.toml` payloads by dropping unknown keys like the removed `launcher.always_on_top` field during file load, so existing local configs no longer crash normal commands before argument handling.
+- Hardened the packaging dry-run audits so Windows, AppImage, and Debian targets now emit explicit validation status and fail fast if staged installer metadata drifts from the expected launcher, desktop-entry, or version contract.
+- Added regressions that pin the legacy-config load path and require all packaging dry-run manifests to report `valid: true` with an empty `validation_errors` list.
+
 ## 0.1.78 - 2026-04-23
 
 - Tightened the Windows packaging audit so the rendered Inno installer now verifies its escaped `AppId`, template-driven `AppVersion`, and GUI uninstall icon path instead of relying on looser substring checks.
