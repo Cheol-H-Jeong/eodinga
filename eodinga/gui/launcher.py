@@ -135,6 +135,8 @@ class LauncherPanel(QWidget):
         self.result_list.setUniformItemSizes(False)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
         self.status_chip = StatusChip("Idle", self)
+        self.shortcut_label = QLabel("", self)
+        self.shortcut_label.setProperty("role", "secondary")
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
         self.empty_state = EmptyState("Type to search", "Recent queries and indexing progress will appear here.", self)
@@ -156,6 +158,7 @@ class LauncherPanel(QWidget):
 
         footer = QHBoxLayout()
         footer.addWidget(self.status_chip)
+        footer.addWidget(self.shortcut_label)
         footer.addStretch(1)
         footer.addWidget(self.status_label)
         layout.addLayout(footer)
@@ -183,6 +186,7 @@ class LauncherPanel(QWidget):
             self.set_indexing_status(self._state.indexing_status)
 
         self._refresh_empty_state()
+        self._refresh_shortcut_hint()
 
     def set_search_fn(self, search_fn: SearchFn) -> None:
         self._search_fn = search_fn
@@ -196,26 +200,34 @@ class LauncherPanel(QWidget):
         self._refresh_empty_state()
 
     def activate_current_result(self) -> None:
+        self._flush_pending_query()
         hit = self._current_hit()
         if hit is not None:
             self.result_activated.emit(hit)
 
     def emit_open_containing_folder(self) -> None:
+        self._flush_pending_query()
         hit = self._current_hit()
         if hit is not None:
             self.open_containing_folder.emit(hit)
 
     def emit_show_properties(self) -> None:
+        self._flush_pending_query()
         hit = self._current_hit()
         if hit is not None:
             self.show_properties.emit(hit)
 
     def emit_copy_path(self) -> None:
+        self._flush_pending_query()
         hit = self._current_hit()
         if hit is not None:
             self.copy_path_requested.emit(hit)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusIn:
+            self._refresh_shortcut_hint()
+        if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusOut:
+            QTimer.singleShot(0, self._refresh_shortcut_hint)
         if event.type() != QEvent.Type.KeyPress:
             return super().eventFilter(watched, event)
         key_event = cast(QKeyEvent, event)
@@ -233,6 +245,12 @@ class LauncherPanel(QWidget):
     def _schedule_query(self, _: str) -> None:
         self._debounce_timer.start()
 
+    def _flush_pending_query(self) -> None:
+        if not self._debounce_timer.isActive():
+            return
+        self._debounce_timer.stop()
+        self._run_query()
+
     def _run_query(self) -> None:
         query = self.query_field.text().strip()
         self._latest_result = self._search_fn(query, self._max_results)
@@ -249,6 +267,7 @@ class LauncherPanel(QWidget):
         if self.model.rowCount() > 0:
             self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
         self._refresh_empty_state()
+        self._refresh_shortcut_hint()
         self.results_updated.emit(self._latest_result)
         get_logger().debug("launcher query '{}' returned {}", query, self._latest_result.total)
 
@@ -272,6 +291,19 @@ class LauncherPanel(QWidget):
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
 
+    def _refresh_shortcut_hint(self) -> None:
+        has_results = self.model.rowCount() > 0
+        if not has_results:
+            if self.query_field.text().strip():
+                hint = "Refine with ext:, date:, size:, or content: filters."
+            else:
+                hint = "Type a filename, path, or content term."
+        elif self.result_list.hasFocus():
+            hint = "Enter opens. Ctrl+Enter reveals. Shift+Enter shows properties. Alt+C copies path."
+        else:
+            hint = "Tab moves to results. Down/Up navigate. Enter opens the top hit."
+        self.shortcut_label.setText(hint)
+
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()
         row = index.row() if index.isValid() else 0
@@ -288,7 +320,7 @@ class LauncherPanel(QWidget):
             self.result_list.setFocus()
             self._move_selection(-1)
             return True
-        if event.key() == Qt.Key.Key_Tab:
+        if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
             self.result_list.setFocus()
             current_index = self.result_list.currentIndex()
             if not current_index.isValid() and self.model.rowCount() > 0:
@@ -299,6 +331,12 @@ class LauncherPanel(QWidget):
     def _handle_result_list_keypress(self, event: QKeyEvent) -> bool:
         if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
             self.query_field.setFocus()
+            return True
+        if event.key() == Qt.Key.Key_Home:
+            self._move_selection(-self.model.rowCount())
+            return True
+        if event.key() == Qt.Key.Key_End:
+            self._move_selection(self.model.rowCount())
             return True
         return False
 

@@ -83,6 +83,7 @@ def test_launcher_keyboard_flow_supports_arrow_navigation_and_tab_return(qapp) -
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_Tab)
     assert launcher.query_field.hasFocus()
+    assert "Tab moves to results" in launcher.shortcut_label.text()
 
 
 def test_launcher_tab_moves_focus_into_results_without_mouse(qapp) -> None:
@@ -108,6 +109,79 @@ def test_launcher_tab_moves_focus_into_results_without_mouse(qapp) -> None:
     assert launcher.result_list.currentIndex().row() == 0
 
 
+def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+                SearchHit(path=Path("/tmp/gamma.txt"), parent_path=Path("/tmp"), name="gamma.txt"),
+            ][:limit],
+            total=3,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("a")
+    _wait(60)
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Backtab)
+    assert launcher.result_list.hasFocus()
+    assert launcher.result_list.currentIndex().row() == 0
+    assert "Ctrl+Enter reveals" in launcher.shortcut_label.text()
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_End)
+    assert launcher.result_list.currentIndex().row() == 2
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Home)
+    assert launcher.result_list.currentIndex().row() == 0
+
+
+def test_launcher_activation_flushes_debounced_query_before_opening(qapp) -> None:
+    activated: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/report.txt"), parent_path=Path("/tmp"), name="report.txt")][:limit],
+            total=1,
+            elapsed_ms=2.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: activated.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("report")
+    launcher.activate_current_result()
+
+    assert activated == ["report.txt"]
+    assert launcher.model.rowCount() == 1
+    assert launcher.status_chip.text() == "Ready"
+
+
+def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:
+    revealed: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/report.txt"), parent_path=Path("/tmp"), name="report.txt")][:limit],
+            total=1,
+            elapsed_ms=2.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.open_containing_folder.connect(lambda hit: revealed.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("report")
+    launcher.emit_open_containing_folder()
+
+    assert revealed == ["report.txt"]
+    assert launcher.model.rowCount() == 1
+
+
 def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         if not query:
@@ -126,6 +200,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
     assert "(20%)" in launcher.empty_state.details_label.text()
+    assert launcher.shortcut_label.text() == "Type a filename, path, or content term."
 
     launcher.query_field.setText("missing")
     _wait(60)
@@ -135,6 +210,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "date:this-week" in launcher.empty_state.body_label.text()
     assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
+    assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
 
 
 def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> None:
