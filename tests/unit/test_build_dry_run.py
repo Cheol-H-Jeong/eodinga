@@ -23,6 +23,9 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["version"] == __version__
     assert payload["version_matches_package"] is True
     assert payload["pyinstaller_spec"]["exists"] is True
+    datas = {tuple(item) for item in payload["pyinstaller_spec"]["datas"]}
+    assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
+    assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas
     rendered_path = Path(payload["inno_setup"]["rendered_path"])
     assert rendered_path.exists()
     rendered_text = rendered_path.read_text(encoding="utf-8")

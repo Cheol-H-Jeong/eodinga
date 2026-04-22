@@ -60,6 +60,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "path": str(WINDOWS_SPEC),
             "exists": WINDOWS_SPEC.exists(),
             "hiddenimports": spec_namespace.get("HIDDEN_IMPORTS", []),
+            "datas": spec_namespace.get("DATAS", []),
         },
         "inno_setup": {
             "path": str(INNO_SCRIPT),

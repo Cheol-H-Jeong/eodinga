@@ -10,6 +10,12 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     namespace["__file__"] = str(spec_path.resolve())
     exec(spec_path.read_text(encoding="utf-8"), namespace)
     hiddenimports = cast(list[str], namespace["HIDDEN_IMPORTS"])
+    datas = cast(list[tuple[str, str]], namespace["DATAS"])
     assert "watchdog" in hiddenimports
     assert "PySide6.QtWidgets" in hiddenimports
     assert "pypdf" in hiddenimports
+    assert "eodinga.gui.app" in hiddenimports
+    assert "eodinga.content.registry" in hiddenimports
+    assert "eodinga.launcher.hotkey_win" in hiddenimports
+    assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
+    assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas

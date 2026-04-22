@@ -5,6 +5,33 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENTRY_CLI = PROJECT_ROOT / "eodinga" / "__main__.py"
 ENTRY_GUI = PROJECT_ROOT / "eodinga" / "__main__.py"
+I18N_DIR = PROJECT_ROOT / "eodinga" / "i18n"
+
+RUNTIME_MODULES = [
+    "eodinga.content.code",
+    "eodinga.content.epub",
+    "eodinga.content.html",
+    "eodinga.content.hwp",
+    "eodinga.content.office",
+    "eodinga.content.pdf",
+    "eodinga.content.registry",
+    "eodinga.content.text",
+    "eodinga.gui.app",
+    "eodinga.gui.launcher",
+    "eodinga.gui.tabs.about",
+    "eodinga.gui.tabs.index",
+    "eodinga.gui.tabs.roots",
+    "eodinga.gui.tabs.search",
+    "eodinga.gui.tabs.settings",
+    "eodinga.gui.theme",
+    "eodinga.gui.widgets.empty_state",
+    "eodinga.gui.widgets.result_item",
+    "eodinga.gui.widgets.search_field",
+    "eodinga.gui.widgets.status_chip",
+    "eodinga.launcher.hotkey",
+    "eodinga.launcher.hotkey_linux",
+    "eodinga.launcher.hotkey_win",
+]
 
 HIDDEN_IMPORTS = [
     "PySide6",
@@ -22,12 +49,19 @@ HIDDEN_IMPORTS = [
     "olefile",
     "selectolax",
     "ebooklib",
+    *RUNTIME_MODULES,
+]
+
+DATAS = [
+    (str(I18N_DIR / "en.json"), "eodinga/i18n"),
+    (str(I18N_DIR / "ko.json"), "eodinga/i18n"),
+    (str(PROJECT_ROOT / "LICENSE"), "."),
 ]
 
 SPEC_AUDIT = {
     "cli_entry": str(ENTRY_CLI),
     "gui_entry": str(ENTRY_GUI),
     "hiddenimports": HIDDEN_IMPORTS,
+    "datas": DATAS,
     "mode": "onedir",
 }
-
