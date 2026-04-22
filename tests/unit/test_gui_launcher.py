@@ -257,6 +257,8 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
     assert "(20%)" in launcher.empty_state.details_label.text()
+    assert launcher.status_chip.text() == "Indexing"
+    assert launcher.status_label.text() == "24/120 files · 20% indexed"
     assert launcher.shortcut_label.text() == "Type a filename, path, or content term."
 
     launcher.query_field.setText("missing")
@@ -279,3 +281,35 @@ def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> No
     state.remember_query("budget")
 
     assert "budget, report" in launcher.empty_state.body_label.text()
+
+
+def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
+    properties: list[str] = []
+    copied: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/release-notes.txt"),
+                    parent_path=Path("/tmp"),
+                    name="release-notes.txt",
+                )
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show_properties.connect(lambda hit: properties.append(hit.name))
+    launcher.copy_path_requested.connect(lambda hit: copied.append(str(hit.path)))
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(60)
+
+    QTest.keyClick(launcher, Qt.Key.Key_Return, Qt.KeyboardModifier.ShiftModifier)
+    QTest.keyClick(launcher, Qt.Key.Key_C, Qt.KeyboardModifier.AltModifier)
+
+    assert properties == ["release-notes.txt"]
+    assert copied == ["/tmp/release-notes.txt"]

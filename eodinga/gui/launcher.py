@@ -43,6 +43,19 @@ def format_indexing_status(status: IndexingStatus) -> str:
     return f"Indexing {status.processed_files}/{total} files{progress}{root_label}."
 
 
+def format_indexing_footer(status: IndexingStatus) -> str:
+    if status.phase != "indexing":
+        return "0 results · 0.0 ms"
+    total = str(status.total_files) if status.total_files > 0 else "?"
+    parts = [f"{status.processed_files}/{total} files"]
+    if status.total_files > 0:
+        percent = round((status.processed_files / status.total_files) * 100)
+        parts.append(f"{percent}% indexed")
+    else:
+        parts.append("indexing")
+    return " · ".join(parts)
+
+
 class LauncherState(QObject):
     recent_queries_changed = Signal(list)
     indexing_status_changed = Signal(object)
@@ -197,6 +210,7 @@ class LauncherPanel(QWidget):
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
+        self._refresh_status_footer()
         self._refresh_empty_state()
 
     def activate_current_result(self) -> None:
@@ -258,18 +272,28 @@ class LauncherPanel(QWidget):
         if self._state is not None and query:
             self._state.remember_query(query)
         self.model.set_items(self._latest_result.items, query)
-        self.status_label.setText(f"{self._latest_result.total} results · {self._latest_result.elapsed_ms:.1f} ms")
-        if not query:
-            self.status_chip.setText("Idle")
-        elif self._latest_result.total > 0:
-            self.status_chip.setText("Ready")
-        else:
-            self.status_chip.setText("No results")
+        self._refresh_status_footer()
         self._restore_selection(previous_hit)
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
         self.results_updated.emit(self._latest_result)
         get_logger().debug("launcher query '{}' returned {}", query, self._latest_result.total)
+
+    def _refresh_status_footer(self) -> None:
+        query = self.query_field.text().strip()
+        if not query:
+            if self._indexing_status.phase == "indexing":
+                self.status_chip.setText("Indexing")
+                self.status_label.setText(format_indexing_footer(self._indexing_status))
+            else:
+                self.status_chip.setText("Idle")
+                self.status_label.setText("0 results · 0.0 ms")
+            return
+        self.status_label.setText(f"{self._latest_result.total} results · {self._latest_result.elapsed_ms:.1f} ms")
+        if self._latest_result.total > 0:
+            self.status_chip.setText("Ready")
+        else:
+            self.status_chip.setText("No results")
 
     def _refresh_empty_state(self) -> None:
         has_results = self.model.rowCount() > 0
