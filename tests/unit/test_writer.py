@@ -96,6 +96,97 @@ def test_writer_bulk_upsert_batches_content_inserts(tmp_db: Path, tmp_path: Path
     assert hashes[0] == ("file-0.txt", b"sha-file-0.txt")
 
 
+def test_writer_apply_events_batches_deleted_path_cleanup(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    records = [_synthetic_record(index, tmp_path) for index in range(3)]
+    parsed_by_path = {
+        record.path: ParsedContent(
+            title=record.name,
+            head_text=f"head {record.name}",
+            body_text=f"body {record.name}",
+            content_sha=f"sha-{record.name}".encode(),
+        )
+        for record in records
+    }
+    writer = IndexWriter(conn, parser_callback=lambda path: parsed_by_path.get(path))
+    assert writer.bulk_upsert(records) == 3
+
+    statements: list[str] = []
+    conn.set_trace_callback(statements.append)
+    try:
+        processed = writer.apply_events(
+            [
+                WatchEvent(event_type="deleted", path=records[0].path),
+                WatchEvent(event_type="deleted", path=records[1].path),
+            ],
+            record_loader=lambda _path: None,
+        )
+    finally:
+        conn.set_trace_callback(None)
+
+    assert processed == 2
+    batched_selects = {
+        statement.strip()
+        for statement in statements
+        if "SELECT content_map.fts_rowid" in statement and "WHERE files.path IN" in statement
+    }
+    batched_deletes = {
+        statement.strip() for statement in statements if statement.startswith("DELETE FROM files WHERE path IN")
+    }
+    assert len(batched_selects) == 1
+    assert len(batched_deletes) == 1
+    assert conn.execute("SELECT COUNT(*) FROM files").fetchone() == (1,)
+    assert conn.execute("SELECT COUNT(*) FROM content_fts").fetchone() == (1,)
+
+
+def test_writer_apply_events_batches_moved_source_cleanup(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    records = [_synthetic_record(index, tmp_path) for index in range(2)]
+    writer = IndexWriter(conn)
+    assert writer.bulk_upsert(records) == 2
+
+    moved_paths = [tmp_path / "moved-0.txt", tmp_path / "moved-1.txt"]
+    for index, path in enumerate(moved_paths):
+        path.write_text(f"moved {index}", encoding="utf-8")
+
+    statements: list[str] = []
+    conn.set_trace_callback(statements.append)
+    try:
+        processed = writer.apply_events(
+            [
+                WatchEvent(event_type="moved", src_path=records[0].path, path=moved_paths[0]),
+                WatchEvent(event_type="moved", src_path=records[1].path, path=moved_paths[1]),
+            ],
+            record_loader=make_record,
+        )
+    finally:
+        conn.set_trace_callback(None)
+
+    assert processed == 2
+    batched_selects = {
+        statement.strip()
+        for statement in statements
+        if "SELECT content_map.fts_rowid" in statement and "WHERE files.path IN" in statement
+    }
+    batched_deletes = {
+        statement.strip() for statement in statements if statement.startswith("DELETE FROM files WHERE path IN")
+    }
+    assert len(batched_selects) == 1
+    assert len(batched_deletes) == 1
+    remaining_paths = {
+        row[0] for row in conn.execute("SELECT path FROM files ORDER BY path").fetchall()
+    }
+    assert remaining_paths == {str(path) for path in moved_paths}
+
+
 def test_writer_bulk_upsert_reuses_existing_content_rowids(tmp_db: Path, tmp_path: Path) -> None:
     conn = sqlite3.connect(tmp_db)
     conn.execute(

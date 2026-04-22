@@ -70,19 +70,25 @@ class IndexWriter:
     def apply_events(self, events: Sequence[WatchEvent], record_loader: RecordLoader) -> int:
         processed = 0
         content_deletes: list[int] = []
+        deleted_paths: list[Path] = []
+        retired_paths: list[Path] = []
         pending_records: list[FileRecord] = []
         with self._conn:
             for event in events:
                 if event.event_type == "deleted":
-                    processed += self._delete_path(event.path, content_deletes)
+                    deleted_paths.append(event.path)
                     continue
                 if event.event_type == "moved" and event.src_path is not None:
-                    self._delete_path(event.src_path, content_deletes)
+                    retired_paths.append(event.src_path)
                 record = record_loader(event.path)
                 if record is None:
                     continue
                 pending_records.append(record)
                 processed += 1
+            if deleted_paths:
+                processed += self._delete_paths(deleted_paths, content_deletes)
+            if retired_paths:
+                self._delete_paths(retired_paths, content_deletes)
             if pending_records:
                 self._upsert_records(pending_records)
                 self._upsert_content(pending_records)
@@ -115,16 +121,31 @@ class IndexWriter:
         )
 
     def _delete_path(self, path: Path, content_deletes: list[int]) -> int:
-        row = self._conn.execute(
-            "SELECT fts_rowid FROM content_map "
-            "JOIN files ON files.id = content_map.file_id "
-            "WHERE files.path = ?",
-            (str(path),),
-        ).fetchone()
-        if row is not None:
-            content_deletes.append(int(row[0]))
-        cursor = self._conn.execute("DELETE FROM files WHERE path = ?", (str(path),))
-        return cursor.rowcount
+        return self._delete_paths((path,), content_deletes)
+
+    def _delete_paths(self, paths: Sequence[Path], content_deletes: list[int]) -> int:
+        unique_paths = tuple(dict.fromkeys(str(path) for path in paths))
+        if not unique_paths:
+            return 0
+        deleted = 0
+        for chunk in _chunked(unique_paths):
+            placeholders = ", ".join("?" for _ in chunk)
+            rows = self._conn.execute(
+                f"""
+                SELECT content_map.fts_rowid
+                FROM files
+                JOIN content_map ON content_map.file_id = files.id
+                WHERE files.path IN ({placeholders})
+                """,
+                tuple(chunk),
+            ).fetchall()
+            content_deletes.extend(int(row[0]) for row in rows)
+            cursor = self._conn.execute(
+                f"DELETE FROM files WHERE path IN ({placeholders})",
+                tuple(chunk),
+            )
+            deleted += cursor.rowcount
+        return deleted
 
     def _upsert_content(self, records: Sequence[FileRecord]) -> None:
         parsed_by_path: dict[str, ParsedContent] = {}
