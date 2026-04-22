@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5 - 2026-04-23
+
+- Hardened packaging dry runs so `packaging/build.py --target windows-dry-run` now validates the Python/package version match and renders a versioned Inno Setup script into `packaging/dist/windows/`.
+- Replaced the Linux AppImage placeholder with a source-backed AppDir staging recipe that emits an audit manifest and tarball during dry runs.
+- Updated release-workflow coverage so Linux packaging exercises the AppImage dry run instead of reusing the Windows audit path.
+
 ## 0.1.4 - 2026-04-23
 
 - Batched content-index upserts so bulk indexing reuses file/content row IDs without per-record lookup queries.
