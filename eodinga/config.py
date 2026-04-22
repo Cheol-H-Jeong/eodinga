@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 import tomllib
 from pathlib import Path
 
@@ -11,6 +12,44 @@ from pydantic import BaseModel, ConfigDict, Field
 
 def _expand_path(value: str | Path) -> Path:
     return Path(value).expanduser()
+
+
+def _fsync_directory(path: Path) -> None:
+    try:
+        fd = os.open(path, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)
+
+
+def _atomic_write_text(path: Path, contents: str) -> None:
+    directory = path.parent
+    directory.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=directory,
+        text=True,
+    )
+    temp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(contents)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
+        _fsync_directory(directory)
+    except Exception:
+        try:
+            temp_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise
 
 
 class GeneralConfig(BaseModel):
@@ -62,7 +101,6 @@ class AppConfig(BaseModel):
 
     def save(self, path: Path) -> None:
         target = path.expanduser()
-        target.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "general": self.general.model_dump(mode="json"),
             "launcher": self.launcher.model_dump(mode="json"),
@@ -79,7 +117,7 @@ class AppConfig(BaseModel):
                 for root in self.roots
             ],
         }
-        target.write_text(tomli_w.dumps(payload), encoding="utf-8")
+        _atomic_write_text(target, tomli_w.dumps(payload))
 
 
 def default_config_dir() -> Path:
@@ -120,4 +158,3 @@ def load(path: Path | None = None) -> AppConfig:
         return AppConfig()
     raw = tomllib.loads(config_path.read_text(encoding="utf-8"))
     return AppConfig.model_validate(raw)
-

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from eodinga.config import AppConfig, RootConfig, default_path, load
 
 
@@ -18,6 +20,31 @@ def test_config_round_trip_save_and_load(temp_config_path: Path, tmp_path: Path)
     assert loaded.model_dump() == config.model_dump()
 
 
+def test_config_save_is_atomic_and_cleans_temp_file_on_replace_failure(
+    temp_config_path: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = AppConfig(roots=[RootConfig(path=tmp_path / "docs")])
+    original.save(temp_config_path)
+    before = temp_config_path.read_text(encoding="utf-8")
+
+    updated = AppConfig(
+        launcher=original.launcher.model_copy(update={"hotkey": "ctrl+alt+space"}),
+        roots=[RootConfig(path=tmp_path / "next-docs")],
+    )
+
+    def fail_replace(source: str | bytes | Path, destination: str | bytes | Path) -> None:
+        raise OSError("replace failed")
+
+    monkeypatch.setattr("eodinga.config.os.replace", fail_replace)
+
+    with pytest.raises(OSError, match="replace failed"):
+        updated.save(temp_config_path)
+
+    assert temp_config_path.read_text(encoding="utf-8") == before
+    assert list(temp_config_path.parent.glob(f".{temp_config_path.name}.*.tmp")) == []
+
+
 def test_default_path_ends_with_config_toml() -> None:
     assert default_path().name == "config.toml"
-
