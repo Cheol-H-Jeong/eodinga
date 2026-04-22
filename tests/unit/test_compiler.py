@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from eodinga.query import compile
 from eodinga.query.compiler import compile_query
 from eodinga.query.dsl import parse
 
@@ -70,3 +71,10 @@ def test_compile_double_negated_group_restores_positive_branches() -> None:
     assert len(compiled.branches) == 2
     assert {branch.path_match_params for branch in compiled.branches} == {('"alpha"',), ('"beta"',)}
     assert all(not branch.path_terms[0].negated for branch in compiled.branches)
+
+
+def test_compile_reuses_cached_queries() -> None:
+    first = compile("report ext:pdf")
+    second = compile("report ext:pdf")
+
+    assert first is second
