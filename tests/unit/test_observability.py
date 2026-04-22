@@ -35,6 +35,14 @@ def test_configure_logging_respects_explicit_file_target(tmp_path: Path) -> None
     assert log_path.parent.exists()
 
 
+def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> None:
+    log_path = tmp_path / "custom" / "override.log"
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    configure_logging("INFO")
+    assert log_path.parent.exists()
+
+
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     try:
         raise RuntimeError("boom")
@@ -44,6 +52,18 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert crash_path.parent == tmp_path
     assert "RuntimeError: boom" in contents
     assert "Traceback" in contents
+    assert "timestamp=" in contents
+    assert "pid=" in contents
+
+
+def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path))
+    try:
+        raise ValueError("env boom")
+    except ValueError as error:
+        crash_path = write_crash_log(error, context="env override")
+    assert crash_path.parent == tmp_path
+    assert "env override" in crash_path.read_text(encoding="utf-8")
 
 
 def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path: Path) -> None:

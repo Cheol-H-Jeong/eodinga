@@ -210,7 +210,8 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         raise
     except Exception as error:
-        crash_path = write_crash_log(error)
+        command = " ".join(argv or sys.argv[1:]) or "<interactive>"
+        crash_path = write_crash_log(error, context=f"Unhandled exception while running: {command}")
         sys.stderr.write(f"unhandled exception; crash log written to {crash_path}\n")
         return 1
 

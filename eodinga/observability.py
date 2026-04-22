@@ -83,9 +83,13 @@ def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None
         return
     effective_log_path = log_path
     if effective_log_path is None:
-        if "PYTEST_CURRENT_TEST" in os.environ:
-            return
-        effective_log_path = default_log_path()
+        override_path = os.environ.get("EODINGA_LOG_PATH")
+        if override_path:
+            effective_log_path = Path(override_path)
+        else:
+            if "PYTEST_CURRENT_TEST" in os.environ:
+                return
+            effective_log_path = default_log_path()
     target = effective_log_path.expanduser()
     target.parent.mkdir(parents=True, exist_ok=True)
     logger.add(target, rotation="5 MB", retention=5, level=level.upper())
@@ -157,12 +161,15 @@ def write_crash_log(
     crash_dir: Path | None = None,
     context: str = "Unhandled exception",
 ) -> Path:
-    target_dir = (crash_dir or default_crash_dir()).expanduser()
+    override_dir = os.environ.get("EODINGA_CRASH_DIR")
+    target_dir = (crash_dir or (Path(override_dir) if override_dir else default_crash_dir())).expanduser()
     target_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     crash_path = target_dir / f"crash-{timestamp}.log"
     lines = [
         f"{context}\n",
+        f"timestamp={timestamp}\n",
+        f"pid={os.getpid()}\n",
         f"{type(error).__name__}: {error}\n",
         "\n",
         *traceback.format_exception(type(error), error, error.__traceback__),
