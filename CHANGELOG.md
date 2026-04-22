@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.15 - 2026-04-23
+
+- Wired the Windows installer’s existing autostart checkbox to a real per-user `Run` entry and switched the generated installer name to the versioned `eodinga-<version>-win-x64-setup` form expected by the packaging contract.
+- Hardened the PyInstaller packaging spec so the bundle audit now includes dynamic GUI/parser/hotkey modules plus the shipped i18n catalogs and license file.
+- Added a Linux Debian packaging recipe, a `linux-deb-dry-run` target in `packaging/build.py`, and release-workflow coverage so the Linux release job now stages both AppImage and `.deb` artifacts.
+
 ## 0.1.14 - 2026-04-23
 
 - Routed bare path/name lookups through `paths_fts` first, with a substring-scan fallback only when FTS misses entirely, so existing path-match behavior stays intact while the hot query path uses the indexed lookup.
