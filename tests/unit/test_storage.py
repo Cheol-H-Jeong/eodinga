@@ -163,14 +163,53 @@ def test_recover_stale_wal_returns_false_when_nonempty_sidecar_survives(
     conn.close()
     wal_path = path.with_name("index.db-wal")
     wal_path.write_bytes(b"stale")
+    staged_path = path.with_name(".index.db.recover")
+    staged_wal_path = staged_path.with_name(".index.db.recover-wal")
 
-    def leave_nonempty_sidecar(_path: Path) -> None:
-        wal_path.write_bytes(b"stale")
+    def leave_nonempty_sidecar(recovery_path: Path) -> None:
+        assert recovery_path == staged_path
+        staged_wal_path.write_bytes(b"stale")
 
     monkeypatch.setattr("eodinga.index.storage._checkpoint_wal", leave_nonempty_sidecar)
 
     assert recover_stale_wal(path) is False
     assert wal_path.read_bytes() == b"stale"
+    assert not staged_path.exists()
+    assert not staged_wal_path.exists()
+    assert not staged_path.with_name(".index.db.recover-shm").exists()
+
+
+def test_recover_stale_wal_uses_staged_copy_before_atomic_swap(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "source.db"
+    snapshot = tmp_path / "snapshot.db"
+
+    conn = sqlite3.connect(source)
+    apply_schema(conn)
+    conn.execute("PRAGMA wal_autocheckpoint=0;")
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/before", "[]", "[]", 1),
+    )
+    conn.commit()
+
+    shutil.copy2(source, snapshot)
+    shutil.copy2(source.with_name("source.db-wal"), snapshot.with_name("snapshot.db-wal"))
+    shutil.copy2(source.with_name("source.db-shm"), snapshot.with_name("snapshot.db-shm"))
+    conn.close()
+
+    seen: dict[str, bool] = {"target_stale_before_swap": False}
+    original_atomic_replace = atomic_replace_index
+
+    def record_swap(staged_path: Path, target_path: Path) -> None:
+        seen["target_stale_before_swap"] = has_stale_wal(target_path)
+        original_atomic_replace(staged_path, target_path)
+
+    monkeypatch.setattr("eodinga.index.storage.atomic_replace_index", record_swap)
+
+    assert recover_stale_wal(snapshot) is True
+    assert seen["target_stale_before_swap"] is True
 
 
 def test_open_index_raises_when_stale_wal_recovery_fails(tmp_path: Path, monkeypatch) -> None:
@@ -184,3 +223,34 @@ def test_open_index_raises_when_stale_wal_recovery_fails(tmp_path: Path, monkeyp
 
     with pytest.raises(RuntimeError, match="failed to recover stale WAL"):
         open_index(path)
+
+
+def test_open_index_recovers_from_staged_copy_and_cleans_recovery_files(tmp_path: Path) -> None:
+    source = tmp_path / "source.db"
+    snapshot = tmp_path / "snapshot.db"
+
+    conn = sqlite3.connect(source)
+    apply_schema(conn)
+    conn.execute("PRAGMA wal_autocheckpoint=0;")
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/recovered-via-stage", "[]", "[]", 1),
+    )
+    conn.commit()
+
+    shutil.copy2(source, snapshot)
+    shutil.copy2(source.with_name("source.db-wal"), snapshot.with_name("snapshot.db-wal"))
+    shutil.copy2(source.with_name("source.db-shm"), snapshot.with_name("snapshot.db-shm"))
+    conn.close()
+
+    reopened = open_index(snapshot)
+    try:
+        rows = reopened.execute("SELECT path FROM roots").fetchall()
+        assert [str(row[0]) for row in rows] == ["/recovered-via-stage"]
+    finally:
+        reopened.close()
+
+    staged_path = snapshot.with_name(".snapshot.db.recover")
+    assert not staged_path.exists()
+    assert not staged_path.with_name(".snapshot.db.recover-wal").exists()
+    assert not staged_path.with_name(".snapshot.db.recover-shm").exists()
