@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.44 - 2026-04-23
+
+- Fixed watcher coalescing for move-source reuse so a file that is moved away, recreated at the original path, and then deleted in the same debounce window no longer leaves behind a phantom `created` event.
+- Preserved real deletes on reused paths by only suppressing late source-path delete noise when that path has not already been claimed by a new pending event.
+- Added both unit and end-to-end indexing regressions for reused move-source paths, proving the watch pipeline now leaves only the true destination file in the index after the coalesced batch is applied.
+
 ## 0.1.43 - 2026-04-23
 
 - Improved launcher result rendering so highlights now respect positive DSL operators and regex terms across filename, path, extension badge, and content-snippet targets instead of only plain free-text tokens.
