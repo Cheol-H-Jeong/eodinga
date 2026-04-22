@@ -6,7 +6,7 @@ from typing import cast
 from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtWidgets import QApplication
 
-from eodinga.common import QueryResult, SearchHit
+from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.app import EodingaWindow
 from eodinga.gui.launcher import LauncherWindow
 from eodinga.gui.theme import apply_theme
@@ -47,7 +47,7 @@ def _demo_search(query: str, limit: int) -> QueryResult:
     return QueryResult(items=items[:limit], total=len(items), elapsed_ms=7.8)
 
 
-def render_doc_screenshots(output_dir: Path) -> tuple[Path, Path]:
+def render_doc_screenshots(output_dir: Path) -> dict[str, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     app = cast(QApplication, QApplication.instance() or QApplication([]))
     apply_theme(app, "light")
@@ -56,9 +56,18 @@ def render_doc_screenshots(output_dir: Path) -> tuple[Path, Path]:
     launcher = LauncherWindow(search_fn=_demo_search)
 
     try:
+        indexing_status = IndexingStatus(
+            phase="indexing",
+            processed_files=1248,
+            total_files=3200,
+            current_root=Path("/workspace/projects"),
+        )
+        window.set_indexing_status(indexing_status)
         window.tab_widget.setCurrentWidget(window.search_tab)
         window.show()
         launcher.show()
+        window.search_tab.launcher_panel.query_field.setText("release")
+        window.search_tab.launcher_panel._run_query()
         launcher.query_field.setText("release")
         launcher._run_query()
         _wait(80)
@@ -67,12 +76,24 @@ def render_doc_screenshots(output_dir: Path) -> tuple[Path, Path]:
 
         app_path = output_dir / "app-window.png"
         launcher_path = output_dir / "launcher-window.png"
+        index_path = output_dir / "index-progress.png"
 
         if not window.grab().save(str(app_path)):
             raise RuntimeError(f"failed to save screenshot: {app_path}")
         if not launcher.grab().save(str(launcher_path)):
             raise RuntimeError(f"failed to save screenshot: {launcher_path}")
-        return app_path, launcher_path
+
+        window.tab_widget.setCurrentWidget(window.index_tab)
+        _wait(40)
+        app.processEvents()
+
+        if not window.grab().save(str(index_path)):
+            raise RuntimeError(f"failed to save screenshot: {index_path}")
+        return {
+            "app-window": app_path,
+            "launcher-window": launcher_path,
+            "index-progress": index_path,
+        }
     finally:
         launcher.close()
         window.close()
