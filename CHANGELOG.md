@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.31 - 2026-04-23
+
+- Switched relative `date:` filters (`today`, `yesterday`, `this-week`, `this-month`) to local timezone day boundaries instead of UTC midnight windows, so end-to-end query results now match the user’s machine clock around day rollover.
+- Hardened scoped search roots across platforms by preserving Windows-style `C:/...` roots in the CLI and matching both slash styles in executor scoping, which restores `--root` filtering against native Windows path rows.
+- Added regression coverage for local-day date semantics, Windows-style scoped search in both executor and CLI paths, and aligned the end-to-end date integration fixture with the local-time query contract.
+
 ## 0.1.30 - 2026-04-23
 
 - Tightened stale-WAL startup recovery so `open_index()` now fails fast when SQLite replay cannot clear non-empty recovery sidecars, instead of reopening the index in an ambiguous state.
