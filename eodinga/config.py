@@ -63,6 +63,7 @@ class LauncherConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     hotkey: str = "ctrl+shift+space"
+    always_on_top: bool = True
     debounce_ms: int = 30
     max_results: int = 200
     window_x: int | None = None
