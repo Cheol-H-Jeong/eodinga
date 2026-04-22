@@ -16,7 +16,12 @@ from eodinga.doctor import run_diagnostics
 from eodinga.index.build import rebuild_index
 from eodinga.index.reader import stats as read_index_stats
 from eodinga.index.storage import open_index
-from eodinga.observability import configure_logging, install_crash_handler, metrics_snapshot
+from eodinga.observability import (
+    configure_logging,
+    increment_counter,
+    install_crash_handler,
+    metrics_snapshot,
+)
 from eodinga.query import QuerySyntaxError, search as run_search
 
 
@@ -151,6 +156,33 @@ def _cmd_search(args: argparse.Namespace) -> int:
     return _emit(payload, as_json=bool(args.json))
 
 
+def _format_stats_snapshot(snapshot: StatsSnapshot) -> str:
+    lines = [
+        f"db: {snapshot.db_path}" if snapshot.db_path is not None else "db: <none>",
+        f"files_indexed: {snapshot.files_indexed}",
+        f"documents_indexed: {snapshot.documents_indexed}",
+        "roots:",
+    ]
+    if snapshot.roots:
+        lines.extend(f"  - {root}" for root in snapshot.roots)
+    else:
+        lines.append("  - <none>")
+    lines.append("counters:")
+    if snapshot.counters:
+        lines.extend(f"  - {name}={value}" for name, value in sorted(snapshot.counters.items()))
+    else:
+        lines.append("  - <none>")
+    lines.append("query_latency_histogram:")
+    if snapshot.query_latency_histogram:
+        lines.extend(
+            f"  - {name}={value}"
+            for name, value in sorted(snapshot.query_latency_histogram.items())
+        )
+    else:
+        lines.append("  - <none>")
+    return "\n".join(lines)
+
+
 def _cmd_stats(args: argparse.Namespace) -> int:
     config = _resolve_config(args)
     db_path = args.db or config.index.db_path
@@ -163,6 +195,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         files_indexed = snapshot.file_count
         documents_indexed = snapshot.content_count
         roots = list(snapshot.roots)
+    increment_counter("stats_requests")
     counters, query_latency_histogram = metrics_snapshot()
     snapshot = StatsSnapshot(
         files_indexed=files_indexed,
@@ -171,8 +204,10 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         db_path=db_path,
         counters=counters,
         query_latency_histogram=query_latency_histogram,
-    ).model_dump(mode="json")
-    return _emit(snapshot, as_json=bool(args.json))
+    )
+    if args.json:
+        return _emit(snapshot.model_dump(mode="json"), as_json=True)
+    return _emit(_format_stats_snapshot(snapshot))
 
 
 def _cmd_gui(args: argparse.Namespace) -> int:

@@ -444,3 +444,30 @@ def test_index_requires_at_least_one_root(cli_runner, tmp_path: Path) -> None:
 
     assert result.returncode == 2
     assert "requires at least one root" in result.stderr
+
+
+def test_stats_plain_text_reports_db_snapshot(cli_runner, tmp_path: Path) -> None:
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    (reports / "launch-plan.txt").write_text("launcher recovery checklist\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+
+    index_result = cli_runner(
+        "--db",
+        str(db_path),
+        "index",
+        "--root",
+        str(reports),
+        "--rebuild",
+    )
+
+    assert index_result.returncode == 0
+
+    result = cli_runner("--db", str(db_path), "stats")
+
+    assert result.returncode == 0
+    assert f"db: {db_path}" in result.stdout
+    assert "files_indexed: " in result.stdout
+    assert "documents_indexed: " in result.stdout
+    assert f"  - {reports}" in result.stdout
+    assert "  - stats_requests=1" in result.stdout
