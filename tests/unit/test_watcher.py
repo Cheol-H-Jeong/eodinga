@@ -5,9 +5,63 @@ from queue import Empty
 from time import monotonic, sleep
 
 import pytest
+from watchdog.events import FileMovedEvent
 
 from eodinga.common import WatchEvent
-from eodinga.core.watcher import WatchService
+from eodinga.core.watcher import WatchService, _Handler
+
+
+def test_watcher_handler_maps_move_leaving_root_to_delete(tmp_path: Path) -> None:
+    service = WatchService()
+    root = tmp_path / "watched"
+    outside = tmp_path / "outside"
+    source = root / "draft.txt"
+    destination = outside / "draft.txt"
+    handler = _Handler(service, root)
+
+    handler.on_any_event(FileMovedEvent(str(source), str(destination)))
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "deleted"
+    assert event.path == source
+    assert event.src_path is None
+    assert event.root_path == root
+
+
+def test_watcher_handler_maps_move_entering_root_to_create(tmp_path: Path) -> None:
+    service = WatchService()
+    root = tmp_path / "watched"
+    outside = tmp_path / "outside"
+    source = outside / "draft.txt"
+    destination = root / "draft.txt"
+    handler = _Handler(service, root)
+
+    handler.on_any_event(FileMovedEvent(str(source), str(destination)))
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "created"
+    assert event.path == destination
+    assert event.src_path is None
+    assert event.root_path == root
+
+
+def test_watcher_handler_preserves_move_within_root(tmp_path: Path) -> None:
+    service = WatchService()
+    root = tmp_path / "watched"
+    source = root / "draft.txt"
+    destination = root / "report.txt"
+    handler = _Handler(service, root)
+
+    handler.on_any_event(FileMovedEvent(str(source), str(destination)))
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "moved"
+    assert event.path == destination
+    assert event.src_path == source
+    assert event.root_path == root
 
 
 def test_watcher_coalesces_events_within_500ms(tmp_path: Path) -> None:

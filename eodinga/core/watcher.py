@@ -27,6 +27,14 @@ def _event_type_for(event: FileSystemEvent) -> str:
     return "modified"
 
 
+def _is_within_root(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
 class _ManagedObserver(Protocol):
     def start(self) -> None: ...
     def stop(self) -> None: ...
@@ -46,12 +54,43 @@ class _Handler(FileSystemEventHandler):
         if event.is_directory:
             return
         src_path = Path(fsdecode(event.src_path))
-        dest_path = Path(fsdecode(event.dest_path)) if event.event_type == "moved" else None
+        if event.event_type == "moved":
+            dest_path = Path(fsdecode(event.dest_path))
+            src_in_root = _is_within_root(src_path, self._root)
+            dest_in_root = _is_within_root(dest_path, self._root)
+            if src_in_root and dest_in_root:
+                normalized = WatchEvent(
+                    event_type="moved",
+                    path=dest_path,
+                    src_path=src_path,
+                    is_dir=event.is_directory,
+                    root_path=self._root,
+                    happened_at=monotonic(),
+                )
+            elif src_in_root:
+                normalized = WatchEvent(
+                    event_type="deleted",
+                    path=src_path,
+                    is_dir=event.is_directory,
+                    root_path=self._root,
+                    happened_at=monotonic(),
+                )
+            elif dest_in_root:
+                normalized = WatchEvent(
+                    event_type="created",
+                    path=dest_path,
+                    is_dir=event.is_directory,
+                    root_path=self._root,
+                    happened_at=monotonic(),
+                )
+            else:
+                return
+            self._service.record(normalized)
+            return
         self._service.record(
             WatchEvent(
                 event_type=_event_type_for(event),
-                path=dest_path or src_path,
-                src_path=src_path if dest_path else None,
+                path=src_path,
                 is_dir=event.is_directory,
                 root_path=self._root,
                 happened_at=monotonic(),
