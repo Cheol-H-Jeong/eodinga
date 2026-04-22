@@ -5,12 +5,24 @@ from pathlib import Path
 
 
 _BANNED_IMPORTS = {
+    "aiohttp",
     "http",
+    "http.client",
+    "httpx",
     "requests",
     "socket",
+    "urllib3",
     "urllib.request",
+    "websocket",
+    "websockets",
 }
 _BANNED_CALLS = {
+    "asyncio.open_connection",
+    "http.client.HTTPConnection",
+    "http.client.HTTPSConnection",
+    "httpx.Client",
+    "httpx.AsyncClient",
+    "socket.create_connection",
     "socket.socket",
     "urllib.request.urlopen",
 }
@@ -95,10 +107,17 @@ def _is_text_candidate(path: Path) -> bool:
 def test_no_network_in_source() -> None:
     root = Path(__file__).resolve().parents[2]
     banned = (
+        "aio" "http",
         "ht" "tp://",
         "ht" "tps://",
+        "http" ".client",
+        "ht" "tpx",
         "requ" "ests",
+        "socket." "create_connection",
         "urllib.request." "urlopen",
+        "urlli" "b3",
+        "web" "socket",
+        "web" "sockets",
         "socket." "socket",
     )
     violations: list[str] = []
