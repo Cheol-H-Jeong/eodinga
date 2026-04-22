@@ -470,4 +470,4 @@ def test_stats_plain_text_reports_db_snapshot(cli_runner, tmp_path: Path) -> Non
     assert "files_indexed: " in result.stdout
     assert "documents_indexed: " in result.stdout
     assert f"  - {reports}" in result.stdout
-    assert "  - stats_requests=1" in result.stdout
+    assert "  - stats_runs=1" in result.stdout

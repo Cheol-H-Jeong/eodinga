@@ -41,7 +41,7 @@ def test_stats_json_reports_runtime_counters_and_db_snapshot(
     assert payload["db_path"] == str(db_path)
     assert payload["counters"]["files_indexed"] >= 1
     assert payload["counters"]["queries_served"] == 1
-    assert payload["counters"]["stats_requests"] == 1
+    assert payload["counters"]["stats_runs"] == 1
     assert sum(payload["query_latency_histogram"].values()) == 1
 
 

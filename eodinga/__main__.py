@@ -195,7 +195,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         files_indexed = snapshot.file_count
         documents_indexed = snapshot.content_count
         roots = list(snapshot.roots)
-    increment_counter("stats_requests")
+    increment_counter("stats_runs")
     counters, query_latency_histogram = metrics_snapshot()
     snapshot = StatsSnapshot(
         files_indexed=files_indexed,

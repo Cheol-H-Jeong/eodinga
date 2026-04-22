@@ -61,9 +61,9 @@ def get_logger(name: str | None = None) -> Any:
 
 
 def increment_counter(name: str, value: int = 1, **fields: object) -> None:
+    del fields
     with _COUNTERS_LOCK:
         _COUNTERS[name] += value
-    logger.bind(metric=name, **fields).debug("counter +{value}", value=value)
 
 
 def record_counter(name: str, value: int = 1, **fields: object) -> None:
@@ -71,7 +71,8 @@ def record_counter(name: str, value: int = 1, **fields: object) -> None:
 
 
 def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
-    logger.bind(metric=name, payload=dict(payload)).debug("snapshot recorded")
+    del name
+    del payload
 
 
 def observe_query_latency(elapsed_ms: float) -> None:
@@ -82,10 +83,6 @@ def observe_query_latency(elapsed_ms: float) -> None:
             break
     with _COUNTERS_LOCK:
         _QUERY_LATENCY_HISTOGRAM[bucket] += 1
-    logger.bind(metric="query_latency_histogram", bucket=bucket).debug(
-        "observed query latency {elapsed_ms:.3f}ms",
-        elapsed_ms=elapsed_ms,
-    )
 
 
 def metrics_snapshot() -> tuple[dict[str, int], dict[str, int]]:
