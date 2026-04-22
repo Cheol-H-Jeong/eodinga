@@ -174,10 +174,38 @@ def _size_to_bytes(value: str) -> tuple[str, int]:
 
 
 def _day_bounds(day: date) -> tuple[int, int]:
-    local_tz = datetime.now().astimezone().tzinfo
+    local_tz = _local_tz()
     start = datetime.combine(day, time.min, tzinfo=local_tz)
     end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=local_tz)
     return int(start.timestamp()), int(end.timestamp())
+
+
+def _local_tz():
+    return datetime.now().astimezone().tzinfo
+
+
+def _month_start(day: date) -> date:
+    return day.replace(day=1)
+
+
+def _next_month_start(day: date) -> date:
+    return (day.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+
+def _parse_iso_window(value: str) -> tuple[int, int]:
+    if "T" not in value and " " not in value:
+        try:
+            return _day_bounds(date.fromisoformat(value))
+        except ValueError:
+            pass
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as error:
+        raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=_local_tz())
+    start = int(parsed.timestamp())
+    return start, start + 1
 
 
 def _date_to_range(value: str) -> tuple[int, int]:
@@ -189,25 +217,25 @@ def _date_to_range(value: str) -> tuple[int, int]:
     if value == "this-week":
         start = today - timedelta(days=today.weekday())
         return _day_bounds(start)[0], _day_bounds(start + timedelta(days=7))[0]
+    if value == "last-week":
+        start = today - timedelta(days=today.weekday() + 7)
+        return _day_bounds(start)[0], _day_bounds(start + timedelta(days=7))[0]
     if value == "this-month":
-        start = today.replace(day=1)
-        next_month = (start.replace(day=28) + timedelta(days=4)).replace(day=1)
-        return _day_bounds(start)[0], _day_bounds(next_month)[0]
+        start = _month_start(today)
+        return _day_bounds(start)[0], _day_bounds(_next_month_start(start))[0]
+    if value == "last-month":
+        this_month = _month_start(today)
+        last_month = this_month - timedelta(days=1)
+        start = _month_start(last_month)
+        return _day_bounds(start)[0], _day_bounds(this_month)[0]
     if ".." in value:
         left, right = value.split("..", 1)
-        try:
-            start = datetime.fromisoformat(left).date()
-            end = datetime.fromisoformat(right).date()
-        except ValueError as error:
-            raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
-        if end < start:
-            start, end = end, start
-        return _day_bounds(start)[0], _day_bounds(end + timedelta(days=1))[0]
-    try:
-        day = datetime.fromisoformat(value).date()
-    except ValueError as error:
-        raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
-    return _day_bounds(day)
+        if not left or not right:
+            raise QuerySyntaxError(f"invalid date literal: {value}", 0)
+        left_start, left_end = _parse_iso_window(left)
+        right_start, right_end = _parse_iso_window(right)
+        return min(left_start, right_start), max(left_end, right_end)
+    return _parse_iso_window(value)
 
 
 def _duplicate_clause(negated: bool) -> str:

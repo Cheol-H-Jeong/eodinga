@@ -138,6 +138,10 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
     yesterday_start = today_start - 86_400
     this_week_start = today_start - local_now.weekday() * 86_400
+    last_week_start = this_week_start - 7 * 86_400
+    this_month_start = int(local_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
+    last_month = local_now.replace(day=1) - timedelta(days=1)
+    last_month_start = int(last_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
     last_month = int((local_now - timedelta(days=40)).timestamp())
 
     _insert_file(tmp_db, 1, "/workspace/today.txt", 512, today_start + 60, "txt", body_text="today note")
@@ -159,15 +163,10 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
         "txt",
         body_text="week note",
     )
-    _insert_file(
-        tmp_db,
-        4,
-        "/workspace/old.txt",
-        4096,
-        last_month,
-        "txt",
-        body_text="old note",
-    )
+    _insert_file(tmp_db, 4, "/workspace/last-week.txt", 4096, last_week_start + 120, "txt", body_text="last week")
+    _insert_file(tmp_db, 5, "/workspace/this-month.txt", 8192, this_month_start + 120, "txt", body_text="this month")
+    _insert_file(tmp_db, 6, "/workspace/last-month.txt", 4096, last_month_start + 120, "txt", body_text="last month")
+    _insert_file(tmp_db, 7, "/workspace/old.txt", 4096, last_month, "txt", body_text="old note")
     tmp_db.commit()
 
     assert search(tmp_db, "date:today", limit=5).hits[0].file.name == "today.txt"
@@ -176,8 +175,14 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     assert "today.txt" in this_week_hits
     assert "yesterday.txt" in this_week_hits
     assert "week.txt" in this_week_hits
+    last_week_hits = [hit.file.name for hit in search(tmp_db, "date:last-week", limit=10).hits]
+    assert last_week_hits == ["last-week.txt"]
     this_month_hits = [hit.file.name for hit in search(tmp_db, "date:this-month", limit=10).hits]
-    assert "old.txt" not in this_month_hits
+    assert "last-month.txt" not in this_month_hits
+    assert "this-month.txt" in this_month_hits
+    last_month_hits = [hit.file.name for hit in search(tmp_db, "date:last-month", limit=10).hits]
+    assert "last-month.txt" in last_month_hits
+    assert "old.txt" in last_month_hits
 
 
 def test_execute_negated_case_true_restores_case_insensitive_matching(
@@ -301,6 +306,27 @@ def test_execute_reversed_date_range_query(tmp_db: sqlite3.Connection) -> None:
         for hit in search(tmp_db, "date:2026-01-03..2026-01-01", limit=10).hits
     ]
     assert hits == ["jan-1.txt", "jan-2.txt", "jan-3.txt"]
+
+
+def test_execute_iso_datetime_range_query(tmp_db: sqlite3.Connection) -> None:
+    base = datetime(2026, 1, 2, 12, tzinfo=UTC)
+    _insert_file(tmp_db, 1, "/workspace/before.txt", 512, int((base - timedelta(minutes=5)).timestamp()), "txt")
+    _insert_file(tmp_db, 2, "/workspace/start.txt", 512, int(base.timestamp()), "txt")
+    _insert_file(tmp_db, 3, "/workspace/middle.txt", 512, int((base + timedelta(minutes=30)).timestamp()), "txt")
+    _insert_file(tmp_db, 4, "/workspace/end.txt", 512, int((base + timedelta(hours=1)).timestamp()), "txt")
+    _insert_file(tmp_db, 5, "/workspace/after.txt", 512, int((base + timedelta(hours=1, minutes=5)).timestamp()), "txt")
+    tmp_db.commit()
+
+    hits = [
+        hit.file.name
+        for hit in search(
+            tmp_db,
+            "date:2026-01-02T12:00:00+00:00..2026-01-02T13:00:00+00:00",
+            limit=10,
+        ).hits
+    ]
+
+    assert hits == ["end.txt", "middle.txt", "start.txt"]
 
 
 def test_execute_decomposed_korean_path_filter_matches_nfc_paths(
