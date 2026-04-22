@@ -139,6 +139,63 @@ def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) ->
     assert launcher.result_list.currentIndex().row() == 0
 
 
+def test_launcher_up_from_query_field_selects_last_result(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+                SearchHit(path=Path("/tmp/gamma.txt"), parent_path=Path("/tmp"), name="gamma.txt"),
+            ][:limit],
+            total=3,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("a")
+    _wait(60)
+    launcher.result_list.clearSelection()
+    launcher.result_list.setCurrentIndex(launcher.model.index(-1, -1))
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Up)
+
+    assert launcher.result_list.hasFocus()
+    assert launcher.result_list.currentIndex().row() == 2
+
+
+def test_launcher_preserves_selected_result_when_query_refines(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        items = [
+            SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+            SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+            SearchHit(path=Path("/tmp/gamma.txt"), parent_path=Path("/tmp"), name="gamma.txt"),
+        ]
+        if query == "ga":
+            items = [items[2]]
+        return QueryResult(items=items[:limit], total=len(items), elapsed_ms=1.5)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("a")
+    _wait(60)
+    launcher.result_list.setFocus()
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Down)
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Down)
+
+    assert launcher.result_list.currentIndex().row() == 2
+
+    launcher.query_field.setText("ga")
+    _wait(60)
+
+    assert launcher.result_list.currentIndex().row() == 0
+    result = launcher.model.item_at(0)
+    assert result is not None
+    assert result.name == "gamma.txt"
+
+
 def test_launcher_activation_flushes_debounced_query_before_opening(qapp) -> None:
     activated: list[str] = []
 

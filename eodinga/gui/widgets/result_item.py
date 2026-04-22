@@ -16,13 +16,15 @@ def _query_highlight_terms(query: str) -> tuple[str, ...]:
     terms: list[str] = []
     seen: set[str] = set()
     for raw in re.findall(r'"[^"]+"|\S+', query):
-        normalized = raw.strip()
-        if normalized in {"|", "-", ""}:
+        token = raw.strip()
+        if token in {"|", "-", ""}:
             continue
-        while normalized.startswith("-"):
-            normalized = normalized[1:].lstrip()
-        normalized = normalized.strip("()")
-        if not normalized:
+        is_negated = False
+        while token.startswith("-"):
+            is_negated = True
+            token = token[1:].lstrip()
+        normalized = token.strip("()")
+        if is_negated or normalized == "":
             continue
         if normalized.startswith('"') and normalized.endswith('"') and len(normalized) > 1:
             normalized = normalized[1:-1]
@@ -62,8 +64,17 @@ def highlight_text(text: str, query: str) -> str:
 def format_hit_html(hit: SearchHit, query: str) -> str:
     primary = hit.highlighted_name or highlight_text(hit.name, query)
     secondary = hit.highlighted_path or highlight_text(str(hit.path), query)
+    ext_badge = ""
+    if hit.ext:
+        ext_badge = (
+            "<span style='display:inline-block; margin-left:8px; padding:1px 6px; "
+            "border-radius:999px; font-size:10px; font-weight:700; letter-spacing:0.08em; "
+            "text-transform:uppercase; color:#92400E; background:#FEF3C7'>"
+            f"{escape(hit.ext)}"
+            "</span>"
+        )
     return (
-        f"<div style='font-size:15px; font-weight:600'>{primary}</div>"
+        f"<div style='font-size:15px; font-weight:600'>{primary}{ext_badge}</div>"
         f"<div style='font-size:11px; color:#6B7280'>{secondary}</div>"
     )
 

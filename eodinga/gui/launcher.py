@@ -253,6 +253,7 @@ class LauncherPanel(QWidget):
 
     def _run_query(self) -> None:
         query = self.query_field.text().strip()
+        previous_hit = self._current_hit()
         self._latest_result = self._search_fn(query, self._max_results)
         if self._state is not None and query:
             self._state.remember_query(query)
@@ -264,8 +265,7 @@ class LauncherPanel(QWidget):
             self.status_chip.setText("Ready")
         else:
             self.status_chip.setText("No results")
-        if self.model.rowCount() > 0:
-            self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
+        self._restore_selection(previous_hit)
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
         self.results_updated.emit(self._latest_result)
@@ -314,11 +314,17 @@ class LauncherPanel(QWidget):
             return False
         if event.key() == Qt.Key.Key_Down:
             self.result_list.setFocus()
-            self._move_selection(1)
+            if not self.result_list.currentIndex().isValid():
+                self._set_selection(0)
+            else:
+                self._move_selection(1)
             return True
         if event.key() == Qt.Key.Key_Up:
             self.result_list.setFocus()
-            self._move_selection(-1)
+            if not self.result_list.currentIndex().isValid():
+                self._set_selection(self.model.rowCount() - 1)
+            else:
+                self._move_selection(-1)
             return True
         if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
             self.result_list.setFocus()
@@ -347,7 +353,20 @@ class LauncherPanel(QWidget):
         if current_row < 0:
             current_row = 0
         next_row = min(max(current_row + delta, 0), self.model.rowCount() - 1)
-        self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(next_row, 0)))
+        self._set_selection(next_row)
+
+    def _restore_selection(self, previous_hit: SearchHit | None) -> None:
+        if self.model.rowCount() == 0:
+            return
+        if previous_hit is not None:
+            for row, item in enumerate(self._latest_result.items):
+                if item.path == previous_hit.path:
+                    self._set_selection(row)
+                    return
+        self._set_selection(0)
+
+    def _set_selection(self, row: int) -> None:
+        self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(row, 0)))
         self.result_list.scrollTo(self.result_list.currentIndex())
 
 
