@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from html import escape
+import re
 
 from PySide6.QtCore import QRect, QSize, Qt
 from PySide6.QtGui import QTextDocument
@@ -14,13 +15,18 @@ HTML_MARGIN = 8
 def highlight_text(text: str, query: str) -> str:
     if not query:
         return escape(text)
-    lowered = text.lower()
-    target = query.lower()
-    start = lowered.find(target)
-    if start < 0:
+    pattern = re.compile(re.escape(query), re.IGNORECASE)
+    if pattern.search(text) is None:
         return escape(text)
-    end = start + len(target)
-    return f"{escape(text[:start])}<mark>{escape(text[start:end])}</mark>{escape(text[end:])}"
+    parts: list[str] = []
+    cursor = 0
+    for match in pattern.finditer(text):
+        start, end = match.span()
+        parts.append(escape(text[cursor:start]))
+        parts.append(f"<mark>{escape(text[start:end])}</mark>")
+        cursor = end
+    parts.append(escape(text[cursor:]))
+    return "".join(parts)
 
 
 def format_hit_html(hit: SearchHit, query: str) -> str:
