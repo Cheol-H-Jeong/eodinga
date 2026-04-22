@@ -180,6 +180,33 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     assert "old.txt" not in this_month_hits
 
 
+def test_execute_escaped_phrase_query_matches_literal_quotes_and_backslashes(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        r'/workspace/release "candidate" notes.txt',
+        512,
+        1_713_528_000,
+        "txt",
+        body_text='path C:\\workspace\\notes and release "candidate" sign-off',
+    )
+    tmp_db.commit()
+
+    name_hits = [
+        hit.file.name
+        for hit in search(tmp_db, r'"release \"candidate\""', limit=5).hits
+    ]
+    content_hits = [
+        hit.file.name
+        for hit in search(tmp_db, r'content:"C:\\workspace\\notes"', limit=5).hits
+    ]
+
+    assert name_hits == ['release "candidate" notes.txt']
+    assert content_hits == ['release "candidate" notes.txt']
+
+
 def test_execute_relative_date_queries_use_local_day_boundaries(
     tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -319,6 +319,24 @@ def test_invalid_regex_flags_fuzz_raise_cleanly(flags: str) -> None:
         parse(f"content:/todo/{flags}")
 
 
+PHRASE_TEXT = st.text(
+    alphabet=st.characters(blacklist_characters='"', blacklist_categories=("Cs",)),
+    min_size=1,
+    max_size=24,
+)
+
+
+@given(PHRASE_TEXT)
+def test_phrase_escape_round_trip_fuzz(value: str) -> None:
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    node = parse(f'content:"{escaped}"')
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "content"
+    assert node.value_kind == "phrase"
+    assert node.value == value
+
+
 NEGATABLE_OPERATOR_ATOMS = st.one_of(
     st.sampled_from(
         [
