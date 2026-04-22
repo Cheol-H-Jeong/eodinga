@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.58 - 2026-04-23
+
+- Fixed launcher row rendering so precomputed secondary-path highlights are now respected, which keeps GUI result rows aligned with the query engine's actual path matches instead of recomputing and potentially losing those spans.
+- Added a launcher regression that proves `Enter` and `Ctrl+Enter` work while focus stays in the filter field, so keyboard-only open and reveal flows no longer depend on moving focus into the result list first.
+- Added a renderer regression for `highlighted_path` so the launcher keeps honoring pre-highlighted containing-folder text in future UI rounds.
+
 ## 0.1.57 - 2026-04-23
 
 - Cached recurring executor SQL shapes for record fetches, FTS candidate reads, scan fallbacks, and content backfill queries so launcher-style repeated searches stop rebuilding identical statement text on every call.
