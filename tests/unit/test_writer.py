@@ -183,6 +183,35 @@ def test_writer_bulk_upsert_skips_unchanged_content_rewrite(tmp_db: Path, tmp_pa
     assert not any("INSERT INTO content_fts" in statement for statement in statements)
 
 
+def test_writer_bulk_upsert_skips_next_rowid_probe_for_unchanged_content(
+    tmp_db: Path, tmp_path: Path
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    record = _synthetic_record(1, tmp_path)
+    parsed = ParsedContent(
+        title=record.name,
+        head_text="head stable",
+        body_text="body stable",
+        content_sha=b"sha-stable",
+    )
+
+    writer = IndexWriter(conn, parser_callback=lambda _path: parsed)
+    assert writer.bulk_upsert([record]) == 1
+
+    statements: list[str] = []
+    conn.set_trace_callback(statements.append)
+    try:
+        assert writer.bulk_upsert((record,)) == 1
+    finally:
+        conn.set_trace_callback(None)
+
+    assert not any("SELECT COALESCE(MAX(rowid), 0) + 1 FROM content_fts" in statement for statement in statements)
+
+
 def test_writer_bulk_upsert_preserves_existing_content_hash_when_record_has_none(
     tmp_db: Path, tmp_path: Path
 ) -> None:

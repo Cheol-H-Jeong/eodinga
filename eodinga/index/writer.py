@@ -43,6 +43,12 @@ def _chunked(values: Sequence[T], size: int = 500) -> Iterable[Sequence[T]]:
         yield values[start : start + size]
 
 
+def _materialize_records(records: Iterable[FileRecord]) -> Sequence[FileRecord]:
+    if isinstance(records, (list, tuple)):
+        return records
+    return tuple(records)
+
+
 class IndexWriter:
     def __init__(
         self, conn: sqlite3.Connection, parser_callback: ParserCallback | None = None
@@ -53,7 +59,7 @@ class IndexWriter:
             apply_schema(self._conn)
 
     def bulk_upsert(self, records: Iterable[FileRecord]) -> int:
-        buffered = list(records)
+        buffered = _materialize_records(records)
         if not buffered:
             return 0
         with self._conn:
@@ -105,7 +111,7 @@ class IndexWriter:
               content_hash=COALESCE(excluded.content_hash, files.content_hash),
               indexed_at=excluded.indexed_at
             """,
-            [_record_tuple(record) for record in records],
+            (_record_tuple(record) for record in records),
         )
 
     def _delete_path(self, path: Path, content_deletes: list[int]) -> int:
@@ -152,7 +158,7 @@ class IndexWriter:
         if reused_rowids:
             self._delete_content_rows(reused_rowids)
 
-        next_rowid = self._next_content_rowid()
+        next_rowid: int | None = None
         content_rows: list[tuple[object, ...]] = []
         mapping_rows: list[tuple[object, ...]] = []
         hash_rows: list[tuple[object, ...]] = []
@@ -160,18 +166,22 @@ class IndexWriter:
         for path_text in path_order:
             row = existing_rows.get(path_text)
             parsed = parsed_by_path[path_text]
+            parsed_sha = parsed.content_sha or None
             if row is None:
                 continue
             file_id = row.file_id
             rowid = row.rowid
-            if row.content_sha == (parsed.content_sha or None):
+            if row.content_sha == parsed_sha:
                 continue
             if rowid is None:
+                if next_rowid is None:
+                    next_rowid = self._next_content_rowid()
                 rowid = next_rowid
+                assert rowid is not None
                 next_rowid += 1
             content_rows.append((rowid, parsed.title, parsed.head_text, parsed.body_text))
             mapping_rows.append((file_id, rowid, "injected", now, parsed.content_sha))
-            hash_rows.append((parsed.content_sha or None, file_id))
+            hash_rows.append((parsed_sha, file_id))
 
         if content_rows:
             self._conn.executemany(
