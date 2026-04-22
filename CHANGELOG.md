@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.78 - 2026-04-23
+
+- Expanded the shipped documentation set with a contributor guide, a release workflow guide, and richer architecture coverage including ASCII data-flow and sequence snapshots of indexing and live-update behavior.
+- Refreshed the README and performance guide so the docs now highlight the full local-first feature surface and include a perf baseline measured at current `HEAD` instead of pointing back to an older tuning round.
+- Tightened the acceptance guide and doc regression tests to cover Linux packaging dry runs and the broader docs contract, keeping the release checklist aligned with the actual repository surface.
+
 ## 0.1.76 - 2026-04-23
 
 - Polished launcher keyboard navigation so the result list now wraps on `Up` / `Down` and supports `PgUp` / `PgDn` jumps for longer result sets, keeping the popup usable without reaching for the mouse.
