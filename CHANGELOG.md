@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.63 - 2026-04-23
+
+- Fixed Unicode-normalized `path:` filtering so decomposed Hangul filenames are no longer dropped by SQLite `LIKE` prefilters before the normalized Python record scan can validate them.
+- Preserved the existing SQL fast path for ASCII-only `path:` literals, keeping common Latin-path filters indexed while routing only non-ASCII literals through the normalization-safe fallback.
+- Added compiler and executor regressions for positive and negated Korean `path:` filters, pinning both NFC query to NFD path matching and exclusion behavior.
+
 ## 0.1.62 - 2026-04-23
 
 - Fixed watcher coalescing for backends that emit `moved` plus a duplicate destination `created`, so the move keeps its `src_path` metadata and the index writer still removes the old source row instead of leaving a ghost entry behind.
