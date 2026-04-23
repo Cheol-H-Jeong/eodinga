@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.748 - 2026-04-23
+
+- Rolled back watcher startup cleanly when observer scheduling or startup fails, so failed registration no longer leaves a stray flush thread or half-started observer behind.
+- Hardened index-file and sidecar cleanup against already-removed files, preventing harmless cleanup races from turning into stale-WAL recovery or staged-swap failures.
+
 ## 0.1.744 - 2026-04-23
 
 - Extended query date macros with `tomorrow`, `year`, and previous-period aliases like `prev-week`, `previous_month`, and `previous_year`, keeping them on the existing local-time boundary rules.
