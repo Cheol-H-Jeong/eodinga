@@ -28,6 +28,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     readme = (root / "README.md").read_text(encoding="utf-8")
     acceptance = (root / "docs" / "ACCEPTANCE.md").read_text(encoding="utf-8")
     architecture = (root / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+    operations = (root / "docs" / "OPERATIONS.md").read_text(encoding="utf-8")
     contributing = (root / "docs" / "CONTRIBUTING.md").read_text(encoding="utf-8")
     dsl = (root / "docs" / "DSL.md").read_text(encoding="utf-8")
     manpage = (root / "docs" / "man" / "eodinga.1").read_text(encoding="utf-8")
@@ -65,6 +66,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "docs/DSL.md" in readme
     assert "docs/ACCEPTANCE.md" in readme
     assert "docs/ARCHITECTURE.md" in readme
+    assert "docs/OPERATIONS.md" in readme
     assert "docs/CONTRIBUTING.md" in readme
     assert "docs/PERFORMANCE.md" in readme
     assert "docs/RELEASE.md" in readme
@@ -77,6 +79,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Windows packaging tooling" in readme
     assert ".[dev,parsers,gui,packaging]" in readme
     assert "Refresh shipped docs assets" in readme
+    assert "EODINGA_LOG_PATH" in readme
+    assert "~/.local/state/eodinga/logs/eodinga.log" in readme
+    assert "%LOCALAPPDATA%\\\\eodinga\\\\crashes\\\\" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance
@@ -124,6 +129,19 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "scripts/render_docs_screenshots.py" in architecture
     assert "tests/unit/test_docs_assets.py" in architecture
     assert "packaging/dist/" in architecture
+
+    assert "## Quick Commands" in operations
+    assert "## Default Paths" in operations
+    assert "## Overrides" in operations
+    assert "## Symptom Runbook" in operations
+    assert "## Recovery Notes" in operations
+    assert "## Packaging Review" in operations
+    assert "~/.local/state/eodinga/logs/eodinga.log" in operations
+    assert "%LOCALAPPDATA%\\\\eodinga\\\\logs\\\\eodinga.log" in operations
+    assert "EODINGA_CRASH_DIR" in operations
+    assert "EODINGA_DISABLE_FILE_LOGGING=1" in operations
+    assert "eodinga stats --json" in operations
+    assert "packaging/dist/" in operations
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing

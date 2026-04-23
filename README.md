@@ -259,6 +259,7 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - `docs/DSL.md` is the complete query reference.
 - `docs/ACCEPTANCE.md` is the release gate and shipped-surface checklist.
 - `docs/ARCHITECTURE.md` covers the runtime flow, storage model, and packaging surfaces.
+- `docs/OPERATIONS.md` is the operator runbook for paths, overrides, crash logs, and first-response troubleshooting.
 - `docs/PERFORMANCE.md` captures the opt-in perf suite and current local baseline.
 - `docs/CONTRIBUTING.md` is the contributor workflow for sync, tests, docs refresh, and release hygiene.
 - `docs/RELEASE.md` is the local release-cut and handoff procedure.
@@ -299,8 +300,12 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 
 - Linux config defaults to `~/.config/eodinga/config.toml` and the index database to `~/.local/share/eodinga/index.db`.
 - Windows uses `%APPDATA%\\eodinga\\config.toml` for config and `%LOCALAPPDATA%\\eodinga\\index.db` for the database.
+- Linux logs default to `~/.local/state/eodinga/logs/eodinga.log` and crash reports to `~/.local/state/eodinga/crashes/`.
+- Windows logs default to `%LOCALAPPDATA%\\eodinga\\logs\\eodinga.log` and crash reports to `%LOCALAPPDATA%\\eodinga\\crashes\\`.
 - Override either location with `--config` or `--db` when running CLI commands.
+- Override logging destinations with `EODINGA_LOG_PATH`, `EODINGA_CRASH_DIR`, or disable the file sink with `EODINGA_DISABLE_FILE_LOGGING=1`.
 - Runtime writes stay inside those config/database areas; indexed roots are treated as read-only inputs.
+- The full path and override runbook lives in [docs/OPERATIONS.md](/home/cheol/projects/eodinga/docs/OPERATIONS.md).
 
 ## Diagnostics
 
@@ -313,6 +318,7 @@ eodinga doctor
 The doctor command checks Python compatibility, importable dependencies, database writability, readable roots, the detectable hotkey backend, and the default safe excludes.
 
 If search looks stale, run `eodinga stats` to confirm the active database path, then either `eodinga watch` for live updates or `eodinga index --rebuild` to rebuild once.
+If the process crashed or a packaged build is behaving unexpectedly, use [docs/OPERATIONS.md](/home/cheol/projects/eodinga/docs/OPERATIONS.md) for the log, crash, and packaging review path.
 
 ## Operator Checklist
 
@@ -331,6 +337,7 @@ If those are clean but the packaged app still looks wrong, continue with the rel
 - [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md): query cheatsheet and operator notes.
 - [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md): SPEC §9 release checklist and validation commands.
 - [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md): runtime flow, index lifecycle, and packaging surfaces.
+- [docs/OPERATIONS.md](/home/cheol/projects/eodinga/docs/OPERATIONS.md): default paths, env overrides, crash logs, and symptom-driven troubleshooting.
 - [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, current baselines, and profiling workflow.
 - [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md): local workflow, guardrails, and doc/screenshot expectations for contributors.
 - [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md): release-candidate workflow, tagging, packaging validation, and handoff.
@@ -359,7 +366,7 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 
 ### Which commands are most useful for a quick health check?
 
-Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
+Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database, log path, crash dir, and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
 
 ### Where do I inspect packaging outputs before a release?
 
