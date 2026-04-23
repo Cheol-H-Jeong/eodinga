@@ -547,6 +547,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["parsers.broken.error"] == 1
     assert payload["counters"]["queries_served"] == 1
     assert payload["counters"]["watcher_events"] == 1
+    assert payload["counters"]["watcher_events.created"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
 
 

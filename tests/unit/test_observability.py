@@ -158,3 +158,19 @@ def test_watcher_event_counter_increments() -> None:
 
     counters = cast(dict[str, int], snapshot_metrics()["counters"])
     assert counters["watcher_events"] == 1
+    assert counters["watcher_events.created"] == 1
+
+
+def test_watcher_event_type_counters_track_multiple_event_kinds() -> None:
+    service = WatchService()
+    reset_metrics()
+
+    service.record(WatchEvent(event_type="created", path=Path("/tmp/report.txt")))
+    service.record(WatchEvent(event_type="modified", path=Path("/tmp/report.txt")))
+    service.record(WatchEvent(event_type="deleted", path=Path("/tmp/report.txt")))
+
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["watcher_events"] == 3
+    assert counters["watcher_events.created"] == 1
+    assert counters["watcher_events.modified"] == 1
+    assert counters["watcher_events.deleted"] == 1

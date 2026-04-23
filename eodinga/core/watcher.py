@@ -138,6 +138,7 @@ class WatchService:
 
     def record(self, event: WatchEvent) -> None:
         increment_counter("watcher_events", event_type=event.event_type)
+        increment_counter(f"watcher_events.{event.event_type}")
         with self._lock:
             if event.event_type in {"created", "modified"}:
                 self._flushed_retired_sources.discard(event.path)
