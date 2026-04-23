@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.77 - 2026-04-23
+
+- Guarded staged-build recovery with an explicit readiness marker so startup diagnostics and `open_index()` only resume `.index.db.next` files produced by a fully completed rebuild.
+- Added regressions that prove incomplete staged builds are discarded instead of being promoted over the live index, closing a crash-recovery hole around interrupted rebuilds.
+- Added watcher queue backpressure support for bounded queues so forced flushes keep excess events pending until consumers drain space, instead of requiring an unbounded queue to avoid loss.
+
 ## 0.1.110 - 2026-04-23
 
 - Fixed launcher topmost behavior so the frameless popup now follows `launcher.always_on_top` from config instead of forcing a pinned-above-all-windows state on every run.
