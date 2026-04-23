@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.542 - 2026-04-23
+
+- Expanded the README with a fuller shipped-feature checklist, dedicated date/structural DSL quick references, and practical FAQ entries for watcher-driven freshness and scoped debugging.
+- Deepened the architecture guide with a command-to-runtime map, search-pipeline stage table, docs ownership matrix, and surface-specific debug entry points.
+- Clarified contributor and release handoff guidance around theme-sized planning, release-metadata isolation, round assembly order, and version-collision handling for parallel worker rounds.
+
 ## 0.1.535 - 2026-04-23
 
 - Added live observer integration coverage for same-root renames, asserting that search hits move to the new path within 500ms and stale path filters disappear.
