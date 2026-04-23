@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.801 - 2026-04-23
+## 0.1.804 - 2026-04-23
 
 - Normalized mixed ISO date and datetime ranges by their outer bounds, so reversing a query like `modified:2026-04-23T09:15:30+00:00..2026-04-23` now returns the same window instead of shrinking to the narrower endpoint.
 - Added compiler and executor regression coverage for reversed mixed-range queries, including exact-datetime ranges where the endpoints arrive out of order.
