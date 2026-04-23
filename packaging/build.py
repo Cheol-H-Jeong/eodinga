@@ -293,6 +293,7 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
     runtime_payload = payload.get("runtime_bundle", {})
     apprun_payload = payload.get("apprun", {})
     launcher_payload = payload.get("launcher", {})
+    preserves_user_state_payload = payload.get("preserves_user_state", {})
     required_flags = [
         (recipe_payload.get("exists"), "AppImage recipe is missing"),
         (recipe_payload.get("contains_version_template"), "AppImage recipe no longer uses the version template"),
@@ -340,6 +341,18 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (launcher_payload.get("has_strict_shell"), "AppImage launcher shim no longer uses strict shell flags"),
         (launcher_payload.get("uses_bundled_runtime"), "AppImage launcher shim no longer uses the bundled runtime"),
         (launcher_payload.get("executes_python_module"), "AppImage launcher shim no longer executes the Python module"),
+        (
+            not preserves_user_state_payload.get("ships_dot_config_dir"),
+            "AppImage bundle unexpectedly ships a mutable .config directory",
+        ),
+        (
+            not preserves_user_state_payload.get("ships_var_lib_dir"),
+            "AppImage bundle unexpectedly ships mutable /var/lib state",
+        ),
+        (
+            not preserves_user_state_payload.get("ships_home_cache_dir"),
+            "AppImage bundle unexpectedly ships a mutable home cache directory",
+        ),
         (payload.get("archive_entries_sorted"), "AppImage archive entries are no longer sorted"),
         (payload.get("archive_mtime_zero"), "AppImage archive member mtimes are no longer reproducible"),
         (payload.get("archive_numeric_owner_zero"), "AppImage archive ownership is no longer reproducible"),

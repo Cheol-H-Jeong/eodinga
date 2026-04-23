@@ -181,6 +181,11 @@ payload = {
         and "PYTHONPATH=" in launcher_path.read_text(encoding="utf-8"),
         "executes_python_module": "exec python3 -Im eodinga" in launcher_path.read_text(encoding="utf-8"),
     },
+    "preserves_user_state": {
+        "ships_dot_config_dir": (Path("${APPDIR}/.config/eodinga")).exists(),
+        "ships_var_lib_dir": (Path("${APPDIR}/var/lib/eodinga")).exists(),
+        "ships_home_cache_dir": (Path("${APPDIR}/home/.cache/eodinga")).exists(),
+    },
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 PY

@@ -25,3 +25,8 @@ def test_linux_appimage_dry_run_preserves_source_assets() -> None:
     assert payload["runtime_bundle"]["package_data_paths_match_declared"] is True
     assert payload["apprun"]["has_strict_shell"] is True
     assert payload["launcher"]["uses_bundled_runtime"] is True
+    assert payload["preserves_user_state"] == {
+        "ships_dot_config_dir": False,
+        "ships_var_lib_dir": False,
+        "ships_home_cache_dir": False,
+    }

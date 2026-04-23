@@ -368,12 +368,18 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
             "uses_bundled_runtime": True,
             "executes_python_module": False,
         },
+        "preserves_user_state": {
+            "ships_dot_config_dir": True,
+            "ships_var_lib_dir": False,
+            "ships_home_cache_dir": False,
+        },
     }
 
     errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
 
     assert "AppImage launcher shim no longer executes the Python module" in errors
     assert "AppImage bundled eodinga runtime is missing Korean i18n assets" in errors
+    assert "AppImage bundle unexpectedly ships a mutable .config directory" in errors
 
 
 def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> None:
@@ -478,6 +484,11 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["launcher"]["has_strict_shell"] is True
     assert payload["launcher"]["uses_bundled_runtime"] is True
     assert payload["launcher"]["executes_python_module"] is True
+    assert payload["preserves_user_state"] == {
+        "ships_dot_config_dir": False,
+        "ships_var_lib_dir": False,
+        "ships_home_cache_dir": False,
+    }
 
 
 def test_linux_deb_dry_run_renders_control_template() -> None:
@@ -877,12 +888,18 @@ def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadat
             "uses_bundled_runtime": True,
             "executes_python_module": True,
         },
+        "preserves_user_state": {
+            "ships_dot_config_dir": False,
+            "ships_var_lib_dir": True,
+            "ships_home_cache_dir": False,
+        },
     }
 
     errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
 
     assert "AppImage archive size is missing" in errors
     assert "AppImage archive digest is missing" in errors
+    assert "AppImage bundle unexpectedly ships mutable /var/lib state" in errors
 
 
 def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
