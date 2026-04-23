@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.265 - 2026-04-23
+
+- Tightened `README.md` with install-profile guidance and a task-to-surface routing table so operators can choose the right install extras, runtime surface, and docs validation entry point faster.
+- Deepened `docs/ARCHITECTURE.md` around on-disk runtime state and failure-surface mapping, clarifying where config, staged recovery files, logs, and crash reports live and which command should be run first for each class of issue.
+- Refreshed `docs/PERFORMANCE.md` with a same-day perf baseline from current HEAD plus explicit capture-discipline rules, reducing the chance of stale benchmark tables surviving across rounds.
+- Tightened `docs/RELEASE.md` and `docs/CONTRIBUTING.md` with an explicit release evidence bundle, local-tag safety checks, and a ready-to-hand-off checklist for docs-only rounds.
+
 ## 0.1.262 - 2026-04-23
 
 - Restricted ranking deboost markers like `node_modules` and `.git` to full path segments, preventing unrelated paths such as `node_modules_backup` or `git-cache` from being unfairly pushed down.
