@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.923 - 2026-04-24
+
+- Added `snapshot_types` to `eodinga stats --json` and counted snapshot recordings by name, so bounded recent snapshots now have an all-time aggregate for command and failure activity.
+- Added `command_failure_reasons` to `eodinga stats --json`, separating exception, interrupted, and clean nonzero-exit failures without forcing consumers to parse recent snapshot payloads.
+- Added `crash_sources` to `eodinga stats --json` and classified crash reports by origin (`main`, `excepthook`, `thread`, `unraisable`, or direct runtime reporting), making crash provenance visible alongside crash type totals.
+
 ## 0.1.918 - 2026-04-24
 
 - Scoped Windows root filters across both plain and extended-length path spellings, so searches under `C:\...` and `\\?\C:\...` stay equivalent even when the index stores the other form.
