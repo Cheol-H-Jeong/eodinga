@@ -10,6 +10,20 @@
 4. `eodinga.query.dsl.parse()` and `eodinga.query.compiler.compile_query()` lower the DSL into SQLite filters plus in-memory fallback checks.
 5. `eodinga.query.executor.search()` fetches candidates, merges name/path/content rankings, and returns hits to the CLI or GUI.
 
+## Surface Entry Points
+
+```text
+CLI                 GUI shell                  Launcher
+ |                     |                          |
+ v                     v                          v
+eodinga.__main__ --> config/load -----------> query model
+        |                |                          |
+        +-------> open_index() <--------------------+
+                         |
+                         v
+                 compiler + executor
+```
+
 ## Data Flow Diagram
 
 ```text
@@ -45,6 +59,20 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 - `content_fts` stores parsed document text when parser extras are installed.
 - `content_map` keeps the FTS row IDs stable across updates so incremental reindexing does not balloon the content index.
 - `eodinga.index.storage` owns WAL replay on startup and atomic staged-index replacement.
+
+## Storage Shape
+
+```text
+files
+  id, root, path, name, ext, size, created_at, modified_at, content_hash
+    |                         |
+    |                         +--> duplicate detection / metadata filters
+    |
+    +--> paths_fts(name, path)
+    +--> content_map(file_id <-> content_rowid)
+            |
+            +--> content_fts(text)
+```
 
 ## Index Lifecycle Sequence
 
@@ -90,6 +118,31 @@ eodinga index --rebuild
 - Regex and mixed path/content terms are finalized in Python against the candidate set so the CLI and GUI share identical behavior.
 - `eodinga.query.ranker` applies reciprocal rank fusion, filename prefix boosts, and path deboosting for noisy trees such as `node_modules`.
 
+## Query Sequence
+
+```text
+user query
+   |
+   v
+dsl.parse()
+   |
+   v
+compile_query()
+   |
+   +--> SQLite predicates for exact operators
+   +--> fallback checks for regex / mixed clauses
+   |
+   v
+executor.search()
+   |
+   +--> candidate fetch from files + FTS tables
+   +--> reciprocal-rank fusion
+   +--> snippet extraction
+   |
+   v
+CLI JSON/text or GUI result rows
+```
+
 ## Operational Model
 
 - Cold start is walker-driven: discover roots, write metadata in bulk, then parse supported documents for content rows.
@@ -123,6 +176,7 @@ next query sees updated results
 - The Debian recipe stages the launcher shim, desktop entry, SVG icon, license, and compressed changelog into the package root before emitting the audit manifest.
 - Windows packaging uses `packaging/pyinstaller.spec`, `packaging/windows/eodinga.iss`, and `packaging/build.py --target windows-dry-run`.
 - Documentation screenshots are rendered from the real Qt surfaces through `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
+- The CLI man page is generated from `eodinga.__main__` through `scripts/generate_man_page.py`, keeping terminal docs tied to the shipped argparse surface.
 
 ## UI Surfaces
 

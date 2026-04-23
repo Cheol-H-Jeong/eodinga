@@ -17,6 +17,7 @@ This repository tracks the `0.1.x` lexical-search release defined in `SPEC.md`. 
 ![Settings window](docs/screenshots/settings-window.png)
 
 All screenshots in this repository are rendered offscreen from the real Qt surfaces with `python scripts/render_docs_screenshots.py`; they are not mockups.
+The committed PNGs are part of the release contract. Refresh them after visible GUI changes, then review the rendered diffs before shipping.
 
 ## Install
 
@@ -83,6 +84,8 @@ eodinga gui
 eodinga doctor
 eodinga version
 ```
+
+For terminal-centric use, the generated man page lives at `docs/eodinga.1` and can be previewed locally with `man ./docs/eodinga.1`.
 
 Global flags:
 
@@ -194,6 +197,14 @@ The doctor command checks Python compatibility, importable dependencies, databas
 
 If search looks stale, run `eodinga stats` to confirm the active database path, then either `eodinga watch` for live updates or `eodinga index --rebuild` to rebuild once.
 
+## Screenshot Refresh
+
+When a GUI-visible contract changes:
+
+1. Run `source .venv/bin/activate && python scripts/render_docs_screenshots.py`.
+2. Review the updated files under `docs/screenshots/`.
+3. Keep README and release docs aligned with any changed labels, shortcuts, or visible controls.
+
 ## Docs Map
 
 - [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md): query cheatsheet and operator notes.
@@ -228,6 +239,22 @@ No. The Windows installer preserves `%LOCALAPPDATA%\eodinga\` unless the uninsta
 ### Is semantic search included?
 
 No. `0.1.x` is lexical only.
+
+### How do I keep the index fresh after the first build?
+
+Use `eodinga watch` for live updates after the initial `eodinga index --root ...` or `eodinga index --rebuild` pass. The GUI and launcher read the same SQLite index, so fresh results depend on that watcher or a later rebuild.
+
+### Where can I inspect the active database and counters?
+
+Run `eodinga stats --json`. It reports the active database path, indexed file and document counts, configured roots, and the in-process counters for queries, parser errors, watcher events, and query-latency buckets.
+
+### How do I update the CLI docs?
+
+Run `source .venv/bin/activate && python scripts/generate_man_page.py`. That regenerates `docs/eodinga.1` directly from the argparse surface in `eodinga.__main__`.
+
+### Which install should I use?
+
+Use `pip install -e .[all]` for local development, the Windows installer for packaged Windows use, and the AppImage or `.deb` artifacts when validating Linux packaging output.
 
 ## Limitations
 
