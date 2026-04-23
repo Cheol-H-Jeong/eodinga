@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.713 - 2026-04-23
+
+- Added open-ended `size:` range support, so queries like `size:..500K`, `size:100..`, and their negated forms now compile and execute consistently alongside the existing bounded range syntax.
+- Fixed launcher filter summaries to preserve grouped negation for operator filters, so queries like `-(ext:pdf | path:archive)` no longer render as misleading positive chips.
+- Expanded parser, compiler, executor, and launcher coverage to lock in both behaviors.
+
 ## 0.1.707 - 2026-04-23
 
 - Added explicit `regex:` pattern handling to the query compiler, so `regex:/todo|fixme/i` and `regex:report-\d+` now behave as real path/name regex filters while `regex:true|false` still controls regex mode.
