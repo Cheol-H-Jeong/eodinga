@@ -671,6 +671,107 @@ def test_watcher_start_ignores_duplicate_root_registration(
     assert metrics["counters"]["watcher_observers_stopped"] == 1
 
 
+@pytest.mark.parametrize("failure_stage", ["schedule", "start"])
+def test_watcher_start_cleans_up_flush_thread_after_observer_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure_stage: str
+) -> None:
+    import eodinga.core.watcher as watcher_module
+
+    lifecycle: list[str] = []
+
+    class FakeObserver:
+        def schedule(self, _handler: object, _root_text: str, recursive: bool = True) -> None:
+            assert recursive is True
+            lifecycle.append("schedule")
+            if failure_stage == "schedule":
+                raise RuntimeError("simulated schedule failure")
+
+        def start(self) -> None:
+            lifecycle.append("start")
+            if failure_stage == "start":
+                raise RuntimeError("simulated start failure")
+
+        def stop(self) -> None:
+            lifecycle.append("stop")
+
+        def join(self, timeout: float | None = None) -> None:
+            assert timeout == 1
+            lifecycle.append("join")
+
+    monkeypatch.setattr(watcher_module, "Observer", FakeObserver)
+
+    service = WatchService()
+
+    with pytest.raises(RuntimeError, match=f"simulated {failure_stage} failure"):
+        service.start(tmp_path)
+
+    assert service._observers == {}
+    assert service._flush_thread is None
+    assert service._stop.is_set() is True
+    assert lifecycle[-2:] == ["stop", "join"]
+
+
+def test_watcher_stop_continues_cleanup_when_observer_teardown_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service = WatchService()
+    observed: list[str] = []
+
+    class FakeObserver:
+        def __init__(self, name: str, *, fail_stop: bool = False, fail_join: bool = False) -> None:
+            self.name = name
+            self.fail_stop = fail_stop
+            self.fail_join = fail_join
+
+        def start(self) -> None:
+            observed.append(f"{self.name}:start")
+
+        def stop(self) -> None:
+            observed.append(f"{self.name}:stop")
+            if self.fail_stop:
+                raise RuntimeError(f"{self.name} stop failed")
+
+        def join(self, timeout: float | None = None) -> None:
+            assert timeout == 1
+            observed.append(f"{self.name}:join")
+            if self.fail_join:
+                raise RuntimeError(f"{self.name} join failed")
+
+    class FakeThread:
+        def __init__(self) -> None:
+            self.joined = False
+
+        def is_alive(self) -> bool:
+            return True
+
+        def join(self, timeout: float | None = None) -> None:
+            assert timeout == 1
+            self.joined = True
+
+    messages: list[str] = []
+
+    def record_exception(message: str, *args: object) -> None:
+        messages.append(message.format(*args))
+
+    monkeypatch.setattr(service._logger, "exception", record_exception)
+    flush_thread = FakeThread()
+    service._flush_thread = flush_thread
+    service._observers = {
+        tmp_path / "one": FakeObserver("one", fail_stop=True, fail_join=True),
+        tmp_path / "two": FakeObserver("two"),
+    }
+
+    service.stop()
+
+    assert observed == ["one:stop", "two:stop", "one:join", "two:join"]
+    assert flush_thread.joined is True
+    assert service._observers == {}
+    assert service._flush_thread is None
+    assert service._stop.is_set() is True
+    assert any("failed stopping watcher observer" in message for message in messages)
+    assert any("failed joining watcher observer" in message for message in messages)
+
+
 def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path) -> None:
     service = WatchService(queue_maxsize=1)
     first = tmp_path / "first.txt"

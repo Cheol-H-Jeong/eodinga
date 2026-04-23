@@ -132,22 +132,32 @@ class WatchService:
             self._flush_thread = _spawn_thread(self._flush_loop)
             self._flush_thread.start()
         observer = Observer()
-        observer.schedule(_Handler(self, root), str(root), recursive=True)
-        observer.start()
+        try:
+            observer.schedule(_Handler(self, root), str(root), recursive=True)
+            observer.start()
+        except Exception:
+            self._dispose_observer(observer)
+            if not self._observers:
+                self._stop_flush_thread()
+            raise
         self._observers[root] = observer
         increment_counter("watcher_observers_started", root=str(root))
 
     def stop(self) -> None:
         self._stop.set()
-        for observer in self._observers.values():
-            observer.stop()
+        for root, observer in self._observers.items():
+            try:
+                observer.stop()
+            except Exception:
+                self._logger.exception("failed stopping watcher observer for {}", root)
         if self._observers:
             increment_counter("watcher_observers_stopped", len(self._observers))
-        for observer in self._observers.values():
-            observer.join(timeout=1)
-        if self._flush_thread is not None and self._flush_thread.is_alive():
-            self._flush_thread.join(timeout=1)
-        self._flush_thread = None
+        for root, observer in self._observers.items():
+            try:
+                observer.join(timeout=1)
+            except Exception:
+                self._logger.exception("failed joining watcher observer for {}", root)
+        self._stop_flush_thread()
         self._observers.clear()
         self._reset_state()
 
@@ -317,6 +327,22 @@ class WatchService:
                 self._retired_sources[event.path] = set(retired_sources)
                 self._flushed_retired_sources.difference_update(retired_sources)
             self._timestamps[event.path] = now
+
+    def _dispose_observer(self, observer: _ManagedObserver) -> None:
+        try:
+            observer.stop()
+        except Exception:
+            self._logger.exception("failed stopping watcher observer during startup rollback")
+        try:
+            observer.join(timeout=1)
+        except Exception:
+            self._logger.exception("failed joining watcher observer during startup rollback")
+
+    def _stop_flush_thread(self) -> None:
+        self._stop.set()
+        if self._flush_thread is not None and self._flush_thread.is_alive():
+            self._flush_thread.join(timeout=1)
+        self._flush_thread = None
 
     def _reset_state(self) -> None:
         with self._lock:
