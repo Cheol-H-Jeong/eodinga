@@ -117,8 +117,18 @@ class LauncherActionBar(QWidget):
 
     def set_context(self, hit: SearchHit | None) -> None:
         if hit is None:
+            self.open_button.setToolTip("Select a launcher result to open it with Enter.")
+            self.reveal_button.setToolTip("Select a launcher result to reveal it with Ctrl+Enter.")
+            self.copy_path_button.setToolTip("Select a launcher result to copy its path with Alt+C.")
+            self.copy_name_button.setToolTip("Select a launcher result to copy its name with Alt+N.")
+            self.properties_button.setToolTip("Select a launcher result to show its properties with Shift+Enter.")
             self.setAccessibleDescription("No launcher result is selected, so result actions are unavailable.")
             return
+        self.open_button.setToolTip(f"Open {hit.name} with Enter.")
+        self.reveal_button.setToolTip(f"Reveal {hit.path} with Ctrl+Enter.")
+        self.copy_path_button.setToolTip(f"Copy {hit.path} with Alt+C.")
+        self.copy_name_button.setToolTip(f"Copy {hit.name} with Alt+N.")
+        self.properties_button.setToolTip(f"Show properties for {hit.name} with Shift+Enter.")
         self.setAccessibleDescription(
             f"Actions for {hit.name}: Enter opens, Ctrl+Enter reveals, Alt+C copies the path, Alt+N copies the name, and Shift+Enter shows properties."
         )

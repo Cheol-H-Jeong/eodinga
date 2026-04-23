@@ -829,6 +829,13 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.action_bar.copy_name_button.accessibleDescription() == "Copy the selected result name with Alt+N."
     assert launcher.action_bar.properties_button.accessibleName() == "Show selected properties"
     assert launcher.action_bar.properties_button.accessibleDescription() == "Open selected result properties with Shift+Enter."
+    assert launcher.action_bar.open_button.toolTip() == "Select a launcher result to open it with Enter."
+    assert launcher.action_bar.reveal_button.toolTip() == "Select a launcher result to reveal it with Ctrl+Enter."
+    assert launcher.action_bar.copy_path_button.toolTip() == "Select a launcher result to copy its path with Alt+C."
+    assert launcher.action_bar.copy_name_button.toolTip() == "Select a launcher result to copy its name with Alt+N."
+    assert launcher.action_bar.properties_button.toolTip() == (
+        "Select a launcher result to show its properties with Shift+Enter."
+    )
     assert launcher.action_bar.accessibleDescription() == (
         "No launcher result is selected, so result actions are unavailable."
     )
@@ -915,6 +922,13 @@ def test_launcher_results_expose_accessible_text_and_preview_summary(qapp) -> No
     )
     assert "Previewing release-notes.txt at /tmp/release-notes.txt." in launcher.preview_pane.accessibleDescription()
     assert "Snippet: ...the release notes are attached..." in launcher.preview_pane.accessibleDescription()
+    assert launcher.action_bar.open_button.toolTip() == "Open release-notes.txt with Enter."
+    assert launcher.action_bar.reveal_button.toolTip() == "Reveal /tmp/release-notes.txt with Ctrl+Enter."
+    assert launcher.action_bar.copy_path_button.toolTip() == "Copy /tmp/release-notes.txt with Alt+C."
+    assert launcher.action_bar.copy_name_button.toolTip() == "Copy release-notes.txt with Alt+N."
+    assert launcher.action_bar.properties_button.toolTip() == (
+        "Show properties for release-notes.txt with Shift+Enter."
+    )
     assert launcher.action_bar.accessibleDescription() == (
         "Actions for release-notes.txt: Enter opens, Ctrl+Enter reveals, Alt+C copies the path, Alt+N copies the name, and Shift+Enter shows properties."
     )
