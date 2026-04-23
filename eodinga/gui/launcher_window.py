@@ -158,17 +158,27 @@ class LauncherWindow(LauncherPanel):
         x = self._config.launcher.window_x
         y = self._config.launcher.window_y
         if x is None or y is None:
-            self.resize(width, height)
+            centered_x, centered_y = self._centered_position(available, width, height)
+            self.setGeometry(centered_x, centered_y, width, height)
             return
         saved_rect = available.__class__(x, y, saved_width, saved_height)
-        if saved_rect.intersects(available):
-            self.setGeometry(x, y, width, height)
+        clamped_x, clamped_y = self._clamped_position(available, x, y, width, height)
+        if not saved_rect.intersects(available):
+            self.setGeometry(clamped_x, clamped_y, width, height)
             return
+        self.setGeometry(clamped_x, clamped_y, width, height)
+
+    def _centered_position(self, available, width: int, height: int) -> tuple[int, int]:
+        centered_x = available.x() + max((available.width() - width) // 2, 0)
+        centered_y = available.y() + max((available.height() - height) // 2, 0)
+        return centered_x, centered_y
+
+    def _clamped_position(self, available, x: int, y: int, width: int, height: int) -> tuple[int, int]:
         max_x = available.x() + max(available.width() - width, 0)
         max_y = available.y() + max(available.height() - height, 0)
         clamped_x = min(max(x, available.x()), max_x)
         clamped_y = min(max(y, available.y()), max_y)
-        self.setGeometry(clamped_x, clamped_y, width, height)
+        return clamped_x, clamped_y
 
     def _resolve_restore_screen(self):
         if self._config is not None and self._config.launcher.window_screen:
