@@ -50,3 +50,20 @@ def test_launcher_backtab_prefers_recent_chips_when_only_recent_queries_exist(qa
     QTest.keyClick(launcher.recent_queries_row.buttons[-1], Qt.Key.Key_Left)
     _wait(10)
     assert launcher.recent_queries_row.buttons[0].hasFocus()
+
+
+def test_launcher_search_field_accessibility_reflects_chips_and_filters(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+    _wait(10)
+
+    assert "Press Tab or Shift+Tab to focus launcher query chips." in launcher.query_field.accessibleDescription()
+
+    launcher.query_field.setText("ext:pdf date:today")
+    _wait(10)
+
+    assert launcher.query_field.accessibleDescription() == (
+        "Type a filename, path, or content term to search the index. Active filters: ext:pdf, date:today."
+    )

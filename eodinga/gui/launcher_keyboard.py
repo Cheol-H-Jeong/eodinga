@@ -62,6 +62,15 @@ def build_results_accessible_description(*, count: int, current_name: str | None
     )
 
 
+def build_search_field_accessibility(*, filters: list[str], has_query_chips: bool) -> str:
+    description = "Type a filename, path, or content term to search the index."
+    if filters:
+        return f"{description} Active filters: {', '.join(filters)}."
+    if has_query_chips:
+        return f"{description} Press Tab or Shift+Tab to focus launcher query chips."
+    return description
+
+
 def should_edit_query_from_results(event: QKeyEvent) -> bool:
     modifiers = event.modifiers()
     if modifiers not in {Qt.KeyboardModifier.NoModifier, Qt.KeyboardModifier.ShiftModifier}:

@@ -13,11 +13,13 @@ from eodinga.gui.launcher_keyboard import (
     build_empty_state_body,
     build_no_results_body,
     build_results_accessible_description,
+    build_search_field_accessibility,
     build_shortcut_hint,
     forward_keypress_to_line_edit,
     should_edit_query_from_results,
 )
 from eodinga.gui.launcher_mixins import LauncherInteractionMixin
+from eodinga.gui.launcher_query_summary import summarize_active_filters
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
 from eodinga.gui.widgets import (
     ActiveFilterRow,
@@ -142,6 +144,7 @@ class LauncherPanel(LauncherInteractionMixin, QWidget):
         self.query_field.textChanged.connect(self._schedule_query)
         self.query_field.textChanged.connect(self.active_filter_row.set_query)
         self.query_field.textChanged.connect(self.preview_pane.set_query)
+        self.query_field.textChanged.connect(self._refresh_search_field_guidance)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
@@ -186,6 +189,7 @@ class LauncherPanel(LauncherInteractionMixin, QWidget):
 
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
+        self._refresh_search_field_guidance()
         self.active_filter_row.set_query(self.query_field.text())
         self._refresh_preview()
         self._refresh_result_list_accessibility()
@@ -198,12 +202,14 @@ class LauncherPanel(LauncherInteractionMixin, QWidget):
         self.recent_queries_row.set_queries(queries[:5])
         self._install_query_chip_filters()
         self._refresh_empty_state()
+        self._refresh_search_field_guidance()
 
     def set_pinned_queries(self, queries: list[str]) -> None:
         self._pinned_queries = queries
         self.pinned_queries_row.set_queries(queries[:5])
         self._install_query_chip_filters()
         self._refresh_empty_state()
+        self._refresh_search_field_guidance()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
@@ -338,6 +344,14 @@ class LauncherPanel(LauncherInteractionMixin, QWidget):
                 chip_focused=any(button.hasFocus() for button in self._query_chip_buttons()),
             )
         )
+
+    def _refresh_search_field_guidance(self) -> None:
+        description = build_search_field_accessibility(
+            filters=summarize_active_filters(self.query_field.text(), limit=None),
+            has_query_chips=bool(self.pinned_queries_row.buttons or self.recent_queries_row.buttons),
+        )
+        self.query_field.setAccessibleDescription(description)
+        self.query_field.setToolTip(description)
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()
