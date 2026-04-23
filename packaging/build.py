@@ -422,6 +422,7 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         errors.append("Debian package filename does not match the package version and arch")
     archive_artifact = payload.get("archive_artifact", {})
     deb_artifact = payload.get("deb_artifact", {})
+    package_manifest = set(payload.get("package_manifest", []))
     required_flags = [
         (control_template_payload.get("exists"), "Debian control template is missing"),
         (control_template_payload.get("contains_version_template"), "Debian control template no longer uses the version token"),
@@ -442,6 +443,20 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (
             control_template_payload.get("description") == control_payload.get("description"),
             "Debian control template description drifted from the staged package",
+        ),
+        (bool(package_manifest), "Debian package manifest is missing"),
+        (
+            {
+                "DEBIAN/control",
+                "usr/bin/eodinga",
+                "usr/lib/eodinga/eodinga/__init__.py",
+                "usr/lib/eodinga/eodinga/__main__.py",
+                "usr/share/applications/eodinga.desktop",
+                "usr/share/doc/eodinga/LICENSE",
+                "usr/share/doc/eodinga/changelog.gz",
+                "usr/share/icons/hicolor/scalable/apps/eodinga.svg",
+            }.issubset(package_manifest),
+            "Debian package manifest is missing required packaged files",
         ),
         (desktop_payload.get("matches_source_asset"), "Debian desktop entry no longer matches the shipped asset"),
         (desktop_payload.get("name") == "eodinga", "Debian desktop entry name drifted from eodinga"),

@@ -24,3 +24,11 @@ def test_linux_deb_dry_run_preserves_assets_and_reproducible_changelog() -> None
     assert payload["launcher"]["has_strict_shell"] is True
     assert payload["launcher"]["uses_bundled_runtime"] is True
     assert payload["docs"]["changelog_gzip_mtime_zero"] is True
+    assert {
+        "DEBIAN/control",
+        "usr/bin/eodinga",
+        "usr/share/applications/eodinga.desktop",
+        "usr/share/doc/eodinga/LICENSE",
+        "usr/share/doc/eodinga/changelog.gz",
+        "usr/share/icons/hicolor/scalable/apps/eodinga.svg",
+    } <= set(payload["package_manifest"])

@@ -841,6 +841,16 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert Path(payload["package_dir"]).exists()
     assert Path(payload["control_path"]).exists()
     assert Path(payload["archive"]).exists()
+    assert {
+        "DEBIAN/control",
+        "usr/bin/eodinga",
+        "usr/lib/eodinga/eodinga/__init__.py",
+        "usr/lib/eodinga/eodinga/__main__.py",
+        "usr/share/applications/eodinga.desktop",
+        "usr/share/doc/eodinga/LICENSE",
+        "usr/share/doc/eodinga/changelog.gz",
+        "usr/share/icons/hicolor/scalable/apps/eodinga.svg",
+    } <= set(payload["package_manifest"])
     assert payload["archive_entries_sorted"] is True
     assert payload["archive_mtime_zero"] is True
     assert payload["archive_numeric_owner_zero"] is True
@@ -913,6 +923,16 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert Path(payload["package_dir"]).exists()
     assert Path(payload["control_path"]).exists()
     assert Path(payload["deb_path"]).exists()
+    assert {
+        "DEBIAN/control",
+        "usr/bin/eodinga",
+        "usr/lib/eodinga/eodinga/__init__.py",
+        "usr/lib/eodinga/eodinga/__main__.py",
+        "usr/share/applications/eodinga.desktop",
+        "usr/share/doc/eodinga/LICENSE",
+        "usr/share/doc/eodinga/changelog.gz",
+        "usr/share/icons/hicolor/scalable/apps/eodinga.svg",
+    } <= set(payload["package_manifest"])
     assert payload["archive_entries_sorted"] is True
     assert payload["archive_mtime_zero"] is True
     assert payload["archive_numeric_owner_zero"] is True
@@ -1212,6 +1232,89 @@ def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
     assert "Debian package is missing" in errors
     assert "Debian package size is missing" in errors
     assert "Debian package digest is missing" in errors
+
+
+def test_linux_deb_audit_validator_rejects_missing_package_manifest() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "amd64",
+        "archive": f"packaging/dist/eodinga_{__version__}_amd64_debroot.tar.gz",
+        "deb_path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+        "package_manifest": ["usr/bin/eodinga"],
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "archive_artifact": {
+            "exists": True,
+            "size_bytes": 1,
+            "sha256": "0" * 64,
+        },
+        "deb_artifact": {
+            "path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+            "exists": False,
+            "size_bytes": None,
+            "sha256": None,
+        },
+        "dry_run": True,
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+            "architecture": "amd64",
+            "depends": "python3 (>= 3.11)",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "debian_control_template": {
+            "exists": True,
+            "contains_version_template": True,
+            "contains_arch_template": True,
+            "rendered_exists": True,
+            "source": "eodinga",
+            "maintainer": "Cheol-H-Jeong",
+            "binary_package": "eodinga",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "launches_gui": True,
+            "icon_matches_package": True,
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "runtime_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "package_init_exists": True,
+            "module_entry_exists": True,
+            "i18n_en_exists": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "uses_bundled_runtime": True,
+            "executes_python_module": True,
+            "help_exit_code": 0,
+            "help_mentions_search_command": True,
+            "version_exit_code": 0,
+            "version_matches_package": True,
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": True,
+            "changelog_has_current_release_heading": True,
+            "changelog_gzip_mtime_zero": True,
+        },
+    }
+
+    errors = module._validate_linux_deb_audit(payload, __version__, __version__)
+
+    assert "Debian package manifest is missing required packaged files" in errors
 
 
 def test_linux_deb_audit_validator_rejects_launcher_help_regression() -> None:

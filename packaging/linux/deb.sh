@@ -125,6 +125,12 @@ for line in debian_control_template_path.read_text(encoding="utf-8").splitlines(
 changelog_text = gzip.decompress(changelog_path.read_bytes()).decode("utf-8")
 archive_path = Path("${ARCHIVE_PATH}")
 deb_path = Path("${DEB_PATH}")
+package_root = Path("${PACKAGE_DIR}")
+package_manifest = sorted(
+    str(path.relative_to(package_root))
+    for path in package_root.rglob("*")
+    if path.is_file()
+)
 launcher_help = subprocess.run(
     [str(launcher_path), "--help"],
     capture_output=True,
@@ -157,6 +163,7 @@ payload = {
     "package_dir": "${PACKAGE_DIR}",
     "control_path": str(control_path),
     "archive": "${ARCHIVE_PATH}",
+    "package_manifest": package_manifest,
     "archive_entries_sorted": [member.name for member in members] == sorted(member.name for member in members),
     "archive_mtime_zero": all(member.mtime == 0 for member in members),
     "archive_numeric_owner_zero": all(member.uid == 0 and member.gid == 0 for member in members),
