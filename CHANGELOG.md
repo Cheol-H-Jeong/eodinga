@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.822 - 2026-04-23
+
+- Added CLI-level integration coverage for `index -> search -> live-update -> re-search`, proving a fresh process sees watcher-applied changes on the shared on-disk index.
+- Added CLI restart coverage for interrupted staged builds and stale WAL recovery, including follow-up queries after startup recovery completes.
+- Added multi-root CLI integration coverage for cross-root moves and resumed staged builds, locking in global and root-scoped search behavior after reopen.
+
 ## 0.1.810 - 2026-04-23
 
 - Escaped literal `%`, `_`, and `^` characters in the query compiler's `path:` SQL fast path, so wildcard-like path fragments now stay literal without falling back to slower broad matches.
