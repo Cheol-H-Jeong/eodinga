@@ -186,8 +186,12 @@ def test_tray_indicator_exposes_open_window_and_toggle_launcher_actions(qapp) ->
     window = EodingaWindow()
     window.hide()
 
+    assert window.tray_indicator._status_action.statusTip() == "Shows current indexing progress in the tray menu."
     assert window.tray_indicator.open_app_action.text() == "Open eodinga"
+    assert window.tray_indicator.open_app_action.statusTip() == "Show the main eodinga window."
     assert window.tray_indicator.toggle_launcher_action.text() == "Show launcher"
+    assert window.tray_indicator.toggle_launcher_action.statusTip() == "Show or hide the quick launcher."
+    assert window.tray_indicator.quit_action.statusTip() == "Close eodinga."
 
     window.tray_indicator.show_main_window()
     qapp.processEvents()
