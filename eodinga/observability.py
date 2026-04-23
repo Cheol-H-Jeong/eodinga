@@ -18,11 +18,14 @@ _DEFAULT_HISTOGRAM_BUCKETS_MS = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0
 _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
+_PROCESS_STARTED_AT = datetime.now(UTC)
 
 
 class MetricsSnapshot(TypedDict):
     counters: dict[str, int]
     histograms: dict[str, dict[str, object]]
+    generated_at: str
+    uptime_ms: float
 
 
 @dataclass
@@ -161,7 +164,13 @@ def snapshot_metrics() -> MetricsSnapshot:
         histograms: dict[str, dict[str, object]] = {
             name: state.snapshot() for name, state in sorted(_HISTOGRAMS.items())
         }
-    return {"counters": counters, "histograms": histograms}
+    now = datetime.now(UTC)
+    return {
+        "counters": counters,
+        "histograms": histograms,
+        "generated_at": now.isoformat().replace("+00:00", "Z"),
+        "uptime_ms": round((now - _PROCESS_STARTED_AT).total_seconds() * 1000, 3),
+    }
 
 
 def reset_metrics() -> None:
@@ -198,8 +207,9 @@ def write_crash_log(
 
     target_dir = resolve_crash_dir(crash_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    crash_path = target_dir / f"crash-{timestamp}.log"
+    occurred_at = datetime.now(UTC)
+    timestamp = occurred_at.strftime("%Y%m%dT%H%M%S.%fZ")
+    crash_path = _next_crash_path(target_dir, timestamp)
     metadata: dict[str, object] = {
         "timestamp": timestamp,
         "pid": os.getpid(),
@@ -218,6 +228,7 @@ def write_crash_log(
         *traceback.format_exception(type(error), error, error.__traceback__),
     ]
     crash_path.write_text("".join(lines), encoding="utf-8")
+    increment_counter("crash_logs_written")
     return crash_path
 
 
@@ -229,6 +240,7 @@ def report_crash(
     stream: IO[str] | None = None,
 ) -> Path:
     crash_path = write_crash_log(error, context=context, details=details)
+    increment_counter("crashes_reported")
     target_stream = stream or sys.stderr
     target_stream.write(f"unhandled exception; crash log written to {crash_path}\n")
     return crash_path
@@ -256,8 +268,35 @@ def install_crash_handlers(*, stream: IO[str] | None = None) -> None:
             stream=stream,
         )
 
+    def _handle_unraisable(args: sys.UnraisableHookArgs) -> None:
+        if args.exc_value is None or isinstance(args.exc_value, KeyboardInterrupt):
+            return
+        details = {
+            "object": repr(args.object) if args.object is not None else None,
+            "err_msg": args.err_msg,
+        }
+        report_crash(
+            args.exc_value,
+            context="Unhandled unraisable exception",
+            details=details,
+            stream=stream,
+        )
+
     sys.excepthook = _handle_exception
     threading.excepthook = _handle_thread_exception
+    sys.unraisablehook = _handle_unraisable
+
+
+def _next_crash_path(target_dir: Path, timestamp: str) -> Path:
+    candidate = target_dir / f"crash-{timestamp}.log"
+    if not candidate.exists():
+        return candidate
+    suffix = 1
+    while True:
+        candidate = target_dir / f"crash-{timestamp}-{suffix}.log"
+        if not candidate.exists():
+            return candidate
+        suffix += 1
 
 
 def _format_detail_value(value: object) -> str:

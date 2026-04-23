@@ -466,13 +466,19 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     stats_output = capsys.readouterr()
     assert stats_exit == 0
     payload = json.loads(stats_output.out)
+    generated_at = datetime.fromisoformat(payload["generated_at"].replace("Z", "+00:00"))
+    assert generated_at.tzinfo is not None
+    assert payload["uptime_ms"] >= 0
     assert payload["files_indexed"] == 3
     assert payload["documents_indexed"] == 3
     assert payload["queries_served"] == 1
     assert payload["parser_errors"] == 0
     assert payload["watcher_events"] == 0
     assert payload["commands_started"] == 2
+    assert payload["commands_completed"] == 1
     assert payload["commands_failed"] == 0
+    assert payload["crashes_reported"] == 0
+    assert payload["crash_logs_written"] == 0
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["command_latency_histogram"]["count"] == 1
     assert payload["file_logging_enabled"] is True
@@ -533,7 +539,10 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["queries_served"] == 1
     assert payload["counters"]["watcher_events"] == 1
     assert payload["commands_started"] == 3
+    assert payload["commands_completed"] == 2
     assert payload["commands_failed"] == 0
+    assert payload["crashes_reported"] == 0
+    assert payload["crash_logs_written"] == 0
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
 
@@ -556,5 +565,7 @@ def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path
     assert metrics["counters"]["commands.version.started"] == 1
     assert metrics["counters"]["commands_failed"] == 1
     assert metrics["counters"]["commands.version.failed"] == 1
+    assert metrics["counters"]["crashes_reported"] == 1
+    assert metrics["counters"]["crash_logs_written"] == 1
     assert "commands_completed" not in metrics["counters"]
     assert metrics["histograms"]["command_latency_ms"]["count"] == 1

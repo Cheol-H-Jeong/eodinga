@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import sys
 import threading
 from pathlib import Path
@@ -103,6 +104,22 @@ def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
     assert "env override" in crash_path.read_text(encoding="utf-8")
 
 
+def test_write_crash_log_uses_unique_path_when_timestamp_collides(tmp_path: Path) -> None:
+    try:
+        raise RuntimeError("first")
+    except RuntimeError as first:
+        first_path = write_crash_log(first, crash_dir=tmp_path)
+
+    try:
+        raise RuntimeError("second")
+    except RuntimeError as second:
+        second_path = write_crash_log(second, crash_dir=tmp_path)
+
+    assert first_path != second_path
+    assert first_path.exists()
+    assert second_path.exists()
+
+
 def test_report_crash_writes_log_and_stderr(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path))
 
@@ -142,6 +159,35 @@ def test_install_crash_handlers_writes_thread_crash_log(
     contents = crash_logs[0].read_text(encoding="utf-8")
     assert "Unhandled thread exception" in contents
     assert f"thread={threading.current_thread().name}" in contents
+
+
+def test_install_crash_handlers_writes_unraisable_crash_log(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path))
+    stderr = io.StringIO()
+    install_crash_handlers(stream=stderr)
+
+    try:
+        raise RuntimeError("unraisable boom")
+    except RuntimeError as error:
+        args = cast(
+            Any,
+            SimpleNamespace(
+                exc_type=type(error),
+                exc_value=error,
+                exc_traceback=error.__traceback__,
+                err_msg="while finalizing",
+                object=SimpleNamespace(name="cleanup"),
+            ),
+        )
+    sys.unraisablehook(args)
+
+    crash_logs = sorted(tmp_path.glob("crash-*.log"))
+    assert len(crash_logs) == 1
+    assert str(crash_logs[0]) in stderr.getvalue()
+    contents = crash_logs[0].read_text(encoding="utf-8")
+    assert "Unhandled unraisable exception" in contents
+    assert "err_msg=while finalizing" in contents
+    assert "RuntimeError: unraisable boom" in contents
 
 
 def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path: Path) -> None:
@@ -238,3 +284,12 @@ def test_watcher_backpressure_metrics_increment(tmp_path: Path) -> None:
     histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
     assert counters["watcher_queue_full"] == 1
     assert histograms["watcher_queue_backpressure_ms"]["count"] == 1
+
+
+def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:
+    reset_metrics()
+
+    metrics = snapshot_metrics()
+
+    assert metrics["generated_at"].endswith("Z")
+    assert metrics["uptime_ms"] >= 0
