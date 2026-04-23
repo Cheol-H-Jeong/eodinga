@@ -422,32 +422,46 @@ def _run_linux_deb() -> int:
     )
 
 
+def _run_targets(targets: tuple[str, ...], runners: dict[str, Any]) -> int:
+    for target in targets:
+        result = runners[target]()
+        if result != 0:
+            return result
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
+    runners = {
+        "linux-appimage-dry-run": _run_linux_appimage_dry_run,
+        "linux-appimage": _run_linux_appimage,
+        "linux-deb-dry-run": _run_linux_deb_dry_run,
+        "linux-deb": _run_linux_deb,
+        "windows-dry-run": _run_windows_dry_run,
+        "windows": _run_windows,
+    }
+    aggregate_targets = {
+        "linux-dry-run": ("linux-appimage-dry-run", "linux-deb-dry-run"),
+        "release-dry-run": ("windows-dry-run", "linux-appimage-dry-run", "linux-deb-dry-run"),
+    }
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--target",
         choices=(
+            "linux-dry-run",
             "linux-appimage-dry-run",
             "linux-appimage",
             "linux-deb-dry-run",
             "linux-deb",
+            "release-dry-run",
             "windows-dry-run",
             "windows",
         ),
         required=True,
     )
     args = parser.parse_args(argv)
-    if args.target == "linux-appimage-dry-run":
-        return _run_linux_appimage_dry_run()
-    if args.target == "linux-appimage":
-        return _run_linux_appimage()
-    if args.target == "linux-deb-dry-run":
-        return _run_linux_deb_dry_run()
-    if args.target == "linux-deb":
-        return _run_linux_deb()
-    if args.target == "windows-dry-run":
-        return _run_windows_dry_run()
-    return _run_windows()
+    if args.target in aggregate_targets:
+        return _run_targets(aggregate_targets[args.target], runners)
+    return runners[args.target]()
 
 
 if __name__ == "__main__":

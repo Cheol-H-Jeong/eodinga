@@ -485,3 +485,40 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert Path(payload["deb_path"]).exists()
     assert payload["icon"]["exists"] is True
     assert payload["docs"]["changelog_exists"] is True
+
+
+def test_linux_dry_run_runs_both_linux_packaging_audits() -> None:
+    result = subprocess.run(
+        [sys.executable, "packaging/build.py", "--target", "linux-dry-run"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    appimage_manifest = Path("packaging/dist/linux-appimage-audit.json")
+    deb_manifest = Path("packaging/dist/linux-deb-audit.json")
+    assert appimage_manifest.exists()
+    assert deb_manifest.exists()
+    assert json.loads(appimage_manifest.read_text(encoding="utf-8"))["target"] == "linux-appimage-dry-run"
+    assert json.loads(deb_manifest.read_text(encoding="utf-8"))["target"] == "linux-deb-dry-run"
+
+
+def test_release_dry_run_runs_all_packaging_audits() -> None:
+    result = subprocess.run(
+        [sys.executable, "packaging/build.py", "--target", "release-dry-run"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    windows_manifest = Path("packaging/dist/windows-dry-run-audit.json")
+    appimage_manifest = Path("packaging/dist/linux-appimage-audit.json")
+    deb_manifest = Path("packaging/dist/linux-deb-audit.json")
+    assert windows_manifest.exists()
+    assert appimage_manifest.exists()
+    assert deb_manifest.exists()
+    assert json.loads(windows_manifest.read_text(encoding="utf-8"))["target"] == "windows-dry-run"
+    assert json.loads(appimage_manifest.read_text(encoding="utf-8"))["target"] == "linux-appimage-dry-run"
+    assert json.loads(deb_manifest.read_text(encoding="utf-8"))["target"] == "linux-deb-dry-run"
