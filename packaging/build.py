@@ -259,6 +259,9 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (apprun_payload.get("launches_gui"), "AppImage AppRun no longer launches the GUI target"),
         (launcher_payload.get("is_executable"), "AppImage launcher shim is not executable"),
         (launcher_payload.get("executes_python_module"), "AppImage launcher shim no longer executes the Python module"),
+        (payload.get("archive_entries_sorted"), "AppImage archive entries are no longer sorted"),
+        (payload.get("archive_mtime_zero"), "AppImage archive member mtimes are no longer reproducible"),
+        (payload.get("archive_numeric_owner_zero"), "AppImage archive ownership is no longer reproducible"),
     ]
     for ok, message in required_flags:
         if not ok:
@@ -318,6 +321,9 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),
         (docs_payload.get("changelog_has_current_release_heading"), "Debian package changelog no longer starts with the current release heading"),
         (docs_payload.get("changelog_gzip_mtime_zero"), "Debian package changelog gzip header is no longer reproducible"),
+        (payload.get("archive_entries_sorted"), "Debian dry-run archive entries are no longer sorted"),
+        (payload.get("archive_mtime_zero"), "Debian dry-run archive member mtimes are no longer reproducible"),
+        (payload.get("archive_numeric_owner_zero"), "Debian dry-run archive ownership is no longer reproducible"),
     ]
     for ok, message in required_flags:
         if not ok:

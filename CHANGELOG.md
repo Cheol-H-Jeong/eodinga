@@ -4,6 +4,7 @@
 
 - Added a dedicated `.[packaging]` extra for Windows release tooling and wired the Windows release workflow to install it explicitly instead of relying on ambient build dependencies.
 - Qualified staged AppImage archive names with the target architecture and pinned that contract in the packaging audit so Linux release artifacts no longer collide across architectures.
+- Made the staged Linux AppImage and Debian tar archives reproducible by sorting entries and zeroing archive mtimes and owners, with audit coverage to catch regressions before release.
 
 ## 0.1.431 - 2026-04-23
 

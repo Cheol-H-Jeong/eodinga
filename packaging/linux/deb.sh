@@ -75,11 +75,12 @@ with source.open("rb") as src, gzip.GzipFile(filename="", mode="wb", fileobj=tar
     dst.write(src.read())
 PY
 
-tar -czf "${ARCHIVE_PATH}" -C "${BUILD_ROOT}" "$(basename "${PACKAGE_DIR}")"
+tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf "${ARCHIVE_PATH}" -C "${BUILD_ROOT}" "$(basename "${PACKAGE_DIR}")"
 python3 - <<PY
 import gzip
 import json
 import os
+import tarfile
 from pathlib import Path
 
 desktop_path = Path("${PACKAGE_DIR}/usr/share/applications/eodinga.desktop")
@@ -110,6 +111,8 @@ for line in debian_control_template_path.read_text(encoding="utf-8").splitlines(
     key, value = line.split(":", 1)
     template_control_entries[key] = value.strip()
 changelog_text = gzip.decompress(changelog_path.read_bytes()).decode("utf-8")
+with tarfile.open("${ARCHIVE_PATH}", mode="r:gz") as archive:
+    members = archive.getmembers()
 payload = {
     "target": "linux-deb-dry-run" if ${DRY_RUN} else "linux-deb",
     "version": "${VERSION}",
@@ -117,6 +120,9 @@ payload = {
     "package_dir": "${PACKAGE_DIR}",
     "control_path": str(control_path),
     "archive": "${ARCHIVE_PATH}",
+    "archive_entries_sorted": [member.name for member in members] == sorted(member.name for member in members),
+    "archive_mtime_zero": all(member.mtime == 0 for member in members),
+    "archive_numeric_owner_zero": all(member.uid == 0 and member.gid == 0 for member in members),
     "deb_path": "${DEB_PATH}",
     "dry_run": bool(${DRY_RUN}),
     "control": {

@@ -225,6 +225,9 @@ def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> Non
         "version": __version__,
         "arch": "x86_64",
         "archive": "packaging/dist/eodinga-linux-appdir.tar.gz",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
         "recipe": {
             "exists": True,
             "contains_version_template": True,
@@ -272,6 +275,9 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
     assert Path(payload["archive"]).name == f"eodinga-{__version__}-linux-{payload['arch']}-appdir.tar.gz"
+    assert payload["archive_entries_sorted"] is True
+    assert payload["archive_mtime_zero"] is True
+    assert payload["archive_numeric_owner_zero"] is True
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
@@ -369,6 +375,9 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
         "arch": "amd64",
         "archive": "packaging/dist/eodinga_latest_amd64_debroot.tar.gz",
         "deb_path": "packaging/dist/eodinga_latest_amd64.deb",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
         "control": {
             "package": "eodinga",
             "version": __version__,
@@ -442,6 +451,9 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert Path(payload["package_dir"]).exists()
     assert Path(payload["control_path"]).exists()
     assert Path(payload["archive"]).exists()
+    assert payload["archive_entries_sorted"] is True
+    assert payload["archive_mtime_zero"] is True
+    assert payload["archive_numeric_owner_zero"] is True
     assert payload["control"] == {
         "package": "eodinga",
         "version": __version__,
@@ -491,5 +503,8 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert Path(payload["package_dir"]).exists()
     assert Path(payload["control_path"]).exists()
     assert Path(payload["deb_path"]).exists()
+    assert payload["archive_entries_sorted"] is True
+    assert payload["archive_mtime_zero"] is True
+    assert payload["archive_numeric_owner_zero"] is True
     assert payload["icon"]["exists"] is True
     assert payload["docs"]["changelog_exists"] is True

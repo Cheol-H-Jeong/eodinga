@@ -60,10 +60,11 @@ exec python3 -m eodinga "$@"
 EOF
 chmod +x "${APPDIR}/AppRun" "${APPDIR}/usr/bin/eodinga"
 
-tar -czf "${ARCHIVE_PATH}" -C "${DIST_DIR}" "$(basename "${APPDIR}")"
+tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf "${ARCHIVE_PATH}" -C "${DIST_DIR}" "$(basename "${APPDIR}")"
 python3 - <<PY
 import json
 import os
+import tarfile
 from pathlib import Path
 
 desktop_path = Path("${APPDIR}/usr/share/applications/eodinga.desktop")
@@ -83,12 +84,17 @@ recipe_path = Path("${APPIMAGE_RECIPE}")
 rendered_recipe_path = Path("${RENDERED_RECIPE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
 rendered_recipe_text = rendered_recipe_path.read_text(encoding="utf-8")
+with tarfile.open("${ARCHIVE_PATH}", mode="r:gz") as archive:
+    members = archive.getmembers()
 payload = {
     "target": "linux-appimage-dry-run" if ${DRY_RUN} else "linux-appimage",
     "version": "${VERSION}",
     "arch": "${ARCH}",
     "appdir": "${APPDIR}",
     "archive": "${ARCHIVE_PATH}",
+    "archive_entries_sorted": [member.name for member in members] == sorted(member.name for member in members),
+    "archive_mtime_zero": all(member.mtime == 0 for member in members),
+    "archive_numeric_owner_zero": all(member.uid == 0 and member.gid == 0 for member in members),
     "dry_run": bool(${DRY_RUN}),
     "desktop_entry": {
         "path": str(desktop_path),
