@@ -4,8 +4,8 @@ from collections.abc import Callable
 from typing import cast
 
 from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
-from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
+from PySide6.QtGui import QAction, QKeyEvent, QKeySequence, QShortcut
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QMenu, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
@@ -54,6 +54,7 @@ class LauncherPanel(QWidget):
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
         self.result_list.setMouseTracking(True)
         self.result_list.viewport().setMouseTracking(True)
+        self.result_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.status_chip = StatusChip("Idle", self)
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
@@ -68,6 +69,7 @@ class LauncherPanel(QWidget):
         self.result_list.setModel(self.model)
         self.result_list.selectionModel().currentChanged.connect(self._sync_preview_to_current_index)
         self.result_list.entered.connect(self._sync_preview_to_hovered_index)
+        self.result_list.customContextMenuRequested.connect(self._show_result_context_menu)
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -133,6 +135,11 @@ class LauncherPanel(QWidget):
         self.action_bar.copy_path_button.clicked.connect(self.emit_copy_path)
         self.action_bar.copy_name_button.clicked.connect(self.emit_copy_name)
         self.action_bar.properties_button.clicked.connect(self.emit_show_properties)
+        self._open_result_action = self._build_result_action("Open", self.activate_current_result)
+        self._reveal_result_action = self._build_result_action("Reveal in Folder", self.emit_open_containing_folder)
+        self._copy_path_result_action = self._build_result_action("Copy Path", self.emit_copy_path)
+        self._copy_name_result_action = self._build_result_action("Copy Name", self.emit_copy_name)
+        self._properties_result_action = self._build_result_action("Properties", self.emit_show_properties)
         self._quick_pick_shortcuts: list[QShortcut] = []
         for index in range(9):
             shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
@@ -407,6 +414,27 @@ class LauncherPanel(QWidget):
     def _set_selection(self, row: int) -> None:
         self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(row, 0)))
         self.result_list.scrollTo(self.result_list.currentIndex())
+
+    def _build_result_action(self, text: str, callback: Callable[[], None]) -> QAction:
+        result_action = QAction(text, self.result_list)
+        result_action.triggered.connect(callback)
+        return result_action
+
+    def _show_result_context_menu(self, point) -> None:
+        index = self.result_list.indexAt(point)
+        if index.isValid():
+            self._set_selection(index.row())
+        if self._current_hit() is None:
+            return
+        menu = QMenu(self.result_list)
+        menu.addAction(self._open_result_action)
+        menu.addAction(self._reveal_result_action)
+        menu.addSeparator()
+        menu.addAction(self._copy_path_result_action)
+        menu.addAction(self._copy_name_result_action)
+        menu.addSeparator()
+        menu.addAction(self._properties_result_action)
+        menu.exec(self.result_list.viewport().mapToGlobal(point))
 
     def _sync_preview_to_current_index(self, current: QModelIndex, previous: QModelIndex) -> None:
         del previous

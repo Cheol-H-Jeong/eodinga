@@ -362,6 +362,39 @@ def test_app_wires_launcher_shortcuts_to_desktop_actions(qapp) -> None:
     assert spy.copied_names == ["release-notes.txt", "release-notes.txt"]
 
 
+def test_app_wires_launcher_context_actions_to_desktop_actions(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/release-notes.txt"),
+                    parent_path=Path("/tmp"),
+                    name="release-notes.txt",
+                )
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    spy = _ActionSpy()
+    window = EodingaWindow(search_fn=search_fn, desktop_actions=spy)
+
+    for launcher in (window.launcher_window, window.search_tab.launcher_panel):
+        launcher.query_field.setText("release")
+        launcher._run_query()
+        launcher._open_result_action.trigger()
+        launcher._reveal_result_action.trigger()
+        launcher._copy_path_result_action.trigger()
+        launcher._copy_name_result_action.trigger()
+        launcher._properties_result_action.trigger()
+
+    assert spy.opened == ["release-notes.txt", "release-notes.txt"]
+    assert spy.revealed == ["release-notes.txt", "release-notes.txt"]
+    assert spy.properties == ["release-notes.txt", "release-notes.txt"]
+    assert spy.copied == ["/tmp/release-notes.txt", "/tmp/release-notes.txt"]
+    assert spy.copied_names == ["release-notes.txt", "release-notes.txt"]
+
+
 def test_desktop_actions_copy_path_updates_clipboard(qapp) -> None:
     actions = DesktopActions(qapp)
     hit = SearchHit(path=Path("/tmp/report.txt"), parent_path=Path("/tmp"), name="report.txt")
