@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 import traceback
 from dataclasses import dataclass, field
 from collections.abc import Mapping
@@ -9,7 +10,7 @@ from datetime import UTC, datetime
 from json import dumps as json_dumps
 from pathlib import Path
 from threading import Lock
-from typing import Any, TypedDict
+from typing import Any, TextIO, TypedDict
 
 from loguru import logger
 
@@ -17,6 +18,7 @@ _DEFAULT_HISTOGRAM_BUCKETS_MS = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0
 _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
+_CRASH_HOOKS_INSTALLED = False
 
 
 class MetricsSnapshot(TypedDict):
@@ -90,7 +92,17 @@ def default_crash_dir() -> Path:
 
 def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
     logger.remove()
-    logger.add(sys.stderr, level=level.upper())
+    normalized_level = level.upper()
+    sink_options = {
+        "diagnose": False,
+        "enqueue": True,
+        "format": (
+            "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | "
+            "{process.id}:{thread.id} | {name}:{function}:{line} | {message}"
+        ),
+        "level": normalized_level,
+    }
+    logger.add(sys.stderr, **sink_options)
     if os.environ.get("EODINGA_DISABLE_FILE_LOGGING") == "1":
         return
     effective_log_path = log_path
@@ -104,7 +116,7 @@ def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None
             effective_log_path = default_log_path()
     target = effective_log_path.expanduser()
     target.parent.mkdir(parents=True, exist_ok=True)
-    logger.add(target, rotation="5 MB", retention=5, level=level.upper())
+    logger.add(target, rotation="5 MB", retention=5, encoding="utf-8", **sink_options)
 
 
 def get_logger(name: str | None = None) -> Any:
@@ -202,6 +214,72 @@ def write_crash_log(
     ]
     crash_path.write_text("".join(lines), encoding="utf-8")
     return crash_path
+
+
+def emit_crash_log(
+    error: BaseException,
+    *,
+    context: str,
+    details: Mapping[str, object] | None = None,
+    crash_dir: Path | None = None,
+    stderr: TextIO | None = None,
+) -> Path:
+    crash_path = write_crash_log(
+        error,
+        crash_dir=crash_dir,
+        context=context,
+        details=details,
+    )
+    stream = stderr if stderr is not None else sys.stderr
+    stream.write(f"unhandled exception; crash log written to {crash_path}\n")
+    return crash_path
+
+
+def install_crash_hooks(*, stderr: TextIO | None = None) -> None:
+    global _CRASH_HOOKS_INSTALLED
+    if _CRASH_HOOKS_INSTALLED:
+        return
+
+    def _sys_hook(exc_type, error, traceback_obj) -> None:
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, error, traceback_obj)
+            return
+        if error.__traceback__ is not traceback_obj:
+            error = error.with_traceback(traceback_obj)
+        emit_crash_log(error, context="Unhandled exception", stderr=stderr)
+
+    def _thread_hook(args: object) -> None:
+        thread_error = getattr(args, "exc_value", None)
+        thread_type = getattr(args, "exc_type", RuntimeError)
+        if thread_error is None:
+            thread_error = thread_type("thread exception hook received no exception")
+        traceback_obj = getattr(args, "exc_traceback", None)
+        if traceback_obj is not None and thread_error.__traceback__ is not traceback_obj:
+            thread_error = thread_error.with_traceback(traceback_obj)
+        thread_name = getattr(getattr(args, "thread", None), "name", "unknown")
+        emit_crash_log(
+            thread_error,
+            context=f"Unhandled exception in thread {thread_name}",
+            details={"thread": thread_name},
+            stderr=stderr,
+        )
+
+    def _unraisable_hook(args: object) -> None:
+        object_repr = repr(getattr(args, "object", None))
+        emit_crash_log(
+            getattr(args, "exc_value", RuntimeError("unraisable exception")),
+            context="Unhandled unraisable exception",
+            details={
+                "object": object_repr,
+                "err_msg": getattr(args, "err_msg", None),
+            },
+            stderr=stderr,
+        )
+
+    sys.excepthook = _sys_hook
+    threading.excepthook = _thread_hook
+    sys.unraisablehook = _unraisable_hook
+    _CRASH_HOOKS_INSTALLED = True
 
 
 def _format_detail_value(value: object) -> str:
