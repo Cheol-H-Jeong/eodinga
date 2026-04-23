@@ -87,11 +87,7 @@ class TrayIndicatorController:
         self._main_window.activateWindow()
 
     def show_launcher(self) -> None:
-        self._launcher_window.show()
-        self._launcher_window.raise_()
-        self._launcher_window.activateWindow()
-        self._launcher_window.query_field.setFocus()
-        self._launcher_window.query_field.selectAll()
+        self._launcher_window.present()
 
     def toggle_launcher(self) -> None:
         if self._launcher_window.isVisible():

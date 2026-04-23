@@ -147,6 +147,25 @@ def test_tray_indicator_can_show_launcher_without_tray_backend(qapp) -> None:
     assert window.launcher_window.isVisible()
 
 
+def test_tray_indicator_show_launcher_refits_hidden_popup_on_screen(monkeypatch, qapp) -> None:
+    window = EodingaWindow()
+    launcher = window.launcher_window
+    launcher.show()
+    qapp.processEvents()
+    launcher.hide()
+    launcher.setGeometry(QRect(2800, -120, 1200, 900))
+    monkeypatch.setattr(LauncherWindow, "_available_geometry", lambda self: QRect(100, 50, 900, 700))
+
+    window.tray_indicator.show_launcher()
+    qapp.processEvents()
+
+    assert launcher.isVisible()
+    assert launcher.x() == 100
+    assert launcher.y() == 50
+    assert launcher.width() == 900
+    assert launcher.height() == 700
+
+
 def test_tray_indicator_exposes_open_window_and_toggle_launcher_actions(qapp) -> None:
     window = EodingaWindow()
     window.hide()
@@ -361,6 +380,27 @@ def test_window_registers_hotkey_and_toggles_launcher_from_callback(qapp) -> Non
     window.close()
     qapp.processEvents()
     assert hotkey_service.calls[-1] == ("stop", "")
+
+
+def test_hotkey_toggle_refits_hidden_popup_on_screen(monkeypatch, qapp) -> None:
+    hotkey_service = _HotkeyServiceSpy()
+    window = EodingaWindow(config=AppConfig(), hotkey_service=hotkey_service)
+    launcher = window.launcher_window
+    launcher.show()
+    qapp.processEvents()
+    launcher.hide()
+    launcher.setGeometry(QRect(-1400, 900, 1300, 880))
+    monkeypatch.setattr(LauncherWindow, "_available_geometry", lambda self: QRect(100, 50, 1000, 720))
+
+    assert hotkey_service.callback is not None
+    hotkey_service.callback()
+    qapp.processEvents()
+
+    assert launcher.isVisible()
+    assert launcher.x() == 100
+    assert launcher.y() == 50
+    assert launcher.width() == 1000
+    assert launcher.height() == 720
 
 
 def test_settings_tab_rebinds_hotkey_without_restart(

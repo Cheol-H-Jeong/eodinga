@@ -73,6 +73,18 @@ class LauncherWindow(LauncherPanel):
     def set_frameless(self, enabled: bool) -> None:
         self._set_window_flag_preserving_visibility(Qt.WindowType.FramelessWindowHint, enabled)
 
+    def present(self) -> None:
+        if self.isMinimized():
+            self.showNormal()
+        else:
+            self.show()
+        if self._geometry_restored:
+            self.setGeometry(self._fit_geometry_to_available(self.geometry()))
+        self.raise_()
+        self.activateWindow()
+        self.query_field.setFocus()
+        self.query_field.selectAll()
+
     def hideEvent(self, event: QHideEvent) -> None:
         self._persist_geometry()
         super().hideEvent(event)
