@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.377 - 2026-04-23
+
+- Added launcher query pinning directly in the popup and embedded search surfaces, including `Alt+P`, a dedicated pin button, and one-click pinned-filter chips fed by shared launcher state.
+- Persisted pinned launcher queries back to config immediately so toggles made in either launcher surface survive restart and stay synchronized across the popup and tabbed search UI.
+- Kept the new pinning control reachable from the keyboard by routing `Shift+Tab` into it when available, supporting Space/Enter activation there, and documenting the path in launcher guidance.
+
 ## 0.1.375 - 2026-04-23
 
 - Added a persisted `launcher.frameless` preference so the popup can start with or without window chrome instead of forcing the frameless shell on every launch.
