@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.191 - 2026-04-23
+
+- Split the launcher popup window into its own module so the launcher surface stays under the repository's module-size cap while preserving the existing geometry, topmost, and hotkey behavior.
+- Added a launcher preview pane that follows the current or hovered result and surfaces the target path plus indexed snippet before opening a file.
+- Added a visible launcher action bar for open, reveal, copy path, copy name, and properties actions, and pinned the new preview/action accessibility contracts with offscreen GUI regressions.
+
 ## 0.1.190 - 2026-04-23
 
 - Expanded multi-root live-update coverage so a real watched delete in one root must disappear from both global and root-scoped search results within 500 ms without disturbing sibling-root hits.

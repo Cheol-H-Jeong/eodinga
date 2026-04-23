@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eodinga"
-version = "0.1.190"
+version = "0.1.191"
 description = "Everything-class instant file search for Windows and Linux"
 readme = "README.md"
 requires-python = ">=3.11"
