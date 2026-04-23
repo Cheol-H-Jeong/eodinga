@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.278 - 2026-04-23
+
+- Added explicit accessible names across the launcher search field, empty state, preview labels, and shortcut/status surfaces so keyboard-first and assistive-tech navigation can identify each control consistently.
+- Tightened launcher empty-state guidance with separate summary and keyboard-help lines, including direct reminders for history recall, top-hit quick picks, filter refinements, and Escape to dismiss the popup.
+- Styled launcher match highlights with a stronger bold amber mark treatment so matched names, paths, snippets, and extension badges remain visually distinct without changing the underlying query markup.
+
 ## 0.1.277 - 2026-04-23
 
 - Reused `os.scandir()` metadata during tree walks so discovered children no longer pay an extra `lstat()` before indexing, while preserving the existing fallback path for entries whose metadata cannot be read during directory enumeration.
