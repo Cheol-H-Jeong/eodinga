@@ -397,6 +397,34 @@ def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> 
     assert launcher.query_field.selectedText() == "alpha"
 
 
+def test_launcher_ctrl_a_from_results_list_selects_query_text(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+            ][:limit],
+            total=2,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("alpha")
+    _wait(60)
+    launcher.result_list.setFocus()
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Down)
+
+    assert launcher.result_list.hasFocus()
+    assert launcher.result_list.currentIndex().row() == 1
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
+
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.selectedText() == "alpha"
+
+
 def test_launcher_alt_up_and_down_recall_recent_queries(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
