@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.512 - 2026-04-23
+## 0.1.518 - 2026-04-23
 
 - Scoped the Windows installer desktop shortcut to the per-user desktop so it matches the existing lowest-privilege install model instead of targeting a machine-wide desktop alias.
 - Tightened uninstall purge behavior so an explicit purge now removes both `%LOCALAPPDATA%\\eodinga` index/state data and `%APPDATA%\\eodinga` roaming configuration, while default uninstall behavior still preserves user state.
