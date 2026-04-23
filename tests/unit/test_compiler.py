@@ -215,6 +215,50 @@ def test_compile_double_negated_group_restores_positive_branches() -> None:
     assert all(not branch.path_terms[0].negated for branch in compiled.branches)
 
 
+def test_compile_double_negated_word_restores_positive_term() -> None:
+    compiled = compile_query(parse("--alpha"))
+    branch = compiled.branches[0]
+
+    assert branch.path_match_params == ('"alpha"',)
+    assert tuple(term.value for term in branch.path_terms) == ("alpha",)
+    assert all(not term.negated for term in branch.path_terms)
+
+
+def test_compile_triple_negated_word_remains_negative() -> None:
+    compiled = compile_query(parse("---alpha"))
+    branch = compiled.branches[0]
+
+    assert branch.path_match_sql is None
+    assert tuple(term.value for term in branch.path_terms) == ("alpha",)
+    assert all(term.negated for term in branch.path_terms)
+
+
+def test_compile_double_negated_content_phrase_restores_positive_term() -> None:
+    compiled = compile_query(parse('- -content:"release notes"'))
+    branch = compiled.branches[0]
+
+    assert branch.content_match_params == ('"release notes"',)
+    assert tuple(term.value for term in branch.content_terms) == ("release notes",)
+    assert all(not term.negated for term in branch.content_terms)
+
+
+def test_compile_double_negated_path_literal_restores_positive_term() -> None:
+    compiled = compile_query(parse("- -path:/todo/i"))
+    branch = compiled.branches[0]
+
+    assert tuple(term.value for term in branch.path_filters) == ("/todo/i",)
+    assert all(not term.negated for term in branch.path_filters)
+
+
+def test_compile_repeated_group_negation_restores_positive_group_semantics() -> None:
+    compiled = compile_query(parse("- -(alpha | beta)"))
+
+    assert len(compiled.branches) == 2
+    assert {branch.path_match_params for branch in compiled.branches} == {('"alpha"',), ('"beta"',)}
+    assert all(tuple(term.value for term in branch.path_terms) in {("alpha",), ("beta",)} for branch in compiled.branches)
+    assert all(all(not term.negated for term in branch.path_terms) for branch in compiled.branches)
+
+
 def test_compile_reuses_cached_queries() -> None:
     first = compile("report ext:pdf")
     second = compile("report ext:pdf")
