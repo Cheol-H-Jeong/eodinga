@@ -64,6 +64,14 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 | Recovery | Atomic staged rebuild and startup recovery for interrupted index swaps and stale WAL state. |
 | Packaging | Windows installer, Linux AppImage, and Linux `.deb` dry-run paths. |
 
+## At A Glance
+
+- Local-only indexing and search; no hosted service and no runtime network calls.
+- One query language shared by `eodinga search`, the main GUI, and the hotkey launcher.
+- Filename/path search works without parser extras; `.[parsers]` extends content extraction only.
+- Live refresh comes from watchdog-backed filesystem notifications rather than a polling daemon.
+- The shipped release contract includes docs, screenshots, packaging dry-runs, and the generated CLI man page.
+
 ## Acceptance Quickcheck
 
 Use this when you want to validate the shipped v0.1 surface before cutting a release:
@@ -201,6 +209,16 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - Validate Linux AppImage packaging with `python packaging/build.py --target linux-appimage-dry-run`.
 - Validate Linux Debian packaging with `python packaging/build.py --target linux-deb-dry-run`.
 
+## Operator References
+
+- `docs/DSL.md` is the complete query reference.
+- `docs/ACCEPTANCE.md` is the release gate and shipped-surface checklist.
+- `docs/ARCHITECTURE.md` covers the runtime flow, storage model, and packaging surfaces.
+- `docs/PERFORMANCE.md` captures the opt-in perf suite and current local baseline.
+- `docs/CONTRIBUTING.md` is the contributor workflow for sync, tests, docs refresh, and release hygiene.
+- `docs/RELEASE.md` is the local release-cut and handoff procedure.
+- `docs/man/eodinga.1` is the generated CLI reference derived from the real argparse surface.
+
 ## Recovery and Troubleshooting
 
 - Startup automatically resumes interrupted staged rebuilds (`.index.db.next`), interrupted recovery swaps (`.index.db.recover`), and stale SQLite WAL replay before opening the live index.
@@ -262,10 +280,6 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
 
-### Does eodinga send any data over the network?
-
-No. Runtime is local-only by design.
-
 ### Which files are skipped by default?
 
 System and cache paths such as `/proc`, `/sys`, `/dev`, `/tmp`, `$HOME/.cache`, `C:\Windows`, and `%SystemRoot%` stay excluded unless the user explicitly opts in.
@@ -277,6 +291,10 @@ No. The Windows installer preserves `%LOCALAPPDATA%\eodinga\` unless the uninsta
 ### Is semantic search included?
 
 No. `0.1.x` is lexical only.
+
+### Where is the CLI reference for packaged builds?
+
+Use `docs/man/eodinga.1`. It is generated from the parser in `eodinga.__main__`, so it stays aligned with `eodinga --help` instead of drifting as hand-written prose.
 
 ## Limitations
 
