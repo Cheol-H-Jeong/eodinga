@@ -17,7 +17,9 @@ def test_doctor_returns_expected_shape(tmp_path: Path) -> None:
     assert report["default_excludes"]["effective"] is True
     assert report["db"]["exists"] is False
     assert report["db"]["interrupted_build_resumed"] is False
+    assert report["db"]["interrupted_build_error"] is None
     assert report["db"]["interrupted_recovery_resumed"] is False
+    assert report["db"]["interrupted_recovery_error"] is None
     assert report["db"]["stale_wal_present"] is False
     assert report["db"]["stale_wal_recovered"] is False
     assert report["db"]["stale_wal_error"] is None
@@ -55,7 +57,9 @@ def test_doctor_recovers_stale_wal_before_reporting(tmp_path: Path) -> None:
     assert exit_code == 0
     assert report["db"]["exists"] is True
     assert report["db"]["interrupted_build_resumed"] is False
+    assert report["db"]["interrupted_build_error"] is None
     assert report["db"]["interrupted_recovery_resumed"] is False
+    assert report["db"]["interrupted_recovery_error"] is None
     assert report["db"]["stale_wal_present"] is True
     assert report["db"]["stale_wal_recovered"] is True
     assert report["db"]["stale_wal_error"] is None
@@ -98,7 +102,9 @@ def test_doctor_resumes_interrupted_recovery_before_reporting(tmp_path: Path) ->
     assert exit_code == 0
     assert report["db"]["exists"] is True
     assert report["db"]["interrupted_build_resumed"] is False
+    assert report["db"]["interrupted_build_error"] is None
     assert report["db"]["interrupted_recovery_resumed"] is True
+    assert report["db"]["interrupted_recovery_error"] is None
     assert report["db"]["stale_wal_present"] is False
     assert report["db"]["stale_wal_recovered"] is False
     assert report["db"]["stale_wal_error"] is None
@@ -123,8 +129,50 @@ def test_doctor_resumes_interrupted_build_before_reporting(tmp_path: Path) -> No
     assert exit_code == 0
     assert report["db"]["exists"] is True
     assert report["db"]["interrupted_build_resumed"] is True
+    assert report["db"]["interrupted_build_error"] is None
     assert report["db"]["interrupted_recovery_resumed"] is False
+    assert report["db"]["interrupted_recovery_error"] is None
     assert report["db"]["stale_wal_present"] is False
     assert report["db"]["stale_wal_recovered"] is False
     assert report["db"]["stale_wal_error"] is None
     assert not staged_path.exists()
+
+
+def test_doctor_fails_when_interrupted_recovery_cannot_be_resumed(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from eodinga import doctor
+
+    db_path = tmp_path / "index.db"
+    staged_path = tmp_path / ".index.db.recover"
+    staged_path.write_bytes(b"still-broken")
+
+    monkeypatch.setattr(doctor, "recover_interrupted_recovery", lambda _path: False)
+
+    report, exit_code = run_diagnostics(config=AppConfig(), db_path=db_path)
+
+    assert exit_code == 1
+    assert report["db"]["interrupted_recovery_resumed"] is False
+    assert report["db"]["interrupted_recovery_error"] == (
+        f"failed to resume interrupted recovery for {db_path}"
+    )
+
+
+def test_doctor_fails_when_interrupted_build_cannot_be_resumed(
+    monkeypatch, tmp_path: Path
+) -> None:
+    from eodinga import doctor
+
+    db_path = tmp_path / "index.db"
+    staged_path = tmp_path / ".index.db.next"
+    staged_path.write_bytes(b"still-broken")
+
+    monkeypatch.setattr(doctor, "recover_interrupted_build", lambda _path: False)
+
+    report, exit_code = run_diagnostics(config=AppConfig(), db_path=db_path)
+
+    assert exit_code == 1
+    assert report["db"]["interrupted_build_resumed"] is False
+    assert report["db"]["interrupted_build_error"] == (
+        f"failed to resume interrupted staged build for {db_path}"
+    )

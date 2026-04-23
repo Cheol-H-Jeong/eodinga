@@ -29,6 +29,14 @@ OPTIONAL_IMPORTS = {
 }
 
 
+def _staged_recovery_path(path: Path) -> Path:
+    return path.with_name(f".{path.name}.recover")
+
+
+def _staged_build_path(path: Path) -> Path:
+    return path.with_name(f".{path.name}.next")
+
+
 def _is_importable(module_name: str) -> bool:
     return importlib.util.find_spec(module_name) is not None
 
@@ -65,8 +73,22 @@ def _detect_hotkey_backend() -> str:
 def run_diagnostics(config: AppConfig | None = None, db_path: Path | None = None) -> tuple[dict[str, Any], int]:
     effective_config = config or AppConfig()
     effective_db_path = db_path or effective_config.index.db_path or default_db_path()
+    recovery_stage_path = _staged_recovery_path(effective_db_path)
+    build_stage_path = _staged_build_path(effective_db_path)
+    recovery_stage_present = recovery_stage_path.exists()
+    build_stage_present = build_stage_path.exists()
     interrupted_recovery_resumed = recover_interrupted_recovery(effective_db_path)
     interrupted_build_resumed = recover_interrupted_build(effective_db_path)
+    interrupted_recovery_error = (
+        f"failed to resume interrupted recovery for {effective_db_path}"
+        if recovery_stage_present and not interrupted_recovery_resumed and recovery_stage_path.exists()
+        else None
+    )
+    interrupted_build_error = (
+        f"failed to resume interrupted staged build for {effective_db_path}"
+        if build_stage_present and not interrupted_build_resumed and build_stage_path.exists()
+        else None
+    )
     stale_wal_present = has_stale_wal(effective_db_path)
     stale_wal_recovered = recover_stale_wal(effective_db_path) if stale_wal_present else False
     stale_wal_error = (
@@ -91,7 +113,9 @@ def run_diagnostics(config: AppConfig | None = None, db_path: Path | None = None
             "exists": effective_db_path.expanduser().exists(),
             "writable": _is_db_writable(effective_db_path),
             "interrupted_build_resumed": interrupted_build_resumed,
+            "interrupted_build_error": interrupted_build_error,
             "interrupted_recovery_resumed": interrupted_recovery_resumed,
+            "interrupted_recovery_error": interrupted_recovery_error,
             "stale_wal_present": stale_wal_present,
             "stale_wal_recovered": stale_wal_recovered,
             "stale_wal_error": stale_wal_error,
@@ -106,7 +130,11 @@ def run_diagnostics(config: AppConfig | None = None, db_path: Path | None = None
     exit_code = 0
     if not result["python"]["supported"] or not all(required.values()) or not result["db"]["writable"]:
         exit_code = 1
-    if stale_wal_error is not None:
+    if (
+        interrupted_recovery_error is not None
+        or interrupted_build_error is not None
+        or stale_wal_error is not None
+    ):
         exit_code = 1
     if roots and not all(roots.values()):
         exit_code = 1
