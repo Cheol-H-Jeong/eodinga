@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.717 - 2026-04-23
+## 0.1.718 - 2026-04-23
 
 - Let `size:` filters accept comparator-separated values like `size:> 10M`, so spaced numeric input now parses the same way as the compact form.
 - Added open-ended size bounds with `size:..500K` and `size:100..`, matching the query engine's existing open-ended date range behavior.
