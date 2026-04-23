@@ -243,6 +243,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         log_sinks_stderr_configured=counters.get("log_sinks.stderr.configured", 0),
         log_sinks_file_configured=counters.get("log_sinks.file.configured", 0),
         log_sinks_file_disabled=counters.get("log_sinks.file.disabled", 0),
+        log_file_sources=_counter_prefix_summary(counters, "log_sinks.file.source."),
+        log_file_disable_reasons=_counter_prefix_summary(counters, "log_sinks.file.disabled."),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
         query_result_count_histogram=histogram_snapshot("query_result_count"),
         command_latency_histogram=histogram_snapshot("command_latency_ms"),
@@ -381,6 +383,16 @@ def _project_successful_stats_counters(counters: dict[str, int]) -> dict[str, in
     projected["commands.stats.completed"] = projected.get("commands.stats.completed", 0) + 1
     projected["commands.exit_code.0"] = projected.get("commands.exit_code.0", 0) + 1
     return projected
+
+
+def _counter_prefix_summary(counters: dict[str, int], prefix: str) -> dict[str, int]:
+    return dict(
+        sorted(
+            (name[len(prefix) :], value)
+            for name, value in counters.items()
+            if name.startswith(prefix) and name != prefix.rstrip(".")
+        )
+    )
 
 
 def _crash_type_summary(counters: dict[str, int]) -> dict[str, int]:

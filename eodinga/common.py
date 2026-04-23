@@ -129,6 +129,8 @@ class StatsSnapshot(BaseModel):
     log_sinks_stderr_configured: int = 0
     log_sinks_file_configured: int = 0
     log_sinks_file_disabled: int = 0
+    log_file_sources: dict[str, int] = Field(default_factory=dict)
+    log_file_disable_reasons: dict[str, int] = Field(default_factory=dict)
     query_latency_histogram: dict[str, object] = Field(default_factory=dict)
     query_result_count_histogram: dict[str, object] = Field(default_factory=dict)
     command_latency_histogram: dict[str, object] = Field(default_factory=dict)

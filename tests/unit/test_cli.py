@@ -508,6 +508,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_sinks_stderr_configured"] == 2
     assert payload["log_sinks_file_configured"] == 0
     assert payload["log_sinks_file_disabled"] == 2
+    assert payload["log_file_sources"] == {}
+    assert payload["log_file_disable_reasons"] == {"disabled_pytest": 2}
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["query_result_count_histogram"]["count"] == 1
     assert payload["command_latency_histogram"]["count"] == 1
@@ -653,6 +655,8 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["log_sinks_stderr_configured"] == 3
     assert payload["log_sinks_file_configured"] == 0
     assert payload["log_sinks_file_disabled"] == 3
+    assert payload["log_file_sources"] == {}
+    assert payload["log_file_disable_reasons"] == {"disabled_pytest": 3}
     assert payload["commands_started"] == 3
     assert payload["commands_completed"] == 3
     assert payload["commands_failed"] == 0
@@ -722,6 +726,36 @@ def test_stats_json_structures_parser_success_and_skip_counts(tmp_path: Path, ca
     assert payload["parser_activity"]["tracked"] == {"parsed": 1, "skipped_too_large": 1}
     assert payload["counters"]["parsers.tracked.parsed"] == 1
     assert payload["counters"]["parsers.tracked.skipped_too_large"] == 1
+
+
+def test_stats_json_structures_log_file_source_counts(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "index.db"
+    log_path = tmp_path / "logs" / "eodinga.log"
+    _build_search_db(db_path)
+    reset_metrics()
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    search_exit = main(["--db", str(db_path), "search", "duplicate", "--json"])
+    search_output = capsys.readouterr()
+    assert search_exit == 0
+    assert json.loads(search_output.out)["count"] == 2
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["log_path"] == str(log_path)
+    assert payload["log_path_source"] == "env_override"
+    assert payload["log_path_disabled_reason"] is None
+    assert payload["log_sinks_file_configured"] == 2
+    assert payload["log_sinks_file_disabled"] == 0
+    assert payload["log_file_sources"] == {"env_override": 2}
+    assert payload["log_file_disable_reasons"] == {}
 
 
 def test_stats_json_exposes_zero_result_query_metrics(tmp_path: Path, capsys) -> None:
