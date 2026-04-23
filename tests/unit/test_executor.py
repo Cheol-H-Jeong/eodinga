@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from eodinga.query import compile as compile_query
 from eodinga.query import executor as executor_module
 from eodinga.query import search
 
@@ -1499,19 +1500,19 @@ def test_phrase_query_python_scan_reads_records_in_batches(
     tmp_db.commit()
 
     batch_limits: list[int] = []
-    original_fetch = executor_module._fetch_record_batch
+    original_fetch = executor_module._fetch_record_scan_batch
 
     def recording_fetch(
         conn: sqlite3.Connection,
         where_sql: str,
         where_params: tuple[object, ...],
         limit: int,
-        offset: int,
-    ) -> Mapping[int, object]:
+        cursor: executor_module._ScanCursor | None,
+    ) -> tuple[Mapping[int, object], executor_module._ScanCursor | None]:
         batch_limits.append(limit)
-        return original_fetch(conn, where_sql, where_params, limit, offset)
+        return original_fetch(conn, where_sql, where_params, limit, cursor)
 
-    monkeypatch.setattr(executor_module, "_fetch_record_batch", recording_fetch)
+    monkeypatch.setattr(executor_module, "_fetch_record_scan_batch", recording_fetch)
 
     hits = [hit.file.name for hit in search(tmp_db, '"project notes"', limit=10).hits]
 
@@ -1522,6 +1523,118 @@ def test_phrase_query_python_scan_reads_records_in_batches(
     ]
     assert batch_limits
     assert max(batch_limits) < 100_000
+
+
+def test_phrase_query_python_scan_uses_keyset_batches_without_offset(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    for index in range(1, 1201):
+        _insert_file(
+            tmp_db,
+            index,
+            f"/workspace/projects/project-notes-{index:04d}.txt",
+            1024,
+            now - index,
+            "txt",
+            body_text="meeting notes",
+        )
+    tmp_db.commit()
+
+    statements: list[str] = []
+    tmp_db.set_trace_callback(statements.append)
+    try:
+        hits = [hit.file.name for hit in search(tmp_db, '"project notes"', limit=10).hits]
+    finally:
+        tmp_db.set_trace_callback(None)
+
+    assert hits[:3] == [
+        "project-notes-0001.txt",
+        "project-notes-0002.txt",
+        "project-notes-0003.txt",
+    ]
+    assert any(
+        "ORDER BY files.name_lower ASC, files.path ASC, files.id ASC LIMIT 500" in statement
+        for statement in statements
+    )
+    assert not any(
+        "FROM files" in statement and "OFFSET" in statement for statement in statements
+    )
+
+
+def test_unicode_prefix_query_stops_after_first_prefix_heavy_batch(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = 1_713_528_000
+    for index in range(1, 1201):
+        _insert_file(
+            tmp_db,
+            index,
+            f"/workspace/projects/회의록-{index:04d}.txt",
+            1024,
+            now - index,
+            "txt",
+            body_text="meeting notes",
+        )
+    tmp_db.commit()
+
+    calls = 0
+    original_fetch = executor_module._fetch_record_scan_batch
+
+    def recording_fetch(
+        conn: sqlite3.Connection,
+        where_sql: str,
+        where_params: tuple[object, ...],
+        limit: int,
+        cursor: executor_module._ScanCursor | None,
+    ) -> tuple[Mapping[int, object], executor_module._ScanCursor | None]:
+        nonlocal calls
+        calls += 1
+        return original_fetch(conn, where_sql, where_params, limit, cursor)
+
+    monkeypatch.setattr(executor_module, "_fetch_record_scan_batch", recording_fetch)
+
+    branch = compile_query('"회의록-00"').branches[0]
+    ids, records = executor_module._fetch_path_candidates_python_scan(tmp_db, branch, 10)
+    hits = [records[file_id].name for file_id in ids]
+
+    assert hits == [f"회의록-{index:04d}.txt" for index in range(1, 11)]
+    assert calls == 1
+
+
+def test_phrase_content_fallback_scan_uses_keyset_batches_without_offset(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    for index in range(1, 21):
+        _insert_file(
+            tmp_db,
+            index,
+            f"/workspace/projects/doc-{index:04d}.txt",
+            1024,
+            now - index,
+            "txt",
+            body_text=f"project notes iteration {index}",
+        )
+    tmp_db.commit()
+
+    statements: list[str] = []
+    tmp_db.set_trace_callback(statements.append)
+    try:
+        hits = [hit.file.name for hit in search(tmp_db, 'content:"project notes"', limit=10).hits]
+    finally:
+        tmp_db.set_trace_callback(None)
+
+    assert hits[:3] == [
+        "doc-0001.txt",
+        "doc-0002.txt",
+        "doc-0003.txt",
+    ]
+    assert any("JOIN content_map ON content_map.file_id = files.id" in statement for statement in statements)
+    assert not any(
+        "JOIN content_map ON content_map.file_id = files.id" in statement and "OFFSET" in statement
+        for statement in statements
+    )
 
 
 def test_search_root_scope_matches_windows_style_paths(tmp_db: sqlite3.Connection) -> None:

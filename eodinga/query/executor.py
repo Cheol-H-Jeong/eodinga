@@ -7,7 +7,7 @@ import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from functools import lru_cache
 from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, cast
 
 from pydantic import BaseModel, ConfigDict
 
@@ -38,6 +38,12 @@ class _ContentPresenceCache(NamedTuple):
     has_indexed_content: bool
 
 
+class _ScanCursor(NamedTuple):
+    name_lower: str
+    path: str
+    file_id: int
+
+
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
 _SCAN_BATCH_SIZE = 2_000
 
@@ -48,6 +54,20 @@ def _record_batch_sql(has_where: bool) -> str:
     if has_where:
         sql += " WHERE {where_sql}"
     sql += " ORDER BY files.name_lower ASC, files.path ASC, files.id ASC LIMIT ? OFFSET ?"
+    return sql
+
+
+@lru_cache(maxsize=256)
+def _record_scan_batch_sql(has_where: bool, has_after_sql: bool) -> str:
+    sql = "SELECT files.* FROM files"
+    filters: list[str] = []
+    if has_where:
+        filters.append("{where_sql}")
+    if has_after_sql:
+        filters.append("{after_sql}")
+    if filters:
+        sql += " WHERE " + " AND ".join(f"({filter_sql})" for filter_sql in filters)
+    sql += " ORDER BY files.name_lower ASC, files.path ASC, files.id ASC LIMIT ?"
     return sql
 
 
@@ -152,6 +172,24 @@ def _content_backfill_sql(has_where_sql: bool) -> str:
     if has_where_sql:
         sql += " WHERE {where_sql}"
     sql += " ORDER BY files.name_lower ASC, files.path ASC, files.id ASC LIMIT ? OFFSET ?"
+    return sql
+
+
+@lru_cache(maxsize=256)
+def _content_backfill_scan_sql(has_where_sql: bool, has_after_sql: bool) -> str:
+    sql = """
+        SELECT files.*
+        FROM files
+        JOIN content_map ON content_map.file_id = files.id
+    """
+    filters: list[str] = []
+    if has_where_sql:
+        filters.append("{where_sql}")
+    if has_after_sql:
+        filters.append("{after_sql}")
+    if filters:
+        sql += " WHERE " + " AND ".join(f"({filter_sql})" for filter_sql in filters)
+    sql += " ORDER BY files.name_lower ASC, files.path ASC, files.id ASC LIMIT ?"
     return sql
 
 
@@ -370,6 +408,55 @@ def _fetch_record_batch(
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
+def _scan_after_clause(cursor: _ScanCursor | None) -> tuple[str, tuple[object, ...]]:
+    if cursor is None:
+        return "", ()
+    return (
+        """
+        files.name_lower > ?
+        OR (files.name_lower = ? AND files.path > ?)
+        OR (files.name_lower = ? AND files.path = ? AND files.id > ?)
+        """,
+        (
+            cursor.name_lower,
+            cursor.name_lower,
+            cursor.path,
+            cursor.name_lower,
+            cursor.path,
+            cursor.file_id,
+        ),
+    )
+
+
+def _cursor_from_row(row: Mapping[str, object]) -> _ScanCursor:
+    return _ScanCursor(
+        name_lower=str(row["name_lower"]),
+        path=str(row["path"]),
+        file_id=cast(int, row["id"]),
+    )
+
+
+def _fetch_record_scan_batch(
+    conn: sqlite3.Connection,
+    where_sql: str,
+    where_params: tuple[object, ...],
+    limit: int,
+    cursor: _ScanCursor | None,
+) -> tuple[dict[int, FileRecord], _ScanCursor | None]:
+    after_sql, after_params = _scan_after_clause(cursor)
+    sql = _record_scan_batch_sql(bool(where_sql), bool(after_sql)).format(
+        where_sql=where_sql,
+        after_sql=after_sql,
+    )
+    rows = conn.execute(sql, (*where_params, *after_params, limit)).fetchall()
+    if not rows:
+        return {}, None
+    return (
+        {row["id"]: _row_to_record(row) for row in rows},
+        _cursor_from_row(rows[-1]),
+    )
+
+
 def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
@@ -546,15 +633,15 @@ def _fetch_path_candidates_python_scan(
         return [], {}
     prefix_matches: dict[int, FileRecord] = {}
     other_matches: dict[int, FileRecord] = {}
-    offset = 0
+    cursor: _ScanCursor | None = None
     batch_size = max(min(max(limit, 1) * 4, _SCAN_BATCH_SIZE), 500)
     while True:
-        batch = _fetch_record_batch(
+        batch, cursor = _fetch_record_scan_batch(
             conn,
             branch.where_sql,
             branch.where_params,
             limit=batch_size,
-            offset=offset,
+            cursor=cursor,
         )
         if not batch:
             break
@@ -573,7 +660,8 @@ def _fetch_path_candidates_python_scan(
                 prefix_matches[file_id] = record
             else:
                 other_matches[file_id] = record
-        offset += batch_size
+        if len(prefix_matches) >= limit:
+            break
     ordered = [*prefix_matches.values(), *other_matches.values()][:limit]
     ids = [record.id for record in ordered if record.id is not None]
     return ids, {record.id: record for record in ordered if record.id is not None}
@@ -705,6 +793,29 @@ def _fetch_content_backfill_batch(
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
+def _fetch_content_backfill_scan_batch(
+    conn: sqlite3.Connection,
+    branch: CompiledBranch,
+    limit: int,
+    cursor: _ScanCursor | None,
+) -> tuple[dict[int, FileRecord], _ScanCursor | None]:
+    params: list[object] = []
+    if branch.where_sql:
+        params.extend(branch.where_params)
+    after_sql, after_params = _scan_after_clause(cursor)
+    sql = _content_backfill_scan_sql(bool(branch.where_sql), bool(after_sql)).format(
+        where_sql=branch.where_sql,
+        after_sql=after_sql,
+    )
+    rows = conn.execute(sql, (*params, *after_params, limit)).fetchall()
+    if not rows:
+        return {}, None
+    return (
+        {row["id"]: _row_to_record(row) for row in rows},
+        _cursor_from_row(rows[-1]),
+    )
+
+
 def _scan_filtered_records(
     conn: sqlite3.Connection,
     branch: CompiledBranch,
@@ -712,15 +823,15 @@ def _scan_filtered_records(
 ) -> dict[int, FileRecord]:
     target = max(limit, 1)
     batch_size = max(min(target * 2, 2000), 500)
-    offset = 0
+    cursor: _ScanCursor | None = None
     matched: dict[int, FileRecord] = {}
     while len(matched) < target:
-        batch = _fetch_record_batch(
+        batch, cursor = _fetch_record_scan_batch(
             conn,
             branch.where_sql,
             branch.where_params,
             limit=batch_size,
-            offset=offset,
+            cursor=cursor,
         )
         if not batch:
             break
@@ -730,7 +841,6 @@ def _scan_filtered_records(
                 matched[file_id] = record
                 if len(matched) >= target:
                     break
-        offset += batch_size
     return matched
 
 
@@ -741,10 +851,15 @@ def _scan_filtered_content_records(
 ) -> dict[int, FileRecord]:
     target = max(limit, 1)
     batch_size = max(min(target * 2, 2000), 500)
-    offset = 0
+    cursor: _ScanCursor | None = None
     matched: dict[int, FileRecord] = {}
     while len(matched) < target:
-        batch = _fetch_content_backfill_batch(conn, branch, limit=batch_size, offset=offset)
+        batch, cursor = _fetch_content_backfill_scan_batch(
+            conn,
+            branch,
+            limit=batch_size,
+            cursor=cursor,
+        )
         if not batch:
             break
         content_texts = _fetch_content_texts(conn, batch)
@@ -753,7 +868,6 @@ def _scan_filtered_content_records(
                 matched[file_id] = record
                 if len(matched) >= target:
                     break
-        offset += batch_size
     return matched
 
 
@@ -767,10 +881,15 @@ def _scan_auto_content_candidates(
         return {}
     target = max(limit, 1)
     batch_size = max(min(target * 2, 2000), 500)
-    offset = 0
+    cursor: _ScanCursor | None = None
     matched: dict[int, FileRecord] = {}
     while len(matched) < target:
-        batch = _fetch_content_backfill_batch(conn, branch, limit=batch_size, offset=offset)
+        batch, cursor = _fetch_content_backfill_scan_batch(
+            conn,
+            branch,
+            limit=batch_size,
+            cursor=cursor,
+        )
         if not batch:
             break
         content_texts = _fetch_content_texts(conn, batch)
@@ -789,7 +908,6 @@ def _scan_auto_content_candidates(
             matched[file_id] = record
             if len(matched) >= target:
                 break
-        offset += batch_size
     return matched
 
 
