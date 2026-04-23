@@ -931,3 +931,71 @@ def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> 
     assert payload["recent_snapshots"][0]["name"] == "command.failure"
     assert payload["recent_snapshots"][0]["payload"]["command"] == "search"
     assert payload["recent_snapshots"][0]["payload"]["reason"] == "nonzero_exit"
+
+
+def test_stats_json_persists_metrics_across_cli_processes(
+    cli_runner,
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "index.db"
+    metrics_path = tmp_path / "state" / "runtime-metrics.json"
+    _build_search_db(db_path)
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+    monkeypatch.setenv("EODINGA_DISABLE_FILE_LOGGING", "1")
+
+    search_result = cli_runner("--db", str(db_path), "search", "duplicate", "--json")
+    assert search_result.returncode == 0
+    assert json.loads(search_result.stdout)["count"] == 2
+
+    version_result = cli_runner("--db", str(db_path), "version")
+    assert version_result.returncode == 0
+    assert version_result.stdout.strip() == __version__
+
+    stats_result = cli_runner("--db", str(db_path), "stats", "--json")
+    assert stats_result.returncode == 0
+    payload = json.loads(stats_result.stdout)
+    assert payload["metrics_path"] == str(metrics_path)
+    assert payload["queries_served"] == 1
+    assert payload["commands_started"] == 3
+    assert payload["commands_completed"] == 2
+    assert payload["commands_failed"] == 0
+    assert payload["commands"]["search"]["completed"] == 1
+    assert payload["commands"]["version"]["completed"] == 1
+    assert payload["commands"]["stats"]["started"] == 1
+    assert payload["counters"]["commands.version.completed"] == 1
+    assert payload["counters"]["queries_served"] == 1
+    assert payload["exit_codes"]["0"] == 2
+    assert [entry["name"] for entry in payload["recent_snapshots"]] == [
+        "command.search",
+        "command.version",
+    ]
+
+
+def test_stats_json_persists_failed_metrics_across_cli_processes(
+    cli_runner,
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "index.db"
+    metrics_path = tmp_path / "state" / "runtime-metrics.json"
+    _build_search_db(db_path)
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+    monkeypatch.setenv("EODINGA_DISABLE_FILE_LOGGING", "1")
+
+    invalid_result = cli_runner("--db", str(db_path), "search", "date:invalid", "--json")
+    assert invalid_result.returncode == 2
+    assert "invalid date" in invalid_result.stderr
+
+    stats_result = cli_runner("--db", str(db_path), "stats", "--json")
+    assert stats_result.returncode == 0
+    payload = json.loads(stats_result.stdout)
+    assert payload["commands_started"] == 2
+    assert payload["commands_completed"] == 0
+    assert payload["commands_failed"] == 1
+    assert payload["commands"]["search"]["failed"] == 1
+    assert payload["commands"]["search"]["started"] == 1
+    assert payload["commands"]["stats"]["started"] == 1
+    assert payload["exit_codes"]["2"] == 1
+    assert payload["recent_snapshots"][0]["name"] == "command.failure"
+    assert payload["recent_snapshots"][0]["payload"]["command"] == "search"
