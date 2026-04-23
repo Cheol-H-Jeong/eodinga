@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.512 - 2026-04-23
+
+- Scoped the Windows installer desktop shortcut to the per-user desktop so it matches the existing lowest-privilege install model instead of targeting a machine-wide desktop alias.
+- Tightened uninstall purge behavior so an explicit purge now removes both `%LOCALAPPDATA%\\eodinga` index/state data and `%APPDATA%\\eodinga` roaming configuration, while default uninstall behavior still preserves user state.
+- Fixed the non-dry-run Windows packaging audit to emit a distinct `windows` audit payload and fail when the staged CLI or GUI dist trees and executables are missing, instead of reporting a dry-run-style success.
+
 ## 0.1.510 - 2026-04-23
 
 - Tightened structural query filters so `is:file` now matches regular files only and `is:dir` now matches non-symlink directories only, leaving `is:symlink` as the explicit way to query link entries.
