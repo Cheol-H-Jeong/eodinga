@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.875 - 2026-04-23
+
+- Added real CLI integration coverage for index, search, and stats roundtrips against persisted databases, including root-scoped multi-root searches across separate command invocations.
+- Added CLI recovery integration coverage for stale-WAL replay and interrupted staged-build resume paths, asserting search succeeds through the same recovery logs operators see in practice.
+- Covered a reopened-database live-update flow that starts from CLI indexing and follow-up search commands, proving watcher-applied updates stay visible after the initial command process exits.
+
 ## 0.1.868 - 2026-04-23
 
 - Preserved negated query filters in launcher summaries, so grouped filters like `-(ext:pdf | date:today)` no longer show misleading positive chips.
