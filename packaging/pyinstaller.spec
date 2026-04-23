@@ -66,6 +66,8 @@ REQUIRED_HIDDEN_IMPORTS = [
     "ebooklib",
 ]
 
+PACKAGE_DATA_EXCLUDES = {".py", ".pyc", ".pyo"}
+
 
 def _module_name_for_path(source_path: Path, source_root: Path) -> str:
     relative = source_path.relative_to(source_root.parent)
@@ -157,6 +159,70 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
     return sorted(discovered)
 
 
+def _files_call_matches(node: ast.AST, aliases: set[str], module_aliases: set[str]) -> bool:
+    if isinstance(node, ast.Name):
+        return node.id in aliases
+    if not isinstance(node, ast.Attribute):
+        return False
+    if node.attr != "files":
+        return False
+    base = node.value
+    return isinstance(base, ast.Name) and base.id in module_aliases
+
+
+def _discover_resource_packages(source_root: Path) -> list[str]:
+    discovered: set[str] = set()
+    for source_path in source_root.rglob("*.py"):
+        module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+        files_aliases = {"files"}
+        resources_module_aliases = {"resources"}
+        importlib_resources_module_aliases = {"importlib.resources"}
+        for node in ast.walk(module):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "importlib.resources":
+                        importlib_resources_module_aliases.add(alias.asname or alias.name)
+                    elif alias.name == "resources":
+                        resources_module_aliases.add(alias.asname or alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                if node.module == "importlib.resources":
+                    for alias in node.names:
+                        if alias.name == "files":
+                            files_aliases.add(alias.asname or alias.name)
+                elif node.module == "importlib" and any(alias.name == "resources" for alias in node.names):
+                    for alias in node.names:
+                        if alias.name == "resources":
+                            resources_module_aliases.add(alias.asname or alias.name)
+        for node in ast.walk(module):
+            if not isinstance(node, ast.Call):
+                continue
+            if not _files_call_matches(node.func, files_aliases, resources_module_aliases | importlib_resources_module_aliases):
+                continue
+            if not node.args or not isinstance(node.args[0], ast.Constant):
+                continue
+            if not isinstance(node.args[0].value, str):
+                continue
+            package_name = node.args[0].value
+            if not package_name.startswith("eodinga."):
+                continue
+            package_path = PROJECT_ROOT.joinpath(*package_name.split("."))
+            if package_path.is_dir():
+                discovered.add(package_name)
+    return sorted(discovered)
+
+
+def _discover_package_data(source_root: Path) -> list[tuple[str, str]]:
+    package_datas: set[tuple[str, str]] = set()
+    for package_name in _discover_resource_packages(source_root):
+        package_path = PROJECT_ROOT.joinpath(*package_name.split("."))
+        for resource_path in package_path.rglob("*"):
+            if not resource_path.is_file() or resource_path.suffix in PACKAGE_DATA_EXCLUDES:
+                continue
+            destination = str(resource_path.parent.relative_to(PROJECT_ROOT))
+            package_datas.add((str(resource_path), destination))
+    return sorted(package_datas)
+
+
 def _is_stdlib_module(module_name: str) -> bool:
     root_name = module_name.split(".", 1)[0]
     return root_name in sys.stdlib_module_names
@@ -194,6 +260,7 @@ def _discover_source_hidden_imports(source_root: Path) -> list[str]:
 DISCOVERED_RUNTIME_MODULES = _discover_runtime_modules(SOURCE_ROOT)
 DISCOVERED_HIDDEN_IMPORTS = _discover_hidden_imports(SOURCE_ROOT)
 DISCOVERED_SOURCE_HIDDEN_IMPORTS = _discover_source_hidden_imports(SOURCE_ROOT)
+DISCOVERED_PACKAGE_DATAS = _discover_package_data(SOURCE_ROOT)
 
 HIDDEN_IMPORTS = sorted(
     {
@@ -206,8 +273,7 @@ HIDDEN_IMPORTS = sorted(
 )
 
 DATAS = [
-    (str(I18N_DIR / "en.json"), "eodinga/i18n"),
-    (str(I18N_DIR / "ko.json"), "eodinga/i18n"),
+    *DISCOVERED_PACKAGE_DATAS,
     (str(PROJECT_ROOT / "LICENSE"), "."),
 ]
 

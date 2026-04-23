@@ -15,6 +15,7 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     discovered_hiddenimports = cast(list[str], namespace["DISCOVERED_HIDDEN_IMPORTS"])
     required_hiddenimports = cast(list[str], namespace["REQUIRED_HIDDEN_IMPORTS"])
     runtime_modules = cast(list[str], namespace["RUNTIME_MODULES"])
+    discovered_package_datas = cast(list[tuple[str, str]], namespace["DISCOVERED_PACKAGE_DATAS"])
     datas = cast(list[tuple[str, str]], namespace["DATAS"])
     assert "watchdog" in hiddenimports
     assert "watchdog.observers.inotify" in hiddenimports
@@ -39,6 +40,11 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     assert set(discovered_runtime_modules).issubset(set(hiddenimports))
     assert set(discovered_hiddenimports).issubset(set(hiddenimports))
     assert {"eodinga.launcher.hotkey_linux", "eodinga.launcher.hotkey_win"} <= set(runtime_modules)
+    assert discovered_package_datas == [
+        (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n"),
+        (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n"),
+    ]
+    assert set(discovered_package_datas).issubset(set(datas))
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
     assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas
 
@@ -101,3 +107,34 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
     discovered = discover_hidden_imports(source_root)
 
     assert discovered == ["package.alpha", "package.beta", "package.gamma"]
+
+
+def test_pyinstaller_spec_discovers_importlib_resource_package_data(tmp_path: Path) -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_package_data = cast(Callable[[Path], list[tuple[str, str]]], namespace["_discover_package_data"])
+
+    source_root = tmp_path / "eodinga"
+    package_dir = source_root / "assets"
+    package_dir.mkdir(parents=True)
+    (source_root / "__init__.py").write_text("", encoding="utf-8")
+    (package_dir / "__init__.py").write_text("", encoding="utf-8")
+    (package_dir / "sample.json").write_text('{"ok": true}', encoding="utf-8")
+    (source_root / "consumer.py").write_text(
+        "\n".join(
+            [
+                "from importlib.resources import files as resource_files",
+                "",
+                'resource_files("eodinga.assets").joinpath("sample.json").read_text(encoding="utf-8")',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    namespace["PROJECT_ROOT"] = tmp_path
+
+    discovered = discover_package_data(source_root)
+
+    assert discovered == [(str((package_dir / "sample.json").resolve()), "eodinga/assets")]
+
