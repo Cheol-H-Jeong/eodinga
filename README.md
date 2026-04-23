@@ -311,6 +311,17 @@ Review the dry-run output before tagging. If the staged payload disagrees with `
 - Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, and compressed changelog into the package root.
 - The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
 
+### `packaging/dist/` Audit Map
+
+| Command | Review file | What it tells you |
+| --- | --- | --- |
+| `python packaging/build.py --target windows-dry-run` | `packaging/dist/windows-dry-run-audit.json` | rendered PyInstaller and Inno Setup inputs, expected dist names, installer naming, and uninstall contract |
+| `python packaging/build.py --target linux-appimage-dry-run` | `packaging/dist/linux-appimage-audit.json` | rendered AppImage inputs, launcher contract, archive naming, and staged payload metadata |
+| `python packaging/build.py --target linux-deb-dry-run` | `packaging/dist/linux-deb-audit.json` | Debian control payload, launcher/docs/icon staging, archive naming, and package metadata |
+| `python packaging/build.py --target release-dry-run` | `packaging/dist/release-dry-run-audit.json` | one summary record that points at the Windows, AppImage, Debian, and workflow-lint audits from the same pass |
+
+The dry-run audits are the review surface. If a packaging command fails, inspect the matching JSON file first instead of trying to infer the broken contract from stderr alone.
+
 ## Release Inputs
 
 Treat these as part of the shipped surface, not incidental repository files:
@@ -483,6 +494,17 @@ From the `launcher.pinned_queries` list in `config.toml`. The launcher also keep
 
 Use `packaging/dist/`. Each packaging dry run writes its audit manifests or staged output summary there so the release review can inspect generated inputs without running the installer.
 
+### Which `packaging/dist/` file should I open first?
+
+Open the audit that matches the command you just ran:
+
+- `windows-dry-run` -> `packaging/dist/windows-dry-run-audit.json`
+- `linux-appimage-dry-run` -> `packaging/dist/linux-appimage-audit.json`
+- `linux-deb-dry-run` -> `packaging/dist/linux-deb-audit.json`
+- `release-dry-run` -> `packaging/dist/release-dry-run-audit.json`
+
+The release-wide audit is a coordinator summary. When a specific platform target fails, the platform-specific audit is the one with the actionable detail.
+
 ### What should I inspect before cutting a docs-only release?
 
 Check `tests/unit/test_docs_assets.py`, the matching GUI smoke or packaging dry run for the surface you documented, and the rendered payload under `packaging/dist/` when the docs describe packaged artifacts.
@@ -506,6 +528,10 @@ No. `0.1.x` is lexical only.
 ### Where is the CLI reference for packaged builds?
 
 Use `docs/man/eodinga.1`. It is generated from the parser in `eodinga.__main__`, so it stays aligned with `eodinga --help` instead of drifting as hand-written prose.
+
+### What is the smallest validation path for a docs-only change?
+
+Use `pytest -q tests/unit/test_docs_assets.py` first, then rerun the specific derived asset command only if the change touched a generated surface such as `docs/man/eodinga.1` or `docs/screenshots/*.png`. If the docs describe packaging behavior, follow with the matching `packaging/build.py --target ...-dry-run` command before tagging.
 
 ## Limitations
 

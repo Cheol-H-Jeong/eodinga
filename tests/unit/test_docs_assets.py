@@ -85,6 +85,12 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Refresh shipped docs assets" in readme
     assert "docs only" in readme
     assert "packaging/dist/" in readme
+    assert "### `packaging/dist/` Audit Map" in readme
+    assert "packaging/dist/windows-dry-run-audit.json" in readme
+    assert "packaging/dist/linux-appimage-audit.json" in readme
+    assert "packaging/dist/linux-deb-audit.json" in readme
+    assert "packaging/dist/release-dry-run-audit.json" in readme
+    assert "The dry-run audits are the review surface." in readme
     assert "Review the dry-run output before tagging." in readme
     assert "Treat that docs-only pass as release evidence" in readme
     assert "git fetch origin main --tags && git tag -l | sort -V | tail -5" in readme
@@ -92,8 +98,11 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "EODINGA_LOG_PATH" in readme
     assert "EODINGA_CRASH_DIR" in readme
     assert "Docs asset drift after CLI or UI changes" in readme
+    assert "Which `packaging/dist/` file should I open first?" in readme
+    assert "The release-wide audit is a coordinator summary." in readme
     assert "What should I inspect before cutting a docs-only release?" in readme
     assert "How do I refresh screenshots and the man page without missing a validation step?" in readme
+    assert "What is the smallest validation path for a docs-only change?" in readme
     assert "Minimum command" in readme
 
     assert "## Required Commands" in acceptance
