@@ -306,6 +306,12 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         errors.append("Debian control package name drifted from eodinga")
     if control_payload.get("version") != package_version:
         errors.append("Debian control version does not match the package version")
+    if control_payload.get("architecture") != arch:
+        errors.append("Debian control architecture does not match the staged package arch")
+    if control_payload.get("depends") != "python3 (>= 3.11)":
+        errors.append("Debian control dependency floor drifted from python3 (>= 3.11)")
+    if control_payload.get("description") != "Instant lexical file search for Windows and Linux":
+        errors.append("Debian control description drifted from the release metadata")
     expected_archive_name = f"eodinga_{package_version}_{arch}_debroot.tar.gz"
     if Path(str(payload.get("archive"))).name != expected_archive_name:
         errors.append("Debian dry-run archive filename does not match the package version and arch")
@@ -326,16 +332,30 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
             "Debian control template binary package drifted from eodinga",
         ),
         (
+            control_template_payload.get("maintainer") == "Cheol-H-Jeong",
+            "Debian control template maintainer drifted from Cheol-H-Jeong",
+        ),
+        (
             control_template_payload.get("description") == control_payload.get("description"),
             "Debian control template description drifted from the staged package",
         ),
         (desktop_payload.get("matches_source_asset"), "Debian desktop entry no longer matches the shipped asset"),
+        (desktop_payload.get("name") == "eodinga", "Debian desktop entry name drifted from eodinga"),
         (desktop_payload.get("launches_gui"), "Debian desktop entry no longer launches the GUI command"),
         (desktop_payload.get("icon_matches_package"), "Debian desktop entry icon no longer matches the packaged asset"),
+        (
+            desktop_payload.get("categories") == "Utility;FileTools;",
+            "Debian desktop entry categories drifted from the shipped asset",
+        ),
+        (
+            desktop_payload.get("startup_notify") == "true",
+            "Debian desktop entry no longer enables startup notifications",
+        ),
         (icon_payload.get("exists"), "Debian icon asset is missing from the package tree"),
         (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),
         (icon_payload.get("matches_source_asset"), "Debian icon payload no longer matches the shipped asset"),
         (launcher_payload.get("is_executable"), "Debian launcher shim is not executable"),
+        (launcher_payload.get("has_strict_shell"), "Debian launcher shim no longer uses strict shell flags"),
         (launcher_payload.get("executes_python_module"), "Debian launcher shim no longer executes the Python module"),
         (docs_payload.get("license_exists"), "Debian package no longer ships the license"),
         (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),

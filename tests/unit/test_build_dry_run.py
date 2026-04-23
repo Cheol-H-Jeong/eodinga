@@ -350,19 +350,25 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
         "debian_control_template": {
             "exists": True,
             "source": "eodinga",
+            "maintainer": "Cheol-H-Jeong",
             "binary_package": "eodinga",
             "description": "Instant lexical file search for Windows and Linux",
         },
         "desktop_entry": {
+            "name": "eodinga",
             "launches_gui": True,
             "icon_matches_package": True,
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
         },
         "icon": {
             "exists": True,
             "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
         },
         "launcher": {
             "is_executable": True,
+            "has_strict_shell": True,
             "executes_python_module": True,
         },
         "docs": {
@@ -390,23 +396,32 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
         "control": {
             "package": "eodinga",
             "version": __version__,
+            "architecture": "amd64",
+            "depends": "python3 (>= 3.11)",
+            "description": "Instant lexical file search for Windows and Linux",
         },
         "debian_control_template": {
             "exists": True,
             "source": "eodinga",
+            "maintainer": "Cheol-H-Jeong",
             "binary_package": "eodinga",
             "description": "Instant lexical file search for Windows and Linux",
         },
         "desktop_entry": {
+            "name": "eodinga",
             "launches_gui": True,
             "icon_matches_package": True,
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
         },
         "icon": {
             "exists": True,
             "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
         },
         "launcher": {
             "is_executable": True,
+            "has_strict_shell": True,
             "executes_python_module": True,
         },
         "docs": {
@@ -488,7 +503,9 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["desktop_entry"]["icon_matches_package"] is True
     assert payload["icon"]["exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True
+    assert payload["icon"]["matches_source_asset"] is True
     assert payload["launcher"]["is_executable"] is True
+    assert payload["launcher"]["has_strict_shell"] is True
     assert payload["launcher"]["executes_python_module"] is True
     assert payload["docs"]["license_exists"] is True
     assert payload["docs"]["changelog_exists"] is True
