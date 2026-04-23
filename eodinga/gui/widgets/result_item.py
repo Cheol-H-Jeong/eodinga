@@ -225,8 +225,12 @@ def render_highlighted_text(text: str, query: str, *, target: str = "name") -> s
 
 
 def format_hit_html(hit: SearchHit, query: str) -> str:
-    primary = hit.highlighted_name or render_highlighted_text(hit.name, query, target="name")
-    secondary = hit.highlighted_path or render_highlighted_text(str(hit.parent_path), query, target="path")
+    primary = _style_marks(hit.highlighted_name) if hit.highlighted_name else render_highlighted_text(hit.name, query, target="name")
+    secondary = (
+        _style_marks(hit.highlighted_path)
+        if hit.highlighted_path
+        else render_highlighted_text(str(hit.parent_path), query, target="path")
+    )
     snippet_html = ""
     if hit.snippet:
         rendered_snippet = (
