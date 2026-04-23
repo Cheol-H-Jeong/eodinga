@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.742 - 2026-04-23
+
+- Reused prepared query cursors behind a connection-local 128-entry LRU inside the executor, reducing repeat-search cursor churn while preserving the existing SQL-shape caches.
+- Switched idle SQLite connections back to `synchronous=FULL` and let the writer temporarily downgrade to `NORMAL` only when it owns the bulk-write transaction boundary, making durability explicit without paying the full fsync cost inside every batch.
+- Added an opt-in warmed-query perf benchmark behind `EODINGA_RUN_PERF=1` so repeated-query latency now has a dedicated regression check alongside the existing cold, bulk, and content-query perf suites.
+
 ## 0.1.721 - 2026-04-23
 
 - Derived PyInstaller `datas` entries from the project metadata instead of a hardcoded list, so packaging audits now track the source tree's declared package data directly.

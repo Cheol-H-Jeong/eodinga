@@ -220,7 +220,7 @@ def _content_texts_sql(chunk_size: int) -> str:
     """
 
 
-def _row_to_record(row: Mapping[str, object]) -> FileRecord:
+def _row_to_record(row: sqlite3.Row | Mapping[str, object]) -> FileRecord:
     payload = {key: row[key] for key in row.keys()}  # type: ignore[arg-type]
     payload["is_dir"] = bool(payload["is_dir"])
     payload["is_symlink"] = bool(payload["is_symlink"])
