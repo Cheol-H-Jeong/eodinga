@@ -95,6 +95,56 @@ def _resolve_imported_module(module_name: str | None, level: int, current_packag
     return ".".join(anchor)
 
 
+def _string_constant(node: ast.expr | None) -> str | None:
+    if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
+        return None
+    return node.value
+
+
+def _keyword_string_argument(node: ast.Call, name: str) -> str | None:
+    for keyword in node.keywords:
+        if keyword.arg == name:
+            return _string_constant(keyword.value)
+    return None
+
+
+def _resolve_dynamic_import_target(node: ast.Call) -> str | None:
+    module_name = _string_constant(node.args[0]) if node.args else None
+    if module_name is None:
+        module_name = _keyword_string_argument(node, "name")
+    if module_name is None:
+        return None
+    package_name = None
+    if len(node.args) > 1:
+        package_name = _string_constant(node.args[1])
+    if package_name is None:
+        package_name = _keyword_string_argument(node, "package")
+    if module_name.startswith("."):
+        if not package_name:
+            return None
+        return str(importlib.util.resolve_name(module_name, package_name))
+    return module_name
+
+
+def _fromlist_modules(node: ast.Call, module_name: str) -> set[str]:
+    fromlist_value: ast.expr | None = None
+    if len(node.args) > 3:
+        fromlist_value = node.args[3]
+    if fromlist_value is None:
+        for keyword in node.keywords:
+            if keyword.arg == "fromlist":
+                fromlist_value = keyword.value
+                break
+    if not isinstance(fromlist_value, (ast.List, ast.Tuple, ast.Set)):
+        return set()
+    discovered = set()
+    for element in fromlist_value.elts:
+        child_name = _string_constant(element)
+        if child_name and child_name != "*":
+            discovered.add(f"{module_name}.{child_name}")
+    return discovered
+
+
 def _discover_runtime_modules(source_root: Path) -> list[str]:
     discovered: set[str] = set()
     for source_path in source_root.rglob("*.py"):
@@ -150,11 +200,12 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
                     continue
             else:
                 continue
-            if not node.args or not isinstance(node.args[0], ast.Constant):
+            module_name = _resolve_dynamic_import_target(node)
+            if module_name is None:
                 continue
-            if not isinstance(node.args[0].value, str):
-                continue
-            discovered.add(node.args[0].value)
+            discovered.add(module_name)
+            if isinstance(node.func, ast.Name) and node.func.id == "__import__":
+                discovered.update(_fromlist_modules(node, module_name))
     return sorted(discovered)
 
 
