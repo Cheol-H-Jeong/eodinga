@@ -24,6 +24,7 @@ INNO_GUI_DIST_TOKEN = "@@GUI_DIST_NAME@@"
 INNO_CLI_DIST_TOKEN = "@@CLI_DIST_NAME@@"
 INNO_GUI_EXE_TOKEN = "@@GUI_EXE_NAME@@"
 _INNO_APP_ID_PATTERN = re.compile(r"^\{\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$")
+_INNO_TEMPLATE_TOKEN_PATTERN = re.compile(r"@@[A-Z_]+@@")
 
 
 def _read_project_version() -> str:
@@ -73,6 +74,10 @@ def _macro_value(text: str, macro_name: str) -> str | None:
     if match is None:
         return None
     return match.group(1)
+
+
+def _template_tokens(text: str) -> list[str]:
+    return sorted(set(_INNO_TEMPLATE_TOKEN_PATTERN.findall(text)))
 
 
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
@@ -129,10 +134,14 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "app_id_is_guid_macro": app_id is not None and bool(_INNO_APP_ID_PATTERN.fullmatch(app_id)),
             "app_version_macro": app_version,
             "app_version_uses_template": app_version == INNO_VERSION_TOKEN,
+            "license_file": "LICENSE" if _inno_contains(inno_text, "LicenseFile=LICENSE") else None,
+            "license_file_exists": (PROJECT_ROOT / "LICENSE").exists(),
             "source_entries": source_entries,
             "source_entries_match_pyinstaller_dist": source_entries == expected_source_entries,
             "contains_app_version_template": INNO_VERSION_TOKEN in inno_text,
             "rendered_path": str(rendered_path),
+            "rendered_unresolved_tokens": _template_tokens(rendered_text),
+            "rendered_has_no_template_tokens": not _template_tokens(rendered_text),
             "output_base_filename": output_base_filename,
             "rendered_source_entries": _source_entries(rendered_text),
             "rendered_source_entries_match_pyinstaller_dist": _source_entries(rendered_text) == rendered_source_entries,
@@ -200,8 +209,10 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     required_flags = {
         "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
         "app_version_uses_template": "Inno AppVersion macro no longer uses the template token",
+        "license_file_exists": "Inno LicenseFile input is missing",
         "source_entries_match_pyinstaller_dist": "Inno source entries drifted from PyInstaller dist names",
         "rendered_source_entries_match_pyinstaller_dist": "Rendered Inno source entries drifted from PyInstaller dist names",
+        "rendered_has_no_template_tokens": "Rendered Inno script still contains unresolved template tokens",
         "contains_rendered_uninstall_display_icon": "Rendered Inno uninstall icon does not point at the GUI executable",
         "contains_start_menu_shortcut": "Rendered Inno start menu shortcut is missing",
         "contains_postinstall_launch": "Rendered Inno postinstall launch action is missing",

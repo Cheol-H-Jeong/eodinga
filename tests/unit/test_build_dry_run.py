@@ -61,6 +61,10 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["app_id_is_guid_macro"] is True
     assert payload["inno_setup"]["app_version_macro"] == "@@APP_VERSION@@"
     assert payload["inno_setup"]["app_version_uses_template"] is True
+    assert payload["inno_setup"]["license_file"] == "LICENSE"
+    assert payload["inno_setup"]["license_file_exists"] is True
+    assert payload["inno_setup"]["rendered_unresolved_tokens"] == []
+    assert payload["inno_setup"]["rendered_has_no_template_tokens"] is True
     assert payload["inno_setup"]["contains_versioned_output_macro"] is True
     assert payload["inno_setup"]["contains_user_install_dir"] is True
     assert payload["inno_setup"]["contains_rendered_uninstall_display_icon"] is True
@@ -116,6 +120,16 @@ def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -
     errors = module._validate_windows_audit(payload)
 
     assert "Inno uninstall purge path no longer preserves roaming config by default" in errors
+
+
+def test_windows_audit_validator_rejects_unresolved_inno_tokens() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["inno_setup"]["rendered_has_no_template_tokens"] = False
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "Rendered Inno script still contains unresolved template tokens" in errors
 
 
 def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
