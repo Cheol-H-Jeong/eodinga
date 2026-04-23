@@ -831,6 +831,16 @@ def execute(
     if total_estimate is None:
         total_estimate = len(merged_scores)
     increment_counter("queries_served")
+    if root is not None:
+        increment_counter("queries_scoped")
+    if hits:
+        increment_counter("queries_with_results")
+    else:
+        increment_counter("queries_zero_results")
+    if total_estimate > len(hits):
+        increment_counter("queries_truncated")
+    record_histogram("query_result_count", float(len(hits)))
+    record_histogram("query_branch_count", float(len(scoped_branches)))
     record_histogram("query_latency_ms", elapsed_ms)
     return QueryResult(hits=hits, total_estimate=total_estimate, elapsed_ms=elapsed_ms)
 

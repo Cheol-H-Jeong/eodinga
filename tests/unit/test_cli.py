@@ -489,9 +489,13 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_path"] is None
     assert payload["crash_dir"]
     assert payload["counters"]["queries_served"] == 1
+    assert payload["counters"]["queries_with_results"] == 1
+    assert "query_parse_errors" not in payload["counters"]
     assert payload["counters"]["commands_started"] == 2
     assert payload["counters"]["commands.search.completed"] == 1
     assert payload["counters"]["commands.stats.started"] == 1
+    assert payload["histograms"]["query_result_count"]["count"] == 1
+    assert payload["histograms"]["query_branch_count"]["count"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 1
 
@@ -541,6 +545,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["parser_errors"] == 1
     assert payload["counters"]["parsers.broken.error"] == 1
     assert payload["counters"]["queries_served"] == 1
+    assert payload["counters"]["queries_with_results"] == 1
     assert payload["counters"]["watcher_events"] == 1
     assert payload["commands_started"] == 3
     assert payload["commands_completed"] == 2
@@ -551,6 +556,8 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["commands"]["search"]["completed"] == 1
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 2
+    assert payload["histograms"]["query_result_count"]["count"] == 1
+    assert payload["histograms"]["query_branch_count"]["count"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
 
@@ -600,3 +607,19 @@ def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Pat
     assert payload["commands"]["version"]["failed"] == 1
     assert payload["commands"]["version"]["started"] == 1
     assert payload["exit_codes"]["1"] == 1
+
+
+def test_invalid_search_query_increments_parse_error_counter(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    exit_code = main(["--db", str(db_path), "search", "path:/unterminated", "--json"])
+
+    captured = capsys.readouterr()
+    metrics = snapshot_metrics()
+    assert exit_code == 2
+    assert "unterminated" in captured.err.lower()
+    assert metrics["counters"]["commands_started"] == 1
+    assert metrics["counters"]["query_parse_errors"] == 1
+    assert "queries_served" not in metrics["counters"]

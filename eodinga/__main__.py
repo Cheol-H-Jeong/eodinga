@@ -142,6 +142,7 @@ def _cmd_search(args: argparse.Namespace) -> int:
         with closing(open_index(args.db or _resolve_config(args).index.db_path)) as conn:
             query_result = run_search(conn, args.query, limit=limit, root=root)
     except (QuerySyntaxError, ValueError) as error:
+        increment_counter("query_parse_errors")
         sys.stderr.write(f"{error}\n")
         return 2
 

@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from eodinga.observability import reset_metrics, snapshot_metrics
 from eodinga.query import executor as executor_module
 from eodinga.query import search
 
@@ -992,6 +993,29 @@ def test_plain_query_can_fall_back_to_content_matches(tmp_db: sqlite3.Connection
     hits = [hit.file.name for hit in search(tmp_db, "launch", limit=10).hits]
 
     assert hits == ["alpha.txt"]
+
+
+def test_search_records_query_outcome_metrics(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/projects/alpha.txt", 1024, now, "txt", body_text="launch alpha")
+    _insert_file(tmp_db, 2, "/workspace/archive/alpha.txt", 1024, now - 60, "txt", body_text="launch archive")
+    tmp_db.commit()
+    reset_metrics()
+
+    search(tmp_db, "launch", limit=1)
+    search(tmp_db, "launch", limit=5, root=Path("/workspace/projects"))
+    search(tmp_db, "missing", limit=5)
+
+    metrics = snapshot_metrics()
+    counters = metrics["counters"]
+    histograms = metrics["histograms"]
+    assert counters["queries_served"] == 3
+    assert counters["queries_scoped"] == 1
+    assert counters["queries_with_results"] == 2
+    assert counters["queries_zero_results"] == 1
+    assert counters["queries_truncated"] == 1
+    assert histograms["query_result_count"]["count"] == 3
+    assert histograms["query_branch_count"]["count"] == 3
 
 
 def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:
