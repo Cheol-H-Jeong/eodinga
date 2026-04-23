@@ -35,6 +35,16 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 - Install per-user with the Inno Setup wizard.
 - Optionally enable auto-start at login during install.
 
+## Install Matrix
+
+| Goal | Command or artifact | Notes |
+| --- | --- | --- |
+| Full local development surface | `pip install -e .[all]` | Includes GUI, hotkey backend, parsers, lint, and test tooling. |
+| Runtime-only local install with GUI and parsers | `pip install -e .[parsers,gui]` | Useful when you only need the shipped runtime surface. |
+| Scripted or CI-like search/index checks | `pip install -e .[dev,parsers]` | Leaves the Qt GUI stack out of the environment. |
+| Linux desktop package audit | `python packaging/build.py --target linux-deb-dry-run` | Verifies the staged `.deb` contents without publishing an artifact. |
+| Windows installer audit | `python packaging/build.py --target windows-dry-run` | Verifies the PyInstaller and Inno inputs the release flow depends on. |
+
 ## First Run
 
 1. Launch `eodinga gui` or start the installed app.
@@ -120,6 +130,18 @@ eodinga stats --json
 eodinga doctor
 ```
 
+## Command Surface
+
+| Command | Use it when | Typical follow-up |
+| --- | --- | --- |
+| `eodinga index` | you need a first build or a one-shot rebuild | start `eodinga watch` if you want live freshness afterward |
+| `eodinga watch` | the index should follow filesystem changes continuously | confirm with `eodinga stats --json` if results still look stale |
+| `eodinga search` | you want the shared DSL from the shell or a script | add `--json` for stable automation output |
+| `eodinga stats` | you need the active DB path, counters, and runtime state | use `--json` for machine-readable diagnostics |
+| `eodinga gui` | you want the full settings, roots, and diagnostics surface | launch the embedded search tab or the popup launcher from there |
+| `eodinga doctor` | imports, writable paths, or hotkey backend detection look suspect | follow with `index --rebuild` or `watch` based on the failure mode |
+| `eodinga version` | you need to confirm the packaged or editable version quickly | compare with `CHANGELOG.md` and the local tag when cutting releases |
+
 ## Query DSL
 
 - `report` : plain lexical term
@@ -158,6 +180,17 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Exclude noisy trees | `-path:node_modules` |
 | Run regex | `regex:/todo|fixme/i` |
 
+## Query Recipes
+
+| Task | Query | Why it helps |
+| --- | --- | --- |
+| Find this week's Markdown notes | `date:this-week ext:md` | Fast triage for active project journals or meeting notes. |
+| Find large duplicate archives | `is:duplicate size:>10M` | Surfaces the most expensive duplicate content first. |
+| Search a docs tree for an exact phrase | `path:docs content:"release checklist"` | Keeps phrase search scoped to a subtree instead of the entire index. |
+| Find code TODOs with regex | `regex:/todo|fixme/i ext:py | ext:rs` | Uses one case-insensitive regex across multiple source types. |
+| Find empty folders only | `is:empty is:dir` | Filters out empty files when cleaning project scaffolds. |
+| Exclude generated output | `report -path:dist -path:node_modules` | Keeps lexical terms while removing noisy build trees. |
+
 ## Supported Content Types
 
 - Plain text and source code: `.txt`, `.md`, `.py`, and similar text-first formats.
@@ -176,6 +209,16 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 - `Up` / `Down` wraps through the result list once focus is in the list
 - `PgUp` / `PgDn` jumps through longer result sets
 - `Ctrl+L` returns focus to the filter field
+
+## Launcher Result Actions
+
+| Key | Action |
+| --- | --- |
+| `Enter` | Open the selected result. |
+| `Ctrl+Enter` | Reveal the selected result in the file manager. |
+| `Shift+Enter` | Open the platform properties flow for the selected result. |
+| `Alt+1` to `Alt+9` | Open one of the top visible results directly. |
+| `Alt+N` | Copy the selected basename without opening the file. |
 
 ## Common Workflows
 
@@ -265,6 +308,16 @@ The doctor command checks Python compatibility, importable dependencies, databas
 
 If search looks stale, run `eodinga stats` to confirm the active database path, then either `eodinga watch` for live updates or `eodinga index --rebuild` to rebuild once.
 
+## Troubleshooting Matrix
+
+| Symptom | Likely layer | First command | Common next step |
+| --- | --- | --- | --- |
+| query parses but misses obvious content | parser or content index | `eodinga search 'content:\"phrase\"' --json` | confirm parser extras are installed, then rebuild |
+| query hits are old after a rename or delete | watcher freshness | `eodinga stats --json` | run `eodinga watch` or restart the packaged watcher surface |
+| packaged app launches but hotkey does nothing | launcher backend | `eodinga doctor` | inspect the detected backend and launcher settings |
+| rebuild finished but startup still reports recovery | storage recovery | `eodinga doctor` | verify the configured DB path is writable and the sidecars cleared |
+| packaging dry run fails late | packaging metadata | `python packaging/build.py --target windows-dry-run` | rerun the matching Linux dry run and workflow lint commands |
+
 ## Operator Checklist
 
 Use this short sequence when you need a high-signal local health check without opening the full acceptance guide:
@@ -312,6 +365,10 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
 
+### Which command should I start with for a new machine?
+
+Start with `eodinga doctor`, then `eodinga gui` to add roots, then run the first `eodinga index`. That order verifies the environment before the longer cold-start walk.
+
 ### Which files are skipped by default?
 
 System and cache paths such as `/proc`, `/sys`, `/dev`, `/tmp`, `$HOME/.cache`, `C:\Windows`, and `%SystemRoot%` stay excluded unless the user explicitly opts in.
@@ -327,6 +384,10 @@ No. `0.1.x` is lexical only.
 ### Where is the CLI reference for packaged builds?
 
 Use `docs/man/eodinga.1`. It is generated from the parser in `eodinga.__main__`, so it stays aligned with `eodinga --help` instead of drifting as hand-written prose.
+
+### When do I need to rerender the screenshots in this repository?
+
+Whenever a visible Qt docs surface changes. Run `python scripts/render_docs_screenshots.py` so the checked-in gallery still reflects the actual UI rather than stale images.
 
 ## Limitations
 
