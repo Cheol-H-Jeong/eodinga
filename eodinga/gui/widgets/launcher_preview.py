@@ -30,9 +30,9 @@ class LauncherPreviewPane(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
 
-        eyebrow = QLabel("Preview", self)
-        eyebrow.setProperty("role", "secondary")
-        eyebrow.setAccessibleName("Launcher preview heading")
+        self.heading_label = QLabel("Preview", self)
+        self.heading_label.setProperty("role", "secondary")
+        self.heading_label.setAccessibleName("Launcher preview heading")
         self.title_label = QLabel(self)
         self.title_label.setWordWrap(True)
         self.title_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -49,7 +49,7 @@ class LauncherPreviewPane(QWidget):
         self.snippet_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self.snippet_label.setAccessibleName("Previewed result snippet")
 
-        layout.addWidget(eyebrow)
+        layout.addWidget(self.heading_label)
         layout.addWidget(self.title_label)
         layout.addWidget(self.path_label)
         layout.addWidget(self.snippet_label, 1)

@@ -24,9 +24,11 @@ class QueryChipRow(QWidget):
         self._label = QLabel(label, self)
         self._label.setProperty("role", "secondary")
         self._label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self._label.setAccessibleName(f"{label} launcher query label")
         layout.addWidget(self._label)
 
         self._chips_container = QWidget(self)
+        self._chips_container.setAccessibleName(f"{label} launcher query chips")
         chips_layout = QHBoxLayout(self._chips_container)
         chips_layout.setContentsMargins(0, 0, 0, 0)
         chips_layout.setSpacing(SPACE_4)
@@ -44,7 +46,7 @@ class QueryChipRow(QWidget):
 
         for query in queries:
             button = SecondaryButton(query, self._chips_container)
-            button.setAccessibleName(f"Use query {query}")
+            button.setAccessibleName(f"Apply {self._label.text().lower()} query {query}")
             button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             button.clicked.connect(lambda checked=False, value=query: self._on_chip_clicked(value))
             self._chips_layout.addWidget(button)
@@ -55,3 +57,11 @@ class QueryChipRow(QWidget):
     @property
     def buttons(self) -> list[SecondaryButton]:
         return list(self._buttons)
+
+    @property
+    def label(self) -> QLabel:
+        return self._label
+
+    @property
+    def chips_container(self) -> QWidget:
+        return self._chips_container

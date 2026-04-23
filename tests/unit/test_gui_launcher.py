@@ -312,6 +312,12 @@ def test_launcher_shows_clickable_pinned_and_recent_query_chips(qapp) -> None:
 
     assert [button.text() for button in launcher.pinned_queries_row.buttons] == ["ext:pdf", "date:this-week"]
     assert [button.text() for button in launcher.recent_queries_row.buttons] == ["budget", "release notes"]
+    assert launcher.pinned_queries_row.label.accessibleName() == "Pinned launcher query label"
+    assert launcher.pinned_queries_row.chips_container.accessibleName() == "Pinned launcher query chips"
+    assert launcher.pinned_queries_row.buttons[0].accessibleName() == "Apply pinned query ext:pdf"
+    assert launcher.recent_queries_row.label.accessibleName() == "Recent launcher query label"
+    assert launcher.recent_queries_row.chips_container.accessibleName() == "Recent launcher query chips"
+    assert launcher.recent_queries_row.buttons[0].accessibleName() == "Apply recent query budget"
 
 
 def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
@@ -747,6 +753,7 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.empty_state.body_label.accessibleName() == "Launcher empty state guidance"
     assert launcher.empty_state.details_label.accessibleName() == "Launcher indexing details"
     assert launcher.preview_pane.accessibleName() == "Launcher preview pane"
+    assert launcher.preview_pane.heading_label.accessibleName() == "Launcher preview heading"
     assert launcher.preview_pane.title_label.accessibleName() == "Previewed result name"
     assert launcher.preview_pane.path_label.accessibleName() == "Previewed result path"
     assert launcher.preview_pane.snippet_label.accessibleName() == "Previewed result snippet"
