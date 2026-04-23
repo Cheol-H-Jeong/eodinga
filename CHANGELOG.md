@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.971 - 2026-04-24
+## 0.1.976 - 2026-04-24
 
 - Hardened Windows release audits so placeholder-sized staged executables no longer satisfy the packaging gate, which keeps stale local fixtures from masquerading as real build outputs.
 - Canonicalized extended UNC prefixes in both watcher root normalization and query root scoping, so `\\?\\unc\\server\\share\\...` and `\\?\\UNC\\server\\share\\...` resolve to the same root.
