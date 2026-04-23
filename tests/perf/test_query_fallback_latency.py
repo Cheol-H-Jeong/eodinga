@@ -22,6 +22,9 @@ pytestmark = perf_only
 DOC_COUNT = perf_int_env("EODINGA_PERF_QUERY_FALLBACK_DOC_COUNT", 20_000)
 QUERY_COUNT = perf_int_env("EODINGA_PERF_QUERY_FALLBACK_COUNT", 250)
 P95_LIMIT_MS = perf_float_env("EODINGA_PERF_QUERY_FALLBACK_P95_MS", 60.0)
+PREFIX_DOC_COUNT = perf_int_env("EODINGA_PERF_QUERY_PREFIX_DOC_COUNT", 20_000)
+PREFIX_QUERY_COUNT = perf_int_env("EODINGA_PERF_QUERY_PREFIX_COUNT", 250)
+PREFIX_P95_LIMIT_MS = perf_float_env("EODINGA_PERF_QUERY_PREFIX_P95_MS", 30.0)
 
 
 def test_phrase_and_unicode_query_latency(tmp_path: Path) -> None:
@@ -60,5 +63,41 @@ def test_phrase_and_unicode_query_latency(tmp_path: Path) -> None:
             f"limit_p95={P95_LIMIT_MS:.2f}ms"
         )
         assert p95 <= P95_LIMIT_MS
+    finally:
+        conn.close()
+
+
+def test_prefix_heavy_unicode_query_latency(tmp_path: Path) -> None:
+    root = tmp_path / "unicode-prefix-docs"
+    root.mkdir()
+    conn = open_perf_db(tmp_path / "query-prefix-fallback-latency.db")
+    try:
+        insert_root(conn, root)
+        records = []
+        for index in range(PREFIX_DOC_COUNT):
+            branch = root / f"group-{index % 128:03d}"
+            path = branch / f"회의록-{index:05d}.md"
+            records.append(make_file_record(path, size=4096 + index))
+        writer = IndexWriter(conn)
+        writer.bulk_upsert(records)
+
+        queries = ['"회의록-00"' for _ in range(PREFIX_QUERY_COUNT)]
+        latencies_ms: list[float] = []
+        for query in queries:
+            started = perf_counter()
+            result = search(conn, query, limit=10)
+            latencies_ms.append((perf_counter() - started) * 1000)
+            assert result.hits
+
+        p50 = statistics.quantiles(latencies_ms, n=100)[49]
+        p95 = statistics.quantiles(latencies_ms, n=100)[94]
+        p99 = statistics.quantiles(latencies_ms, n=100)[98]
+        print(
+            "query_prefix_fallback_latency "
+            f"docs={PREFIX_DOC_COUNT} count={PREFIX_QUERY_COUNT} "
+            f"p50={p50:.2f}ms p95={p95:.2f}ms p99={p99:.2f}ms "
+            f"limit_p95={PREFIX_P95_LIMIT_MS:.2f}ms"
+        )
+        assert p95 <= PREFIX_P95_LIMIT_MS
     finally:
         conn.close()
