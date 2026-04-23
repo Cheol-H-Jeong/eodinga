@@ -14,6 +14,29 @@ from eodinga.query import search
 from tests.conftest import make_record
 
 
+def _drain_events_until(
+    conn,
+    service: WatchService,
+    writer: IndexWriter,
+    condition,
+    *,
+    deadline_seconds: float,
+) -> float:
+    started = monotonic()
+    deadline = started + deadline_seconds
+    while monotonic() < deadline:
+        try:
+            event = service.queue.get(timeout=0.05)
+        except Empty:
+            if condition():
+                return monotonic() - started
+            continue
+        writer.apply_events([event], record_loader=make_record)
+        if condition():
+            return monotonic() - started
+    raise AssertionError(f"condition did not become true within {deadline_seconds:.3f}s")
+
+
 def _wait_for_query_hit(
     conn,
     service: WatchService,
@@ -57,6 +80,72 @@ def test_live_update_visible_to_search_within_500ms(tmp_path: Path) -> None:
             writer,
             "integration coverage",
             created,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    assert elapsed <= 0.5
+
+
+def test_live_update_modified_file_replaces_stale_content_query_hit(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    target = root / "mutable.txt"
+    target.write_text("obsolete needle only\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        assert [hit.file.path for hit in search(conn, 'content:"obsolete needle"', limit=3).hits] == [target]
+
+        service.start(root)
+        target.write_text("fresh signal only\n", encoding="utf-8")
+
+        elapsed = _drain_events_until(
+            conn,
+            service,
+            writer,
+            lambda: (
+                [hit.file.path for hit in search(conn, 'content:"obsolete needle"', limit=3).hits] == []
+                and [hit.file.path for hit in search(conn, 'content:"fresh signal"', limit=3).hits] == [target]
+            ),
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    assert elapsed <= 0.5
+
+
+def test_live_update_deleted_file_disappears_from_search_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    target = root / "vanishing.txt"
+    target.write_text("vanishing deletion marker\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        assert [hit.file.path for hit in search(conn, "vanishing deletion marker", limit=3).hits] == [target]
+
+        service.start(root)
+        target.unlink()
+
+        elapsed = _drain_events_until(
+            conn,
+            service,
+            writer,
+            lambda: [hit.file.path for hit in search(conn, "vanishing deletion marker", limit=3).hits]
+            == [],
             deadline_seconds=0.5,
         )
     finally:
