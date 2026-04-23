@@ -148,6 +148,13 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
     module = _load_build_module()
     payload = {
         "version": __version__,
+        "archive_members": [
+            "eodinga.AppDir/.DirIcon",
+            "eodinga.AppDir/AppRun",
+            "eodinga.AppDir/usr/bin/eodinga",
+            "eodinga.AppDir/usr/share/applications/eodinga.desktop",
+            "eodinga.AppDir/usr/share/icons/hicolor/scalable/apps/eodinga.svg",
+        ],
         "recipe": {
             "exists": True,
             "references_desktop_entry": True,
@@ -275,6 +282,13 @@ def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
     assert payload["dry_run"] is False
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
+    assert set(payload["archive_members"]) >= {
+        "eodinga.AppDir/.DirIcon",
+        "eodinga.AppDir/AppRun",
+        "eodinga.AppDir/usr/bin/eodinga",
+        "eodinga.AppDir/usr/share/applications/eodinga.desktop",
+        "eodinga.AppDir/usr/share/icons/hicolor/scalable/apps/eodinga.svg",
+    }
 
 
 def test_linux_deb_dry_run_stages_recipe() -> None:

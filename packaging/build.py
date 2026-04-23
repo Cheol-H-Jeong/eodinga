@@ -216,6 +216,7 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], package_version: str
     errors: list[str] = []
     if payload.get("version") != package_version:
         errors.append("AppImage audit version does not match the package version")
+    archive_members = set(payload.get("archive_members", []))
     recipe_payload = payload.get("recipe", {})
     icon_payload = payload.get("icon", {})
     apprun_payload = payload.get("apprun", {})
@@ -236,6 +237,15 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], package_version: str
     for ok, message in required_flags:
         if not ok:
             errors.append(message)
+    expected_archive_members = {
+        "eodinga.AppDir/.DirIcon",
+        "eodinga.AppDir/AppRun",
+        "eodinga.AppDir/usr/bin/eodinga",
+        "eodinga.AppDir/usr/share/applications/eodinga.desktop",
+        "eodinga.AppDir/usr/share/icons/hicolor/scalable/apps/eodinga.svg",
+    }
+    if not expected_archive_members.issubset(archive_members):
+        errors.append("AppImage archive no longer contains the launcher, desktop entry, and icon assets")
     return errors
 
 

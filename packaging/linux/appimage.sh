@@ -52,6 +52,7 @@ tar -czf "${ARCHIVE_PATH}" -C "${DIST_DIR}" "$(basename "${APPDIR}")"
 python3 - <<PY
 import json
 import os
+import tarfile
 from pathlib import Path
 
 desktop_path = Path("${APPDIR}/usr/share/applications/eodinga.desktop")
@@ -69,11 +70,15 @@ icon_path = Path("${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 diricon_path = Path("${APPDIR}/.DirIcon")
 recipe_path = Path("${APPIMAGE_RECIPE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
+archive_path = Path("${ARCHIVE_PATH}")
+with tarfile.open(archive_path, "r:gz") as archive:
+    archive_members = sorted(member.name for member in archive.getmembers())
 payload = {
     "target": "linux-appimage-dry-run" if ${DRY_RUN} else "linux-appimage",
     "version": "${VERSION}",
     "appdir": "${APPDIR}",
     "archive": "${ARCHIVE_PATH}",
+    "archive_members": archive_members,
     "dry_run": bool(${DRY_RUN}),
     "desktop_entry": {
         "path": str(desktop_path),
