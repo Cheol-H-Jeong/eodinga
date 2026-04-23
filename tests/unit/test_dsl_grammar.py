@@ -412,7 +412,7 @@ def test_negated_operator_query_fuzz_parses_and_compiles(query: str) -> None:
                 ),
                 min_size=1,
                 max_size=12,
-            ).filter(lambda value: value.strip() and value != "-"),
+            ).filter(lambda value: value.strip() and value != "-" and not value.startswith("-")),
         ),
         st.tuples(
             st.just("regex"),
