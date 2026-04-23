@@ -403,6 +403,33 @@ def test_recover_stale_wal_cleans_orphaned_partial_stage_before_retry(tmp_path: 
     assert not partial.with_name(".index.db.recover.partial-shm").exists()
 
 
+def test_recover_stale_wal_fsyncs_parent_after_cleaning_staged_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    conn = sqlite3.connect(path)
+    apply_schema(conn)
+    conn.close()
+    path.with_name("index.db-wal").write_bytes(b"stale")
+
+    calls: list[Path] = []
+    original_fsync_directory = storage_module._fsync_directory
+
+    def leave_nonempty_sidecar(recovery_path: Path) -> None:
+        recovery_path.with_name(".index.db.recover-wal").write_bytes(b"stale")
+
+    def record_directory(directory: Path) -> None:
+        calls.append(directory)
+        original_fsync_directory(directory)
+
+    monkeypatch.setattr("eodinga.index.storage._checkpoint_wal", leave_nonempty_sidecar)
+    monkeypatch.setattr("eodinga.index.storage._fsync_directory", record_directory)
+
+    assert recover_stale_wal(path) is False
+    assert calls[-1] == tmp_path
+    assert len(calls) >= 2
+
+
 def test_open_index_raises_when_stale_wal_recovery_fails(tmp_path: Path, monkeypatch) -> None:
     path = tmp_path / "index.db"
     conn = sqlite3.connect(path)

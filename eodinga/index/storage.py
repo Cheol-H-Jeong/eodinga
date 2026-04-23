@@ -222,8 +222,8 @@ def recover_stale_wal(path: Path) -> bool:
         logger.exception("failed staged stale WAL recovery for {}", path)
         return False
     finally:
-        _cleanup_index_files(staged_path)
-        _cleanup_index_files(_partial_copy_path(staged_path))
+        _cleanup_index_files_durable(staged_path)
+        _cleanup_index_files_durable(_partial_copy_path(staged_path))
     return not has_stale_wal(path)
 
 
