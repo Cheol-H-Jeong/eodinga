@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.804 - 2026-04-23
+## 0.1.807 - 2026-04-23
 
 - Counted recorded and evicted recent snapshots, and surfaced per-snapshot activity in `stats --json` so command/search/version snapshot flow is auditable instead of opaque.
 - Added runtime artifact inventory to `stats --json`, including resolved log presence and size plus crash-log count and total bytes under the active crash directory.
