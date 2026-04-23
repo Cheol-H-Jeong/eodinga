@@ -24,6 +24,14 @@ def _escape_phrase(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
+def _is_regex_safe_literal(value: str) -> bool:
+    try:
+        re.compile(value)
+    except re.error:
+        return False
+    return True
+
+
 @pytest.mark.parametrize(
     ("query", "expected_type"),
     [
@@ -383,8 +391,25 @@ NEGATABLE_OPERATOR_ATOMS = st.one_of(
     st.builds(lambda value: f"-{value}", st.sampled_from(["ext:pdf", "is:symlink", "path:archive"])),
 )
 
+NEGATABLE_ATOMS = st.one_of(
+    st.text(
+        st.characters(blacklist_characters='()|" /', blacklist_categories=("Cs",)),
+        min_size=1,
+        max_size=12,
+    ).filter(lambda value: value.strip() and value != "-" and _is_regex_safe_literal(value)),
+    st.builds(
+        lambda value: f'"{_escape_phrase(value)}"',
+        st.text(
+            st.characters(blacklist_characters='"', blacklist_categories=("Cs",)),
+            min_size=1,
+            max_size=12,
+        ).filter(_is_regex_safe_literal),
+    ),
+    OPERATOR_ATOMS,
+)
+
 NEGATABLE_VALID_QUERY_STRATEGY = st.recursive(
-    st.one_of(ATOMS, NEGATABLE_OPERATOR_ATOMS).map(str),
+    st.one_of(NEGATABLE_ATOMS, NEGATABLE_OPERATOR_ATOMS).map(str),
     lambda children: st.one_of(
         st.builds(lambda items: " ".join(items), st.lists(children, min_size=2, max_size=3)),
         st.builds(lambda items: " | ".join(items), st.lists(children, min_size=2, max_size=3)),

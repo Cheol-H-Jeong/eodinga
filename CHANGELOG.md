@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.224 - 2026-04-23
+
+- Installed global crash hooks for top-level and thread failures so background or early CLI crashes now emit the same `crash-<ts>.log` artifacts as the main exception path.
+- Added command-level observability around the CLI dispatcher, including started/completed/failed counters plus end-to-end command latency histograms for non-search commands.
+- Expanded `eodinga stats --json` to surface command telemetry and the active runtime log/crash destinations directly, with unit coverage for override and disabled-file-logging paths.
+
 ## 0.1.222 - 2026-04-23
 
 - Turned `packaging/linux/appimage-builder.yml` into a versioned template and made the AppImage dry-run audit verify the rendered recipe matches the package version instead of drifting behind `latest`.

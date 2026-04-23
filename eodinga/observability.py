@@ -246,7 +246,7 @@ def install_crash_handlers(*, stream: IO[str] | None = None) -> None:
         report_crash(error, context="Unhandled top-level exception", stream=stream)
 
     def _handle_thread_exception(args: threading.ExceptHookArgs) -> None:
-        if isinstance(args.exc_value, KeyboardInterrupt):
+        if args.exc_value is None or isinstance(args.exc_value, KeyboardInterrupt):
             return
         details = {"thread": args.thread.name if args.thread is not None else None}
         report_crash(

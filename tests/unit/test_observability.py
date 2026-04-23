@@ -4,7 +4,7 @@ import sys
 import threading
 from pathlib import Path
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 
 from eodinga.common import WatchEvent
 from eodinga.content.base import ParserSpec
@@ -124,11 +124,14 @@ def test_install_crash_handlers_writes_thread_crash_log(
     try:
         raise RuntimeError("thread boom")
     except RuntimeError as error:
-        args = SimpleNamespace(
-            exc_type=type(error),
-            exc_value=error,
-            exc_traceback=error.__traceback__,
-            thread=threading.current_thread(),
+        args = cast(
+            Any,
+            SimpleNamespace(
+                exc_type=type(error),
+                exc_value=error,
+                exc_traceback=error.__traceback__,
+                thread=threading.current_thread(),
+            ),
         )
     threading.excepthook(args)
 
