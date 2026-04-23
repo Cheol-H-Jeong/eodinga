@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.133 - 2026-04-23
+## 0.1.137 - 2026-04-23
 
 - Reworked the walker hot path to reuse `os.scandir()` directory-entry `lstat` data for discovered children, avoiding a second metadata syscall per queued path during cold-start and rebuild traversals.
 - Cached and chunked executor content backfill lookups so wide filtered scans reuse chunk-shaped `IN (...)` SQL and stop rebuilding oversized statements for every content-text fetch.
