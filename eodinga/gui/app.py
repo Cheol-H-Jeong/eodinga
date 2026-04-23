@@ -12,8 +12,9 @@ from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.config import AppConfig, default_path
 from eodinga.gui.actions import DesktopActions
 from eodinga.gui.hotkey_controller import HotkeyServiceLike, LauncherHotkeyController
-from eodinga.gui.launcher import LauncherState, LauncherWindow, SearchFn, format_indexing_status
-from eodinga.gui.launcher import LauncherPanel
+from eodinga.gui.launcher import LauncherPanel, SearchFn
+from eodinga.gui.launcher_state import LauncherState, format_indexing_status
+from eodinga.gui.launcher_window import LauncherWindow
 from eodinga.gui.tabs import AboutTab, IndexTab, RootsTab, SearchTab, SettingsTab
 from eodinga.gui.theme import apply_theme
 from eodinga.index.storage import open_index

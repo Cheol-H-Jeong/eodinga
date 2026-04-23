@@ -7,7 +7,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
-from eodinga.gui.launcher import LauncherState, LauncherWindow
+from eodinga.gui.launcher import LauncherState
+from eodinga.gui.launcher_window import LauncherWindow
 
 
 def _wait(milliseconds: int) -> None:
@@ -613,3 +614,49 @@ def test_launcher_preview_tracks_selection_and_hover(qapp) -> None:
 
     launcher._preview_index(launcher.model.index(0, 0))
     assert "alpha.txt" in launcher.preview_pane.toPlainText()
+
+
+def test_launcher_result_context_menu_dispatches_actions(qapp) -> None:
+    opened: list[str] = []
+    revealed: list[str] = []
+    copied: list[str] = []
+    copied_names: list[str] = []
+    properties: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/release-notes.txt"),
+                    parent_path=Path("/tmp"),
+                    name="release-notes.txt",
+                )
+            ][:limit],
+            total=1,
+            elapsed_ms=1.2,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: opened.append(hit.name))
+    launcher.open_containing_folder.connect(lambda hit: revealed.append(hit.name))
+    launcher.copy_path_requested.connect(lambda hit: copied.append(str(hit.path)))
+    launcher.copy_name_requested.connect(lambda hit: copied_names.append(hit.name))
+    launcher.show_properties.connect(lambda hit: properties.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(60)
+
+    menu = launcher._build_result_context_menu()
+    labels = [action.text() for action in menu.actions() if action.text()]
+    assert labels == ["Open", "Reveal in folder", "Copy path", "Copy name", "Properties"]
+
+    for action in menu.actions():
+        if action.text():
+            action.trigger()
+
+    assert opened == ["release-notes.txt"]
+    assert revealed == ["release-notes.txt"]
+    assert copied == ["/tmp/release-notes.txt"]
+    assert copied_names == ["release-notes.txt"]
+    assert properties == ["release-notes.txt"]
