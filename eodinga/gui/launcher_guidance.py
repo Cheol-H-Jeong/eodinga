@@ -14,7 +14,7 @@ def format_empty_state_body(*, recent_summary: str, pinned_summary: str | None, 
     return " ".join(sections + [f"{', '.join(guidance)}."])
 
 
-def format_no_results_body(*, query: str, has_recent_queries: bool) -> str:
+def format_no_results_body(*, query: str, has_recent_queries: bool) -> tuple[str, str]:
     guidance = ["Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M"]
     if has_recent_queries:
         guidance.append("Press Alt+Up and Alt+Down to revisit recent queries")

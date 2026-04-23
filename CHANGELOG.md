@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.872 - 2026-04-23
+
+- Tightened the launcher's idle and no-results guidance so it only advertises recent-query, pinned-chip, and quick-pick affordances when those paths actually exist in the current state.
+- Added keyboard-first navigation for pinned and recent query chips, including `Tab` entry from an idle search box plus `Left`/`Right`, `Up`/`Down`, and `Home`/`End` movement across chip rows.
+- Mirrored launcher empty-state, shortcut, and status text into accessibility descriptions so screen-reader users get the same idle-state and no-results guidance as sighted users.
+
 ## 0.1.868 - 2026-04-23
 
 - Preserved negated query filters in launcher summaries, so grouped filters like `-(ext:pdf | date:today)` no longer show misleading positive chips.

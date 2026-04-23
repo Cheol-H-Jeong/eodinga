@@ -6,6 +6,7 @@ from typing import cast
 from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
 from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QPushButton
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
@@ -439,9 +440,9 @@ class LauncherPanel(QWidget):
 
     def _handle_query_chip_keypress(self, watched: QObject, event: QKeyEvent) -> bool:
         row = self._chip_row_for_button(watched)
-        if row is None:
+        if row is None or not isinstance(watched, QPushButton):
             return False
-        button_index = row.button_index(cast(object, watched))
+        button_index = row.button_index(watched)
         if button_index < 0:
             return False
         if event.key() == Qt.Key.Key_Left:
