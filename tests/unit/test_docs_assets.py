@@ -99,6 +99,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
+    assert "## Documentation Update Matrix" in contributing
     assert "## Quality Gates" in contributing
     assert "## Scope Guardrails" in contributing
     assert "## Documentation Expectations" in contributing
@@ -121,13 +122,16 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "test_rebuild_cold_start_throughput" in performance
     assert "EODINGA_PERF_REBUILD_MIN_FPS" in performance
     assert "## Running the Suite" in performance
+    assert "## Capture Format" in performance
     assert "## Baseline" in performance
     assert "## Profiling Workflow" in performance
+    assert "## Release Handoff Expectations" in performance
 
     assert "## Pick The Version" in release
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
     assert "## Verify Shipped Docs" in release
+    assert "## Collect Release Evidence" in release
     assert "## Cut The Local Release" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release

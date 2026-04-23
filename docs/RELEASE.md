@@ -39,6 +39,15 @@ Before tagging, confirm:
 - `docs/PERFORMANCE.md` numbers come from a rerun at the documented HEAD.
 - Screenshot assets under `docs/screenshots/` still match the current UI, or have been refreshed with `python scripts/render_docs_screenshots.py`.
 
+## Collect Release Evidence
+
+Before the local tag, keep a short evidence bundle in the terminal log or handoff note:
+
+1. The exact `pytest -q tests/unit` result for the last intermediate commit.
+2. The full-repository gate result used for the release cut.
+3. Any packaging dry-run commands you executed and whether they stayed green.
+4. If performance numbers changed, the benchmark commands and the measured deltas.
+
 ## Cut The Local Release
 
 1. Commit the release metadata changes.
@@ -51,3 +60,4 @@ Before tagging, confirm:
 - `pytest -q tests/unit` green at minimum for each intermediate commit.
 - Full repository gate green before final handoff.
 - `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py` all agree on `0.1.N`.
+- Any updated docs cite the current release behavior rather than a prior round's assumptions.

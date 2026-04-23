@@ -23,6 +23,15 @@ EODINGA_RUN_PERF=1 pytest -q tests/perf/test_watch_latency.py -s
 
 The individual commands are useful when you are changing one subsystem and want a narrower regression signal before running the whole suite.
 
+## Capture Format
+
+When you refresh the baseline table, keep the evidence bundle lightweight and reproducible:
+
+1. Record the repository version or commit you measured.
+2. Note whether the run used the default dataset sizes or env overrides.
+3. Keep the benchmark command lines exactly as run so another worker can rerun them.
+4. Update the table only after at least one confirmatory rerun if the first sample looked noisy.
+
 The current perf suite covers the SPEC §6.3 scenarios with smaller local-dev datasets:
 
 - `tests/perf/test_cold_start.py`: walker + bulk index throughput on a real tmp tree.
@@ -94,6 +103,12 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 3. If the regression is in cold start, compare `test_cold_start.py` with `test_bulk_upsert.py` to decide whether the walker or writer moved.
 4. If the regression is in watch visibility, inspect coalescing, debounce, and commit timing before touching query ranking.
 5. Refresh this document only after you have rerun the benchmark in the same local environment and the result is stable enough to be explanatory.
+
+## Release Handoff Expectations
+
+- Treat the performance page as explanatory release evidence, not a scratchpad.
+- If you did not rerun the benchmark at the current HEAD, leave the previous numbers intact.
+- If you changed thresholds without changing the measured baseline, say so explicitly in the changelog or release notes.
 
 ## Practical Threshold Notes
 

@@ -15,6 +15,16 @@ python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]
 3. Run the full local gate before handing off a release candidate.
 4. Update docs and screenshots when the visible or operator-facing contract changes.
 
+## Documentation Update Matrix
+
+| If you change... | Update these docs before handoff |
+| --- | --- |
+| Query syntax, operators, parser limits | `README.md`, `docs/DSL.md` |
+| Index rebuild, watcher, recovery, storage paths | `README.md`, `docs/ARCHITECTURE.md` |
+| Performance-sensitive code or perf thresholds | `docs/PERFORMANCE.md` after rerunning the relevant benchmark |
+| Packaging or release handoff steps | `README.md`, `docs/RELEASE.md`, and the top `CHANGELOG.md` entry |
+| Visible GUI surfaces | `README.md` screenshots and any workflow text they invalidate |
+
 ## Quality Gates
 
 Default repository gate:
@@ -64,3 +74,4 @@ yamllint .github/workflows/release-linux.yml
 - Keep `CHANGELOG.md` append-only with the newest round at the top.
 - Patch releases use `0.1.N`; bump `pyproject.toml` and `eodinga/__init__.py` together.
 - Local tags are created during the release-cut handoff flow documented in [RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md).
+- Keep one logical change per commit so `pytest -q tests/unit` can stay green after each step.
