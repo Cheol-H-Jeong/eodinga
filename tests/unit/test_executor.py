@@ -727,12 +727,17 @@ def test_execute_is_empty_queries(tmp_db: sqlite3.Connection) -> None:
     _insert_file(tmp_db, 3, "/workspace/empty-dir", 0, now - 120, "", is_dir=True)
     _insert_file(tmp_db, 4, "/workspace/non-empty-dir", 0, now - 180, "", is_dir=True)
     _insert_file(tmp_db, 5, "/workspace/non-empty-dir/note.txt", 1, now - 240, "txt", body_text="child")
+    _insert_file(tmp_db, 6, "/workspace/empty-link.txt", 0, now - 300, "txt", body_text="")
+    _insert_file(tmp_db, 7, "/workspace/empty-link-dir", 0, now - 360, "", is_dir=True)
+    tmp_db.execute("UPDATE files SET is_symlink = 1 WHERE id IN (?, ?)", (6, 7))
     tmp_db.commit()
 
     empty_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "is:empty", limit=10).hits]
     non_empty_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "-is:empty", limit=10).hits]
 
     assert empty_hits == ["/workspace/empty-dir", "/workspace/empty-file.txt"]
+    assert "/workspace/empty-link-dir" in non_empty_hits
+    assert "/workspace/empty-link.txt" in non_empty_hits
     assert "/workspace/non-empty-dir" in non_empty_hits
     assert "/workspace/full-file.txt" in non_empty_hits
     assert "/workspace/non-empty-dir/note.txt" in non_empty_hits
@@ -796,6 +801,21 @@ def test_execute_size_range_queries(tmp_db: sqlite3.Connection) -> None:
     assert hits == ["in-range-high.txt", "in-range-low.txt"]
     assert reversed_hits == hits
     assert negated_hits == ["tiny.txt", "too-large.txt"]
+
+
+def test_execute_open_ended_size_range_queries(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/tiny.txt", 99, now, "txt", body_text="tiny")
+    _insert_file(tmp_db, 2, "/workspace/mid.txt", 100, now - 60, "txt", body_text="mid")
+    _insert_file(tmp_db, 3, "/workspace/large.txt", 500 * 1024, now - 120, "txt", body_text="large")
+    _insert_file(tmp_db, 4, "/workspace/huge.txt", 500 * 1024 + 1, now - 180, "txt", body_text="huge")
+    tmp_db.commit()
+
+    at_least_hits = [hit.file.name for hit in search(tmp_db, "size:100..", limit=10).hits]
+    at_most_hits = [hit.file.name for hit in search(tmp_db, "size:..500K", limit=10).hits]
+
+    assert at_least_hits == ["huge.txt", "large.txt", "mid.txt"]
+    assert at_most_hits == ["large.txt", "mid.txt", "tiny.txt"]
 
 
 def test_execute_metadata_only_query_reports_uncapped_total_estimate(

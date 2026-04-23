@@ -168,6 +168,23 @@ def test_compile_size_range_normalizes_bounds() -> None:
     assert branch.where_params == (100, 500 * 1024)
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_sql", "expected_params"),
+    [
+        ("size:100..", "files.size >= ?", (100,)),
+        ("size:..500K", "files.size <= ?", (500 * 1024,)),
+    ],
+)
+def test_compile_open_ended_size_ranges(
+    query: str, expected_sql: str, expected_params: tuple[int, ...]
+) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == expected_sql
+    assert branch.where_params == expected_params
+
+
 def test_compile_duplicate_filter_shape() -> None:
     compiled = compile_query(parse("is:duplicate -is:symlink"))
     branch = compiled.branches[0]
@@ -180,8 +197,8 @@ def test_compile_empty_filter_shape() -> None:
     compiled = compile_query(parse("is:empty -is:symlink"))
     branch = compiled.branches[0]
 
-    assert "files.size = 0" in branch.where_sql
-    assert "files.is_dir = 1 AND NOT EXISTS" in branch.where_sql
+    assert "files.is_dir = 0 AND files.is_symlink = 0 AND files.size = 0" in branch.where_sql
+    assert "files.is_dir = 1 AND files.is_symlink = 0 AND NOT EXISTS" in branch.where_sql
     assert "descendants.path LIKE (files.path || '/%')" in branch.where_sql
     assert "NOT (files.is_symlink = 1)" in branch.where_sql
 
