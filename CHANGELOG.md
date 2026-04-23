@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.937 - 2026-04-24
+## 0.1.952 - 2026-04-24
 
 - Extracted launcher copy and selection/status helpers into a shared UX helper module, keeping the launcher panel under the repository's 500-line module cap without changing behavior.
 - Added accessible descriptions across the main window tabs and settings/index/roots controls, so assistive-technology users get action-oriented guidance instead of labels alone.
