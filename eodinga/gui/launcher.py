@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
+from eodinga.gui.launcher_guidance import format_empty_state_body, format_no_results_body, format_shortcut_hint
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
 from eodinga.gui.widgets import (
     ActiveFilterRow,
@@ -187,11 +188,13 @@ class LauncherPanel(QWidget):
         self._recent_queries = queries
         self.recent_queries_row.set_queries(queries[:5])
         self._refresh_empty_state()
+        self._refresh_shortcut_hint()
 
     def set_pinned_queries(self, queries: list[str]) -> None:
         self._pinned_queries = queries
         self.pinned_queries_row.set_queries(queries[:5])
         self._refresh_empty_state()
+        self._refresh_shortcut_hint()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
@@ -319,33 +322,35 @@ class LauncherPanel(QWidget):
         details = format_indexing_status(self._indexing_status)
         if not query:
             recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
-            pinned_queries = f" Pinned: {', '.join(self._pinned_queries[:3])}." if self._pinned_queries else ""
             self.empty_state.set_content(
                 "Type to search",
-                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up and Alt+Down to browse recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
+                format_empty_state_body(
+                    recent_summary=recent_queries,
+                    pinned_summary=", ".join(self._pinned_queries[:3]) if self._pinned_queries else None,
+                    has_recent_queries=bool(self._recent_queries),
+                ),
                 details,
             )
         else:
+            title, body = format_no_results_body(query=query, has_recent_queries=bool(self._recent_queries))
             self.empty_state.set_content(
-                f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Alt+Up and Alt+Down to revisit recent queries, Tab to jump back to the filter, or Esc to hide the launcher.",
+                title,
+                body,
                 details,
             )
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
 
     def _refresh_shortcut_hint(self) -> None:
-        has_results = self.model.rowCount() > 0
-        if not has_results:
-            if self.query_field.text().strip():
-                hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up and Alt+Down browse recent queries."
-            else:
-                hint = "Type a filename, path, or content term. Alt+Up and Alt+Down browse recent queries."
-        elif self.result_list.hasFocus():
-            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
-        else:
-            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up and Alt+Down browse recent queries."
-        self.shortcut_label.setText(hint)
+        self.shortcut_label.setText(
+            format_shortcut_hint(
+                has_results=self.model.rowCount() > 0,
+                query=self.query_field.text().strip(),
+                result_list_has_focus=self.result_list.hasFocus(),
+                has_recent_queries=bool(self._recent_queries),
+                has_chip_queries=bool(self._recent_queries or self._pinned_queries),
+            )
+        )
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()
