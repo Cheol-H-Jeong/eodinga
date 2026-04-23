@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.447 - 2026-04-23
+
+- Turned `eodinga watch` from a stub into a real live-update loop that loads indexed roots, applies filesystem events into the active index, flushes its startup payload for supervising processes, and exits cleanly on `SIGINT`/`SIGTERM`.
+- Added focused watch-loop coverage for root loading, deepest-root record assignment, and queue-preserving shutdown semantics so the live-update path is pinned below the CLI surface.
+- Added subprocess integration coverage for `index -> watch -> search` and multi-root watch flows so real CLI watch sessions are exercised end to end instead of only through in-process watcher helpers.
+
 ## 0.1.442 - 2026-04-23
 
 - Added a dedicated `.[packaging]` extra for Windows release tooling and wired the Windows release workflow to install it explicitly instead of relying on ambient build dependencies.
