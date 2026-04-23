@@ -77,6 +77,11 @@ def test_parse_negated_group() -> None:
     assert isinstance(node.clause, OrNode)
 
 
+@pytest.mark.parametrize("query", ["-\r", "-\r | 0", "-\r -(0)"])
+def test_parse_leading_dash_with_trailing_whitespace_is_a_word(query: str) -> None:
+    compile_query(parse(query))
+
+
 def test_parse_operator_regex_value() -> None:
     node = parse("content:/todo|fixme/i")
     assert isinstance(node, OperatorNode)

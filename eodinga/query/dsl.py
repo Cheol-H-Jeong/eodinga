@@ -121,10 +121,11 @@ class _Parser:
     def _parse_term(self) -> AstNode:
         self._skip_ws()
         negated = False
-        if self._peek() == "-":
+        if self._peek() == "-" and (
+            (next_char := self._peek(offset=1)) is None or not next_char.isspace()
+        ):
             negated = True
             self.index += 1
-            self._skip_ws()
         char = self._peek()
         if char is None:
             raise QuerySyntaxError("expected term", self.index)
