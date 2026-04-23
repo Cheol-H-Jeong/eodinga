@@ -36,6 +36,26 @@ pytest -q tests
 ruff check eodinga tests
 ```
 
+## Single-Shot Worker Commands
+
+Use one pasted command when you want deterministic feedback instead of a hand-run sequence:
+
+```bash
+git fetch origin main && git reset --hard origin/main && source .venv/bin/activate 2>/dev/null || python3 -m venv .venv && source .venv/bin/activate && pip install -e .[dev,parsers,gui] && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)"
+```
+
+Docs-only round:
+
+```bash
+source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && python packaging/build.py --target windows-dry-run
+```
+
+GUI/docs round:
+
+```bash
+source .venv/bin/activate && pytest -q tests/unit/test_gui_app.py tests/unit/test_gui_launcher.py tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"
+```
+
 ## Suggested Command Order
 
 Use one clean pass instead of ad-hoc retries:
@@ -151,6 +171,16 @@ Use this when the round is docs-only but still release-bearing:
 - Keep the final metadata commit reviewable: version bump, changelog entry, and local tag cut only.
 - If the patch number changes because another worker landed first, retarget just that final metadata commit instead of rewriting earlier docs or feature commits.
 - Re-run `pytest -q tests/unit` after retargeting the metadata commit so the branch tip stays demonstrably green.
+
+## Metadata Retarget Quickcheck
+
+If another worker lands your chosen patch version first:
+
+1. `git fetch origin main --tags && git tag -l | sort -V | tail -5`
+2. Pick the next unused `0.1.N`.
+3. Update `pyproject.toml`, `eodinga/__init__.py`, `CHANGELOG.md`, and any versioned derived asset such as `docs/man/eodinga.1`.
+4. Re-run `pytest -q tests/unit`.
+5. Recreate the local tag on the new tip instead of moving an existing one.
 
 ## Test Selection Guide
 

@@ -150,6 +150,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Derived Asset Matrix" in contributing
     assert "## Parallel Worktrees" in contributing
     assert "Required start gate for worker rounds" in contributing
+    assert "## Single-Shot Worker Commands" in contributing
     assert "## Theme-Sized Test Guide" in contributing
     assert "Commit-level minimum" in contributing
     assert "scripts/generate_manpage.py" in contributing
@@ -157,11 +158,14 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Docs Refresh Order" in contributing
     assert "## Docs Round Checklist" in contributing
     assert "## Metadata Commit Discipline" in contributing
+    assert "## Metadata Retarget Quickcheck" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
     assert "## Review Checklist" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
     assert "The final release commit for a round should carry the version bump" in contributing
+    assert "Docs-only round:" in contributing
+    assert "GUI/docs round:" in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl
@@ -203,12 +207,14 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Version Collision Guard" in release
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
+    assert "## Single-Shot Release Commands" in release
     assert "## Artifact Inventory" in release
     assert "## Verify Shipped Docs" in release
     assert "## Tag Decision Path" in release
     assert "## Worker Handoff Rules" in release
     assert "## Docs-Only Rounds" in release
     assert "## Cut The Local Release" in release
+    assert "## Retag Checklist" in release
     assert "## Collision And Retag Rules" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release
@@ -219,6 +225,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "packaging/dist/" in release
     assert "Single-shot metadata cut" in release
     assert "git fetch origin main --tags" in release
+    assert "docs/man/eodinga.1" in release
 
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage

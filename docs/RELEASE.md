@@ -65,6 +65,26 @@ Recommended order:
 
 Optional perf evidence belongs after the default gate, not inside it. If you run `EODINGA_RUN_PERF=1 pytest -q tests/perf -s`, capture the printed benchmark summaries and keep failing perf output out of the release baseline or changelog until the regression is understood.
 
+## Single-Shot Release Commands
+
+Full local release pass:
+
+```bash
+source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)" && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run && yamllint .github/workflows/release-windows.yml && yamllint .github/workflows/release-linux.yml
+```
+
+Docs-only release pass:
+
+```bash
+source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-deb-dry-run
+```
+
+Metadata cut after the gate is green:
+
+```bash
+git add CHANGELOG.md pyproject.toml eodinga/__init__.py docs/man/eodinga.1 && git commit -m "chore(release): bump to v0.1.N" && git tag v0.1.N
+```
+
 ## Artifact Inventory
 
 Before tagging, know which release inputs this repository expects to exist:
@@ -160,6 +180,16 @@ Collision check example:
 ```bash
 if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 ```
+
+## Retag Checklist
+
+Use this when the candidate patch number collides with a newly fetched tag:
+
+1. Fetch tags again with `git fetch origin main --tags`.
+2. Choose the next unused patch number.
+3. Retarget only the metadata commit and any versioned derived asset.
+4. Re-run `pytest -q tests/unit` and the narrow docs-assets check if `docs/man/eodinga.1` changed.
+5. Create the new local tag once the updated tip is green.
 
 ## Collision And Retag Rules
 
