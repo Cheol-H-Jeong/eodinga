@@ -195,8 +195,18 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     db_path = args.db or config.index.db_path
     with closing(open_index(db_path)) as conn:
         index_snapshot = read_index_stats(conn)
+    record_snapshot(
+        "command.stats",
+        {
+            "db": str(db_path),
+            "files_indexed": index_snapshot.file_count,
+            "documents_indexed": index_snapshot.content_count,
+            "queries_served": counter_value("queries_served"),
+            "commands_started": counter_value("commands_started"),
+        },
+    )
     metrics = snapshot_metrics()
-    counters = metrics["counters"]
+    counters = _project_successful_stats_counters(metrics["counters"])
     log_target = resolve_log_target()
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
@@ -209,30 +219,30 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         uptime_ms=float(metrics["uptime_ms"]),
         files_indexed=index_snapshot.file_count,
         documents_indexed=index_snapshot.content_count,
-        queries_served=counter_value("queries_served"),
-        queries_zero_results=counter_value("queries_zero_results"),
-        queries_truncated=counter_value("queries_truncated"),
-        parser_errors=counter_value("parser_errors"),
-        watcher_events=counter_value("watcher_events"),
-        watcher_flushes=counter_value("watcher_flushes"),
-        watcher_events_flushed=counter_value("watcher_events_flushed"),
-        watcher_queue_full=counter_value("watcher_queue_full"),
-        watcher_enqueue_aborted=counter_value("watcher_enqueue_aborted"),
-        watcher_observers_started=counter_value("watcher_observers_started"),
-        watcher_observers_stopped=counter_value("watcher_observers_stopped"),
-        index_rebuilds_completed=counter_value("index_rebuilds_completed"),
-        commands_started=counter_value("commands_started"),
-        commands_completed=counter_value("commands_completed"),
-        commands_failed=counter_value("commands_failed"),
-        commands_interrupted=counter_value("commands_interrupted"),
-        crashes_reported=counter_value("crashes_reported"),
-        crash_logs_written=counter_value("crash_logs_written"),
-        crash_log_write_failures=counter_value("crash_log_write_failures"),
-        crash_handlers_installed=counter_value("crash_handlers_installed"),
-        logging_configurations=counter_value("logging_configurations"),
-        log_sinks_stderr_configured=counter_value("log_sinks.stderr.configured"),
-        log_sinks_file_configured=counter_value("log_sinks.file.configured"),
-        log_sinks_file_disabled=counter_value("log_sinks.file.disabled"),
+        queries_served=counters.get("queries_served", 0),
+        queries_zero_results=counters.get("queries_zero_results", 0),
+        queries_truncated=counters.get("queries_truncated", 0),
+        parser_errors=counters.get("parser_errors", 0),
+        watcher_events=counters.get("watcher_events", 0),
+        watcher_flushes=counters.get("watcher_flushes", 0),
+        watcher_events_flushed=counters.get("watcher_events_flushed", 0),
+        watcher_queue_full=counters.get("watcher_queue_full", 0),
+        watcher_enqueue_aborted=counters.get("watcher_enqueue_aborted", 0),
+        watcher_observers_started=counters.get("watcher_observers_started", 0),
+        watcher_observers_stopped=counters.get("watcher_observers_stopped", 0),
+        index_rebuilds_completed=counters.get("index_rebuilds_completed", 0),
+        commands_started=counters.get("commands_started", 0),
+        commands_completed=counters.get("commands_completed", 0),
+        commands_failed=counters.get("commands_failed", 0),
+        commands_interrupted=counters.get("commands_interrupted", 0),
+        crashes_reported=counters.get("crashes_reported", 0),
+        crash_logs_written=counters.get("crash_logs_written", 0),
+        crash_log_write_failures=counters.get("crash_log_write_failures", 0),
+        crash_handlers_installed=counters.get("crash_handlers_installed", 0),
+        logging_configurations=counters.get("logging_configurations", 0),
+        log_sinks_stderr_configured=counters.get("log_sinks.stderr.configured", 0),
+        log_sinks_file_configured=counters.get("log_sinks.file.configured", 0),
+        log_sinks_file_disabled=counters.get("log_sinks.file.disabled", 0),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
         query_result_count_histogram=histogram_snapshot("query_result_count"),
         command_latency_histogram=histogram_snapshot("command_latency_ms"),
@@ -260,16 +270,6 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         crash_dir=resolve_crash_dir(),
         file_logging_enabled=file_logging_enabled(),
     ).model_dump(mode="json")
-    record_snapshot(
-        "command.stats",
-        {
-            "db": str(db_path),
-            "files_indexed": snapshot["files_indexed"],
-            "documents_indexed": snapshot["documents_indexed"],
-            "queries_served": snapshot["queries_served"],
-            "commands_started": snapshot["commands_started"],
-        },
-    )
     return _emit(snapshot, as_json=bool(args.json))
 
 
@@ -373,6 +373,14 @@ def _exit_code_summary(counters: dict[str, int]) -> dict[str, int]:
         name[len(prefix) :]: value for name, value in counters.items() if name.startswith(prefix)
     }
     return dict(sorted(exit_codes.items(), key=lambda item: int(item[0])))
+
+
+def _project_successful_stats_counters(counters: dict[str, int]) -> dict[str, int]:
+    projected = dict(counters)
+    projected["commands_completed"] = projected.get("commands_completed", 0) + 1
+    projected["commands.stats.completed"] = projected.get("commands.stats.completed", 0) + 1
+    projected["commands.exit_code.0"] = projected.get("commands.exit_code.0", 0) + 1
+    return projected
 
 
 def _crash_type_summary(counters: dict[str, int]) -> dict[str, int]:

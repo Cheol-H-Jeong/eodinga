@@ -499,7 +499,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["watcher_enqueue_aborted"] == 0
     assert payload["index_rebuilds_completed"] == 0
     assert payload["commands_started"] == 2
-    assert payload["commands_completed"] == 1
+    assert payload["commands_completed"] == 2
     assert payload["commands_failed"] == 0
     assert payload["crashes_reported"] == 0
     assert payload["crash_logs_written"] == 0
@@ -517,15 +517,19 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["index_rebuild_latency_histogram"] == {}
     assert payload["index_batch_size_histogram"] == {}
     assert payload["commands"]["search"]["completed"] == 1
+    assert payload["commands"]["stats"]["completed"] == 1
     assert payload["commands"]["search"]["started"] == 1
     assert payload["commands"]["stats"]["started"] == 1
-    assert payload["exit_codes"]["0"] == 1
+    assert payload["exit_codes"]["0"] == 2
     assert payload["crash_types"] == {}
     assert payload["parser_activity"] == {}
     assert payload["watcher_event_types"] == {}
-    assert len(payload["recent_snapshots"]) == 1
-    assert payload["recent_snapshots"][0]["name"] == "command.search"
+    assert [entry["name"] for entry in payload["recent_snapshots"]] == [
+        "command.search",
+        "command.stats",
+    ]
     assert payload["recent_snapshots"][0]["payload"]["query"] == "duplicate"
+    assert payload["recent_snapshots"][1]["payload"]["db"] == str(db_path)
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
     assert payload["log_path_source"] is None
@@ -650,7 +654,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["log_sinks_file_configured"] == 0
     assert payload["log_sinks_file_disabled"] == 3
     assert payload["commands_started"] == 3
-    assert payload["commands_completed"] == 2
+    assert payload["commands_completed"] == 3
     assert payload["commands_failed"] == 0
     assert payload["crashes_reported"] == 0
     assert payload["crash_logs_written"] == 0
@@ -661,8 +665,9 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["queries_truncated"] == 1
     assert payload["commands"]["index"]["completed"] == 1
     assert payload["commands"]["search"]["completed"] == 1
+    assert payload["commands"]["stats"]["completed"] == 1
     assert payload["commands"]["stats"]["started"] == 1
-    assert payload["exit_codes"]["0"] == 2
+    assert payload["exit_codes"]["0"] == 3
     assert payload["crash_types"] == {}
     assert payload["parser_activity"]["broken"]["errors"] == 1
     assert payload["parser_activity"]["text"]["parsed"] >= 2
@@ -684,6 +689,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
         "command.index",
         "command.search",
+        "command.stats",
     ]
 
 
@@ -842,6 +848,7 @@ def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Pat
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
         "command.failure",
         "command.crash",
+        "command.stats",
     ]
     assert payload["recent_snapshots"][0]["payload"]["reason"] == "exception"
     assert payload["recent_snapshots"][1]["payload"]["error_type"] == "RuntimeError"
@@ -901,18 +908,17 @@ def test_stats_json_structures_interrupted_command_counts(
     assert payload["commands"]["version"]["interrupted"] == 1
     assert payload["commands"]["version"]["started"] == 1
     assert payload["exit_codes"]["130"] == 1
-    assert payload["recent_snapshots"] == [
-        {
-            "name": "command.failure",
-            "recorded_at": payload["recent_snapshots"][0]["recorded_at"],
-            "payload": {
-                "command": "version",
-                "elapsed_ms": payload["recent_snapshots"][0]["payload"]["elapsed_ms"],
-                "exit_code": 130,
-                "reason": "interrupted",
-            },
-        }
-    ]
+    assert payload["recent_snapshots"][0] == {
+        "name": "command.failure",
+        "recorded_at": payload["recent_snapshots"][0]["recorded_at"],
+        "payload": {
+            "command": "version",
+            "elapsed_ms": payload["recent_snapshots"][0]["payload"]["elapsed_ms"],
+            "exit_code": 130,
+            "reason": "interrupted",
+        },
+    }
+    assert payload["recent_snapshots"][1]["name"] == "command.stats"
 
 
 def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> None:
@@ -932,7 +938,9 @@ def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> 
     assert payload["commands"]["search"]["failed"] == 1
     assert payload["commands"]["search"]["started"] == 1
     assert payload["exit_codes"]["2"] == 1
-    assert len(payload["recent_snapshots"]) == 1
-    assert payload["recent_snapshots"][0]["name"] == "command.failure"
+    assert [entry["name"] for entry in payload["recent_snapshots"]] == [
+        "command.failure",
+        "command.stats",
+    ]
     assert payload["recent_snapshots"][0]["payload"]["command"] == "search"
     assert payload["recent_snapshots"][0]["payload"]["reason"] == "nonzero_exit"
