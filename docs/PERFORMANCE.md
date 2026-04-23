@@ -69,18 +69,37 @@ The defaults currently checked into the suite are:
 
 ## Baseline
 
-Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed on the branch that originally introduced the current no-parser indexing fast path:
+Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed at the current `HEAD`, using:
 
-| Benchmark | Dataset | Result |
-| --- | --- | --- |
-| Cold start | 20,201 indexed entries | 6,059 files/sec |
-| Rebuild cold start | 20,201 indexed entries via `rebuild_index()` | 6,537 files/sec |
-| Bulk upsert | 50k synthetic records | 56,222 records/sec |
-| Name query latency | 2,000 queries / 50k files | p50 0.06 ms, p95 0.06 ms, p99 0.07 ms |
-| Content query latency | 500 queries / 5k docs | p50 0.60 ms, p95 0.63 ms, p99 0.67 ms |
-| Watch latency | 25 created files | p99 0.133 s |
+```bash
+source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
+```
 
-These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. The benchmark set reflects the checked-in no-parser fast path, where metadata-only indexing avoids the guaranteed-empty content upsert pass when no parser callback is installed.
+Current recorded sample:
+
+| Benchmark | Dataset | Result | Gate status |
+| --- | --- | --- | --- |
+| Bulk upsert | 50k synthetic records | 56,262 records/sec | pass vs `min_rps=20000` |
+| Cold start | 20,201 indexed entries | 5,510 files/sec | pass vs `min_fps=4000` |
+| Rebuild cold start | 20,201 indexed entries via `rebuild_index()` | 5,897 files/sec | pass vs `min_fps=3500` |
+| Name query latency | 2,000 queries / 50k files | p50 0.11 ms, p95 0.12 ms, p99 0.13 ms | pass vs `limit_p95=30.00 ms` |
+| Content query latency | 500 queries / 5k docs | p50 0.84 ms, p95 0.90 ms, p99 0.99 ms | pass vs `limit_p95=150.00 ms` |
+| Watch latency | 25 created files | p99 0.132 s | pass vs `limit_p99=2.000 s` |
+| Rebuild throughput | 30,257 records | 5,680 records/sec | fail vs `min_rps=12000` |
+| Walker throughput | 40,257 records | 5,676 records/sec | fail vs `min_rps=25000` |
+
+These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. This current-head sample shows the difference explicitly: lookup-heavy slices remain comfortably within their gates on this machine, while the walker and rebuild-throughput probes miss their thresholds by a wide margin.
+
+Recorded stdout summary lines from the rerun:
+
+- `bulk_upsert records=50000 elapsed=0.889s throughput=56262 records/s min_rps=20000`
+- `cold_start files=20201 elapsed=3.666s throughput=5510 files/s min_fps=4000`
+- `rebuild_cold_start files=20201 elapsed=3.426s throughput=5897 files/s min_fps=3500`
+- `content_query docs=5000 count=500 p50=0.84ms p95=0.90ms p99=0.99ms limit_p95=150.00ms`
+- `query_latency files=50000 count=2000 p50=0.11ms p95=0.12ms p99=0.13ms limit_p95=30.00ms`
+- `rebuild_index records=30257 elapsed=5.327s throughput=5680 records/s min_rps=12000`
+- `walk_batched records=40257 elapsed=7.092s throughput=5676 records/s min_rps=25000`
+- `watch_latency count=25 p99=0.132s limit_p99=2.000s`
 
 When you refresh this table, record:
 
@@ -95,6 +114,7 @@ When you refresh this table, record:
 - If you did not rerun the perf suite in the same round, leave the numeric table untouched and document your change elsewhere.
 - If you do rerun the suite, update the measurement date, note the exact command, and describe the code or docs change that explains the new sample.
 - When a README or release guide cites the perf baseline, describe it as the "current checked-in baseline" unless the benchmark was rerun at the same commit being released.
+- If a rerun fails one or more perf thresholds, record that fact directly in the table instead of silently dropping the failed benchmark from the doc.
 
 ## Repro Checklist
 
@@ -122,6 +142,7 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 - Re-run the same benchmark at least twice if the first sample is noisy; filesystem cache warmth heavily affects cold-start throughput.
 - Treat query p95/p99 shifts as more meaningful than p50 for launcher responsiveness.
 - Watch latency is end-to-end, so a regression there can come from debounce, event coalescing, or index commit timing rather than raw filesystem speed.
+- A failed throughput gate on `tests/perf/test_walk_throughput.py` or `tests/perf/test_rebuild_throughput.py` does not automatically mean the query path regressed; check the slower traversal/rebuild slices separately from read-heavy lookup slices.
 
 ## Profiling Workflow
 
