@@ -714,6 +714,7 @@ def _scan_filtered_records(
     batch_size = max(min(target * 2, 2000), 500)
     offset = 0
     matched: dict[int, FileRecord] = {}
+    needs_content_texts = _needs_content_text_filter(branch)
     while len(matched) < target:
         batch = _fetch_record_batch(
             conn,
@@ -724,7 +725,7 @@ def _scan_filtered_records(
         )
         if not batch:
             break
-        content_texts = _fetch_content_texts(conn, batch) if _needs_record_filter(branch) else {}
+        content_texts = _fetch_content_texts(conn, batch) if needs_content_texts else {}
         for file_id, record in batch.items():
             if _filter_record(branch, record, content_texts.get(file_id, "")):
                 matched[file_id] = record
@@ -813,6 +814,14 @@ def _needs_record_filter(branch: CompiledBranch) -> bool:
         branch.path_filters
         or branch.path_regex_terms
         or branch.content_terms
+        or branch.content_regex_terms
+        or any(term.negated for term in branch.path_terms)
+    )
+
+
+def _needs_content_text_filter(branch: CompiledBranch) -> bool:
+    return bool(
+        branch.content_terms
         or branch.content_regex_terms
         or any(term.negated for term in branch.path_terms)
     )
@@ -938,7 +947,11 @@ def _execute_branch(
     if not candidate_ids and not branch.path_match_sql and not branch.content_required:
         candidate_ids = set(records)
     if _needs_record_filter(branch):
-        content_texts = _fetch_content_texts(conn, candidate_ids)
+        content_texts = (
+            _fetch_content_texts(conn, candidate_ids)
+            if _needs_content_text_filter(branch)
+            else {}
+        )
         filtered_records = {
             file_id: records[file_id]
             for file_id in candidate_ids

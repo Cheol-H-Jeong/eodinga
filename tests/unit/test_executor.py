@@ -181,6 +181,32 @@ def test_content_snippet_is_present(populated_db: sqlite3.Connection) -> None:
     assert "launch" in result.hits[0].snippet.lower()
 
 
+def test_path_filter_queries_do_not_load_content_texts(
+    populated_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail_fetch(*_args: object, **_kwargs: object) -> dict[int, str]:
+        raise AssertionError("path-only filters should not fetch content texts")
+
+    monkeypatch.setattr(executor_module, "_fetch_content_texts", fail_fetch)
+
+    result = search(populated_db, "path:projects", limit=5)
+
+    assert result.hits
+
+
+def test_path_regex_queries_do_not_load_content_texts(
+    populated_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail_fetch(*_args: object, **_kwargs: object) -> dict[int, str]:
+        raise AssertionError("path-only regex filters should not fetch content texts")
+
+    monkeypatch.setattr(executor_module, "_fetch_content_texts", fail_fetch)
+
+    result = search(populated_db, "/report-[0-9]+/", limit=5)
+
+    assert result.hits
+
+
 def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     local_now = datetime.now().astimezone()
     today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
