@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Callable
 from os import fsdecode
 from pathlib import Path
-from queue import Empty, Queue
+from queue import Empty, Full, Queue
 from threading import Event, Lock, Thread
 from time import monotonic
 from typing import Protocol
@@ -12,10 +13,11 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from eodinga.common import WatchEvent
-from eodinga.observability import increment_counter
+from eodinga.observability import get_logger, increment_counter
 
 _DEBOUNCE_SECONDS = 0.1
 _FLUSH_LIMIT = 500
+_LOGGER = get_logger("core.watcher")
 
 
 def _event_type_for(event: FileSystemEvent) -> str:
@@ -100,12 +102,14 @@ class _Handler(FileSystemEventHandler):
 
 
 class WatchService:
-    def __init__(self) -> None:
-        self.queue: Queue[WatchEvent] = Queue()
+    def __init__(self, *, max_queue_size: int = 0) -> None:
+        self.queue: Queue[WatchEvent] = Queue(maxsize=max_queue_size)
         self._pending: dict[Path, WatchEvent] = {}
+        self._ready: deque[WatchEvent] = deque()
         self._retired_sources: dict[Path, set[Path]] = {}
         self._flushed_retired_sources: set[Path] = set()
         self._timestamps: dict[Path, float] = {}
+        self._queue_backpressured = False
         self._lock = Lock()
         self._stop = Event()
         self._flush_thread = None
@@ -272,14 +276,33 @@ class WatchService:
                         self._flushed_retired_sources.update(retired_sources)
                     if event.event_type in {"created", "modified", "deleted"}:
                         self._flushed_retired_sources.discard(event.path)
-                    self.queue.put(event)
+                    self._ready.append(event)
+            self._drain_ready_locked()
+
+    def _drain_ready_locked(self) -> None:
+        while self._ready:
+            event = self._ready[0]
+            try:
+                self.queue.put_nowait(event)
+            except Full:
+                if not self._queue_backpressured:
+                    _LOGGER.warning(
+                        "watch queue full; buffering {} event(s) until consumers catch up",
+                        len(self._ready),
+                    )
+                    self._queue_backpressured = True
+                return
+            self._ready.popleft()
+        self._queue_backpressured = False
 
     def _reset_state(self) -> None:
         with self._lock:
             self._pending.clear()
+            self._ready.clear()
             self._retired_sources.clear()
             self._flushed_retired_sources.clear()
             self._timestamps.clear()
+            self._queue_backpressured = False
         while True:
             try:
                 self.queue.get_nowait()

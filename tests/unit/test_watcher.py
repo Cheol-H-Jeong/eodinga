@@ -647,3 +647,107 @@ def test_watcher_start_ignores_duplicate_root_registration(
 
     assert started == [tmp_path]
     assert stopped == [tmp_path]
+
+
+def test_watcher_buffers_events_when_queue_is_full(tmp_path: Path) -> None:
+    service = WatchService(max_queue_size=1)
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "first.txt",
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "second.txt",
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    first = service.queue.get_nowait()
+    assert first.path == tmp_path / "first.txt"
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+    service._flush_ready(force=False)
+
+    second = service.queue.get_nowait()
+    assert second.path == tmp_path / "second.txt"
+
+
+def test_watcher_logs_backpressure_only_once_until_queue_drains(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import eodinga.core.watcher as watcher_module
+
+    warnings: list[int] = []
+
+    class FakeLogger:
+        def warning(self, _message: str, pending_count: int) -> None:
+            warnings.append(pending_count)
+
+    monkeypatch.setattr(watcher_module, "_LOGGER", FakeLogger())
+
+    service = WatchService(max_queue_size=1)
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "first.txt",
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "second.txt",
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "third.txt",
+            root_path=tmp_path,
+            happened_at=3.0,
+        )
+    )
+
+    service._flush_ready(force=True)
+    service._flush_ready(force=False)
+
+    assert warnings == [2]
+
+    service.queue.get_nowait()
+    service._flush_ready(force=False)
+    service.queue.get_nowait()
+    service._flush_ready(force=False)
+    service.queue.get_nowait()
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "fourth.txt",
+            root_path=tmp_path,
+            happened_at=4.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "fifth.txt",
+            root_path=tmp_path,
+            happened_at=5.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    assert warnings == [2, 1]
