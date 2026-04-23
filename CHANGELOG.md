@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.441 - 2026-04-23
+
+- Routed AppImage and Debian packaging through the shared release-version helper so Linux packaging entrypoints now fail fast when `pyproject.toml` and `eodinga/__init__.py` drift.
+- Normalized Debian package architectures from common host and CI aliases such as `x86_64` and `aarch64` into canonical Debian values like `amd64` and `arm64`.
+- Hardened PyInstaller hidden-import discovery to catch relative `import_module()` calls and `__import__(..., fromlist=...)` submodules, reducing packaging misses for dynamic imports.
+
 ## 0.1.431 - 2026-04-23
 
 - Tightened the top-level operator docs so the README now points reviewers directly at `packaging/dist/`, the local release handoff sequence, and the acceptance recovery path when the one-command gate fails.
