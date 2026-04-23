@@ -52,6 +52,16 @@ def test_compile_regex_mode_promotes_plain_terms_to_regex() -> None:
     assert branch.path_regex_terms[0].negated is False
 
 
+def test_compile_path_regex_with_escaped_slash_and_flags() -> None:
+    compiled = compile_query(parse(r"path:/foo\/bar/i"))
+    branch = compiled.branches[0]
+
+    assert branch.path_filters == ()
+    assert branch.path_regex_terms == (branch.path_regex_terms[0],)
+    assert branch.path_regex_terms[0].pattern == r"foo\/bar"
+    assert branch.path_regex_terms[0].flags == "i"
+
+
 @pytest.mark.parametrize(
     ("query", "expected_case_sensitive", "expected_regex_mode"),
     [

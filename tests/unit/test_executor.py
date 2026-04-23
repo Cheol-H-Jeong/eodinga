@@ -476,6 +476,19 @@ def test_execute_path_filter_with_regex_like_short_unix_basename_literal(
     assert hits == ["/tmp/ms"]
 
 
+def test_execute_path_filter_with_escaped_slash_regex(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/foo/bar.txt", 512, now, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, "/workspace/foo-baz.txt", 512, now - 60, "txt", body_text="beta")
+    tmp_db.commit()
+
+    hits = [
+        hit.file.path.as_posix() for hit in search(tmp_db, r"path:/foo\/bar/i", limit=5).hits
+    ]
+
+    assert hits == ["/workspace/foo/bar.txt"]
+
+
 def test_execute_decomposed_korean_content_query_keeps_snippets(
     tmp_db: sqlite3.Connection,
 ) -> None:
