@@ -4,6 +4,7 @@ from collections.abc import Callable
 from os import fsdecode
 from pathlib import Path
 from queue import Empty, Full, Queue
+import re
 from threading import Event, Lock, Thread
 from time import monotonic
 from typing import Protocol
@@ -39,7 +40,36 @@ def _is_within_root(path: Path, root: Path) -> bool:
 
 
 def _normalize_root(root: Path) -> Path:
+    root_text = str(root.expanduser())
+    if _is_windows_root_text(root_text):
+        return Path(_normalize_windows_root_text(root_text))
     return root.expanduser().resolve(strict=False)
+
+
+def _is_windows_root_text(root_text: str) -> bool:
+    return bool(re.match(r"^[A-Za-z]:[\\/]", root_text) or root_text.startswith("\\\\"))
+
+
+def _normalize_windows_root_text(root_text: str) -> str:
+    windows_root = root_text.replace("/", "\\")
+    if windows_root.startswith("\\\\?\\UNC\\"):
+        suffix = windows_root[8:].lstrip("\\").rstrip("\\")
+        return f"\\\\?\\UNC\\{suffix}"
+    if (
+        len(windows_root) >= 6
+        and windows_root.startswith("\\\\?\\")
+        and windows_root[4].isalpha()
+        and windows_root[5] == ":"
+    ):
+        drive = windows_root[4].upper()
+        suffix = windows_root[5:].rstrip("\\")
+        return f"\\\\?\\{drive}{suffix}"
+    if windows_root.startswith("\\\\"):
+        suffix = windows_root[2:].lstrip("\\").rstrip("\\")
+        return f"\\\\{suffix}"
+    if len(windows_root) >= 2 and windows_root[1] == ":" and windows_root[0].isalpha():
+        return f"{windows_root[0].upper()}{windows_root[1:].rstrip('\\')}"
+    return windows_root.rstrip("\\")
 
 
 class _ManagedObserver(Protocol):

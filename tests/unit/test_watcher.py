@@ -9,7 +9,7 @@ import pytest
 from watchdog.events import FileMovedEvent
 
 from eodinga.common import WatchEvent
-from eodinga.core.watcher import WatchService, _Handler
+from eodinga.core.watcher import WatchService, _Handler, _normalize_root
 from eodinga.observability import recent_snapshots, reset_metrics, snapshot_metrics
 
 
@@ -707,6 +707,48 @@ def test_watcher_start_normalizes_equivalent_root_paths(
     service.stop()
 
     assert started == [tmp_path]
+
+
+def test_watcher_normalize_root_preserves_extended_windows_prefix() -> None:
+    normalized = _normalize_root(Path(r"\\?\c:\workspace/reports\\"))
+
+    assert normalized == Path(r"\\?\C:\workspace\reports")
+
+
+def test_watcher_start_normalizes_equivalent_extended_windows_root_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import eodinga.core.watcher as watcher_module
+
+    started: list[Path] = []
+
+    class FakeObserver:
+        def __init__(self) -> None:
+            self.root: Path | None = None
+
+        def schedule(self, _handler: object, root_text: str, recursive: bool = True) -> None:
+            assert recursive is True
+            self.root = Path(root_text)
+
+        def start(self) -> None:
+            assert self.root is not None
+            started.append(self.root)
+
+        def stop(self) -> None:
+            return None
+
+        def join(self, timeout: float | None = None) -> None:
+            assert timeout == 1
+
+    monkeypatch.setattr(watcher_module, "Observer", FakeObserver)
+
+    service = WatchService()
+
+    service.start(Path(r"\\?\c:\workspace/reports"))
+    service.start(Path(r"\\?\C:/workspace/reports\\"))
+    service.stop()
+
+    assert started == [Path(r"\\?\C:\workspace\reports")]
 
 
 @pytest.mark.parametrize("failure_stage", ["schedule", "start"])
