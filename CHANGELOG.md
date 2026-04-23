@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.377 - 2026-04-23
+
+- Replaced executor fallback `OFFSET` scans with `files.id` cursor batches and cached repeated content-text SQL shapes, reducing the cost of deep regex, Unicode, and content backfill scans.
+- Reused a single walker `indexed_at` timestamp per traversal and kept symlink-root descent on the existing follow-stat path, trimming per-entry filesystem work in cold-start indexing.
+- Raised writer maintenance chunking to 900 parameters so mid-sized delete and content cleanup batches finish in fewer SQLite round-trips while staying under conservative bind limits.
+
 ## 0.1.369 - 2026-04-23
 
 - Expanded live-update integration coverage to prove in-place content rewrites and cross-root moves both converge in search within the 500ms watcher budget, including root-scoped query visibility.
