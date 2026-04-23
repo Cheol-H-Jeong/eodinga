@@ -22,6 +22,7 @@ PY
 )"
 ARCH="${TARGET_ARCH:-$(uname -m)}"
 ARCHIVE_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-${ARCH}-appdir.tar.gz"
+ARCHIVE_SHA256_PATH="${ARCHIVE_PATH}.sha256"
 DRY_RUN=0
 
 if [[ "${1:-}" == "--dry-run" ]]; then
@@ -62,6 +63,7 @@ chmod +x "${APPDIR}/AppRun" "${APPDIR}/usr/bin/eodinga"
 
 tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf "${ARCHIVE_PATH}" -C "${DIST_DIR}" "$(basename "${APPDIR}")"
 python3 - <<PY
+import hashlib
 import json
 import os
 import tarfile
@@ -84,6 +86,10 @@ recipe_path = Path("${APPIMAGE_RECIPE}")
 rendered_recipe_path = Path("${RENDERED_RECIPE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
 rendered_recipe_text = rendered_recipe_path.read_text(encoding="utf-8")
+archive_path = Path("${ARCHIVE_PATH}")
+archive_sha256 = hashlib.sha256(archive_path.read_bytes()).hexdigest()
+archive_sha256_path = Path("${ARCHIVE_SHA256_PATH}")
+archive_sha256_path.write_text(f"{archive_sha256}  {archive_path.name}\n", encoding="utf-8")
 with tarfile.open("${ARCHIVE_PATH}", mode="r:gz") as archive:
     members = archive.getmembers()
 payload = {
@@ -92,9 +98,13 @@ payload = {
     "arch": "${ARCH}",
     "appdir": "${APPDIR}",
     "archive": "${ARCHIVE_PATH}",
+    "archive_sha256_path": str(archive_sha256_path),
     "archive_entries_sorted": [member.name for member in members] == sorted(member.name for member in members),
     "archive_mtime_zero": all(member.mtime == 0 for member in members),
     "archive_numeric_owner_zero": all(member.uid == 0 and member.gid == 0 for member in members),
+    "archive_sha256": archive_sha256,
+    "archive_sha256_file_exists": archive_sha256_path.exists(),
+    "archive_sha256_matches_file": archive_sha256_path.read_text(encoding="utf-8").strip() == f"{archive_sha256}  {archive_path.name}",
     "dry_run": bool(${DRY_RUN}),
     "desktop_entry": {
         "path": str(desktop_path),

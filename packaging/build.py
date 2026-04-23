@@ -325,6 +325,8 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (payload.get("archive_entries_sorted"), "AppImage archive entries are no longer sorted"),
         (payload.get("archive_mtime_zero"), "AppImage archive member mtimes are no longer reproducible"),
         (payload.get("archive_numeric_owner_zero"), "AppImage archive ownership is no longer reproducible"),
+        (payload.get("archive_sha256_file_exists"), "AppImage archive SHA-256 companion file is missing"),
+        (payload.get("archive_sha256_matches_file"), "AppImage archive SHA-256 companion file no longer matches the staged archive"),
     ]
     for ok, message in required_flags:
         if not ok:
