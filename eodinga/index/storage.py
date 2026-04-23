@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import sqlite3
 import shutil
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from pathlib import Path
 
 from eodinga.index.migrations import migrate
@@ -10,6 +12,13 @@ from eodinga.index.schema import PRAGMAS, current_schema_version
 from eodinga.observability import get_logger
 
 SQLITE_CACHED_STATEMENTS = 128
+
+
+def _read_pragma(conn: sqlite3.Connection, name: str) -> str:
+    row = conn.execute(f"PRAGMA {name};").fetchone()
+    if row is None:
+        raise sqlite3.OperationalError(f"PRAGMA {name} did not return a value")
+    return str(row[0])
 
 
 def _sidecar(path: Path, suffix: str) -> Path:
@@ -33,6 +42,22 @@ def connect_database(
         sqlite3.connect(path, cached_statements=SQLITE_CACHED_STATEMENTS),
         row_factory=row_factory,
     )
+
+
+@contextmanager
+def temporary_pragmas(
+    conn: sqlite3.Connection,
+    overrides: Mapping[str, str | int],
+) -> Iterator[None]:
+    previous: dict[str, str] = {}
+    for name, value in overrides.items():
+        previous[name] = _read_pragma(conn, name)
+        conn.execute(f"PRAGMA {name}={value};")
+    try:
+        yield
+    finally:
+        for name, value in previous.items():
+            conn.execute(f"PRAGMA {name}={value};")
 
 
 def _checkpoint_wal(path: Path) -> None:

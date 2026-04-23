@@ -18,6 +18,7 @@ from eodinga.index.storage import (
     recover_interrupted_build,
     recover_interrupted_recovery,
     recover_stale_wal,
+    temporary_pragmas,
 )
 
 
@@ -287,6 +288,47 @@ def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, m
     try:
         assert seen["database"] == path
         assert seen["cached_statements"] == SQLITE_CACHED_STATEMENTS
+    finally:
+        conn.close()
+
+
+def test_temporary_pragmas_override_then_restore_values(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    conn = connect_database(path)
+    try:
+        baseline = conn.execute("PRAGMA synchronous;").fetchone()
+        assert baseline is not None
+        baseline_value = int(baseline[0])
+
+        with temporary_pragmas(conn, {"synchronous": "FULL", "cache_size": -1024}):
+            synchronous = conn.execute("PRAGMA synchronous;").fetchone()
+            cache_size = conn.execute("PRAGMA cache_size;").fetchone()
+            assert synchronous is not None
+            assert cache_size is not None
+            assert int(synchronous[0]) == 2
+            assert int(cache_size[0]) == -1024
+
+        restored = conn.execute("PRAGMA synchronous;").fetchone()
+        restored_cache = conn.execute("PRAGMA cache_size;").fetchone()
+        assert restored is not None
+        assert restored_cache is not None
+        assert int(restored[0]) == baseline_value
+        assert int(restored_cache[0]) == -64000
+    finally:
+        conn.close()
+
+
+def test_temporary_pragmas_restores_values_after_error(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    conn = connect_database(path)
+    try:
+        with pytest.raises(RuntimeError, match="boom"):
+            with temporary_pragmas(conn, {"cache_size": -2048}):
+                raise RuntimeError("boom")
+
+        cache_size = conn.execute("PRAGMA cache_size;").fetchone()
+        assert cache_size is not None
+        assert int(cache_size[0]) == -64000
     finally:
         conn.close()
 
