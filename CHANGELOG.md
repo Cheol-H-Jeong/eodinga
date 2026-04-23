@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.971 - 2026-04-24
+
+- Expanded the README with surface-to-evidence shortcuts, an operator decision matrix, and review-focused FAQ entries so docs-heavy rounds have a shorter proof path.
+- Clarified the architecture guide around symptom-to-subsystem routing, evidence ownership, and docs-versus-artifact debug flow for release-facing issues.
+- Added contributor and release handoff templates that distinguish platform-specific dry runs from the release-wide audit and keep worker reports evidence-backed.
+
 ## 0.1.965 - 2026-04-24
 
 - Hardened Linux packaging audits so both the AppImage and Debian dry runs now fail if the shipped desktop entry stops being a non-terminal `Application` launcher.
