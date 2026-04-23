@@ -154,7 +154,7 @@ def _validate_regex_pattern(pattern: str, flags: str = "") -> None:
         raise QuerySyntaxError(f"invalid regex: {error}", 0) from error
 
 
-def _size_to_bytes(value: str) -> tuple[str, int]:
+def _size_to_bytes(value: str, *, default_unit: str | None = None) -> tuple[str, int]:
     text = value.strip()
     comparator = "="
     for prefix in (">=", "<=", ">", "<", "="):
@@ -162,8 +162,9 @@ def _size_to_bytes(value: str) -> tuple[str, int]:
             comparator = prefix
             text = text[len(prefix) :]
             break
-    unit = text[-1].upper() if text and text[-1].isalpha() else "B"
-    number_text = text[:-1] if unit != "B" or (text and text[-1].isalpha()) else text
+    explicit_unit = text[-1].upper() if text and text[-1].isalpha() else None
+    unit = explicit_unit or default_unit or "B"
+    number_text = text[:-1] if explicit_unit is not None else text
     factor = {"B": 1, "K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}.get(unit)
     if factor is None:
         raise QuerySyntaxError(f"invalid size literal: {value}", 0)
@@ -171,6 +172,23 @@ def _size_to_bytes(value: str) -> tuple[str, int]:
         return comparator, int(float(number_text) * factor)
     except ValueError as error:
         raise QuerySyntaxError(f"invalid size literal: {value}", 0) from error
+
+
+def _size_to_range(value: str) -> tuple[int, int] | None:
+    text = value.strip()
+    if ".." not in text:
+        return None
+    if text.startswith((">=", "<=", ">", "<", "=")):
+        raise QuerySyntaxError(f"invalid size literal: {value}", 0)
+    left, right = (part.strip() for part in text.split("..", 1))
+    if not left or not right:
+        raise QuerySyntaxError(f"invalid size literal: {value}", 0)
+    left_unit = left[-1].upper() if left[-1].isalpha() else None
+    right_unit = right[-1].upper() if right[-1].isalpha() else None
+    default_unit = right_unit or left_unit
+    _, start = _size_to_bytes(left, default_unit=default_unit)
+    _, end = _size_to_bytes(right, default_unit=default_unit)
+    return (start, end) if start <= end else (end, start)
 
 
 def _day_bounds(day: date) -> tuple[int, int]:
@@ -320,12 +338,20 @@ def _compile_branch(
             where_params.extend([start, end])
             continue
         if term.name == "size":
-            comparator, size_bytes = _size_to_bytes(term.value)
-            if term.negated:
-                where_parts.append(f"NOT (files.size {comparator} ?)")
+            size_range = _size_to_range(term.value)
+            if size_range is not None:
+                if term.negated:
+                    where_parts.append("NOT (files.size >= ? AND files.size <= ?)")
+                else:
+                    where_parts.append("files.size >= ? AND files.size <= ?")
+                where_params.extend(size_range)
             else:
-                where_parts.append(f"files.size {comparator} ?")
-            where_params.append(size_bytes)
+                comparator, size_bytes = _size_to_bytes(term.value)
+                if term.negated:
+                    where_parts.append(f"NOT (files.size {comparator} ?)")
+                else:
+                    where_parts.append(f"files.size {comparator} ?")
+                where_params.append(size_bytes)
             continue
         if term.name == "is":
             normalized = term.value.lower()
