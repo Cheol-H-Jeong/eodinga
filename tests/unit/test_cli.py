@@ -526,6 +526,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert len(payload["recent_snapshots"]) == 1
     assert payload["recent_snapshots"][0]["name"] == "command.search"
     assert payload["recent_snapshots"][0]["payload"]["query"] == "duplicate"
+    assert payload["latest_failure"] is None
+    assert payload["latest_crash"] is None
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
     assert payload["log_rotation"] == "5 MB"
@@ -763,9 +765,39 @@ def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path
     assert metrics["counters"]["crashes_reported"] == 1
     assert metrics["counters"]["crash_logs_written"] == 1
     assert metrics["counters"]["crash_sources.command"] == 1
-    assert "crash_log_write_failures" not in metrics["counters"]
-    assert "commands_completed" not in metrics["counters"]
-    assert metrics["histograms"]["command_latency_ms"]["count"] == 1
+
+
+def test_stats_json_surfaces_latest_failure_and_crash_snapshots(
+    monkeypatch,
+    tmp_path: Path,
+    capsys,
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    def _boom(_args) -> int:
+        raise RuntimeError("doctor exploded")
+
+    monkeypatch.setattr("eodinga.__main__._cmd_doctor", _boom)
+
+    exit_code = main(["--db", str(db_path), "doctor"])
+    assert exit_code == 1
+    capsys.readouterr()
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["latest_failure"]["name"] == "command.failure"
+    assert payload["latest_failure"]["payload"]["command"] == "doctor"
+    assert payload["latest_failure"]["payload"]["reason"] == "exception"
+    assert payload["latest_crash"]["name"] == "command.crash"
+    assert payload["latest_crash"]["payload"]["command"] == "doctor"
+    assert payload["latest_crash"]["payload"]["error_type"] == "RuntimeError"
+    assert "crash_log_write_failures" not in payload["counters"]
+    assert "commands_completed" not in payload["counters"]
+    assert payload["histograms"]["command_latency_ms"]["count"] == 1
 
 
 def test_interrupted_command_returns_130_without_crash_metrics(

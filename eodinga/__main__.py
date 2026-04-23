@@ -197,6 +197,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         index_snapshot = read_index_stats(conn)
     metrics = snapshot_metrics()
     counters = metrics["counters"]
+    snapshots = [dict(entry) for entry in recent_snapshots()]
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
         process_started_at=metrics["process_started_at"],
@@ -248,7 +249,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         watcher_event_types=_watcher_event_type_summary(counters),
         counters=counters,
         histograms=metrics["histograms"],
-        recent_snapshots=[dict(entry) for entry in recent_snapshots()],
+        recent_snapshots=snapshots,
+        latest_failure=_latest_snapshot(snapshots, "command.failure"),
+        latest_crash=_latest_snapshot(snapshots, "command.crash"),
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
         log_path=resolve_log_path(),
@@ -424,6 +427,16 @@ def _watcher_event_type_summary(counters: dict[str, int]) -> dict[str, int]:
     return dict(sorted(event_types.items()))
 
 
+def _latest_snapshot(
+    snapshots: list[dict[str, object]],
+    name: str,
+) -> dict[str, object] | None:
+    for entry in reversed(snapshots):
+        if entry.get("name") == name:
+            return entry
+    return None
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -435,7 +448,8 @@ def main(argv: list[str] | None = None) -> int:
         raise
     except Exception as error:
         command_argv = argv or sys.argv[1:]
-        command = " ".join(command_argv) or "<interactive>"
+        command_name = args.command or "<interactive>"
+        command = " ".join(command_argv) or command_name
         crash_path = report_crash(
             error,
             context=f"Unhandled exception while running: {command}",
@@ -445,7 +459,8 @@ def main(argv: list[str] | None = None) -> int:
         record_snapshot(
             "command.crash",
             {
-                "command": command,
+                "command": command_name,
+                "command_line": command,
                 "error_type": type(error).__name__,
                 "crash_path": str(crash_path) if crash_path is not None else None,
             },

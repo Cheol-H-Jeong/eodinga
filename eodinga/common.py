@@ -146,6 +146,8 @@ class StatsSnapshot(BaseModel):
     counters: dict[str, int] = Field(default_factory=dict)
     histograms: dict[str, dict[str, object]] = Field(default_factory=dict)
     recent_snapshots: list[dict[str, object]] = Field(default_factory=list)
+    latest_failure: dict[str, object] | None = None
+    latest_crash: dict[str, object] | None = None
     roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None
     log_path: Path | None = None
