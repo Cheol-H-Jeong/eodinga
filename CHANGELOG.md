@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.301 - 2026-04-23
+## 0.1.305 - 2026-04-23
 
 - Turned `launcher.frameless` into a real persisted setting, added a live Settings toggle for it, and updated the popup window to apply frameless/titlebar changes without restarting the GUI.
 - Hardened launcher geometry restore so saved size and position are clamped to the current screen before the popup is shown, preventing off-screen reopen behavior after monitor-layout changes.
