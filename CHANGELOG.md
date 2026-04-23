@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.143 - 2026-04-23
+
+- Expanded `eodinga stats --json` so it now emits the full in-memory metrics snapshot, current log/crash destinations, crash-write counts, and CLI command counters alongside the persisted index totals.
+- Added CLI-bound observability for command invocations, failures, and per-command latency histograms, plus regressions that pin parser-error reporting and command metrics through real `main(...)` flows.
+- Enriched `crash-<ts>.log` artifacts with the active log path, crash directory, and serialized metrics snapshot so post-mortem debugging keeps the runtime context that produced the failure.
+
 ## 0.1.142 - 2026-04-23
 
 - Expanded the Windows PyInstaller spec so packaging now auto-discovers real `eodinga.*` module imports from the source tree, including relative imports, instead of relying only on a hand-maintained runtime list.
