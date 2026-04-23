@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.277 - 2026-04-23
+
+- Added parser observability for attempts, successes, empty parses, skip-too-large decisions, and per-parser latency/body-size histograms so parser health is visible through runtime stats instead of only logs.
+- Added query observability for scoped searches, zero-result vs non-empty outcomes, truncation, branch counts, result counts, and invalid query syntax failures, making search behavior easier to inspect from `eodinga stats --json`.
+- Enriched the stats snapshot with stable runtime metadata including version, process id, platform, Python version, and process start time so operators can correlate live metrics with the exact running build.
+
 ## 0.1.272 - 2026-04-23
 
 - Made staged index rebuilds stop cleanly on `SIGINT` and `SIGTERM` batch boundaries, preserving the `.next` snapshot for later resume instead of discarding already committed work mid-rebuild.
