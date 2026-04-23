@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.301 - 2026-04-23
+
+- Turned `launcher.frameless` into a real persisted setting, added a live Settings toggle for it, and updated the popup window to apply frameless/titlebar changes without restarting the GUI.
+- Hardened launcher geometry restore so saved size and position are clamped to the current screen before the popup is shown, preventing off-screen reopen behavior after monitor-layout changes.
+
 ## 0.1.287 - 2026-04-23
 
 - Expanded the tray controller so it now exposes explicit `Open eodinga`, `Show launcher`, and `Hide launcher` actions while keeping the launcher toggle text synchronized with the popup window state.
