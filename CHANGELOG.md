@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.579 - 2026-04-23
+
+- Refreshed the checked-in perf documentation and README summary from a same-HEAD rerun, including current cold-start, rebuild, bulk-upsert, query-latency, content-query, and watch-latency samples.
+- Added walker-throughput coverage to the perf guide, including the exact failing `walk_batched` summary line observed on this Linux dev host so the recorded baseline does not imply a green perf rerun where one did not exist.
+- Tightened contributor and release docs so future perf-note refreshes must carry exact summary lines and must document missed opt-in thresholds explicitly.
+
 ## 0.1.570 - 2026-04-23
 
 - Added visible `Alt+1` through `Alt+9` quick-pick badges to the first nine launcher results so keyboard shortcuts are discoverable directly in the result list.
