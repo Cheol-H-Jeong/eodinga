@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.571 - 2026-04-23
+
+- Added a launcher result context menu that exposes the existing open, reveal, copy path, copy name, and properties actions directly from the results list.
+- Preserved launcher geometry when frameless and always-on-top flags change while the popup is hidden, so the next show reopens at the same size and position.
+- Routed tray and hotkey launcher activation through one shared present path so reopening the launcher consistently restores focus and selects the current query text.
+
 ## 0.1.569 - 2026-04-23
 
 - Added live watcher integration coverage for deleting and recreating the same path, asserting the new content becomes searchable within 500ms and the stale content immediately disappears.
