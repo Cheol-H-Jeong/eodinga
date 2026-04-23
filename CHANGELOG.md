@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.117 - 2026-04-23
+
+- Centralized SQLite connection setup behind a shared helper that keeps the runtime PRAGMA profile consistent while explicitly reserving a 128-statement cache for index rebuilds, stale-WAL recovery, normal opens, and the opt-in perf harness.
+- Cached the chunk-shaped SQL templates used by `IndexWriter` delete and content lookup paths, removing repeated placeholder-string reconstruction from watcher cleanup and content-row maintenance loops.
+- Skipped duplicate parser work for repeated paths inside one `bulk_upsert()` batch, so content extraction now runs once per unique file path even if the caller provides duplicate records in the same transaction.
+
 ## 0.1.115 - 2026-04-23
 
 - Expanded the shipped README with an explicit feature inventory, a compact DSL cheatsheet, generated-screenshot provenance, and direct links to contributor and release workflows so the top-level product contract is easier to audit.

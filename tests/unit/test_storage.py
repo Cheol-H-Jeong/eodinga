@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import sqlite3
+from typing import Any
 from pathlib import Path
 
 import pytest
@@ -237,7 +238,7 @@ def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, m
     seen: dict[str, object] = {}
     original_connect = sqlite3.connect
 
-    def fake_connect(database: str | bytes | Path, *args: object, **kwargs: object) -> sqlite3.Connection:
+    def fake_connect(database: str | bytes | Path, *args: Any, **kwargs: Any) -> sqlite3.Connection:
         seen["database"] = database
         seen["cached_statements"] = kwargs.get("cached_statements")
         return original_connect(database, *args, **kwargs)
