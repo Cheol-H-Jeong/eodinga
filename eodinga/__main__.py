@@ -7,6 +7,7 @@ import re
 import sys
 from contextlib import closing
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 from eodinga import __version__
@@ -20,8 +21,11 @@ from eodinga.observability import (
     configure_logging,
     counter_value,
     histogram_snapshot,
+    increment_counter,
+    install_crash_hooks,
+    record_histogram,
     snapshot_metrics,
-    write_crash_log,
+    emit_crash_log,
 )
 from eodinga.query import QuerySyntaxError, search as run_search
 
@@ -209,20 +213,40 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     configure_logging(args.log_level)
+    install_crash_hooks()
+    command = getattr(args, "command", "unknown")
+    started = perf_counter()
+    failed_by_exception = False
+    increment_counter("commands_invoked")
+    increment_counter(f"commands.{command}.invoked")
     try:
-        return args.handler(args)
+        exit_code = int(args.handler(args))
     except KeyboardInterrupt:
+        increment_counter("commands_interrupted")
+        increment_counter(f"commands.{command}.interrupted")
         raise
     except Exception as error:
         command_argv = argv or sys.argv[1:]
-        command = " ".join(command_argv) or "<interactive>"
-        crash_path = write_crash_log(
+        invoked_command = " ".join(command_argv) or "<interactive>"
+        failed_by_exception = True
+        increment_counter("commands_failed")
+        increment_counter(f"commands.{command}.failed")
+        emit_crash_log(
             error,
-            context=f"Unhandled exception while running: {command}",
+            context=f"Unhandled exception while running: {invoked_command}",
             details={"argv": command_argv},
         )
-        sys.stderr.write(f"unhandled exception; crash log written to {crash_path}\n")
-        return 1
+        exit_code = 1
+    elapsed_ms = (perf_counter() - started) * 1000
+    record_histogram("command_runtime_ms", elapsed_ms)
+    record_histogram(f"commands.{command}.runtime_ms", elapsed_ms)
+    if exit_code == 0:
+        increment_counter("commands_completed")
+        increment_counter(f"commands.{command}.completed")
+    elif not failed_by_exception:
+        increment_counter("commands_failed")
+        increment_counter(f"commands.{command}.failed")
+    return exit_code
 
 
 if __name__ == "__main__":

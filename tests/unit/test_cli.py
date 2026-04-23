@@ -472,6 +472,12 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["parser_errors"] == 0
     assert payload["watcher_events"] == 0
     assert payload["query_latency_histogram"]["count"] == 1
+    assert payload["counters"]["commands_invoked"] == 2
+    assert payload["counters"]["commands.search.invoked"] == 1
+    assert payload["counters"]["commands.search.completed"] == 1
+    assert payload["counters"]["commands.stats.invoked"] == 1
+    assert payload["histograms"]["command_runtime_ms"]["count"] == 1
+    assert payload["histograms"]["commands.search.runtime_ms"]["count"] == 1
     assert payload["counters"]["queries_served"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
 
@@ -522,4 +528,27 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["parsers.broken.error"] == 1
     assert payload["counters"]["queries_served"] == 1
     assert payload["counters"]["watcher_events"] == 1
+    assert payload["counters"]["commands.index.completed"] == 1
+    assert payload["counters"]["commands.search.completed"] == 1
+    assert payload["counters"]["commands.stats.invoked"] == 1
+    assert payload["histograms"]["commands.index.runtime_ms"]["count"] == 1
+    assert payload["histograms"]["commands.search.runtime_ms"]["count"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
+
+
+def test_command_failures_appear_in_stats(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    failed_search = main(["--db", str(db_path), "search", "/[a-/", "--json"])
+    failed_output = capsys.readouterr()
+    assert failed_search == 2
+    assert "invalid regex" in failed_output.err.lower()
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["counters"]["commands_failed"] == 1
+    assert payload["counters"]["commands.search.failed"] == 1
