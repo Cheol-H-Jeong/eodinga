@@ -28,6 +28,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     readme = (root / "README.md").read_text(encoding="utf-8")
     acceptance = (root / "docs" / "ACCEPTANCE.md").read_text(encoding="utf-8")
     architecture = (root / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+    faq = (root / "docs" / "FAQ.md").read_text(encoding="utf-8")
     contributing = (root / "docs" / "CONTRIBUTING.md").read_text(encoding="utf-8")
     dsl = (root / "docs" / "DSL.md").read_text(encoding="utf-8")
     manpage = (root / "docs" / "man" / "eodinga.1").read_text(encoding="utf-8")
@@ -67,6 +68,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "docs/DSL.md" in readme
     assert "docs/ACCEPTANCE.md" in readme
     assert "docs/ARCHITECTURE.md" in readme
+    assert "docs/FAQ.md" in readme
     assert "docs/CONTRIBUTING.md" in readme
     assert "docs/PERFORMANCE.md" in readme
     assert "docs/RELEASE.md" in readme
@@ -82,6 +84,25 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "docs only" in readme
     assert "packaging/dist/" in readme
     assert "Docs asset drift after CLI or UI changes" in readme
+    assert "Use [docs/FAQ.md]" in readme
+
+    assert "## Search And Indexing" in faq
+    assert "## Live Updates And Recovery" in faq
+    assert "## Launcher And Config" in faq
+    assert "## Packaging And Release Review" in faq
+    assert "tests/safety/test_no_network.py" in faq
+    assert "parser extras" in faq
+    assert "is:duplicate" in faq
+    assert "eodinga stats --json" in faq
+    assert "eodinga doctor" in faq
+    assert "eodinga index --rebuild" in faq
+    assert "launcher.pinned_queries" in faq
+    assert "~/.config/eodinga/config.toml" in faq
+    assert "%LOCALAPPDATA%\\eodinga\\index.db" in faq
+    assert "packaging/dist/" in faq
+    assert "docs/man/eodinga.1" in faq
+    assert "docs/ACCEPTANCE.md" in faq
+    assert "docs/RELEASE.md" in faq
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance

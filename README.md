@@ -287,6 +287,7 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - `docs/DSL.md` is the complete query reference.
 - `docs/ACCEPTANCE.md` is the release gate and shipped-surface checklist.
 - `docs/ARCHITECTURE.md` covers the runtime flow, storage model, and packaging surfaces.
+- `docs/FAQ.md` expands the quick questions around local-only behavior, recovery, config paths, and packaging review.
 - `docs/PERFORMANCE.md` captures the opt-in perf suite and current local baseline.
 - `docs/CONTRIBUTING.md` is the contributor workflow for sync, tests, docs refresh, and release hygiene.
 - `docs/RELEASE.md` is the local release-cut and handoff procedure.
@@ -380,6 +381,7 @@ If those are clean but the packaged app still looks wrong, continue with the rel
 - [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md): query cheatsheet and operator notes.
 - [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md): SPEC §9 release checklist and validation commands.
 - [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md): runtime flow, index lifecycle, and packaging surfaces.
+- [docs/FAQ.md](/home/cheol/projects/eodinga/docs/FAQ.md): deeper operator answers for recovery, local-only guarantees, launcher state, and release review.
 - [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, current baselines, and profiling workflow.
 - [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md): local workflow, guardrails, and doc/screenshot expectations for contributors.
 - [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md): release-candidate workflow, tagging, packaging validation, and handoff.
@@ -393,6 +395,8 @@ Contributor workflow lives in [docs/CONTRIBUTING.md](/home/cheol/projects/eoding
 Release-specific steps live in [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md), with [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md) as the short gate checklist.
 
 ## FAQ
+
+Use [docs/FAQ.md](/home/cheol/projects/eodinga/docs/FAQ.md) when you need the longer operator answers; the entries below keep the top-level README short.
 
 ### Does `eodinga` send file contents anywhere?
 
