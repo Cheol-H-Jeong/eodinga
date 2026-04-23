@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Callable, Iterable, Sequence
+from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
 from time import time
@@ -13,6 +14,9 @@ from eodinga.index.schema import apply_schema, current_schema_version
 ParserCallback = Callable[[Path], ParsedContent | None]
 RecordLoader = Callable[[Path], FileRecord | None]
 T = TypeVar("T")
+SQLITE_SYNCHRONOUS_NORMAL = 1
+SQLITE_SYNCHRONOUS_FULL = 2
+BULK_UPSERT_SYNC_THRESHOLD = 256
 
 
 class ExistingContentRow(NamedTuple):
@@ -97,9 +101,10 @@ class IndexWriter:
         buffered = _materialize_records(records)
         if not buffered:
             return 0
-        with self._conn:
-            self._upsert_records(buffered)
-            self._upsert_content(buffered)
+        with self._temporary_bulk_sync_mode(len(buffered)):
+            with self._conn:
+                self._upsert_records(buffered)
+                self._upsert_content(buffered)
         return len(buffered)
 
     def apply_events(self, events: Sequence[WatchEvent], record_loader: RecordLoader) -> int:
@@ -155,8 +160,27 @@ class IndexWriter:
             (_record_tuple(record) for record in records),
         )
 
+    @contextmanager
+    def _temporary_bulk_sync_mode(self, record_count: int) -> Iterable[None]:
+        if record_count < BULK_UPSERT_SYNC_THRESHOLD or self._conn.in_transaction:
+            yield
+            return
+        previous_mode = self._read_synchronous_mode()
+        if previous_mode != SQLITE_SYNCHRONOUS_NORMAL:
+            self._conn.execute(f"PRAGMA synchronous = {SQLITE_SYNCHRONOUS_NORMAL}")
+        try:
+            yield
+        finally:
+            if previous_mode != SQLITE_SYNCHRONOUS_NORMAL:
+                self._conn.execute(f"PRAGMA synchronous = {previous_mode}")
+
     def _delete_path(self, path: Path, content_deletes: list[int]) -> int:
         return self._delete_paths((path,), content_deletes)
+
+    def _read_synchronous_mode(self) -> int:
+        row = self._conn.execute("PRAGMA synchronous").fetchone()
+        assert row is not None
+        return int(row[0])
 
     def _delete_paths(self, paths: Sequence[Path], content_deletes: list[int]) -> int:
         unique_paths = tuple(dict.fromkeys(str(path) for path in paths))

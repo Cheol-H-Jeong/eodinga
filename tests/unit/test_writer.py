@@ -4,6 +4,8 @@ import sqlite3
 from pathlib import Path
 from time import perf_counter, time
 
+import pytest
+
 import eodinga.index.writer as writer_module
 from eodinga.content.base import ParsedContent
 from eodinga.common import FileRecord, WatchEvent
@@ -35,6 +37,7 @@ def test_writer_bulk_insert_and_incremental_apply_are_fast(tmp_db: Path, tmp_pat
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         (str(tmp_path), "[]", "[]", 1),
     )
+    conn.commit()
     writer = IndexWriter(conn)
     records = [_synthetic_record(index, tmp_path) for index in range(5000)]
 
@@ -96,6 +99,101 @@ def test_writer_without_parser_skips_content_queries(tmp_db: Path, tmp_path: Pat
 
     assert not any("content_map" in statement for statement in statements)
     assert conn.execute("SELECT COUNT(*) FROM content_map").fetchone() == (0,)
+
+
+def test_writer_bulk_upsert_uses_normal_sync_for_large_batches(
+    tmp_db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    conn.commit()
+    writer = IndexWriter(conn)
+    records = [_synthetic_record(index, tmp_path) for index in range(writer_module.BULK_UPSERT_SYNC_THRESHOLD)]
+    observed_modes: list[int] = []
+
+    def record_sync_mode(_records: list[FileRecord]) -> None:
+        row = conn.execute("PRAGMA synchronous").fetchone()
+        assert row is not None
+        observed_modes.append(int(row[0]))
+
+    monkeypatch.setattr(writer, "_upsert_records", record_sync_mode)
+    monkeypatch.setattr(writer, "_upsert_content", lambda _records: None)
+
+    assert writer.bulk_upsert(records) == len(records)
+    assert observed_modes == [writer_module.SQLITE_SYNCHRONOUS_NORMAL]
+    assert conn.execute("PRAGMA synchronous").fetchone() == (writer_module.SQLITE_SYNCHRONOUS_FULL,)
+
+
+def test_writer_bulk_upsert_restores_sync_mode_after_failure(
+    tmp_db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    conn.commit()
+    writer = IndexWriter(conn)
+    records = [_synthetic_record(index, tmp_path) for index in range(writer_module.BULK_UPSERT_SYNC_THRESHOLD)]
+    observed_modes: list[int] = []
+
+    def fail_after_recording(_records: list[FileRecord]) -> None:
+        row = conn.execute("PRAGMA synchronous").fetchone()
+        assert row is not None
+        observed_modes.append(int(row[0]))
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(writer, "_upsert_records", fail_after_recording)
+    monkeypatch.setattr(writer, "_upsert_content", lambda _records: None)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        writer.bulk_upsert(records)
+
+    assert observed_modes == [writer_module.SQLITE_SYNCHRONOUS_NORMAL]
+    assert conn.execute("PRAGMA synchronous").fetchone() == (writer_module.SQLITE_SYNCHRONOUS_FULL,)
+
+
+def test_writer_bulk_upsert_keeps_full_sync_for_small_batches(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    writer = IndexWriter(conn)
+    records = [_synthetic_record(index, tmp_path) for index in range(3)]
+    statements: list[str] = []
+
+    conn.set_trace_callback(statements.append)
+    try:
+        assert writer.bulk_upsert(records) == len(records)
+    finally:
+        conn.set_trace_callback(None)
+
+    assert not any("PRAGMA synchronous = 1" in statement for statement in statements)
+    assert conn.execute("PRAGMA synchronous").fetchone() == (writer_module.SQLITE_SYNCHRONOUS_FULL,)
+
+
+def test_writer_bulk_upsert_skips_sync_mode_change_inside_existing_transaction(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    writer = IndexWriter(conn)
+    records = [_synthetic_record(index, tmp_path) for index in range(writer_module.BULK_UPSERT_SYNC_THRESHOLD)]
+    statements: list[str] = []
+
+    conn.set_trace_callback(statements.append)
+    try:
+        assert writer.bulk_upsert(records) == len(records)
+    finally:
+        conn.set_trace_callback(None)
+
+    assert not any("PRAGMA synchronous = 1" in statement for statement in statements)
+    assert conn.execute("PRAGMA synchronous").fetchone() == (writer_module.SQLITE_SYNCHRONOUS_FULL,)
 
 
 def test_writer_bulk_upsert_batches_content_inserts(tmp_db: Path, tmp_path: Path) -> None:
