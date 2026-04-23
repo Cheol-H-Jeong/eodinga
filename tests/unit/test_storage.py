@@ -304,6 +304,7 @@ def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, m
 
     conn = connect_database(path)
     try:
+        assert SQLITE_CACHED_STATEMENTS == 512
         assert seen["database"] == path
         assert seen["cached_statements"] == SQLITE_CACHED_STATEMENTS
     finally:

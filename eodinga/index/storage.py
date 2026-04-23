@@ -12,7 +12,7 @@ from eodinga.index.migrations import migrate
 from eodinga.index.schema import PRAGMAS, current_schema_version
 from eodinga.observability import get_logger
 
-SQLITE_CACHED_STATEMENTS = 128
+SQLITE_CACHED_STATEMENTS = 512
 _ACTIVE_PRAGMA_OVERRIDES: dict[int, dict[str, str]] = {}
 _PRAGMA_VALUE_ALIASES: dict[str, dict[str, str]] = {
     "synchronous": {
