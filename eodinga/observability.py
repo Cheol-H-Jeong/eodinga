@@ -248,8 +248,11 @@ def write_crash_log(
     occurred_at = datetime.now(UTC)
     timestamp = occurred_at.strftime("%Y%m%dT%H%M%S.%fZ")
     crash_path = _next_crash_path(target_dir, timestamp)
+    metrics = snapshot_metrics()
     metadata: dict[str, object] = {
         "timestamp": timestamp,
+        "process_started_at": _PROCESS_STARTED_AT.isoformat().replace("+00:00", "Z"),
+        "uptime_ms": metrics["uptime_ms"],
         "pid": os.getpid(),
         "version": __version__,
         "platform": sys.platform,
@@ -260,7 +263,13 @@ def write_crash_log(
         "cwd": str(Path.cwd()),
         "file_logging_enabled": file_logging_enabled(),
         "log_path": resolve_log_path(),
+        "log_rotation": resolve_log_rotation(),
+        "log_retention": resolve_log_retention(),
+        "log_compression": resolve_log_compression(),
         "crash_dir": target_dir,
+        "metrics_generated_at": metrics["generated_at"],
+        "metrics_counters": metrics["counters"],
+        "metrics_histograms": metrics["histograms"],
     }
     if details:
         metadata.update(details)

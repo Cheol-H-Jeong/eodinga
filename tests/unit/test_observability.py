@@ -17,7 +17,9 @@ from eodinga.observability import (
     default_crash_dir,
     default_log_path,
     file_logging_enabled,
+    increment_counter,
     install_crash_handlers,
+    record_histogram,
     resolve_crash_dir,
     resolve_log_compression,
     resolve_log_path,
@@ -115,6 +117,8 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert "RuntimeError: boom" in contents
     assert "Traceback" in contents
     assert "timestamp=" in contents
+    assert "process_started_at=" in contents
+    assert "uptime_ms=" in contents
     assert "pid=" in contents
     assert f"version={__version__}" in contents
     assert f"platform={sys.platform}" in contents
@@ -148,6 +152,25 @@ def test_write_crash_log_records_resolved_log_state(tmp_path: Path, monkeypatch)
 
     contents = crash_path.read_text(encoding="utf-8")
     assert f"log_path={log_path}" in contents
+    assert "log_rotation=5 MB" in contents
+    assert "log_retention=5" in contents
+    assert "log_compression=None" in contents
+
+
+def test_write_crash_log_records_runtime_metrics(tmp_path: Path) -> None:
+    reset_metrics()
+    increment_counter("queries_served", 2)
+    record_histogram("query_latency_ms", 12.5)
+
+    try:
+        raise RuntimeError("metrics boom")
+    except RuntimeError as error:
+        crash_path = write_crash_log(error, crash_dir=tmp_path)
+
+    contents = crash_path.read_text(encoding="utf-8")
+    assert 'metrics_counters={"queries_served": 2}' in contents
+    assert '"query_latency_ms"' in contents
+    assert "metrics_generated_at=" in contents
 
 
 def test_write_crash_log_uses_unique_path_when_timestamp_collides(tmp_path: Path) -> None:
