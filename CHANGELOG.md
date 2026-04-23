@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.962 - 2026-04-24
+## 0.1.968 - 2026-04-24
 
 - Fixed semantic query diagnostics so invalid `case:`, `date:`, `size:`, `is:`, and promoted-regex terms report the source token offset instead of collapsing to `position 0`.
 - Added focused compiler and CLI coverage that pins those query error positions, including direct regex literals and `regex:true` promotion paths.
