@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.201 - 2026-04-23
+
+- Expanded `README.md` with a clearer install artifact matrix, a subcommand reference table, and a practical stale-results operator path so the top-level contract is easier to use without reading the whole docs tree.
+- Deepened `docs/ARCHITECTURE.md` with a concrete schema map, recovery ownership table, and operator-surface summary that tie runtime components to the actual diagnostic and rebuild commands.
+- Added a shipped `docs/eodinga.1` man page and updated contributor and release docs to keep the terminal reference aligned with the live argparse help surface.
+- Relaxed a flaky writer timing assertion in the unit suite so the baseline gate remains green under normal shared-machine variance while still catching obvious regressions.
+
 ## 0.1.195 - 2026-04-23
 
 - Split the launcher popup window into its own module so the launcher surface stays under the repository's module-size cap while preserving the existing geometry, topmost, and hotkey behavior.
