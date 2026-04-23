@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.122 - 2026-04-23
+## 0.1.127 - 2026-04-23
 
 - Hardened observability defaults on macOS by routing file logs and crash artifacts into `~/Library/Logs/eodinga`, while enriching crash logs with platform, Python, cwd, and argv context for faster post-mortems.
 - Expanded `eodinga stats --json` so it now emits the full in-process counter and histogram snapshots in addition to the stable top-level summary fields, making ad hoc diagnostics and tests inspect the same runtime metrics registry.
