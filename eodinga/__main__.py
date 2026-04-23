@@ -24,6 +24,7 @@ from eodinga.observability import (
     histogram_snapshot,
     increment_counter,
     install_crash_handlers,
+    list_recent_crash_logs,
     record_histogram,
     resolve_crash_dir,
     resolve_log_path,
@@ -196,6 +197,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         db_path=db_path,
         log_path=resolve_log_path(),
         crash_dir=resolve_crash_dir(),
+        recent_crashes=list_recent_crash_logs(),
         file_logging_enabled=file_logging_enabled(),
     ).model_dump(mode="json")
     return _emit(snapshot, as_json=bool(args.json))

@@ -18,6 +18,7 @@ from eodinga.observability import (
     default_log_path,
     file_logging_enabled,
     install_crash_handlers,
+    list_recent_crash_logs,
     resolve_crash_dir,
     resolve_log_path,
     reset_metrics,
@@ -92,6 +93,7 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert f"platform={sys.platform}" in contents
     assert f"cwd={Path.cwd()}" in contents
     assert 'argv=["search", "boom"]' in contents
+    assert 'metrics={"counters": {}, "generated_at":' in contents
 
 
 def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
@@ -128,6 +130,20 @@ def test_report_crash_writes_log_and_stderr(tmp_path: Path, monkeypatch, capsys)
     captured = capsys.readouterr()
     assert str(crash_path) in captured.err
     assert "reported crash" in crash_path.read_text(encoding="utf-8")
+
+
+def test_list_recent_crash_logs_returns_latest_files(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path))
+    for name in ("crash-20260423T010101.000000Z.log", "crash-20260423T010102.000000Z.log"):
+        path = tmp_path / name
+        path.write_text(name, encoding="utf-8")
+
+    recent = list_recent_crash_logs(limit=1)
+
+    assert len(recent) == 1
+    assert recent[0]["path"] == tmp_path / "crash-20260423T010102.000000Z.log"
+    assert recent[0]["size_bytes"] == len("crash-20260423T010102.000000Z.log")
+    assert str(recent[0]["modified_at"]).endswith("Z")
 
 
 def test_install_crash_handlers_writes_thread_crash_log(

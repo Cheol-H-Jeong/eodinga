@@ -220,9 +220,11 @@ def write_crash_log(
     }
     if details:
         metadata.update(details)
+    metrics = snapshot_metrics()
     lines = [
         f"{context}\n",
         *[f"{key}={_format_detail_value(value)}\n" for key, value in metadata.items()],
+        f"metrics={json_dumps(metrics, sort_keys=True)}\n",
         f"{type(error).__name__}: {error}\n",
         "\n",
         *traceback.format_exception(type(error), error, error.__traceback__),
@@ -244,6 +246,33 @@ def report_crash(
     target_stream = stream or sys.stderr
     target_stream.write(f"unhandled exception; crash log written to {crash_path}\n")
     return crash_path
+
+
+def list_recent_crash_logs(
+    *,
+    crash_dir: Path | None = None,
+    limit: int = 5,
+) -> list[dict[str, object]]:
+    if limit <= 0:
+        return []
+    target_dir = resolve_crash_dir(crash_dir)
+    if not target_dir.exists():
+        return []
+    recent_logs = sorted(
+        target_dir.glob("crash-*.log"),
+        key=lambda path: (path.stat().st_mtime, path.name),
+        reverse=True,
+    )[:limit]
+    return [
+        {
+            "path": path,
+            "size_bytes": path.stat().st_size,
+            "modified_at": datetime.fromtimestamp(path.stat().st_mtime, UTC)
+            .isoformat()
+            .replace("+00:00", "Z"),
+        }
+        for path in recent_logs
+    ]
 
 
 def install_crash_handlers(*, stream: IO[str] | None = None) -> None:

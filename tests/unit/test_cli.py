@@ -452,8 +452,9 @@ def test_index_requires_at_least_one_root(cli_runner, tmp_path: Path) -> None:
     assert "requires at least one root" in result.stderr
 
 
-def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
+def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys, monkeypatch) -> None:
     db_path = tmp_path / "index.db"
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path / "crashes"))
     _build_search_db(db_path)
     reset_metrics()
 
@@ -490,6 +491,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
     assert payload["crash_dir"]
+    assert payload["recent_crashes"] == []
     assert payload["counters"]["queries_served"] == 1
     assert payload["counters"]["commands_started"] == 2
     assert payload["counters"]["commands.search.completed"] == 1
@@ -511,6 +513,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     broken = tmp_path / "broken.txt"
     broken.write_text("broken parser input\n", encoding="utf-8")
     db_path = tmp_path / "index.db"
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path / "crashes"))
     reset_metrics()
 
     index_exit = main(["--db", str(db_path), "index", "--root", str(docs), "--rebuild"])
@@ -626,3 +629,23 @@ def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Pat
     assert payload["commands"]["version"]["failed"] == 1
     assert payload["commands"]["version"]["started"] == 1
     assert payload["exit_codes"]["1"] == 1
+
+
+def test_stats_json_lists_recent_crash_logs(tmp_path: Path, capsys, monkeypatch) -> None:
+    db_path = tmp_path / "index.db"
+    crash_dir = tmp_path / "crashes"
+    crash_dir.mkdir()
+    _build_search_db(db_path)
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    (crash_dir / "crash-20260423T010101.000000Z.log").write_text("first", encoding="utf-8")
+    (crash_dir / "crash-20260423T010102.000000Z.log").write_text("second", encoding="utf-8")
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert [Path(item["path"]).name for item in payload["recent_crashes"]] == [
+        "crash-20260423T010102.000000Z.log",
+        "crash-20260423T010101.000000Z.log",
+    ]
