@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.208 - 2026-04-23
+## 0.1.214 - 2026-04-23
 
 - Added a launcher chip row beneath the search field that shows active DSL filters while typing and falls back to pinned query macros when the field is idle, keeping query context visible without opening documentation.
 - Strengthened result highlight styling across names, paths, and snippets so matched terms read as deliberate emphasis instead of default browser-style `<mark>` output.
