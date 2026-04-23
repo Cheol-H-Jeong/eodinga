@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.113 - 2026-04-23
+
+- Reduced walker syscall overhead by carrying `os.scandir()` child `lstat` metadata into traversal, so discovered descendants no longer pay a second `lstat()` before indexing.
+- Streamed bulk index upserts in fixed-size chunks inside one transaction, which lowers peak memory during large ingests and preserves the caller's prior SQLite `synchronous` mode after the bulk write scope exits.
+- Added a gated walker throughput regression under `tests/perf/test_walk_throughput.py` so traversal performance stays measurable with `EODINGA_RUN_PERF=1`.
+
 ## 0.1.110 - 2026-04-23
 
 - Fixed launcher topmost behavior so the frameless popup now follows `launcher.always_on_top` from config instead of forcing a pinned-above-all-windows state on every run.
