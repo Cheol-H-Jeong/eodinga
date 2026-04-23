@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.720 - 2026-04-23
+
+- Derived PyInstaller `datas` entries from the project metadata instead of a hardcoded list, so packaging audits now track the source tree's declared package data directly.
+- Added a `python packaging/build.py --target release-dry-run` entry point that runs the Windows, AppImage, and Debian dry runs in one shot and writes a summary audit manifest under `packaging/dist/`.
+- Expanded packaging unit coverage to lock the new metadata-derived data-file contract and the combined dry-run summary manifest.
+
 ## 0.1.718 - 2026-04-23
 
 - Let `size:` filters accept comparator-separated values like `size:> 10M`, so spaced numeric input now parses the same way as the compact form.
