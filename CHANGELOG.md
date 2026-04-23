@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.289 - 2026-04-23
+## 0.1.290 - 2026-04-23
 
 - Made the live watcher integration harness root-aware, so multi-root event application now uses the same root mapping the on-disk index expects instead of silently forcing every live file into root `1`.
 - Added end-to-end coverage for real cross-root renames, proving that live watcher updates eventually converge to the destination root and persist the destination `root_id` in the index.
