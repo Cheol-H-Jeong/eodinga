@@ -21,9 +21,12 @@ def _insert_file(
     ext: str,
     body_text: str = "",
     is_dir: int = 0,
+    is_symlink: int = 0,
     content_hash: bytes | None = None,
+    ctime: int | None = None,
 ) -> None:
     path_obj = Path(path)
+    created_time = mtime if ctime is None else ctime
     conn.execute(
         """
         INSERT INTO files (
@@ -41,9 +44,9 @@ def _insert_file(
             ext,
             size,
             mtime,
-            mtime,
+            created_time,
             is_dir,
-            0,
+            is_symlink,
             content_hash,
             mtime,
         ),
@@ -428,6 +431,25 @@ def test_execute_open_ended_date_ranges(tmp_db: sqlite3.Connection) -> None:
     assert older_hits == ["jan-1.txt", "jan-2.txt"]
 
 
+def test_execute_created_date_queries_use_ctime_independently_from_mtime(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    jan_1 = int(datetime(2026, 1, 1, 12, tzinfo=UTC).timestamp())
+    jan_2 = int(datetime(2026, 1, 2, 12, tzinfo=UTC).timestamp())
+    jan_3 = int(datetime(2026, 1, 3, 12, tzinfo=UTC).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/alpha.txt", 512, jan_3, "txt", body_text="alpha", ctime=jan_1)
+    _insert_file(tmp_db, 2, "/workspace/bravo.txt", 512, jan_1, "txt", body_text="bravo", ctime=jan_2)
+    _insert_file(tmp_db, 3, "/workspace/charlie.txt", 512, jan_2, "txt", body_text="charlie", ctime=jan_3)
+    tmp_db.commit()
+
+    created_hits = [hit.file.name for hit in search(tmp_db, "created:2026-01-02", limit=10).hits]
+    open_ended_hits = [hit.file.name for hit in search(tmp_db, "created:..2026-01-02", limit=10).hits]
+
+    assert created_hits == ["bravo.txt"]
+    assert open_ended_hits == ["alpha.txt", "bravo.txt"]
+
+
 def test_execute_datetime_literal_and_range_queries(tmp_db: sqlite3.Connection) -> None:
     base = int(datetime(2026, 1, 3, 9, 15, 30, tzinfo=UTC).timestamp())
     _insert_file(tmp_db, 1, "/workspace/exact-second.txt", 512, base, "txt", body_text="exact")
@@ -704,6 +726,23 @@ def test_execute_is_empty_queries(tmp_db: sqlite3.Connection) -> None:
     assert "/workspace/non-empty-dir" in non_empty_hits
     assert "/workspace/full-file.txt" in non_empty_hits
     assert "/workspace/non-empty-dir/note.txt" in non_empty_hits
+
+
+def test_execute_is_type_queries(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/folder", 0, now, "", is_dir=True)
+    _insert_file(tmp_db, 2, "/workspace/report.txt", 1, now - 60, "txt", body_text="report")
+    _insert_file(tmp_db, 3, "/workspace/report-link.txt", 1, now - 120, "txt", is_symlink=True)
+    tmp_db.commit()
+
+    dir_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "is:dir", limit=10).hits]
+    file_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "is:file", limit=10).hits]
+    symlink_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "is:symlink", limit=10).hits]
+
+    assert dir_hits == ["/workspace/folder"]
+    assert "/workspace/report.txt" in file_hits
+    assert "/workspace/report-link.txt" in file_hits
+    assert symlink_hits == ["/workspace/report-link.txt"]
 
 
 def test_execute_size_range_queries(tmp_db: sqlite3.Connection) -> None:
