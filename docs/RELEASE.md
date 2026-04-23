@@ -155,6 +155,19 @@ source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && QT_QPA_
 
 If CLI help or visible GUI surfaces changed, regenerate the man page or screenshots before running that pass. Do not tag a docs-only round from stale derived assets.
 
+## Release Path Selector
+
+Choose the smallest valid release path before you start rerunning commands:
+
+| Round type | Minimum release evidence | Metadata cut timing |
+| --- | --- | --- |
+| docs prose only | docs-assets test plus any matching packaging dry run named by the docs | after the docs-only validation pass is clean |
+| CLI docs or man page refresh | regenerate man page, docs-assets test, then docs-only validation pass | after the regenerated man page matches the parser output |
+| screenshot-backed UI docs | regenerate screenshots, docs-assets test, GUI smoke, and matching dry run | after screenshots and smoke match the described surface |
+| runtime or packaging behavior change | full gate from `## Run The Gate` | only after the full gate and manifest review are clean |
+
+This avoids the common failure mode where a docs-only round over-runs the gate, or a behavior change under-runs it.
+
 ## Evidence Review Questions
 
 Before you cut the local tag, answer these against the actual outputs:
@@ -163,6 +176,8 @@ Before you cut the local tag, answer these against the actual outputs:
 2. Does the offscreen GUI smoke path still match any screenshots or keyboard flows described in the docs?
 3. Do the dry-run manifests under `packaging/dist/` agree with the packaged artifacts the docs claim exist?
 4. If the round changed release instructions, can a reviewer follow the documented commands without inventing missing steps?
+
+If any answer is "no", fix the docs or regenerate the derived asset before creating the metadata commit. A green earlier command is not enough evidence once the written contract and generated payload disagree.
 
 ## Cut The Local Release
 
