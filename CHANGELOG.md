@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.581 - 2026-04-23
+
+- Normalized Windows search-root scoping across drive-letter casing, so `--root c:\\workspace\\reports` now matches indexed `C:\\workspace\\reports\\...` entries instead of missing them on string-case differences.
+- Extended the same root-scope matching to Windows long-path records stored with the `\\\\?\\` prefix, so scoped searches still find indexed content even when the database preserves long-path forms.
+
 ## 0.1.574 - 2026-04-23
 
 - Hardened the no-network safety scan so aliased imports and `from parent import child` forms like `from urllib import request` or `from socket import create_connection` can no longer bypass the repository-wide source check.
