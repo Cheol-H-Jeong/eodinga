@@ -214,6 +214,29 @@ def test_parse_content_regex_with_escaped_slash_and_korean_text() -> None:
 
 
 @pytest.mark.parametrize(
+    ("query", "expected_flags"),
+    [
+        (r"/todo/SM", "ms"),
+        (r"content:/todo/MI", "im"),
+        (r"path:/tmp\/log/SI", "is"),
+    ],
+)
+def test_parse_regex_flags_are_normalized_to_canonical_lowercase_order(
+    query: str,
+    expected_flags: str,
+) -> None:
+    node = parse(query)
+
+    if isinstance(node, RegexNode):
+        assert node.flags == expected_flags
+        return
+
+    assert isinstance(node, OperatorNode)
+    assert node.value_kind == "regex"
+    assert node.regex_flags == expected_flags
+
+
+@pytest.mark.parametrize(
     ("query", "expected_name", "expected_pattern", "expected_flags"),
     [
         (r"/회의\/록\/초안/im", None, r"회의\/록\/초안", "im"),

@@ -66,6 +66,14 @@ def test_compile_regex_operator_accepts_explicit_pattern_alias() -> None:
     assert branch.path_regex_terms[0].negated is False
 
 
+def test_compile_regex_flags_use_canonical_order() -> None:
+    compiled = compile_query(parse(r"content:/todo/SM path:/tmp\/logs/MI"))
+    branch = compiled.branches[0]
+
+    assert branch.content_regex_terms[0].flags == "ms"
+    assert branch.path_regex_terms[0].flags == "im"
+
+
 def test_compile_regex_operator_accepts_word_pattern_alias() -> None:
     compiled = compile_query(parse(r"regex:report-\d+"))
     branch = compiled.branches[0]

@@ -230,8 +230,7 @@ class _Parser:
             self.index += 1
         if not pattern:
             raise QuerySyntaxError("empty regex", pattern_start)
-        flags = self.source[flags_start:self.index]
-        self._validate_regex_flags(flags, flags_start)
+        flags = self._normalize_regex_flags(self.source[flags_start:self.index], flags_start)
         return RegexNode(pattern=pattern, flags=flags)
 
     def _decode_inline_value(
@@ -265,11 +264,13 @@ class _Parser:
                 return value, "word", ""
             if name == "path" and suffix:
                 try:
-                    self._validate_regex_flags(suffix, self.index - len(value) + last + 1)
+                    suffix = self._normalize_regex_flags(
+                        suffix,
+                        self.index - len(value) + last + 1,
+                    )
                 except QuerySyntaxError:
                     return value, "word", ""
-            flags = suffix
-            self._validate_regex_flags(flags, self.index - len(value) + last + 1)
+            flags = self._normalize_regex_flags(suffix, self.index - len(value) + last + 1)
             return pattern, "regex", flags
         return value, "word", ""
 
@@ -357,15 +358,20 @@ class _Parser:
             self.index += 1
         return self.index > start
 
-    def _validate_regex_flags(self, flags: str, position: int) -> None:
+    def _normalize_regex_flags(self, flags: str, position: int) -> str:
         allowed = {"i", "m", "s"}
         seen: set[str] = set()
+        normalized: list[str] = []
         for offset, flag in enumerate(flags.lower()):
             if flag not in allowed:
                 raise QuerySyntaxError(f"unsupported regex flag: {flags[offset]}", position + offset)
             if flag in seen:
                 raise QuerySyntaxError(f"duplicate regex flag: {flags[offset]}", position + offset)
             seen.add(flag)
+            normalized.append(flag)
+        order = {"i": 0, "m": 1, "s": 2}
+        normalized.sort(key=order.__getitem__)
+        return "".join(normalized)
 
     def _read_phrase_value(self, start: int) -> str:
         value_chars: list[str] = []
