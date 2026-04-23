@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.531 - 2026-04-23
+## 0.1.536 - 2026-04-23
 
 - Relaxed `size:` parsing so open-ended ranges like `size:100..` and `size:..500K`, plus spaced comparators like `size: > 10M`, now compile and execute the same way as the existing date-range syntax.
 - Improved quoted phrase fallback matching across common filename and content separators, including underscores and dots, so queries like `"launch review"` can match `launch_review.txt` and `launch.review`.
