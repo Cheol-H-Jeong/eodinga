@@ -571,6 +571,16 @@ def test_execute_reuses_cached_sql_shapes_for_name_queries(populated_db: sqlite3
     assert executor_module._path_candidates_fts_sql.cache_info().hits >= 1
 
 
+def test_execute_sql_shape_caches_use_explicit_budget() -> None:
+    assert executor_module.SQL_TEMPLATE_CACHE_SIZE == 128
+    assert executor_module._record_batch_sql.cache_info().maxsize == 128
+    assert executor_module._path_candidates_fts_sql.cache_info().maxsize == 128
+    assert executor_module._path_candidates_scan_sql.cache_info().maxsize == 128
+    assert executor_module._content_candidates_sql.cache_info().maxsize == 128
+    assert executor_module._auto_content_candidates_sql.cache_info().maxsize == 128
+    assert executor_module._content_backfill_sql.cache_info().maxsize == 128
+
+
 def test_execute_reuses_cached_sql_shapes_for_content_queries(
     populated_db: sqlite3.Connection,
 ) -> None:

@@ -39,9 +39,10 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+SQL_TEMPLATE_CACHE_SIZE = 128
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=SQL_TEMPLATE_CACHE_SIZE)
 def _record_batch_sql(has_where: bool) -> str:
     sql = "SELECT files.* FROM files"
     if has_where:
@@ -50,7 +51,7 @@ def _record_batch_sql(has_where: bool) -> str:
     return sql
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=SQL_TEMPLATE_CACHE_SIZE)
 def _path_candidates_fts_sql(
     has_path_match_sql: bool,
     has_where_sql: bool,
@@ -77,7 +78,7 @@ def _path_candidates_fts_sql(
     return sql
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=SQL_TEMPLATE_CACHE_SIZE)
 def _path_candidates_scan_sql(
     positive_term_count: int,
     has_where_sql: bool,
@@ -100,7 +101,7 @@ def _path_candidates_scan_sql(
     return sql
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=SQL_TEMPLATE_CACHE_SIZE)
 def _content_candidates_sql(has_where_sql: bool) -> str:
     sql = """
         SELECT files.*, snippet(content_fts, 2, '[', ']', '...', 12) AS snippet
@@ -115,7 +116,7 @@ def _content_candidates_sql(has_where_sql: bool) -> str:
     return sql
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=SQL_TEMPLATE_CACHE_SIZE)
 def _auto_content_candidates_sql(has_where_sql: bool) -> str:
     sql = """
         SELECT files.*, snippet(content_fts, 2, '[', ']', '...', 12) AS snippet
@@ -130,7 +131,7 @@ def _auto_content_candidates_sql(has_where_sql: bool) -> str:
     return sql
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=SQL_TEMPLATE_CACHE_SIZE)
 def _content_backfill_sql(has_where_sql: bool) -> str:
     sql = """
         SELECT files.*
