@@ -16,6 +16,14 @@ python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]
 4. Run the full local gate before handing off a release candidate.
 5. Update docs and screenshots when the visible or operator-facing contract changes.
 
+## Working Style
+
+- Prefer one explicit command that finishes cleanly over a sequence of ad-hoc retries.
+- Keep shell snippets non-interactive and safe to rerun; suppress benign noise instead of making reviewers guess which lines mattered.
+- Start with evidence, not intuition: read the full failing output once before narrowing to the suspected subsystem.
+- Fix the smallest scoped problem that restores the gate; do not turn one round into an opportunistic refactor.
+- When a command or document describes a packaged artifact, verify the staged output instead of trusting exit status alone.
+
 ## Parallel Worktrees
 
 When multiple workers are landing rounds concurrently, keep the local loop deterministic:
@@ -35,6 +43,8 @@ pip install -e .[dev,parsers,gui]
 pytest -q tests
 ruff check eodinga tests
 ```
+
+The start gate is mandatory because worker patch versions and docs claims are only meaningful against the latest landed `main`.
 
 ## Suggested Command Order
 
@@ -80,6 +90,18 @@ EODINGA_RUN_PERF=1 pytest -q tests/perf -s
 
 Treat the perf suite as separate diagnostic evidence. If it fails, record the summary lines and the failing threshold instead of overwriting `docs/PERFORMANCE.md` with numbers from a red run.
 
+## Evidence-First Debugging
+
+When a validation command fails:
+
+1. Read the unfiltered failing output first.
+2. Fix the first failing stage before rerunning broader gates.
+3. Quote the exact failing command or artifact in the commit or handoff note.
+4. Re-run only the smallest proving command until it is green again.
+5. Return to the wider gate only after the focused slice is clean.
+
+This keeps release notes and troubleshooting docs tied to real evidence instead of guesswork.
+
 Commit-level minimum:
 
 ```bash
@@ -112,6 +134,16 @@ pytest -q tests/unit
 | Visible GUI text or layout used in docs | `python scripts/render_docs_screenshots.py` and `pytest -q tests/unit/test_docs_assets.py` |
 | README or guide wording only | `pytest -q tests/unit/test_docs_assets.py` |
 | Packaging or release docs | the matching `packaging/build.py --target ...-dry-run` command plus `pytest -q tests/unit/test_docs_assets.py` |
+
+## Release Evidence Checklist
+
+Before handing off a round, confirm:
+
+- the smallest relevant test slice is green
+- `pytest -q tests/unit` is green on the branch tip
+- any described package artifact was reviewed under `packaging/dist/`
+- regenerated docs assets came from the real runtime, not hand edits
+- the final metadata commit is isolated enough to retarget if another worker lands the same patch number
 
 ## Theme-Sized Test Guide
 
@@ -188,6 +220,7 @@ Do not rewrite earlier docs or feature commits just to retarget the patch number
 - README examples use the current query surface and current operator names.
 - Derived docs assets are regenerated from code, not edited by hand.
 - The final release metadata commit contains only the version/changelog/tag cut unless a same-round asset refresh is required.
+- The first failing command or artifact is named explicitly in any fix or handoff note.
 
 ## Packaging Review Checklist
 

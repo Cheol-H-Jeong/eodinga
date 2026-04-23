@@ -105,12 +105,15 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "linux-deb-dry-run" in acceptance
     assert "yamllint .github/workflows/release-windows.yml" in acceptance
     assert "yamllint .github/workflows/release-linux.yml" in acceptance
+    assert "## Evidence To Review" in acceptance
     assert "README is part of the acceptance surface" in acceptance
     assert "git tag v0.1.N" in acceptance
     assert "docs/man/eodinga.1" in acceptance
     assert "## Derived Docs Checks" in acceptance
     assert "python scripts/render_docs_screenshots.py" in acceptance
     assert "One-command acceptance pass" in acceptance
+    assert "Use the narrowest asset refresh that matches the change:" in acceptance
+    assert "For docs-only rounds, the same rule applies" in acceptance
 
     assert "## Runtime Flow" in architecture
     assert "## Data Flow Diagram" in architecture
@@ -143,10 +146,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
+    assert "## Working Style" in contributing
     assert "## Quality Gates" in contributing
+    assert "## Evidence-First Debugging" in contributing
     assert "## Scope Guardrails" in contributing
     assert "## Documentation Expectations" in contributing
     assert "## Derived Asset Matrix" in contributing
+    assert "## Release Evidence Checklist" in contributing
     assert "## Parallel Worktrees" in contributing
     assert "Required start gate for worker rounds" in contributing
     assert "## Theme-Sized Test Guide" in contributing
@@ -164,6 +170,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
     assert "The final release commit for a round should carry the version bump" in contributing
     assert "Do not rewrite earlier docs or feature commits" in contributing
+    assert "Prefer one explicit command that finishes cleanly" in contributing
+    assert "the smallest relevant test slice is green" in contributing
+    assert "The first failing command or artifact is named explicitly" in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl

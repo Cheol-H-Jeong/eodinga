@@ -53,6 +53,8 @@ source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyri
 
 Run it as written. If it fails, investigate the first failing stage before rerunning; the gate is ordered so earlier commands rule out noise in later packaging or workflow steps.
 
+For release handoff, keep the acceptance pass single-shot and non-interactive. If one stage fails, stop there, inspect the generated evidence, and avoid burying the original failure under follow-up retries.
+
 ## What The Gate Covers
 
 - `pytest -q tests` exercises the unit, integration, safety, packaging, and GUI-offscreen regressions, including the end-to-end index-and-search path.
@@ -70,6 +72,17 @@ Run it as written. If it fails, investigate the first failing stage before rerun
 3. Packaging dry-run failure: review the generated manifest or staged payload summary under `packaging/dist/`.
 4. Workflow lint failure: fix the shipped workflow YAML before cutting the local tag.
 
+## Evidence To Review
+
+Use the staged artifacts, not memory, when the gate moves:
+
+- `packaging/dist/`: dry-run manifests, staged payload summaries, and release-input audits
+- `docs/man/eodinga.1`: generated CLI reference derived from the current parser
+- `docs/screenshots/*.png`: offscreen-rendered GUI evidence for visible docs
+- `CHANGELOG.md`: top entry for the current round only after the gate is green
+
+If a command produced reviewable output, inspect that output before deciding the fix is complete.
+
 ## Derived Docs Checks
 
 Before tagging, re-run the doc-asset checks that pin shipped documentation against the real runtime surface:
@@ -83,6 +96,13 @@ pytest -q tests/unit/test_docs_assets.py
 These commands are required when CLI help, visible Qt surfaces, or operator-facing docs change.
 
 Treat the generated man page, screenshots, and dry-run manifests as shipped release inputs. Review them after regeneration instead of assuming the derived assets are correct because the command exited cleanly.
+
+Use the narrowest asset refresh that matches the change:
+
+- docs text only: `pytest -q tests/unit/test_docs_assets.py`
+- CLI parser or versioned man page: regenerate `docs/man/eodinga.1`
+- visible Qt surface or screenshot-backed README content: rerender `docs/screenshots/*.png`
+- packaging-facing docs: rerun the matching packaging dry run and inspect `packaging/dist/`
 
 ## Documentation Contract
 
@@ -109,3 +129,5 @@ For docs-only rounds, the changelog entry still needs to say which shipped guide
 The acceptance pass should be green before the version bump and local tag. Keep the metadata cut as the last step so the tag points at a fully validated tree.
 
 Publishing the GitHub Release stays outside this repository-local checklist, but the local tag and changelog entry are required before handing off to the orchestrator.
+
+For docs-only rounds, the same rule applies: validate first, then cut the metadata commit and local tag so the changelog describes a verified docs surface instead of a draft.
