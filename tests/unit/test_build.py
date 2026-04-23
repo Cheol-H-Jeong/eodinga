@@ -197,6 +197,10 @@ def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
         ]
     finally:
         resumed.close()
+    wal_path = staged_path.with_name(".index.db.next-wal")
+    shm_path = staged_path.with_name(".index.db.next-shm")
+    assert not wal_path.exists() or wal_path.stat().st_size == 0
+    assert not shm_path.exists()
 
 
 def test_rebuild_index_installs_sigint_and_sigterm_handlers_on_main_thread(

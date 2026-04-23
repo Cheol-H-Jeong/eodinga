@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import signal
+import sqlite3
 import threading
 from contextlib import AbstractContextManager
 from pathlib import Path
@@ -108,6 +109,20 @@ def _insert_roots(conn, roots: list[RootConfig]) -> None:
         )
 
 
+def _finalize_staged_connection(
+    conn,
+    *,
+    best_effort: bool = False,
+) -> None:
+    try:
+        if conn.in_transaction:
+            conn.commit()
+        conn.execute("PRAGMA wal_checkpoint(TRUNCATE);").fetchall()
+    except sqlite3.DatabaseError:
+        if not best_effort:
+            raise
+
+
 def rebuild_index(
     db_path: Path,
     roots: list[RootConfig],
@@ -159,13 +174,19 @@ def rebuild_index(
                         stop.raise_if_requested()
                 stop.raise_if_requested()
     except KeyboardInterrupt:
-        conn.close()
+        try:
+            _finalize_staged_connection(conn, best_effort=True)
+        finally:
+            conn.close()
         raise
     except Exception:
         conn.close()
         _cleanup_index_files(staged_path)
         raise
-    conn.close()
+    try:
+        _finalize_staged_connection(conn)
+    finally:
+        conn.close()
     try:
         atomic_replace_index(staged_path, target_path)
     except Exception:
