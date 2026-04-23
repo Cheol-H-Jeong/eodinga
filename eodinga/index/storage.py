@@ -99,7 +99,7 @@ def _cleanup_sidecars(path: Path) -> bool:
     for suffix in ("-wal", "-shm"):
         sidecar = _sidecar(path, suffix)
         if sidecar.exists():
-            sidecar.unlink()
+            sidecar.unlink(missing_ok=True)
             cleaned = True
     return cleaned
 
@@ -107,7 +107,7 @@ def _cleanup_sidecars(path: Path) -> bool:
 def _cleanup_index_files(path: Path, *, durable: bool = False) -> bool:
     cleaned = False
     if path.exists():
-        path.unlink()
+        path.unlink(missing_ok=True)
         cleaned = True
     cleaned = _cleanup_sidecars(path) or cleaned
     if cleaned and durable:

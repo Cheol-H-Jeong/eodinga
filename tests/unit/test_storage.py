@@ -148,6 +148,33 @@ def test_cleanup_index_files_fsyncs_parent_directory_when_durable(
     assert not path.with_name("index.db-shm").exists()
 
 
+def test_cleanup_index_files_uses_missing_ok_for_racy_unlinks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    wal = path.with_name("index.db-wal")
+    shm = path.with_name("index.db-shm")
+    path.write_bytes(b"sqlite")
+    wal.write_bytes(b"wal")
+    shm.write_bytes(b"shm")
+
+    calls: list[tuple[Path, bool]] = []
+    original_unlink = Path.unlink
+
+    def recording_unlink(target: Path, missing_ok: bool = False) -> None:
+        calls.append((target, missing_ok))
+        original_unlink(target, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", recording_unlink)
+
+    assert storage_module._cleanup_index_files(path) is True
+    assert calls == [
+        (path, True),
+        (wal, True),
+        (shm, True),
+    ]
+
+
 def test_copy_index_with_sidecars_fsyncs_promoted_sidecars(tmp_path: Path, monkeypatch) -> None:
     source = tmp_path / "source.db"
     target = tmp_path / ".index.db.recover"
