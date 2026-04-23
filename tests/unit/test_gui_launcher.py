@@ -614,3 +614,49 @@ def test_launcher_action_bar_tracks_selection_and_emits_actions(qapp) -> None:
     assert copied_paths == ["/tmp/beta.txt"]
     assert copied_names == ["beta.txt"]
     assert properties == ["beta.txt"]
+
+
+def test_launcher_preview_tracks_selection_and_hover(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/alpha.txt"),
+                    parent_path=Path("/tmp"),
+                    name="alpha.txt",
+                    snippet="Alpha release notes",
+                ),
+                SearchHit(
+                    path=Path("/tmp/beta.txt"),
+                    parent_path=Path("/tmp"),
+                    name="beta.txt",
+                    snippet="[Beta] launch checklist",
+                ),
+            ][:limit],
+            total=2,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("a")
+    _wait(60)
+
+    assert "lph" in launcher.preview_pane.title_label.text().lower()
+    assert "/tmp/" in launcher.preview_pane.path_label.text()
+    assert ".txt" in launcher.preview_pane.path_label.text()
+    assert "lph" in launcher.preview_pane.snippet_label.text().lower()
+
+    launcher.result_list.setFocus()
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Down)
+
+    assert "bet" in launcher.preview_pane.title_label.text().lower()
+    assert "/tmp/" in launcher.preview_pane.path_label.text()
+    assert "bet" in launcher.preview_pane.path_label.text().lower()
+    assert "<mark>Beta</mark>" in launcher.preview_pane.snippet_label.text()
+
+    first_index = launcher.model.index(0, 0)
+    launcher.result_list.entered.emit(first_index)
+
+    assert "lph" in launcher.preview_pane.title_label.text().lower()

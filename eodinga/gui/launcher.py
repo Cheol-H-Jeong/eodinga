@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
-from eodinga.gui.widgets import EmptyState, LauncherActionBar, ResultItemDelegate, SearchField, StatusChip
+from eodinga.gui.widgets import EmptyState, LauncherActionBar, LauncherPreviewPane, ResultItemDelegate, SearchField, StatusChip
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
@@ -58,10 +58,13 @@ class LauncherPanel(QWidget):
         self.status_label.setProperty("role", "secondary")
         self.empty_state = EmptyState("Type to search", "Recent queries and indexing progress will appear here.", self)
         self.action_bar = LauncherActionBar(self)
+        self.preview_pane = LauncherPreviewPane(self)
 
         self.model = ResultListModel(self)
         self.result_list.setModel(self.model)
-        self.result_list.selectionModel().currentChanged.connect(lambda *_: self._sync_result_affordances())
+        self.result_list.selectionModel().currentChanged.connect(self._handle_current_changed)
+        self.result_list.setMouseTracking(True)
+        self.result_list.viewport().setMouseTracking(True)
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -73,6 +76,7 @@ class LauncherPanel(QWidget):
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
         layout.addWidget(self.result_list, 1)
+        layout.addWidget(self.preview_pane)
         layout.addWidget(self.empty_state)
         layout.addWidget(self.action_bar)
 
@@ -85,8 +89,10 @@ class LauncherPanel(QWidget):
 
         self.query_field.textChanged.connect(self._schedule_query)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
+        self.result_list.entered.connect(self._set_preview_from_index)
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
+        self.result_list.viewport().installEventFilter(self)
         self.action_bar.open_button.clicked.connect(self.activate_current_result)
         self.action_bar.reveal_button.clicked.connect(self.emit_open_containing_folder)
         self.action_bar.copy_path_button.clicked.connect(self.emit_copy_path)
@@ -194,6 +200,8 @@ class LauncherPanel(QWidget):
             self._refresh_shortcut_hint()
         if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusOut:
             QTimer.singleShot(0, self._refresh_shortcut_hint)
+        if watched is self.result_list.viewport() and event.type() == QEvent.Type.Leave:
+            self._set_preview_from_index(self.result_list.currentIndex())
         if event.type() != QEvent.Type.KeyPress:
             return super().eventFilter(watched, event)
         key_event = cast(QKeyEvent, event)
@@ -271,6 +279,7 @@ class LauncherPanel(QWidget):
             )
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
+        self.preview_pane.setVisible(has_results)
         self.action_bar.set_actions_enabled(has_results)
 
     def _refresh_shortcut_hint(self) -> None:
@@ -390,6 +399,17 @@ class LauncherPanel(QWidget):
     def _set_selection(self, row: int) -> None:
         self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(row, 0)))
         self.result_list.scrollTo(self.result_list.currentIndex())
+
+    def _handle_current_changed(self, current: QModelIndex, _: QModelIndex) -> None:
+        self._sync_result_affordances()
+        self._set_preview_from_index(current)
+
+    def _set_preview_from_index(self, index: QModelIndex) -> None:
+        hit = self.model.item_at(index.row()) if index.isValid() else None
+        if hit is None:
+            self.preview_pane.show_placeholder()
+            return
+        self.preview_pane.set_hit(hit, self.query_field.text().strip())
 
     def _sync_result_affordances(self) -> None:
         self.action_bar.set_actions_enabled(self._current_hit() is not None)
