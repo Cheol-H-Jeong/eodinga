@@ -308,20 +308,38 @@ def _fetch_record_batch(
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
+def _strip_windows_extended_prefix(path_text: str) -> str:
+    if path_text.startswith("\\\\?\\UNC\\"):
+        return "\\\\" + path_text.removeprefix("\\\\?\\UNC\\")
+    if path_text.startswith("//?/UNC/"):
+        return "//" + path_text.removeprefix("//?/UNC/")
+    if path_text.startswith("\\\\?\\") or path_text.startswith("//?/"):
+        return path_text[4:]
+    return path_text
+
+
+def _root_scope_variants(root_text: str) -> tuple[str, ...]:
+    normalized = _strip_windows_extended_prefix(root_text.rstrip("/\\") or root_text)
+    variants: list[str] = []
+    for candidate in (
+        normalized,
+        normalized.replace("\\", "/"),
+        normalized.replace("/", "\\"),
+    ):
+        if candidate not in variants:
+            variants.append(candidate)
+        if len(candidate) >= 2 and candidate[1] == ":" and candidate[0].isalpha():
+            for drive in (candidate[0].lower(), candidate[0].upper()):
+                drive_variant = f"{drive}{candidate[1:]}"
+                if drive_variant not in variants:
+                    variants.append(drive_variant)
+    return tuple(variants)
+
+
 def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
-    root_text = str(root)
-    normalized = root_text.rstrip("/\\") or root_text
-    variants = tuple(
-        dict.fromkeys(
-            (
-                normalized,
-                normalized.replace("\\", "/"),
-                normalized.replace("/", "\\"),
-            )
-        )
-    )
+    variants = _root_scope_variants(str(root))
     exact_params = variants
     like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
         f"{variant}\\%" for variant in variants
