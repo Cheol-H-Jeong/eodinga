@@ -10,8 +10,10 @@ def test_deb_recipe_tracks_desktop_icon_and_docs_assets() -> None:
     control = Path("packaging/linux/debian/control").read_text(encoding="utf-8")
 
     assert "Name=eodinga" in desktop
+    assert "Type=Application" in desktop
     assert "Exec=eodinga gui" in desktop
     assert "Icon=eodinga" in desktop
+    assert "Terminal=false" in desktop
     assert "Categories=Utility;FileTools;" in desktop
     assert "<svg" in icon
     assert "<title" in icon

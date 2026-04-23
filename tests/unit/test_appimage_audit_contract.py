@@ -15,7 +15,9 @@ def test_linux_appimage_dry_run_preserves_source_assets() -> None:
 
     payload = json.loads(open("packaging/dist/linux-appimage-audit.json", encoding="utf-8").read())
     assert payload["desktop_entry"]["matches_source_asset"] is True
+    assert payload["desktop_entry"]["type"] == "Application"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
+    assert payload["desktop_entry"]["terminal"] == "false"
     assert payload["desktop_entry"]["startup_notify"] == "true"
     assert payload["icon"]["matches_source_asset"] is True
     assert payload["apprun"]["has_strict_shell"] is True

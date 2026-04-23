@@ -147,8 +147,10 @@ payload = {
     "desktop_entry": {
         "path": str(desktop_path),
         "name": desktop_entries.get("Name"),
+        "type": desktop_entries.get("Type"),
         "exec": desktop_entries.get("Exec"),
         "icon": desktop_entries.get("Icon"),
+        "terminal": desktop_entries.get("Terminal"),
         "categories": desktop_entries.get("Categories"),
         "startup_notify": desktop_entries.get("StartupNotify"),
         "launches_gui": desktop_entries.get("Exec") == "eodinga gui",
