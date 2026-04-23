@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QPushButton
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QWidget
 
 from eodinga.gui.design import SPACE_4, SPACE_8
@@ -70,6 +71,28 @@ class QueryChipRow(QWidget):
         self._chips_container.setAccessibleDescription(
             f"Launcher query chips for {summary}. Press Tab to focus a chip and Enter or Space to apply it."
         )
+
+    def contains_button(self, widget: object) -> bool:
+        return any(button is widget for button in self._buttons)
+
+    def button_index(self, button: QPushButton) -> int:
+        for index, candidate in enumerate(self._buttons):
+            if candidate is button:
+                return index
+        return -1
+
+    def focus_first_chip(self) -> bool:
+        return self.focus_chip(0)
+
+    def focus_last_chip(self) -> bool:
+        return self.focus_chip(len(self._buttons) - 1)
+
+    def focus_chip(self, index: int) -> bool:
+        if not self._buttons:
+            return False
+        clamped_index = min(max(index, 0), len(self._buttons) - 1)
+        self._buttons[clamped_index].setFocus(Qt.FocusReason.TabFocusReason)
+        return True
 
     @property
     def buttons(self) -> list[SecondaryButton]:

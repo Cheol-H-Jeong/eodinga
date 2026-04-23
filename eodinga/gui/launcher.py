@@ -187,12 +187,14 @@ class LauncherPanel(QWidget):
     def set_recent_queries(self, queries: list[str]) -> None:
         self._recent_queries = queries
         self.recent_queries_row.set_queries(queries[:5])
+        self._install_query_chip_event_filters()
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
 
     def set_pinned_queries(self, queries: list[str]) -> None:
         self._pinned_queries = queries
         self.pinned_queries_row.set_queries(queries[:5])
+        self._install_query_chip_event_filters()
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
 
@@ -253,10 +255,13 @@ class LauncherPanel(QWidget):
         self._navigate_recent_queries(1)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if watched in {self.query_field, self.result_list} or self._is_query_chip_button(watched):
+            if event.type() == QEvent.Type.FocusIn:
+                self._refresh_shortcut_hint()
+            if event.type() == QEvent.Type.FocusOut:
+                QTimer.singleShot(0, self._refresh_shortcut_hint)
         if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusIn:
             self._refresh_shortcut_hint()
-        if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusOut:
-            QTimer.singleShot(0, self._refresh_shortcut_hint)
         if event.type() != QEvent.Type.KeyPress:
             return super().eventFilter(watched, event)
         key_event = cast(QKeyEvent, event)
@@ -264,6 +269,8 @@ class LauncherPanel(QWidget):
             return self._handle_query_field_keypress(key_event)
         if watched is self.result_list:
             return self._handle_result_list_keypress(key_event)
+        if self._is_query_chip_button(watched):
+            return self._handle_query_chip_keypress(watched, key_event)
         return super().eventFilter(watched, event)
 
     def _emit_activation(self, row: int) -> None:
@@ -347,6 +354,7 @@ class LauncherPanel(QWidget):
                 has_results=self.model.rowCount() > 0,
                 query=self.query_field.text().strip(),
                 result_list_has_focus=self.result_list.hasFocus(),
+                query_chip_has_focus=self._query_chip_has_focus(),
                 has_recent_queries=bool(self._recent_queries),
                 has_chip_queries=bool(self._recent_queries or self._pinned_queries),
             )
@@ -359,6 +367,10 @@ class LauncherPanel(QWidget):
 
     def _handle_query_field_keypress(self, event: QKeyEvent) -> bool:
         if self.model.rowCount() == 0:
+            if event.key() == Qt.Key.Key_Tab:
+                return self._focus_first_available_chip()
+            if event.key() == Qt.Key.Key_Backtab:
+                return self._focus_last_available_chip()
             return False
         if event.key() == Qt.Key.Key_Down:
             self.result_list.setFocus()
@@ -419,6 +431,30 @@ class LauncherPanel(QWidget):
             return True
         if event.key() == Qt.Key.Key_PageUp:
             self._move_selection(-self._page_step())
+            return True
+        return False
+
+    def _handle_query_chip_keypress(self, watched: QObject, event: QKeyEvent) -> bool:
+        row = self._chip_row_for_button(watched)
+        if row is None:
+            return False
+        button_index = row.button_index(cast(object, watched))
+        if button_index < 0:
+            return False
+        if event.key() == Qt.Key.Key_Left:
+            return row.focus_chip(button_index - 1)
+        if event.key() == Qt.Key.Key_Right:
+            return row.focus_chip(button_index + 1)
+        if event.key() == Qt.Key.Key_Home:
+            return row.focus_first_chip()
+        if event.key() == Qt.Key.Key_End:
+            return row.focus_last_chip()
+        if event.key() == Qt.Key.Key_Up:
+            return self._focus_chip_row(-1, row, button_index)
+        if event.key() == Qt.Key.Key_Down:
+            return self._focus_chip_row(1, row, button_index)
+        if event.key() == Qt.Key.Key_Backtab:
+            self.focus_query_field()
             return True
         return False
 
@@ -520,3 +556,49 @@ class LauncherPanel(QWidget):
         self.query_field.setFocus()
         self._set_query_from_history(query)
         self._flush_pending_query()
+
+    def _install_query_chip_event_filters(self) -> None:
+        for row in (self.pinned_queries_row, self.recent_queries_row):
+            for button in row.buttons:
+                button.installEventFilter(self)
+
+    def _visible_query_chip_rows(self) -> list[QueryChipRow]:
+        return [row for row in (self.pinned_queries_row, self.recent_queries_row) if row.isVisible() and row.buttons]
+
+    def _focus_first_available_chip(self) -> bool:
+        for row in self._visible_query_chip_rows():
+            if row.focus_first_chip():
+                return True
+        return False
+
+    def _focus_last_available_chip(self) -> bool:
+        for row in reversed(self._visible_query_chip_rows()):
+            if row.focus_last_chip():
+                return True
+        return False
+
+    def _focus_chip_row(self, direction: int, current_row: QueryChipRow, button_index: int) -> bool:
+        rows = self._visible_query_chip_rows()
+        if not rows:
+            return False
+        try:
+            current_index = rows.index(current_row)
+        except ValueError:
+            return False
+        next_index = current_index + direction
+        if next_index < 0 or next_index >= len(rows):
+            return False
+        return rows[next_index].focus_chip(button_index)
+
+    def _is_query_chip_button(self, watched: QObject) -> bool:
+        return self._chip_row_for_button(watched) is not None
+
+    def _chip_row_for_button(self, watched: QObject) -> QueryChipRow | None:
+        for row in (self.pinned_queries_row, self.recent_queries_row):
+            if row.contains_button(watched):
+                return row
+        return None
+
+    def _query_chip_has_focus(self) -> bool:
+        focus_widget = self.focusWidget()
+        return isinstance(focus_widget, QObject) and self._is_query_chip_button(focus_widget)

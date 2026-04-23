@@ -757,6 +757,50 @@ def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     assert "Alt+1 through Alt+9" not in launcher.empty_state.body_label.text()
 
 
+def test_launcher_tab_focuses_query_chips_when_idle(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf", "size:>10M"])
+    state.remember_query("budget")
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    launcher.query_field.setFocus()
+    _wait(10)
+    assert launcher.query_field.hasFocus()
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Tab)
+
+    assert launcher.pinned_queries_row.buttons[0].hasFocus()
+    assert "Enter applies the focused query chip" in launcher.shortcut_label.text()
+
+
+def test_launcher_query_chip_keyboard_flow_supports_row_and_edge_navigation(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf", "size:>10M", "content:release"])
+    state.remember_query("budget")
+    state.remember_query("report")
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    launcher.query_field.setFocus()
+    _wait(10)
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Tab)
+    assert launcher.pinned_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[0], Qt.Key.Key_Right)
+    assert launcher.pinned_queries_row.buttons[1].hasFocus()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[1], Qt.Key.Key_End)
+    assert launcher.pinned_queries_row.buttons[2].hasFocus()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[2], Qt.Key.Key_Down)
+    assert launcher.recent_queries_row.buttons[1].hasFocus()
+
+    QTest.keyClick(launcher.recent_queries_row.buttons[1], Qt.Key.Key_Home)
+    assert launcher.recent_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.recent_queries_row.buttons[0], Qt.Key.Key_Backtab)
+    assert launcher.query_field.hasFocus()
+
+
 def test_launcher_escape_clears_query_before_hiding_window(qapp) -> None:
     launcher = LauncherWindow()
     launcher.show()

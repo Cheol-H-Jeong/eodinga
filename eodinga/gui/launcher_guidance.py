@@ -28,9 +28,15 @@ def format_shortcut_hint(
     has_results: bool,
     query: str,
     result_list_has_focus: bool,
+    query_chip_has_focus: bool,
     has_recent_queries: bool,
     has_chip_queries: bool,
 ) -> str:
+    if query_chip_has_focus:
+        return (
+            "Enter applies the focused query chip. Left/Right move within a row. Up/Down switch rows. "
+            "Home/End jump to the row edges. Shift+Tab returns to search."
+        )
     if not has_results:
         if query:
             hint = "Refine with ext:, date:, size:, or content: filters."
