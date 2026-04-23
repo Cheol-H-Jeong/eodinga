@@ -146,11 +146,13 @@ def test_summarize_crash_dir_reports_latest_log_and_total_bytes(tmp_path: Path) 
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
+    reset_metrics()
     try:
         raise RuntimeError("boom")
     except RuntimeError as error:
         crash_path = write_crash_log(error, crash_dir=tmp_path, details={"argv": ["search", "boom"]})
     contents = crash_path.read_text(encoding="utf-8")
+    metrics = snapshot_metrics()
     assert crash_path.parent == tmp_path
     assert "RuntimeError: boom" in contents
     assert "Traceback" in contents
@@ -169,6 +171,9 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert f"crash_dir={tmp_path}" in contents
     assert "file_logging_enabled=True" in contents
     assert 'argv=["search", "boom"]' in contents
+    assert metrics["counters"]["crash_logs_written"] == 1
+    assert metrics["counters"]["crash_log_bytes_written"] == len(contents.encode("utf-8"))
+    assert metrics["histograms"]["crash_log_size_bytes"]["count"] == 1
 
 
 def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:

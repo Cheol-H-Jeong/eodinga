@@ -123,6 +123,7 @@ class StatsSnapshot(BaseModel):
     commands_interrupted: int = 0
     crashes_reported: int = 0
     crash_logs_written: int = 0
+    crash_log_bytes_written: int = 0
     crash_log_write_failures: int = 0
     crash_handlers_installed: int = 0
     logging_configurations: int = 0
@@ -137,6 +138,7 @@ class StatsSnapshot(BaseModel):
     watcher_queue_backpressure_histogram: dict[str, object] = Field(default_factory=dict)
     index_rebuild_latency_histogram: dict[str, object] = Field(default_factory=dict)
     index_batch_size_histogram: dict[str, object] = Field(default_factory=dict)
+    crash_log_size_histogram: dict[str, object] = Field(default_factory=dict)
     commands: dict[str, dict[str, int]] = Field(default_factory=dict)
     exit_codes: dict[str, int] = Field(default_factory=dict)
     crash_types: dict[str, int] = Field(default_factory=dict)

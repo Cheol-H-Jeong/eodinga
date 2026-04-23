@@ -505,6 +505,7 @@ def test_stats_json_emits_runtime_counters(
     assert payload["commands_failed"] == 0
     assert payload["crashes_reported"] == 0
     assert payload["crash_logs_written"] == 0
+    assert payload["crash_log_bytes_written"] == 0
     assert payload["crash_log_write_failures"] == 0
     assert payload["logging_configurations"] == 2
     assert payload["log_sinks_stderr_configured"] == 2
@@ -518,6 +519,7 @@ def test_stats_json_emits_runtime_counters(
     assert payload["watcher_queue_backpressure_histogram"] == {}
     assert payload["index_rebuild_latency_histogram"] == {}
     assert payload["index_batch_size_histogram"] == {}
+    assert payload["crash_log_size_histogram"] == {}
     assert payload["commands"]["search"]["completed"] == 1
     assert payload["commands"]["search"]["started"] == 1
     assert payload["commands"]["stats"]["started"] == 1
@@ -662,6 +664,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["commands_failed"] == 0
     assert payload["crashes_reported"] == 0
     assert payload["crash_logs_written"] == 0
+    assert payload["crash_log_bytes_written"] == 0
     assert payload["crash_log_write_failures"] == 0
     assert payload["crash_handlers_installed"] == 3
     assert payload["index_rebuilds_completed"] == 1
@@ -687,6 +690,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["watcher_queue_backpressure_histogram"]["count"] == 1
     assert payload["index_rebuild_latency_histogram"]["count"] == 1
     assert payload["index_batch_size_histogram"]["count"] >= 1
+    assert payload["crash_log_size_histogram"] == {}
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
         "command.index",
         "command.search",
@@ -878,6 +882,7 @@ def test_stats_json_exposes_crash_log_write_failures(tmp_path: Path, capsys, mon
     payload = json.loads(stats_output.out)
     assert payload["crashes_reported"] == 1
     assert payload["crash_logs_written"] == 0
+    assert payload["crash_log_bytes_written"] == 0
     assert payload["crash_log_write_failures"] == 1
     assert payload["crash_types"] == {"RuntimeError": 1}
     assert payload["recent_snapshots"][1]["payload"]["crash_path"] is None
@@ -942,6 +947,33 @@ def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> 
     assert payload["recent_snapshots"][0]["name"] == "command.failure"
     assert payload["recent_snapshots"][0]["payload"]["command"] == "search"
     assert payload["recent_snapshots"][0]["payload"]["reason"] == "nonzero_exit"
+
+
+def test_stats_json_exposes_crash_log_size_metrics(tmp_path: Path, capsys, monkeypatch) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    crash_dir = tmp_path / "crashes"
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    reset_metrics()
+
+    def _boom(_args) -> int:
+        raise RuntimeError("version exploded")
+
+    monkeypatch.setattr("eodinga.__main__._cmd_version", _boom)
+
+    exit_code = main(["--db", str(db_path), "version"])
+    assert exit_code == 1
+    capsys.readouterr()
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    crash_path = Path(payload["latest_crash_log"])
+    assert payload["crash_logs_written"] == 1
+    assert payload["crash_log_bytes_written"] == crash_path.stat().st_size
+    assert payload["crash_log_size_histogram"]["count"] == 1
+    assert payload["crash_log_size_histogram"]["min_ms"] == float(crash_path.stat().st_size)
 
 
 def test_stats_json_reports_recent_snapshot_overflow(tmp_path: Path, capsys) -> None:

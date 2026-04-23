@@ -372,8 +372,12 @@ def write_crash_log(
         "\n",
         *traceback.format_exception(type(error), error, error.__traceback__),
     ]
-    crash_path.write_text("".join(lines), encoding="utf-8")
+    contents = "".join(lines)
+    crash_path.write_text(contents, encoding="utf-8")
+    crash_size_bytes = len(contents.encode("utf-8"))
     increment_counter("crash_logs_written")
+    increment_counter("crash_log_bytes_written", crash_size_bytes)
+    record_histogram("crash_log_size_bytes", float(crash_size_bytes))
     return crash_path
 
 
