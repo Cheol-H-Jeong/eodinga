@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.915 - 2026-04-24
+## 0.1.916 - 2026-04-24
 
 - Taught the PyInstaller hidden-import scan to follow literal module names passed through local variables and helper functions, so packaging audits now auto-discover launcher backend imports instead of relying only on a hand-maintained list.
 - Filtered out `TYPE_CHECKING`-only imports from the hidden-import scanners, keeping the Windows packaging contract focused on runtime dependencies instead of type-only modules.
