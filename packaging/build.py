@@ -495,7 +495,13 @@ def _run_windows() -> int:
     payload = _audit_windows_inputs(version, package_version)
     payload["target"] = "windows"
     payload["platform_tools"] = ["pyinstaller", "iscc"]
+    payload["host_platform"] = sys.platform
     _write_audit(payload)
+    if sys.platform != "win32":
+        return _report_validation_errors(
+            "windows",
+            [f"windows builds must run on win32 hosts (got {sys.platform})"],
+        )
     return _report_validation_errors("windows", _validate_windows_audit(payload))
 
 
