@@ -1,6 +1,29 @@
 from __future__ import annotations
 
 
+def recent_snapshot_name_summary(snapshots: list[dict[str, object]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for snapshot in snapshots:
+        name = snapshot.get("name")
+        if not isinstance(name, str) or not name:
+            continue
+        counts[name] = counts.get(name, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def recent_snapshot_latest_at_summary(snapshots: list[dict[str, object]]) -> dict[str, str]:
+    latest: dict[str, str] = {}
+    for snapshot in snapshots:
+        name = snapshot.get("name")
+        recorded_at = snapshot.get("recorded_at")
+        if not isinstance(name, str) or not name or not isinstance(recorded_at, str):
+            continue
+        previous = latest.get(name)
+        if previous is None or recorded_at > previous:
+            latest[name] = recorded_at
+    return dict(sorted(latest.items()))
+
+
 def command_summary(counters: dict[str, int]) -> dict[str, dict[str, int]]:
     commands: dict[str, dict[str, int]] = {}
     prefix = "commands."

@@ -213,6 +213,12 @@ def test_write_crash_log_records_runtime_metrics(tmp_path: Path) -> None:
     assert '"query_latency_ms"' in contents
     assert "metrics_generated_at=" in contents
     assert 'recent_snapshots=[{"name": "command.search"' in contents
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
+    histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
+    assert counters["crash_logs_written"] == 1
+    assert counters["crash_log_bytes_written"] >= crash_path.stat().st_size
+    assert histograms["crash_log_write_latency_ms"]["count"] == 1
 
 
 def test_write_crash_log_uses_unique_path_when_timestamp_collides(tmp_path: Path) -> None:
@@ -489,6 +495,8 @@ def test_watcher_stop_counts_discarded_pending_and_queued_events(tmp_path: Path)
 
 def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:
     reset_metrics()
+    record_histogram("query_latency_ms", 6.0)
+    record_histogram("query_latency_ms", 10.0)
 
     metrics = snapshot_metrics()
 
@@ -500,6 +508,8 @@ def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:
     assert metrics["open_fd_count"] is None or metrics["open_fd_count"] >= 0
     assert metrics["version"] == __version__
     assert metrics["uptime_ms"] >= 0
+    query_histogram = cast(dict[str, object], metrics["histograms"]["query_latency_ms"])
+    assert query_histogram["avg_ms"] == 8.0
 
 
 def test_record_snapshot_keeps_recent_entries_bounded() -> None:

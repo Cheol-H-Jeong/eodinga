@@ -128,6 +128,7 @@ class StatsSnapshot(BaseModel):
     commands_interrupted: int = 0
     crashes_reported: int = 0
     crash_logs_written: int = 0
+    crash_log_bytes_written: int = 0
     crash_log_write_failures: int = 0
     crash_handlers_installed: int = 0
     logging_configurations: int = 0
@@ -142,6 +143,7 @@ class StatsSnapshot(BaseModel):
     watcher_queue_backpressure_histogram: dict[str, object] = Field(default_factory=dict)
     index_rebuild_latency_histogram: dict[str, object] = Field(default_factory=dict)
     index_batch_size_histogram: dict[str, object] = Field(default_factory=dict)
+    crash_log_write_latency_histogram: dict[str, object] = Field(default_factory=dict)
     commands: dict[str, dict[str, int]] = Field(default_factory=dict)
     exit_codes: dict[str, int] = Field(default_factory=dict)
     crash_types: dict[str, int] = Field(default_factory=dict)
@@ -152,6 +154,8 @@ class StatsSnapshot(BaseModel):
     log_sink_file_disabled_reasons: dict[str, int] = Field(default_factory=dict)
     counters: dict[str, int] = Field(default_factory=dict)
     histograms: dict[str, dict[str, object]] = Field(default_factory=dict)
+    recent_snapshot_counts: dict[str, int] = Field(default_factory=dict)
+    recent_snapshot_latest_at: dict[str, str] = Field(default_factory=dict)
     recent_snapshots: list[dict[str, object]] = Field(default_factory=list)
     roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None

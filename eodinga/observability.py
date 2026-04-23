@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from json import dumps as json_dumps
 from pathlib import Path
 from threading import Lock
+from time import perf_counter
 from typing import IO, Any, TypedDict
 
 from loguru import logger
@@ -51,6 +52,7 @@ class _HistogramState:
         return {
             "count": self.count,
             "sum_ms": round(self.sum_ms, 3),
+            "avg_ms": round(self.sum_ms / self.count, 3) if self.count else 0.0,
             "min_ms": round(self.min_ms, 3) if self.min_ms is not None else 0.0,
             "max_ms": round(self.max_ms, 3) if self.max_ms is not None else 0.0,
             "buckets": dict(sorted(self.bucket_hits.items())),
@@ -300,6 +302,7 @@ def write_crash_log(
     context: str = "Unhandled exception",
     details: Mapping[str, object] | None = None,
 ) -> Path:
+    started = perf_counter()
     target_dir = resolve_crash_dir(crash_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
     occurred_at = datetime.now(UTC)
@@ -344,7 +347,10 @@ def write_crash_log(
         *traceback.format_exception(type(error), error, error.__traceback__),
     ]
     crash_path.write_text("".join(lines), encoding="utf-8")
+    crash_size = crash_path.stat().st_size
     increment_counter("crash_logs_written")
+    increment_counter("crash_log_bytes_written", crash_size)
+    record_histogram("crash_log_write_latency_ms", (perf_counter() - started) * 1000)
     return crash_path
 
 

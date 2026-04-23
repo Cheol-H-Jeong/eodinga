@@ -43,6 +43,8 @@ from eodinga.stats_summary import (
     log_sink_file_disabled_reason_summary,
     log_sink_file_source_summary,
     parser_activity_summary,
+    recent_snapshot_latest_at_summary,
+    recent_snapshot_name_summary,
     watcher_failure_summary,
     watcher_event_type_summary,
 )
@@ -208,6 +210,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     metrics = snapshot_metrics()
     counters = metrics["counters"]
     log_target = resolve_log_target()
+    snapshots = [dict(entry) for entry in recent_snapshots()]
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
         process_started_at=metrics["process_started_at"],
@@ -244,6 +247,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         commands_interrupted=counter_value("commands_interrupted"),
         crashes_reported=counter_value("crashes_reported"),
         crash_logs_written=counter_value("crash_logs_written"),
+        crash_log_bytes_written=counter_value("crash_log_bytes_written"),
         crash_log_write_failures=counter_value("crash_log_write_failures"),
         crash_handlers_installed=counter_value("crash_handlers_installed"),
         logging_configurations=counter_value("logging_configurations"),
@@ -258,6 +262,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         watcher_queue_backpressure_histogram=histogram_snapshot("watcher_queue_backpressure_ms"),
         index_rebuild_latency_histogram=histogram_snapshot("index_rebuild_latency_ms"),
         index_batch_size_histogram=histogram_snapshot("index_batch_size"),
+        crash_log_write_latency_histogram=histogram_snapshot("crash_log_write_latency_ms"),
         commands=command_summary(counters),
         exit_codes=exit_code_summary(counters),
         crash_types=crash_type_summary(counters),
@@ -268,7 +273,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         log_sink_file_disabled_reasons=log_sink_file_disabled_reason_summary(counters),
         counters=counters,
         histograms=metrics["histograms"],
-        recent_snapshots=[dict(entry) for entry in recent_snapshots()],
+        recent_snapshot_counts=recent_snapshot_name_summary(snapshots),
+        recent_snapshot_latest_at=recent_snapshot_latest_at_summary(snapshots),
+        recent_snapshots=snapshots,
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
         log_path=log_target.path,
