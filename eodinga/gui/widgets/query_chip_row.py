@@ -75,7 +75,8 @@ class QueryChipRow(QWidget):
         if watched not in self._buttons or event.type() != QEvent.Type.KeyPress:
             return super().eventFilter(watched, event)
         key_event = cast(QKeyEvent, event)
-        index = self._buttons.index(watched)
+        button = cast(SecondaryButton, watched)
+        index = self._buttons.index(button)
         if key_event.key() in {Qt.Key.Key_Right, Qt.Key.Key_Down}:
             return self._focus_button((index + 1) % len(self._buttons))
         if key_event.key() in {Qt.Key.Key_Left, Qt.Key.Key_Up}:

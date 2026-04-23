@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.374 - 2026-04-23
+
+- Matched-term emphasis now carries through from the launcher result list into the preview pane, so the selected file name, path, and snippet keep the same visual cue instead of dropping back to plain text.
+- Keyboard-only users can now reach pinned and recent query chips directly from the search field when no results are visible, navigate chip rows with arrow keys and Home/End, and escape back to the filter without touching the mouse.
+- `Home` and `End` in the launcher search field now preserve normal text-editing behavior until the caret is already at the boundary, avoiding accidental focus steals into the result list while refining a query.
+
 ## 0.1.369 - 2026-04-23
 
 - Expanded live-update integration coverage to prove in-place content rewrites and cross-root moves both converge in search within the 500ms watcher budget, including root-scoped query visibility.
