@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -9,6 +10,7 @@ import eodinga.index.build as build_module
 from eodinga.config import RootConfig
 from eodinga.index.build import rebuild_index
 from eodinga.index.schema import apply_schema
+from eodinga.observability import reset_metrics, snapshot_metrics
 
 
 def test_rebuild_index_failure_keeps_existing_target_database(
@@ -76,3 +78,21 @@ def test_rebuild_index_failure_keeps_existing_target_database(
     assert not staged_path.exists()
     assert not staged_path.with_name(".index.db.next-wal").exists()
 
+
+def test_rebuild_index_records_runtime_metrics(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    (root / "beta.txt").write_text("beta\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    reset_metrics()
+
+    result = rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    metrics = snapshot_metrics()
+    batch_histogram = cast(dict[str, object], metrics["histograms"]["index_batch_size"])
+    assert result.files_indexed == 3
+    assert metrics["counters"]["index_rebuilds_completed"] == 1
+    assert metrics["counters"]["files_indexed"] == 3
+    assert metrics["histograms"]["index_rebuild_latency_ms"]["count"] == 1
+    assert cast(int, batch_histogram["count"]) >= 1

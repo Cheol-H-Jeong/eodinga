@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from time import perf_counter
 from typing import NamedTuple
 
 from eodinga.common import PathRules
@@ -10,7 +11,7 @@ from eodinga.content.registry import parse
 from eodinga.core.walker import walk_batched
 from eodinga.index.storage import _cleanup_index_files, atomic_replace_index, connect_database
 from eodinga.index.writer import IndexWriter
-from eodinga.observability import increment_counter
+from eodinga.observability import increment_counter, record_histogram
 
 DEFAULT_MAX_BODY_CHARS = 4096
 
@@ -36,6 +37,7 @@ def rebuild_index(
     content_enabled: bool = True,
     max_body_chars: int = DEFAULT_MAX_BODY_CHARS,
 ) -> RebuildResult:
+    started = perf_counter()
     effective_roots = [_normalize_root(root) for root in roots]
     if not effective_roots:
         raise ValueError("index rebuild requires at least one root")
@@ -75,6 +77,12 @@ def rebuild_index(
                 )
                 for batch in walk_batched(root.path, rules, root_id=root_id):
                     indexed = writer.bulk_upsert(batch)
+                    if batch:
+                        record_histogram(
+                            "index_batch_size",
+                            float(len(batch)),
+                            root=str(root.path),
+                        )
                     files_indexed += indexed
                     if indexed:
                         increment_counter("files_indexed", indexed, root=str(root.path))
@@ -88,6 +96,14 @@ def rebuild_index(
     except Exception:
         _cleanup_index_files(staged_path)
         raise
+    elapsed_ms = (perf_counter() - started) * 1000
+    increment_counter("index_rebuilds_completed")
+    record_histogram(
+        "index_rebuild_latency_ms",
+        elapsed_ms,
+        roots_indexed=len(effective_roots),
+        content_enabled=content_enabled,
+    )
     return RebuildResult(
         db_path=target_path,
         files_indexed=files_indexed,
