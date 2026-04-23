@@ -38,9 +38,17 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
         "cli": "eodinga-cli",
         "gui": "eodinga-gui",
     }
+    assert payload["pyinstaller_spec"]["dist_paths"] == {
+        "cli": str(Path("dist/eodinga-cli").resolve()),
+        "gui": str(Path("dist/eodinga-gui").resolve()),
+    }
     assert payload["pyinstaller_spec"]["exe_names"] == {
         "cli": "eodinga-cli.exe",
         "gui": "eodinga-gui.exe",
+    }
+    assert payload["pyinstaller_spec"]["exe_paths"] == {
+        "cli": str(Path("dist/eodinga-cli/eodinga-cli.exe").resolve()),
+        "gui": str(Path("dist/eodinga-gui/eodinga-gui.exe").resolve()),
     }
     discovered_source_hiddenimports = set(payload["pyinstaller_spec"]["discovered_source_hiddenimports"])
     assert discovered_source_hiddenimports
@@ -99,6 +107,20 @@ def test_windows_audit_validator_rejects_version_mismatch() -> None:
     assert "project and package versions do not match" in errors
 
 
+def test_windows_audit_validator_rejects_missing_built_artifacts_for_release_target() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["target"] = "windows"
+    payload["pyinstaller_spec"]["dist_exists"] = {"cli": False, "gui": True}
+    payload["pyinstaller_spec"]["exe_exists"] = {"cli": False, "gui": False}
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "Windows build is missing the staged CLI dist directory" in errors
+    assert "Windows build is missing the staged GUI executable" in errors
+    assert "Windows build is missing the staged CLI executable" in errors
+
+
 def test_windows_audit_validator_rejects_missing_source_hidden_import_contract() -> None:
     module = _load_build_module()
     payload = module._audit_windows_inputs(__version__, __version__)
@@ -132,6 +154,21 @@ def test_build_preflight_reports_missing_windows_tool(monkeypatch) -> None:
     result = module._run_windows()
 
     assert result == 1
+
+
+def test_windows_build_target_relabels_audit_and_requires_built_artifacts(monkeypatch) -> None:
+    module = _load_build_module()
+
+    def fake_which(command: str) -> str | None:
+        return f"/usr/bin/{command}"
+
+    monkeypatch.setattr(module.shutil, "which", fake_which)
+
+    result = module._run_windows()
+
+    assert result == 1
+    payload = json.loads(Path("packaging/dist/windows-audit.json").read_text(encoding="utf-8"))
+    assert payload["target"] == "windows"
 
 
 def test_build_preflight_reports_missing_linux_deb_tool(monkeypatch) -> None:

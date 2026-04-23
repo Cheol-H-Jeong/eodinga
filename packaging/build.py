@@ -102,6 +102,10 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
         f"dist\\\\{gui_dist_name}\\\\*",
         f"dist\\\\{cli_dist_name}\\\\*",
     ]
+    gui_dist_path = PROJECT_ROOT / "dist" / gui_dist_name
+    cli_dist_path = PROJECT_ROOT / "dist" / cli_dist_name
+    gui_exe_path = gui_dist_path / gui_exe_name
+    cli_exe_path = cli_dist_path / cli_exe_name
     return {
         "target": "windows-dry-run",
         "version": version,
@@ -117,6 +121,22 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "exe_names": {
                 "cli": cli_exe_name,
                 "gui": gui_exe_name,
+            },
+            "dist_paths": {
+                "cli": str(cli_dist_path),
+                "gui": str(gui_dist_path),
+            },
+            "dist_exists": {
+                "cli": cli_dist_path.exists(),
+                "gui": gui_dist_path.exists(),
+            },
+            "exe_paths": {
+                "cli": str(cli_exe_path),
+                "gui": str(gui_exe_path),
+            },
+            "exe_exists": {
+                "cli": cli_exe_path.exists(),
+                "gui": gui_exe_path.exists(),
             },
             "required_hiddenimports": spec_namespace.get("REQUIRED_HIDDEN_IMPORTS", []),
             "discovered_source_hiddenimports": spec_namespace.get("DISCOVERED_SOURCE_HIDDEN_IMPORTS", []),
@@ -206,6 +226,17 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         errors.append("PyInstaller hidden imports no longer include the source-derived modules")
     if not spec_payload.get("datas"):
         errors.append("PyInstaller data files are empty")
+    if payload.get("target") == "windows":
+        dist_exists = spec_payload.get("dist_exists", {})
+        exe_exists = spec_payload.get("exe_exists", {})
+        if not dist_exists.get("gui"):
+            errors.append("Windows build is missing the staged GUI dist directory")
+        if not dist_exists.get("cli"):
+            errors.append("Windows build is missing the staged CLI dist directory")
+        if not exe_exists.get("gui"):
+            errors.append("Windows build is missing the staged GUI executable")
+        if not exe_exists.get("cli"):
+            errors.append("Windows build is missing the staged CLI executable")
     inno_payload = payload.get("inno_setup", {})
     required_flags = {
         "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
@@ -413,6 +444,7 @@ def _run_windows() -> int:
     version = _read_project_version()
     package_version = _read_package_version()
     payload = _audit_windows_inputs(version, package_version)
+    payload["target"] = "windows"
     payload["platform_tools"] = ["pyinstaller", "iscc"]
     _write_audit(payload)
     return _report_validation_errors("windows", _validate_windows_audit(payload))
