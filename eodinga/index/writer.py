@@ -16,6 +16,7 @@ ParserCallback = Callable[[Path], ParsedContent | None]
 RecordLoader = Callable[[Path], FileRecord | None]
 T = TypeVar("T")
 _WRITE_PRAGMAS = {"synchronous": "NORMAL", "cache_size": -128000}
+_SQL_CHUNK_SIZE = 900
 
 
 class ExistingContentRow(NamedTuple):
@@ -42,7 +43,7 @@ def _record_tuple(record: FileRecord) -> tuple[object, ...]:
     )
 
 
-def _chunked(values: Sequence[T], size: int = 500) -> Iterable[Sequence[T]]:
+def _chunked(values: Sequence[T], size: int = _SQL_CHUNK_SIZE) -> Iterable[Sequence[T]]:
     for start in range(0, len(values), size):
         yield values[start : start + size]
 

@@ -127,6 +127,42 @@ def test_writer_caches_chunk_shaped_sql_templates() -> None:
     assert writer_module._select_existing_content_rows_sql.cache_info().hits >= 1
 
 
+def test_writer_uses_near_limit_sql_chunks_for_large_path_deletes(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    writer = IndexWriter(conn)
+    records = [_synthetic_record(index, tmp_path) for index in range(writer_module._SQL_CHUNK_SIZE + 5)]
+    assert writer.bulk_upsert(records) == len(records)
+
+    seen_delete_chunk_sizes: list[int] = []
+    seen_select_chunk_sizes: list[int] = []
+    original_delete_sql = writer_module._delete_files_sql
+    original_select_sql = writer_module._select_deleted_content_rowids_sql
+
+    def recording_delete_sql(chunk_size: int) -> str:
+        seen_delete_chunk_sizes.append(chunk_size)
+        return original_delete_sql(chunk_size)
+
+    def recording_select_sql(chunk_size: int) -> str:
+        seen_select_chunk_sizes.append(chunk_size)
+        return original_select_sql(chunk_size)
+
+    writer_module._delete_files_sql = recording_delete_sql
+    writer_module._select_deleted_content_rowids_sql = recording_select_sql
+    try:
+        deleted = writer._delete_paths([record.path for record in records], [])
+    finally:
+        writer_module._delete_files_sql = original_delete_sql
+        writer_module._select_deleted_content_rowids_sql = original_select_sql
+
+    assert deleted == len(records)
+    assert seen_delete_chunk_sizes == [writer_module._SQL_CHUNK_SIZE, 5]
+    assert seen_select_chunk_sizes == [writer_module._SQL_CHUNK_SIZE, 5]
+
+
 def test_writer_without_parser_skips_content_queries(tmp_db: Path, tmp_path: Path) -> None:
     conn = sqlite3.connect(tmp_db)
     conn.execute(
