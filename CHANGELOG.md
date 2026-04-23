@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.855 - 2026-04-23
+
+- Added ISO period literals to query date filters, including `YYYY`, `YYYY-MM`, ISO week `YYYY-Www`, and ISO weekday `YYYY-Www-D`, so arbitrary period queries no longer need exact day endpoints.
+- Added compiler, executor, CLI, and integration coverage for mixed-granularity ISO ranges such as `date:2026-W17..2026-05`, locking the new query surface through end-to-end search flows.
+
 ## 0.1.849 - 2026-04-23
 
 - Tightened the Linux packaging audits so staged AppImage and Debian launchers must execute `--help` successfully from outside the repo, proving the bundled runtime can boot headlessly.
