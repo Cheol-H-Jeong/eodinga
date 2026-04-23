@@ -558,3 +558,29 @@ def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path
     assert metrics["counters"]["commands.version.failed"] == 1
     assert "commands_completed" not in metrics["counters"]
     assert metrics["histograms"]["command_latency_ms"]["count"] == 1
+
+
+def test_interrupted_command_returns_130_and_tracks_interrupt_metrics(
+    monkeypatch, tmp_path: Path
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    def _interrupt(_args) -> int:
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr("eodinga.__main__._cmd_version", _interrupt)
+
+    exit_code = main(["--db", str(db_path), "version"])
+
+    metrics = snapshot_metrics()
+    assert exit_code == 130
+    assert metrics["counters"]["commands_started"] == 1
+    assert metrics["counters"]["commands.version.started"] == 1
+    assert metrics["counters"]["commands_failed"] == 1
+    assert metrics["counters"]["commands.version.failed"] == 1
+    assert metrics["counters"]["commands_interrupted"] == 1
+    assert metrics["counters"]["commands.version.interrupted"] == 1
+    assert "commands_completed" not in metrics["counters"]
+    assert metrics["histograms"]["command_latency_ms"]["count"] == 1

@@ -225,6 +225,12 @@ def _run_command(args: argparse.Namespace) -> int:
     started_at = monotonic()
     try:
         exit_code = int(args.handler(args))
+    except KeyboardInterrupt:
+        increment_counter("commands_failed", command=command)
+        increment_counter(f"commands.{command}.failed")
+        increment_counter("commands_interrupted", command=command)
+        increment_counter(f"commands.{command}.interrupted")
+        return 130
     except Exception:
         increment_counter("commands_failed", command=command)
         increment_counter(f"commands.{command}.failed")
@@ -245,8 +251,6 @@ def main(argv: list[str] | None = None) -> int:
     install_crash_handlers()
     try:
         return _run_command(args)
-    except KeyboardInterrupt:
-        raise
     except Exception as error:
         command_argv = argv or sys.argv[1:]
         command = " ".join(command_argv) or "<interactive>"
