@@ -10,7 +10,7 @@ from watchdog.events import FileMovedEvent
 
 from eodinga.common import WatchEvent
 from eodinga.core.watcher import WatchService, _Handler
-from eodinga.observability import reset_metrics, snapshot_metrics
+from eodinga.observability import histogram_snapshot, reset_metrics, snapshot_metrics
 
 
 def test_watcher_handler_maps_move_leaving_root_to_delete(tmp_path: Path) -> None:
@@ -656,6 +656,7 @@ def test_watcher_start_ignores_duplicate_root_registration(
 
 
 def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path) -> None:
+    reset_metrics()
     service = WatchService(queue_maxsize=1)
     first = tmp_path / "first.txt"
     second = tmp_path / "second.txt"
@@ -698,3 +699,8 @@ def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path)
 
     second_event = service.queue.get_nowait()
     assert second_event.path == second
+    metrics = snapshot_metrics()
+    assert metrics["counters"]["watcher_queue_full"] == 1
+    assert metrics["counters"]["watcher_queue_retries"] >= 1
+    assert histogram_snapshot("watch_pending_events")["count"] >= 2
+    assert histogram_snapshot("watch_queue_depth")["count"] == 2

@@ -147,6 +147,7 @@ class WatchService:
         increment_counter(f"watcher_events.{event.event_type}")
         immediate_emit: WatchEvent | None = None
         flush_now = False
+        pending_count = 0
         with self._lock:
             if event.event_type in {"created", "modified"}:
                 self._flushed_retired_sources.discard(event.path)
@@ -184,7 +185,10 @@ class WatchService:
                         moved_retired_sources.update(self._retired_sources.get(event.path, set()))
                         self._retired_sources[event.path] = moved_retired_sources
                     self._timestamps[event.path] = monotonic()
+                pending_count = len(self._pending)
                 flush_now = len(self._pending) >= _FLUSH_LIMIT
+        if pending_count:
+            record_histogram("watch_pending_events", float(pending_count), event_type=event.event_type)
         if immediate_emit is not None:
             self._enqueue_event(immediate_emit)
             return
@@ -320,6 +324,7 @@ class WatchService:
         while not self._stop.is_set():
             try:
                 self.queue.put(event, timeout=_QUEUE_PUT_TIMEOUT_SECONDS)
+                record_histogram("watch_queue_depth", float(self.queue.qsize()), event_type=event.event_type)
                 if blocked_at is not None:
                     record_histogram(
                         "watcher_queue_backpressure_ms",
@@ -328,6 +333,7 @@ class WatchService:
                     )
                 return True
             except Full:
+                increment_counter("watcher_queue_retries", event_type=event.event_type)
                 if blocked_at is None:
                     blocked_at = monotonic()
                     increment_counter("watcher_queue_full", event_type=event.event_type)

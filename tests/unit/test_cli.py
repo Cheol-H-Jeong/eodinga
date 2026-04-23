@@ -499,6 +499,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["watcher_flushes"] == 0
     assert payload["watcher_events_flushed"] == 0
     assert payload["watcher_queue_full"] == 0
+    assert payload["watcher_queue_retries"] == 0
     assert payload["watcher_enqueue_aborted"] == 0
     assert payload["index_rebuilds_completed"] == 0
     assert payload["commands_started"] == 2
@@ -519,6 +520,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["command_latency_histogram"]["count"] == 1
     assert payload["watch_flush_batch_histogram"] == {}
     assert payload["watch_event_lag_histogram"] == {}
+    assert payload["watch_pending_events_histogram"] == {}
+    assert payload["watch_queue_depth_histogram"] == {}
     assert payload["watcher_queue_backpressure_histogram"] == {}
     assert payload["index_rebuild_latency_histogram"] == {}
     assert payload["index_batch_size_histogram"] == {}
@@ -640,11 +643,13 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["watcher_flushes"] == 2
     assert payload["counters"]["watcher_events_flushed"] == 2
     assert payload["counters"]["watcher_queue_full"] == 1
+    assert payload["counters"]["watcher_queue_retries"] >= 1
     assert "watcher_enqueue_aborted" not in payload["counters"]
     assert payload["watcher_events"] == 2
     assert payload["watcher_flushes"] == 2
     assert payload["watcher_events_flushed"] == 2
     assert payload["watcher_queue_full"] == 1
+    assert payload["watcher_queue_retries"] >= 1
     assert payload["watcher_enqueue_aborted"] == 0
     assert payload["process_started_at"].endswith("Z")
     assert payload["pid"] > 0
@@ -694,6 +699,8 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["parser_body_chars_histogram"]["count"] >= 2
     assert payload["watch_flush_batch_histogram"]["count"] == 2
     assert payload["watch_event_lag_histogram"]["count"] == 2
+    assert payload["watch_pending_events_histogram"]["count"] >= 2
+    assert payload["watch_queue_depth_histogram"]["count"] == 2
     assert payload["watcher_queue_backpressure_histogram"]["count"] == 1
     assert payload["index_rebuild_latency_histogram"]["count"] == 1
     assert payload["index_batch_size_histogram"]["count"] >= 1

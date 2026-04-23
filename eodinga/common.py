@@ -117,6 +117,7 @@ class StatsSnapshot(BaseModel):
     watcher_flushes: int = 0
     watcher_events_flushed: int = 0
     watcher_queue_full: int = 0
+    watcher_queue_retries: int = 0
     watcher_enqueue_aborted: int = 0
     watcher_observers_started: int = 0
     watcher_observers_stopped: int = 0
@@ -141,6 +142,8 @@ class StatsSnapshot(BaseModel):
     command_latency_histogram: dict[str, object] = Field(default_factory=dict)
     watch_flush_batch_histogram: dict[str, object] = Field(default_factory=dict)
     watch_event_lag_histogram: dict[str, object] = Field(default_factory=dict)
+    watch_pending_events_histogram: dict[str, object] = Field(default_factory=dict)
+    watch_queue_depth_histogram: dict[str, object] = Field(default_factory=dict)
     watcher_queue_backpressure_histogram: dict[str, object] = Field(default_factory=dict)
     index_rebuild_latency_histogram: dict[str, object] = Field(default_factory=dict)
     index_batch_size_histogram: dict[str, object] = Field(default_factory=dict)
