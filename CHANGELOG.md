@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.242 - 2026-04-23
+
+- Marked staged rebuild databases as complete only after the full rebuild transaction finishes, so startup no longer promotes interrupted `.next` files into the live index.
+- Hardened `open_index()` recovery to discard incomplete staged builds and keep the last known-good index queryable instead of failing or swapping in partial state.
+- Routed `SIGTERM` through the same interruption path as `Ctrl-C` and cleaned staged rebuild files on `KeyboardInterrupt`, keeping aborted rebuilds from leaving ambiguous recovery artifacts behind.
+
 ## 0.1.238 - 2026-04-23
 
 - Fixed inline quoted operator values so escaped quotes and backslashes decode consistently whether or not the phrase contains whitespace.
