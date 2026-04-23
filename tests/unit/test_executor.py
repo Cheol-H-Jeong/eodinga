@@ -10,6 +10,8 @@ import pytest
 
 from eodinga.query import executor as executor_module
 from eodinga.query import search
+from eodinga.query.compiler import compile_query
+from eodinga.query.dsl import parse
 
 
 def _insert_file(
@@ -228,6 +230,61 @@ def test_fetch_content_texts_splits_large_batches_for_statement_reuse(
 
     assert len(texts) == len(content_ids)
     assert chunk_sizes == [256, 144]
+
+
+def test_derive_name_path_hits_normalizes_each_record_field_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    compiled = compile_query(parse("Alpha Beta"))
+    branch = compiled.branches[0]
+    records = {
+        1: executor_module.FileRecord(
+            root_id=1,
+            path=Path("/workspace/Alpha Beta.txt"),
+            parent_path=Path("/workspace"),
+            name="Alpha Beta.txt",
+            name_lower="alpha beta.txt",
+            ext="txt",
+            size=1,
+            mtime=1,
+            ctime=1,
+            is_dir=False,
+            is_symlink=False,
+            indexed_at=1,
+            id=1,
+        ),
+        2: executor_module.FileRecord(
+            root_id=1,
+            path=Path("/workspace/misc/Gamma.txt"),
+            parent_path=Path("/workspace/misc"),
+            name="Gamma.txt",
+            name_lower="gamma.txt",
+            ext="txt",
+            size=1,
+            mtime=1,
+            ctime=1,
+            is_dir=False,
+            is_symlink=False,
+            indexed_at=1,
+            id=2,
+        ),
+    }
+
+    calls: list[str] = []
+    original_normalize = executor_module._normalize_search_text
+
+    def recording_normalize(value: str, case_sensitive: bool) -> str:
+        calls.append(value)
+        return original_normalize(value, case_sensitive=case_sensitive)
+
+    monkeypatch.setattr(executor_module, "_normalize_search_text", recording_normalize)
+
+    name_hits, path_hits = executor_module._derive_name_path_hits(records, branch)
+
+    assert name_hits == [1]
+    assert path_hits == [1]
+    assert calls.count("Alpha") == 1
+    assert calls.count("Beta") == 1
+    assert calls.count("Alpha Beta.txt") == 1
+    assert calls.count("/workspace/Alpha Beta.txt") == 1
 
 
 def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:

@@ -213,6 +213,14 @@ def _term_matches(
     return _text_matches(value, term_value, case_sensitive=case_sensitive)
 
 
+def _normalized_positive_path_needles(branch: CompiledBranch) -> tuple[str, ...]:
+    return tuple(
+        _normalize_search_text(term.value, case_sensitive=branch.case_sensitive)
+        for term in branch.path_terms
+        if not term.negated
+    )
+
+
 def _normalize_search_text(value: str, case_sensitive: bool) -> str:
     normalized = unicodedata.normalize("NFC", value)
     return normalized if case_sensitive else normalized.casefold()
@@ -697,17 +705,14 @@ def _scan_auto_content_candidates(
 
 
 def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> list[int]:
-    positives = [term.value for term in branch.path_terms if not term.negated]
-    if not positives:
+    needles = _normalized_positive_path_needles(branch)
+    if not needles:
         return []
     hits: list[int] = []
     for file_id, record in records.items():
         check_name = _normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
-        for term in positives:
-            needle = _normalize_search_text(term, case_sensitive=branch.case_sensitive)
-            if check_name.startswith(needle):
-                hits.append(file_id)
-                break
+        if any(check_name.startswith(needle) for needle in needles):
+            hits.append(file_id)
     return hits
 
 
@@ -752,10 +757,10 @@ def _metadata_only_total_estimate(
 def _derive_name_path_hits(
     records: Mapping[int, FileRecord], branch: CompiledBranch
 ) -> tuple[list[int], list[int]]:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_needles = _normalized_positive_path_needles(branch)
     name_hits: list[int] = []
     path_hits: list[int] = []
-    if not positive_terms:
+    if not positive_needles:
         ordered = sorted(
             records.values(),
             key=lambda item: _record_order_key(item, case_sensitive=branch.case_sensitive),
@@ -765,17 +770,13 @@ def _derive_name_path_hits(
     for record in records.values():
         if record.id is None:
             continue
-        target_name = record.name
-        target_path = str(record.path)
-        if any(
-            _text_matches(target_name, term.value, branch.case_sensitive)
-            for term in positive_terms
-        ):
+        normalized_name = _normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
+        normalized_path = _normalize_search_text(
+            str(record.path), case_sensitive=branch.case_sensitive
+        )
+        if any(needle in normalized_name for needle in positive_needles):
             name_hits.append(record.id)
-        if any(
-            _text_matches(target_path, term.value, branch.case_sensitive)
-            for term in positive_terms
-        ):
+        if any(needle in normalized_path for needle in positive_needles):
             path_hits.append(record.id)
     return name_hits, path_hits
 
