@@ -130,6 +130,46 @@ def test_atomic_replace_index_fsyncs_staged_file_and_target_directory(
     ]
 
 
+def test_atomic_replace_index_validates_staged_database_before_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / "index.staged.db"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/candidate", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    seen: list[Path] = []
+
+    def fail_validation(path: Path) -> None:
+        seen.append(path)
+        raise sqlite3.DatabaseError("quick_check failed")
+
+    monkeypatch.setattr("eodinga.index.storage._validate_database", fail_validation)
+
+    with pytest.raises(sqlite3.DatabaseError, match="quick_check failed"):
+        atomic_replace_index(staged, target)
+
+    assert seen == [staged]
+    assert staged.exists()
+    assert _read_root_paths(target) == ["/live"]
+
+
 def test_atomic_replace_index_preserves_live_sidecars_when_swap_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

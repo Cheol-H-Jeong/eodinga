@@ -45,6 +45,16 @@ def _checkpoint_wal(path: Path) -> None:
         conn.close()
 
 
+def _validate_database(path: Path) -> None:
+    conn = connect_database(path, row_factory=None)
+    try:
+        row = conn.execute("PRAGMA quick_check(1);").fetchone()
+    finally:
+        conn.close()
+    if row is None or str(row[0]).lower() != "ok":
+        raise sqlite3.DatabaseError(f"staged database integrity check failed for {path}")
+
+
 def _cleanup_sidecars(path: Path) -> None:
     for suffix in ("-wal", "-shm"):
         sidecar = _sidecar(path, suffix)
@@ -248,6 +258,7 @@ def atomic_replace_index(staged_path: Path, target_path: Path) -> None:
     target_dir = target_path.parent
     target_dir.mkdir(parents=True, exist_ok=True)
     _checkpoint_wal(staged_path)
+    _validate_database(staged_path)
     _fsync_file(staged_path)
     _fsync_directory(target_dir)
     os.replace(staged_path, target_path)
