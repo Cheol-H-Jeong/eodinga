@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.872 - 2026-04-23
+
+- Added a README release-evidence matrix and safe asset-refresh guidance so docs-only and release-facing rounds can pick the smallest proof command without guessing.
+- Expanded the architecture guide with derived-asset ownership and release-failure isolation, making docs, generated artifacts, and packaging manifests part of the same explicit system model.
+- Tightened contributor and release workflow docs with failure-priority guidance, artifact-review prompts, theme command bundles, and docs-asset drift recovery steps.
+
 ## 0.1.868 - 2026-04-23
 
 - Preserved negated query filters in launcher summaries, so grouped filters like `-(ext:pdf | date:today)` no longer show misleading positive chips.
