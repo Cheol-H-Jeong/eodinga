@@ -114,6 +114,21 @@ def test_launcher_state_is_shared_between_popup_and_search_tab(qapp) -> None:
     assert "release" in window.search_tab.launcher_panel.empty_state.body_label.text()
 
 
+def test_launcher_recent_queries_restore_from_config_and_persist_updates(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"recent_queries": ["release notes", "budget"]})
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    window.show()
+
+    assert window.launcher_state.recent_queries == ["release notes", "budget"]
+    assert [button.text() for button in window.launcher_window.recent_queries_row.buttons] == ["release notes", "budget"]
+
+    window.launcher_state.remember_query("triage")
+
+    stored = load(temp_config_path)
+    assert stored.launcher.recent_queries == ["triage", "release notes", "budget"]
+
+
 def test_launchers_respect_configured_limit_and_debounce(qapp) -> None:
     calls: list[tuple[str, int]] = []
 

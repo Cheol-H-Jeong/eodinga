@@ -65,6 +65,7 @@ class LauncherConfig(BaseModel):
     hotkey: str = "ctrl+shift+space"
     debounce_ms: int = 30
     max_results: int = 200
+    recent_queries: list[str] = Field(default_factory=list)
     pinned_queries: list[str] = Field(default_factory=list)
     frameless: bool = True
     always_on_top: bool = False
