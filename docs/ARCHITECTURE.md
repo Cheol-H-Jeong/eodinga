@@ -288,7 +288,7 @@ startup
 | Cold rebuild | large staged transactions written into `.next` | keeps half-built indexes out of the live path |
 | Startup recovery | staged replay then atomic swap | stale WAL or interrupted recovery never mutates the live DB in place |
 | Live watcher updates | short commit after a debounced batch | makes the next query see a coherent update set |
-| Search requests | read-only connection usage | query execution never repairs or mutates state |
+| Search queries | read-only connection usage | query execution never repairs or mutates state |
 
 ## Packaging Surfaces
 
