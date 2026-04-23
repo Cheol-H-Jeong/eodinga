@@ -16,6 +16,26 @@ python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]
 4. Run the full local gate before handing off a release candidate.
 5. Update docs and screenshots when the visible or operator-facing contract changes.
 
+## Parallel Worktrees
+
+When multiple workers are landing rounds concurrently, keep the local loop deterministic:
+
+1. Rebase the worktree onto `origin/main` before substantive edits.
+2. Stay inside one theme unless a minimal unblocker is required to restore the gate.
+3. Keep one logical change per commit and re-run `pytest -q tests/unit` before the next commit.
+4. Leave tagging and version bumps for the release-metadata commit at the end of the round.
+5. Do not push from a worker worktree; hand off the local commits and tag to the orchestrator.
+
+Required start gate for worker rounds:
+
+```bash
+git fetch origin main && git reset --hard origin/main
+source .venv/bin/activate 2>/dev/null || python3 -m venv .venv && source .venv/bin/activate
+pip install -e .[dev,parsers,gui]
+pytest -q tests
+ruff check eodinga tests
+```
+
 ## Suggested Command Order
 
 Use one clean pass instead of ad-hoc retries:
@@ -52,6 +72,12 @@ yamllint .github/workflows/release-windows.yml
 yamllint .github/workflows/release-linux.yml
 ```
 
+Commit-level minimum:
+
+```bash
+pytest -q tests/unit
+```
+
 ## Scope Guardrails
 
 - Do not edit `SPEC.md`.
@@ -68,6 +94,7 @@ yamllint .github/workflows/release-linux.yml
 - Regenerate the shipped screenshots with `python scripts/render_docs_screenshots.py` after visible GUI changes.
 - Regenerate `docs/man/eodinga.1` with `python scripts/generate_manpage.py` after CLI parser changes.
 - Keep `CHANGELOG.md` aligned with landed behavior only; avoid speculative release notes.
+- Prefer documenting one-command validation paths when they exist; release and acceptance docs should not require readers to reverse-engineer command order.
 
 ## Derived Asset Matrix
 
@@ -77,6 +104,18 @@ yamllint .github/workflows/release-linux.yml
 | Visible GUI text or layout used in docs | `python scripts/render_docs_screenshots.py` and `pytest -q tests/unit/test_docs_assets.py` |
 | README or guide wording only | `pytest -q tests/unit/test_docs_assets.py` |
 | Packaging or release docs | the matching `packaging/build.py --target ...-dry-run` command plus `pytest -q tests/unit/test_docs_assets.py` |
+
+## Theme-Sized Test Guide
+
+Use the smallest green slice that proves the change:
+
+| Theme | First command |
+| --- | --- |
+| `docs` | `pytest -q tests/unit/test_docs_assets.py` |
+| `packaging` | `pytest -q tests/unit/test_build.py tests/unit/test_build_dry_run.py tests/unit/test_inno_script.py tests/unit/test_pyinstaller_spec.py` |
+| `query` / `correctness` | `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py` |
+| `launcher` / `ux` | `pytest -q tests/unit/test_gui_launcher.py tests/unit/test_gui_app.py tests/unit/test_docs_assets.py` |
+| `integration` / `reliability` | `pytest -q tests/unit/test_storage.py tests/unit/test_writer.py tests/unit/test_watcher.py` |
 
 ## Docs Refresh Order
 
@@ -103,3 +142,4 @@ When a change affects the shipped contract, refresh docs in this order:
 - Local tags are created during the release-cut handoff flow documented in [RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md).
 - Docs-only rounds still require a changelog entry and local tag when the shipped contract changed.
 - If a change cannot stay inside one theme or one logical commit, stop and split it before proceeding.
+- The final release commit for a round should carry the version bump, changelog entry, and local tag together so earlier feature or docs commits remain easy to review and rebase.

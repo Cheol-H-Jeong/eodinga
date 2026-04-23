@@ -116,12 +116,17 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Scope Guardrails" in contributing
     assert "## Documentation Expectations" in contributing
     assert "## Derived Asset Matrix" in contributing
+    assert "## Parallel Worktrees" in contributing
+    assert "Required start gate for worker rounds" in contributing
+    assert "## Theme-Sized Test Guide" in contributing
+    assert "Commit-level minimum" in contributing
     assert "scripts/generate_manpage.py" in contributing
     assert "scripts/render_docs_screenshots.py" in contributing
     assert "## Docs Refresh Order" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
+    assert "The final release commit for a round should carry the version bump" in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl
