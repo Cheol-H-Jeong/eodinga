@@ -40,6 +40,7 @@ class _ContentPresenceCache(NamedTuple):
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
 _SCAN_BATCH_SIZE = 2_000
+_PREPARED_STATEMENT_CACHE_SIZE = 128
 
 
 @lru_cache(maxsize=256)
@@ -49,6 +50,11 @@ def _record_batch_sql(has_where: bool) -> str:
         sql += " WHERE {where_sql}"
     sql += " ORDER BY files.name_lower ASC, files.path ASC, files.id ASC LIMIT ? OFFSET ?"
     return sql
+
+
+@lru_cache(maxsize=_PREPARED_STATEMENT_CACHE_SIZE)
+def _record_batch_stmt(where_sql: str) -> str:
+    return _record_batch_sql(bool(where_sql)).format(where_sql=where_sql)
 
 
 @lru_cache(maxsize=256)
@@ -82,6 +88,22 @@ def _path_candidates_fts_sql(
     return sql
 
 
+@lru_cache(maxsize=_PREPARED_STATEMENT_CACHE_SIZE)
+def _path_candidates_fts_stmt(
+    path_match_sql: str,
+    where_sql: str,
+    case_sensitive: bool,
+) -> str:
+    return _path_candidates_fts_sql(
+        bool(path_match_sql),
+        bool(where_sql),
+        case_sensitive,
+    ).format(
+        path_match_sql=path_match_sql,
+        where_sql=where_sql,
+    )
+
+
 @lru_cache(maxsize=256)
 def _path_candidates_scan_sql(
     positive_term_count: int,
@@ -112,6 +134,19 @@ def _path_candidates_scan_sql(
     return sql
 
 
+@lru_cache(maxsize=_PREPARED_STATEMENT_CACHE_SIZE)
+def _path_candidates_scan_stmt(
+    positive_term_count: int,
+    where_sql: str,
+    case_sensitive: bool,
+) -> str:
+    return _path_candidates_scan_sql(
+        positive_term_count,
+        bool(where_sql),
+        case_sensitive,
+    ).format(where_sql=where_sql)
+
+
 @lru_cache(maxsize=256)
 def _content_candidates_sql(has_where_sql: bool) -> str:
     sql = """
@@ -125,6 +160,14 @@ def _content_candidates_sql(has_where_sql: bool) -> str:
         sql += " AND {where_sql}"
     sql += " ORDER BY bm25(content_fts, 3.0, 1.5, 1.0) ASC, files.name_lower ASC, files.path ASC, files.id ASC LIMIT ?"
     return sql
+
+
+@lru_cache(maxsize=_PREPARED_STATEMENT_CACHE_SIZE)
+def _content_candidates_stmt(content_match_sql: str, where_sql: str) -> str:
+    return _content_candidates_sql(bool(where_sql)).format(
+        content_match_sql=content_match_sql,
+        where_sql=where_sql,
+    )
 
 
 @lru_cache(maxsize=256)
@@ -142,6 +185,11 @@ def _auto_content_candidates_sql(has_where_sql: bool) -> str:
     return sql
 
 
+@lru_cache(maxsize=_PREPARED_STATEMENT_CACHE_SIZE)
+def _auto_content_candidates_stmt(where_sql: str) -> str:
+    return _auto_content_candidates_sql(bool(where_sql)).format(where_sql=where_sql)
+
+
 @lru_cache(maxsize=256)
 def _content_backfill_sql(has_where_sql: bool) -> str:
     sql = """
@@ -153,6 +201,11 @@ def _content_backfill_sql(has_where_sql: bool) -> str:
         sql += " WHERE {where_sql}"
     sql += " ORDER BY files.name_lower ASC, files.path ASC, files.id ASC LIMIT ? OFFSET ?"
     return sql
+
+
+@lru_cache(maxsize=_PREPARED_STATEMENT_CACHE_SIZE)
+def _content_backfill_stmt(where_sql: str) -> str:
+    return _content_backfill_sql(bool(where_sql)).format(where_sql=where_sql)
 
 
 @lru_cache(maxsize=128)
@@ -365,7 +418,7 @@ def _fetch_record_batch(
     limit: int,
     offset: int,
 ) -> dict[int, FileRecord]:
-    sql = _record_batch_sql(bool(where_sql)).format(where_sql=where_sql)
+    sql = _record_batch_stmt(where_sql)
     rows = conn.execute(sql, (*where_params, limit, offset)).fetchall()
     return {row["id"]: _row_to_record(row) for row in rows}
 
@@ -498,13 +551,10 @@ def _fetch_path_candidates_fts(
     prefix_term = positive_terms[0].value if positive_terms else ""
     if branch.where_sql:
         params.extend(branch.where_params)
-    sql = _path_candidates_fts_sql(
-        bool(branch.path_match_sql),
-        bool(branch.where_sql),
+    sql = _path_candidates_fts_stmt(
+        branch.path_match_sql or "",
+        branch.where_sql,
         branch.case_sensitive,
-    ).format(
-        path_match_sql=branch.path_match_sql or "",
-        where_sql=branch.where_sql,
     )
     params.append(_prefix_like_param(prefix_term))
     rows = conn.execute(sql, (*params, limit)).fetchall()
@@ -527,11 +577,11 @@ def _fetch_path_candidates_scan(
         params.extend([value, value])
     if branch.where_sql:
         params.extend(branch.where_params)
-    sql = _path_candidates_scan_sql(
+    sql = _path_candidates_scan_stmt(
         len(positive_terms),
-        bool(branch.where_sql),
+        branch.where_sql,
         branch.case_sensitive,
-    ).format(where_sql=branch.where_sql)
+    )
     params.append(_prefix_like_param(prefix_term))
     rows = conn.execute(sql, (*params, limit)).fetchall()
     records = {row["id"]: _row_to_record(row) for row in rows}
@@ -587,10 +637,7 @@ def _fetch_content_candidates(
     params: list[object] = list(branch.content_match_params)
     if branch.where_sql:
         params.extend(branch.where_params)
-    sql = _content_candidates_sql(bool(branch.where_sql)).format(
-        content_match_sql=branch.content_match_sql,
-        where_sql=branch.where_sql,
-    )
+    sql = _content_candidates_stmt(branch.content_match_sql, branch.where_sql)
     rows = conn.execute(sql, (*params, limit)).fetchall()
     records = {row["id"]: _row_to_record(row) for row in rows}
     snippets = {row["id"]: row["snippet"] for row in rows}
@@ -619,7 +666,7 @@ def _fetch_auto_content_candidates(
     params: list[object] = [query]
     if branch.where_sql:
         params.extend(branch.where_params)
-    sql = _auto_content_candidates_sql(bool(branch.where_sql)).format(where_sql=branch.where_sql)
+    sql = _auto_content_candidates_stmt(branch.where_sql)
     rows = conn.execute(sql, (*params, limit)).fetchall()
     records = {row["id"]: _row_to_record(row) for row in rows}
     snippets = {row["id"]: row["snippet"] for row in rows}
@@ -700,7 +747,7 @@ def _fetch_content_backfill_batch(
     params: list[object] = []
     if branch.where_sql:
         params.extend(branch.where_params)
-    sql = _content_backfill_sql(bool(branch.where_sql)).format(where_sql=branch.where_sql)
+    sql = _content_backfill_stmt(branch.where_sql)
     rows = conn.execute(sql, (*params, limit, offset)).fetchall()
     return {row["id"]: _row_to_record(row) for row in rows}
 

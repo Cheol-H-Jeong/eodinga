@@ -728,13 +728,16 @@ def test_execute_reuses_cached_sql_shapes_for_name_queries(populated_db: sqlite3
     executor_module._path_candidates_fts_sql.cache_clear()
     executor_module._path_candidates_scan_sql.cache_clear()
     executor_module._record_batch_sql.cache_clear()
+    executor_module._path_candidates_fts_stmt.cache_clear()
+    executor_module._path_candidates_scan_stmt.cache_clear()
+    executor_module._record_batch_stmt.cache_clear()
 
     first = search(populated_db, "doc-001", limit=5)
     second = search(populated_db, "doc-002", limit=5)
 
     assert first.hits
     assert second.hits
-    assert executor_module._path_candidates_fts_sql.cache_info().hits >= 1
+    assert executor_module._path_candidates_fts_stmt.cache_info().hits >= 1
 
 
 def test_execute_path_candidate_sql_escapes_prefix_like_patterns() -> None:
@@ -752,13 +755,16 @@ def test_execute_reuses_cached_sql_shapes_for_content_queries(
     executor_module._content_candidates_sql.cache_clear()
     executor_module._auto_content_candidates_sql.cache_clear()
     executor_module._content_backfill_sql.cache_clear()
+    executor_module._content_candidates_stmt.cache_clear()
+    executor_module._auto_content_candidates_stmt.cache_clear()
+    executor_module._content_backfill_stmt.cache_clear()
 
     first = search(populated_db, "content:launch", limit=5)
     second = search(populated_db, 'content:"alpha project 20"', limit=5)
 
     assert first.hits
     assert second.hits
-    assert executor_module._content_candidates_sql.cache_info().hits >= 1
+    assert executor_module._content_candidates_stmt.cache_info().hits >= 1
 
 
 def test_execute_path_filter_with_short_unix_basename_literal(tmp_db: sqlite3.Connection) -> None:
