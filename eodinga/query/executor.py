@@ -831,7 +831,13 @@ def execute(
     if total_estimate is None:
         total_estimate = len(merged_scores)
     increment_counter("queries_served")
+    if hits:
+        increment_counter("queries_with_results")
+        increment_counter("query_results_returned", len(hits))
+    else:
+        increment_counter("queries_empty")
     record_histogram("query_latency_ms", elapsed_ms)
+    record_histogram("query_result_count", float(len(hits)))
     return QueryResult(hits=hits, total_estimate=total_estimate, elapsed_ms=elapsed_ms)
 
 

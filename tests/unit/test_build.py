@@ -93,9 +93,12 @@ def test_rebuild_index_records_runtime_metrics(tmp_path: Path) -> None:
     metrics = snapshot_metrics()
     batch_histogram = cast(dict[str, object], metrics["histograms"]["index_batch_size"])
     assert result.files_indexed == 3
+    assert metrics["counters"]["index_rebuilds_started"] == 1
     assert metrics["counters"]["index_rebuilds_completed"] == 1
+    assert metrics["counters"]["index_roots_indexed"] == 1
     assert metrics["counters"]["files_indexed"] == 3
     assert metrics["histograms"]["index_rebuild_latency_ms"]["count"] == 1
+    assert metrics["histograms"]["index_rebuild_file_count"]["count"] == 1
     assert cast(int, batch_histogram["count"]) >= 1
 
 
@@ -108,6 +111,7 @@ def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
     (root / "beta.txt").write_text("beta\n", encoding="utf-8")
     db_path = tmp_path / "index.db"
     staged_path = db_path.with_name(".index.db.next")
+    reset_metrics()
 
     original_walk_batched = build_module.walk_batched
 
@@ -135,6 +139,9 @@ def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
     with pytest.raises(KeyboardInterrupt):
         rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
 
+    metrics = snapshot_metrics()
+    assert metrics["counters"]["index_rebuilds_started"] == 1
+    assert metrics["counters"]["index_rebuilds_interrupted"] == 1
     assert staged_path.exists()
     resumed = sqlite3.connect(staged_path)
     try:
@@ -176,3 +183,27 @@ def test_rebuild_index_installs_sigint_and_sigterm_handlers_on_main_thread(
 
     assert installed == [signal.SIGINT, signal.SIGTERM]
     assert restored == [signal.SIGINT, signal.SIGTERM]
+
+
+def test_rebuild_index_failure_records_failed_metric(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    reset_metrics()
+
+    def failing_walk_batched(root_path: Path, rules, root_id: int = 0):
+        raise RuntimeError(f"boom {root_id}")
+        yield root_path, rules
+
+    monkeypatch.setattr(build_module, "walk_batched", failing_walk_batched)
+
+    with pytest.raises(RuntimeError, match="boom 1"):
+        rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    metrics = snapshot_metrics()
+    assert metrics["counters"]["index_rebuilds_started"] == 1
+    assert metrics["counters"]["index_rebuilds_failed"] == 1
+    assert "index_rebuilds_completed" not in metrics["counters"]

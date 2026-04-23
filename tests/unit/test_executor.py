@@ -10,6 +10,7 @@ import pytest
 
 from eodinga.query import executor as executor_module
 from eodinga.query import search
+from eodinga.observability import reset_metrics, snapshot_metrics
 
 
 def _insert_file(
@@ -131,6 +132,22 @@ def test_content_snippet_is_present(populated_db: sqlite3.Connection) -> None:
     result = search(populated_db, "content:launch", limit=5)
     assert result.hits[0].snippet is not None
     assert "launch" in result.hits[0].snippet.lower()
+
+
+def test_execute_records_query_result_metrics(populated_db: sqlite3.Connection) -> None:
+    reset_metrics()
+
+    matched = search(populated_db, "content:launch", limit=5)
+    empty = search(populated_db, "content:no-such-fragment", limit=5)
+
+    metrics = snapshot_metrics()
+    assert matched.total_estimate >= 1
+    assert empty.total_estimate == 0
+    assert metrics["counters"]["queries_served"] == 2
+    assert metrics["counters"]["queries_with_results"] == 1
+    assert metrics["counters"]["queries_empty"] == 1
+    assert metrics["counters"]["query_results_returned"] == len(matched.hits)
+    assert metrics["histograms"]["query_result_count"]["count"] == 2
 
 
 def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:

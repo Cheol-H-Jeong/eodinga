@@ -73,6 +73,7 @@ def rebuild_index(
     max_body_chars: int = DEFAULT_MAX_BODY_CHARS,
 ) -> RebuildResult:
     started = perf_counter()
+    increment_counter("index_rebuilds_started")
     effective_roots = [_normalize_root(root) for root in roots]
     if not effective_roots:
         raise ValueError("index rebuild requires at least one root")
@@ -128,9 +129,11 @@ def rebuild_index(
                     stop.raise_if_requested()
             stop.raise_if_requested()
     except KeyboardInterrupt:
+        increment_counter("index_rebuilds_interrupted")
         conn.close()
         raise
     except Exception:
+        increment_counter("index_rebuilds_failed")
         conn.close()
         _cleanup_index_files(staged_path)
         raise
@@ -142,9 +145,16 @@ def rebuild_index(
         raise
     elapsed_ms = (perf_counter() - started) * 1000
     increment_counter("index_rebuilds_completed")
+    increment_counter("index_roots_indexed", len(effective_roots))
     record_histogram(
         "index_rebuild_latency_ms",
         elapsed_ms,
+        roots_indexed=len(effective_roots),
+        content_enabled=content_enabled,
+    )
+    record_histogram(
+        "index_rebuild_file_count",
+        float(files_indexed),
         roots_indexed=len(effective_roots),
         content_enabled=content_enabled,
     )

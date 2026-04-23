@@ -108,7 +108,10 @@ class StatsSnapshot(BaseModel):
     crashes_reported: int = 0
     crash_logs_written: int = 0
     query_latency_histogram: dict[str, object] = Field(default_factory=dict)
+    query_result_count_histogram: dict[str, object] = Field(default_factory=dict)
     command_latency_histogram: dict[str, object] = Field(default_factory=dict)
+    index_rebuild_latency_histogram: dict[str, object] = Field(default_factory=dict)
+    index_batch_size_histogram: dict[str, object] = Field(default_factory=dict)
     commands: dict[str, dict[str, int]] = Field(default_factory=dict)
     exit_codes: dict[str, int] = Field(default_factory=dict)
     counters: dict[str, int] = Field(default_factory=dict)

@@ -480,6 +480,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["crashes_reported"] == 0
     assert payload["crash_logs_written"] == 0
     assert payload["query_latency_histogram"]["count"] == 1
+    assert payload["query_result_count_histogram"]["count"] == 1
     assert payload["command_latency_histogram"]["count"] == 1
     assert payload["commands"]["search"]["completed"] == 1
     assert payload["commands"]["search"]["started"] == 1
@@ -550,11 +551,15 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["commands_failed"] == 0
     assert payload["crashes_reported"] == 0
     assert payload["crash_logs_written"] == 0
+    assert payload["query_result_count_histogram"]["count"] == 1
+    assert payload["index_rebuild_latency_histogram"]["count"] == 1
+    assert payload["index_batch_size_histogram"]["count"] >= 1
     assert payload["commands"]["index"]["completed"] == 1
     assert payload["commands"]["search"]["completed"] == 1
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 2
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
+    assert payload["histograms"]["query_result_count"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
 
 
