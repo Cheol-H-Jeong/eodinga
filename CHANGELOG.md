@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.573 - 2026-04-23
+
+- Expanded query phrase matching so quoted phrases now cross underscore boundaries consistently, and path-only phrase queries fall back to record filtering when FTS candidates are empty.
+- Added open-ended size range support for `size:..N` and `size:N..`, matching the existing date-range ergonomics for upper-bound-only and lower-bound-only filters.
+- Added unit and CLI regressions covering the new phrase and size-range behaviors end to end.
+
 ## 0.1.569 - 2026-04-23
 
 - Added live watcher integration coverage for deleting and recreating the same path, asserting the new content becomes searchable within 500ms and the stale content immediately disappears.
