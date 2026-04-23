@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.567 - 2026-04-23
+
+- Added multi-root integration coverage for reopening an index after rebuilding with a reduced root set, pinning that dropped roots stay absent across a close/reopen boundary.
+- Added hot-restart recovery coverage for resuming an interrupted staged rebuild that removes a root, including a live-update assertion on the surviving root after startup recovery completes.
+
 ## 0.1.562 - 2026-04-23
 
 - Expanded the top-level README with a validation-path matrix, release-input map, and docs-asset drift runbook entry so operators can pick the right verification path faster.
