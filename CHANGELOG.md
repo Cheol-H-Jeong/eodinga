@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.277 - 2026-04-23
+## 0.1.279 - 2026-04-23
 
 - Persisted runtime counters and histograms to a dedicated observability state file, so `eodinga stats --json` now reflects prior CLI runs instead of only the current Python process.
 - Surfaced metrics persistence status and the active metrics-state path directly in `stats --json`, making it clear when runtime telemetry is durable versus test-local or in-memory only.
