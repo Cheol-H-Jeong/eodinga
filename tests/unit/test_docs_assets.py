@@ -109,7 +109,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Quality Gates" in contributing
     assert "## Scope Guardrails" in contributing
     assert "## Documentation Expectations" in contributing
+    assert "docs/eodinga.1.md" in contributing
     assert "scripts/render_docs_screenshots.py" in contributing
+    assert "## Docs Drift Checklist" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
 
@@ -134,7 +136,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Pick The Version" in release
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
+    assert "## Build Matrix" in release
     assert "## Verify Shipped Docs" in release
+    assert "## Refresh Generated Surfaces" in release
     assert "## Cut The Local Release" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release
+    assert "linux-appimage-dry-run" in release

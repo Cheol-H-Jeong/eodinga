@@ -47,9 +47,19 @@ yamllint .github/workflows/release-linux.yml
 ## Documentation Expectations
 
 - Update `README.md` when installation, query syntax, keyboard behavior, supported formats, packaging, or recovery behavior changes.
+- Update `docs/eodinga.1.md` when CLI help, options, or examples change so the shipped command reference stays synchronized with the real argparse surface.
 - Refresh `docs/ARCHITECTURE.md` when data flow, rebuild/recovery, or packaging surfaces change materially.
 - Refresh `docs/PERFORMANCE.md` only after rerunning the benchmark you are documenting in the same local environment.
 - Regenerate the shipped screenshots with `python scripts/render_docs_screenshots.py` after visible GUI changes.
+
+## Docs Drift Checklist
+
+Before opening a docs-heavy change or release handoff, sanity-check the following:
+
+1. `python -m eodinga --help` and subcommand help still match `docs/eodinga.1.md`.
+2. README commands still correspond to the current CLI and packaging targets.
+3. Screenshots under `docs/screenshots/` still match the visible Qt surfaces.
+4. Release docs still describe the packaging audits currently enforced by `packaging/build.py`.
 
 ## Test Selection Guide
 
