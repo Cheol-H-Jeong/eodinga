@@ -399,17 +399,14 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
 
     assert launcher.empty_state.title_label.text() == "Type to search"
     assert "No recent queries yet" in launcher.empty_state.body_label.text()
-    assert "Alt+Up" in launcher.empty_state.body_label.text()
-    assert "Alt+Down" in launcher.empty_state.body_label.text()
+    assert "Alt+Up" not in launcher.empty_state.body_label.text()
+    assert "Alt+Down" not in launcher.empty_state.body_label.text()
     assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
     assert "(20%)" in launcher.empty_state.details_label.text()
     assert launcher.status_chip.text() == "Indexing"
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
-    assert (
-        launcher.shortcut_label.text()
-        == "Type a filename, path, or content term. Alt+Up and Alt+Down browse recent queries."
-    )
+    assert launcher.shortcut_label.text() == "Type a filename, path, or content term."
 
     launcher.query_field.setText("missing")
     _wait(60)
@@ -417,7 +414,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.status_chip.text() == "No results"
     assert launcher.empty_state.title_label.text() == 'No results for "missing"'
     assert "date:this-week" in launcher.empty_state.body_label.text()
-    assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
+    assert "Esc hides the launcher" in launcher.empty_state.body_label.text()
     assert "Alt+Down" in launcher.empty_state.body_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
     assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
@@ -433,6 +430,8 @@ def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> No
     state.remember_query("budget")
 
     assert "budget, report" in launcher.empty_state.body_label.text()
+    assert "Alt+Up and Alt+Down" in launcher.empty_state.body_label.text()
+    assert "Alt+Up and Alt+Down browse recent queries" in launcher.shortcut_label.text()
 
 
 def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> None:
@@ -745,7 +744,7 @@ def test_launcher_alt_number_quick_picks_results(qapp) -> None:
 
     assert activated == ["item-2.txt"]
     assert launcher.result_list.currentIndex().row() == 2
-    assert "Alt+1..9 quick-picks" in launcher.shortcut_label.text()
+    assert "Alt+1 through Alt+5 quick-picks" in launcher.shortcut_label.text()
     assert "Home/End and PgUp/PgDn jump" in launcher.shortcut_label.text()
 
 
@@ -753,7 +752,7 @@ def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     launcher = LauncherWindow(state=LauncherState())
     launcher.show()
 
-    assert "Alt+1 through Alt+9" in launcher.empty_state.body_label.text()
+    assert "Alt+1 through Alt+9" not in launcher.empty_state.body_label.text()
 
 
 def test_launcher_escape_clears_query_before_hiding_window(qapp) -> None:
@@ -911,7 +910,7 @@ def test_launcher_results_expose_accessible_text_and_preview_summary(qapp) -> No
     assert "Path /tmp/release-notes.txt." in accessible_text
     assert tooltip == accessible_text
     assert launcher.result_list.accessibleDescription() == (
-        "1 launcher results. Selected 1 of 1: release-notes.txt. Use Up and Down to move between results, Enter to open, and Alt+1 through Alt+9 for quick picks."
+        "1 launcher results. Selected 1 of 1: release-notes.txt. Use Up and Down to move between results, Enter to open, and Alt+1 for quick picks."
     )
     assert "Previewing release-notes.txt at /tmp/release-notes.txt." in launcher.preview_pane.accessibleDescription()
     assert "Snippet: ...the release notes are attached..." in launcher.preview_pane.accessibleDescription()

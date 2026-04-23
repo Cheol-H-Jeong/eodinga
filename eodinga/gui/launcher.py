@@ -8,6 +8,11 @@ from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
+from eodinga.gui.launcher_copy import (
+    build_empty_state_body,
+    build_result_list_accessible_description,
+    build_shortcut_hint,
+)
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
 from eodinga.gui.widgets import (
@@ -23,8 +28,6 @@ from eodinga.gui.widgets import (
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
-
-
 class LauncherPanel(QWidget):
     results_updated = Signal(object)
     result_activated = Signal(object)
@@ -179,31 +182,26 @@ class LauncherPanel(QWidget):
         self.active_filter_row.set_query(self.query_field.text())
         self._refresh_preview()
         self._refresh_result_list_accessibility()
-
     def set_search_fn(self, search_fn: SearchFn) -> None:
         self._search_fn = search_fn
-
     def set_recent_queries(self, queries: list[str]) -> None:
         self._recent_queries = queries
         self.recent_queries_row.set_queries(queries[:5])
         self._refresh_empty_state()
-
+        self._refresh_shortcut_hint()
     def set_pinned_queries(self, queries: list[str]) -> None:
         self._pinned_queries = queries
         self.pinned_queries_row.set_queries(queries[:5])
         self._refresh_empty_state()
-
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
         self._refresh_status_footer()
         self._refresh_empty_state()
-
     def activate_current_result(self) -> None:
         self._flush_pending_query()
         hit = self._current_hit()
         if hit is not None:
             self.result_activated.emit(hit)
-
     def activate_result_at(self, row: int) -> None:
         self._flush_pending_query()
         hit = self.model.item_at(row)
@@ -211,32 +209,26 @@ class LauncherPanel(QWidget):
             return
         self._set_selection(row)
         self.result_activated.emit(hit)
-
     def focus_query_field(self) -> None:
         self.query_field.setFocus()
         self.query_field.selectAll()
-
     def select_query_text(self) -> None:
         self.focus_query_field()
-
     def emit_open_containing_folder(self) -> None:
         self._flush_pending_query()
         hit = self._current_hit()
         if hit is not None:
             self.open_containing_folder.emit(hit)
-
     def emit_show_properties(self) -> None:
         self._flush_pending_query()
         hit = self._current_hit()
         if hit is not None:
             self.show_properties.emit(hit)
-
     def emit_copy_path(self) -> None:
         self._flush_pending_query()
         hit = self._current_hit()
         if hit is not None:
             self.copy_path_requested.emit(hit)
-
     def emit_copy_name(self) -> None:
         self._flush_pending_query()
         hit = self._current_hit()
@@ -317,35 +309,26 @@ class LauncherPanel(QWidget):
         has_results = self.model.rowCount() > 0
         query = self.query_field.text().strip()
         details = format_indexing_status(self._indexing_status)
-        if not query:
-            recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
-            pinned_queries = f" Pinned: {', '.join(self._pinned_queries[:3])}." if self._pinned_queries else ""
-            self.empty_state.set_content(
-                "Type to search",
-                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up and Alt+Down to browse recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
-                details,
-            )
-        else:
-            self.empty_state.set_content(
-                f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Alt+Up and Alt+Down to revisit recent queries, Tab to jump back to the filter, or Esc to hide the launcher.",
-                details,
-            )
+        title, body = build_empty_state_body(
+            query=query,
+            recent_queries=self._recent_queries,
+            pinned_queries=self._pinned_queries,
+            visible_results=self.model.rowCount(),
+        )
+        self.empty_state.set_content(title, body, details)
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
 
     def _refresh_shortcut_hint(self) -> None:
-        has_results = self.model.rowCount() > 0
-        if not has_results:
-            if self.query_field.text().strip():
-                hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up and Alt+Down browse recent queries."
-            else:
-                hint = "Type a filename, path, or content term. Alt+Up and Alt+Down browse recent queries."
-        elif self.result_list.hasFocus():
-            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
-        else:
-            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up and Alt+Down browse recent queries."
-        self.shortcut_label.setText(hint)
+        self.shortcut_label.setText(
+            build_shortcut_hint(
+                has_results=self.model.rowCount() > 0,
+                has_query=bool(self.query_field.text().strip()),
+                result_list_focused=self.result_list.hasFocus(),
+                has_history=bool(self._recent_queries),
+                visible_results=self.model.rowCount(),
+            )
+        )
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()
@@ -468,16 +451,13 @@ class LauncherPanel(QWidget):
 
     def _refresh_result_list_accessibility(self) -> None:
         count = self.model.rowCount()
-        if count == 0:
-            self.result_list.setAccessibleDescription("No launcher results are available.")
-            return
         current_hit = self._current_hit()
-        description = f"{count} launcher results."
-        if current_hit is not None:
-            current_row = max(self.result_list.currentIndex().row(), 0) + 1
-            description = f"{description} Selected {current_row} of {count}: {current_hit.name}."
         self.result_list.setAccessibleDescription(
-            f"{description} Use Up and Down to move between results, Enter to open, and Alt+1 through Alt+9 for quick picks."
+            build_result_list_accessible_description(
+                count=count,
+                current_row=max(self.result_list.currentIndex().row(), 0) + 1,
+                current_name=current_hit.name if current_hit is not None else None,
+            )
         )
 
     def _navigate_recent_queries(self, direction: int) -> None:
