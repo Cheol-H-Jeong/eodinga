@@ -102,14 +102,25 @@ class StatsSnapshot(BaseModel):
     queries_served: int = 0
     parser_errors: int = 0
     watcher_events: int = 0
+    watcher_flushes: int = 0
+    watcher_events_flushed: int = 0
+    watcher_queue_full: int = 0
+    watcher_enqueue_aborted: int = 0
     commands_started: int = 0
     commands_completed: int = 0
     commands_failed: int = 0
     commands_interrupted: int = 0
     crashes_reported: int = 0
     crash_logs_written: int = 0
+    logging_configurations: int = 0
+    log_sinks_stderr_configured: int = 0
+    log_sinks_file_configured: int = 0
+    log_sinks_file_disabled: int = 0
     query_latency_histogram: dict[str, object] = Field(default_factory=dict)
     command_latency_histogram: dict[str, object] = Field(default_factory=dict)
+    watch_flush_batch_histogram: dict[str, object] = Field(default_factory=dict)
+    watch_event_lag_histogram: dict[str, object] = Field(default_factory=dict)
+    watcher_queue_backpressure_histogram: dict[str, object] = Field(default_factory=dict)
     commands: dict[str, dict[str, int]] = Field(default_factory=dict)
     exit_codes: dict[str, int] = Field(default_factory=dict)
     counters: dict[str, int] = Field(default_factory=dict)

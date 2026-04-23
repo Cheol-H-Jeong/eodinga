@@ -4,6 +4,8 @@ import json
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path, PureWindowsPath
+from threading import Thread
+from time import sleep
 
 import pytest
 
@@ -474,13 +476,24 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["queries_served"] == 1
     assert payload["parser_errors"] == 0
     assert payload["watcher_events"] == 0
+    assert payload["watcher_flushes"] == 0
+    assert payload["watcher_events_flushed"] == 0
+    assert payload["watcher_queue_full"] == 0
+    assert payload["watcher_enqueue_aborted"] == 0
     assert payload["commands_started"] == 2
     assert payload["commands_completed"] == 1
     assert payload["commands_failed"] == 0
     assert payload["crashes_reported"] == 0
     assert payload["crash_logs_written"] == 0
+    assert payload["logging_configurations"] == 2
+    assert payload["log_sinks_stderr_configured"] == 2
+    assert payload["log_sinks_file_configured"] == 0
+    assert payload["log_sinks_file_disabled"] == 2
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["command_latency_histogram"]["count"] == 1
+    assert payload["watch_flush_batch_histogram"] == {}
+    assert payload["watch_event_lag_histogram"] == {}
+    assert payload["watcher_queue_backpressure_histogram"] == {}
     assert payload["commands"]["search"]["completed"] == 1
     assert payload["commands"]["search"]["started"] == 1
     assert payload["commands"]["stats"]["started"] == 1
@@ -531,8 +544,38 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     monkeypatch.setattr("eodinga.content.registry.get_spec_for", lambda _path: spec)
     parse(broken, max_body_chars=128)
 
-    service = WatchService()
-    service.record(WatchEvent(event_type="created", path=docs / "gamma.txt"))
+    service = WatchService(queue_maxsize=1)
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=docs / "gamma.txt",
+            root_path=docs,
+            happened_at=1.0,
+        )
+    )
+    service._flush_ready(force=True)
+    blocked = Thread(
+        target=lambda: (
+            service.record(
+                WatchEvent(
+                    event_type="modified",
+                    path=docs / "gamma.txt",
+                    root_path=docs,
+                    happened_at=2.0,
+                )
+            ),
+            service._flush_ready(force=True),
+        ),
+        daemon=True,
+    )
+    blocked.start()
+    sleep(0.1)
+    first_event = service.queue.get_nowait()
+    assert first_event.path == docs / "gamma.txt"
+    blocked.join(timeout=1)
+    assert not blocked.is_alive()
+    second_event = service.queue.get_nowait()
+    assert second_event.path == docs / "gamma.txt"
 
     search_exit = main(["--db", str(db_path), "search", "alpha", "--json"])
     search_output = capsys.readouterr()
@@ -547,10 +590,23 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["parser_errors"] == 1
     assert payload["counters"]["parsers.broken.error"] == 1
     assert payload["counters"]["queries_served"] == 1
-    assert payload["counters"]["watcher_events"] == 1
+    assert payload["counters"]["watcher_events"] == 2
+    assert payload["counters"]["watcher_flushes"] == 2
+    assert payload["counters"]["watcher_events_flushed"] == 2
+    assert payload["counters"]["watcher_queue_full"] == 1
+    assert "watcher_enqueue_aborted" not in payload["counters"]
+    assert payload["watcher_events"] == 2
+    assert payload["watcher_flushes"] == 2
+    assert payload["watcher_events_flushed"] == 2
+    assert payload["watcher_queue_full"] == 1
+    assert payload["watcher_enqueue_aborted"] == 0
     assert payload["counters"]["logging_configurations"] == 3
     assert payload["counters"]["log_sinks.stderr.configured"] == 3
     assert payload["counters"]["log_sinks.file.disabled"] == 3
+    assert payload["logging_configurations"] == 3
+    assert payload["log_sinks_stderr_configured"] == 3
+    assert payload["log_sinks_file_configured"] == 0
+    assert payload["log_sinks_file_disabled"] == 3
     assert payload["commands_started"] == 3
     assert payload["commands_completed"] == 2
     assert payload["commands_failed"] == 0
@@ -565,6 +621,9 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["log_compression"] is None
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
+    assert payload["watch_flush_batch_histogram"]["count"] == 2
+    assert payload["watch_event_lag_histogram"]["count"] == 2
+    assert payload["watcher_queue_backpressure_histogram"]["count"] == 1
 
 
 def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path: Path) -> None:
