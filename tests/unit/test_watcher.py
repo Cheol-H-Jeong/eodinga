@@ -574,6 +574,50 @@ def test_watcher_reused_source_path_modify_then_delete_keeps_real_delete(tmp_pat
         service.queue.get_nowait()
 
 
+def test_watcher_flush_restores_undelivered_tail_when_queue_backpressures(tmp_path: Path) -> None:
+    service = WatchService()
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    third = tmp_path / "third.txt"
+
+    for path, happened_at in ((first, 1.0), (second, 2.0), (third, 3.0)):
+        service.record(
+            WatchEvent(
+                event_type="created",
+                path=path,
+                root_path=tmp_path,
+                happened_at=happened_at,
+            )
+        )
+
+    original_enqueue = service._enqueue_event
+    attempts = {"count": 0}
+
+    def enqueue_with_single_failure(event: WatchEvent) -> bool:
+        attempts["count"] += 1
+        if attempts["count"] == 2:
+            return False
+        return original_enqueue(event)
+
+    service._enqueue_event = enqueue_with_single_failure  # type: ignore[method-assign]
+    service._flush_ready(force=True)
+
+    delivered = service.queue.get_nowait()
+    assert delivered.path == first
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+    service._enqueue_event = original_enqueue  # type: ignore[method-assign]
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.path == second
+    event = service.queue.get_nowait()
+    assert event.path == third
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+
 def test_watcher_can_restart_after_stop(tmp_path: Path) -> None:
     service = WatchService()
     service.start(tmp_path)
