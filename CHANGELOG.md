@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.432 - 2026-04-23
+## 0.1.433 - 2026-04-23
 
 - Normalized repeated query negation on atomic terms and groups, so inputs such as `--alpha`, `- -"phrase"`, and `- -(alpha | beta)` now follow boolean truth-table semantics instead of being misread as stray hyphenated literals.
 - Made ranking deboost markers case-insensitive across path segments, so Windows-style paths containing `NODE_MODULES` or `.GIT` no longer evade the intended score penalty because of path casing alone.
