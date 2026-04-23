@@ -334,6 +334,20 @@ def test_compile_skips_cache_for_relative_date_queries() -> None:
     assert first is not second
 
 
+def test_compile_reuses_cache_for_equivalent_alias_filters() -> None:
+    first = compile("is:Folder regex:ON")
+    second = compile("is:dir regex:true")
+
+    assert first is second
+
+
+def test_compile_reuses_cache_for_equivalent_regex_flag_order() -> None:
+    first = compile(r"path:/quarterly\/2026/smi")
+    second = compile(r"path:/quarterly\/2026/ims")
+
+    assert first is second
+
+
 def test_compile_path_filter_escapes_like_wildcards() -> None:
     compiled = compile_query(parse(r"path:100%_complete^notes"))
     branch = compiled.branches[0]

@@ -14,6 +14,7 @@ from eodinga.query.dsl import (
     QuerySyntaxError,
     parse,
 )
+from eodinga.query.normalize import canonicalize_ast, render_query
 from eodinga.query.executor import QueryResult, execute
 
 _RELATIVE_DATE_KEYWORDS = {
@@ -62,14 +63,14 @@ def _uses_relative_date(node: AstNode) -> bool:
 
 @lru_cache(maxsize=128)
 def _compile_cached(query: str) -> CompiledQuery:
-    return compile_query(parse(query))
+    return compile_query(canonicalize_ast(parse(query)))
 
 
 def compile(query: str) -> CompiledQuery:
-    parsed = parse(query)
+    parsed = canonicalize_ast(parse(query))
     if _uses_relative_date(parsed):
         return compile_query(parsed)
-    return _compile_cached(query)
+    return _compile_cached(render_query(parsed))
 
 
 def search(
