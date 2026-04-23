@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.270 - 2026-04-23
+
+- Made staged index rebuilds stop cleanly on `SIGINT` and `SIGTERM` batch boundaries, preserving the `.next` snapshot for later resume instead of discarding already committed work mid-rebuild.
+- Expanded rebuild regressions to prove interrupted staged databases remain queryable and that the temporary signal handlers are installed and restored around rebuild execution.
+- Tightened safety coverage so `eodinga.core.fs` cannot quietly grow write-capable `open()` or `touch()` calls, and subprocess-driven network escapes like `curl` or `wget` are now caught by the source audit.
+
 ## 0.1.267 - 2026-04-23
 
 - Added clickable pinned and recent query chips to both launcher surfaces, so shared launcher history is now directly reusable without retyping or relying only on keyboard recall.
