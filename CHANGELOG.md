@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.738 - 2026-04-23
+
+- Added spaced temporal query parsing so `date:this month`, `date:last week`, and spaced ISO datetime endpoints now stay attached to the `date:`, `modified:`, and `created:` operators instead of breaking into stray terms.
+- Extended datetime range parsing to keep spaced endpoints like `modified:2026-01-03 09:15:30 .. 2026-01-03 09:16:00` intact through DSL parsing, compilation, executor matching, and CLI JSON output.
+- Locked multiline and dotall regex flag behavior with executor coverage for `content:/^...$/m` and `content:/.../s` content searches.
+
 ## 0.1.718 - 2026-04-23
 
 - Let `size:` filters accept comparator-separated values like `size:> 10M`, so spaced numeric input now parses the same way as the compact form.
