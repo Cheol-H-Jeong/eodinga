@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.705 - 2026-04-23
+## 0.1.706 - 2026-04-23
 
 - Added a live launcher filter summary row that parses DSL operators into visible chips, so `ext:`, `date:`, `size:`, `path:`, `content:`, and related filters stay discoverable while typing instead of disappearing into raw query text.
 - Highlighted matching path and snippet fragments inside the launcher preview pane, keeping the side preview aligned with the selected query context instead of showing unannotated file text.
