@@ -274,15 +274,17 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
         return "", ()
     root_text = str(root)
     normalized = root_text.rstrip("/\\") or root_text
-    variants = tuple(
-        dict.fromkeys(
-            (
-                normalized,
-                normalized.replace("\\", "/"),
-                normalized.replace("/", "\\"),
-            )
-        )
-    )
+    variants_map: dict[str, None] = {}
+    for candidate in (
+        normalized,
+        normalized.replace("\\", "/"),
+        normalized.replace("/", "\\"),
+    ):
+        variants_map[candidate] = None
+        if len(candidate) >= 2 and candidate[1] == ":" and candidate[0].isalpha():
+            variants_map[candidate[0].lower() + candidate[1:]] = None
+            variants_map[candidate[0].upper() + candidate[1:]] = None
+    variants = tuple(variants_map)
     exact_params = variants
     like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
         f"{variant}\\%" for variant in variants
