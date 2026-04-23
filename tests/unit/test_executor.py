@@ -178,6 +178,74 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     assert "week.txt" in this_week_hits
     this_month_hits = [hit.file.name for hit in search(tmp_db, "date:this-month", limit=10).hits]
     assert "old.txt" not in this_month_hits
+    last_week_hits = [hit.file.name for hit in search(tmp_db, "date:last-week", limit=10).hits]
+    assert "today.txt" not in last_week_hits
+    last_month_hits = [hit.file.name for hit in search(tmp_db, "date:last-month", limit=10).hits]
+    assert "old.txt" in last_month_hits
+
+
+def test_execute_previous_period_date_queries_use_local_boundaries(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    frozen_now = datetime(2026, 4, 23, 0, 30, tzinfo=seoul)
+    last_week_hit = int(datetime(2026, 4, 13, 12, 0, tzinfo=seoul).timestamp())
+    this_week_hit = int(datetime(2026, 4, 20, 12, 0, tzinfo=seoul).timestamp())
+    last_month_hit = int(datetime(2026, 3, 15, 12, 0, tzinfo=seoul).timestamp())
+    this_month_hit = int(datetime(2026, 4, 10, 12, 0, tzinfo=seoul).timestamp())
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.compiler.datetime", _FrozenDateTime)
+
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/last-week.txt",
+        512,
+        last_week_hit,
+        "txt",
+        body_text="last week note",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/this-week.txt",
+        512,
+        this_week_hit,
+        "txt",
+        body_text="this week note",
+    )
+    _insert_file(
+        tmp_db,
+        3,
+        "/workspace/last-month.txt",
+        512,
+        last_month_hit,
+        "txt",
+        body_text="last month note",
+    )
+    _insert_file(
+        tmp_db,
+        4,
+        "/workspace/this-month.txt",
+        512,
+        this_month_hit,
+        "txt",
+        body_text="this month note",
+    )
+    tmp_db.commit()
+
+    last_week_hits = [hit.file.name for hit in search(tmp_db, "date:last-week", limit=10).hits]
+    last_month_hits = [hit.file.name for hit in search(tmp_db, "date:last-month", limit=10).hits]
+
+    assert last_week_hits == ["last-week.txt"]
+    assert last_month_hits == ["last-month.txt"]
 
 
 def test_execute_negated_case_true_restores_case_insensitive_matching(

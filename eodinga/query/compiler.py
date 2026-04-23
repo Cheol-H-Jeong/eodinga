@@ -180,6 +180,14 @@ def _day_bounds(day: date) -> tuple[int, int]:
     return int(start.timestamp()), int(end.timestamp())
 
 
+def _month_start(day: date) -> date:
+    return day.replace(day=1)
+
+
+def _next_month_start(day: date) -> date:
+    return (day.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+
 def _date_to_range(value: str) -> tuple[int, int]:
     today = datetime.now().astimezone().date()
     if value == "today":
@@ -189,10 +197,18 @@ def _date_to_range(value: str) -> tuple[int, int]:
     if value == "this-week":
         start = today - timedelta(days=today.weekday())
         return _day_bounds(start)[0], _day_bounds(start + timedelta(days=7))[0]
+    if value == "last-week":
+        end = today - timedelta(days=today.weekday())
+        start = end - timedelta(days=7)
+        return _day_bounds(start)[0], _day_bounds(end)[0]
     if value == "this-month":
-        start = today.replace(day=1)
-        next_month = (start.replace(day=28) + timedelta(days=4)).replace(day=1)
+        start = _month_start(today)
+        next_month = _next_month_start(start)
         return _day_bounds(start)[0], _day_bounds(next_month)[0]
+    if value == "last-month":
+        this_month = _month_start(today)
+        last_month = _month_start(this_month - timedelta(days=1))
+        return _day_bounds(last_month)[0], _day_bounds(this_month)[0]
     if ".." in value:
         left, right = value.split("..", 1)
         try:
