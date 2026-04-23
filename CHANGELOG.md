@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.229 - 2026-04-23
+
+- Expanded `README.md` with a clearer surface-selection matrix, task-oriented query cookbook, and keyboard quick reference so users can map launcher, GUI, and CLI workflows faster.
+- Deepened `docs/ARCHITECTURE.md` with schema snapshots, lifecycle ownership tables, query-stage boundaries, and failure-domain notes that match the current runtime and recovery model.
+- Tightened `docs/CONTRIBUTING.md`, `docs/PERFORMANCE.md`, and `docs/RELEASE.md` around parallel-worktree flow, perf-baseline recording discipline, and docs-only release handling; runtime behavior is unchanged in this round.
+
 ## 0.1.222 - 2026-04-23
 
 - Turned `packaging/linux/appimage-builder.yml` into a versioned template and made the AppImage dry-run audit verify the rendered recipe matches the package version instead of drifting behind `latest`.
