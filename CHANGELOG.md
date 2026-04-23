@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.210 - 2026-04-23
+
+- Taught the Linux AppImage packaging path to emit a real `.AppImage` artifact when `appimagetool` is available, while preserving the existing dry-run AppDir staging flow and surfacing the build attempt, tool path, and artifact status in the packaging audit JSON.
+- Tightened `packaging/build.py --target linux-appimage` validation so a discovered `appimagetool` now becomes an enforceable contract: the non-dry-run build must attempt the AppImage step, finish successfully, and leave the `.AppImage` artifact behind.
+- Hardened the Windows installer audit to fail on drift in key Inno Setup guarantees including publisher metadata, per-user install location, bundled license, modern wizard style, desktop and autostart tasks, privilege level, and Korean language support.
+
 ## 0.1.197 - 2026-04-23
 
 - Bounded watcher delivery with explicit backpressure, so a full consumer queue now blocks producers visibly instead of growing silently under load; added metrics and regressions for both the pressure path and its observability surface.
