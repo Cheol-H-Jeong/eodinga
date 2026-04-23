@@ -431,6 +431,27 @@ def test_execute_phrase_query_matches_across_punctuation_in_path_and_content(
     assert content_hits == ["launch-checklist.txt"]
 
 
+def test_execute_phrase_query_matches_across_underscores_in_path_and_content(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/launch_checklist.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="launch_checklist approved",
+    )
+    tmp_db.commit()
+
+    path_hits = [hit.file.name for hit in search(tmp_db, '"launch checklist"', limit=5).hits]
+    content_hits = [hit.file.name for hit in search(tmp_db, 'content:"launch checklist"', limit=5).hits]
+
+    assert path_hits == ["launch_checklist.txt"]
+    assert content_hits == ["launch_checklist.txt"]
+
+
 def test_execute_decomposed_korean_phrase_query_matches_across_punctuation(
     tmp_db: sqlite3.Connection,
 ) -> None:
@@ -842,6 +863,22 @@ def test_execute_size_range_queries(tmp_db: sqlite3.Connection) -> None:
     assert hits == ["in-range-high.txt", "in-range-low.txt"]
     assert reversed_hits == hits
     assert negated_hits == ["tiny.txt", "too-large.txt"]
+
+
+def test_execute_open_ended_size_range_queries(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/tiny.txt", 99, now, "txt", body_text="tiny")
+    _insert_file(tmp_db, 2, "/workspace/mid.txt", 100, now - 60, "txt", body_text="mid")
+    _insert_file(tmp_db, 3, "/workspace/large.txt", 500 * 1024, now - 120, "txt", body_text="large")
+    tmp_db.commit()
+
+    upper_hits = [hit.file.name for hit in search(tmp_db, "size:..100", limit=10).hits]
+    lower_hits = [hit.file.name for hit in search(tmp_db, "size:100..", limit=10).hits]
+    negated_upper_hits = [hit.file.name for hit in search(tmp_db, "-size:..100", limit=10).hits]
+
+    assert upper_hits == ["mid.txt", "tiny.txt"]
+    assert lower_hits == ["large.txt", "mid.txt"]
+    assert negated_upper_hits == ["large.txt"]
 
 
 def test_execute_metadata_only_query_reports_uncapped_total_estimate(

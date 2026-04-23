@@ -196,7 +196,7 @@ def _phrase_matches(value: str, phrase: str, case_sensitive: bool) -> bool:
     tokens = tuple(token for token in re.split(r"\s+", normalized_phrase) if token)
     if len(tokens) < 2:
         return False
-    pattern = r"\W+".join(re.escape(token) for token in tokens)
+    pattern = r"(?:[\W_]+)".join(re.escape(token) for token in tokens)
     return bool(re.search(pattern, normalized_value))
 
 
@@ -671,7 +671,12 @@ def _scan_auto_content_candidates(
         for file_id, record in batch.items():
             content_text = content_texts.get(file_id, "")
             if not all(
-                _text_matches(content_text, term.value, branch.case_sensitive)
+                _term_matches(
+                    content_text,
+                    term.value,
+                    kind=term.kind,
+                    case_sensitive=branch.case_sensitive,
+                )
                 for term in positive_terms
             ):
                 continue
@@ -703,6 +708,7 @@ def _needs_record_filter(branch: CompiledBranch) -> bool:
         or branch.path_regex_terms
         or branch.content_terms
         or branch.content_regex_terms
+        or any(term.kind == "phrase" for term in branch.path_terms)
         or any(term.negated for term in branch.path_terms)
     )
 
@@ -754,12 +760,22 @@ def _derive_name_path_hits(
         target_name = record.name
         target_path = str(record.path)
         if any(
-            _text_matches(target_name, term.value, branch.case_sensitive)
+            _term_matches(
+                target_name,
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
             for term in positive_terms
         ):
             name_hits.append(record.id)
         if any(
-            _text_matches(target_path, term.value, branch.case_sensitive)
+            _term_matches(
+                target_path,
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
             for term in positive_terms
         ):
             path_hits.append(record.id)
@@ -789,6 +805,10 @@ def _execute_branch(
         candidate_ids = set(path_ids) & set(content_ids or path_ids)
     elif branch.path_match_sql:
         candidate_ids = set(path_ids) | set(content_ids)
+        if not candidate_ids and _needs_record_filter(branch):
+            scanned_records = _scan_filtered_records(conn, branch, max(limit * 4, 1000))
+            extra_records = scanned_records
+            candidate_ids = set(scanned_records)
     elif branch.content_required:
         if content_ids:
             candidate_ids = set(content_ids)
