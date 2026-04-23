@@ -6,7 +6,7 @@ Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.6.2
 
 Package: eodinga
-Architecture: any
-Depends: ${misc:Depends}, ${python3:Depends}
+Version: @@APP_VERSION@@
+Architecture: @@TARGET_ARCH@@
+Depends: python3 (>= 3.11)
 Description: Instant lexical file search for Windows and Linux
-

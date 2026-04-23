@@ -278,6 +278,9 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         errors.append("Debian package filename does not match the package version and arch")
     required_flags = [
         (control_template_payload.get("exists"), "Debian control template is missing"),
+        (control_template_payload.get("contains_version_template"), "Debian control template no longer uses the version token"),
+        (control_template_payload.get("contains_arch_template"), "Debian control template no longer uses the architecture token"),
+        (control_template_payload.get("rendered_exists"), "Rendered Debian control file is missing"),
         (
             control_template_payload.get("source") == "eodinga",
             "Debian control template source package drifted from eodinga",

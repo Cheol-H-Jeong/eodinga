@@ -258,6 +258,36 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["apprun"]["is_executable"] is True
     assert payload["apprun"]["launches_gui"] is True
     assert payload["launcher"]["is_executable"] is True
+
+
+def test_linux_deb_dry_run_renders_control_template() -> None:
+    result = subprocess.run(
+        ["bash", "packaging/linux/deb.sh", "--dry-run"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    manifest_path = Path("packaging/dist/linux-deb-audit.json")
+    assert manifest_path.exists()
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert payload["target"] == "linux-deb-dry-run"
+    assert payload["version"] == __version__
+    assert payload["arch"] == "amd64"
+    assert payload["control"]["package"] == "eodinga"
+    assert payload["control"]["version"] == __version__
+    assert payload["control"]["architecture"] == "amd64"
+    assert payload["control"]["depends"] == "python3 (>= 3.11)"
+    assert payload["debian_control_template"]["exists"] is True
+    assert payload["debian_control_template"]["contains_version_template"] is True
+    assert payload["debian_control_template"]["contains_arch_template"] is True
+    rendered_control_path = Path(payload["debian_control_template"]["rendered_path"])
+    assert rendered_control_path.exists()
+    assert payload["debian_control_template"]["rendered_exists"] is True
+    rendered_control = rendered_control_path.read_text(encoding="utf-8")
+    assert f"Version: {__version__}" in rendered_control
+    assert "Architecture: amd64" in rendered_control
     assert payload["launcher"]["executes_python_module"] is True
 
 
@@ -384,14 +414,15 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
         "depends": "python3 (>= 3.11)",
         "description": "Instant lexical file search for Windows and Linux",
     }
-    assert payload["debian_control_template"] == {
-        "path": str(Path("packaging/linux/debian/control").resolve()),
-        "exists": True,
-        "source": "eodinga",
-        "maintainer": "Cheol-H-Jeong",
-        "binary_package": "eodinga",
-        "description": "Instant lexical file search for Windows and Linux",
-    }
+    assert payload["debian_control_template"]["path"] == str(Path("packaging/linux/debian/control").resolve())
+    assert payload["debian_control_template"]["exists"] is True
+    assert payload["debian_control_template"]["contains_version_template"] is True
+    assert payload["debian_control_template"]["contains_arch_template"] is True
+    assert payload["debian_control_template"]["rendered_exists"] is True
+    assert payload["debian_control_template"]["source"] == "eodinga"
+    assert payload["debian_control_template"]["maintainer"] == "Cheol-H-Jeong"
+    assert payload["debian_control_template"]["binary_package"] == "eodinga"
+    assert payload["debian_control_template"]["description"] == "Instant lexical file search for Windows and Linux"
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
