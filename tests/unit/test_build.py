@@ -183,6 +183,7 @@ def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
     (root / "beta.txt").write_text("beta\n", encoding="utf-8")
     db_path = tmp_path / "index.db"
     staged_path = db_path.with_name(".index.db.next")
+    marker_path = staged_path.with_name(".index.db.next.ready")
 
     original_walk_batched = build_module.walk_batched
 
@@ -211,6 +212,7 @@ def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
         rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
 
     assert staged_path.exists()
+    assert not marker_path.exists()
     resumed = sqlite3.connect(staged_path)
     try:
         rows = resumed.execute("SELECT path FROM files ORDER BY path").fetchall()

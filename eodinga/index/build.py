@@ -16,6 +16,7 @@ from eodinga.index.storage import (
     _cleanup_index_files,
     atomic_replace_index,
     connect_database,
+    mark_build_stage_complete,
     temporary_pragmas,
 )
 from eodinga.index.writer import IndexWriter
@@ -167,9 +168,9 @@ def rebuild_index(
         raise
     conn.close()
     try:
+        mark_build_stage_complete(staged_path)
         atomic_replace_index(staged_path, target_path)
     except Exception:
-        _cleanup_index_files(staged_path, durable=True)
         raise
     elapsed_ms = (perf_counter() - started) * 1000
     increment_counter("index_rebuilds_completed")

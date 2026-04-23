@@ -13,7 +13,10 @@ from eodinga.index.storage import (
     SQLITE_CACHED_STATEMENTS,
     atomic_replace_index,
     connect_database,
+    discard_incomplete_interrupted_build,
     has_stale_wal,
+    has_resumable_interrupted_build,
+    mark_build_stage_complete,
     open_index,
     recover_interrupted_build,
     recover_interrupted_recovery,
@@ -35,6 +38,10 @@ def _make_recovery_snapshot(source: Path, snapshot: Path) -> None:
     shutil.copy2(source, snapshot)
     shutil.copy2(source.with_name(f"{source.name}-wal"), snapshot.with_name(f"{snapshot.name}-wal"))
     shutil.copy2(source.with_name(f"{source.name}-shm"), snapshot.with_name(f"{snapshot.name}-shm"))
+
+
+def _mark_staged_build_ready(staged_path: Path) -> None:
+    mark_build_stage_complete(staged_path)
 
 
 def test_atomic_replace_index_swaps_in_staged_database(tmp_path: Path) -> None:
@@ -751,10 +758,12 @@ def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path
     )
     staged_conn.commit()
     staged_conn.close()
+    _mark_staged_build_ready(staged)
 
     assert recover_interrupted_build(target) is True
     assert _read_root_paths(target) == ["/rebuilt"]
     assert not staged.exists()
+    assert not staged.with_name(".index.db.next.ready").exists()
 
 
 def test_recover_interrupted_build_cleans_partial_stage_artifacts(tmp_path: Path) -> None:
@@ -779,6 +788,7 @@ def test_recover_interrupted_build_cleans_partial_stage_artifacts(tmp_path: Path
     )
     staged_conn.commit()
     staged_conn.close()
+    _mark_staged_build_ready(staged)
 
     partial.write_bytes(b"orphaned")
     partial.with_name(".index.db.next.partial-wal").write_bytes(b"orphaned")
@@ -815,6 +825,7 @@ def test_recover_interrupted_build_preserves_stage_when_swap_fails(
     )
     staged_conn.commit()
     staged_conn.close()
+    _mark_staged_build_ready(staged)
 
     partial.write_bytes(b"orphaned")
     partial.with_name(".index.db.next.partial-wal").write_bytes(b"orphaned")
@@ -829,6 +840,7 @@ def test_recover_interrupted_build_preserves_stage_when_swap_fails(
     assert _read_root_paths(target) == ["/old"]
     assert staged.exists()
     assert _read_root_paths(staged) == ["/rebuilt"]
+    assert staged.with_name(".index.db.next.ready").exists()
     assert not partial.exists()
     assert not partial.with_name(".index.db.next.partial-wal").exists()
     assert not partial.with_name(".index.db.next.partial-shm").exists()
@@ -848,10 +860,12 @@ def test_recover_interrupted_build_rejects_uninitialized_stage(tmp_path: Path) -
     target_conn.close()
 
     staged.write_bytes(b"")
+    _mark_staged_build_ready(staged)
 
     assert recover_interrupted_build(target) is False
     assert _read_root_paths(target) == ["/live"]
     assert not staged.exists()
+    assert not staged.with_name(".index.db.next.ready").exists()
 
 
 def test_recover_interrupted_build_durably_cleans_rejected_stage(
@@ -864,13 +878,60 @@ def test_recover_interrupted_build_durably_cleans_rejected_stage(
     apply_schema(target_conn)
     target_conn.close()
     staged.write_bytes(b"")
+    _mark_staged_build_ready(staged)
     calls: list[Path] = []
 
     monkeypatch.setattr("eodinga.index.storage._fsync_directory", lambda path: calls.append(path))
 
     assert recover_interrupted_build(target) is False
-    assert calls == [tmp_path]
+    assert calls == [tmp_path, tmp_path]
     assert not staged.exists()
+
+
+def test_recover_interrupted_build_requires_completion_marker(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/partial", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    assert has_resumable_interrupted_build(target) is False
+    assert recover_interrupted_build(target) is False
+    assert _read_root_paths(target) == ["/live"]
+    assert staged.exists()
+
+
+def test_discard_incomplete_interrupted_build_cleans_unmarked_stage(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/partial", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    assert discard_incomplete_interrupted_build(target) is True
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.next.ready").exists()
 
 
 def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
@@ -894,6 +955,7 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     )
     staged_conn.commit()
     staged_conn.close()
+    _mark_staged_build_ready(staged)
 
     reopened = open_index(target)
     try:
@@ -905,6 +967,7 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     assert not staged.exists()
     assert not staged.with_name(".index.db.next-wal").exists()
     assert not staged.with_name(".index.db.next-shm").exists()
+    assert not staged.with_name(".index.db.next.ready").exists()
 
 
 def test_open_index_resumes_interrupted_recovery_with_staged_wal(tmp_path: Path) -> None:
@@ -963,6 +1026,7 @@ def test_open_index_raises_when_interrupted_build_resume_fails(
     path = tmp_path / "index.db"
     staged = tmp_path / ".index.db.next"
     staged.write_bytes(b"sqlite")
+    _mark_staged_build_ready(staged)
 
     monkeypatch.setattr("eodinga.index.storage.recover_interrupted_build", lambda _path: False)
 
@@ -1045,6 +1109,39 @@ def test_open_index_cleans_orphaned_build_sidecars_before_open(tmp_path: Path) -
     assert not staged.with_name(".index.db.next-shm").exists()
 
 
+def test_open_index_discards_incomplete_interrupted_build_without_marker(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/partial", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    reopened = open_index(target)
+    try:
+        rows = reopened.execute("SELECT path FROM roots ORDER BY path").fetchall()
+        assert [str(row[0]) for row in rows] == ["/live"]
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.next.ready").exists()
+
+
 def test_open_index_cleans_partial_build_copy_before_open(tmp_path: Path) -> None:
     path = tmp_path / "index.db"
     partial = tmp_path / ".index.db.next.partial"
@@ -1063,6 +1160,18 @@ def test_open_index_cleans_partial_build_copy_before_open(tmp_path: Path) -> Non
     assert not partial.exists()
     assert not partial.with_name(".index.db.next.partial-wal").exists()
     assert not partial.with_name(".index.db.next.partial-shm").exists()
+
+
+def test_open_index_cleans_orphaned_build_marker_before_open(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+    staged.with_name(".index.db.next.ready").write_text("ready\n", encoding="utf-8")
+
+    reopened = open_index(path)
+    reopened.close()
+
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.next.ready").exists()
 
 
 def test_open_index_fsyncs_parent_directory_after_cleaning_startup_artifacts(

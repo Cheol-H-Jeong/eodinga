@@ -9,7 +9,9 @@ from typing import Any
 from eodinga.config import AppConfig, default_db_path
 from eodinga.core.fs import DENYLIST
 from eodinga.index import (
+    discard_incomplete_interrupted_build,
     has_stale_wal,
+    has_resumable_interrupted_build,
     recover_interrupted_build,
     recover_interrupted_recovery,
     recover_stale_wal,
@@ -66,7 +68,11 @@ def run_diagnostics(config: AppConfig | None = None, db_path: Path | None = None
     effective_config = config or AppConfig()
     effective_db_path = db_path or effective_config.index.db_path or default_db_path()
     interrupted_recovery_resumed = recover_interrupted_recovery(effective_db_path)
-    interrupted_build_resumed = recover_interrupted_build(effective_db_path)
+    interrupted_build_resumed = False
+    if has_resumable_interrupted_build(effective_db_path):
+        interrupted_build_resumed = recover_interrupted_build(effective_db_path)
+    else:
+        discard_incomplete_interrupted_build(effective_db_path)
     stale_wal_present = has_stale_wal(effective_db_path)
     stale_wal_recovered = recover_stale_wal(effective_db_path) if stale_wal_present else False
     stale_wal_error = (

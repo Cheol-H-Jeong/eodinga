@@ -171,6 +171,10 @@ def _staged_build_path(path: Path) -> Path:
     return path.with_name(f".{path.name}.next")
 
 
+def _staged_build_marker_path(path: Path) -> Path:
+    return path.with_name(f"{path.name}.ready")
+
+
 def _partial_copy_path(path: Path) -> Path:
     return path.with_name(f"{path.name}.partial")
 
@@ -210,6 +214,23 @@ def _cleanup_orphan_build_sidecars(path: Path, *, durable: bool = False) -> bool
     return cleaned
 
 
+def _cleanup_orphan_build_marker(path: Path, *, durable: bool = False) -> bool:
+    staged_path = _staged_build_path(path)
+    if staged_path.exists():
+        return False
+    return _cleanup_build_marker(staged_path, durable=durable)
+
+
+def _cleanup_build_marker(path: Path, *, durable: bool = False) -> bool:
+    marker_path = _staged_build_marker_path(path)
+    if not marker_path.exists():
+        return False
+    marker_path.unlink()
+    if durable:
+        _fsync_directory(marker_path.parent)
+    return True
+
+
 def _cleanup_orphan_live_sidecars(path: Path, *, durable: bool = False) -> bool:
     if path.exists():
         return False
@@ -217,6 +238,34 @@ def _cleanup_orphan_live_sidecars(path: Path, *, durable: bool = False) -> bool:
     if cleaned and durable:
         _fsync_directory(path.parent)
     return cleaned
+
+
+def has_resumable_interrupted_build(path: Path) -> bool:
+    staged_path = _staged_build_path(path)
+    return staged_path.exists() and _staged_build_marker_path(staged_path).exists()
+
+
+def mark_build_stage_complete(staged_path: Path) -> None:
+    marker_path = _staged_build_marker_path(staged_path)
+    marker_path.write_text("ready\n", encoding="utf-8")
+    try:
+        _fsync_file(marker_path)
+        _fsync_directory(marker_path.parent)
+    except Exception:
+        _cleanup_build_marker(staged_path, durable=True)
+        raise
+
+
+def discard_incomplete_interrupted_build(path: Path) -> bool:
+    staged_path = _staged_build_path(path)
+    if not staged_path.exists() or has_resumable_interrupted_build(path):
+        return False
+    logger = get_logger("index.storage")
+    logger.warning("discarding incomplete staged build for {}", path)
+    _cleanup_index_files(staged_path, durable=True)
+    _cleanup_partial_copy_artifacts(staged_path, durable=True)
+    _cleanup_build_marker(staged_path, durable=True)
+    return True
 
 
 def _copy_index_with_sidecars(source_path: Path, target_path: Path) -> None:
@@ -327,7 +376,7 @@ def recover_interrupted_recovery(path: Path) -> bool:
 
 def recover_interrupted_build(path: Path) -> bool:
     staged_path = _staged_build_path(path)
-    if not staged_path.exists():
+    if not has_resumable_interrupted_build(path):
         return False
     logger = get_logger("index.storage")
     logger.warning("resuming interrupted staged build for {}", path)
@@ -335,16 +384,19 @@ def recover_interrupted_build(path: Path) -> bool:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
             _cleanup_index_files(staged_path, durable=True)
             _cleanup_partial_copy_artifacts(staged_path)
+            _cleanup_build_marker(staged_path, durable=True)
             return False
         if not _has_initialized_schema(staged_path):
             logger.warning("skipping interrupted staged build swap with uninitialized stage {}", staged_path)
             _cleanup_index_files(staged_path, durable=True)
             _cleanup_partial_copy_artifacts(staged_path)
+            _cleanup_build_marker(staged_path, durable=True)
             return False
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted staged build preparation for {}", path)
         _cleanup_index_files(staged_path, durable=True)
         _cleanup_partial_copy_artifacts(staged_path)
+        _cleanup_build_marker(staged_path, durable=True)
         return False
     try:
         atomic_replace_index(staged_path, path)
@@ -354,6 +406,7 @@ def recover_interrupted_build(path: Path) -> bool:
         return False
     _cleanup_index_files(staged_path, durable=True)
     _cleanup_partial_copy_artifacts(staged_path)
+    _cleanup_build_marker(staged_path, durable=True)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
 
@@ -364,12 +417,17 @@ def open_index(path: Path) -> sqlite3.Connection:
     _cleanup_orphan_live_sidecars(path, durable=True)
     _cleanup_orphan_recovery_sidecars(path, durable=True)
     _cleanup_orphan_build_sidecars(path, durable=True)
+    _cleanup_orphan_build_marker(path, durable=True)
     recovery_staged = _staged_recovery_path(path).exists()
     if recovery_staged and not recover_interrupted_recovery(path):
         raise RuntimeError(f"failed to resume interrupted recovery for {path}")
     build_staged = _staged_build_path(path).exists()
-    if build_staged and not recover_interrupted_build(path):
-        raise RuntimeError(f"failed to resume interrupted staged build for {path}")
+    if build_staged:
+        if has_resumable_interrupted_build(path):
+            if not recover_interrupted_build(path):
+                raise RuntimeError(f"failed to resume interrupted staged build for {path}")
+        else:
+            discard_incomplete_interrupted_build(path)
     if has_stale_wal(path) and not recover_stale_wal(path):
         raise RuntimeError(f"failed to recover stale WAL for {path}")
     conn = connect_database(path)
@@ -396,7 +454,10 @@ __all__ = [
     "atomic_replace_index",
     "configure_connection",
     "connect_database",
+    "discard_incomplete_interrupted_build",
     "has_stale_wal",
+    "has_resumable_interrupted_build",
+    "mark_build_stage_complete",
     "open_index",
     "recover_interrupted_build",
     "recover_interrupted_recovery",
