@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
+from eodinga.config import AppConfig
 from eodinga.gui.launcher import LauncherState
 from eodinga.gui.launcher_window import LauncherWindow
 
@@ -44,6 +45,15 @@ def test_launcher_debounces_and_updates_results(qapp) -> None:
     result = launcher.model.item_at(0)
     assert result is not None
     assert result.name == "report.txt"
+
+
+def test_launcher_respects_frameless_config(qapp) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"frameless": False})
+
+    launcher = LauncherWindow(search_fn=lambda query, limit: QueryResult(), config=config)
+
+    assert not bool(launcher.windowFlags() & Qt.WindowType.FramelessWindowHint)
 
 
 def test_launcher_keyboard_flow_supports_arrow_navigation_and_tab_return(qapp) -> None:

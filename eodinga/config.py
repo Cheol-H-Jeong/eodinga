@@ -63,6 +63,7 @@ class LauncherConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     hotkey: str = "ctrl+shift+space"
+    frameless: bool = True
     debounce_ms: int = 30
     max_results: int = 200
     pinned_queries: list[str] = Field(default_factory=list)

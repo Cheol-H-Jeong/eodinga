@@ -11,6 +11,7 @@ def test_load_missing_file_returns_defaults(temp_config_path: Path) -> None:
     config = load(temp_config_path)
     assert isinstance(config, AppConfig)
     assert config.launcher.hotkey == "ctrl+shift+space"
+    assert config.launcher.frameless is True
 
 
 def test_config_round_trip_save_and_load(temp_config_path: Path, tmp_path: Path) -> None:
@@ -50,7 +51,7 @@ def test_load_ignores_unknown_config_fields(temp_config_path: Path) -> None:
         """
 [launcher]
 hotkey = "ctrl+shift+space"
-frameless = true
+future_launcher_flag = true
 
 [index]
 content_enabled = true
@@ -68,6 +69,20 @@ priority = 10
     assert config.launcher.hotkey == "ctrl+shift+space"
     assert config.index.content_enabled is True
     assert [str(root.path) for root in config.roots] == ["/tmp/docs"]
+
+
+def test_load_accepts_frameless_launcher_toggle(temp_config_path: Path) -> None:
+    temp_config_path.write_text(
+        """
+[launcher]
+frameless = false
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load(temp_config_path)
+
+    assert config.launcher.frameless is False
 
 
 def test_config_save_is_atomic_and_cleans_temp_file_on_replace_failure(

@@ -33,7 +33,8 @@ class LauncherWindow(LauncherPanel):
         self._geometry_save_timer.timeout.connect(self._persist_geometry)
         self.setObjectName("surface")
         self.setAccessibleName("Launcher window")
-        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
+        frameless = self._config.launcher.frameless if self._config is not None else True
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, frameless)
         self.setWindowFlag(Qt.WindowType.Tool, True)
         always_on_top = self._config.launcher.always_on_top if self._config is not None else False
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, always_on_top)
@@ -70,14 +71,13 @@ class LauncherWindow(LauncherPanel):
         current = bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
         if current == enabled:
             return
-        was_visible = self.isVisible()
-        position = self.pos()
-        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, enabled)
-        if was_visible:
-            self.show()
-            self.move(position)
-            self.raise_()
-            self.activateWindow()
+        self._apply_window_flag(Qt.WindowType.WindowStaysOnTopHint, enabled)
+
+    def set_frameless(self, enabled: bool) -> None:
+        current = bool(self.windowFlags() & Qt.WindowType.FramelessWindowHint)
+        if current == enabled:
+            return
+        self._apply_window_flag(Qt.WindowType.FramelessWindowHint, enabled)
 
     def hideEvent(self, event: QHideEvent) -> None:
         self._persist_geometry()
@@ -111,3 +111,15 @@ class LauncherWindow(LauncherPanel):
             return
         self._config.launcher = self._config.launcher.model_copy(update=geometry)
         self._config.save(self._config_path)
+
+    def _apply_window_flag(self, flag: Qt.WindowType, enabled: bool) -> None:
+        was_visible = self.isVisible()
+        position = self.pos()
+        size = self.size()
+        self.setWindowFlag(flag, enabled)
+        self.resize(size)
+        self.move(position)
+        if was_visible:
+            self.show()
+            self.raise_()
+            self.activateWindow()
