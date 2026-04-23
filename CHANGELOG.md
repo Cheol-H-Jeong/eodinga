@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.536 - 2026-04-23
+
+- Normalized remapped launcher hotkeys into a stable canonical form, so spaced or alias-heavy input like `Control + Alt + K` now rebinds, persists, and displays as `ctrl+alt+k`.
+- Hardened launcher popup restore so stale saved geometry from older monitor layouts clamps back onto the current screen instead of reviving off-screen or absurdly oversized windows.
+- Aligned launcher hover preview with launcher actions by making the hovered result become the current action target, so the preview pane and action bar no longer disagree about which file will open.
+
 ## 0.1.535 - 2026-04-23
 
 - Added live observer integration coverage for same-root renames, asserting that search hits move to the new path within 500ms and stale path filters disappear.
