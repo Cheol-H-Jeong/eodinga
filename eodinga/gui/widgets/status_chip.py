@@ -9,4 +9,4 @@ class StatusChip(QLabel):
         super().__init__(text, parent)
         self.setProperty("chip", True)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
+        self.setAccessibleName("Status")
