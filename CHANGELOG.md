@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.516 - 2026-04-23
+## 0.1.517 - 2026-04-23
 
 - Canonicalized parsed regex flags to lowercase so equivalent queries like `/todo/IM` and `/todo/im` now produce the same AST and compiled flag payloads.
 - Added end-to-end executor regressions for multiline (`m`) and dotall (`s`) content regex searches, pinning matches on non-initial lines and across embedded newlines.
