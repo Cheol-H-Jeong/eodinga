@@ -80,6 +80,30 @@ def test_rebuild_index_failure_keeps_existing_target_database(
     assert not staged_path.with_name(".index.db.next-wal").exists()
 
 
+def test_rebuild_index_failure_durably_cleans_staged_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "fresh.txt").write_text("fresh content\n", encoding="utf-8")
+
+    db_path = tmp_path / "index.db"
+    calls: list[Path] = []
+    original_walk_batched = build_module.walk_batched
+
+    def failing_walk_batched(root_path: Path, rules, root_id: int = 0):
+        yield from original_walk_batched(root_path, rules, root_id=root_id)
+        raise RuntimeError("simulated rebuild failure")
+
+    monkeypatch.setattr(build_module, "walk_batched", failing_walk_batched)
+    monkeypatch.setattr("eodinga.index.storage._fsync_directory", lambda path: calls.append(path))
+
+    with pytest.raises(RuntimeError, match="simulated rebuild failure"):
+        rebuild_index(db_path, [RootConfig(path=root)])
+
+    assert calls == [tmp_path]
+
+
 def test_rebuild_index_records_runtime_metrics(tmp_path: Path) -> None:
     root = tmp_path / "root"
     root.mkdir()

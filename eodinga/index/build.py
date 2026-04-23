@@ -163,13 +163,13 @@ def rebuild_index(
         raise
     except Exception:
         conn.close()
-        _cleanup_index_files(staged_path)
+        _cleanup_index_files(staged_path, durable=True)
         raise
     conn.close()
     try:
         atomic_replace_index(staged_path, target_path)
     except Exception:
-        _cleanup_index_files(staged_path)
+        _cleanup_index_files(staged_path, durable=True)
         raise
     elapsed_ms = (perf_counter() - started) * 1000
     increment_counter("index_rebuilds_completed")

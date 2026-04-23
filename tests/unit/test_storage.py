@@ -130,6 +130,24 @@ def test_atomic_replace_index_fsyncs_staged_file_and_target_directory(
     ]
 
 
+def test_cleanup_index_files_fsyncs_parent_directory_when_durable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    path.write_bytes(b"sqlite")
+    path.with_name("index.db-wal").write_bytes(b"wal")
+    path.with_name("index.db-shm").write_bytes(b"shm")
+    calls: list[Path] = []
+
+    monkeypatch.setattr("eodinga.index.storage._fsync_directory", lambda target: calls.append(target))
+
+    assert storage_module._cleanup_index_files(path, durable=True) is True
+    assert calls == [tmp_path]
+    assert not path.exists()
+    assert not path.with_name("index.db-wal").exists()
+    assert not path.with_name("index.db-shm").exists()
+
+
 def test_copy_index_with_sidecars_fsyncs_promoted_sidecars(tmp_path: Path, monkeypatch) -> None:
     source = tmp_path / "source.db"
     target = tmp_path / ".index.db.recover"
@@ -569,6 +587,25 @@ def test_recover_interrupted_recovery_rejects_uninitialized_stage(tmp_path: Path
     assert not staged.exists()
 
 
+def test_recover_interrupted_recovery_durably_cleans_rejected_stage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.close()
+    staged.write_bytes(b"")
+    calls: list[Path] = []
+
+    monkeypatch.setattr("eodinga.index.storage._fsync_directory", lambda path: calls.append(path))
+
+    assert recover_interrupted_recovery(target) is False
+    assert calls == [tmp_path]
+    assert not staged.exists()
+
+
 def test_recover_interrupted_recovery_cleans_partial_stage_artifacts(tmp_path: Path) -> None:
     target = tmp_path / "index.db"
     staged = tmp_path / ".index.db.recover"
@@ -767,6 +804,25 @@ def test_recover_interrupted_build_rejects_uninitialized_stage(tmp_path: Path) -
 
     assert recover_interrupted_build(target) is False
     assert _read_root_paths(target) == ["/live"]
+    assert not staged.exists()
+
+
+def test_recover_interrupted_build_durably_cleans_rejected_stage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.close()
+    staged.write_bytes(b"")
+    calls: list[Path] = []
+
+    monkeypatch.setattr("eodinga.index.storage._fsync_directory", lambda path: calls.append(path))
+
+    assert recover_interrupted_build(target) is False
+    assert calls == [tmp_path]
     assert not staged.exists()
 
 

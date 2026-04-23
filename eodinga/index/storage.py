@@ -104,12 +104,14 @@ def _cleanup_sidecars(path: Path) -> bool:
     return cleaned
 
 
-def _cleanup_index_files(path: Path) -> bool:
+def _cleanup_index_files(path: Path, *, durable: bool = False) -> bool:
     cleaned = False
     if path.exists():
         path.unlink()
         cleaned = True
     cleaned = _cleanup_sidecars(path) or cleaned
+    if cleaned and durable:
+        _fsync_directory(path.parent)
     return cleaned
 
 
@@ -165,10 +167,7 @@ def _cleanup_orphan_recovery_sidecars(path: Path, *, durable: bool = False) -> b
 
 def _cleanup_partial_copy_artifacts(path: Path, *, durable: bool = False) -> bool:
     partial_path = _partial_copy_path(path)
-    cleaned = _cleanup_index_files(partial_path)
-    if cleaned and durable:
-        _fsync_directory(path.parent)
-    return cleaned
+    return _cleanup_index_files(partial_path, durable=durable)
 
 
 def _cleanup_orphan_build_sidecars(path: Path, *, durable: bool = False) -> bool:
@@ -264,8 +263,8 @@ def recover_stale_wal(path: Path) -> bool:
         logger.exception("failed staged stale WAL recovery for {}", path)
         return False
     finally:
-        _cleanup_index_files(staged_path)
-        _cleanup_index_files(_partial_copy_path(staged_path))
+        _cleanup_index_files(staged_path, durable=True)
+        _cleanup_index_files(_partial_copy_path(staged_path), durable=True)
     return not has_stale_wal(path)
 
 
@@ -277,17 +276,17 @@ def recover_interrupted_recovery(path: Path) -> bool:
     logger.warning("resuming interrupted recovery for {}", path)
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
-            _cleanup_index_files(staged_path)
+            _cleanup_index_files(staged_path, durable=True)
             _cleanup_partial_copy_artifacts(staged_path)
             return False
         if not _has_initialized_schema(staged_path):
             logger.warning("skipping interrupted recovery swap with uninitialized stage {}", staged_path)
-            _cleanup_index_files(staged_path)
+            _cleanup_index_files(staged_path, durable=True)
             _cleanup_partial_copy_artifacts(staged_path)
             return False
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted recovery preparation for {}", path)
-        _cleanup_index_files(staged_path)
+        _cleanup_index_files(staged_path, durable=True)
         _cleanup_partial_copy_artifacts(staged_path)
         return False
     try:
@@ -296,7 +295,7 @@ def recover_interrupted_recovery(path: Path) -> bool:
         logger.exception("failed interrupted recovery swap for {}", path)
         _cleanup_partial_copy_artifacts(staged_path)
         return False
-    _cleanup_index_files(staged_path)
+    _cleanup_index_files(staged_path, durable=True)
     _cleanup_partial_copy_artifacts(staged_path)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
@@ -309,17 +308,17 @@ def recover_interrupted_build(path: Path) -> bool:
     logger.warning("resuming interrupted staged build for {}", path)
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
-            _cleanup_index_files(staged_path)
+            _cleanup_index_files(staged_path, durable=True)
             _cleanup_partial_copy_artifacts(staged_path)
             return False
         if not _has_initialized_schema(staged_path):
             logger.warning("skipping interrupted staged build swap with uninitialized stage {}", staged_path)
-            _cleanup_index_files(staged_path)
+            _cleanup_index_files(staged_path, durable=True)
             _cleanup_partial_copy_artifacts(staged_path)
             return False
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted staged build preparation for {}", path)
-        _cleanup_index_files(staged_path)
+        _cleanup_index_files(staged_path, durable=True)
         _cleanup_partial_copy_artifacts(staged_path)
         return False
     try:
@@ -328,7 +327,7 @@ def recover_interrupted_build(path: Path) -> bool:
         logger.exception("failed interrupted staged build swap for {}", path)
         _cleanup_partial_copy_artifacts(staged_path)
         return False
-    _cleanup_index_files(staged_path)
+    _cleanup_index_files(staged_path, durable=True)
     _cleanup_partial_copy_artifacts(staged_path)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
