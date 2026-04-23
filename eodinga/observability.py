@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
-from typing import Any
+from typing import Any, TypedDict
 
 from loguru import logger
 
@@ -16,6 +16,11 @@ _DEFAULT_HISTOGRAM_BUCKETS_MS = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0
 _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
+
+
+class MetricsSnapshot(TypedDict):
+    counters: dict[str, int]
+    histograms: dict[str, dict[str, object]]
 
 
 @dataclass
@@ -131,10 +136,12 @@ def record_histogram(
     logger.bind(metric=name, **fields).debug("histogram {value_ms:.3f}ms", value_ms=value_ms)
 
 
-def snapshot_metrics() -> dict[str, object]:
+def snapshot_metrics() -> MetricsSnapshot:
     with _METRICS_LOCK:
         counters = dict(sorted(_COUNTERS.items()))
-        histograms = {name: state.snapshot() for name, state in sorted(_HISTOGRAMS.items())}
+        histograms: dict[str, dict[str, object]] = {
+            name: state.snapshot() for name, state in sorted(_HISTOGRAMS.items())
+        }
     return {"counters": counters, "histograms": histograms}
 
 
