@@ -226,6 +226,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         commands_interrupted=counter_value("commands_interrupted"),
         crashes_reported=counter_value("crashes_reported"),
         crash_logs_written=counter_value("crash_logs_written"),
+        crash_log_write_failures=counter_value("crash_log_write_failures"),
         crash_handlers_installed=counter_value("crash_handlers_installed"),
         logging_configurations=counter_value("logging_configurations"),
         log_sinks_stderr_configured=counter_value("log_sinks.stderr.configured"),
@@ -434,7 +435,7 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "command": command,
                 "error_type": type(error).__name__,
-                "crash_path": str(crash_path),
+                "crash_path": str(crash_path) if crash_path is not None else None,
             },
         )
         return 1

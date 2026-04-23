@@ -336,11 +336,21 @@ def report_crash(
     context: str = "Unhandled exception",
     details: Mapping[str, object] | None = None,
     stream: IO[str] | None = None,
-) -> Path:
-    crash_path = write_crash_log(error, context=context, details=details)
+) -> Path | None:
+    target_stream = stream or sys.stderr
+    try:
+        crash_path = write_crash_log(error, context=context, details=details)
+    except Exception as write_error:
+        increment_counter("crash_log_write_failures")
+        increment_counter("crashes_reported")
+        increment_counter(f"crashes.{type(error).__name__}")
+        target_stream.write(
+            "unhandled exception; failed to write crash log: "
+            f"{type(write_error).__name__}: {write_error}\n"
+        )
+        return None
     increment_counter("crashes_reported")
     increment_counter(f"crashes.{type(error).__name__}")
-    target_stream = stream or sys.stderr
     target_stream.write(f"unhandled exception; crash log written to {crash_path}\n")
     return crash_path
 

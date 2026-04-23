@@ -502,6 +502,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["commands_failed"] == 0
     assert payload["crashes_reported"] == 0
     assert payload["crash_logs_written"] == 0
+    assert payload["crash_log_write_failures"] == 0
     assert payload["logging_configurations"] == 2
     assert payload["log_sinks_stderr_configured"] == 2
     assert payload["log_sinks_file_configured"] == 0
@@ -650,6 +651,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["commands_failed"] == 0
     assert payload["crashes_reported"] == 0
     assert payload["crash_logs_written"] == 0
+    assert payload["crash_log_write_failures"] == 0
     assert payload["crash_handlers_installed"] == 3
     assert payload["index_rebuilds_completed"] == 1
     assert payload["queries_zero_results"] == 0
@@ -756,6 +758,7 @@ def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path
     assert metrics["counters"]["commands.version.failed"] == 1
     assert metrics["counters"]["crashes_reported"] == 1
     assert metrics["counters"]["crash_logs_written"] == 1
+    assert "crash_log_write_failures" not in metrics["counters"]
     assert "commands_completed" not in metrics["counters"]
     assert metrics["histograms"]["command_latency_ms"]["count"] == 1
 
@@ -837,6 +840,36 @@ def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Pat
     ]
     assert payload["recent_snapshots"][0]["payload"]["reason"] == "exception"
     assert payload["recent_snapshots"][1]["payload"]["error_type"] == "RuntimeError"
+
+
+def test_stats_json_exposes_crash_log_write_failures(tmp_path: Path, capsys, monkeypatch) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    def _boom(_args) -> int:
+        raise RuntimeError("version exploded")
+
+    def _fail_write(*_args: object, **_kwargs: object) -> Path:
+        raise OSError("disk full")
+
+    monkeypatch.setattr("eodinga.__main__._cmd_version", _boom)
+    monkeypatch.setattr("eodinga.observability.write_crash_log", _fail_write)
+
+    exit_code = main(["--db", str(db_path), "version"])
+    failure_output = capsys.readouterr()
+    assert exit_code == 1
+    assert "failed to write crash log" in failure_output.err
+
+    report_crash_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert report_crash_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["crashes_reported"] == 1
+    assert payload["crash_logs_written"] == 0
+    assert payload["crash_log_write_failures"] == 1
+    assert payload["crash_types"] == {"RuntimeError": 1}
+    assert payload["recent_snapshots"][1]["payload"]["crash_path"] is None
 
 
 def test_stats_json_structures_interrupted_command_counts(

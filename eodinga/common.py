@@ -123,6 +123,7 @@ class StatsSnapshot(BaseModel):
     commands_interrupted: int = 0
     crashes_reported: int = 0
     crash_logs_written: int = 0
+    crash_log_write_failures: int = 0
     crash_handlers_installed: int = 0
     logging_configurations: int = 0
     log_sinks_stderr_configured: int = 0

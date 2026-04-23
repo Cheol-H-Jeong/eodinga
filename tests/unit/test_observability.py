@@ -218,6 +218,27 @@ def test_report_crash_writes_log_and_stderr(tmp_path: Path, monkeypatch, capsys)
     assert counters["crashes.RuntimeError"] == 1
 
 
+def test_report_crash_records_write_failure_without_raising(monkeypatch, capsys) -> None:
+    reset_metrics()
+
+    def _fail_write(*_args: object, **_kwargs: object) -> Path:
+        raise OSError("disk full")
+
+    monkeypatch.setattr("eodinga.observability.write_crash_log", _fail_write)
+
+    crash_path = report_crash(RuntimeError("boom"), context="reported crash")
+
+    captured = capsys.readouterr()
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert crash_path is None
+    assert "failed to write crash log" in captured.err
+    assert "disk full" in captured.err
+    assert counters["crashes.RuntimeError"] == 1
+    assert counters["crashes_reported"] == 1
+    assert counters["crash_log_write_failures"] == 1
+    assert "crash_logs_written" not in counters
+
+
 def test_install_crash_handlers_writes_thread_crash_log(
     tmp_path: Path,
     monkeypatch,
