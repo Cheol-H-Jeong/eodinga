@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.578 - 2026-04-23
+
+- Surfaced launcher hotkey backend availability directly in Settings, including a disabled remap control and explicit status text when the global hotkey backend is unavailable in the current session.
+- Centered the launcher popup on first show when no position has been saved yet, avoiding the default corner placement on fresh setups.
+- Restored saved launcher geometry against the best visible screen instead of always clamping against the primary screen, so windows saved on a secondary monitor come back where users left them when that monitor is still present.
+
 ## 0.1.570 - 2026-04-23
 
 - Added visible `Alt+1` through `Alt+9` quick-pick badges to the first nine launcher results so keyboard shortcuts are discoverable directly in the result list.
