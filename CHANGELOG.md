@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.117 - 2026-04-23
+## 0.1.120 - 2026-04-23
 
 - Centralized SQLite connection setup behind a shared helper that keeps the runtime PRAGMA profile consistent while explicitly reserving a 128-statement cache for index rebuilds, stale-WAL recovery, normal opens, and the opt-in perf harness.
 - Cached the chunk-shaped SQL templates used by `IndexWriter` delete and content lookup paths, removing repeated placeholder-string reconstruction from watcher cleanup and content-row maintenance loops.
