@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.239 - 2026-04-23
+
+- Reduced cold-start walker overhead by reusing `os.scandir()` child stat metadata instead of calling `lstat()` again for every discovered path.
+- Reused a single `indexed_at` timestamp across each traversal pass so large directory walks avoid per-record clock calls while keeping batch semantics unchanged.
+- Added a dedicated walker throughput benchmark behind `EODINGA_RUN_PERF=1` and unit coverage for the new fs metadata wrapper and traversal timestamp behavior.
+
 ## 0.1.238 - 2026-04-23
 
 - Fixed inline quoted operator values so escaped quotes and backslashes decode consistently whether or not the phrase contains whitespace.
