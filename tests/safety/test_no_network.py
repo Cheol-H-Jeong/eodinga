@@ -82,6 +82,18 @@ def _collect_import_aliases(tree: ast.AST) -> dict[str, str]:
     return aliases
 
 
+def _collect_constant_bindings(tree: ast.AST) -> dict[str, ast.AST]:
+    bindings: dict[str, ast.AST] = {}
+    for node in getattr(tree, "body", []):
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target = node.targets[0]
+            if isinstance(target, ast.Name):
+                bindings[target.id] = node.value
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.value is not None:
+            bindings[node.target.id] = node.value
+    return bindings
+
+
 def _resolve_dotted_name(node: ast.AST, aliases: dict[str, str]) -> str | None:
     dotted = _dotted_name(node)
     if dotted is None:
@@ -93,16 +105,45 @@ def _resolve_dotted_name(node: ast.AST, aliases: dict[str, str]) -> str | None:
     return f"{resolved_head}.{tail}"
 
 
-def _string_literal(node: ast.AST) -> str | None:
+def _string_literal(
+    node: ast.AST,
+    *,
+    constants: dict[str, ast.AST] | None = None,
+    seen: set[str] | None = None,
+) -> str | None:
+    constants = {} if constants is None else constants
+    seen = set() if seen is None else seen
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
+    if isinstance(node, ast.Name) and node.id in constants and node.id not in seen:
+        seen.add(node.id)
+        return _string_literal(constants[node.id], constants=constants, seen=seen)
     return None
 
 
-def _subprocess_command_name(node: ast.AST) -> str | None:
+def _subprocess_command_name(
+    node: ast.AST,
+    *,
+    constants: dict[str, ast.AST] | None = None,
+    seen: set[str] | None = None,
+) -> str | None:
+    constants = {} if constants is None else constants
+    seen = set() if seen is None else seen
     if isinstance(node, (ast.List, ast.Tuple)) and node.elts:
-        return _string_literal(node.elts[0])
-    return _string_literal(node)
+        return _string_literal(node.elts[0], constants=constants, seen=seen)
+    if isinstance(node, ast.Name) and node.id in constants and node.id not in seen:
+        seen.add(node.id)
+        return _subprocess_command_name(constants[node.id], constants=constants, seen=seen)
+    return _string_literal(node, constants=constants, seen=seen)
+
+
+def _call_command_argument(node: ast.Call) -> ast.AST | None:
+    if node.args:
+        return node.args[0]
+    for keyword in node.keywords:
+        if keyword.arg == "args":
+            return keyword.value
+    return None
 
 
 def _shell_uses_banned_command(command: str) -> str | None:
@@ -129,6 +170,7 @@ def _normalize_command_name(command: str) -> str:
 def _scan_python_source(path: Path, root: Path) -> list[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     aliases = _collect_import_aliases(tree)
+    constants = _collect_constant_bindings(tree)
     violations: list[str] = []
 
     for node in ast.walk(tree):
@@ -151,8 +193,9 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
         elif isinstance(node, ast.Call):
             dotted = _resolve_dotted_name(node.func, aliases)
             if dotted in _BANNED_CALLS:
-                if node.args:
-                    command = _subprocess_command_name(node.args[0])
+                command_arg = _call_command_argument(node)
+                if command_arg is not None:
+                    command = _subprocess_command_name(command_arg, constants=constants)
                     if command is not None:
                         shell_command = _shell_uses_banned_command(command)
                         if shell_command is not None:
@@ -161,8 +204,9 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                             )
                             continue
                 violations.append(f"{path.relative_to(root)}:{node.lineno}:{dotted}")
-            if dotted in _BANNED_EXEC_CALLS and node.args:
-                command = _subprocess_command_name(node.args[0])
+            command_arg = _call_command_argument(node)
+            if dotted in _BANNED_EXEC_CALLS and command_arg is not None:
+                command = _subprocess_command_name(command_arg, constants=constants)
                 if command is not None and _normalize_command_name(command) in _BANNED_SUBPROCESS_COMMANDS:
                     violations.append(
                         f"{path.relative_to(root)}:{node.lineno}:subprocess {_normalize_command_name(command)}"
@@ -174,8 +218,8 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                 "subprocess.check_call",
                 "subprocess.check_output",
                 "subprocess.Popen",
-            } and node.args:
-                command = _subprocess_command_name(node.args[0])
+            } and command_arg is not None:
+                command = _subprocess_command_name(command_arg, constants=constants)
                 if command in _BANNED_SUBPROCESS_COMMANDS:
                     violations.append(
                         f"{path.relative_to(root)}:{node.lineno}:subprocess {command}"
@@ -217,6 +261,28 @@ def test_python_source_scan_flags_shell_wrapped_network_commands(tmp_path: Path)
     assert violations == [
         "candidate.py:2:subprocess curl",
         "candidate.py:3:subprocess wget",
+    ]
+
+
+def test_python_source_scan_flags_keyword_args_and_module_level_command_constants(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "candidate.py"
+    source.write_text(
+        "import os\n"
+        "import subprocess\n"
+        "COMMAND = 'curl https://example.com'\n"
+        "DOWNLOAD = ['wget', 'https://example.com']\n"
+        "os.system(COMMAND)\n"
+        "subprocess.run(args=DOWNLOAD)\n",
+        encoding="utf-8",
+    )
+
+    violations = _scan_python_source(source, tmp_path)
+
+    assert violations == [
+        "candidate.py:5:subprocess curl",
+        "candidate.py:6:subprocess wget",
     ]
 
 
