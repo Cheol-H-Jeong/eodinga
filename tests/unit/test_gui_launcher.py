@@ -367,6 +367,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     launcher.show()
 
     assert launcher.empty_state.title_label.text() == "Type to search"
+    assert "No pinned queries yet" in launcher.empty_state.body_label.text()
     assert "No recent queries yet" in launcher.empty_state.body_label.text()
     assert "Alt+Up" in launcher.empty_state.body_label.text()
     assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
@@ -384,8 +385,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "date:this-week" in launcher.empty_state.body_label.text()
     assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
-    assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
-    assert "Alt+Up recalls recent queries" in launcher.shortcut_label.text()
+    assert launcher.shortcut_label.text() == "Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries."
 
 
 def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> None:
@@ -397,6 +397,51 @@ def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> No
     state.remember_query("budget")
 
     assert "budget, report" in launcher.empty_state.body_label.text()
+
+
+def test_launcher_shows_pinned_and_recent_query_chips_and_reuses_them(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf", "date:this-week"])
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    state.remember_query("budget")
+    state.remember_query("release")
+    qapp.processEvents()
+
+    assert launcher.query_chip_bar.button_texts == ["ext:pdf", "date:this-week", "release", "budget"]
+    assert launcher.query_chip_bar.isVisible()
+    assert launcher.query_chip_bar.accessibleName() == "Launcher query suggestions"
+    chip_buttons = launcher.query_chip_bar.buttons
+    assert chip_buttons[0].accessibleName() == "Pinned query ext:pdf"
+    assert chip_buttons[-1].accessibleName() == "Recent query budget"
+
+
+def test_launcher_clicking_query_chip_applies_query_and_shows_filter_chips(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/report.pdf"), parent_path=Path("/tmp"), name="report.pdf")][:limit]
+            if query
+            else [],
+            total=1 if query else 0,
+            elapsed_ms=2.0,
+        )
+
+    state = LauncherState(pinned_queries=["ext:pdf date:this-week"])
+    state.remember_query("budget")
+    launcher = LauncherWindow(state=state)
+    launcher.set_search_fn(search_fn)
+    launcher.show()
+
+    chip_buttons = launcher.query_chip_bar.buttons
+    assert [button.text() for button in chip_buttons] == ["ext:pdf date:this-week", "budget"]
+
+    chip_buttons[0].click()
+    _wait(60)
+
+    assert launcher.query_field.text() == "ext:pdf date:this-week"
+    assert launcher.filter_chip_bar.isVisible()
+    assert launcher.filter_chip_bar.chip_texts == ["ext:pdf", "date:this-week"]
+    assert launcher.filter_chip_bar.accessibleName() == "Launcher active filters"
 
 
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:

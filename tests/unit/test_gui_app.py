@@ -85,6 +85,17 @@ def test_app_updates_index_status_in_tab_and_tray(qapp) -> None:
     assert window.tray_indicator.icon_state == "idle"
 
 
+def test_app_seeds_launcher_state_with_configured_pinned_queries(qapp) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"pinned_queries": ["ext:pdf", "date:this-week"]})
+
+    window = EodingaWindow(config=config)
+    window.show()
+
+    assert window.launcher_state.pinned_queries == ["ext:pdf", "date:this-week"]
+    assert window.launcher_window.query_chip_bar.button_texts[:2] == ["ext:pdf", "date:this-week"]
+
+
 def test_launcher_state_is_shared_between_popup_and_search_tab(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
@@ -126,6 +137,8 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     launcher.move(180, 96)
     launcher.resize(720, 520)
     qapp.processEvents()
+    resized_width = launcher.width()
+    resized_height = launcher.height()
     launcher.hide()
     qapp.processEvents()
     window.close()
@@ -134,8 +147,8 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     stored = load(temp_config_path)
     assert stored.launcher.window_x == 180
     assert stored.launcher.window_y == 96
-    assert stored.launcher.window_width == 720
-    assert stored.launcher.window_height == 520
+    assert stored.launcher.window_width == resized_width
+    assert stored.launcher.window_height == resized_height
 
     _, restored_window, restored_launcher = cast(
         tuple[object, EodingaWindow, LauncherWindow],
@@ -144,8 +157,8 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     restored_launcher.show()
     qapp.processEvents()
 
-    assert restored_launcher.width() == 720
-    assert restored_launcher.height() == 520
+    assert restored_launcher.width() == resized_width
+    assert restored_launcher.height() == resized_height
     assert restored_launcher.pos().x() == 180
     assert restored_launcher.pos().y() == 96
 

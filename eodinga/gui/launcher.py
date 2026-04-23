@@ -12,7 +12,7 @@ from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.config import AppConfig
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
-from eodinga.gui.widgets import EmptyState, ResultItemDelegate, SearchField, StatusChip
+from eodinga.gui.widgets import EmptyState, FilterChipBar, QueryChipBar, ResultItemDelegate, SearchField, StatusChip
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
@@ -39,6 +39,7 @@ class LauncherPanel(QWidget):
         self._latest_result = QueryResult()
         self._recent_queries: list[str] = []
         self._indexing_status = IndexingStatus()
+        self._pinned_queries: list[str] = []
         self._state = state
         self._history_index: int | None = None
         self._history_draft = ""
@@ -47,6 +48,8 @@ class LauncherPanel(QWidget):
 
         self.query_field = SearchField(parent=self)
         self.query_field.setAccessibleName("Launcher search field")
+        self.query_chip_bar = QueryChipBar(self)
+        self.filter_chip_bar = FilterChipBar(self)
         self.result_list = QListView(self)
         self.result_list.setAccessibleName("Launcher results list")
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
@@ -71,6 +74,8 @@ class LauncherPanel(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
+        layout.addWidget(self.query_chip_bar)
+        layout.addWidget(self.filter_chip_bar)
         layout.addWidget(self.result_list, 1)
         layout.addWidget(self.empty_state)
 
@@ -82,6 +87,7 @@ class LauncherPanel(QWidget):
         layout.addLayout(footer)
 
         self.query_field.textChanged.connect(self._schedule_query)
+        self.query_chip_bar.query_selected.connect(self.apply_query_chip)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
@@ -112,18 +118,27 @@ class LauncherPanel(QWidget):
 
         if self._state is not None:
             self._state.recent_queries_changed.connect(self.set_recent_queries)
+            self._state.pinned_queries_changed.connect(self.set_pinned_queries)
             self._state.indexing_status_changed.connect(self.set_indexing_status)
             self.set_recent_queries(self._state.recent_queries)
+            self.set_pinned_queries(self._state.pinned_queries)
             self.set_indexing_status(self._state.indexing_status)
 
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
+        self.filter_chip_bar.set_query("")
 
     def set_search_fn(self, search_fn: SearchFn) -> None:
         self._search_fn = search_fn
 
     def set_recent_queries(self, queries: list[str]) -> None:
         self._recent_queries = queries
+        self.query_chip_bar.set_queries(pinned=self._pinned_queries, recent=self._recent_queries)
+        self._refresh_empty_state()
+
+    def set_pinned_queries(self, queries: list[str]) -> None:
+        self._pinned_queries = queries
+        self.query_chip_bar.set_queries(pinned=self._pinned_queries, recent=self._recent_queries)
         self._refresh_empty_state()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
@@ -151,6 +166,11 @@ class LauncherPanel(QWidget):
 
     def select_query_text(self) -> None:
         self.focus_query_field()
+
+    def apply_query_chip(self, query: str) -> None:
+        self.query_field.setFocus()
+        self.query_field.setText(query)
+        self.query_field.setCursorPosition(len(query))
 
     def emit_open_containing_folder(self) -> None:
         self._flush_pending_query()
@@ -199,6 +219,7 @@ class LauncherPanel(QWidget):
         if not self._applying_history_query:
             self._history_index = None
             self._history_draft = ""
+        self.filter_chip_bar.set_query(self.query_field.text())
         self._debounce_timer.start()
 
     def _flush_pending_query(self) -> None:
@@ -244,9 +265,16 @@ class LauncherPanel(QWidget):
         details = format_indexing_status(self._indexing_status)
         if not query:
             recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
+            pinned_queries = ", ".join(self._pinned_queries[:3]) if self._pinned_queries else "No pinned queries yet."
             self.empty_state.set_content(
                 "Type to search",
-                f"Recent: {recent_queries} Press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
+                " ".join(
+                    [
+                        f"Pinned: {pinned_queries}.",
+                        f"Recent: {recent_queries}.",
+                        "Press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
+                    ]
+                ),
                 details,
             )
         else:
@@ -263,8 +291,15 @@ class LauncherPanel(QWidget):
         if not has_results:
             if self.query_field.text().strip():
                 hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries."
+                if self._pinned_queries:
+                    hint = (
+                        "Refine with ext:, date:, size:, or content: filters. "
+                        "Click a chip to reuse pinned queries or press Alt+Up for recent queries."
+                    )
             else:
                 hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
+                if self._pinned_queries:
+                    hint = "Type a filename, path, or content term. Click a pinned query chip or press Alt+Up to recall recent queries."
         elif self.result_list.hasFocus():
             hint = (
                 "Enter opens. Alt+1..9 quick-picks. Up/Down wraps. "
