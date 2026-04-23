@@ -77,6 +77,31 @@ def test_parse_operator_regex_value() -> None:
 
 
 @pytest.mark.parametrize(
+    ("query", "expected_pattern", "expected_flags"),
+    [
+        (r"/folder\\\\/", r"folder\\\\", ""),
+        (r"content:/folder\\\\/is", r"folder\\\\", "is"),
+    ],
+)
+def test_parse_regex_closing_delimiter_allows_even_backslashes(
+    query: str,
+    expected_pattern: str,
+    expected_flags: str,
+) -> None:
+    node = parse(query)
+
+    if isinstance(node, RegexNode):
+        assert node.pattern == expected_pattern
+        assert node.flags == expected_flags
+        return
+
+    assert isinstance(node, OperatorNode)
+    assert node.value_kind == "regex"
+    assert node.value == expected_pattern
+    assert node.regex_flags == expected_flags
+
+
+@pytest.mark.parametrize(
     ("query", "expected_name", "expected_value"),
     [
         ('"release \\"candidate\\""', None, 'release "candidate"'),

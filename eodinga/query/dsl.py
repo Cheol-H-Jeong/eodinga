@@ -223,7 +223,7 @@ class _Parser:
             char = self._peek()
             if char is None:
                 raise QuerySyntaxError("unterminated regex", start)
-            if char == "/" and self.source[self.index - 1] != "\\":
+            if char == "/" and not self._is_escaped_delimiter(self.index):
                 break
             self.index += 1
         pattern = self.source[pattern_start:self.index]
@@ -279,6 +279,14 @@ class _Parser:
                 delimiters.append(index)
             backslashes = 0
         return delimiters
+
+    def _is_escaped_delimiter(self, index: int) -> bool:
+        backslashes = 0
+        cursor = index - 1
+        while cursor >= 0 and self.source[cursor] == "\\":
+            backslashes += 1
+            cursor -= 1
+        return backslashes % 2 == 1
 
     def _with_negation(self, node: PhraseNode | RegexNode, negated: bool) -> PhraseNode | RegexNode:
         if not negated:
