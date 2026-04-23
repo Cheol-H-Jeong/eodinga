@@ -101,3 +101,26 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
     discovered = discover_hidden_imports(source_root)
 
     assert discovered == ["package.alpha", "package.beta", "package.gamma"]
+
+
+def test_pyinstaller_spec_ignores_relative_package_imports_in_source_hidden_imports(tmp_path: Path) -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_source_hidden_imports = cast(Callable[[Path], list[str]], namespace["_discover_source_hidden_imports"])
+
+    source_root = tmp_path / "eodinga"
+    tabs_dir = source_root / "gui" / "tabs"
+    tabs_dir.mkdir(parents=True)
+    (source_root / "__init__.py").write_text("", encoding="utf-8")
+    (source_root / "gui" / "__init__.py").write_text("", encoding="utf-8")
+    (tabs_dir / "__init__.py").write_text("from .about import AboutTab\n", encoding="utf-8")
+    (tabs_dir / "about.py").write_text("class AboutTab:\n    pass\n", encoding="utf-8")
+    (tabs_dir / "search.py").write_text("from PySide6.QtWidgets import QWidget\n", encoding="utf-8")
+
+    discovered = discover_source_hidden_imports(source_root)
+
+    assert "PySide6.QtWidgets" in discovered
+    assert "about" not in discovered
+    assert "eodinga.gui.tabs.about" not in discovered
