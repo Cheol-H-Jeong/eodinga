@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.197 - 2026-04-23
+
+- Normalized Windows root-scoped search matching across drive-letter case changes, full-path case changes, and `\\?\\C:\\...` extended-length variants so exact root-directory queries no longer disappear while descendant `LIKE` matches still work.
+- Added UNC root normalization for both plain `\\\\server\\share\\...` and extended `\\\\?\\UNC\\server\\share\\...` paths, including coverage for case-insensitive exact root matches and prefixed/unprefixed scoping.
+- Expanded executor regressions around Windows root scoping so drive-letter, segment-case, and prefixed-query permutations stay covered in `tests/unit/test_executor.py`.
+
 ## 0.1.190 - 2026-04-23
 
 - Expanded multi-root live-update coverage so a real watched delete in one root must disappear from both global and root-scoped search results within 500 ms without disturbing sibling-root hits.
