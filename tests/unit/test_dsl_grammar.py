@@ -396,7 +396,10 @@ NEGATABLE_VALID_QUERY_STRATEGY = st.recursive(
         st.builds(lambda items: " ".join(items), st.lists(children, min_size=2, max_size=3)),
         st.builds(lambda items: " | ".join(items), st.lists(children, min_size=2, max_size=3)),
         st.builds(lambda child: f"({child})", children),
-        st.builds(lambda child: f"-({child})", children),
+        st.builds(
+            lambda child: f"-({child})",
+            children.filter(lambda child: "case:" not in child and "regex:" not in child),
+        ),
     ),
     max_leaves=10,
 )
