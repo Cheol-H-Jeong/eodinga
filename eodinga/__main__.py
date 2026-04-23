@@ -43,6 +43,7 @@ from eodinga.stats_summary import (
     log_sink_file_disabled_reason_summary,
     log_sink_file_source_summary,
     parser_activity_summary,
+    recent_snapshot_summary,
     watcher_failure_summary,
     watcher_event_type_summary,
 )
@@ -208,6 +209,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     metrics = snapshot_metrics()
     counters = metrics["counters"]
     log_target = resolve_log_target()
+    snapshots = [dict(entry) for entry in recent_snapshots()]
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
         process_started_at=metrics["process_started_at"],
@@ -218,6 +220,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         version=str(metrics["version"]),
         uptime_ms=float(metrics["uptime_ms"]),
         files_indexed=index_snapshot.file_count,
+        files_indexed_counter=counter_value("files_indexed"),
         documents_indexed=index_snapshot.content_count,
         queries_served=counter_value("queries_served"),
         queries_zero_results=counter_value("queries_zero_results"),
@@ -268,7 +271,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         log_sink_file_disabled_reasons=log_sink_file_disabled_reason_summary(counters),
         counters=counters,
         histograms=metrics["histograms"],
-        recent_snapshots=[dict(entry) for entry in recent_snapshots()],
+        recent_snapshot_count=len(snapshots),
+        recent_snapshot_activity=recent_snapshot_summary(snapshots),
+        recent_snapshots=snapshots,
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
         log_path=log_target.path,

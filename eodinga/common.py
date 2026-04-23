@@ -104,6 +104,7 @@ class StatsSnapshot(BaseModel):
     version: str = ""
     uptime_ms: float = 0.0
     files_indexed: int = 0
+    files_indexed_counter: int = 0
     documents_indexed: int = 0
     queries_served: int = 0
     queries_zero_results: int = 0
@@ -152,6 +153,8 @@ class StatsSnapshot(BaseModel):
     log_sink_file_disabled_reasons: dict[str, int] = Field(default_factory=dict)
     counters: dict[str, int] = Field(default_factory=dict)
     histograms: dict[str, dict[str, object]] = Field(default_factory=dict)
+    recent_snapshot_count: int = 0
+    recent_snapshot_activity: dict[str, int] = Field(default_factory=dict)
     recent_snapshots: list[dict[str, object]] = Field(default_factory=list)
     roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None

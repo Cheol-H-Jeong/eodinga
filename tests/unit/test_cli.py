@@ -524,6 +524,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["rss_bytes"] is None or payload["rss_bytes"] > 0
     assert payload["open_fd_count"] is None or payload["open_fd_count"] >= 0
     assert payload["files_indexed"] == 3
+    assert payload["files_indexed_counter"] == 0
     assert payload["documents_indexed"] == 3
     assert payload["queries_served"] == 1
     assert payload["queries_zero_results"] == 0
@@ -573,6 +574,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_sink_file_sources"] == {}
     assert payload["log_sink_file_disabled_reasons"] == {"disabled_pytest": 2}
     assert len(payload["recent_snapshots"]) == 1
+    assert payload["recent_snapshot_count"] == 1
+    assert payload["recent_snapshot_activity"] == {"command.search": 1}
     assert payload["recent_snapshots"][0]["name"] == "command.search"
     assert payload["recent_snapshots"][0]["payload"]["query"] == "duplicate"
     assert payload["file_logging_enabled"] is True
@@ -667,6 +670,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert stats_exit == 0
     payload = json.loads(stats_output.out)
     assert payload["counters"]["files_indexed"] == indexed_files
+    assert payload["files_indexed_counter"] == indexed_files
     assert payload["counters"]["parser_errors"] == 1
     assert payload["counters"]["parsers.broken.error"] == 1
     assert payload["counters"]["parsers.text.parsed"] >= 2
@@ -743,6 +747,11 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["watcher_queue_backpressure_histogram"]["count"] == 1
     assert payload["index_rebuild_latency_histogram"]["count"] == 1
     assert payload["index_batch_size_histogram"]["count"] >= 1
+    assert payload["recent_snapshot_count"] == 2
+    assert payload["recent_snapshot_activity"] == {
+        "command.index": 1,
+        "command.search": 1,
+    }
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
         "command.index",
         "command.search",
@@ -1013,6 +1022,8 @@ def test_stats_json_structures_interrupted_command_counts(
             },
         }
     ]
+    assert payload["recent_snapshot_count"] == 1
+    assert payload["recent_snapshot_activity"] == {"command.failure": 1}
 
 
 def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> None:
@@ -1033,6 +1044,8 @@ def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> 
     assert payload["commands"]["search"]["started"] == 1
     assert payload["exit_codes"]["2"] == 1
     assert len(payload["recent_snapshots"]) == 1
+    assert payload["recent_snapshot_count"] == 1
+    assert payload["recent_snapshot_activity"] == {"command.failure": 1}
     assert payload["recent_snapshots"][0]["name"] == "command.failure"
     assert payload["recent_snapshots"][0]["payload"]["command"] == "search"
     assert payload["recent_snapshots"][0]["payload"]["reason"] == "nonzero_exit"
