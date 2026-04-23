@@ -100,6 +100,7 @@ class StatsSnapshot(BaseModel):
     files_indexed: int = 0
     documents_indexed: int = 0
     queries_served: int = 0
+    empty_queries: int = 0
     parser_errors: int = 0
     watcher_events: int = 0
     commands_started: int = 0
@@ -108,6 +109,7 @@ class StatsSnapshot(BaseModel):
     crashes_reported: int = 0
     crash_logs_written: int = 0
     query_latency_histogram: dict[str, object] = Field(default_factory=dict)
+    query_result_count_histogram: dict[str, object] = Field(default_factory=dict)
     command_latency_histogram: dict[str, object] = Field(default_factory=dict)
     commands: dict[str, dict[str, int]] = Field(default_factory=dict)
     exit_codes: dict[str, int] = Field(default_factory=dict)
