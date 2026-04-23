@@ -197,6 +197,35 @@ def test_parse_content_regex_with_escaped_slash_and_korean_text() -> None:
 @pytest.mark.parametrize(
     ("query", "expected_name", "expected_pattern", "expected_flags"),
     [
+        (r"/회의\/록\/초안/im", None, r"회의\/록\/초안", "im"),
+        (r"content:/회의\/록\/초안/im", "content", r"회의\/록\/초안", "im"),
+        (r"path:/문서\/회의록\/[0-9]+/i", "path", r"문서\/회의록\/[0-9]+", "i"),
+    ],
+)
+def test_parse_regex_with_multiple_escaped_slashes_and_korean_segments(
+    query: str,
+    expected_name: str | None,
+    expected_pattern: str,
+    expected_flags: str,
+) -> None:
+    node = parse(query)
+
+    if expected_name is None:
+        assert isinstance(node, RegexNode)
+        assert node.pattern == expected_pattern
+        assert node.flags == expected_flags
+        return
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == expected_name
+    assert node.value_kind == "regex"
+    assert node.value == expected_pattern
+    assert node.regex_flags == expected_flags
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_name", "expected_pattern", "expected_flags"),
+    [
         (r"/foo\\/i", None, r"foo\\", "i"),
         (r"content: /foo\\/i", "content", r"foo\\", "i"),
         (r"path: /tmp\\/m", "path", r"tmp\\", "m"),
@@ -461,6 +490,49 @@ def test_phrase_escape_round_trip_fuzz(value: str) -> None:
     assert node.name == "content"
     assert node.value_kind == "phrase"
     assert node.value == value
+
+
+REGEX_BODY_TEXT = st.text(
+    alphabet=st.sampled_from(
+        [
+            "a",
+            "b",
+            "c",
+            "0",
+            "1",
+            "-",
+            "_",
+            "[",
+            "]",
+            "+",
+            ".",
+            "회",
+            "의",
+            "록",
+            "/",
+            "\\",
+        ]
+    ),
+    min_size=1,
+    max_size=24,
+).filter(lambda value: not value.endswith("\\"))
+
+
+def _escape_regex_literal(value: str) -> str:
+    escaped = value.replace("\\", "\\\\")
+    return escaped.replace("/", r"\/")
+
+
+@given(REGEX_BODY_TEXT, st.sampled_from(["", "i", "m", "s", "im", "is", "ms", "ims"]))
+def test_regex_escape_round_trip_fuzz(value: str, flags: str) -> None:
+    escaped = _escape_regex_literal(value)
+    node = parse(f"content:/{escaped}/{flags}")
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "content"
+    assert node.value_kind == "regex"
+    assert node.value == escaped
+    assert node.regex_flags == flags
 
 
 NEGATABLE_OPERATOR_ATOMS = st.one_of(
