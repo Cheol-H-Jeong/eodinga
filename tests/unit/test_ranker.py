@@ -27,6 +27,12 @@ def test_prefix_boost_ignores_duplicate_hits() -> None:
     assert scores[2] == 0.8
 
 
+def test_prefix_boost_does_not_create_scores_for_unranked_hits() -> None:
+    scores = apply_prefix_boost({1: 0.2}, [2, 2, 1], RankingWeights(prefix_boost=0.5))
+
+    assert scores == {1: 0.7}
+
+
 def test_deboost_applies_to_vendor_dirs() -> None:
     scores = apply_path_deboost(
         {1: 1.0, 2: 1.0},
@@ -53,6 +59,19 @@ def test_deboost_matches_complete_path_segments_only() -> None:
     assert scores[2] == 1.0
     assert scores[3] == 0.25
     assert scores[4] == 1.0
+
+
+def test_deboost_does_not_create_scores_for_unranked_paths() -> None:
+    scores = apply_path_deboost(
+        {1: 1.0},
+        {
+            1: "/home/user/src/main.py",
+            99: "/home/user/node_modules/pkg/index.js",
+        },
+        RankingWeights(deboost_factor=0.25),
+    )
+
+    assert scores == {1: 1.0}
 
 
 def test_rank_results_combines_rrf_boost_and_deboost() -> None:

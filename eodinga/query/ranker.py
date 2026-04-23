@@ -55,7 +55,7 @@ def apply_prefix_boost(
     boosted = dict(scores)
     seen: set[int] = set()
     for file_id in prefix_hits:
-        if file_id in seen:
+        if file_id in seen or file_id not in boosted:
             continue
         seen.add(file_id)
         boosted[file_id] = boosted.get(file_id, 0.0) + weights.prefix_boost
@@ -70,6 +70,8 @@ def apply_path_deboost(
     weights = weights or RankingWeights()
     adjusted = dict(scores)
     for file_id, path in paths.items():
+        if file_id not in adjusted:
+            continue
         if any(_path_has_marker_segment(path, marker) for marker in weights.deboost_markers):
             adjusted[file_id] = adjusted.get(file_id, 0.0) * weights.deboost_factor
     return adjusted
