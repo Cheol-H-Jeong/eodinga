@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.867 - 2026-04-23
+## 0.1.870 - 2026-04-23
 
 - Expanded launcher preview fallback decoding to read BOM and BOM-less UTF-16 text files, so hovered file previews stay useful for common Windows-authored notes instead of going blank.
 - Surfaced launcher hotkey backend availability in Settings, marking saved-only hotkeys clearly when the global hotkey service is unavailable while still preserving remapped combos in config.
