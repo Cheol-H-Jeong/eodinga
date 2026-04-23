@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.705 - 2026-04-23
+
+- Fixed DSL range parsing for inline values like `date:2026-01-01.. 2026-01-03` and `size:100.. 500K`, so spaced range suffixes no longer split into the wrong terms or silently change filter semantics.
+- Normalized Windows root-scope matching across standard and extended-length (`\\?\`) paths, so scoped searches now keep exact-root records and descendants visible regardless of which path form was indexed or queried.
+
 ## 0.1.592 - 2026-04-23
 
 - Reduced walker canonicalization overhead by resolving only the root and symlink-backed ancestry, keeping ordinary directory traversals off the `resolve_safe()` hot path while preserving alias-loop protection.

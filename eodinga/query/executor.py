@@ -349,9 +349,9 @@ def _escape_like_pattern(value: str) -> str:
 
 def _strip_windows_extended_prefix(path: str) -> str:
     if path.startswith("\\\\?\\UNC\\"):
-        return f"\\\\{path.removeprefix('\\\\?\\UNC\\')}"
+        return "\\\\" + path.removeprefix("\\\\?\\UNC\\")
     if path.startswith("//?/UNC/"):
-        return f"//{path.removeprefix('//?/UNC/')}"
+        return "//" + path.removeprefix("//?/UNC/")
     if path.startswith("\\\\?\\") or path.startswith("//?/"):
         return path[4:]
     return path
