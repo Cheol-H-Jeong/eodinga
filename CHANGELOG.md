@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.381 - 2026-04-23
+## 0.1.386 - 2026-04-23
 
 - Clarified the README’s packaging contract with dry-run-to-artifact mapping, release-side validation checks, and a more explicit operator runbook for packaging and docs refreshes.
 - Expanded the architecture guide with recovery and query-consistency invariants, a packaging audit path, and a symptom-to-subsystem map that ties operator debugging back to runtime boundaries.
