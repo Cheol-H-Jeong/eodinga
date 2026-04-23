@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.807 - 2026-04-23
+## 0.1.809 - 2026-04-23
 
 - Reused compiled regex and normalized text predicates across the executor's Python-scan fallback path, trimming repeat `re.compile()` and Unicode normalization work out of branch-local record filtering.
 - Removed a redundant symlink-root `resolve_safe(...).is_dir()` probe in the walker, so alias-root traversals no longer pay the extra root resolution before the existing ancestry-aware descent logic runs.
