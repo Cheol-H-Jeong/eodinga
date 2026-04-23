@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.382 - 2026-04-23
+
+- Kept quoted phrase queries complete even when FTS returns only the exact-token subset first, so separator-spanning matches in names, paths, and content still surface together.
+- Aligned the path-side fallback and ranking passes with phrase semantics, preventing punctuation-separated path hits from being dropped after candidate fetch.
+- Replaced the fixed-size Unicode path fallback snapshot with a paginated scan, so late non-ASCII matches are still reachable in large indexes.
+
 ## 0.1.377 - 2026-04-23
 
 - Returned a clean `130` exit code for interrupted CLI commands, recording them as interrupted instead of crashed so Ctrl+C and signal stops no longer surface as unhandled failures.
