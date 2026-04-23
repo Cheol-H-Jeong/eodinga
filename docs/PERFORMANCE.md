@@ -16,6 +16,7 @@ Use a warm local virtualenv and run the perf tests on an otherwise idle machine 
 source .venv/bin/activate
 EODINGA_RUN_PERF=1 pytest -q tests/perf/test_cold_start.py -s
 EODINGA_RUN_PERF=1 pytest -q tests/perf/test_bulk_upsert.py -s
+EODINGA_RUN_PERF=1 pytest -q tests/perf/test_walk_throughput.py -s
 EODINGA_RUN_PERF=1 pytest -q tests/perf/test_query_latency.py -s
 EODINGA_RUN_PERF=1 pytest -q tests/perf/test_content_query.py -s
 EODINGA_RUN_PERF=1 pytest -q tests/perf/test_watch_latency.py -s
@@ -28,6 +29,7 @@ The current perf suite covers the SPEC §6.3 scenarios with smaller local-dev da
 - `tests/perf/test_cold_start.py`: walker + bulk index throughput on a real tmp tree.
 - `tests/perf/test_cold_start.py::test_rebuild_cold_start_throughput`: staged rebuild throughput through the real `rebuild_index()` entry point.
 - `tests/perf/test_bulk_upsert.py`: isolated writer throughput for 50k synthetic records.
+- `tests/perf/test_walk_throughput.py`: raw walker enumeration throughput across a 40k-file tree.
 - `tests/perf/test_query_latency.py`: name-only query latency against a 50k-file index.
 - `tests/perf/test_content_query.py`: content query latency against a 5k-document corpus.
 - `tests/perf/test_watch_latency.py`: file-create to query-visible latency through the watcher path.
@@ -53,6 +55,7 @@ Supported overrides:
 - `EODINGA_PERF_COLD_START_FILE_COUNT`, `EODINGA_PERF_COLD_START_MIN_FPS`
 - `EODINGA_PERF_REBUILD_MIN_FPS`
 - `EODINGA_PERF_BULK_FILE_COUNT`, `EODINGA_PERF_BULK_MIN_RPS`
+- `EODINGA_PERF_WALK_FILE_COUNT`, `EODINGA_PERF_WALK_MIN_RPS`
 - `EODINGA_PERF_QUERY_FILE_COUNT`, `EODINGA_PERF_QUERY_COUNT`, `EODINGA_PERF_QUERY_P95_MS`
 - `EODINGA_PERF_CONTENT_DOC_COUNT`, `EODINGA_PERF_CONTENT_QUERY_COUNT`, `EODINGA_PERF_CONTENT_P95_MS`
 - `EODINGA_PERF_WATCH_FILE_COUNT`, `EODINGA_PERF_WATCH_P99_SECONDS`
@@ -63,24 +66,54 @@ The defaults currently checked into the suite are:
 | --- | --- | --- |
 | Cold start | `EODINGA_PERF_COLD_START_FILE_COUNT=20000` | `EODINGA_PERF_COLD_START_MIN_FPS=4000`, `EODINGA_PERF_REBUILD_MIN_FPS=3500` |
 | Bulk upsert | `EODINGA_PERF_BULK_FILE_COUNT=50000` | `EODINGA_PERF_BULK_MIN_RPS=20000` |
+| Walker throughput | `EODINGA_PERF_WALK_FILE_COUNT=40000` | `EODINGA_PERF_WALK_MIN_RPS=25000` |
 | Name query | `EODINGA_PERF_QUERY_FILE_COUNT=50000`, `EODINGA_PERF_QUERY_COUNT=2000` | `EODINGA_PERF_QUERY_P95_MS=30` |
 | Content query | `EODINGA_PERF_CONTENT_DOC_COUNT=5000`, `EODINGA_PERF_CONTENT_QUERY_COUNT=500` | `EODINGA_PERF_CONTENT_P95_MS=150` |
 | Watch latency | `EODINGA_PERF_WATCH_FILE_COUNT=25` | `EODINGA_PERF_WATCH_P99_SECONDS=2.0` |
 
 ## Baseline
 
-Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed on the branch that originally introduced the current no-parser indexing fast path:
+Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed at the current `HEAD`, using isolated perf targets so the printed summary lines stay easy to audit:
 
 | Benchmark | Dataset | Result |
 | --- | --- | --- |
-| Cold start | 20,201 indexed entries | 6,059 files/sec |
-| Rebuild cold start | 20,201 indexed entries via `rebuild_index()` | 6,537 files/sec |
-| Bulk upsert | 50k synthetic records | 56,222 records/sec |
-| Name query latency | 2,000 queries / 50k files | p50 0.06 ms, p95 0.06 ms, p99 0.07 ms |
-| Content query latency | 500 queries / 5k docs | p50 0.60 ms, p95 0.63 ms, p99 0.67 ms |
-| Watch latency | 25 created files | p99 0.133 s |
+| Cold start | 20,201 indexed entries | 5,427 files/sec |
+| Rebuild cold start | 20,201 indexed entries via `rebuild_index()` | 5,727 files/sec |
+| Bulk upsert | 50k synthetic records | 48,123 records/sec |
+| Name query latency | 2,000 queries / 50k files | p50 0.12 ms, p95 0.13 ms, p99 0.15 ms |
+| Content query latency | 500 queries / 5k docs | p50 0.92 ms, p95 1.01 ms, p99 1.20 ms |
+| Watch latency | 25 created files | p99 0.135 s |
 
 These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. The benchmark set reflects the checked-in no-parser fast path, where metadata-only indexing avoids the guaranteed-empty content upsert pass when no parser callback is installed.
+
+## Current HEAD Walk Throughput
+
+The current `HEAD` walker microbenchmark is worth calling out separately because it did not clear its informational threshold on this host:
+
+```text
+walk_batched records=40257 elapsed=7.324s throughput=5497 records/s min_rps=25000
+```
+
+That line came from:
+
+```bash
+source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf/test_walk_throughput.py -s
+```
+
+The benchmark still validated record count correctness, but the measured throughput stayed well below `EODINGA_PERF_WALK_MIN_RPS=25000`. For that reason, the failing walker sample is documented explicitly here instead of being quietly merged into the passing baseline table above.
+
+## Recorded Summary Lines
+
+These are the exact one-line summaries captured during the 2026-04-23 rerun:
+
+```text
+cold_start files=20201 elapsed=3.722s throughput=5427 files/s min_fps=4000
+rebuild_cold_start files=20201 elapsed=3.527s throughput=5727 files/s min_fps=3500
+bulk_upsert records=50000 elapsed=1.039s throughput=48123 records/s min_rps=20000
+query_latency files=50000 count=2000 p50=0.12ms p95=0.13ms p99=0.15ms limit_p95=30.00ms
+content_query docs=5000 count=500 p50=0.92ms p95=1.01ms p99=1.20ms limit_p95=150.00ms
+watch_latency count=25 p99=0.135s limit_p99=2.000s
+```
 
 When you refresh this table, record:
 
@@ -111,6 +144,7 @@ Use this short checklist before replacing the baseline table:
 - `tests/perf/test_cold_start.py` exercises walker and bulk-upsert throughput. It is the best low-level proxy for first-index regressions.
 - `tests/perf/test_cold_start.py::test_rebuild_cold_start_throughput` measures the actual staged rebuild path, including temp-index creation and atomic swap.
 - `tests/perf/test_bulk_upsert.py` isolates the writer path when you want to distinguish SQLite insert churn from walker traversal cost.
+- `tests/perf/test_walk_throughput.py` strips the writer out and measures raw directory enumeration throughput, so it is the first place to look when cold-start and rebuild numbers both sag.
 - `tests/perf/test_query_latency.py` isolates name/path lookup cost without parser noise.
 - `tests/perf/test_content_query.py` tracks content-index ranking and snippet latency.
 - `tests/perf/test_watch_latency.py` measures file-create to query-visible lag through the watcher path.
@@ -127,7 +161,7 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 
 1. Start with the narrowest perf target that matches the subsystem you changed.
 2. Re-run the same test once to separate one-off cache noise from a real regression.
-3. If the regression is in cold start, compare `test_cold_start.py` with `test_bulk_upsert.py` to decide whether the walker or writer moved.
+3. If the regression is in cold start, compare `test_cold_start.py`, `test_walk_throughput.py`, and `test_bulk_upsert.py` to decide whether the walker or writer moved.
 4. If the regression is in watch visibility, inspect coalescing, debounce, and commit timing before touching query ranking.
 5. Refresh this document only after you have rerun the benchmark in the same local environment and the result is stable enough to be explanatory.
 
@@ -143,3 +177,4 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 - Perf results are informational for `0.1.x`; they do not replace the default acceptance gate.
 - A perf-table refresh belongs in the same round only when the benchmark was rerun at the current HEAD and the documented numbers come from that run.
 - If a code or docs round did not rerun the benchmark, leave the baseline table alone and avoid pretending the old numbers describe the new tip exactly.
+- If a rerun exposes a red opt-in perf benchmark, record the failing summary line explicitly instead of replacing the checked-in passing baseline with an implied green result.

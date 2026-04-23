@@ -173,9 +173,14 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "SPEC §6.3" in performance
     assert "tests/perf/test_cold_start.py" in performance
     assert "test_rebuild_cold_start_throughput" in performance
+    assert "tests/perf/test_walk_throughput.py" in performance
     assert "EODINGA_PERF_REBUILD_MIN_FPS" in performance
+    assert "EODINGA_PERF_WALK_FILE_COUNT" in performance
+    assert "EODINGA_PERF_WALK_MIN_RPS" in performance
     assert "## Running the Suite" in performance
     assert "## Baseline" in performance
+    assert "## Current HEAD Walk Throughput" in performance
+    assert "## Recorded Summary Lines" in performance
     assert "## Baseline Freshness Policy" in performance
     assert "## Repro Checklist" in performance
     assert "## Profiling Workflow" in performance
@@ -184,6 +189,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "The defaults currently checked into the suite are:" in performance
     assert "The printed benchmark summary line." in performance
     assert "current checked-in baseline" in performance
+    assert "walk_batched records=40257" in performance
 
     assert "## Pick The Version" in release
     assert "## Version Collision Guard" in release

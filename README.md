@@ -256,7 +256,9 @@ Perf gates remain opt-in in v0.1, but the suite and local baseline are documente
 source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
 ```
 
-Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/path lookups at about 0.06 ms p95, content queries at about 0.62 ms p95, and watch visibility at about 0.133 s p99.
+Current checked-in baseline from a 2026-04-23 rerun at this `HEAD`: cold start at about 5.4k files/sec, rebuild cold start at about 5.7k files/sec, bulk upsert at about 48k records/sec, 50k-file name/path lookups at about 0.13 ms p95, content queries at about 1.01 ms p95, and watch visibility at about 0.135 s p99.
+
+The perf guide also records the current walker microbenchmark separately: `tests/perf/test_walk_throughput.py` measured about 5.5k records/sec against a 25k records/sec informational threshold on this Linux dev host, so it is documented as an outstanding perf gap instead of being folded into the passing baseline summary.
 
 ## Packaging
 
