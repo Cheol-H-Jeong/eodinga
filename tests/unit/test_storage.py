@@ -352,6 +352,22 @@ def test_temporary_pragmas_is_noop_inside_active_transaction(tmp_path: Path) -> 
         conn.close()
 
 
+def test_temporary_pragmas_skips_redundant_overrides(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    conn = connect_database(path)
+    statements: list[str] = []
+    try:
+        conn.set_trace_callback(statements.append)
+        with temporary_pragmas(conn, {"synchronous": "FULL", "cache_size": -64000}):
+            pass
+    finally:
+        conn.set_trace_callback(None)
+        conn.close()
+
+    pragma_sets = [statement for statement in statements if statement.startswith("PRAGMA ")]
+    assert pragma_sets == ["PRAGMA synchronous;", "PRAGMA cache_size;"]
+
+
 def test_recover_stale_wal_returns_false_when_nonempty_sidecar_survives(
     tmp_path: Path, monkeypatch
 ) -> None:
