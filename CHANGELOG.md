@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.269 - 2026-04-23
+
+- Added inline launcher query chips that summarize active free-text terms and DSL filters directly beneath the search field, making complex searches easier to scan before execution.
+- Strengthened launcher result highlighting with bold, higher-contrast match markers across names, paths, and snippets so top hits are easier to parse at a glance.
+- Expanded launcher accessibility metadata across shortcut guidance, status labels, preview content, and empty-state messaging to improve screen-reader coverage for the keyboard-first surface.
+
 ## 0.1.262 - 2026-04-23
 
 - Restricted ranking deboost markers like `node_modules` and `.git` to full path segments, preventing unrelated paths such as `node_modules_backup` or `git-cache` from being unfairly pushed down.
