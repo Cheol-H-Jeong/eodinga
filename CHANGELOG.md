@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.840 - 2026-04-23
+## 0.1.841 - 2026-04-23
 
 - Fixed open-ended relative date filters like `date:..today`, `date:last-week..`, and `created:..this-month`, which previously only accepted ISO literals on the unbounded side even though closed relative ranges already worked.
 - Added focused `date_range` parser coverage for mixed relative and ISO datetime endpoints, including frozen local-time boundary checks for previous-period aliases.
