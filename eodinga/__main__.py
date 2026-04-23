@@ -212,6 +212,10 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         queries_zero_results=counter_value("queries_zero_results"),
         queries_truncated=counter_value("queries_truncated"),
         parser_errors=counter_value("parser_errors"),
+        parser_documents_parsed=counter_value("parser_documents_parsed"),
+        parser_bytes_parsed=counter_value("parser_bytes_parsed"),
+        parser_body_chars_indexed=counter_value("parser_body_chars_indexed"),
+        parser_bytes_skipped_too_large=counter_value("parser_bytes_skipped_too_large"),
         watcher_events=counter_value("watcher_events"),
         watcher_flushes=counter_value("watcher_flushes"),
         watcher_events_flushed=counter_value("watcher_events_flushed"),
@@ -234,6 +238,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         log_sinks_file_disabled=counter_value("log_sinks.file.disabled"),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
         query_result_count_histogram=histogram_snapshot("query_result_count"),
+        parser_latency_histogram=histogram_snapshot("parser_latency_ms"),
+        parser_input_bytes_histogram=histogram_snapshot("parser_input_bytes"),
+        parser_body_chars_histogram=histogram_snapshot("parser_body_chars"),
         command_latency_histogram=histogram_snapshot("command_latency_ms"),
         watch_flush_batch_histogram=histogram_snapshot("watch_flush_batch_size"),
         watch_event_lag_histogram=histogram_snapshot("watch_event_lag_ms"),
@@ -244,6 +251,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         exit_codes=_exit_code_summary(counters),
         crash_types=_crash_type_summary(counters),
         parser_activity=_parser_activity_summary(counters),
+        parser_volume=_parser_volume_summary(counters),
         watcher_event_types=_watcher_event_type_summary(counters),
         counters=counters,
         histograms=metrics["histograms"],
@@ -400,6 +408,27 @@ def _parser_activity_summary(counters: dict[str, int]) -> dict[str, dict[str, in
         parser_activity.setdefault(parser_name, {})[key] = value
     return dict(
         sorted((name, dict(sorted(statuses.items()))) for name, statuses in parser_activity.items())
+    )
+
+
+def _parser_volume_summary(counters: dict[str, int]) -> dict[str, dict[str, int]]:
+    parser_volume: dict[str, dict[str, int]] = {}
+    prefix = "parsers."
+    aliases = {
+        "body_chars_indexed": "body_chars_indexed",
+        "bytes_parsed": "bytes_parsed",
+        "bytes_skipped_too_large": "bytes_skipped_too_large",
+    }
+    for name, value in counters.items():
+        if not name.startswith(prefix):
+            continue
+        parser_name, _, metric = name[len(prefix) :].rpartition(".")
+        key = aliases.get(metric)
+        if not parser_name or key is None:
+            continue
+        parser_volume.setdefault(parser_name, {})[key] = value
+    return dict(
+        sorted((name, dict(sorted(metrics.items()))) for name, metrics in parser_volume.items())
     )
 
 

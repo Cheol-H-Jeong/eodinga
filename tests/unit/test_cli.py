@@ -491,6 +491,10 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["queries_zero_results"] == 0
     assert payload["queries_truncated"] == 0
     assert payload["parser_errors"] == 0
+    assert payload["parser_documents_parsed"] == 0
+    assert payload["parser_bytes_parsed"] == 0
+    assert payload["parser_body_chars_indexed"] == 0
+    assert payload["parser_bytes_skipped_too_large"] == 0
     assert payload["watcher_events"] == 0
     assert payload["watcher_flushes"] == 0
     assert payload["watcher_events_flushed"] == 0
@@ -509,6 +513,9 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_sinks_file_disabled"] == 2
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["query_result_count_histogram"]["count"] == 1
+    assert payload["parser_latency_histogram"] == {}
+    assert payload["parser_input_bytes_histogram"] == {}
+    assert payload["parser_body_chars_histogram"] == {}
     assert payload["command_latency_histogram"]["count"] == 1
     assert payload["watch_flush_batch_histogram"] == {}
     assert payload["watch_event_lag_histogram"] == {}
@@ -521,6 +528,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["exit_codes"]["0"] == 1
     assert payload["crash_types"] == {}
     assert payload["parser_activity"] == {}
+    assert payload["parser_volume"] == {}
     assert payload["watcher_event_types"] == {}
     assert len(payload["recent_snapshots"]) == 1
     assert payload["recent_snapshots"][0]["name"] == "command.search"
@@ -616,8 +624,13 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     payload = json.loads(stats_output.out)
     assert payload["counters"]["files_indexed"] == indexed_files
     assert payload["counters"]["parser_errors"] == 1
+    assert payload["counters"]["parser_documents_parsed"] >= 2
+    assert payload["counters"]["parser_bytes_parsed"] >= 35
+    assert payload["counters"]["parser_body_chars_indexed"] >= 35
     assert payload["counters"]["parsers.broken.error"] == 1
     assert payload["counters"]["parsers.text.parsed"] >= 2
+    assert payload["counters"]["parsers.text.bytes_parsed"] >= 35
+    assert payload["counters"]["parsers.text.body_chars_indexed"] >= 35
     assert payload["counters"]["queries_served"] == 1
     assert "queries_zero_results" not in payload["counters"]
     assert payload["counters"]["queries_truncated"] == 1
@@ -663,14 +676,22 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["crash_types"] == {}
     assert payload["parser_activity"]["broken"]["errors"] == 1
     assert payload["parser_activity"]["text"]["parsed"] >= 2
+    assert payload["parser_volume"]["text"]["bytes_parsed"] >= 35
+    assert payload["parser_volume"]["text"]["body_chars_indexed"] >= 35
     assert payload["watcher_event_types"] == {"created": 1, "modified": 1}
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["query_result_count"]["count"] == 1
+    assert payload["histograms"]["parser_latency_ms"]["count"] >= 2
+    assert payload["histograms"]["parser_input_bytes"]["count"] >= 2
+    assert payload["histograms"]["parser_body_chars"]["count"] >= 2
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
     assert payload["query_result_count_histogram"]["count"] == 1
+    assert payload["parser_latency_histogram"]["count"] >= 2
+    assert payload["parser_input_bytes_histogram"]["count"] >= 2
+    assert payload["parser_body_chars_histogram"]["count"] >= 2
     assert payload["watch_flush_batch_histogram"]["count"] == 2
     assert payload["watch_event_lag_histogram"]["count"] == 2
     assert payload["watcher_queue_backpressure_histogram"]["count"] == 1
@@ -709,8 +730,21 @@ def test_stats_json_structures_parser_success_and_skip_counts(tmp_path: Path, ca
     assert stats_exit == 0
     payload = json.loads(stats_output.out)
     assert payload["parser_activity"]["tracked"] == {"parsed": 1, "skipped_too_large": 1}
+    assert payload["parser_volume"]["tracked"]["body_chars_indexed"] == 0
+    assert payload["parser_volume"]["tracked"]["bytes_parsed"] == len("sample parser text")
+    assert payload["parser_volume"]["tracked"]["bytes_skipped_too_large"] == 64
     assert payload["counters"]["parsers.tracked.parsed"] == 1
     assert payload["counters"]["parsers.tracked.skipped_too_large"] == 1
+    assert payload["counters"]["parser_documents_parsed"] == 1
+    assert payload["counters"]["parser_bytes_parsed"] == len("sample parser text")
+    assert payload["counters"]["parser_body_chars_indexed"] == 0
+    assert payload["counters"]["parser_bytes_skipped_too_large"] == 64
+    assert payload["counters"]["parsers.tracked.bytes_parsed"] == len("sample parser text")
+    assert payload["counters"]["parsers.tracked.body_chars_indexed"] == 0
+    assert payload["counters"]["parsers.tracked.bytes_skipped_too_large"] == 64
+    assert payload["parser_latency_histogram"]["count"] == 1
+    assert payload["parser_input_bytes_histogram"]["count"] == 1
+    assert payload["parser_body_chars_histogram"]["count"] == 1
 
 
 def test_stats_json_exposes_zero_result_query_metrics(tmp_path: Path, capsys) -> None:
