@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.906 - 2026-04-23
+## 0.1.909 - 2026-04-23
 
 - Persisted launcher recent-query history into `config.toml`, so both the popup launcher and embedded search surface restore the same recall stack after restart instead of starting empty each session.
 - Added `Alt+P` to pin or unpin the current launcher query directly from either search surface, with shared-state updates and config persistence so pinned chips can be managed without hand-editing config.
