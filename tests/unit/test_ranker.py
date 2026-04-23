@@ -48,6 +48,22 @@ def test_deboost_matches_complete_path_segments_only() -> None:
     assert scores[4] == 1.0
 
 
+def test_deboost_matches_marker_segments_case_insensitively() -> None:
+    scores = apply_path_deboost(
+        {1: 1.0, 2: 1.0, 3: 1.0},
+        {
+            1: r"C:\repo\NODE_MODULES\pkg\index.js",
+            2: r"C:\repo\.GIT\config",
+            3: r"C:\repo\src\main.py",
+        },
+        RankingWeights(deboost_factor=0.25),
+    )
+
+    assert scores[1] == 0.25
+    assert scores[2] == 0.25
+    assert scores[3] == 1.0
+
+
 def test_rank_results_combines_rrf_boost_and_deboost() -> None:
     scores = rank_results(
         name_hits=[1, 2],

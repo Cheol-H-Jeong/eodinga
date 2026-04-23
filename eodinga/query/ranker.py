@@ -22,7 +22,8 @@ _PATH_SPLIT_RE = re.compile(r"[\\/]+")
 
 
 def _path_has_marker_segment(path: str, marker: str) -> bool:
-    return marker in _PATH_SPLIT_RE.split(path)
+    normalized_marker = marker.casefold()
+    return normalized_marker in (segment.casefold() for segment in _PATH_SPLIT_RE.split(path))
 
 
 def reciprocal_rank_fusion(
