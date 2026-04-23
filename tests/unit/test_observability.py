@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 from eodinga.common import WatchEvent
+from eodinga.content.base import ParsedContent
 from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
@@ -206,7 +207,70 @@ def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path:
 
     counters = cast(dict[str, int], snapshot_metrics()["counters"])
     assert counters["parser_errors"] == 1
+    assert counters["parser_attempts"] == 1
     assert counters["parsers.broken.error"] == 1
+
+
+def test_parser_success_metrics_include_latency_and_body_size(monkeypatch, tmp_path: Path) -> None:
+    text_file = tmp_path / "report.txt"
+    text_file.write_text("hello", encoding="utf-8")
+    spec = ParserSpec(
+        name="texty",
+        parse=lambda _path, _max_chars: ParsedContent(
+            title="report",
+            head_text="summary",
+            body_text="hello world",
+            content_sha=b"hash",
+        ),
+        extensions=frozenset({"txt"}),
+        max_bytes=1024,
+    )
+    reset_metrics()
+    monkeypatch.setattr("eodinga.content.registry.get_spec_for", lambda _path: spec)
+
+    parse(text_file, max_body_chars=128)
+
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
+    histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
+    assert counters["parser_attempts"] == 1
+    assert counters["parser_successes"] == 1
+    assert counters["parsers.texty.attempted"] == 1
+    assert counters["parsers.texty.succeeded"] == 1
+    assert histograms["parser_latency_ms"]["count"] == 1
+    assert histograms["parsers.texty.latency_ms"]["count"] == 1
+    assert histograms["parser_body_chars"]["count"] == 1
+    assert histograms["parsers.texty.body_chars"]["count"] == 1
+
+
+def test_parser_too_large_still_records_attempt_and_latency(monkeypatch, tmp_path: Path) -> None:
+    text_file = tmp_path / "report.txt"
+    text_file.write_text("hello", encoding="utf-8")
+    spec = ParserSpec(
+        name="tiny",
+        parse=lambda _path, _max_chars: ParsedContent(
+            title="report",
+            head_text="",
+            body_text="hello",
+            content_sha=b"hash",
+        ),
+        extensions=frozenset({"txt"}),
+        max_bytes=1,
+    )
+    reset_metrics()
+    monkeypatch.setattr("eodinga.content.registry.get_spec_for", lambda _path: spec)
+
+    parse(text_file, max_body_chars=128)
+
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
+    histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
+    assert counters["parser_attempts"] == 1
+    assert counters["parsers.tiny.attempted"] == 1
+    assert counters["parsers.tiny.skipped_too_large"] == 1
+    assert "parser_successes" not in counters
+    assert histograms["parser_latency_ms"]["count"] == 1
+    assert histograms["parsers.tiny.latency_ms"]["count"] == 1
 
 
 def test_watcher_event_counter_increments() -> None:
