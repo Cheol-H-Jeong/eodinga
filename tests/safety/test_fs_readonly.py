@@ -30,6 +30,22 @@ def _literal_string(node: ast.AST) -> str | None:
     return None
 
 
+def _contains_write_open_flags(node: ast.AST) -> bool:
+    write_flags = {
+        "O_APPEND",
+        "O_CREAT",
+        "O_EXCL",
+        "O_RDWR",
+        "O_TRUNC",
+        "O_WRONLY",
+    }
+    if isinstance(node, ast.Attribute):
+        return node.attr in write_flags
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        return _contains_write_open_flags(node.left) or _contains_write_open_flags(node.right)
+    return False
+
+
 def test_fs_module_avoids_write_capable_calls() -> None:
     source = Path(fs.__file__).read_text(encoding="utf-8")
     tree = ast.parse(source, filename=fs.__file__ or "eodinga/core/fs.py")
@@ -48,6 +64,7 @@ def test_fs_module_avoids_write_capable_calls() -> None:
     }
     forbidden_calls = {
         "open",
+        "os.open",
         "os.remove",
         "os.rename",
         "os.replace",
@@ -59,6 +76,9 @@ def test_fs_module_avoids_write_capable_calls() -> None:
         if not isinstance(node, ast.Call):
             continue
         dotted = _dotted_name(node.func)
+        if dotted == "os.open" and len(node.args) >= 2:
+            assert not _contains_write_open_flags(node.args[1])
+            continue
         assert dotted not in forbidden_calls
         if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, (ast.Name, ast.Attribute)):
             assert node.func.attr not in forbidden_methods
@@ -72,6 +92,18 @@ def test_fs_module_avoids_write_capable_calls() -> None:
                         break
                 if mode is not None:
                     assert all(flag not in mode for flag in ("w", "a", "+", "x"))
+
+
+def test_write_flag_detector_catches_os_open_write_modes() -> None:
+    node = ast.parse("os.open(path, os.O_WRONLY | os.O_CREAT)").body[0]
+    assert isinstance(node, ast.Expr)
+    assert isinstance(node.value, ast.Call)
+    assert _contains_write_open_flags(node.value.args[1]) is True
+
+    safe = ast.parse("os.open(path, os.O_RDONLY)").body[0]
+    assert isinstance(safe, ast.Expr)
+    assert isinstance(safe.value, ast.Call)
+    assert _contains_write_open_flags(safe.value.args[1]) is False
 
 
 @pytest.mark.parametrize("mode", ["w", "wb", "a", "ab", "x", "xb", "r+", "rb+", "a+"])
