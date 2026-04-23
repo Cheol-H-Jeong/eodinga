@@ -387,6 +387,30 @@ def test_settings_tab_normalizes_remapped_hotkey_without_restart(
     assert load(temp_config_path).launcher.hotkey == "ctrl+alt+k"
 
 
+def test_settings_tab_can_disable_hotkey_without_restart(
+    monkeypatch,
+    qapp,
+    temp_config_path: Path,
+) -> None:
+    hotkey_service = _HotkeyServiceSpy()
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path, hotkey_service=hotkey_service)
+    monkeypatch.setattr(
+        "eodinga.gui.tabs.settings.QInputDialog.getText",
+        lambda *args, **kwargs: ("   ", True),
+    )
+
+    window.settings_tab.remap_hotkey_button.click()
+    qapp.processEvents()
+
+    assert hotkey_service.calls[-2:] == [
+        ("stop", ""),
+        ("unregister", ""),
+    ]
+    assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: disabled"
+    assert load(temp_config_path).launcher.hotkey == ""
+
+
 def test_settings_tab_toggles_always_on_top_without_restart(qapp, temp_config_path: Path) -> None:
     config = AppConfig()
     config.launcher = config.launcher.model_copy(update={"always_on_top": False})

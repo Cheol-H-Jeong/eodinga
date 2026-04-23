@@ -48,7 +48,10 @@ class LauncherHotkeyController(QObject):
 
     def rebind(self, combo: str) -> None:
         normalized = normalize_hotkey_combo(combo)
-        if not normalized or normalized == self._combo:
+        if normalized == self._combo:
+            return
+        if not normalized:
+            self._disable()
             return
         previous = self._combo
         if self._service is None:
@@ -57,7 +60,10 @@ class LauncherHotkeyController(QObject):
         try:
             self._apply_combo(normalized)
         except Exception:
-            self._apply_combo(previous)
+            if previous:
+                self._apply_combo(previous)
+            else:
+                self._disable()
             raise
 
     def stop(self) -> None:
@@ -90,3 +96,10 @@ class LauncherHotkeyController(QObject):
         self._service.start()
         self._combo = combo
         get_logger().debug("launcher hotkey bound to {}", combo)
+
+    def _disable(self) -> None:
+        if self._service is not None:
+            self._service.stop()
+            self._service.unregister()
+        self._combo = ""
+        get_logger().debug("launcher hotkey disabled")

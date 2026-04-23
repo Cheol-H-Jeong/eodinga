@@ -47,7 +47,7 @@ class SettingsTab(QWidget):
 
     def set_hotkey_combo(self, combo: str) -> None:
         self._hotkey_combo = combo
-        self.hotkey_label.setText(f"Launcher hotkey: {combo}")
+        self.hotkey_label.setText(f"Launcher hotkey: {combo or 'disabled'}")
 
     def set_always_on_top(self, enabled: bool) -> None:
         self.always_on_top_checkbox.blockSignals(True)
@@ -66,7 +66,6 @@ class SettingsTab(QWidget):
             "Enter a launcher hotkey:",
             text=self._hotkey_combo,
         )
-        normalized = combo.strip()
-        if not accepted or not normalized:
+        if not accepted:
             return
-        self.hotkey_change_requested.emit(normalized)
+        self.hotkey_change_requested.emit(combo.strip())
