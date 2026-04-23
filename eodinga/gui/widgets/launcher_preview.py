@@ -32,18 +32,22 @@ class LauncherPreviewPane(QWidget):
 
         eyebrow = QLabel("Preview", self)
         eyebrow.setProperty("role", "secondary")
+        eyebrow.setAccessibleName("Preview heading")
         self.title_label = QLabel(self)
         self.title_label.setWordWrap(True)
         self.title_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.title_label.setAccessibleName("Preview title")
         self.path_label = QLabel(self)
         self.path_label.setProperty("role", "secondary")
         self.path_label.setWordWrap(True)
         self.path_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.path_label.setAccessibleName("Preview path")
         self.snippet_label = QLabel(self)
         self.snippet_label.setWordWrap(True)
         self.snippet_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.snippet_label.setMinimumWidth(220)
         self.snippet_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self.snippet_label.setAccessibleName("Preview snippet")
 
         layout.addWidget(eyebrow)
         layout.addWidget(self.title_label)
@@ -78,6 +82,11 @@ class LauncherActionBar(QWidget):
         self.copy_path_button.setAccessibleName("Copy selected path")
         self.copy_name_button.setAccessibleName("Copy selected name")
         self.properties_button.setAccessibleName("Show selected properties")
+        self.open_button.setToolTip("Open the selected result (Enter)")
+        self.reveal_button.setToolTip("Reveal the selected result in its folder (Ctrl+Enter)")
+        self.copy_path_button.setToolTip("Copy the selected path (Alt+C)")
+        self.copy_name_button.setToolTip("Copy the selected name (Alt+N)")
+        self.properties_button.setToolTip("Show properties for the selected result (Shift+Enter)")
 
         for button in (
             self.open_button,
