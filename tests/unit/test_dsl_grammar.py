@@ -184,6 +184,22 @@ def test_parse_slash_prefixed_path_regex_with_valid_flags() -> None:
     assert node.regex_flags == "i"
 
 
+def test_parse_bare_regex_allows_even_backslashes_before_closing_delimiter() -> None:
+    node = parse(r"/foo\\/i")
+
+    assert isinstance(node, RegexNode)
+    assert node.pattern == r"foo\\"
+    assert node.flags == "i"
+
+
+def test_parse_bare_regex_preserves_escaped_slash_after_literal_backslash() -> None:
+    node = parse(r"/foo\\\/bar/ms")
+
+    assert isinstance(node, RegexNode)
+    assert node.pattern == r"foo\\\/bar"
+    assert node.flags == "ms"
+
+
 def test_parse_content_regex_with_escaped_slash_and_korean_text() -> None:
     node = parse(r"content:/회의록\/초안/ms")
 
