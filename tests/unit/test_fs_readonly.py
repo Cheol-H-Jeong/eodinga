@@ -10,10 +10,12 @@ from eodinga.core import fs
 def test_fs_exports_are_exact() -> None:
     assert set(fs.__all__) == {
         "DENYLIST",
+        "ScanEntry",
         "is_hidden",
         "open_readonly",
         "resolve_safe",
         "scandir_safe",
+        "scandir_with_stat_safe",
         "stat_follow_safe",
         "stat_safe",
     }

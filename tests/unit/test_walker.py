@@ -59,8 +59,8 @@ def test_walk_batched_reuses_discovery_stat_result(
 
     assert {record.path for record in records} == {root, nested, sample}
     assert stat_calls.count(root) == 1
-    assert stat_calls.count(nested) == 1
-    assert stat_calls.count(sample) == 1
+    assert nested not in stat_calls
+    assert sample not in stat_calls
 
 
 def test_walk_batched_uses_fs_wrapper_to_detect_symlinked_directories(
@@ -128,17 +128,23 @@ def test_walk_batched_records_directory_alias_but_skips_reentering_same_inode(
         mode, inode = inode_map[path]
         return os.stat_result((mode, inode, 1, 1, 1000, 1000, 1, 1, 1, 1))
 
-    def fake_scandir(path: Path) -> list[Path]:
+    def fake_scandir(path: Path) -> list[walker_module.ScanEntry]:
         children = {
-            root: [real],
-            real: [sample, alias],
-            alias: [sample, alias],
+            root: [walker_module.ScanEntry(path=real, stat_result=fake_stat(real))],
+            real: [
+                walker_module.ScanEntry(path=sample, stat_result=fake_stat(sample)),
+                walker_module.ScanEntry(path=alias, stat_result=fake_stat(alias)),
+            ],
+            alias: [
+                walker_module.ScanEntry(path=sample, stat_result=fake_stat(sample)),
+                walker_module.ScanEntry(path=alias, stat_result=fake_stat(alias)),
+            ],
         }
         return children.get(path, [])
 
     monkeypatch.setattr(walker_module, "resolve_safe", lambda path: path)
     monkeypatch.setattr(walker_module, "stat_safe", fake_stat)
-    monkeypatch.setattr(walker_module, "scandir_safe", fake_scandir)
+    monkeypatch.setattr(walker_module, "scandir_with_stat_safe", fake_scandir)
 
     rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
     records = [record for batch in walk_batched(root, rules) for record in batch]
@@ -226,11 +232,17 @@ def test_walk_batched_skips_resolved_alias_cycles_even_when_inode_keys_differ(
         device, inode, mode = inode_map[path]
         return os.stat_result((mode, inode, device, 1, 1000, 1000, 1, 1, 1, 1))
 
-    def fake_scandir(path: Path) -> list[Path]:
+    def fake_scandir(path: Path) -> list[walker_module.ScanEntry]:
         children = {
-            root: [canonical],
-            canonical: [sample, mirror],
-            mirror: [sample, mirror],
+            root: [walker_module.ScanEntry(path=canonical, stat_result=fake_stat(canonical))],
+            canonical: [
+                walker_module.ScanEntry(path=sample, stat_result=fake_stat(sample)),
+                walker_module.ScanEntry(path=mirror, stat_result=fake_stat(mirror)),
+            ],
+            mirror: [
+                walker_module.ScanEntry(path=sample, stat_result=fake_stat(sample)),
+                walker_module.ScanEntry(path=mirror, stat_result=fake_stat(mirror)),
+            ],
         }
         return children.get(path, [])
 
@@ -239,7 +251,7 @@ def test_walk_batched_skips_resolved_alias_cycles_even_when_inode_keys_differ(
 
     monkeypatch.setattr(walker_module, "resolve_safe", fake_resolve)
     monkeypatch.setattr(walker_module, "stat_safe", fake_stat)
-    monkeypatch.setattr(walker_module, "scandir_safe", fake_scandir)
+    monkeypatch.setattr(walker_module, "scandir_with_stat_safe", fake_scandir)
 
     rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
     records = [record for batch in walk_batched(root, rules) for record in batch]
