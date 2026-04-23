@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.570 - 2026-04-23
+
+- Added visible `Alt+1` through `Alt+9` quick-pick badges to the first nine launcher results so keyboard shortcuts are discoverable directly in the result list.
+- Filled in launcher accessibility metadata for search, chip, action, and status controls, including screen-reader descriptions for shortcut-backed actions.
+- Expanded launcher unit coverage to pin quick-pick badge rendering and accessible chip/action metadata.
+
 ## 0.1.569 - 2026-04-23
 
 - Added live watcher integration coverage for deleting and recreating the same path, asserting the new content becomes searchable within 500ms and the stale content immediately disappears.
