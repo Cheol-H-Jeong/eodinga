@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
+import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -135,8 +137,43 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
     return sorted(discovered)
 
 
+def _is_stdlib_module(module_name: str) -> bool:
+    root_name = module_name.split(".", 1)[0]
+    return root_name in sys.stdlib_module_names
+
+
+def _discover_source_hidden_imports(source_root: Path) -> list[str]:
+    discovered: set[str] = set()
+    for source_path in source_root.rglob("*.py"):
+        module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+        for node in ast.walk(module):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    module_name = alias.name
+                    if module_name.startswith("eodinga.") or _is_stdlib_module(module_name):
+                        continue
+                    discovered.add(module_name)
+            elif isinstance(node, ast.ImportFrom):
+                module_name = node.module
+                if not module_name or module_name.startswith("eodinga") or _is_stdlib_module(module_name):
+                    continue
+                discovered.add(module_name)
+                for alias in node.names:
+                    if alias.name == "*":
+                        continue
+                    candidate = f"{module_name}.{alias.name}"
+                    try:
+                        spec = importlib.util.find_spec(candidate)
+                    except (AttributeError, ModuleNotFoundError, ValueError):
+                        spec = None
+                    if spec is not None:
+                        discovered.add(candidate)
+    return sorted(discovered)
+
+
 DISCOVERED_RUNTIME_MODULES = _discover_runtime_modules(SOURCE_ROOT)
 DISCOVERED_HIDDEN_IMPORTS = _discover_hidden_imports(SOURCE_ROOT)
+DISCOVERED_SOURCE_HIDDEN_IMPORTS = _discover_source_hidden_imports(SOURCE_ROOT)
 
 HIDDEN_IMPORTS = sorted(
     {
@@ -144,6 +181,7 @@ HIDDEN_IMPORTS = sorted(
         *RUNTIME_MODULES,
         *DISCOVERED_RUNTIME_MODULES,
         *DISCOVERED_HIDDEN_IMPORTS,
+        *DISCOVERED_SOURCE_HIDDEN_IMPORTS,
     }
 )
 

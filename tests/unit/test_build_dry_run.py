@@ -111,6 +111,24 @@ def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
     assert expected_modules <= hidden_imports
 
 
+def test_windows_dry_run_covers_source_imported_third_party_modules() -> None:
+    result = subprocess.run(
+        [sys.executable, "packaging/build.py", "--target", "windows-dry-run"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+
+    audit_path = Path("packaging/dist/windows-dry-run-audit.json")
+    payload = json.loads(audit_path.read_text(encoding="utf-8"))
+    hidden_imports = set(payload["pyinstaller_spec"]["hiddenimports"])
+
+    assert "charset_normalizer" in hidden_imports
+    assert "pathspec" in hidden_imports
+    assert "ebooklib.epub" in hidden_imports
+
+
 def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> None:
     module = _load_build_module()
     payload = {
