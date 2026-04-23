@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.210 - 2026-04-23
+
+- Reused `os.scandir()` metadata inside the filesystem walker so discovered children no longer pay a second `lstat()` on the hot path, while preserving symlink-loop safety and alias handling.
+- Reduced query-executor overhead by caching branch-derived positive term sets and root-scope path variants instead of rebuilding the same Python structures across repeated searches.
+- Batched content-text hydration through fixed-shape cached SQL, deduplicating requested file ids before lookup so filtered search fallbacks spend less time compiling large `IN (...)` clauses.
+
 ## 0.1.209 - 2026-04-23
 
 - Expanded the PyInstaller spec to discover dynamic hidden imports loaded through `importlib.import_module(...)`, aliased `importlib` module handles, and direct `__import__(...)` calls, reducing manual packaging drift for optional runtime modules.
