@@ -153,7 +153,7 @@ def test_tray_indicator_exposes_open_window_and_toggle_launcher_actions(qapp) ->
     window.hide()
 
     assert window.tray_indicator.open_app_action.text() == "Open eodinga"
-    assert window.tray_indicator.toggle_launcher_action.text() == "Show launcher"
+    assert window.tray_indicator.toggle_launcher_action.text() == "Show launcher (ctrl+shift+space)"
 
     window.tray_indicator.show_main_window()
     qapp.processEvents()
@@ -162,12 +162,12 @@ def test_tray_indicator_exposes_open_window_and_toggle_launcher_actions(qapp) ->
     window.tray_indicator.toggle_launcher()
     qapp.processEvents()
     assert window.launcher_window.isVisible()
-    assert window.tray_indicator.toggle_launcher_action.text() == "Hide launcher"
+    assert window.tray_indicator.toggle_launcher_action.text() == "Hide launcher (ctrl+shift+space)"
 
     window.tray_indicator.toggle_launcher()
     qapp.processEvents()
     assert not window.launcher_window.isVisible()
-    assert window.tray_indicator.toggle_launcher_action.text() == "Show launcher"
+    assert window.tray_indicator.toggle_launcher_action.text() == "Show launcher (ctrl+shift+space)"
 
 
 def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_path: Path) -> None:
@@ -405,6 +405,7 @@ def test_settings_tab_rebinds_hotkey_without_restart(
         ("start", ""),
     ]
     assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+alt+k"
+    assert window.tray_indicator.toggle_launcher_action.text() == "Show launcher (ctrl+alt+k)"
     assert load(temp_config_path).launcher.hotkey == "ctrl+alt+k"
 
 
@@ -455,6 +456,7 @@ def test_settings_tab_can_disable_hotkey_without_restart(
         ("unregister", ""),
     ]
     assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: disabled"
+    assert window.tray_indicator.toggle_launcher_action.text() == "Show launcher"
     assert load(temp_config_path).launcher.hotkey == ""
 
 

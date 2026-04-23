@@ -22,6 +22,7 @@ class HotkeyServiceLike(Protocol):
 
 class LauncherHotkeyController(QObject):
     toggle_requested = Signal()
+    combo_changed = Signal(str)
 
     def __init__(
         self,
@@ -37,6 +38,8 @@ class LauncherHotkeyController(QObject):
         self.toggle_requested.connect(self.toggle_launcher)
         if self._service is not None and self._combo:
             self._apply_combo(self._combo)
+        else:
+            self.combo_changed.emit(self._combo)
 
     @property
     def combo(self) -> str:
@@ -95,6 +98,7 @@ class LauncherHotkeyController(QObject):
         self._service.register(combo, self.toggle_requested.emit)
         self._service.start()
         self._combo = combo
+        self.combo_changed.emit(self._combo)
         get_logger().debug("launcher hotkey bound to {}", combo)
 
     def _disable(self) -> None:
@@ -102,4 +106,5 @@ class LauncherHotkeyController(QObject):
             self._service.stop()
             self._service.unregister()
         self._combo = ""
+        self.combo_changed.emit(self._combo)
         get_logger().debug("launcher hotkey disabled")
