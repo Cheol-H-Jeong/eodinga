@@ -176,9 +176,12 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                 "subprocess.Popen",
             } and node.args:
                 command = _subprocess_command_name(node.args[0])
-                if command in _BANNED_SUBPROCESS_COMMANDS:
+                normalized_command = (
+                    _normalize_command_name(command) if command is not None else None
+                )
+                if normalized_command in _BANNED_SUBPROCESS_COMMANDS:
                     violations.append(
-                        f"{path.relative_to(root)}:{node.lineno}:subprocess {command}"
+                        f"{path.relative_to(root)}:{node.lineno}:subprocess {normalized_command}"
                     )
                     continue
                 shell_mode = any(
@@ -209,6 +212,25 @@ def test_python_source_scan_flags_shell_wrapped_network_commands(tmp_path: Path)
         "import subprocess\n"
         "subprocess.run('curl https://example.com', shell=True)\n"
         "subprocess.Popen('wget.exe https://example.com', shell=True)\n",
+        encoding="utf-8",
+    )
+
+    violations = _scan_python_source(source, tmp_path)
+
+    assert violations == [
+        "candidate.py:2:subprocess curl",
+        "candidate.py:3:subprocess wget",
+    ]
+
+
+def test_python_source_scan_flags_list_form_network_commands_with_absolute_paths(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "candidate.py"
+    source.write_text(
+        "import subprocess\n"
+        "subprocess.run(['/usr/bin/curl', 'https://example.com'])\n"
+        "subprocess.Popen((r'C:/Windows/System32/wget.exe', 'https://example.com'))\n",
         encoding="utf-8",
     )
 
