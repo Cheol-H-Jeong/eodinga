@@ -10,9 +10,9 @@ AppDir:
   path: AppDir
   app_info:
     id: io.github.cheolhjeong.eodinga
-    name: eodinga
+    name: @@APP_NAME@@
     icon: eodinga
-    version: latest
+    version: @@APP_VERSION@@
     exec: usr/bin/eodinga
     exec_args: gui
   files:

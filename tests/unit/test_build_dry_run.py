@@ -203,9 +203,15 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["desktop_entry"]["categories"] == "Utility;FileTools;"
     assert payload["desktop_entry"]["startup_notify"] == "true"
     assert payload["recipe"]["exists"] is True
+    assert payload["recipe"]["rendered_exists"] is True
+    assert Path(payload["recipe"]["rendered_path"]).exists()
     assert payload["recipe"]["references_desktop_entry"] is True
     assert payload["recipe"]["references_icon_asset"] is True
     assert payload["recipe"]["launches_gui"] is True
+    assert payload["recipe"]["contains_app_name_template"] is True
+    assert payload["recipe"]["contains_app_version_template"] is True
+    assert payload["recipe"]["rendered_name_matches_project"] is True
+    assert payload["recipe"]["rendered_version_matches_package"] is True
     assert payload["icon"]["exists"] is True
     assert payload["icon"]["diricon_exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True

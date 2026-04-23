@@ -6,18 +6,10 @@ DIST_DIR="${ROOT_DIR}/packaging/dist"
 APPDIR="${DIST_DIR}/eodinga.AppDir"
 AUDIT_PATH="${DIST_DIR}/linux-appimage-audit.json"
 APPIMAGE_RECIPE="${ROOT_DIR}/packaging/linux/appimage-builder.yml"
+RENDERED_APPIMAGE_RECIPE="${DIST_DIR}/linux/appimage-builder.yml"
 APPIMAGE_ICON="${ROOT_DIR}/packaging/linux/eodinga.svg"
-VERSION="$(python3 - <<'PY'
-import pathlib
-import re
-
-text = pathlib.Path("eodinga/__init__.py").read_text(encoding="utf-8")
-match = re.search(r'^__version__\s*=\s*"([^"]+)"', text, re.MULTILINE)
-if match is None:
-    raise SystemExit("missing __version__")
-print(match.group(1))
-PY
-)"
+eval "$(python3 "${ROOT_DIR}/packaging/project_metadata.py" --format shell)"
+VERSION="${PROJECT_VERSION}"
 ARCHIVE_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-appdir.tar.gz"
 DRY_RUN=0
 
@@ -28,7 +20,18 @@ fi
 rm -rf "${APPDIR}"
 mkdir -p "${APPDIR}/usr/bin" "${APPDIR}/usr/share/applications"
 mkdir -p "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
-mkdir -p "${DIST_DIR}"
+mkdir -p "${DIST_DIR}" "$(dirname "${RENDERED_APPIMAGE_RECIPE}")"
+
+python3 - <<PY
+from pathlib import Path
+
+template_path = Path("${APPIMAGE_RECIPE}")
+rendered_path = Path("${RENDERED_APPIMAGE_RECIPE}")
+rendered = template_path.read_text(encoding="utf-8")
+rendered = rendered.replace("@@APP_NAME@@", "${PROJECT_NAME}")
+rendered = rendered.replace("@@APP_VERSION@@", "${VERSION}")
+rendered_path.write_text(rendered, encoding="utf-8")
+PY
 
 cp "${ROOT_DIR}/packaging/linux/eodinga.desktop" "${APPDIR}/usr/share/applications/eodinga.desktop"
 cp "${APPIMAGE_ICON}" "${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg"
@@ -69,6 +72,8 @@ icon_path = Path("${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 diricon_path = Path("${APPDIR}/.DirIcon")
 recipe_path = Path("${APPIMAGE_RECIPE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
+rendered_recipe_path = Path("${RENDERED_APPIMAGE_RECIPE}")
+rendered_recipe_text = rendered_recipe_path.read_text(encoding="utf-8")
 payload = {
     "target": "linux-appimage-dry-run" if ${DRY_RUN} else "linux-appimage",
     "version": "${VERSION}",
@@ -86,9 +91,15 @@ payload = {
     "recipe": {
         "path": str(recipe_path),
         "exists": recipe_path.exists(),
+        "rendered_path": str(rendered_recipe_path),
+        "rendered_exists": rendered_recipe_path.exists(),
         "references_desktop_entry": "packaging/linux/eodinga.desktop" in recipe_text,
         "references_icon_asset": "packaging/linux/eodinga.svg" in recipe_text,
         "launches_gui": "exec_args: gui" in recipe_text,
+        "contains_app_name_template": "@@APP_NAME@@" in recipe_text,
+        "contains_app_version_template": "@@APP_VERSION@@" in recipe_text,
+        "rendered_name_matches_project": "name: ${PROJECT_NAME}" in rendered_recipe_text,
+        "rendered_version_matches_package": "version: ${VERSION}" in rendered_recipe_text,
     },
     "icon": {
         "path": str(icon_path),
