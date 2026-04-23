@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.867 - 2026-04-23
+## 0.1.874 - 2026-04-23
 
 - Added a shared launcher result-action menu for the selected hit, exposed from the keyboard with `Shift+F10` or the `Menu` key and from both the results list and preview pane, so open/reveal/copy/properties actions no longer depend on memorizing shortcuts or the action bar.
 - Kept launcher right-click behavior aligned with pointer intent by retargeting the context menu to the row under the cursor before the menu opens.
