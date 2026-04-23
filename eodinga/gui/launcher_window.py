@@ -13,6 +13,8 @@ from eodinga.gui.launcher import LauncherPanel, LauncherState, SearchFn
 
 class LauncherWindow(LauncherPanel):
     visibility_changed = Signal(bool)
+    _MIN_WIDTH = 360
+    _MIN_HEIGHT = 240
 
     def __init__(
         self,
@@ -39,6 +41,7 @@ class LauncherWindow(LauncherPanel):
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint, frameless)
         always_on_top = self._config.launcher.always_on_top if self._config is not None else False
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, always_on_top)
+        self.setMinimumSize(self._MIN_WIDTH, self._MIN_HEIGHT)
         width = self._config.launcher.window_width if self._config is not None else 640
         height = self._config.launcher.window_height if self._config is not None else 480
         self.resize(width, height)
@@ -127,8 +130,8 @@ class LauncherWindow(LauncherPanel):
         if screen is None:
             return
         available = screen.availableGeometry()
-        saved_width = max(self.width(), 1)
-        saved_height = max(self.height(), 1)
+        saved_width = max(self.width(), self.minimumWidth(), 1)
+        saved_height = max(self.height(), self.minimumHeight(), 1)
         width = min(saved_width, available.width())
         height = min(saved_height, available.height())
         x = self._config.launcher.window_x
@@ -136,8 +139,8 @@ class LauncherWindow(LauncherPanel):
         if x is None or y is None:
             self.resize(width, height)
             return
-        saved_rect = available.__class__(x, y, saved_width, saved_height)
-        if saved_rect.intersects(available):
+        saved_rect = available.__class__(x, y, width, height)
+        if available.contains(saved_rect):
             self.setGeometry(x, y, width, height)
             return
         max_x = available.x() + max(available.width() - width, 0)

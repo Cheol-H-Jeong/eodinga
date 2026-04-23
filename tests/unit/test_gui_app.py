@@ -175,10 +175,15 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
         tuple[object, EodingaWindow, LauncherWindow],
         launch_gui(test_mode=True, config=config, config_path=temp_config_path),
     )
+    available = launcher.screen().availableGeometry()
+    width = min(720, max(launcher.minimumWidth(), available.width() - 80))
+    height = min(520, max(launcher.minimumHeight(), available.height() - 80))
+    x = min(max(available.x() + 40, 0), available.x() + max(available.width() - width, 0))
+    y = min(max(available.y() + 40, 0), available.y() + max(available.height() - height, 0))
 
     launcher.show()
-    launcher.move(180, 96)
-    launcher.resize(720, 520)
+    launcher.move(x, y)
+    launcher.resize(width, height)
     qapp.processEvents()
     launcher.hide()
     qapp.processEvents()
@@ -186,10 +191,10 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     qapp.processEvents()
 
     stored = load(temp_config_path)
-    assert stored.launcher.window_x == 180
-    assert stored.launcher.window_y == 96
-    assert stored.launcher.window_width == 720
-    assert stored.launcher.window_height == 520
+    assert stored.launcher.window_x == x
+    assert stored.launcher.window_y == y
+    assert stored.launcher.window_width == width
+    assert stored.launcher.window_height == height
 
     _, restored_window, restored_launcher = cast(
         tuple[object, EodingaWindow, LauncherWindow],
@@ -198,10 +203,10 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     restored_launcher.show()
     qapp.processEvents()
 
-    assert restored_launcher.width() == 720
-    assert restored_launcher.height() == 520
-    assert restored_launcher.pos().x() == 180
-    assert restored_launcher.pos().y() == 96
+    assert restored_launcher.width() == width
+    assert restored_launcher.height() == height
+    assert restored_launcher.pos().x() == x
+    assert restored_launcher.pos().y() == y
 
     restored_window.close()
     qapp.processEvents()
@@ -229,6 +234,37 @@ def test_launcher_clamps_restored_geometry_to_available_screen(qapp, temp_config
     assert available.contains(launcher.frameGeometry())
     assert launcher.width() <= available.width()
     assert launcher.height() <= available.height()
+
+    window.close()
+    qapp.processEvents()
+
+
+def test_launcher_clamps_partially_offscreen_restored_geometry_to_available_screen(qapp, temp_config_path: Path) -> None:
+    probe_window = LauncherWindow()
+    probe_window.show()
+    qapp.processEvents()
+    available = probe_window.screen().availableGeometry()
+    probe_window.close()
+    qapp.processEvents()
+
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(
+        update={
+            "window_x": available.right() - 40,
+            "window_y": available.y() - 20,
+            "window_width": 420,
+            "window_height": 280,
+        }
+    )
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher.show()
+    qapp.processEvents()
+
+    assert available.contains(launcher.frameGeometry())
 
     window.close()
     qapp.processEvents()
@@ -385,6 +421,70 @@ def test_settings_tab_normalizes_remapped_hotkey_without_restart(
     ]
     assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+alt+k"
     assert load(temp_config_path).launcher.hotkey == "ctrl+alt+k"
+
+
+def test_settings_tab_rejects_modifier_only_hotkey_without_rebinding(
+    monkeypatch,
+    qapp,
+    temp_config_path: Path,
+) -> None:
+    hotkey_service = _HotkeyServiceSpy()
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path, hotkey_service=hotkey_service)
+    warnings: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "eodinga.gui.tabs.settings.QInputDialog.getText",
+        lambda *args, **kwargs: ("ctrl+shift", True),
+    )
+    monkeypatch.setattr(
+        "eodinga.gui.app.QMessageBox.warning",
+        lambda parent, title, message: warnings.append((title, message)),
+    )
+
+    window.settings_tab.remap_hotkey_button.click()
+    qapp.processEvents()
+
+    assert warnings == [("Hotkey update failed", "Hotkey must include exactly one non-modifier key.")]
+    assert hotkey_service.calls == [
+        ("stop", ""),
+        ("unregister", ""),
+        ("register", "ctrl+shift+space"),
+        ("start", ""),
+    ]
+    assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+shift+space"
+    assert load(temp_config_path).launcher.hotkey == "ctrl+shift+space"
+
+
+def test_settings_tab_rejects_multiple_primary_keys_without_rebinding(
+    monkeypatch,
+    qapp,
+    temp_config_path: Path,
+) -> None:
+    hotkey_service = _HotkeyServiceSpy()
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path, hotkey_service=hotkey_service)
+    warnings: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "eodinga.gui.tabs.settings.QInputDialog.getText",
+        lambda *args, **kwargs: ("ctrl+k+l", True),
+    )
+    monkeypatch.setattr(
+        "eodinga.gui.app.QMessageBox.warning",
+        lambda parent, title, message: warnings.append((title, message)),
+    )
+
+    window.settings_tab.remap_hotkey_button.click()
+    qapp.processEvents()
+
+    assert warnings == [("Hotkey update failed", "Hotkey must include exactly one non-modifier key.")]
+    assert hotkey_service.calls == [
+        ("stop", ""),
+        ("unregister", ""),
+        ("register", "ctrl+shift+space"),
+        ("start", ""),
+    ]
+    assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+shift+space"
+    assert load(temp_config_path).launcher.hotkey == "ctrl+shift+space"
 
 
 def test_settings_tab_toggles_always_on_top_without_restart(qapp, temp_config_path: Path) -> None:

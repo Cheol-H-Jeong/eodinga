@@ -38,4 +38,11 @@ def normalize_hotkey_combo(combo: str) -> str:
     return "+".join([*ordered_modifiers, *keys])
 
 
-__all__ = ["normalize_hotkey_combo"]
+def is_bindable_hotkey_combo(combo: str) -> bool:
+    if not combo:
+        return False
+    keys = [part for part in combo.split("+") if part and part not in _MODIFIER_ORDER]
+    return len(keys) == 1
+
+
+__all__ = ["is_bindable_hotkey_combo", "normalize_hotkey_combo"]
