@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.586 - 2026-04-23
+
+- Expanded PyInstaller hidden-import discovery so `__import__(..., fromlist=...)` patterns are captured during the Windows dry-run audit instead of silently dropping lazily imported submodules.
+- Hardened the Windows packaging audit to fail when the bundled `LICENSE` or either shipped i18n catalog drops out of the PyInstaller data payload, rather than only checking that some data files exist.
+- Extended the Linux AppImage and Debian dry-run audits to record and validate desktop-entry `Type=Application` and `Terminal=false`, so launcher metadata drift is caught before release artifacts are cut.
+
 ## 0.1.574 - 2026-04-23
 
 - Hardened the no-network safety scan so aliased imports and `from parent import child` forms like `from urllib import request` or `from socket import create_connection` can no longer bypass the repository-wide source check.
