@@ -69,6 +69,9 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.settings_tab.always_on_top_checkbox.accessibleName() == "Keep launcher always on top"
     assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
+    assert window.settings_tab.pinned_queries_label.accessibleName() == "Pinned launcher queries summary"
+    assert window.settings_tab.manage_pinned_queries_button.accessibleName() == "Manage pinned queries"
+    assert window.settings_tab.clear_pinned_queries_button.accessibleName() == "Clear pinned queries"
     assert window.about_tab.accessibleName() == "About tab"
     assert window.launcher_window.pinned_queries_row.accessibleName() == "Pinned launcher queries"
     assert window.launcher_window.recent_queries_row.accessibleName() == "Recent launcher queries"
@@ -484,6 +487,46 @@ def test_settings_tab_toggles_frameless_without_restart(qapp, temp_config_path: 
 
     assert not bool(window.launcher_window.windowFlags() & Qt.WindowType.FramelessWindowHint)
     assert load(temp_config_path).launcher.frameless is False
+
+
+def test_settings_tab_updates_pinned_queries_without_restart(
+    monkeypatch,
+    qapp,
+    temp_config_path: Path,
+) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"pinned_queries": ["ext:pdf"]})
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    monkeypatch.setattr(
+        "eodinga.gui.tabs.settings.QInputDialog.getMultiLineText",
+        lambda *args, **kwargs: (" size:>10M \next:pdf\npath:docs ", True),
+    )
+
+    window.settings_tab.manage_pinned_queries_button.click()
+    qapp.processEvents()
+
+    assert window.launcher_state.pinned_queries == ["size:>10M", "ext:pdf", "path:docs"]
+    assert [button.text() for button in window.launcher_window.pinned_queries_row.buttons] == [
+        "size:>10M",
+        "ext:pdf",
+        "path:docs",
+    ]
+    assert window.settings_tab.pinned_queries_label.text() == "Pinned queries: size:>10M, ext:pdf, path:docs"
+    assert load(temp_config_path).launcher.pinned_queries == ["size:>10M", "ext:pdf", "path:docs"]
+
+
+def test_settings_tab_can_clear_pinned_queries(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"pinned_queries": ["ext:pdf", "size:>10M"]})
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+
+    window.settings_tab.clear_pinned_queries_button.click()
+    qapp.processEvents()
+
+    assert window.launcher_state.pinned_queries == []
+    assert window.launcher_window.pinned_queries_row.buttons == []
+    assert window.settings_tab.pinned_queries_label.text() == "Pinned queries: none"
+    assert load(temp_config_path).launcher.pinned_queries == []
 
 
 def test_launcher_flag_toggles_preserve_geometry(qapp, temp_config_path: Path) -> None:
