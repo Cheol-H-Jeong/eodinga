@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.974 - 2026-04-24
+## 0.1.977 - 2026-04-24
 
 - Added integration coverage for trimmed multi-root reopen and interrupted-stage resume flows, proving that reopening after pruning a root still serves live updates only from the surviving root.
 - Added end-to-end watcher restart coverage so a stopped and restarted `WatchService` is pinned to keep single-root and multi-root query updates visible against a real on-disk index.
