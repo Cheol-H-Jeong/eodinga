@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.737 - 2026-04-23
+
+- Added a shipped `docs/FAQ.md` guide and linked it from the README so deeper operator answers around local-only behavior, recovery, launcher state, and packaging review no longer depend on the top-level overview staying long.
+- Expanded the architecture guide with a startup/reopen timeline, query-plan layer map, and release-evidence chain so maintainers can trace failures from symptom to subsystem faster during release review.
+- Tightened contributor and release workflow docs with an explicit parallel-retargeting playbook and release signoff tables, making concurrent worker rounds easier to retag without rewriting earlier logical commits.
+
 ## 0.1.721 - 2026-04-23
 
 - Derived PyInstaller `datas` entries from the project metadata instead of a hardcoded list, so packaging audits now track the source tree's declared package data directly.
