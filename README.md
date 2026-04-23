@@ -124,6 +124,9 @@ Use the smallest path that matches the work you changed:
 | query or indexing logic | `pytest -q tests/unit/test_compiler.py tests/unit/test_executor.py tests/unit/test_storage.py` | `pytest -q tests` before a release handoff |
 | launcher or GUI text/layout | `pytest -q tests/unit/test_gui_app.py tests/unit/test_gui_launcher.py tests/unit/test_docs_assets.py` | `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
 | packaging docs or recipes | `python packaging/build.py --target windows-dry-run` | the matching Linux dry run plus workflow lint from `docs/ACCEPTANCE.md` |
+| perf investigation | `source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf/test_walk_throughput.py -s` | rerun the matching perf slice and update `docs/PERFORMANCE.md` only if you captured a same-round baseline |
+
+The default acceptance pass intentionally excludes `tests/perf`; perf checks are opt-in because their thresholds depend on the local machine. Treat them as a second-stage investigation once the default gate is already green.
 
 ## CLI
 
@@ -247,6 +250,7 @@ eodinga index --rebuild
 | Exclude grouped terms before regex | `eodinga search '-(draft | scratch) /todo|fixme/i' --limit 20` |
 | Confirm runtime health | `eodinga doctor && eodinga stats --json` |
 | Refresh shipped docs assets | `python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` |
+| Probe a perf regression | `source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf/test_walk_throughput.py -s` |
 
 ## Architecture
 
@@ -261,6 +265,8 @@ source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
 ```
 
 Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/path lookups at about 0.06 ms p95, content queries at about 0.62 ms p95, and watch visibility at about 0.133 s p99.
+
+For the exact current-head benchmark lines, threshold values, and notes on slower machines that miss some throughput gates, use [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md) instead of treating this short summary as the full perf report.
 
 ## Packaging
 
@@ -387,9 +393,17 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
 
+### Why is the perf suite not part of the default acceptance pass?
+
+`tests/perf` is opt-in because throughput thresholds are machine-sensitive. Use it after the normal gate is green when you are investigating a performance change or refreshing the recorded baseline in `docs/PERFORMANCE.md`.
+
 ### Where do I inspect packaging outputs before a release?
 
 Use `packaging/dist/`. Each packaging dry run writes its audit manifests or staged output summary there so the release review can inspect generated inputs without running the installer.
+
+### When should I update screenshots or the generated man page?
+
+Refresh screenshots after visible Qt changes with `python scripts/render_docs_screenshots.py`, and regenerate `docs/man/eodinga.1` after CLI parser changes with `python scripts/generate_manpage.py`. For wording-only docs edits, `pytest -q tests/unit/test_docs_assets.py` is usually enough.
 
 ### Which files are skipped by default?
 
