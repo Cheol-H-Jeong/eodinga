@@ -18,6 +18,8 @@ OP_NAMES = {
 }
 
 _RANGE_OP_NAMES = {"date", "modified", "created", "size"}
+_COMPARISON_OP_NAMES = {"size"}
+_COMPARATORS = {">=", "<=", ">", "<", "="}
 
 
 class QueryNode(BaseModel):
@@ -159,6 +161,7 @@ class _Parser:
         if initial_value:
             value, value_kind, regex_flags = self._decode_inline_value(name, initial_value)
             if value_kind == "word":
+                value = self._maybe_extend_comparison_value(name, value)
                 value = self._maybe_extend_range_value(name, value)
             return OperatorNode(
                 name=name,
@@ -186,6 +189,7 @@ class _Parser:
         value = self._read_token()
         if not value:
             raise QuerySyntaxError("expected operator value", self.index)
+        value = self._maybe_extend_comparison_value(name, value)
         value = self._maybe_extend_range_value(name, value)
         return OperatorNode(name=name, value=value, value_kind="word", negated=negated)
 
@@ -327,6 +331,21 @@ class _Parser:
         if not suffix:
             return f"{value}.."
         return f"{value}..{suffix}"
+
+    def _maybe_extend_comparison_value(self, name: str, value: str) -> str:
+        if name not in _COMPARISON_OP_NAMES or value not in _COMPARATORS:
+            return value
+        checkpoint = self.index
+        self._skip_ws()
+        char = self._peek()
+        if char is None or char in {"|", ")"}:
+            self.index = checkpoint
+            return value
+        suffix = self._read_token()
+        if not suffix:
+            self.index = checkpoint
+            return value
+        return f"{value}{suffix}"
 
     def _peek(self, *, offset: int = 0) -> str | None:
         index = self.index + offset

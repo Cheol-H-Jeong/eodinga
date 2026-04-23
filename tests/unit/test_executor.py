@@ -813,6 +813,19 @@ def test_execute_size_range_queries(tmp_db: sqlite3.Connection) -> None:
     assert negated_hits == ["tiny.txt", "too-large.txt"]
 
 
+def test_execute_size_comparator_queries_accept_spacing(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/tiny.txt", 512, now, "txt", body_text="tiny")
+    _insert_file(tmp_db, 2, "/workspace/large.txt", 12 * 1024 * 1024, now - 60, "txt", body_text="large")
+    tmp_db.commit()
+
+    larger_hits = [hit.file.name for hit in search(tmp_db, "size: > 10M", limit=10).hits]
+    exact_hits = [hit.file.name for hit in search(tmp_db, "size: = 512B", limit=10).hits]
+
+    assert larger_hits == ["large.txt"]
+    assert exact_hits == ["tiny.txt"]
+
+
 def test_execute_metadata_only_query_reports_uncapped_total_estimate(
     tmp_db: sqlite3.Connection,
 ) -> None:
