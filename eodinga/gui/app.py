@@ -38,11 +38,17 @@ class TrayIndicatorController:
         self.icon_state = "idle"
         self._status_action = QAction(self.status_text, parent)
         self._status_action.setEnabled(False)
+        self._status_action.setToolTip("Current indexing status")
+        self._status_action.setStatusTip("Current indexing status")
         self.open_app_action = QAction("Open eodinga", parent)
+        self.open_app_action.setToolTip("Open the main eodinga window")
+        self.open_app_action.setStatusTip("Open the main eodinga window")
         self.open_app_action.triggered.connect(self.show_main_window)
         self.toggle_launcher_action = QAction("", parent)
         self.toggle_launcher_action.triggered.connect(self.toggle_launcher)
         self.quit_action = QAction("Quit", parent)
+        self.quit_action.setToolTip("Quit eodinga")
+        self.quit_action.setStatusTip("Quit eodinga")
         self.quit_action.triggered.connect(self._app.quit)
         self._launcher_window.visibility_changed.connect(self._sync_launcher_action_text)
         self._sync_launcher_action_text(self._launcher_window.isVisible())
@@ -101,7 +107,10 @@ class TrayIndicatorController:
 
     def _sync_launcher_action_text(self, visible: bool) -> None:
         if hasattr(self, "toggle_launcher_action"):
-            self.toggle_launcher_action.setText("Hide launcher" if visible else "Show launcher")
+            text = "Hide launcher" if visible else "Show launcher"
+            self.toggle_launcher_action.setText(text)
+            self.toggle_launcher_action.setToolTip(text)
+            self.toggle_launcher_action.setStatusTip(text)
 
     def _handle_activation(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason in {

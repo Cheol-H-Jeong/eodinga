@@ -58,12 +58,17 @@ class LauncherPreviewPane(QWidget):
         self.title_label.setText(title)
         self.path_label.setText(path_text)
         self.snippet_label.setText(snippet)
+        if hit is None:
+            self.setAccessibleDescription("No launcher result selected for preview.")
+            return
+        self.setAccessibleDescription(f"Previewing {hit.name} from {hit.parent_path}.")
 
 
 class LauncherActionBar(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setAccessibleName("Launcher action bar")
+        self.setAccessibleDescription("Launcher result actions are unavailable until a result is selected.")
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(SPACE_4)
@@ -100,6 +105,20 @@ class LauncherActionBar(QWidget):
         self.copy_path_button.setEnabled(enabled)
         self.copy_name_button.setEnabled(enabled)
         self.properties_button.setEnabled(enabled)
+        if enabled:
+            self.setAccessibleDescription("Launcher result actions for the selected result.")
+            return
+        self.setAccessibleDescription("Launcher result actions are unavailable until a result is selected.")
+
+    @property
+    def buttons(self) -> list[SecondaryButton]:
+        return [
+            self.open_button,
+            self.reveal_button,
+            self.copy_path_button,
+            self.copy_name_button,
+            self.properties_button,
+        ]
 
 
 __all__ = ["LauncherActionBar", "LauncherPreviewPane"]

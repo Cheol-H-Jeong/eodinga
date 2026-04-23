@@ -60,6 +60,8 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.roots_tab.add_root_button.accessibleName() == "Add root"
     assert window.roots_tab.remove_root_button.accessibleName() == "Remove selected root"
     assert window.index_tab.accessibleName() == "Index tab"
+    assert window.index_tab.status_chip.accessibleName() == "Index status"
+    assert window.index_tab.progress_label.accessibleName() == "Index progress"
     assert window.index_tab.rebuild_button.accessibleName() == "Rebuild index"
     assert window.search_tab.accessibleName() == "Search tab"
     assert window.settings_tab.accessibleName() == "Settings tab"
@@ -152,7 +154,15 @@ def test_tray_indicator_exposes_open_window_and_toggle_launcher_actions(qapp) ->
     window.hide()
 
     assert window.tray_indicator.open_app_action.text() == "Open eodinga"
+    assert window.tray_indicator.open_app_action.toolTip() == "Open the main eodinga window"
+    assert window.tray_indicator.open_app_action.statusTip() == "Open the main eodinga window"
     assert window.tray_indicator.toggle_launcher_action.text() == "Show launcher"
+    assert window.tray_indicator.toggle_launcher_action.toolTip() == "Show launcher"
+    assert window.tray_indicator.toggle_launcher_action.statusTip() == "Show launcher"
+    assert window.tray_indicator.quit_action.toolTip() == "Quit eodinga"
+    assert window.tray_indicator.quit_action.statusTip() == "Quit eodinga"
+    assert window.tray_indicator._status_action.toolTip() == "Current indexing status"
+    assert window.tray_indicator._status_action.statusTip() == "Current indexing status"
 
     window.tray_indicator.show_main_window()
     qapp.processEvents()
@@ -162,6 +172,8 @@ def test_tray_indicator_exposes_open_window_and_toggle_launcher_actions(qapp) ->
     qapp.processEvents()
     assert window.launcher_window.isVisible()
     assert window.tray_indicator.toggle_launcher_action.text() == "Hide launcher"
+    assert window.tray_indicator.toggle_launcher_action.toolTip() == "Hide launcher"
+    assert window.tray_indicator.toggle_launcher_action.statusTip() == "Hide launcher"
 
     window.tray_indicator.toggle_launcher()
     qapp.processEvents()

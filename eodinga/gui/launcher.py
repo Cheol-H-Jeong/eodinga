@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
+from eodinga.gui.focus import configure_tab_loop, focus_chain
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
 from eodinga.gui.widgets import (
     ActiveFilterRow,
@@ -178,31 +179,29 @@ class LauncherPanel(QWidget):
         self._refresh_shortcut_hint()
         self.active_filter_row.set_query(self.query_field.text())
         self._refresh_preview()
+        self._update_tab_focus_cycle()
 
     def set_search_fn(self, search_fn: SearchFn) -> None:
         self._search_fn = search_fn
-
     def set_recent_queries(self, queries: list[str]) -> None:
         self._recent_queries = queries
         self.recent_queries_row.set_queries(queries[:5])
         self._refresh_empty_state()
-
+        self._update_tab_focus_cycle()
     def set_pinned_queries(self, queries: list[str]) -> None:
         self._pinned_queries = queries
         self.pinned_queries_row.set_queries(queries[:5])
         self._refresh_empty_state()
-
+        self._update_tab_focus_cycle()
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
         self._refresh_status_footer()
         self._refresh_empty_state()
-
     def activate_current_result(self) -> None:
         self._flush_pending_query()
         hit = self._current_hit()
         if hit is not None:
             self.result_activated.emit(hit)
-
     def activate_result_at(self, row: int) -> None:
         self._flush_pending_query()
         hit = self.model.item_at(row)
@@ -210,44 +209,35 @@ class LauncherPanel(QWidget):
             return
         self._set_selection(row)
         self.result_activated.emit(hit)
-
     def focus_query_field(self) -> None:
         self.query_field.setFocus()
         self.query_field.selectAll()
-
     def select_query_text(self) -> None:
         self.focus_query_field()
-
     def emit_open_containing_folder(self) -> None:
         self._flush_pending_query()
         hit = self._current_hit()
         if hit is not None:
             self.open_containing_folder.emit(hit)
-
     def emit_show_properties(self) -> None:
         self._flush_pending_query()
         hit = self._current_hit()
         if hit is not None:
             self.show_properties.emit(hit)
-
     def emit_copy_path(self) -> None:
         self._flush_pending_query()
         hit = self._current_hit()
         if hit is not None:
             self.copy_path_requested.emit(hit)
-
     def emit_copy_name(self) -> None:
         self._flush_pending_query()
         hit = self._current_hit()
         if hit is not None:
             self.copy_name_requested.emit(hit)
-
     def recall_previous_query(self) -> None:
         self._navigate_recent_queries(-1)
-
     def recall_next_query(self) -> None:
         self._navigate_recent_queries(1)
-
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusIn:
             self._refresh_shortcut_hint()
@@ -261,18 +251,15 @@ class LauncherPanel(QWidget):
         if watched is self.result_list:
             return self._handle_result_list_keypress(key_event)
         return super().eventFilter(watched, event)
-
     def _emit_activation(self, row: int) -> None:
         hit = self.model.item_at(row)
         if hit is not None:
             self.result_activated.emit(hit)
-
     def _schedule_query(self, _: str) -> None:
         if not self._applying_history_query:
             self._history_index = None
             self._history_draft = ""
         self._debounce_timer.start()
-
     def _flush_pending_query(self) -> None:
         if not self._debounce_timer.isActive():
             return
@@ -292,6 +279,7 @@ class LauncherPanel(QWidget):
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
         self._refresh_preview()
+        self._update_tab_focus_cycle()
         self.results_updated.emit(self._latest_result)
         get_logger().debug("launcher query '{}' returned {}", query, self._latest_result.total)
 
@@ -384,16 +372,23 @@ class LauncherPanel(QWidget):
             self._move_selection(-self._page_step())
             return True
         if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
-            self.result_list.setFocus()
-            current_index = self.result_list.currentIndex()
-            if not current_index.isValid() and self.model.rowCount() > 0:
-                self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
+            chain = self._focus_chain()
+            if not chain:
+                return False
+            if event.key() == Qt.Key.Key_Tab:
+                target = chain[0]
+            else:
+                target = self.result_list if self.result_list.isVisible() else chain[-1]
+            self.query_field.clearFocus()
+            target.setFocus(Qt.FocusReason.TabFocusReason)
             return True
         return False
 
     def _handle_result_list_keypress(self, event: QKeyEvent) -> bool:
         if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
-            self.query_field.setFocus()
+            if self.focusNextPrevChild(event.key() == Qt.Key.Key_Tab):
+                return True
+            self.query_field.setFocus(Qt.FocusReason.TabFocusReason)
             return True
         if event.key() == Qt.Key.Key_Down:
             self._move_selection(1, wrap=True)
@@ -495,3 +490,13 @@ class LauncherPanel(QWidget):
         self.query_field.setFocus()
         self._set_query_from_history(query)
         self._flush_pending_query()
+
+    def _focus_chain(self) -> list[QWidget]:
+        return focus_chain(
+            chip_buttons=[*self.pinned_queries_row.buttons, *self.recent_queries_row.buttons],
+            result_list=self.result_list,
+            action_buttons=self.action_bar.buttons,
+        )
+
+    def _update_tab_focus_cycle(self) -> None:
+        configure_tab_loop(self.query_field, self._focus_chain())

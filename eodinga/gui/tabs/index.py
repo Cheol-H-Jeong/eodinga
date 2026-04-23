@@ -16,8 +16,10 @@ class IndexTab(QWidget):
         body = QLabel("Observe index health, rebuild, and vacuum.", self)
         body.setProperty("role", "secondary")
         self.status_chip = StatusChip("Idle", self)
+        self.status_chip.setAccessibleName("Index status")
         self.progress_label = QLabel("Index is idle.", self)
         self.progress_label.setProperty("role", "secondary")
+        self.progress_label.setAccessibleName("Index progress")
         self.rebuild_button = PrimaryButton("Rebuild index", self)
         self.rebuild_button.setAccessibleName("Rebuild index")
 

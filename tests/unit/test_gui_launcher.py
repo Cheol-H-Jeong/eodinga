@@ -84,6 +84,13 @@ def test_launcher_keyboard_flow_supports_arrow_navigation_and_tab_return(qapp) -
     assert revealed == ["beta.txt"]
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_Tab)
+    assert launcher.action_bar.open_button.hasFocus()
+
+    QTest.keyClick(launcher.action_bar.open_button, Qt.Key.Key_Tab)
+    assert launcher.action_bar.reveal_button.hasFocus()
+
+    launcher.action_bar.properties_button.setFocus()
+    QTest.keyClick(launcher.action_bar.properties_button, Qt.Key.Key_Tab)
     assert launcher.query_field.hasFocus()
     assert "Tab moves to results" in launcher.shortcut_label.text()
 
@@ -141,6 +148,41 @@ def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) ->
     assert launcher.result_list.currentIndex().row() == 2
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_Home)
+    assert launcher.result_list.currentIndex().row() == 0
+
+
+def test_launcher_tab_reaches_pinned_and_recent_query_chips(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+    qapp.processEvents()
+    assert [widget.accessibleName() for widget in launcher._focus_chain()] == [
+        "Use query ext:pdf",
+        "Use query budget",
+    ]
+
+
+def test_launcher_backtab_from_query_field_prefers_results_over_action_bar(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+            ][:limit],
+            total=2,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("a")
+    _wait(60)
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Backtab)
+
+    assert launcher.result_list.hasFocus()
     assert launcher.result_list.currentIndex().row() == 0
 
 
@@ -590,6 +632,8 @@ def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
     launcher.show()
 
     assert launcher.preview_pane.title_label.text() == "No preview yet"
+    assert launcher.preview_pane.accessibleDescription() == "No launcher result selected for preview."
+    assert launcher.action_bar.accessibleDescription() == "Launcher result actions are unavailable until a result is selected."
     assert not launcher.action_bar.open_button.isEnabled()
 
     launcher.query_field.setText("notes")
@@ -599,12 +643,15 @@ def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
     assert "/tmp/alpha.txt" in launcher.preview_pane.path_label.text()
     assert "Alpha release " in launcher.preview_pane.snippet_label.text()
     assert ">notes</mark>" in launcher.preview_pane.snippet_label.text()
+    assert launcher.preview_pane.accessibleDescription() == "Previewing alpha.txt from /tmp."
+    assert launcher.action_bar.accessibleDescription() == "Launcher result actions for the selected result."
     assert launcher.action_bar.open_button.isEnabled()
 
     launcher._handle_hovered_index(launcher.model.index(1, 0))
 
     assert launcher.preview_pane.title_label.text() == "beta.txt"
     assert "Beta launch checklist" in launcher.preview_pane.snippet_label.text()
+    assert launcher.preview_pane.accessibleDescription() == "Previewing beta.txt from /tmp."
     assert launcher.result_list.currentIndex().row() == 1
 
 
@@ -764,10 +811,12 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.pinned_queries_row.buttons == []
     assert launcher.recent_queries_row.accessibleName() == "Recent launcher queries"
     assert launcher.preview_pane.accessibleName() == "Launcher preview pane"
+    assert launcher.preview_pane.accessibleDescription() == "No launcher result selected for preview."
     assert launcher.preview_pane.title_label.accessibleName() == "Previewed result name"
     assert launcher.preview_pane.path_label.accessibleName() == "Previewed result path"
     assert launcher.preview_pane.snippet_label.accessibleName() == "Previewed result snippet"
     assert launcher.action_bar.accessibleName() == "Launcher action bar"
+    assert launcher.action_bar.accessibleDescription() == "Launcher result actions are unavailable until a result is selected."
     assert launcher.action_bar.open_button.accessibleName() == "Open selected result"
     assert launcher.action_bar.open_button.accessibleDescription() == "Open the selected result with Enter."
     assert launcher.action_bar.reveal_button.accessibleName() == "Reveal selected result"
