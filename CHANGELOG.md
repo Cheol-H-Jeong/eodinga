@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.371 - 2026-04-23
+
+- Clamped restored launcher popup geometry to the available screen bounds, preventing the frameless window from reopening off-screen or at an unusable oversized size after monitor/layout changes.
+- Added direct `Alt+O`, `Alt+R`, and `Alt+P` launcher shortcuts for open, reveal, and properties so the result action surface is fully reachable without leaving the keyboard.
+- Expanded launcher regressions to cover clamped geometry restore and the new direct action shortcuts while preserving the existing always-on-top and focus behavior checks.
+
 ## 0.1.369 - 2026-04-23
 
 - Expanded live-update integration coverage to prove in-place content rewrites and cross-root moves both converge in search within the 500ms watcher budget, including root-scoped query visibility.
