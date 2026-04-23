@@ -59,13 +59,25 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.roots_tab.add_root_button.accessibleName() == "Add root"
     assert window.roots_tab.remove_root_button.accessibleName() == "Remove selected root"
     assert window.index_tab.accessibleName() == "Index tab"
+    assert window.index_tab.status_chip.accessibleName() == "Index status"
+    assert window.index_tab.progress_label.accessibleName() == "Index progress"
     assert window.index_tab.rebuild_button.accessibleName() == "Rebuild index"
     assert window.search_tab.accessibleName() == "Search tab"
+    assert window.search_tab.launcher_panel.accessibleName() == "Embedded search launcher"
     assert window.settings_tab.accessibleName() == "Settings tab"
     assert window.settings_tab.system_theme_checkbox.accessibleName() == "Use system theme"
     assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
     assert window.about_tab.accessibleName() == "About tab"
+
+
+def test_app_persists_pinned_queries_to_config(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    window.launcher_state.toggle_pinned_query("ext:pdf report")
+    qapp.processEvents()
+
+    assert load(temp_config_path).launcher.pinned_queries == ["ext:pdf report"]
 
 
 def test_app_updates_index_status_in_tab_and_tray(qapp) -> None:

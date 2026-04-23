@@ -16,4 +16,5 @@ class SearchTab(QWidget):
         self.setAccessibleName("Search tab")
         layout = QVBoxLayout(self)
         self.launcher_panel = LauncherPanel(search_fn=search_fn, state=state, parent=self)
+        self.launcher_panel.setAccessibleName("Embedded search launcher")
         layout.addWidget(self.launcher_panel)

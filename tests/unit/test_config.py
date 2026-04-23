@@ -16,7 +16,13 @@ def test_load_missing_file_returns_defaults(temp_config_path: Path) -> None:
 def test_config_round_trip_save_and_load(temp_config_path: Path, tmp_path: Path) -> None:
     config = AppConfig(
         launcher=AppConfig().launcher.model_copy(
-            update={"window_x": 120, "window_y": 64, "window_width": 800, "window_height": 520}
+            update={
+                "window_x": 120,
+                "window_y": 64,
+                "window_width": 800,
+                "window_height": 520,
+                "pinned_queries": ["ext:pdf", "date:this-week"],
+            }
         ),
         roots=[RootConfig(path=tmp_path / "docs")],
     )

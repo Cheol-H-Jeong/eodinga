@@ -66,6 +66,7 @@ class LauncherConfig(BaseModel):
     debounce_ms: int = 30
     max_results: int = 200
     always_on_top: bool = False
+    pinned_queries: list[str] = Field(default_factory=list)
     window_x: int | None = None
     window_y: int | None = None
     window_width: int = 640

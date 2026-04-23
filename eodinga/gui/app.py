@@ -11,8 +11,9 @@ from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.config import AppConfig, default_path
 from eodinga.gui.actions import DesktopActions
 from eodinga.gui.hotkey_controller import HotkeyServiceLike, LauncherHotkeyController
-from eodinga.gui.launcher import LauncherState, LauncherWindow, SearchFn, format_indexing_status
+from eodinga.gui.launcher import LauncherState, LauncherWindow, SearchFn
 from eodinga.gui.launcher import LauncherPanel
+from eodinga.gui.launcher_state import format_indexing_status
 from eodinga.gui.tabs import AboutTab, IndexTab, RootsTab, SearchTab, SettingsTab
 from eodinga.gui.theme import apply_theme
 from eodinga.index.storage import open_index
@@ -109,7 +110,7 @@ class EodingaWindow(QMainWindow):
         self.resize(960, 640)
         resolved_config = config or AppConfig()
         resolved_config_path = config_path or default_path()
-        self.launcher_state = LauncherState(self)
+        self.launcher_state = LauncherState(self, pinned_queries=resolved_config.launcher.pinned_queries)
         self.launcher_window = LauncherWindow(
             search_fn=search_fn,
             state=self.launcher_state,
@@ -155,6 +156,7 @@ class EodingaWindow(QMainWindow):
         self.settings_tab.hotkey_change_requested.connect(self._change_hotkey)
         self.launcher_state.indexing_status_changed.connect(self.index_tab.set_indexing_status)
         self.launcher_state.indexing_status_changed.connect(self.tray_indicator.set_indexing_status)
+        self.launcher_state.pinned_queries_changed.connect(self._persist_pinned_queries)
         self.set_indexing_status(IndexingStatus())
 
     def _connect_launcher_actions(self, launcher: LauncherPanel) -> None:
@@ -188,6 +190,12 @@ class EodingaWindow(QMainWindow):
         hit = launcher._current_hit()
         if hit is not None:
             self.desktop_actions.copy_hit_name(hit)
+
+    def _persist_pinned_queries(self, queries: list[str]) -> None:
+        if self._config.launcher.pinned_queries == queries:
+            return
+        self._config.launcher = self._config.launcher.model_copy(update={"pinned_queries": queries})
+        self._config.save(self._config_path)
 
 
 def build_index_search_fn(db_path) -> SearchFn:
