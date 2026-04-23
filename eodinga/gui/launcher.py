@@ -410,6 +410,10 @@ class LauncherPanel(QWidget):
             self._move_selection(-self._page_step())
             return True
         if event.key() == Qt.Key.Key_Backtab:
+            chip = self._last_visible_chip_button()
+            if chip is not None:
+                chip.setFocus(Qt.FocusReason.BacktabFocusReason)
+                return True
             self.result_list.setFocus(Qt.FocusReason.BacktabFocusReason)
             current_index = self.result_list.currentIndex()
             if not current_index.isValid() and self.model.rowCount() > 0:

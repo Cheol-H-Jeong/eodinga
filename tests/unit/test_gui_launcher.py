@@ -141,6 +141,37 @@ def test_launcher_tab_visits_visible_query_chips_before_results(qapp) -> None:
     assert launcher.result_list.hasFocus()
 
 
+def test_launcher_backtab_visits_visible_query_chips_before_results(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/budget.txt"), parent_path=Path("/tmp"), name="budget.txt")][:limit]
+            if query
+            else [],
+            total=1 if query else 0,
+            elapsed_ms=1.5,
+        )
+
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+    launcher = LauncherWindow(search_fn=search_fn, state=state)
+    launcher.show()
+    launcher.query_field.setText("budget")
+    _wait(60)
+    launcher.query_field.setFocus()
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Backtab)
+    _wait(10)
+    assert launcher.recent_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.recent_queries_row.buttons[0], Qt.Key.Key_Backtab)
+    _wait(10)
+    assert launcher.pinned_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[0], Qt.Key.Key_Backtab)
+    _wait(10)
+    assert launcher.query_field.hasFocus()
+
+
 def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
