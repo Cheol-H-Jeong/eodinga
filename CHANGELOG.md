@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.140 - 2026-04-23
+
+- Expanded the top-level README with a surface matrix, command reference, and explicit logging and crash-path guidance so operators can audit the shipped CLI, launcher, and diagnostics surfaces from one place.
+- Extended the architecture guide with process boundaries, a search execution sequence, and a failure-and-recovery map that ties staged rebuilds, recovery swaps, stale WAL replay, and crash logging into one runtime model.
+- Tightened contributing, performance, and release docs around update ownership, benchmark evidence capture, and release handoff expectations so future rounds can refresh documentation without relying on tribal knowledge.
+
 ## 0.1.136 - 2026-04-23
 
 - Added a dedicated launcher hotkey controller that binds the configured global shortcut at GUI startup, toggles the popup on the callback path, and shuts the backend down cleanly when the main window exits.
