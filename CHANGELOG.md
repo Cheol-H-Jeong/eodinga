@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.135 - 2026-04-23
+## 0.1.140 - 2026-04-23
 
 - Expanded the README with clearer screenshot-maintenance rules, a richer operational FAQ, and direct pointers for the generated CLI man page and watcher-driven freshness model.
 - Deepened `docs/ARCHITECTURE.md` with explicit entry-point, storage-shape, and query-execution diagrams so the shipped runtime flow can be audited without reading source first.
