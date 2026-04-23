@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtCore import Qt
@@ -656,9 +657,9 @@ def test_launcher_renders_quick_pick_badges_for_top_results(qapp) -> None:
     launcher.query_field.setText("item")
     _wait(60)
 
-    first_row = launcher.model.data(launcher.model.index(0, 0), Qt.ItemDataRole.DisplayRole)
-    ninth_row = launcher.model.data(launcher.model.index(8, 0), Qt.ItemDataRole.DisplayRole)
-    tenth_row = launcher.model.data(launcher.model.index(9, 0), Qt.ItemDataRole.DisplayRole)
+    first_row = cast(str, launcher.model.data(launcher.model.index(0, 0), Qt.ItemDataRole.DisplayRole))
+    ninth_row = cast(str, launcher.model.data(launcher.model.index(8, 0), Qt.ItemDataRole.DisplayRole))
+    tenth_row = cast(str, launcher.model.data(launcher.model.index(9, 0), Qt.ItemDataRole.DisplayRole))
 
     assert "Alt+1" in first_row
     assert "Alt+9" in ninth_row

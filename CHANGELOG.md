@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.217 - 2026-04-23
+
+- Added inline launcher filter chips for active DSL operators like `ext:`, `date:`, `content:`, and `size:` so the query field surfaces structured filters without hiding the raw text.
+- Strengthened launcher result emphasis by rendering matched substrings in bold inside the existing highlight treatment, making hits scan faster across filenames, paths, snippets, and badges.
+- Labeled the first nine launcher results with visible `Alt+N` badges so the existing quick-pick shortcuts are discoverable directly in the result list.
+
 ## 0.1.209 - 2026-04-23
 
 - Expanded the PyInstaller spec to discover dynamic hidden imports loaded through `importlib.import_module(...)`, aliased `importlib` module handles, and direct `__import__(...)` calls, reducing manual packaging drift for optional runtime modules.
