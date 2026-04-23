@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.201 - 2026-04-23
+## 0.1.205 - 2026-04-23
 
 - Expanded `README.md` with a clearer install artifact matrix, a subcommand reference table, and a practical stale-results operator path so the top-level contract is easier to use without reading the whole docs tree.
 - Deepened `docs/ARCHITECTURE.md` with a concrete schema map, recovery ownership table, and operator-surface summary that tie runtime components to the actual diagnostic and rebuild commands.
