@@ -243,6 +243,8 @@ OPERATOR_ATOMS = st.one_of(
                 "last-week",
                 "this-month",
                 "last-month",
+                "this-year",
+                "last-year",
                 "2026-01-01",
                 "2026-01-01..2026-01-03",
             ]

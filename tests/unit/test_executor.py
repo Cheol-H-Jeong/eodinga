@@ -248,6 +248,50 @@ def test_execute_previous_period_date_queries_use_local_boundaries(
     assert last_month_hits == ["last-month.txt"]
 
 
+def test_execute_year_date_queries_use_local_boundaries(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    frozen_now = datetime(2026, 4, 23, 0, 30, tzinfo=seoul)
+    last_year_hit = int(datetime(2025, 6, 15, 12, 0, tzinfo=seoul).timestamp())
+    this_year_hit = int(datetime(2026, 4, 10, 12, 0, tzinfo=seoul).timestamp())
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/last-year.txt",
+        512,
+        last_year_hit,
+        "txt",
+        body_text="last year note",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/this-year.txt",
+        512,
+        this_year_hit,
+        "txt",
+        body_text="this year note",
+    )
+    tmp_db.commit()
+
+    last_year_hits = [hit.file.name for hit in search(tmp_db, "date:last-year", limit=10).hits]
+    this_year_hits = [hit.file.name for hit in search(tmp_db, "date:this-year", limit=10).hits]
+
+    assert last_year_hits == ["last-year.txt"]
+    assert this_year_hits == ["this-year.txt"]
+
+
 def test_execute_negated_case_true_restores_case_insensitive_matching(
     tmp_db: sqlite3.Connection,
 ) -> None:

@@ -31,6 +31,10 @@ def _next_month_start(day: date) -> date:
     return (day.replace(day=28) + timedelta(days=4)).replace(day=1)
 
 
+def _year_start(day: date) -> date:
+    return day.replace(month=1, day=1)
+
+
 def _parse_iso_day(value: str) -> date:
     try:
         return date.fromisoformat(value)
@@ -77,6 +81,14 @@ def parse_date_range(value: str) -> DateRange:
         this_month = _month_start(today)
         last_month = _month_start(this_month - timedelta(days=1))
         return DateRange(start=_day_bounds(last_month).start, end=_day_bounds(this_month).start)
+    if value == "this-year":
+        start = _year_start(today)
+        next_year = start.replace(year=start.year + 1)
+        return DateRange(start=_day_bounds(start).start, end=_day_bounds(next_year).start)
+    if value == "last-year":
+        this_year = _year_start(today)
+        last_year = this_year.replace(year=this_year.year - 1)
+        return DateRange(start=_day_bounds(last_year).start, end=_day_bounds(this_year).start)
     if ".." in value:
         left, right = (part.strip() for part in value.split("..", 1))
         if not left and not right:
