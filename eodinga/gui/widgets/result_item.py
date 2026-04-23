@@ -23,6 +23,7 @@ from eodinga.query.dsl import (
 )
 
 HTML_MARGIN = 8
+MARK_STYLES = "mark { font-weight: 700; background: #FDE68A; color: #111827; padding: 0 1px; border-radius: 2px; }"
 _TARGET_ALL = frozenset({"name", "path", "snippet"})
 
 
@@ -237,6 +238,7 @@ def format_hit_html(hit: SearchHit, query: str) -> str:
             "</span>"
         )
     return (
+        f"<style>{MARK_STYLES}</style>"
         f"<div style='font-size:15px; font-weight:600'>{primary}{ext_badge}</div>"
         f"<div style='font-size:11px; color:#6B7280'>{secondary}</div>"
         f"{snippet_html}"
