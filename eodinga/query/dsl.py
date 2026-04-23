@@ -228,6 +228,7 @@ class _Parser:
                 if terminator is None or terminator.isspace() or terminator in {"|", ")"}:
                     closing_index = scan_index
                     flags_end = candidate_end
+                    break
             backslashes = 0
             scan_index += 1
         if closing_index is None or flags_end is None:
