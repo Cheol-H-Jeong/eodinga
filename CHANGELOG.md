@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.961 - 2026-04-24
+## 0.1.963 - 2026-04-24
 
 - Clarified the README’s release-proof workflow with a smallest-validation routing table and a docs-only FAQ entry, so docs rounds can stop at the first sufficient command instead of guessing at the full gate.
 - Added architecture and release-guide evidence routing that maps each surface change to its matching generated asset or dry-run manifest, keeping review paths tied to the subsystem that actually moved.
