@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.540 - 2026-04-23
+## 0.1.541 - 2026-04-23
 
 - Preserved valid interrupted `.next` and `.recover` stage databases when a resume-time atomic swap fails, so startup can retry recovery instead of deleting the only recoverable snapshot.
 - Preserved a fully replayed `.recover` stage when stale-WAL recovery fails at the final swap step, while still cleaning partial recovery artifacts from unsuccessful copy attempts.
