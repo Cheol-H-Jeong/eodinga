@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.156 - 2026-04-23
+
+- Added a live-update integration regression that renames a watched file on disk and requires search to replace the old path with the renamed path within 500 ms, tightening the end-to-end rename contract.
+- Added multi-root integration coverage for a file moved between two actively watched roots, proving the eventual query result and `root=` scoping converge on the destination root without a full rebuild.
+- Added a hot-restart regression that applies live create and delete watcher events to an on-disk index, reopens the database, and proves both changes persist across restart without a rewalk.
+
 ## 0.1.155 - 2026-04-23
 
 - Fixed the default observability paths on macOS so rotating logs now land under `~/Library/Logs/eodinga` and crash reports follow the same platform-native log root instead of falling back to Linux-style state directories.
