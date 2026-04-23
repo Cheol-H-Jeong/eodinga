@@ -194,11 +194,14 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Commit and Release Notes" in contributing
     assert "## Review Checklist" in contributing
     assert "## Packaging Review Checklist" in contributing
+    assert "## Avoidable Review Churn" in contributing
     assert "## Command Hygiene" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
     assert "The final release commit for a round should carry the version bump" in contributing
     assert "Do not rewrite earlier docs or feature commits" in contributing
     assert "Prefer one explicit evidence bundle over ad-hoc retries." in contributing
+    assert "broad markdown rewrites" in contributing
+    assert "theme-sized slice first, broader gate near handoff" in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl
@@ -248,6 +251,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Artifact Inventory" in release
     assert "## Verify Shipped Docs" in release
     assert "## Packaging Audit Checklist" in release
+    assert "## Dry-Run Review Heuristics" in release
     assert "## Tag Decision Path" in release
     assert "## Worker Handoff Rules" in release
     assert "## Docs-Only Rounds" in release
@@ -258,6 +262,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Tag Provenance" in release
     assert "## Retargeting Metadata After A Collision" in release
     assert "## Handoff Checklist" in release
+    assert "## Parallel Worker Release Traps" in release
     assert "git tag v0.1.N" in release
     assert "python scripts/generate_manpage.py" in release
     assert "git tag -l \"v0.1.N\"" in release
@@ -267,6 +272,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Single-shot metadata cut" in release
     assert "git fetch origin main --tags" in release
     assert "A green dry run without a reviewed manifest is not a completed release check." in release
+    assert "docs payload list in `packaging/dist/`" in release
+    assert "Do not cut the local tag before reviewing `packaging/dist/`" in release
 
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage

@@ -232,6 +232,20 @@ Before you stop a worker round, confirm:
 - Confirm the staged docs payload still matches `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 - If the docs describe a packaged artifact, rerun the corresponding dry run before handoff.
 
+## Avoidable Review Churn
+
+Use these rules to keep a worker round easy to rebase and audit:
+
+| Pattern | Prefer | Why |
+| --- | --- | --- |
+| broad markdown rewrites | one section at a time with pinned evidence | reviewers can compare a small docs contract change to one matching proof command |
+| mixing docs guidance with metadata bumps | docs commits first, metadata commit last | version-collision retargets stay isolated to three files |
+| rerunning the whole gate after every edit | theme-sized slice first, broader gate near handoff | keeps feedback fast without pretending a docs edit needs parser or watcher coverage every time |
+| prose claims about packaged behavior | the matching dry-run manifest in `packaging/dist/` | packaging reviews should anchor on generated evidence, not memory |
+
+- If you cannot explain which command proves a new docs claim, the docs are probably ahead of the release evidence.
+- If another worker lands the same patch number first, retarget the metadata commit instead of rewriting earlier docs commits just to keep history linear.
+
 ## Command Hygiene
 
 - Prefer single-shot commands that either finish cleanly or stop at the first real failure.

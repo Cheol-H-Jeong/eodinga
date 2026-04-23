@@ -119,6 +119,20 @@ Use this review table after each matching dry run:
 
 Treat `packaging/dist/` as the review surface. A green dry run without a reviewed manifest is not a completed release check.
 
+## Dry-Run Review Heuristics
+
+When a dry run succeeds, review the generated evidence with these priorities:
+
+| If you changed... | First thing to inspect | Failure usually means |
+| --- | --- | --- |
+| README or release wording about packaged files | docs payload list in `packaging/dist/` | the written contract drifted from the staged package inputs |
+| launcher or GUI wording that appears in screenshots | `docs/screenshots/*.png` plus the matching dry-run manifest | the visible UI changed without refreshed evidence |
+| CLI examples or subcommands | `docs/man/eodinga.1` and the staged docs payload | argparse-derived docs drift or stale packaged docs |
+| versioned artifact names | dry-run artifact name and rendered recipe/output manifest | packaging metadata is stale even if runtime code is unchanged |
+
+- Treat this as a triage shortcut, not an extra checklist layer. The goal is to inspect the smallest artifact family that could falsify the new release claim.
+- If the first reviewed artifact is wrong, fix that contract before rerunning the broader gate.
+
 ## Artifact Review Worksheet
 
 Use these prompts against the actual files under `packaging/dist/` before cutting the local tag:
@@ -258,4 +272,11 @@ Do not rewrite unrelated docs or code just to refresh one generated asset family
 - `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py` all agree on `0.1.N`.
 - The local tag points at the final commit for the round, not an earlier docs or feature commit.
 - The final release commit remains reviewable on its own and does not hide unrelated feature edits.
+
+## Parallel Worker Release Traps
+
+- Do not cut the local tag before reviewing `packaging/dist/`; a green command exit alone is not enough evidence for a packaged release claim.
+- Do not fold docs or packaging follow-up fixes into the metadata commit unless they are required to make the same round green. Earlier docs commits should stay reviewable on their own.
+- Do not reuse an already-taken `v0.1.N`; fetch tags again and retarget the metadata commit to the next unused patch number.
+- Do not widen a docs-only round into runtime fixes unless the docs gate exposed a real blocker that cannot be described or repaired inside the docs surface.
 - `packaging/dist/` has been reviewed for the dry-run targets touched by the round.
