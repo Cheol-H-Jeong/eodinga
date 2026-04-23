@@ -528,6 +528,44 @@ def test_execute_unicode_python_path_scan_breaks_equal_name_ties_stably(
     assert [hit.file.id for hit in hits] == [1, 2, 3]
 
 
+def test_execute_unicode_python_path_scan_paginates_beyond_first_batch(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = 1_713_528_000
+    for index in range(600):
+        _insert_file(
+            tmp_db,
+            index + 1,
+            f"/workspace/archive/report-{index:03d}.txt",
+            512,
+            now - index,
+            "txt",
+        )
+    late_id = 10_000
+    _insert_file(tmp_db, late_id, "/workspace/회의록/zzz-target.txt", 512, now + 1, "txt")
+    tmp_db.commit()
+
+    original_fetch_batch = executor_module._fetch_record_batch
+    offsets: list[int] = []
+
+    def tracking_fetch_batch(
+        conn: sqlite3.Connection,
+        where_sql: str,
+        where_params: tuple[object, ...],
+        limit: int,
+        offset: int,
+    ) -> dict[int, executor_module.FileRecord]:
+        offsets.append(offset)
+        return original_fetch_batch(conn, where_sql, where_params, limit, offset)
+
+    monkeypatch.setattr(executor_module, "_fetch_record_batch", tracking_fetch_batch)
+
+    hits = search(tmp_db, "회의록", limit=1).hits
+
+    assert [hit.file.id for hit in hits] == [late_id]
+    assert max(offsets) >= 500
+
+
 def test_execute_decomposed_korean_content_query_keeps_snippets(
     tmp_db: sqlite3.Connection,
 ) -> None:
