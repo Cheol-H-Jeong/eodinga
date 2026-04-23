@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.568 - 2026-04-23
+
+- Added live watcher integration coverage for deleting and recreating the same path, asserting the new content becomes searchable within 500ms and the stale content immediately disappears.
+- Added reopened multi-root integration coverage for newly created files, pinning both global and root-scoped query visibility after a restart boundary.
+- Added reopen-after-rebuild coverage for removed roots so trimmed multi-root scope survives a close/reopen cycle instead of depending on in-process state.
+
 ## 0.1.562 - 2026-04-23
 
 - Expanded the top-level README with a validation-path matrix, release-input map, and docs-asset drift runbook entry so operators can pick the right verification path faster.
