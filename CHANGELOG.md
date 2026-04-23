@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.536 - 2026-04-23
+## 0.1.537 - 2026-04-23
 
 - Normalized Windows extended-length drive and UNC prefixes in query root scoping and `path:` filtering, so `\\?\` and `\\?\UNC\` inputs now match canonically indexed Windows paths.
 - Added unit and CLI regressions for drive-letter case, drive-prefixed long paths, and UNC-prefixed long paths to keep Windows query normalization stable.
