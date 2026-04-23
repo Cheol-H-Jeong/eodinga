@@ -92,6 +92,8 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
                 'il.import_module("package.alpha")',
                 'load_module("package.beta")',
                 '__import__("package.gamma")',
+                '__import__("package.delta", fromlist=("epsilon", "zeta"))',
+                '__import__("package.theta", globals(), locals(), ["iota"])',
                 "",
             ]
         ),
@@ -100,4 +102,13 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
 
     discovered = discover_hidden_imports(source_root)
 
-    assert discovered == ["package.alpha", "package.beta", "package.gamma"]
+    assert discovered == [
+        "package.alpha",
+        "package.beta",
+        "package.delta",
+        "package.delta.epsilon",
+        "package.delta.zeta",
+        "package.gamma",
+        "package.theta",
+        "package.theta.iota",
+    ]

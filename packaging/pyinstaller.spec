@@ -138,8 +138,13 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
         for node in ast.walk(module):
             if not isinstance(node, ast.Call):
                 continue
+            imported_module_name: str | None = None
             if isinstance(node.func, ast.Name):
-                if node.func.id not in import_module_aliases and node.func.id != "__import__":
+                if node.func.id in import_module_aliases:
+                    pass
+                elif node.func.id == "__import__":
+                    pass
+                else:
                     continue
             elif isinstance(node.func, ast.Attribute):
                 if node.func.attr != "import_module":
@@ -153,7 +158,29 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
                 continue
             if not isinstance(node.args[0].value, str):
                 continue
-            discovered.add(node.args[0].value)
+            imported_module_name = node.args[0].value
+            discovered.add(imported_module_name)
+            if not isinstance(node.func, ast.Name) or node.func.id != "__import__":
+                continue
+            fromlist_arg: ast.expr | None = None
+            if len(node.args) >= 4:
+                fromlist_arg = node.args[3]
+            else:
+                for keyword in node.keywords:
+                    if keyword.arg == "fromlist":
+                        fromlist_arg = keyword.value
+                        break
+            if fromlist_arg is None:
+                continue
+            fromlist_values: list[str] = []
+            if isinstance(fromlist_arg, ast.Constant) and isinstance(fromlist_arg.value, str):
+                fromlist_values.append(fromlist_arg.value)
+            elif isinstance(fromlist_arg, (ast.List, ast.Tuple, ast.Set)):
+                for element in fromlist_arg.elts:
+                    if isinstance(element, ast.Constant) and isinstance(element.value, str):
+                        fromlist_values.append(element.value)
+            for imported_name in fromlist_values:
+                discovered.add(f"{imported_module_name}.{imported_name}")
     return sorted(discovered)
 
 
