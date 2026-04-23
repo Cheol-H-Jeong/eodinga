@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.263 - 2026-04-23
+## 0.1.264 - 2026-04-23
 
 - Extended `date:`, `modified:`, and `created:` so relative macros like `today`, `yesterday`, `last-week`, and `last-month` can be used as range endpoints, including open-ended forms such as `date:today..` and `modified:..last-week`.
 - Added compiler and executor regressions that freeze local time and verify mixed relative/ISO ranges compile into the expected timestamp windows and return the intended files end to end.
