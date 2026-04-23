@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.448 - 2026-04-23
+
+- Enriched runtime histogram snapshots with average plus bucket-derived `p50`, `p95`, and `p99` upper-bound latency summaries so `stats --json` exposes more actionable distributions without storing every sample.
+- Added explicit logging sink state reporting, including whether file logging was requested, which path was targeted, gzip rotation settings, and whether the file sink is active.
+- Hardened file-sink setup so logging falls back to stderr cleanly when the log file cannot be opened, recording a `log_sink_failures` counter instead of failing silently.
+
 ## 0.1.419 - 2026-04-23
 
 - Hardened the packaging dry-run audits so Windows, AppImage, and Debian releases now validate staged artifact existence, desktop-entry metadata, bundled data files, and installer asset contracts instead of only a small subset of flags.
