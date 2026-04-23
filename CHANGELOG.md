@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.519 - 2026-04-23
+
+- Normalized Windows search-root scoping so CLI and executor queries now match indexed paths across slash variants, drive-letter case differences, and extended-length `\\?\` prefixes.
+- Hardened boolean query operator parsing by normalizing accepted truthy and falsy literals consistently, with explicit coverage for mixed-case aliases like `yes` and `off`.
+- Added executor and CLI regressions that pin the Windows root alias behavior end to end, preventing scoped searches from drifting on Windows-formatted paths.
+
 ## 0.1.510 - 2026-04-23
 
 - Tightened structural query filters so `is:file` now matches regular files only and `is:dir` now matches non-symlink directories only, leaving `is:symlink` as the explicit way to query link entries.
