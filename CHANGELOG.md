@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.706 - 2026-04-23
+## 0.1.709 - 2026-04-23
 
 - Skipped `content_fts` text loads for path-only metadata filters and path regex filters, keeping those queries on the lighter `files` path unless content semantics are actually required.
 - Cached normalized root-scope SQL clauses so repeated scoped searches reuse the same Windows/POSIX variant expansion instead of rebuilding equivalent `LIKE` predicates on every query.
