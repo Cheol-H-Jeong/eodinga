@@ -54,10 +54,13 @@ class LauncherPanel(QWidget):
         self.result_list.setUniformItemSizes(False)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
         self.status_chip = StatusChip("Idle", self)
+        self.status_chip.setAccessibleName("Launcher status chip")
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
+        self.shortcut_label.setAccessibleName("Launcher keyboard shortcuts")
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
+        self.status_label.setAccessibleName("Launcher result summary")
         self.empty_state = EmptyState("Type to search", "Recent queries and indexing progress will appear here.", self)
 
         self.model = ResultListModel(self)

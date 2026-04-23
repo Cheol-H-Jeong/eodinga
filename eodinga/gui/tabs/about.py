@@ -12,8 +12,10 @@ class AboutTab(QWidget):
         layout = QVBoxLayout(self)
         title = QLabel("About", self)
         title.setProperty("role", "title")
+        title.setAccessibleName("About title")
         body = QLabel(f"eodinga {__version__}\nInstant lexical search for files and documents.", self)
         body.setProperty("role", "secondary")
+        body.setAccessibleName("About description")
         body.setWordWrap(True)
 
         layout.addWidget(title)
