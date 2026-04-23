@@ -8,6 +8,7 @@ from eodinga.gui.widgets import SecondaryButton
 
 class SettingsTab(QWidget):
     hotkey_change_requested = Signal(str)
+    frameless_changed = Signal(bool)
     always_on_top_changed = Signal(bool)
 
     def __init__(self, parent=None) -> None:
@@ -17,10 +18,12 @@ class SettingsTab(QWidget):
         layout = QVBoxLayout(self)
         title = QLabel("Settings", self)
         title.setProperty("role", "title")
-        body = QLabel("Configure the hotkey, theme, and launcher behavior.", self)
+        body = QLabel("Configure the hotkey, theme, and launcher window behavior.", self)
         body.setProperty("role", "secondary")
         self.system_theme_checkbox = QCheckBox("Use system theme", self)
         self.system_theme_checkbox.setAccessibleName("Use system theme")
+        self.frameless_checkbox = QCheckBox("Use frameless launcher window", self)
+        self.frameless_checkbox.setAccessibleName("Use frameless launcher window")
         self.always_on_top_checkbox = QCheckBox("Keep launcher always on top", self)
         self.always_on_top_checkbox.setAccessibleName("Keep launcher always on top")
         self.hotkey_label = QLabel("", self)
@@ -29,12 +32,14 @@ class SettingsTab(QWidget):
         self.remap_hotkey_button = SecondaryButton("Remap hotkey", self)
         self.remap_hotkey_button.setAccessibleName("Remap hotkey")
         self.remap_hotkey_button.clicked.connect(self._prompt_hotkey_combo)
+        self.frameless_checkbox.toggled.connect(self.frameless_changed.emit)
         self.always_on_top_checkbox.toggled.connect(self.always_on_top_changed.emit)
         self.set_hotkey_combo(self._hotkey_combo)
 
         layout.addWidget(title)
         layout.addWidget(body)
         layout.addWidget(self.system_theme_checkbox)
+        layout.addWidget(self.frameless_checkbox)
         layout.addWidget(self.always_on_top_checkbox)
         layout.addWidget(self.hotkey_label)
         layout.addWidget(self.remap_hotkey_button)
@@ -48,6 +53,11 @@ class SettingsTab(QWidget):
         self.always_on_top_checkbox.blockSignals(True)
         self.always_on_top_checkbox.setChecked(enabled)
         self.always_on_top_checkbox.blockSignals(False)
+
+    def set_frameless(self, enabled: bool) -> None:
+        self.frameless_checkbox.blockSignals(True)
+        self.frameless_checkbox.setChecked(enabled)
+        self.frameless_checkbox.blockSignals(False)
 
     def _prompt_hotkey_combo(self) -> None:
         combo, accepted = QInputDialog.getText(

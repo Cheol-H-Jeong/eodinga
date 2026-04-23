@@ -33,8 +33,9 @@ class LauncherWindow(LauncherPanel):
         self._geometry_save_timer.timeout.connect(self._persist_geometry)
         self.setObjectName("surface")
         self.setAccessibleName("Launcher window")
-        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
         self.setWindowFlag(Qt.WindowType.Tool, True)
+        frameless = self._config.launcher.frameless if self._config is not None else True
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, frameless)
         always_on_top = self._config.launcher.always_on_top if self._config is not None else False
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, always_on_top)
         width = self._config.launcher.window_width if self._config is not None else 640
@@ -67,17 +68,10 @@ class LauncherWindow(LauncherPanel):
         self._schedule_geometry_persist()
 
     def set_always_on_top(self, enabled: bool) -> None:
-        current = bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
-        if current == enabled:
-            return
-        was_visible = self.isVisible()
-        position = self.pos()
-        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, enabled)
-        if was_visible:
-            self.show()
-            self.move(position)
-            self.raise_()
-            self.activateWindow()
+        self._set_window_flag_preserving_visibility(Qt.WindowType.WindowStaysOnTopHint, enabled)
+
+    def set_frameless(self, enabled: bool) -> None:
+        self._set_window_flag_preserving_visibility(Qt.WindowType.FramelessWindowHint, enabled)
 
     def hideEvent(self, event: QHideEvent) -> None:
         self._persist_geometry()
@@ -92,6 +86,20 @@ class LauncherWindow(LauncherPanel):
         if self._config is None or self._config_path is None or not self._geometry_restored or not self.isVisible():
             return
         self._geometry_save_timer.start()
+
+    def _set_window_flag_preserving_visibility(self, flag: Qt.WindowType, enabled: bool) -> None:
+        current = bool(self.windowFlags() & flag)
+        if current == enabled:
+            return
+        was_visible = self.isVisible()
+        geometry = self.geometry()
+        self.setWindowFlag(flag, enabled)
+        if not was_visible:
+            return
+        self.show()
+        self.setGeometry(geometry)
+        self.raise_()
+        self.activateWindow()
 
     def _persist_geometry(self) -> None:
         if self._config is None or self._config_path is None or not self._geometry_restored:
