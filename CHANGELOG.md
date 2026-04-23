@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.902 - 2026-04-23
+
+- Moved CLI stats summarization into a dedicated observability helper so the command surface stays easier to evolve without bloating the main entrypoint.
+- Added typed watcher failure totals and grouped watcher failure summaries to `eodinga stats --json`, covering observer startup, cleanup, and rollback paths without forcing consumers to parse raw counter names.
+- Added structured file-log sink source and disable-reason summaries to `eodinga stats --json`, making runtime logging state visible alongside the existing raw counters.
+
 ## 0.1.901 - 2026-04-23
 
 - Made the Linux AppImage packaging script emit and audit a versioned `.AppImage` payload on non-dry-run builds instead of stopping at the staged AppDir tarball.
