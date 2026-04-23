@@ -241,6 +241,41 @@ def test_windows_build_target_executes_commands_and_records_installer_artifact(m
     assert len(payload["inno_setup"]["installer_artifact"]["sha256"]) == 64
 
 
+def test_windows_build_target_cleans_stale_current_release_artifacts(monkeypatch) -> None:
+    module = _load_build_module()
+
+    stale_cli = Path("dist/eodinga-cli")
+    stale_gui = Path("dist/eodinga-gui")
+    stale_cli.mkdir(parents=True, exist_ok=True)
+    stale_gui.mkdir(parents=True, exist_ok=True)
+    (stale_cli / "eodinga-cli.exe").write_bytes(b"stale-cli")
+    (stale_gui / "eodinga-gui.exe").write_bytes(b"stale-gui")
+    stale_installer = Path(f"packaging/dist/eodinga-{__version__}-win-x64-setup.exe")
+    stale_installer.write_bytes(b"stale-setup")
+
+    def fake_which(command: str) -> str | None:
+        return f"/usr/bin/{command}"
+
+    def fake_run(command: list[str], cwd: Path, check: bool = False):  # type: ignore[no-untyped-def]
+        assert check is False
+        assert cwd == Path(".").resolve()
+
+        class Result:
+            returncode = 0
+
+        return Result()
+
+    monkeypatch.setattr(module.shutil, "which", fake_which)
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+
+    result = module._run_windows()
+
+    assert result == 1
+    assert stale_installer.exists() is False
+    assert (stale_cli / "eodinga-cli.exe").exists() is False
+    assert (stale_gui / "eodinga-gui.exe").exists() is False
+
+
 def test_build_preflight_reports_missing_linux_deb_tool(monkeypatch) -> None:
     module = _load_build_module()
 

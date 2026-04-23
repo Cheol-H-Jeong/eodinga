@@ -133,6 +133,13 @@ def _run_command(command: list[str]) -> int:
     return int(result.returncode)
 
 
+def _remove_path(path: Path) -> None:
+    if path.is_dir():
+        shutil.rmtree(path)
+    elif path.exists():
+        path.unlink()
+
+
 def _inno_contains(text: str, needle: str) -> bool:
     return needle in text
 
@@ -627,6 +634,9 @@ def _run_windows() -> int:
     version = _read_project_version()
     package_version = _read_package_version()
     dry_run_payload = _audit_windows_inputs(version, package_version)
+    _remove_path(Path(str(dry_run_payload["pyinstaller_spec"]["dist_paths"]["cli"])))
+    _remove_path(Path(str(dry_run_payload["pyinstaller_spec"]["dist_paths"]["gui"])))
+    _remove_path(Path(str(dry_run_payload["inno_setup"]["installer_artifact"]["path"])))
     for command in (
         dry_run_payload["pyinstaller_spec"]["build_commands"]["cli"],
         dry_run_payload["pyinstaller_spec"]["build_commands"]["gui"],
