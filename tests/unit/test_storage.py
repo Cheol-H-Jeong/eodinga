@@ -157,12 +157,12 @@ def test_cleanup_index_files_tolerates_concurrent_unlink_races(
     path.with_name("index.db-shm").write_bytes(b"shm")
     original_unlink = Path.unlink
 
-    def flaky_unlink(target: Path, *args: object, **kwargs: object) -> None:
+    def flaky_unlink(target: Path, missing_ok: bool = False) -> None:
         if target.name in {"index.db", "index.db-wal", "index.db-shm"}:
             if target.exists():
-                original_unlink(target, *args, **kwargs)
+                original_unlink(target, missing_ok=missing_ok)
             raise FileNotFoundError(target)
-        original_unlink(target, *args, **kwargs)
+        original_unlink(target, missing_ok=missing_ok)
 
     monkeypatch.setattr(Path, "unlink", flaky_unlink)
 
