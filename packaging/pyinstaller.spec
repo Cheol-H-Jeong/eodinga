@@ -154,17 +154,75 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
                     continue
             else:
                 continue
-            if not node.args or not isinstance(node.args[0], ast.Constant):
+            if not node.args:
                 continue
-            if not isinstance(node.args[0].value, str):
+            module_name = _literal_string(node.args[0])
+            if module_name is None:
                 continue
-            discovered.add(node.args[0].value)
+            package_name = None
+            if len(node.args) >= 2:
+                package_name = _literal_string(node.args[1])
+            keyword_package = _call_keyword(node, "package")
+            if keyword_package is not None:
+                package_name = _literal_string(keyword_package)
+            resolved_module_name = _resolve_dynamic_module_name(module_name, package_name)
+            if resolved_module_name is None:
+                continue
+            discovered.add(resolved_module_name)
+            if isinstance(node.func, ast.Name) and node.func.id == "__import__":
+                fromlist = None
+                if len(node.args) >= 4:
+                    fromlist = _literal_string_sequence(node.args[3])
+                keyword_fromlist = _call_keyword(node, "fromlist")
+                if keyword_fromlist is not None:
+                    fromlist = _literal_string_sequence(keyword_fromlist)
+                if fromlist:
+                    for entry in fromlist:
+                        if entry == "*":
+                            continue
+                        discovered.add(f"{resolved_module_name}.{entry}")
     return sorted(discovered)
 
 
 def _is_stdlib_module(module_name: str) -> bool:
     root_name = module_name.split(".", 1)[0]
     return root_name in sys.stdlib_module_names
+
+
+def _literal_string(node: ast.expr) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    return None
+
+
+def _literal_string_sequence(node: ast.expr) -> list[str] | None:
+    if not isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        return None
+    values: list[str] = []
+    for element in node.elts:
+        literal = _literal_string(element)
+        if literal is None:
+            return None
+        values.append(literal)
+    return values
+
+
+def _call_keyword(node: ast.Call, name: str) -> ast.expr | None:
+    for keyword in node.keywords:
+        if keyword.arg == name:
+            return keyword.value
+    return None
+
+
+def _resolve_dynamic_module_name(module_name: str, package_name: str | None) -> str | None:
+    if not module_name.startswith("."):
+        return module_name
+    if not package_name:
+        return None
+    try:
+        return importlib.util.resolve_name(module_name, package_name)
+    except ImportError:
+        return None
 
 
 def _discover_source_hidden_imports(source_root: Path) -> list[str]:
