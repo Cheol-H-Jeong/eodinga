@@ -35,3 +35,7 @@ class EmptyState(QWidget):
         self.body_label.setText(body)
         self.details_label.setText(details)
         self.details_label.setVisible(bool(details))
+        description_parts = [title, body]
+        if details:
+            description_parts.append(details)
+        self.setAccessibleDescription(". ".join(part.rstrip(".") for part in description_parts if part) + ".")

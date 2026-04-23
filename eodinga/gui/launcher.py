@@ -83,6 +83,7 @@ class LauncherPanel(QWidget):
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
         self.status_label.setAccessibleName("Launcher result summary")
+        self.status_label.setAccessibleDescription(self.status_label.text())
         self.empty_state = EmptyState("Type to search", "Recent queries and indexing progress will appear here.", self)
         self.preview_pane = LauncherPreviewPane(self)
         self.preview_pane.setMinimumWidth(240)
@@ -316,12 +317,14 @@ class LauncherPanel(QWidget):
             else:
                 self.status_chip.setText("Idle")
                 self.status_label.setText("0 results · 0.0 ms")
+            self.status_label.setAccessibleDescription(self.status_label.text())
             return
         self.status_label.setText(f"{self._latest_result.total} results · {self._latest_result.elapsed_ms:.1f} ms")
         if self._latest_result.total > 0:
             self.status_chip.setText("Ready")
         else:
             self.status_chip.setText("No results")
+        self.status_label.setAccessibleDescription(self.status_label.text())
 
     def _refresh_empty_state(self) -> None:
         has_results = self.model.rowCount() > 0
@@ -349,16 +352,16 @@ class LauncherPanel(QWidget):
         self.result_list.setVisible(has_results)
 
     def _refresh_shortcut_hint(self) -> None:
-        self.shortcut_label.setText(
-            format_shortcut_hint(
-                has_results=self.model.rowCount() > 0,
-                query=self.query_field.text().strip(),
-                result_list_has_focus=self.result_list.hasFocus(),
-                query_chip_has_focus=self._query_chip_has_focus(),
-                has_recent_queries=bool(self._recent_queries),
-                has_chip_queries=bool(self._recent_queries or self._pinned_queries),
-            )
+        hint = format_shortcut_hint(
+            has_results=self.model.rowCount() > 0,
+            query=self.query_field.text().strip(),
+            result_list_has_focus=self.result_list.hasFocus(),
+            query_chip_has_focus=self._query_chip_has_focus(),
+            has_recent_queries=bool(self._recent_queries),
+            has_chip_queries=bool(self._recent_queries or self._pinned_queries),
         )
+        self.shortcut_label.setText(hint)
+        self.shortcut_label.setAccessibleDescription(hint)
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()

@@ -878,9 +878,12 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
         "No launcher result is selected, so result actions are unavailable."
     )
     assert launcher.shortcut_label.accessibleName() == "Launcher shortcut guidance"
+    assert launcher.shortcut_label.accessibleDescription() == launcher.shortcut_label.text()
     assert launcher.status_label.accessibleName() == "Launcher result summary"
+    assert launcher.status_label.accessibleDescription() == launcher.status_label.text()
     assert launcher.status_chip.accessibleName() == "Launcher status"
     assert launcher.result_list.accessibleDescription() == "No launcher results are available."
+    assert launcher.empty_state.accessibleDescription().startswith("Type to search. Recent: No recent queries yet.")
     assert launcher.preview_pane.accessibleDescription() == "No launcher result is selected for preview."
     assert launcher.active_filter_row.accessibleName() == "Active launcher filters"
     assert launcher.active_filter_row.accessibleDescription() == "No active launcher filters."
@@ -902,6 +905,20 @@ def test_launcher_query_chips_expose_accessible_context(qapp) -> None:
     assert recent_chip.accessibleDescription() == "Apply the recent launcher query"
     assert launcher.pinned_queries_row.accessibleDescription() == "1 pinned launcher queries are available: ext:pdf."
     assert launcher.recent_queries_row.accessibleDescription() == "1 recent launcher queries are available: budget."
+
+
+def test_launcher_empty_state_accessible_description_updates_with_results(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    launcher = LauncherWindow(search_fn=lambda query, limit: QueryResult(items=[], total=0, elapsed_ms=2.0), state=state)
+    launcher.show()
+
+    assert "Pinned: ext:pdf." in launcher.empty_state.accessibleDescription()
+
+    launcher.query_field.setText("missing")
+    _wait(60)
+
+    assert launcher.empty_state.accessibleDescription().startswith('No results for "missing".')
+    assert launcher.status_label.accessibleDescription() == "0 results · 2.0 ms"
 
 
 def test_launcher_result_markup_surfaces_top_nine_quick_pick_badges(qapp) -> None:
