@@ -39,13 +39,17 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "![Index progress window]" in readme
     assert "![Settings window]" in readme
     assert "## Install" in readme
+    assert "## Install Matrix" in readme
     assert "## Quick Start" in readme
     assert "## Feature Overview" in readme
+    assert "## Feature Inventory" in readme
     assert "## Surface Matrix" in readme
     assert "## Acceptance Quickcheck" in readme
     assert "## DSL Cheatsheet" in readme
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
+    assert "## Task Recipes" in readme
+    assert "## Package Artifacts" in readme
     assert "## Config and Data Paths" in readme
     assert "## Operator Checklist" in readme
     assert "## Recovery and Troubleshooting" in readme
@@ -69,6 +73,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "python packaging/build.py --target windows-dry-run" in readme
     assert "yamllint .github/workflows/release-windows.yml" in readme
     assert "rendered offscreen from the real Qt surfaces" in readme
+    assert "CLI-only hacking" in readme
+    assert "Refresh shipped docs assets" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance
@@ -91,6 +97,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "docs/man/eodinga.1" in acceptance
     assert "## Derived Docs Checks" in acceptance
     assert "python scripts/render_docs_screenshots.py" in acceptance
+    assert "One-command acceptance pass" in acceptance
 
     assert "## Runtime Flow" in architecture
     assert "## Data Flow Diagram" in architecture

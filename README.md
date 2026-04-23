@@ -35,6 +35,16 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 - Install per-user with the Inno Setup wizard.
 - Optionally enable auto-start at login during install.
 
+## Install Matrix
+
+| Goal | Command or artifact | Notes |
+| --- | --- | --- |
+| Local development on Linux | `pip install -e .[all]` | Includes GUI, parser, hotkey, lint, and test extras. |
+| CLI-only hacking | `pip install -e .[dev]` | Enough for tests and lint when you do not need parser or GUI extras. |
+| Content parsing coverage | `pip install -e .[parsers]` | Adds optional document parsers on top of the base runtime. |
+| Packaged Linux desktop install | AppImage or `.deb` artifact | Both launch the GUI; `.deb` also stages desktop metadata and packaged docs. |
+| Packaged Windows desktop install | `eodinga-0.1.x-win-x64-setup.exe` | Per-user install; uninstall preserves `%LOCALAPPDATA%\\eodinga\\` unless purge is chosen. |
+
 ## First Run
 
 1. Launch `eodinga gui` or start the installed app.
@@ -63,6 +73,15 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 | Content extraction | Text, source code, Office files, PDF, EPUB, HTML, and HWP when parser extras are installed. |
 | Recovery | Atomic staged rebuild and startup recovery for interrupted index swaps and stale WAL state. |
 | Packaging | Windows installer, Linux AppImage, and Linux `.deb` dry-run paths. |
+
+## Feature Inventory
+
+- Query language: plain terms, phrases, grouped OR branches, negation, regex literals, date macros, size ranges, and structural filters such as `is:file` or `is:duplicate`.
+- Search ranking: shared lexical ranking across CLI, GUI, and launcher with filename/path/content blending plus stable tie handling.
+- Content extraction: optional parser-backed indexing for Office documents, PDF, EPUB, HTML, HWP, and common text/source formats.
+- Runtime freshness: staged rebuilds for cold start plus watchdog-backed incremental updates for steady-state changes.
+- Operator tooling: `doctor`, `stats --json`, generated man page, screenshots rendered from real Qt widgets, and dry-run packaging audits.
+- Packaging contract: Windows installer plus Linux AppImage and `.deb` paths, all documented and verified in-repo.
 
 ## Surface Matrix
 
@@ -199,6 +218,16 @@ eodinga stats --json
 eodinga index --rebuild
 ```
 
+## Task Recipes
+
+| Task | Command |
+| --- | --- |
+| Find documents changed this week | `eodinga search 'date:this-week ext:md' --limit 10` |
+| Audit large duplicate media | `eodinga search 'is:duplicate size:>10M' --limit 50` |
+| Search docs with regex | `eodinga search 'regex:/todo|fixme/i path:docs' --json` |
+| Confirm runtime health | `eodinga doctor && eodinga stats --json` |
+| Refresh shipped docs assets | `python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` |
+
 ## Architecture
 
 The runtime stack is intentionally small: read-only filesystem traversal, SQLite/FTS-backed indexing, a shared DSL compiler/executor, and thin CLI/GUI surfaces. The component map and data flow are documented in [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md).
@@ -228,6 +257,13 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - `docs/CONTRIBUTING.md` is the contributor workflow for sync, tests, docs refresh, and release hygiene.
 - `docs/RELEASE.md` is the local release-cut and handoff procedure.
 - `docs/man/eodinga.1` is the generated CLI reference derived from the real argparse surface.
+
+## Package Artifacts
+
+- Windows release builds emit a PyInstaller bundle plus an Inno Setup installer audit under `packaging/dist/`.
+- Linux AppImage dry runs render `packaging/linux/appimage-builder.yml` from the current package version before building.
+- Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, and compressed changelog into the package root.
+- The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
 
 ## Recovery and Troubleshooting
 
