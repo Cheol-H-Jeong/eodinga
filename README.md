@@ -87,7 +87,7 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 Use this when you want to validate the shipped v0.1 surface before cutting a release:
 
 ```bash
-source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)" && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && yamllint .github/workflows/release-windows.yml
+source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)" && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target all-dry-run && yamllint .github/workflows/release-windows.yml && yamllint .github/workflows/release-linux.yml
 ```
 
 The full SPEC §9 checklist, expected commands, and release-tag workflow live in [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md).
@@ -218,6 +218,7 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - Validate Windows packaging inputs with `python packaging/build.py --target windows-dry-run`.
 - Validate Linux AppImage packaging with `python packaging/build.py --target linux-appimage-dry-run`.
 - Validate Linux Debian packaging with `python packaging/build.py --target linux-deb-dry-run`.
+- Run the full packaging audit set with `python packaging/build.py --target all-dry-run`.
 
 ## Operator References
 

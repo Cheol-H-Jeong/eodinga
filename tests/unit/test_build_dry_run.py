@@ -89,6 +89,20 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["purge_targets_local_data_dir_only"] is True
 
 
+def test_all_dry_run_runs_every_packaging_audit() -> None:
+    result = subprocess.run(
+        [sys.executable, "packaging/build.py", "--target", "all-dry-run"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert Path("packaging/dist/windows-dry-run-audit.json").exists()
+    assert Path("packaging/dist/linux-appimage-audit.json").exists()
+    assert Path("packaging/dist/linux-deb-audit.json").exists()
+
+
 def test_windows_audit_validator_rejects_version_mismatch() -> None:
     module = _load_build_module()
     payload = module._audit_windows_inputs("0.1.136", "0.1.135")

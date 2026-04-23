@@ -68,6 +68,7 @@ Packaging and workflow validation:
 python packaging/build.py --target windows-dry-run
 python packaging/build.py --target linux-appimage-dry-run
 python packaging/build.py --target linux-deb-dry-run
+python packaging/build.py --target all-dry-run
 yamllint .github/workflows/release-windows.yml
 yamllint .github/workflows/release-linux.yml
 ```

@@ -405,11 +405,25 @@ def _run_linux_deb() -> int:
     )
 
 
+def _run_all_dry_run() -> int:
+    runners = (
+        _run_windows_dry_run,
+        _run_linux_appimage_dry_run,
+        _run_linux_deb_dry_run,
+    )
+    for runner in runners:
+        result = runner()
+        if result != 0:
+            return result
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--target",
         choices=(
+            "all-dry-run",
             "linux-appimage-dry-run",
             "linux-appimage",
             "linux-deb-dry-run",
@@ -420,6 +434,8 @@ def main(argv: list[str] | None = None) -> int:
         required=True,
     )
     args = parser.parse_args(argv)
+    if args.target == "all-dry-run":
+        return _run_all_dry_run()
     if args.target == "linux-appimage-dry-run":
         return _run_linux_appimage_dry_run()
     if args.target == "linux-appimage":
