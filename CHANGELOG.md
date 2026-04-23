@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.121 - 2026-04-23
+
+- Split the launcher state and result-model helpers into a dedicated module, bringing the main launcher widget back under the repository's module-size guard without changing its runtime behavior.
+- Expanded launcher keyboard flow so `Home`, `End`, `PgUp`, and `PgDn` can jump directly from the query field into results, and `Ctrl+A` now reliably returns focus to the query with the current text selected.
+- Added explicit accessible names for the main tab surface and the remaining tab-level controls, extending the existing offscreen launcher accessibility work across the rest of the GUI.
+
 ## 0.1.120 - 2026-04-23
 
 - Centralized SQLite connection setup behind a shared helper that keeps the runtime PRAGMA profile consistent while explicitly reserving a 128-statement cache for index rebuilds, stale-WAL recovery, normal opens, and the opt-in perf harness.

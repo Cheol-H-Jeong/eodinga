@@ -91,7 +91,7 @@ class LauncherPanel(QWidget):
             QShortcut(QKeySequence("Ctrl+Return"), self),
             QShortcut(QKeySequence("Shift+Return"), self),
             QShortcut(QKeySequence("Alt+C"), self),
-            QShortcut(QKeySequence.SelectAll, self),
+            QShortcut(QKeySequence(QKeySequence.StandardKey.SelectAll), self),
             QShortcut(QKeySequence("Ctrl+L"), self),
             QShortcut(QKeySequence("Alt+Up"), self),
             QShortcut(QKeySequence("Alt+Down"), self),
