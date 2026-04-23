@@ -268,7 +268,7 @@ class WatchService:
 
     def _flush_ready(self, force: bool) -> None:
         now = monotonic()
-        flushed: list[WatchEvent] = []
+        flushed: list[tuple[Path, WatchEvent, set[Path]]] = []
         with self._lock:
             ready_paths = [
                 path
@@ -286,13 +286,16 @@ class WatchService:
                         self._flushed_retired_sources.update(retired_sources)
                     if event.event_type in {"created", "modified", "deleted"}:
                         self._flushed_retired_sources.discard(event.path)
-                    flushed.append(event)
+                    flushed.append((path, event, retired_sources))
         delivered: list[WatchEvent] = []
-        for event in flushed:
+        for index, (_path, event, _retired_sources) in enumerate(flushed):
             if not self._enqueue_event(event):
                 with self._lock:
-                    self._pending[event.path] = event
-                    self._timestamps[event.path] = now
+                    for pending_path, pending_event, retired_sources in flushed[index:]:
+                        self._pending[pending_path] = pending_event
+                        if retired_sources:
+                            self._retired_sources[pending_path] = retired_sources
+                        self._timestamps[pending_path] = now
                 break
             delivered.append(event)
         if delivered:

@@ -698,3 +698,62 @@ def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path)
 
     second_event = service.queue.get_nowait()
     assert second_event.path == second
+
+
+def test_watcher_flush_restores_undelivered_tail_when_enqueue_aborts(tmp_path: Path) -> None:
+    service = WatchService()
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    third = tmp_path / "third.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=first,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=second,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=third,
+            root_path=tmp_path,
+            happened_at=3.0,
+        )
+    )
+
+    delivered: list[Path] = []
+    original_enqueue = service._enqueue_event
+
+    def fail_after_first(event: WatchEvent) -> bool:
+        delivered.append(event.path)
+        if len(delivered) == 2:
+            return False
+        return original_enqueue(event)
+
+    service._enqueue_event = fail_after_first  # type: ignore[method-assign]
+
+    service._flush_ready(force=True)
+
+    first_event = service.queue.get_nowait()
+    assert first_event.path == first
+    assert delivered == [first, second]
+    assert list(service._pending) == [second, third]
+
+    service._enqueue_event = original_enqueue  # type: ignore[method-assign]
+    service._flush_ready(force=True)
+
+    assert service.queue.get_nowait().path == second
+    assert service.queue.get_nowait().path == third
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
