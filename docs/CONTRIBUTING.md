@@ -247,6 +247,20 @@ Before handing off a docs-heavy round, gather one small review packet instead of
 
 That packet gives the next reviewer a direct path to the same evidence without replaying the entire round.
 
+## Handoff Note Template
+
+Use this compact shape when you report a worker round upstream:
+
+```text
+Command bundle: <exact command>
+Evidence opened: <artifact or manifest path>
+Changed sections: <headings or examples>
+Gate status: <green or first failure repaired>
+Touched files: <paths>
+```
+
+Keep the note factual. If the round was docs-only, say that directly instead of implying code behavior changed.
+
 ## Packaging Review Checklist
 
 - Run only the dry-run targets that match the packaging surface you changed.
@@ -258,5 +272,6 @@ That packet gives the next reviewer a direct path to the same evidence without r
 
 - Prefer single-shot commands that either finish cleanly or stop at the first real failure.
 - Avoid interactive prompts in contributor docs unless the workflow genuinely requires them.
+- When the round is docs-only, prefer one command bundle plus one evidence packet over a long prose recap.
 - When a command can emit benign noise during setup, suppress it so copy-paste runs stay readable.
 - If a docs-only round depends on a packaged artifact, document the exact dry-run command instead of sending the reader to guess between targets.

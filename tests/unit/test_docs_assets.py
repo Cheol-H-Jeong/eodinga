@@ -185,6 +185,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Commit and Release Notes" in contributing
     assert "## Review Checklist" in contributing
     assert "## Docs Review Packet" in contributing
+    assert "## Handoff Note Template" in contributing
     assert "## Packaging Review Checklist" in contributing
     assert "## Command Hygiene" in contributing
     assert "treat the requested module spec as a hard scope boundary" in contributing
@@ -193,6 +194,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "The final release commit for a round should carry the version bump" in contributing
     assert "Do not rewrite earlier docs or feature commits" in contributing
     assert "Prefer one explicit evidence bundle over ad-hoc retries." in contributing
+    assert "Command bundle: <exact command>" in contributing
+    assert "Keep the note factual." in contributing
+    assert "prefer one command bundle plus one evidence packet over a long prose recap" in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl
