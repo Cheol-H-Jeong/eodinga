@@ -1690,6 +1690,20 @@ def test_executor_caches_content_text_sql_templates_by_chunk_size() -> None:
     assert cache_info.currsize == 2
 
 
+def test_executor_caches_normalized_search_text() -> None:
+    executor_module._normalize_search_text_cached.cache_clear()
+
+    first = executor_module._normalize_search_text("회의록", case_sensitive=False)
+    second = executor_module._normalize_search_text("회의록", case_sensitive=False)
+    third = executor_module._normalize_search_text("회의록", case_sensitive=True)
+
+    assert first == second == "회의록"
+    assert third == "회의록"
+    cache_info = executor_module._normalize_search_text_cached.cache_info()
+    assert cache_info.hits >= 1
+    assert cache_info.currsize == 2
+
+
 def test_executor_caches_compiled_regex_by_pattern_and_flags() -> None:
     executor_module._compile_regex.cache_clear()
 

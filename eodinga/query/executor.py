@@ -39,8 +39,15 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+_NORMALIZED_SEARCH_TEXT_CACHE_SIZE = 4_096
 _ROOT_SCOPE_CLAUSE_CACHE_SIZE = 128
 _SCAN_BATCH_SIZE = 2_000
+
+
+@lru_cache(maxsize=_NORMALIZED_SEARCH_TEXT_CACHE_SIZE)
+def _normalize_search_text_cached(value: str, case_sensitive: bool) -> str:
+    normalized = unicodedata.normalize("NFC", value)
+    return normalized if case_sensitive else normalized.casefold()
 
 
 @lru_cache(maxsize=256)
@@ -232,8 +239,7 @@ def _term_matches(
 
 
 def _normalize_search_text(value: str, case_sensitive: bool) -> str:
-    normalized = unicodedata.normalize("NFC", value)
-    return normalized if case_sensitive else normalized.casefold()
+    return _normalize_search_text_cached(value, case_sensitive)
 
 
 def _fts_prefix_literal(value: str) -> str:
