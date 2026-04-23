@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.811 - 2026-04-23
+
+- Persisted observability counters, histograms, and recent command snapshots to an atomic state-file path, so metrics survive process restarts instead of resetting to the current process only.
+- Updated `eodinga stats --json` to read from the persisted metrics store when enabled and to report the metrics-path and persistence status alongside the existing runtime metadata.
+- Added restart-style observability coverage for persisted metrics plus a packaging-test isolation fix that keeps the unit suite deterministic even when stale Windows build artifacts are present in the worktree.
+
 ## 0.1.806 - 2026-04-23
 
 - Preserved watcher move-source suppression across queue backpressure, so a delayed `moved` flush no longer leaks a false follow-up `deleted` event for the retired source path.
