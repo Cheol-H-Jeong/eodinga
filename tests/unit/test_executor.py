@@ -114,6 +114,7 @@ def populated_db(tmp_db: sqlite3.Connection) -> sqlite3.Connection:
         ("path:/workspace/projects ext:pdf", "doc-005.pdf"),
         ("report-011 -content:launch", "report-011.py"),
         ("doc-034", "doc-034.py"),
+        ("regex:/report-[0-9]+/", "report-011.py"),
     ],
 )
 def test_execute_queries(populated_db: sqlite3.Connection, query: str, expected_first: str) -> None:

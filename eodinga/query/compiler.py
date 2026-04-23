@@ -135,6 +135,13 @@ def _parse_bool(value: str) -> bool:
     raise QuerySyntaxError(f"invalid boolean value: {value}", 0)
 
 
+def _try_parse_bool(value: str) -> bool | None:
+    try:
+        return _parse_bool(value)
+    except QuerySyntaxError:
+        return None
+
+
 def _regex_flags(flags: str) -> int:
     compiled_flags = 0
     for flag in flags.lower():
@@ -377,9 +384,24 @@ def _compile_branch(
                 case_sensitive = not case_sensitive
             continue
         if term.name == "regex":
-            regex_mode = _parse_bool(term.value)
-            if term.negated:
-                regex_mode = not regex_mode
+            bool_value = (
+                _try_parse_bool(term.value)
+                if term.value_kind == "word"
+                else None
+            )
+            if bool_value is not None:
+                regex_mode = bool_value
+                if term.negated:
+                    regex_mode = not regex_mode
+                continue
+            _validate_regex_pattern(term.value, term.regex_flags)
+            path_regex_terms.append(
+                CompiledRegexTerm(
+                    pattern=term.value,
+                    flags=term.regex_flags,
+                    negated=term.negated,
+                )
+            )
             continue
         raise QuerySyntaxError(f"unsupported operator: {term.name}", 0)
 

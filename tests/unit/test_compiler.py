@@ -52,6 +52,35 @@ def test_compile_regex_mode_promotes_plain_terms_to_regex() -> None:
     assert branch.path_regex_terms[0].negated is False
 
 
+def test_compile_regex_operator_accepts_explicit_pattern_alias() -> None:
+    compiled = compile_query(parse("regex:/todo|fixme/i"))
+    branch = compiled.branches[0]
+
+    assert branch.regex_mode is False
+    assert branch.path_match_sql is None
+    assert branch.path_regex_terms == (
+        branch.path_regex_terms[0],
+    )
+    assert branch.path_regex_terms[0].pattern == "todo|fixme"
+    assert branch.path_regex_terms[0].flags == "i"
+    assert branch.path_regex_terms[0].negated is False
+
+
+def test_compile_regex_operator_accepts_word_pattern_alias() -> None:
+    compiled = compile_query(parse(r"regex:report-\d+"))
+    branch = compiled.branches[0]
+
+    assert branch.regex_mode is False
+    assert branch.path_match_sql is None
+    assert branch.path_terms == ()
+    assert branch.path_regex_terms == (
+        branch.path_regex_terms[0],
+    )
+    assert branch.path_regex_terms[0].pattern == r"report-\d+"
+    assert branch.path_regex_terms[0].flags == ""
+    assert branch.path_regex_terms[0].negated is False
+
+
 @pytest.mark.parametrize(
     ("query", "expected_case_sensitive", "expected_regex_mode"),
     [
