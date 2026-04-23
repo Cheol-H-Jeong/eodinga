@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.281 - 2026-04-23
+## 0.1.282 - 2026-04-23
 
 - Tightened the contributor and release guides around parallel worker worktrees, one-commit-at-a-time unit gates, and the final local-tag handoff flow so docs rounds remain reproducible under concurrent landing.
 - Expanded the performance guide with the checked-in perf-harness defaults and a repeatable baseline-capture checklist, making documented numbers easier to audit against actual `tests/perf` output.
