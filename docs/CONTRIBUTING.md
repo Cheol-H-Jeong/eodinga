@@ -16,6 +16,17 @@ python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]
 4. Run the full local gate before handing off a release candidate.
 5. Update docs and screenshots when the visible or operator-facing contract changes.
 
+## Module Implementation Workers
+
+When a worker round is driven by an external orchestrator or another agent, treat the requested module spec as a hard scope boundary:
+
+1. Stay inside the listed files and acceptance criteria.
+2. Pick the smallest interpretation when a spec is ambiguous and record that decision in the handoff note.
+3. Stop and escalate instead of editing files outside the declared scope just to "make it work".
+4. Keep the final handoff factual: acceptance criteria status, touched files, and any explicit blocker.
+
+This keeps parallel worker rounds reviewable and avoids hidden cross-theme edits that are hard to rebase later.
+
 ## Parallel Worktrees
 
 When multiple workers are landing rounds concurrently, keep the local loop deterministic:
@@ -224,6 +235,17 @@ Before you stop a worker round, confirm:
 - README examples use the current query surface and current operator names.
 - Derived docs assets are regenerated from code, not edited by hand.
 - The final release metadata commit contains only the version/changelog/tag cut unless a same-round asset refresh is required.
+
+## Docs Review Packet
+
+Before handing off a docs-heavy round, gather one small review packet instead of describing validation from memory:
+
+1. The exact command bundle you ran.
+2. The generated asset or manifest path you inspected, such as `docs/man/eodinga.1`, `docs/screenshots/`, or `packaging/dist/`.
+3. The specific section headings or examples that changed.
+4. Any intentionally skipped validation step, with the reason it was not applicable.
+
+That packet gives the next reviewer a direct path to the same evidence without replaying the entire round.
 
 ## Packaging Review Checklist
 

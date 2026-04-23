@@ -156,6 +156,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
+    assert "## Module Implementation Workers" in contributing
     assert "## Quality Gates" in contributing
     assert "## Scope Guardrails" in contributing
     assert "## Documentation Expectations" in contributing
@@ -176,8 +177,11 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
     assert "## Review Checklist" in contributing
+    assert "## Docs Review Packet" in contributing
     assert "## Packaging Review Checklist" in contributing
     assert "## Command Hygiene" in contributing
+    assert "treat the requested module spec as a hard scope boundary" in contributing
+    assert "The exact command bundle you ran." in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
     assert "The final release commit for a round should carry the version bump" in contributing
     assert "Do not rewrite earlier docs or feature commits" in contributing
