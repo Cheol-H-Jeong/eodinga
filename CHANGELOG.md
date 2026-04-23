@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.951 - 2026-04-24
+## 0.1.952 - 2026-04-24
 
 - Treated contradictory boolean query toggles like `case:true case:false` and `regex:true regex:false` as unsatisfiable branches instead of silently letting the last term win, so grouped negation and executor results now obey boolean logic.
 - Added compiler and executor regressions for those contradictory mode combinations, including the previously broken `-(case:true | case:false)` form.
