@@ -177,6 +177,7 @@ class EodingaWindow(QMainWindow):
         self._config = resolved_config
         self._config_path = resolved_config_path
         self.settings_tab.set_hotkey_combo(self._hotkey_controller.combo)
+        self.settings_tab.set_hotkey_available(self._hotkey_controller.available)
         self.settings_tab.set_frameless(resolved_config.launcher.frameless)
         self.settings_tab.set_always_on_top(resolved_config.launcher.always_on_top)
         self.settings_tab.hotkey_change_requested.connect(self._change_hotkey)
@@ -201,6 +202,9 @@ class EodingaWindow(QMainWindow):
         super().closeEvent(event)
 
     def _change_hotkey(self, combo: str) -> None:
+        if not self._hotkey_controller.available:
+            self.settings_tab.set_hotkey_available(False)
+            return
         try:
             self._hotkey_controller.rebind(combo)
         except Exception as error:

@@ -15,6 +15,7 @@ class SettingsTab(QWidget):
         super().__init__(parent)
         self.setAccessibleName("Settings tab")
         self._hotkey_combo = "ctrl+shift+space"
+        self._hotkey_available = True
         layout = QVBoxLayout(self)
         title = QLabel("Settings", self)
         title.setProperty("role", "title")
@@ -29,12 +30,17 @@ class SettingsTab(QWidget):
         self.hotkey_label = QLabel("", self)
         self.hotkey_label.setProperty("role", "secondary")
         self.hotkey_label.setAccessibleName("Current launcher hotkey")
+        self.hotkey_status_label = QLabel("", self)
+        self.hotkey_status_label.setProperty("role", "secondary")
+        self.hotkey_status_label.setWordWrap(True)
+        self.hotkey_status_label.setAccessibleName("Launcher hotkey status")
         self.remap_hotkey_button = SecondaryButton("Remap hotkey", self)
         self.remap_hotkey_button.setAccessibleName("Remap hotkey")
         self.remap_hotkey_button.clicked.connect(self._prompt_hotkey_combo)
         self.frameless_checkbox.toggled.connect(self.frameless_changed.emit)
         self.always_on_top_checkbox.toggled.connect(self.always_on_top_changed.emit)
         self.set_hotkey_combo(self._hotkey_combo)
+        self.set_hotkey_available(True)
 
         layout.addWidget(title)
         layout.addWidget(body)
@@ -42,12 +48,19 @@ class SettingsTab(QWidget):
         layout.addWidget(self.frameless_checkbox)
         layout.addWidget(self.always_on_top_checkbox)
         layout.addWidget(self.hotkey_label)
+        layout.addWidget(self.hotkey_status_label)
         layout.addWidget(self.remap_hotkey_button)
         layout.addStretch(1)
 
     def set_hotkey_combo(self, combo: str) -> None:
         self._hotkey_combo = combo
         self.hotkey_label.setText(f"Launcher hotkey: {combo}")
+        self._refresh_hotkey_status()
+
+    def set_hotkey_available(self, available: bool) -> None:
+        self._hotkey_available = available
+        self.remap_hotkey_button.setEnabled(available)
+        self._refresh_hotkey_status()
 
     def set_always_on_top(self, enabled: bool) -> None:
         self.always_on_top_checkbox.blockSignals(True)
@@ -70,3 +83,9 @@ class SettingsTab(QWidget):
         if not accepted or not normalized:
             return
         self.hotkey_change_requested.emit(normalized)
+
+    def _refresh_hotkey_status(self) -> None:
+        if self._hotkey_available:
+            self.hotkey_status_label.setText(f"Global launcher toggle is active on {self._hotkey_combo}.")
+            return
+        self.hotkey_status_label.setText("Global hotkey backend unavailable in this session. Remapping is disabled.")

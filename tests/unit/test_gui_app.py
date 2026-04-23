@@ -67,6 +67,7 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.settings_tab.frameless_checkbox.accessibleName() == "Use frameless launcher window"
     assert window.settings_tab.always_on_top_checkbox.accessibleName() == "Keep launcher always on top"
     assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"
+    assert window.settings_tab.hotkey_status_label.accessibleName() == "Launcher hotkey status"
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
     assert window.about_tab.accessibleName() == "About tab"
     assert window.launcher_window.pinned_queries_row.accessibleName() == "Pinned launcher queries"
@@ -333,6 +334,21 @@ def test_window_registers_hotkey_and_toggles_launcher_from_callback(qapp) -> Non
     window.close()
     qapp.processEvents()
     assert hotkey_service.calls[-1] == ("stop", "")
+
+
+def test_settings_tab_disables_remap_when_hotkey_backend_unavailable(monkeypatch, qapp) -> None:
+    monkeypatch.setattr(
+        "eodinga.gui.hotkey_controller.HotkeyService",
+        lambda: (_ for _ in ()).throw(RuntimeError("backend unavailable")),
+    )
+
+    window = EodingaWindow()
+    window.show()
+    qapp.processEvents()
+
+    assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+shift+space"
+    assert not window.settings_tab.remap_hotkey_button.isEnabled()
+    assert "backend unavailable" in window.settings_tab.hotkey_status_label.text().casefold()
 
 
 def test_settings_tab_rebinds_hotkey_without_restart(
