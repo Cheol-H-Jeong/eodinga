@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.249 - 2026-04-23
+## 0.1.262 - 2026-04-23
 
 - Restricted ranking deboost markers like `node_modules` and `.git` to full path segments, preventing unrelated paths such as `node_modules_backup` or `git-cache` from being unfairly pushed down.
 - Stabilized the Unicode path-scan fallback so equal-score duplicate filenames now break ties deterministically by path and id instead of depending on insertion order.
