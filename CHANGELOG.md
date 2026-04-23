@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.975 - 2026-04-24
+
+- Cached repeated root-scope SQL clause generation in the query executor, trimming repeated path-variant expansion work for searches scoped to the same root.
+- Memoized normalized search text in the executor hot path so repeated Unicode-aware matching avoids redundant NFC normalization and casefolding.
+- Cached ranker path-segment checks used for deboost markers, reducing repeated regex splitting when many results share similar path prefixes.
+
 ## 0.1.974 - 2026-04-24
 
 - Added a symptom-first README troubleshooting guide plus FAQ clarifications that point operators to the shortest command or audit artifact before they rerun broader release checks.
