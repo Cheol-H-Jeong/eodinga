@@ -4,7 +4,7 @@ from pathlib import Path
 import sqlite3
 from typing import cast
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QSystemTrayIcon
 
@@ -275,6 +275,23 @@ def test_settings_tab_toggles_launcher_frameless_live(qapp, temp_config_path: Pa
 
     assert bool(window.launcher_window.windowFlags() & Qt.WindowType.FramelessWindowHint)
     assert load(temp_config_path).launcher.frameless is True
+
+
+def test_frameless_launcher_can_drag_from_preview_pane(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"frameless": True, "window_x": 120, "window_y": 90})
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    launcher = window.launcher_window
+    launcher.show()
+    qapp.processEvents()
+    start = launcher.pos()
+
+    QTest.mousePress(launcher.preview_pane, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, launcher.preview_pane.rect().center())
+    QTest.mouseMove(launcher.preview_pane, launcher.preview_pane.rect().center() + QPoint(40, 24), delay=1)
+    QTest.mouseRelease(launcher.preview_pane, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, launcher.preview_pane.rect().center() + QPoint(40, 24))
+    qapp.processEvents()
+
+    assert launcher.pos() != start
 
 
 def test_tray_activation_toggles_launcher_visibility(qapp) -> None:

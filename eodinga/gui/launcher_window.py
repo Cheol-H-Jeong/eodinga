@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
+from PySide6.QtCore import QEvent, QPoint, QTimer, Qt
+from PySide6.QtGui import QCloseEvent, QHideEvent, QMouseEvent, QMoveEvent, QResizeEvent, QShowEvent
 
 from eodinga.config import AppConfig
 from eodinga.gui.design import MOTION_DEBOUNCE_MS
@@ -24,6 +24,7 @@ class LauncherWindow(LauncherPanel):
         super().__init__(search_fn=search_fn, max_results=max_results, debounce_ms=debounce_ms, state=state, parent=parent)
         self._config = config
         self._config_path = config_path.expanduser() if config_path is not None else None
+        self._drag_offset: QPoint | None = None
         self._geometry_restored = False
         self._geometry_save_timer = QTimer(self)
         self._geometry_save_timer.setSingleShot(True)
@@ -35,6 +36,7 @@ class LauncherWindow(LauncherPanel):
         width = self._config.launcher.window_width if self._config is not None else 640
         height = self._config.launcher.window_height if self._config is not None else 480
         self.resize(width, height)
+        self.preview_pane.installEventFilter(self)
 
     def keyPressEvent(self, event) -> None:
         if event.key() == Qt.Key.Key_Escape:
@@ -42,6 +44,11 @@ class LauncherWindow(LauncherPanel):
             event.accept()
             return
         super().keyPressEvent(event)
+
+    def eventFilter(self, watched, event) -> bool:
+        if watched is self.preview_pane and self._handle_preview_drag_event(event):
+            return True
+        return super().eventFilter(watched, event)
 
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
@@ -98,6 +105,28 @@ class LauncherWindow(LauncherPanel):
         self.setWindowFlags(flags)
         if self.isVisible():
             self.show()
+
+    def _handle_preview_drag_event(self, event: QEvent) -> bool:
+        if self._config is not None and not self._config.launcher.frameless:
+            return False
+        if event.type() == QEvent.Type.MouseButtonPress:
+            mouse_event = QMouseEvent(event)
+            if mouse_event.button() != Qt.MouseButton.LeftButton:
+                return False
+            self._drag_offset = mouse_event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            return True
+        if event.type() == QEvent.Type.MouseMove and self._drag_offset is not None:
+            mouse_event = QMouseEvent(event)
+            if not mouse_event.buttons() & Qt.MouseButton.LeftButton:
+                return False
+            self.move(mouse_event.globalPosition().toPoint() - self._drag_offset)
+            return True
+        if event.type() == QEvent.Type.MouseButtonRelease and self._drag_offset is not None:
+            mouse_event = QMouseEvent(event)
+            if mouse_event.button() == Qt.MouseButton.LeftButton:
+                self._drag_offset = None
+                return True
+        return False
 
     def _persist_geometry(self) -> None:
         if self._config is None or self._config_path is None or not self._geometry_restored:
