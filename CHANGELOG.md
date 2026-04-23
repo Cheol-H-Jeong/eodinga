@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.917 - 2026-04-24
+## 0.1.922 - 2026-04-24
 
 - Added flagged global regex mode for plain terms, so `regex:i`, `regex:m`, `regex:s`, and mixed combinations like `regex:ims` now compile cleanly and validate patterns before execution.
 - Made regex-mode plain terms preserve the normal path-or-content search scope instead of silently narrowing to path-only matches, including multiline and dotall evaluation against indexed content.
