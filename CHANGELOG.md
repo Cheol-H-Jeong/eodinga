@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.913 - 2026-04-23
+
+- Fixed cached relative-date query compilation so `date:today`, `date:tomorrow`, and related aliases always resolve against the current local boundary instead of a stale earlier compile.
+- Added launcher-side query pinning with shared-state persistence, so pinned searches can be created or removed directly from the popup launcher and stay synced with the Search tab.
+- Added result-list context menus for open, reveal, copy-path, copy-name, and properties actions, exposing the existing launcher result actions through right-click as well as the action bar and keyboard shortcuts.
+
 ## 0.1.905 - 2026-04-23
 
 - Moved CLI stats summarization into a dedicated observability helper so the command surface stays easier to evolve without bloating the main entrypoint.
