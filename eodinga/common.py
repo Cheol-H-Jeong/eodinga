@@ -126,8 +126,8 @@ class StatsSnapshot(BaseModel):
     commands_completed: int = 0
     commands_failed: int = 0
     commands_interrupted: int = 0
-    stats_requests_served: int = 0
-    stats_json_requests_served: int = 0
+    stats_runs: int = 0
+    stats_json_runs: int = 0
     crashes_reported: int = 0
     crash_logs_written: int = 0
     crash_log_write_failures: int = 0

@@ -206,9 +206,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     db_path = args.db or config.index.db_path
     with closing(open_index(db_path)) as conn:
         index_snapshot = read_index_stats(conn)
-    increment_counter("stats_requests_served")
+    increment_counter("stats_runs")
     if args.json:
-        increment_counter("stats_json_requests_served")
+        increment_counter("stats_json_runs")
     record_snapshot(
         "command.stats",
         {
@@ -259,8 +259,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         commands_completed=int(counters.get("commands_completed", 0)),
         commands_failed=int(counters.get("commands_failed", 0)),
         commands_interrupted=int(counters.get("commands_interrupted", 0)),
-        stats_requests_served=int(counters.get("stats_requests_served", 0)),
-        stats_json_requests_served=int(counters.get("stats_json_requests_served", 0)),
+        stats_runs=int(counters.get("stats_runs", 0)),
+        stats_json_runs=int(counters.get("stats_json_runs", 0)),
         crashes_reported=counter_value("crashes_reported"),
         crash_logs_written=counter_value("crash_logs_written"),
         crash_log_write_failures=counter_value("crash_log_write_failures"),
