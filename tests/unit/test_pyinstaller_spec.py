@@ -136,3 +136,31 @@ def test_pyinstaller_spec_ignores_relative_package_imports_when_discovering_sour
 
     assert "button" not in discovered
     assert "external_package.adapters" in discovered
+
+
+def test_pyinstaller_spec_discovers_locale_datas_from_directory(tmp_path: Path) -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_datas = cast(Callable[[Path], list[tuple[str, str]]], namespace["_discover_datas"])
+
+    project_root = tmp_path / "project"
+    i18n_dir = project_root / "eodinga" / "i18n"
+    i18n_dir.mkdir(parents=True)
+    (i18n_dir / "en.json").write_text("{}", encoding="utf-8")
+    (i18n_dir / "fr.json").write_text("{}", encoding="utf-8")
+    (project_root / "LICENSE").write_text("license", encoding="utf-8")
+
+    original_i18n_dir = namespace["I18N_DIR"]
+    try:
+        namespace["I18N_DIR"] = i18n_dir
+        datas = discover_datas(project_root)
+    finally:
+        namespace["I18N_DIR"] = original_i18n_dir
+
+    assert datas == [
+        (str(i18n_dir / "en.json"), "eodinga/i18n"),
+        (str(i18n_dir / "fr.json"), "eodinga/i18n"),
+        (str(project_root / "LICENSE"), "."),
+    ]

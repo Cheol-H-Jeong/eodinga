@@ -162,6 +162,12 @@ def _is_stdlib_module(module_name: str) -> bool:
     return root_name in sys.stdlib_module_names
 
 
+def _discover_datas(project_root: Path) -> list[tuple[str, str]]:
+    datas = [(str(path), "eodinga/i18n") for path in sorted(I18N_DIR.glob("*.json"))]
+    datas.append((str(project_root / "LICENSE"), "."))
+    return datas
+
+
 def _discover_source_hidden_imports(source_root: Path) -> list[str]:
     discovered: set[str] = set()
     for source_path in source_root.rglob("*.py"):
@@ -207,11 +213,7 @@ HIDDEN_IMPORTS = sorted(
     }
 )
 
-DATAS = [
-    (str(I18N_DIR / "en.json"), "eodinga/i18n"),
-    (str(I18N_DIR / "ko.json"), "eodinga/i18n"),
-    (str(PROJECT_ROOT / "LICENSE"), "."),
-]
+DATAS = _discover_datas(PROJECT_ROOT)
 
 SPEC_AUDIT = {
     "cli_entry": str(ENTRY_CLI),
