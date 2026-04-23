@@ -38,6 +38,29 @@ class _ContentPresenceCache(NamedTuple):
     has_indexed_content: bool
 
 
+class _CompiledTextTerm(NamedTuple):
+    normalized_value: str
+    kind: str
+    negated: bool
+    phrase_pattern: re.Pattern[str] | None
+
+
+class _CompiledRegexTerm(NamedTuple):
+    pattern: re.Pattern[str]
+    negated: bool
+
+
+class _BranchFilterPlan(NamedTuple):
+    case_sensitive: bool
+    path_terms: tuple[_CompiledTextTerm, ...]
+    path_filters: tuple[_CompiledTextTerm, ...]
+    content_terms: tuple[_CompiledTextTerm, ...]
+    path_regex_terms: tuple[_CompiledRegexTerm, ...]
+    content_regex_terms: tuple[_CompiledRegexTerm, ...]
+    positive_path_terms: tuple[_CompiledTextTerm, ...]
+    needs_record_filter: bool
+
+
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
 
 
@@ -188,16 +211,21 @@ def _text_matches(value: str, needle: str, case_sensitive: bool) -> bool:
     return normalized_needle in haystack
 
 
+def _compiled_phrase_pattern(normalized_phrase: str) -> re.Pattern[str] | None:
+    tokens = tuple(token for token in re.split(r"[\W_]+", normalized_phrase) if token)
+    if len(tokens) < 2:
+        return None
+    pattern = r"[\W_]+".join(re.escape(token) for token in tokens)
+    return re.compile(pattern)
+
+
 def _phrase_matches(value: str, phrase: str, case_sensitive: bool) -> bool:
     normalized_phrase = _normalize_search_text(phrase, case_sensitive=case_sensitive)
     normalized_value = _normalize_search_text(value, case_sensitive=case_sensitive)
     if normalized_phrase in normalized_value:
         return True
-    tokens = tuple(token for token in re.split(r"[\W_]+", normalized_phrase) if token)
-    if len(tokens) < 2:
-        return False
-    pattern = r"[\W_]+".join(re.escape(token) for token in tokens)
-    return bool(re.search(pattern, normalized_value))
+    pattern = _compiled_phrase_pattern(normalized_phrase)
+    return bool(pattern and pattern.search(normalized_value))
 
 
 def _term_matches(
@@ -217,6 +245,67 @@ def _normalize_search_text(value: str, case_sensitive: bool) -> str:
     return normalized if case_sensitive else normalized.casefold()
 
 
+def _compile_text_term(term_value: str, kind: str, negated: bool, case_sensitive: bool) -> _CompiledTextTerm:
+    normalized_value = _normalize_search_text(term_value, case_sensitive=case_sensitive)
+    phrase_pattern = _compiled_phrase_pattern(normalized_value) if kind == "phrase" else None
+    return _CompiledTextTerm(
+        normalized_value=normalized_value,
+        kind=kind,
+        negated=negated,
+        phrase_pattern=phrase_pattern,
+    )
+
+
+def _compile_regex_term(
+    pattern: str,
+    flags: str,
+    negated: bool,
+    default_case_sensitive: bool,
+) -> _CompiledRegexTerm:
+    compiled = re.compile(
+        pattern,
+        _make_flags(flags)
+        | (0 if default_case_sensitive or "i" in flags.lower() else re.IGNORECASE),
+    )
+    return _CompiledRegexTerm(pattern=compiled, negated=negated)
+
+
+def _compile_branch_filter_plan(branch: CompiledBranch) -> _BranchFilterPlan:
+    path_terms = tuple(
+        _compile_text_term(term.value, term.kind, term.negated, branch.case_sensitive)
+        for term in branch.path_terms
+    )
+    positive_path_terms = tuple(term for term in path_terms if not term.negated)
+    return _BranchFilterPlan(
+        case_sensitive=branch.case_sensitive,
+        path_terms=path_terms,
+        path_filters=tuple(
+            _compile_text_term(term.value, term.kind, term.negated, branch.case_sensitive)
+            for term in branch.path_filters
+        ),
+        content_terms=tuple(
+            _compile_text_term(term.value, term.kind, term.negated, branch.case_sensitive)
+            for term in branch.content_terms
+        ),
+        path_regex_terms=tuple(
+            _compile_regex_term(term.pattern, term.flags, term.negated, branch.case_sensitive)
+            for term in branch.path_regex_terms
+        ),
+        content_regex_terms=tuple(
+            _compile_regex_term(term.pattern, term.flags, term.negated, branch.case_sensitive)
+            for term in branch.content_regex_terms
+        ),
+        positive_path_terms=positive_path_terms,
+        needs_record_filter=bool(
+            branch.path_filters
+            or branch.path_regex_terms
+            or branch.content_terms
+            or branch.content_regex_terms
+            or any(term.negated for term in branch.path_terms)
+        ),
+    )
+
+
 def _fts_prefix_literal(value: str) -> str:
     escaped = value.replace('"', '""')
     return f'"{escaped}"*'
@@ -225,6 +314,19 @@ def _fts_prefix_literal(value: str) -> str:
 def _term_ok(text: str, term_value: str, kind: str, case_sensitive: bool, negated: bool) -> bool:
     matched = _term_matches(text, term_value, kind=kind, case_sensitive=case_sensitive)
     return not matched if negated else matched
+
+
+def _compiled_text_matches(normalized_value: str, term: _CompiledTextTerm) -> bool:
+    if term.kind != "phrase":
+        return term.normalized_value in normalized_value
+    if term.normalized_value in normalized_value:
+        return True
+    return bool(term.phrase_pattern and term.phrase_pattern.search(normalized_value))
+
+
+def _compiled_term_ok(normalized_value: str, term: _CompiledTextTerm) -> bool:
+    matched = _compiled_text_matches(normalized_value, term)
+    return not matched if term.negated else matched
 
 
 def _regex_ok(
@@ -243,69 +345,51 @@ def _regex_ok(
     return not matched if negated else matched
 
 
-def _plain_term_matches_record(
-    record: FileRecord,
-    content_text: str,
-    term_value: str,
-    kind: str,
-    case_sensitive: bool,
-) -> bool:
-    target_text = f"{record.name} {record.parent_path} {record.path}"
-    return _term_matches(target_text, term_value, kind=kind, case_sensitive=case_sensitive) or (
-        bool(content_text)
-        and _term_matches(content_text, term_value, kind=kind, case_sensitive=case_sensitive)
+def _filter_record(plan: _BranchFilterPlan, record: FileRecord, content_text: str) -> bool:
+    normalized_content_text = (
+        _normalize_search_text(content_text, case_sensitive=plan.case_sensitive)
+        if content_text
+        else ""
     )
-
-
-def _filter_record(branch: CompiledBranch, record: FileRecord, content_text: str) -> bool:
-    for term in branch.path_terms:
-        matched = _plain_term_matches_record(
-            record,
-            content_text,
-            term.value,
-            term.kind,
-            branch.case_sensitive,
+    normalized_path_text = (
+        _normalize_search_text(str(record.path), case_sensitive=plan.case_sensitive)
+        if plan.path_filters
+        else ""
+    )
+    normalized_target_text = (
+        _normalize_search_text(
+            f"{record.name} {record.parent_path} {record.path}",
+            case_sensitive=plan.case_sensitive,
+        )
+        if plan.path_terms
+        else ""
+    )
+    for term in plan.path_terms:
+        matched = _compiled_text_matches(normalized_target_text, term) or (
+            bool(normalized_content_text) and _compiled_text_matches(normalized_content_text, term)
         )
         if term.negated and matched:
             return False
         if not term.negated and not matched:
             return False
-    for term in branch.path_filters:
-        if not _term_ok(
-            str(record.path),
-            term.value,
-            term.kind,
-            branch.case_sensitive,
-            term.negated,
-        ):
+    for term in plan.path_filters:
+        if not _compiled_term_ok(normalized_path_text, term):
             return False
     target_text = f"{record.name} {record.parent_path} {record.path}"
-    for term in branch.content_terms:
-        if not _term_ok(
-            content_text,
-            term.value,
-            term.kind,
-            branch.case_sensitive,
-            term.negated,
-        ):
+    for term in plan.content_terms:
+        if not _compiled_term_ok(normalized_content_text, term):
             return False
-    for term in branch.path_regex_terms:
-        if not _regex_ok(
-            target_text,
-            term.pattern,
-            term.flags,
-            term.negated,
-            branch.case_sensitive,
-        ):
+    for term in plan.path_regex_terms:
+        matched = bool(term.pattern.search(target_text))
+        if term.negated and matched:
             return False
-    for term in branch.content_regex_terms:
-        if not _regex_ok(
-            content_text,
-            term.pattern,
-            term.flags,
-            term.negated,
-            branch.case_sensitive,
-        ):
+        if not term.negated and not matched:
+            return False
+    for term in plan.content_regex_terms:
+        matched = bool(term.pattern.search(content_text))
+        if term.negated and matched:
+            return False
+        if not term.negated and not matched:
             return False
     return True
 
@@ -491,7 +575,10 @@ def _fetch_path_candidates_python_scan(
 
 
 def _fetch_content_candidates(
-    conn: sqlite3.Connection, branch: CompiledBranch, limit: int
+    conn: sqlite3.Connection,
+    branch: CompiledBranch,
+    plan: _BranchFilterPlan,
+    limit: int,
 ) -> tuple[list[int], dict[int, FileRecord], dict[int, str]]:
     if not branch.content_match_sql:
         return [], {}, {}
@@ -508,7 +595,7 @@ def _fetch_content_candidates(
     ids = [row["id"] for row in rows]
     if len(ids) >= limit or not _should_scan_content_candidates(branch, ids):
         return ids, records, snippets
-    scan_records = _scan_filtered_content_records(conn, branch, limit)
+    scan_records = _scan_filtered_content_records(conn, branch, plan, limit)
     for file_id, record in scan_records.items():
         if file_id in records:
             continue
@@ -521,7 +608,10 @@ def _fetch_content_candidates(
 
 
 def _fetch_auto_content_candidates(
-    conn: sqlite3.Connection, branch: CompiledBranch, limit: int
+    conn: sqlite3.Connection,
+    branch: CompiledBranch,
+    plan: _BranchFilterPlan,
+    limit: int,
 ) -> tuple[list[int], dict[int, FileRecord], dict[int, str]]:
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if branch.content_required or not positive_terms:
@@ -537,7 +627,7 @@ def _fetch_auto_content_candidates(
     ids = [row["id"] for row in rows]
     if len(ids) >= limit or not _should_scan_auto_content_candidates(branch, ids):
         return ids, records, snippets
-    scan_records = _scan_auto_content_candidates(conn, branch, limit)
+    scan_records = _scan_auto_content_candidates(conn, branch, plan, limit)
     for file_id, record in scan_records.items():
         if file_id in records:
             continue
@@ -619,6 +709,7 @@ def _fetch_content_backfill_batch(
 def _scan_filtered_records(
     conn: sqlite3.Connection,
     branch: CompiledBranch,
+    plan: _BranchFilterPlan,
     limit: int,
 ) -> dict[int, FileRecord]:
     target = max(limit, 1)
@@ -635,9 +726,9 @@ def _scan_filtered_records(
         )
         if not batch:
             break
-        content_texts = _fetch_content_texts(conn, batch) if _needs_record_filter(branch) else {}
+        content_texts = _fetch_content_texts(conn, batch) if plan.needs_record_filter else {}
         for file_id, record in batch.items():
-            if _filter_record(branch, record, content_texts.get(file_id, "")):
+            if _filter_record(plan, record, content_texts.get(file_id, "")):
                 matched[file_id] = record
                 if len(matched) >= target:
                     break
@@ -648,6 +739,7 @@ def _scan_filtered_records(
 def _scan_filtered_content_records(
     conn: sqlite3.Connection,
     branch: CompiledBranch,
+    plan: _BranchFilterPlan,
     limit: int,
 ) -> dict[int, FileRecord]:
     target = max(limit, 1)
@@ -660,7 +752,7 @@ def _scan_filtered_content_records(
             break
         content_texts = _fetch_content_texts(conn, batch)
         for file_id, record in batch.items():
-            if _filter_record(branch, record, content_texts.get(file_id, "")):
+            if _filter_record(plan, record, content_texts.get(file_id, "")):
                 matched[file_id] = record
                 if len(matched) >= target:
                     break
@@ -671,10 +763,10 @@ def _scan_filtered_content_records(
 def _scan_auto_content_candidates(
     conn: sqlite3.Connection,
     branch: CompiledBranch,
+    plan: _BranchFilterPlan,
     limit: int,
 ) -> dict[int, FileRecord]:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
-    if not positive_terms:
+    if not plan.positive_path_terms:
         return {}
     target = max(limit, 1)
     batch_size = max(min(target * 2, 2000), 500)
@@ -687,14 +779,13 @@ def _scan_auto_content_candidates(
         content_texts = _fetch_content_texts(conn, batch)
         for file_id, record in batch.items():
             content_text = content_texts.get(file_id, "")
+            normalized_content_text = _normalize_search_text(
+                content_text,
+                case_sensitive=plan.case_sensitive,
+            )
             if not all(
-                _term_matches(
-                    content_text,
-                    term.value,
-                    kind=term.kind,
-                    case_sensitive=branch.case_sensitive,
-                )
-                for term in positive_terms
+                _compiled_text_matches(normalized_content_text, term)
+                for term in plan.positive_path_terms
             ):
                 continue
             matched[file_id] = record
@@ -704,16 +795,14 @@ def _scan_auto_content_candidates(
     return matched
 
 
-def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> list[int]:
-    positives = [term.value for term in branch.path_terms if not term.negated]
-    if not positives:
+def _prefix_hits(records: Mapping[int, FileRecord], plan: _BranchFilterPlan) -> list[int]:
+    if not plan.positive_path_terms:
         return []
     hits: list[int] = []
     for file_id, record in records.items():
-        check_name = _normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
-        for term in positives:
-            needle = _normalize_search_text(term, case_sensitive=branch.case_sensitive)
-            if check_name.startswith(needle):
+        check_name = _normalize_search_text(record.name, case_sensitive=plan.case_sensitive)
+        for term in plan.positive_path_terms:
+            if check_name.startswith(term.normalized_value):
                 hits.append(file_id)
                 break
     return hits
@@ -758,42 +847,25 @@ def _metadata_only_total_estimate(
 
 
 def _derive_name_path_hits(
-    records: Mapping[int, FileRecord], branch: CompiledBranch
+    records: Mapping[int, FileRecord], plan: _BranchFilterPlan
 ) -> tuple[list[int], list[int]]:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
     name_hits: list[int] = []
     path_hits: list[int] = []
-    if not positive_terms:
+    if not plan.positive_path_terms:
         ordered = sorted(
             records.values(),
-            key=lambda item: _record_order_key(item, case_sensitive=branch.case_sensitive),
+            key=lambda item: _record_order_key(item, case_sensitive=plan.case_sensitive),
         )
         ids = [record.id for record in ordered if record.id is not None]
         return ids, ids
     for record in records.values():
         if record.id is None:
             continue
-        target_name = record.name
-        target_path = str(record.path)
-        if any(
-            _term_matches(
-                target_name,
-                term.value,
-                kind=term.kind,
-                case_sensitive=branch.case_sensitive,
-            )
-            for term in positive_terms
-        ):
+        normalized_name = _normalize_search_text(record.name, case_sensitive=plan.case_sensitive)
+        normalized_path = _normalize_search_text(str(record.path), case_sensitive=plan.case_sensitive)
+        if any(_compiled_text_matches(normalized_name, term) for term in plan.positive_path_terms):
             name_hits.append(record.id)
-        if any(
-            _term_matches(
-                target_path,
-                term.value,
-                kind=term.kind,
-                case_sensitive=branch.case_sensitive,
-            )
-            for term in positive_terms
-        ):
+        if any(_compiled_text_matches(normalized_path, term) for term in plan.positive_path_terms):
             path_hits.append(record.id)
     return name_hits, path_hits
 
@@ -804,12 +876,21 @@ def _execute_branch(
     limit: int,
     has_indexed_content: bool,
 ) -> tuple[dict[int, FileRecord], dict[int, float], dict[int, str | None]]:
+    plan = _compile_branch_filter_plan(branch)
     path_ids, path_records = _fetch_path_candidates(conn, branch, limit * 4)
-    content_ids, content_records, snippets = _fetch_content_candidates(conn, branch, limit * 4)
+    content_ids, content_records, snippets = _fetch_content_candidates(
+        conn,
+        branch,
+        plan,
+        limit * 4,
+    )
     extra_records: dict[int, FileRecord] = {}
     if has_indexed_content:
         auto_content_ids, auto_content_records, auto_snippets = _fetch_auto_content_candidates(
-            conn, branch, limit * 4
+            conn,
+            branch,
+            plan,
+            limit * 4,
         )
     else:
         auto_content_ids, auto_content_records, auto_snippets = [], {}, {}
@@ -828,13 +909,14 @@ def _execute_branch(
             content_backfill = _scan_filtered_content_records(
                 conn,
                 branch,
+                plan,
                 max(limit * 4, 1000),
             )
             extra_records = content_backfill
             candidate_ids = set(content_backfill)
     else:
-        if _needs_record_filter(branch):
-            scanned_records = _scan_filtered_records(conn, branch, max(limit * 4, 1000))
+        if plan.needs_record_filter:
+            scanned_records = _scan_filtered_records(conn, branch, plan, max(limit * 4, 1000))
             extra_records = scanned_records
             candidate_ids = set(scanned_records)
         else:
@@ -848,21 +930,21 @@ def _execute_branch(
         )
     if not candidate_ids and not branch.path_match_sql and not branch.content_required:
         candidate_ids = set(records)
-    if _needs_record_filter(branch):
+    if plan.needs_record_filter:
         content_texts = _fetch_content_texts(conn, candidate_ids)
         filtered_records = {
             file_id: records[file_id]
             for file_id in candidate_ids
             if file_id in records
-            and _filter_record(branch, records[file_id], content_texts.get(file_id, ""))
+            and _filter_record(plan, records[file_id], content_texts.get(file_id, ""))
         }
     else:
         filtered_records = {
             file_id: records[file_id] for file_id in candidate_ids if file_id in records
         }
-    name_hits, path_hits = _derive_name_path_hits(filtered_records, branch)
+    name_hits, path_hits = _derive_name_path_hits(filtered_records, plan)
     content_hits = [file_id for file_id in content_ids if file_id in filtered_records]
-    prefix_hits = _prefix_hits(filtered_records, branch)
+    prefix_hits = _prefix_hits(filtered_records, plan)
     scores = rank_results(
         name_hits=name_hits,
         path_hits=path_hits,

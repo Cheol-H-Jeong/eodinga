@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from eodinga.query import executor as executor_module
+from eodinga.query import compile as compile_query
 from eodinga.query import search
 
 
@@ -1099,6 +1100,41 @@ def test_execute_regex_only_query_scans_beyond_initial_window(tmp_db: sqlite3.Co
     hits = [hit.file.name for hit in search(tmp_db, "/needle-[0-9]+/", limit=10).hits]
 
     assert hits == ["needle-1500.txt"]
+
+
+def test_execute_reuses_compiled_regex_during_python_scan(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = 1_713_528_000
+    for index in range(1, 601):
+        name = f"alpha-{index:04d}.txt"
+        if index == 600:
+            name = "needle-0600.txt"
+        _insert_file(
+            tmp_db,
+            index,
+            f"/workspace/{name}",
+            1024,
+            now - index,
+            "txt",
+            body_text="bulk",
+        )
+    tmp_db.commit()
+
+    compiled = compile_query("/needle-[0-9]+/")
+    original_compile = executor_module.re.compile
+    compile_calls: list[str] = []
+
+    def counting_compile(pattern: str, flags: int = 0):
+        compile_calls.append(pattern)
+        return original_compile(pattern, flags)
+
+    monkeypatch.setattr(executor_module.re, "compile", counting_compile)
+
+    hits = [hit.file.name for hit in executor_module.execute(tmp_db, compiled, limit=10).hits]
+
+    assert hits == ["needle-0600.txt"]
+    assert compile_calls == ["needle-[0-9]+"]
 
 
 def test_execute_negated_group_query(tmp_db: sqlite3.Connection) -> None:
