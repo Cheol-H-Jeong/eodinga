@@ -149,11 +149,19 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
                     continue
             else:
                 continue
-            if not node.args or not isinstance(node.args[0], ast.Constant):
+            module_name: str | None = None
+            if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                module_name = node.args[0].value
+            else:
+                for keyword in node.keywords:
+                    if keyword.arg != "name":
+                        continue
+                    if isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
+                        module_name = keyword.value.value
+                    break
+            if module_name is None:
                 continue
-            if not isinstance(node.args[0].value, str):
-                continue
-            discovered.add(node.args[0].value)
+            discovered.add(module_name)
     return sorted(discovered)
 
 
