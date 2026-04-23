@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.223 - 2026-04-23
+## 0.1.226 - 2026-04-23
 
 - Added a troubleshooting and release-artifact matrix to `README.md`, making the operator-facing contract easier to use directly for packaging checks and stale-index diagnosis.
 - Aligned `docs/ACCEPTANCE.md`, `docs/CONTRIBUTING.md`, and `docs/RELEASE.md` with the shipped Linux and Windows dry-run gates so the repository documents the same release workflow its tests and CI validate.
