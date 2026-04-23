@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.143 - 2026-04-23
+## 0.1.150 - 2026-04-23
 
 - Expanded `eodinga stats --json` so it now emits the full in-memory metrics snapshot, current log/crash destinations, crash-write counts, and CLI command counters alongside the persisted index totals.
 - Added CLI-bound observability for command invocations, failures, and per-command latency histograms, plus regressions that pin parser-error reporting and command metrics through real `main(...)` flows.
