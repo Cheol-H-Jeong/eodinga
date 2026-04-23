@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.415 - 2026-04-23
+
+- Extended phrase fallback matching so quoted queries now bridge underscore-separated path and content tokens, not just whitespace and punctuation.
+- Allowed relative `date:` aliases such as `today`, `last-week`, and `last-month` to participate inside bounded and open-ended date ranges.
+- Added open-ended `size:` ranges, enabling filters such as `size:..500K` and `size:10M..` alongside the existing bounded range form.
+
 ## 0.1.410 - 2026-04-23
 
 - Expanded `stats --json` so the typed payload now exposes watcher flush/backpressure metrics and logging sink counters directly, without forcing operators to decode raw counter keys.
