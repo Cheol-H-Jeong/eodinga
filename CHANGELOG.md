@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.177 - 2026-04-23
+
+- Reused cached `os.scandir()` `lstat` results throughout the filesystem walker, which removes a second `stat()` round-trip for discovered children while preserving the existing symlink-loop and alias-handling rules.
+- Kept `IndexWriter.bulk_upsert()` and `apply_events()` inside a caller-owned transaction instead of committing nested batches early, so staged rebuilds can stay one SQLite transaction from root insert through final swap.
+- Added targeted regressions that pin both optimizations: child-entry stat reuse with a fallback path when `DirEntry.stat()` is unavailable, and rebuild batches that must remain inside one outer transaction.
+
 ## 0.1.174 - 2026-04-23
 
 - Expanded `README.md` with a clearer shipped feature matrix, more query examples, practical CLI workflows, and a completed FAQ covering local-only behavior, recovery, parser extras, and health checks.
