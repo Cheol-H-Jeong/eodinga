@@ -4,6 +4,7 @@ import os
 import sys
 import threading
 import traceback
+from collections import deque
 from dataclasses import dataclass, field
 from collections.abc import Mapping
 from datetime import UTC, datetime
@@ -17,20 +18,11 @@ from loguru import logger
 _DEFAULT_HISTOGRAM_BUCKETS_MS = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0)
 _DEFAULT_LOG_ROTATION: str | int = "5 MB"
 _DEFAULT_LOG_RETENTION: str | int = 5
+_RECENT_SNAPSHOT_LIMIT = 20
 _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
 _PROCESS_STARTED_AT = datetime.now(UTC)
-
-
-class MetricsSnapshot(TypedDict):
-    counters: dict[str, int]
-    histograms: dict[str, dict[str, object]]
-    generated_at: str
-    process_started_at: str
-    pid: int
-    version: str
-    uptime_ms: float
 
 
 @dataclass
@@ -58,6 +50,25 @@ class _HistogramState:
             "max_ms": round(self.max_ms, 3) if self.max_ms is not None else 0.0,
             "buckets": dict(sorted(self.bucket_hits.items())),
         }
+
+
+class MetricsSnapshot(TypedDict):
+    counters: dict[str, int]
+    histograms: dict[str, dict[str, object]]
+    generated_at: str
+    process_started_at: str
+    pid: int
+    version: str
+    uptime_ms: float
+
+
+class SnapshotRecord(TypedDict):
+    name: str
+    recorded_at: str
+    payload: dict[str, object]
+
+
+_RECENT_SNAPSHOTS: deque[SnapshotRecord] = deque(maxlen=_RECENT_SNAPSHOT_LIMIT)
 
 
 def _bucket_label(value_ms: float, buckets_ms: tuple[float, ...]) -> str:
@@ -223,10 +234,23 @@ def reset_metrics() -> None:
     with _METRICS_LOCK:
         _COUNTERS.clear()
         _HISTOGRAMS.clear()
+        _RECENT_SNAPSHOTS.clear()
 
 
 def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
-    logger.bind(metric=name, payload=dict(payload)).debug("snapshot recorded")
+    record: SnapshotRecord = {
+        "name": name,
+        "recorded_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "payload": dict(payload),
+    }
+    with _METRICS_LOCK:
+        _RECENT_SNAPSHOTS.append(record)
+    logger.bind(metric=name, payload=record["payload"]).debug("snapshot recorded")
+
+
+def recent_snapshots() -> list[SnapshotRecord]:
+    with _METRICS_LOCK:
+        return list(_RECENT_SNAPSHOTS)
 
 
 def counter_value(name: str) -> int:
@@ -276,6 +300,7 @@ def write_crash_log(
         "metrics_generated_at": metrics["generated_at"],
         "metrics_counters": metrics["counters"],
         "metrics_histograms": metrics["histograms"],
+        "recent_snapshots": recent_snapshots(),
     }
     if details:
         metadata.update(details)
@@ -300,6 +325,7 @@ def report_crash(
 ) -> Path:
     crash_path = write_crash_log(error, context=context, details=details)
     increment_counter("crashes_reported")
+    increment_counter(f"crashes.{type(error).__name__}")
     target_stream = stream or sys.stderr
     target_stream.write(f"unhandled exception; crash log written to {crash_path}\n")
     return crash_path

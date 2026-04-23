@@ -515,8 +515,12 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["commands"]["search"]["started"] == 1
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 1
+    assert payload["crash_types"] == {}
     assert payload["parser_activity"] == {}
     assert payload["watcher_event_types"] == {}
+    assert len(payload["recent_snapshots"]) == 1
+    assert payload["recent_snapshots"][0]["name"] == "command.search"
+    assert payload["recent_snapshots"][0]["payload"]["query"] == "duplicate"
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
     assert payload["log_rotation"] == "5 MB"
@@ -647,6 +651,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["commands"]["search"]["completed"] == 1
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 2
+    assert payload["crash_types"] == {}
     assert payload["parser_activity"]["broken"]["errors"] == 1
     assert payload["watcher_event_types"] == {"created": 1, "modified": 1}
     assert payload["log_rotation"] == "5 MB"
@@ -661,6 +666,10 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["watcher_queue_backpressure_histogram"]["count"] == 1
     assert payload["index_rebuild_latency_histogram"]["count"] == 1
     assert payload["index_batch_size_histogram"]["count"] >= 1
+    assert [entry["name"] for entry in payload["recent_snapshots"]] == [
+        "command.index",
+        "command.search",
+    ]
 
 
 def test_stats_json_exposes_zero_result_query_metrics(tmp_path: Path, capsys) -> None:
@@ -782,6 +791,7 @@ def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Pat
     assert payload["commands"]["version"]["failed"] == 1
     assert payload["commands"]["version"]["started"] == 1
     assert payload["exit_codes"]["1"] == 1
+    assert payload["crash_types"] == {"RuntimeError": 1}
 
 
 def test_stats_json_structures_interrupted_command_counts(

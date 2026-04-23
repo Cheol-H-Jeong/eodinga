@@ -19,7 +19,9 @@ from eodinga.observability import (
     file_logging_enabled,
     increment_counter,
     install_crash_handlers,
+    recent_snapshots,
     record_histogram,
+    record_snapshot,
     resolve_crash_dir,
     resolve_log_compression,
     resolve_log_path,
@@ -170,6 +172,7 @@ def test_write_crash_log_records_runtime_metrics(tmp_path: Path) -> None:
     reset_metrics()
     increment_counter("queries_served", 2)
     record_histogram("query_latency_ms", 12.5)
+    record_snapshot("command.search", {"query": "metrics boom", "count": 2})
 
     try:
         raise RuntimeError("metrics boom")
@@ -180,6 +183,7 @@ def test_write_crash_log_records_runtime_metrics(tmp_path: Path) -> None:
     assert 'metrics_counters={"queries_served": 2}' in contents
     assert '"query_latency_ms"' in contents
     assert "metrics_generated_at=" in contents
+    assert 'recent_snapshots=[{"name": "command.search"' in contents
 
 
 def test_write_crash_log_uses_unique_path_when_timestamp_collides(tmp_path: Path) -> None:
@@ -200,12 +204,15 @@ def test_write_crash_log_uses_unique_path_when_timestamp_collides(tmp_path: Path
 
 def test_report_crash_writes_log_and_stderr(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path))
+    reset_metrics()
 
     crash_path = report_crash(RuntimeError("boom"), context="reported crash")
 
     captured = capsys.readouterr()
     assert str(crash_path) in captured.err
     assert "reported crash" in crash_path.read_text(encoding="utf-8")
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["crashes.RuntimeError"] == 1
 
 
 def test_install_crash_handlers_writes_thread_crash_log(
@@ -375,3 +382,15 @@ def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:
     assert metrics["pid"] > 0
     assert metrics["version"] == __version__
     assert metrics["uptime_ms"] >= 0
+
+
+def test_record_snapshot_keeps_recent_entries_bounded() -> None:
+    reset_metrics()
+
+    for index in range(25):
+        record_snapshot("command.search", {"index": index})
+
+    snapshots = recent_snapshots()
+    assert len(snapshots) == 20
+    assert snapshots[0]["payload"]["index"] == 5
+    assert snapshots[-1]["payload"]["index"] == 24

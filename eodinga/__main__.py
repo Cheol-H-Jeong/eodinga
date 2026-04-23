@@ -24,7 +24,9 @@ from eodinga.observability import (
     histogram_snapshot,
     increment_counter,
     install_crash_handlers,
+    record_snapshot,
     record_histogram,
+    recent_snapshots,
     resolve_crash_dir,
     resolve_log_path,
     snapshot_metrics,
@@ -129,11 +131,21 @@ def _cmd_index(args: argparse.Namespace) -> int:
         "roots": [str(root.path) for root in roots],
         "files_indexed": result.files_indexed,
     }
+    record_snapshot(
+        "command.index",
+        {
+            "db": str(result.db_path),
+            "roots": payload["roots"],
+            "files_indexed": result.files_indexed,
+            "rebuild": bool(args.rebuild),
+        },
+    )
     return _emit(payload, as_json=True)
 
 
 def _cmd_watch(args: argparse.Namespace) -> int:
     payload = {"command": "watch", "db": str(args.db) if args.db else None}
+    record_snapshot("command.watch", payload)
     return _emit(payload, as_json=True)
 
 
@@ -164,6 +176,17 @@ def _cmd_search(args: argparse.Namespace) -> int:
         "returned": len(results),
         "elapsed_ms": query_result.elapsed_ms,
     }
+    record_snapshot(
+        "command.search",
+        {
+            "query": args.query,
+            "count": query_result.total_estimate,
+            "returned": len(results),
+            "elapsed_ms": query_result.elapsed_ms,
+            "limit": limit,
+            "root": str(root) if root is not None else None,
+        },
+    )
     return _emit(payload, as_json=bool(args.json))
 
 
@@ -215,10 +238,12 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         index_batch_size_histogram=histogram_snapshot("index_batch_size"),
         commands=_command_summary(counters),
         exit_codes=_exit_code_summary(counters),
+        crash_types=_crash_type_summary(counters),
         parser_activity=_parser_activity_summary(counters),
         watcher_event_types=_watcher_event_type_summary(counters),
         counters=counters,
         histograms=metrics["histograms"],
+        recent_snapshots=recent_snapshots(),
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
         log_path=resolve_log_path(),
@@ -228,6 +253,16 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         crash_dir=resolve_crash_dir(),
         file_logging_enabled=file_logging_enabled(),
     ).model_dump(mode="json")
+    record_snapshot(
+        "command.stats",
+        {
+            "db": str(db_path),
+            "files_indexed": snapshot["files_indexed"],
+            "documents_indexed": snapshot["documents_indexed"],
+            "queries_served": snapshot["queries_served"],
+            "commands_started": snapshot["commands_started"],
+        },
+    )
     return _emit(snapshot, as_json=bool(args.json))
 
 
@@ -250,11 +285,20 @@ def _cmd_gui(args: argparse.Namespace) -> int:
 def _cmd_doctor(args: argparse.Namespace) -> int:
     config = _resolve_config(args)
     report, exit_code = run_diagnostics(config=config, db_path=args.db)
+    record_snapshot(
+        "command.doctor",
+        {
+            "db": str(args.db) if args.db else None,
+            "exit_code": exit_code,
+            "checks": len(report.get("checks", [])) if isinstance(report, dict) else 0,
+        },
+    )
     _emit(report, as_json=True)
     return exit_code
 
 
 def _cmd_version(args: argparse.Namespace) -> int:
+    record_snapshot("command.version", {"version": __version__})
     return _emit(__version__)
 
 
@@ -309,6 +353,16 @@ def _exit_code_summary(counters: dict[str, int]) -> dict[str, int]:
         name[len(prefix) :]: value for name, value in counters.items() if name.startswith(prefix)
     }
     return dict(sorted(exit_codes.items(), key=lambda item: int(item[0])))
+
+
+def _crash_type_summary(counters: dict[str, int]) -> dict[str, int]:
+    prefix = "crashes."
+    crash_types = {
+        name[len(prefix) :]: value
+        for name, value in counters.items()
+        if name.startswith(prefix)
+    }
+    return dict(sorted(crash_types.items()))
 
 
 def _parser_activity_summary(counters: dict[str, int]) -> dict[str, dict[str, int]]:
