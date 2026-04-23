@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.235 - 2026-04-23
+
+- Hardened staged index recovery so `.index.db.next` and `.index.db.recover` are only promoted after an explicit ready marker is present; incomplete leftovers are discarded instead of silently replacing the live index on startup.
+- Made staged-ready marker publication atomic and fsynced, reducing the chance that a torn or partially written marker file is mistaken for a safe resume point after a crash.
+- Added a default 5-second SQLite busy timeout to index connections, giving transient lock contention a bounded retry window instead of failing immediately during normal local concurrency.
+
 ## 0.1.224 - 2026-04-23
 
 - Installed global crash hooks for top-level and thread failures so background or early CLI crashes now emit the same `crash-<ts>.log` artifacts as the main exception path.
