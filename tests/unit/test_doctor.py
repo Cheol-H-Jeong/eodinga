@@ -7,6 +7,7 @@ from pathlib import Path
 from eodinga.config import AppConfig, RootConfig
 from eodinga.doctor import run_diagnostics
 from eodinga.index.schema import apply_schema
+from eodinga.index.storage import mark_build_complete
 
 
 def test_doctor_returns_expected_shape(tmp_path: Path) -> None:
@@ -117,6 +118,7 @@ def test_doctor_resumes_interrupted_build_before_reporting(tmp_path: Path) -> No
     )
     conn.commit()
     conn.close()
+    mark_build_complete(db_path)
 
     report, exit_code = run_diagnostics(config=AppConfig(), db_path=db_path)
 

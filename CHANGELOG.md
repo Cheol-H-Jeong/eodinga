@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.130 - 2026-04-23
+
+- Added an explicit `.next.ready` completion marker for staged rebuilds so startup resumes only fully built replacement indexes and discards incomplete crash leftovers instead of risking promotion of a partial database.
+- Hardened staged-index promotion with a SQLite `PRAGMA quick_check(1)` validation step before the atomic swap, preventing a corrupt staged file from replacing the live index.
+- Expanded storage and rebuild regressions around interrupted-build cleanup, marker lifecycle, and pre-swap integrity validation to keep the recovery path pinned.
+
 ## 0.1.125 - 2026-04-23
 
 - Split the launcher state and result-model helpers into a dedicated module, bringing the main launcher widget back under the repository's module-size guard without changing its runtime behavior.
