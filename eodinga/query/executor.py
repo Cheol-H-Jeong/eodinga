@@ -333,22 +333,33 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
         return "", ()
     root_text = str(root)
     normalized = root_text.rstrip("/\\") or root_text
-    variants = tuple(
-        dict.fromkeys(
-            (
-                normalized,
-                normalized.replace("\\", "/"),
-                normalized.replace("/", "\\"),
-            )
-        )
-    )
+    variants = _root_variants(normalized)
     exact_params = variants
-    like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
-        f"{variant}\\%" for variant in variants
+    like_params = tuple(f"{_escape_like_pattern(variant)}/%" for variant in variants) + tuple(
+        f"{_escape_like_pattern(variant)}\\%" for variant in variants
     )
     exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
-    like_clause = " OR ".join("files.path LIKE ?" for _ in like_params)
+    like_clause = " OR ".join("files.path LIKE ? ESCAPE '^'" for _ in like_params)
     return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
+
+
+def _escape_like_pattern(value: str) -> str:
+    return value.replace("^", "^^").replace("%", "^%").replace("_", "^_")
+
+
+def _root_variants(root_text: str) -> tuple[str, ...]:
+    candidates = (
+        root_text,
+        root_text.replace("\\", "/"),
+        root_text.replace("/", "\\"),
+    )
+    variants: dict[str, None] = {}
+    for candidate in candidates:
+        variants[candidate] = None
+        if len(candidate) >= 2 and candidate[1] == ":" and candidate[0].isalpha():
+            variants[f"{candidate[0].lower()}{candidate[1:]}"] = None
+            variants[f"{candidate[0].upper()}{candidate[1:]}"] = None
+    return tuple(variants)
 
 
 def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:
