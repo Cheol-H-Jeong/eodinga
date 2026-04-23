@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from eodinga import __version__
 
 
@@ -104,6 +106,61 @@ def test_windows_audit_validator_rejects_missing_source_hidden_import_contract()
     errors = module._validate_windows_audit(payload)
 
     assert "PyInstaller hidden imports no longer include the source-derived modules" in errors
+
+
+def test_windows_build_runs_pyinstaller_before_inno(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_build_module()
+    commands: list[list[str]] = []
+    payload = {
+        "inno_setup": {
+            "rendered_path": str(Path("packaging/dist/windows/eodinga.iss").resolve()),
+        },
+    }
+
+    monkeypatch.setattr(module, "_read_project_version", lambda: __version__)
+    monkeypatch.setattr(module, "_read_package_version", lambda: __version__)
+    monkeypatch.setattr(module, "_audit_windows_inputs", lambda version, package_version: payload)
+    monkeypatch.setattr(module, "_write_audit", lambda audit: Path("packaging/dist/windows-dry-run-audit.json"))
+    monkeypatch.setattr(module, "_validate_windows_audit", lambda audit: [])
+
+    def fake_run_packaging_command(command: list[str], *, cwd: Path) -> int:
+        commands.append(command)
+        assert cwd == Path.cwd().resolve()
+        return 0
+
+    monkeypatch.setattr(module, "_run_packaging_command", fake_run_packaging_command)
+
+    assert module._run_windows() == 0
+    assert commands == [
+        ["pyinstaller", "--noconfirm", str(Path("packaging/pyinstaller.spec").resolve())],
+        ["iscc", str(Path("packaging/dist/windows/eodinga.iss").resolve())],
+    ]
+
+
+def test_windows_build_stops_before_tool_invocation_when_audit_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    module = _load_build_module()
+    payload = {
+        "inno_setup": {
+            "rendered_path": str(Path("packaging/dist/windows/eodinga.iss").resolve()),
+        },
+    }
+    invoked = False
+
+    monkeypatch.setattr(module, "_read_project_version", lambda: __version__)
+    monkeypatch.setattr(module, "_read_package_version", lambda: __version__)
+    monkeypatch.setattr(module, "_audit_windows_inputs", lambda version, package_version: payload)
+    monkeypatch.setattr(module, "_write_audit", lambda audit: Path("packaging/dist/windows-dry-run-audit.json"))
+    monkeypatch.setattr(module, "_validate_windows_audit", lambda audit: ["broken packaging"])
+
+    def fake_run_packaging_command(command: list[str], *, cwd: Path) -> int:
+        nonlocal invoked
+        invoked = True
+        return 0
+
+    monkeypatch.setattr(module, "_run_packaging_command", fake_run_packaging_command)
+
+    assert module._run_windows() == 1
+    assert invoked is False
 
 
 def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:

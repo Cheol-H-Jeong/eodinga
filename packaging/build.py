@@ -19,6 +19,8 @@ PYPROJECT = PROJECT_ROOT / "pyproject.toml"
 APPIMAGE_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "appimage.sh"
 DEB_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "deb.sh"
 APPIMAGE_DESKTOP = PROJECT_ROOT / "packaging" / "linux" / "eodinga.desktop"
+PYINSTALLER_BIN = "pyinstaller"
+INNO_COMPILER_BIN = "iscc"
 INNO_VERSION_TOKEN = "@@APP_VERSION@@"
 INNO_GUI_DIST_TOKEN = "@@GUI_DIST_NAME@@"
 INNO_CLI_DIST_TOKEN = "@@CLI_DIST_NAME@@"
@@ -273,6 +275,11 @@ def _report_validation_errors(target: str, errors: list[str]) -> int:
     return 1
 
 
+def _run_packaging_command(command: list[str], *, cwd: Path) -> int:
+    result = subprocess.run(command, cwd=cwd, check=False)
+    return int(result.returncode)
+
+
 def _run_windows_dry_run() -> int:
     version = _read_project_version()
     package_version = _read_package_version()
@@ -287,7 +294,18 @@ def _run_windows() -> int:
     payload = _audit_windows_inputs(version, package_version)
     payload["platform_tools"] = ["pyinstaller", "iscc"]
     _write_audit(payload)
-    return _report_validation_errors("windows", _validate_windows_audit(payload))
+    errors = _validate_windows_audit(payload)
+    if errors:
+        return _report_validation_errors("windows", errors)
+    rendered_path = Path(payload["inno_setup"]["rendered_path"])
+    for command in (
+        [PYINSTALLER_BIN, "--noconfirm", str(WINDOWS_SPEC)],
+        [INNO_COMPILER_BIN, str(rendered_path)],
+    ):
+        returncode = _run_packaging_command(command, cwd=PROJECT_ROOT)
+        if returncode != 0:
+            return returncode
+    return 0
 
 
 def _run_linux_appimage_dry_run() -> int:
