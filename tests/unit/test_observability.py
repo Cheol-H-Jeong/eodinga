@@ -7,6 +7,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
+import pytest
+
 from eodinga.common import WatchEvent
 from eodinga.content.base import ParserSpec, empty_content
 from eodinga.content.registry import parse
@@ -92,6 +94,18 @@ def test_log_and_crash_resolution_respect_runtime_overrides(tmp_path: Path, monk
     assert resolve_log_path() == log_path
     assert resolve_crash_dir() == crash_dir
     assert file_logging_enabled() is True
+
+
+def test_log_and_crash_resolution_normalize_relative_overrides(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("EODINGA_LOG_PATH", "relative/logs/eodinga.log")
+    monkeypatch.setenv("EODINGA_CRASH_DIR", "relative/crashes")
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    assert resolve_log_path() == tmp_path / "relative" / "logs" / "eodinga.log"
+    assert resolve_crash_dir() == tmp_path / "relative" / "crashes"
 
 
 def test_log_policy_resolution_respects_runtime_overrides(monkeypatch) -> None:

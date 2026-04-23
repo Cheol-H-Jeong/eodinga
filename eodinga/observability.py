@@ -90,14 +90,14 @@ def default_state_dir() -> Path:
     if sys.platform.startswith("win"):
         local_appdata = os.environ.get("LOCALAPPDATA")
         if local_appdata:
-            return Path(local_appdata) / "eodinga"
-        return Path.home() / "AppData" / "Local" / "eodinga"
+            return _normalize_runtime_path(Path(local_appdata) / "eodinga")
+        return _normalize_runtime_path(Path.home() / "AppData" / "Local" / "eodinga")
     if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / "eodinga"
+        return _normalize_runtime_path(Path.home() / "Library" / "Application Support" / "eodinga")
     xdg_state = os.environ.get("XDG_STATE_HOME")
     if xdg_state:
-        return Path(xdg_state) / "eodinga"
-    return Path.home() / ".local" / "state" / "eodinga"
+        return _normalize_runtime_path(Path(xdg_state) / "eodinga")
+    return _normalize_runtime_path(Path.home() / ".local" / "state" / "eodinga")
 
 
 def default_logs_dir() -> Path:
@@ -124,10 +124,10 @@ def resolve_log_path(log_path: Path | None = None) -> Path | None:
     if not file_logging_enabled():
         return None
     if log_path is not None:
-        return log_path.expanduser()
+        return _normalize_runtime_path(log_path)
     override_path = os.environ.get("EODINGA_LOG_PATH")
     if override_path:
-        return Path(override_path).expanduser()
+        return _normalize_runtime_path(Path(override_path))
     if "PYTEST_CURRENT_TEST" in os.environ:
         return None
     return default_log_path()
@@ -135,10 +135,10 @@ def resolve_log_path(log_path: Path | None = None) -> Path | None:
 
 def resolve_crash_dir(crash_dir: Path | None = None) -> Path:
     if crash_dir is not None:
-        return crash_dir.expanduser()
+        return _normalize_runtime_path(crash_dir)
     override_dir = os.environ.get("EODINGA_CRASH_DIR")
     if override_dir:
-        return Path(override_dir).expanduser()
+        return _normalize_runtime_path(Path(override_dir))
     return default_crash_dir()
 
 
@@ -423,6 +423,20 @@ def _parse_log_policy_value(raw: str) -> str | int:
     if value.isdigit():
         return int(value)
     return value
+
+
+def _normalize_runtime_path(path: Path) -> Path:
+    expanded = path.expanduser()
+    path_text = str(expanded)
+    if expanded.is_absolute() or (
+        sys.platform.startswith("win")
+        and (
+            (len(path_text) >= 3 and path_text[1] == ":" and path_text[2] in {"\\", "/"})
+            or path_text.startswith("\\\\")
+        )
+    ):
+        return expanded
+    return (Path.cwd() / expanded).resolve()
 
 
 def _rss_bytes() -> int | None:
