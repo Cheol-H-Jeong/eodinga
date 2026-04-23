@@ -12,7 +12,13 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from eodinga.common import WatchEvent
-from eodinga.observability import get_logger, increment_counter, record_histogram, record_snapshot
+from eodinga.observability import (
+    get_logger,
+    increment_counter,
+    record_histogram,
+    record_snapshot,
+    set_counter_max,
+)
 
 _DEBOUNCE_SECONDS = 0.1
 _FLUSH_LIMIT = 500
@@ -240,6 +246,7 @@ class WatchService:
                         moved_retired_sources.update(self._retired_sources.get(event.path, set()))
                         self._retired_sources[event.path] = moved_retired_sources
                     self._timestamps[event.path] = monotonic()
+                set_counter_max("watcher_pending_high_watermark", len(self._pending))
                 flush_now = len(self._pending) >= _FLUSH_LIMIT
         if immediate_emit is not None:
             self._enqueue_event(immediate_emit)
@@ -431,17 +438,30 @@ class WatchService:
         while not self._stop.is_set():
             try:
                 self.queue.put(event, timeout=_QUEUE_PUT_TIMEOUT_SECONDS)
+                set_counter_max("watcher_queue_high_watermark", self.queue.qsize())
                 if blocked_at is not None:
+                    blocked_ms = (monotonic() - blocked_at) * 1000
                     record_histogram(
                         "watcher_queue_backpressure_ms",
-                        (monotonic() - blocked_at) * 1000,
+                        blocked_ms,
                         event_type=event.event_type,
+                    )
+                    record_snapshot(
+                        "watcher.backpressure",
+                        {
+                            "event_type": event.event_type,
+                            "path": str(event.path),
+                            "blocked_ms": round(blocked_ms, 3),
+                            "queue_depth": self.queue.qsize(),
+                        },
                     )
                 return True
             except Full:
                 if blocked_at is None:
                     blocked_at = monotonic()
                     increment_counter("watcher_queue_full", event_type=event.event_type)
+                    increment_counter("watcher_backpressure_events", event_type=event.event_type)
+                    set_counter_max("watcher_queue_high_watermark", self.queue.qsize())
                     self._logger.warning(
                         "watch queue full; applying backpressure for {}", event.path
                     )

@@ -456,7 +456,11 @@ def test_watcher_backpressure_metrics_increment(tmp_path: Path) -> None:
     counters = cast(dict[str, int], metrics["counters"])
     histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
     assert counters["watcher_queue_full"] == 1
+    assert counters["watcher_backpressure_events"] == 1
+    assert counters["watcher_queue_high_watermark"] == 1
+    assert counters["watcher_pending_high_watermark"] == 1
     assert histograms["watcher_queue_backpressure_ms"]["count"] == 1
+    assert recent_snapshots()[-1]["name"] == "watcher.backpressure"
 
 
 def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:

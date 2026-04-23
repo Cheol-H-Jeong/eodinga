@@ -831,6 +831,7 @@ def test_watcher_stop_continues_cleanup_when_observer_teardown_fails(
 
 
 def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path) -> None:
+    reset_metrics()
     service = WatchService(queue_maxsize=1)
     first = tmp_path / "first.txt"
     second = tmp_path / "second.txt"
@@ -873,6 +874,11 @@ def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path)
 
     second_event = service.queue.get_nowait()
     assert second_event.path == second
+    metrics = snapshot_metrics()
+    assert metrics["counters"]["watcher_backpressure_events"] == 1
+    assert metrics["counters"]["watcher_queue_high_watermark"] == 1
+    assert metrics["counters"]["watcher_pending_high_watermark"] == 1
+    assert recent_snapshots()[-1]["name"] == "watcher.backpressure"
 
 
 def test_watcher_blocked_move_flush_preserves_retired_source_suppression(tmp_path: Path) -> None:

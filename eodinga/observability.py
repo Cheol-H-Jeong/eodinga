@@ -214,6 +214,15 @@ def increment_counter(name: str, value: int = 1, **fields: object) -> None:
     logger.bind(metric=name, **fields).debug("counter +{value}", value=value)
 
 
+def set_counter_max(name: str, value: int, **fields: object) -> None:
+    with _METRICS_LOCK:
+        current = _COUNTERS.get(name, 0)
+        if value <= current:
+            return
+        _COUNTERS[name] = value
+    logger.bind(metric=name, **fields).debug("counter max {value}", value=value)
+
+
 def record_counter(name: str, value: int = 1, **fields: object) -> None:
     increment_counter(name, value=value, **fields)
 

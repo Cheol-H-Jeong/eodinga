@@ -496,7 +496,10 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["watcher_flushes"] == 0
     assert payload["watcher_events_flushed"] == 0
     assert payload["watcher_queue_full"] == 0
+    assert payload["watcher_backpressure_events"] == 0
     assert payload["watcher_enqueue_aborted"] == 0
+    assert payload["watcher_queue_high_watermark"] == 0
+    assert payload["watcher_pending_high_watermark"] == 0
     assert payload["index_rebuilds_completed"] == 0
     assert payload["commands_started"] == 2
     assert payload["commands_completed"] == 1
@@ -631,12 +634,18 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["watcher_flushes"] == 2
     assert payload["counters"]["watcher_events_flushed"] == 2
     assert payload["counters"]["watcher_queue_full"] == 1
+    assert payload["counters"]["watcher_backpressure_events"] == 1
+    assert payload["counters"]["watcher_queue_high_watermark"] == 1
+    assert payload["counters"]["watcher_pending_high_watermark"] == 1
     assert "watcher_enqueue_aborted" not in payload["counters"]
     assert payload["watcher_events"] == 2
     assert payload["watcher_flushes"] == 2
     assert payload["watcher_events_flushed"] == 2
     assert payload["watcher_queue_full"] == 1
+    assert payload["watcher_backpressure_events"] == 1
     assert payload["watcher_enqueue_aborted"] == 0
+    assert payload["watcher_queue_high_watermark"] == 1
+    assert payload["watcher_pending_high_watermark"] == 1
     assert payload["process_started_at"].endswith("Z")
     assert payload["pid"] > 0
     assert payload["thread_count"] >= 1
@@ -686,6 +695,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["index_batch_size_histogram"]["count"] >= 1
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
         "command.index",
+        "watcher.backpressure",
         "command.search",
     ]
 

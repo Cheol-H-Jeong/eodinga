@@ -114,7 +114,10 @@ class StatsSnapshot(BaseModel):
     watcher_flushes: int = 0
     watcher_events_flushed: int = 0
     watcher_queue_full: int = 0
+    watcher_backpressure_events: int = 0
     watcher_enqueue_aborted: int = 0
+    watcher_queue_high_watermark: int = 0
+    watcher_pending_high_watermark: int = 0
     watcher_observers_started: int = 0
     watcher_observers_stopped: int = 0
     index_rebuilds_completed: int = 0
