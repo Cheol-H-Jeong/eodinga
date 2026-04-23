@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.284 - 2026-04-23
+## 0.1.285 - 2026-04-23
 
 - Added explicit accessible names across the launcher search field, empty state, preview labels, and shortcut/status surfaces so keyboard-first and assistive-tech navigation can identify each control consistently.
 - Tightened launcher empty-state guidance with separate summary and keyboard-help lines, including direct reminders for history recall, top-hit quick picks, filter refinements, and Escape to dismiss the popup.
