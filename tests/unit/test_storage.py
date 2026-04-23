@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import eodinga.index.storage as storage_module
 from eodinga.index.schema import apply_schema
 from eodinga.index.storage import (
     SQLITE_CACHED_STATEMENTS,
@@ -126,6 +127,43 @@ def test_atomic_replace_index_fsyncs_staged_file_and_target_directory(
         ("file", target),
         ("dir", target.parent),
     ]
+
+
+def test_copy_index_with_sidecars_fsyncs_promoted_sidecars(tmp_path: Path, monkeypatch) -> None:
+    source = tmp_path / "source.db"
+    target = tmp_path / ".index.db.recover"
+
+    conn = sqlite3.connect(source)
+    try:
+        apply_schema(conn)
+        conn.execute("PRAGMA wal_autocheckpoint=0;")
+        conn.execute(
+            "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+            ("/checkpointed", "[]", "[]", 1),
+        )
+        conn.commit()
+        assert source.with_name("source.db-wal").exists()
+        assert source.with_name("source.db-shm").exists()
+
+        calls: list[tuple[str, Path]] = []
+
+        def record_file(path: Path) -> None:
+            calls.append(("file", path))
+
+        def record_directory(path: Path) -> None:
+            calls.append(("dir", path))
+
+        monkeypatch.setattr("eodinga.index.storage._fsync_file", record_file)
+        monkeypatch.setattr("eodinga.index.storage._fsync_directory", record_directory)
+
+        storage_module._copy_index_with_sidecars(source, target)
+
+        assert ("file", target) in calls
+        assert ("file", target.with_name(".index.db.recover-wal")) in calls
+        assert ("file", target.with_name(".index.db.recover-shm")) in calls
+        assert calls.count(("dir", target.parent)) == 2
+    finally:
+        conn.close()
 
 
 def test_atomic_replace_index_preserves_live_sidecars_when_swap_fails(
@@ -309,6 +347,37 @@ def test_recover_stale_wal_uses_staged_copy_before_atomic_swap(
     assert seen["target_stale_before_swap"] is True
 
 
+def test_recover_stale_wal_does_not_publish_partial_stage_on_copy_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    conn = sqlite3.connect(path)
+    apply_schema(conn)
+    conn.close()
+    path.with_name("index.db-wal").write_bytes(b"stale")
+
+    staged = tmp_path / ".index.db.recover"
+    partial = tmp_path / ".index.db.recover.partial"
+    original_copy = shutil.copy2
+    state = {"calls": 0}
+
+    def flaky_copy(source: Path, destination: Path) -> Path:
+        copied = original_copy(source, destination)
+        state["calls"] += 1
+        if Path(destination) == partial:
+            raise OSError("simulated partial recovery copy failure")
+        return Path(copied)
+
+    monkeypatch.setattr(shutil, "copy2", flaky_copy)
+
+    assert recover_stale_wal(path) is False
+    assert state["calls"] >= 1
+    assert not staged.exists()
+    assert not partial.exists()
+    assert not partial.with_name(".index.db.recover.partial-wal").exists()
+    assert not partial.with_name(".index.db.recover.partial-shm").exists()
+
+
 def test_open_index_raises_when_stale_wal_recovery_fails(tmp_path: Path, monkeypatch) -> None:
     path = tmp_path / "index.db"
     conn = sqlite3.connect(path)
@@ -378,6 +447,26 @@ def test_recover_interrupted_recovery_swaps_existing_staged_database(tmp_path: P
     assert not staged.exists()
 
 
+def test_recover_interrupted_recovery_rejects_uninitialized_stage(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged.write_bytes(b"")
+
+    assert recover_interrupted_recovery(target) is False
+    assert _read_root_paths(target) == ["/live"]
+    assert not staged.exists()
+
+
 def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path) -> None:
     target = tmp_path / "index.db"
     staged = tmp_path / ".index.db.next"
@@ -402,6 +491,26 @@ def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path
 
     assert recover_interrupted_build(target) is True
     assert _read_root_paths(target) == ["/rebuilt"]
+    assert not staged.exists()
+
+
+def test_recover_interrupted_build_rejects_uninitialized_stage(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged.write_bytes(b"")
+
+    assert recover_interrupted_build(target) is False
+    assert _read_root_paths(target) == ["/live"]
     assert not staged.exists()
 
 
@@ -519,6 +628,26 @@ def test_open_index_cleans_orphaned_recovery_sidecars_before_open(tmp_path: Path
     assert not staged.exists()
     assert not staged.with_name(".index.db.recover-wal").exists()
     assert not staged.with_name(".index.db.recover-shm").exists()
+
+
+def test_open_index_cleans_partial_recovery_copy_before_open(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    partial = tmp_path / ".index.db.recover.partial"
+    partial.write_bytes(b"sqlite")
+    partial.with_name(".index.db.recover.partial-wal").write_bytes(b"orphaned")
+    partial.with_name(".index.db.recover.partial-shm").write_bytes(b"orphaned")
+
+    reopened = open_index(path)
+    try:
+        rows = reopened.execute("SELECT COUNT(*) FROM roots").fetchone()
+        assert rows is not None
+        assert int(rows[0]) == 0
+    finally:
+        reopened.close()
+
+    assert not partial.exists()
+    assert not partial.with_name(".index.db.recover.partial-wal").exists()
+    assert not partial.with_name(".index.db.recover.partial-shm").exists()
 
 
 def test_open_index_cleans_orphaned_build_sidecars_before_open(tmp_path: Path) -> None:

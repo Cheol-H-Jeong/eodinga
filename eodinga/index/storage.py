@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 
 from eodinga.index.migrations import migrate
-from eodinga.index.schema import PRAGMAS
+from eodinga.index.schema import PRAGMAS, current_schema_version
 from eodinga.observability import get_logger
 
 SQLITE_CACHED_STATEMENTS = 128
@@ -89,6 +89,10 @@ def _staged_build_path(path: Path) -> Path:
     return path.with_name(f".{path.name}.next")
 
 
+def _partial_copy_path(path: Path) -> Path:
+    return path.with_name(f"{path.name}.partial")
+
+
 def _cleanup_orphan_recovery_sidecars(path: Path) -> bool:
     staged_path = _staged_recovery_path(path)
     if staged_path.exists():
@@ -98,6 +102,20 @@ def _cleanup_orphan_recovery_sidecars(path: Path) -> bool:
         orphan = _sidecar(staged_path, suffix)
         if orphan.exists():
             orphan.unlink()
+            cleaned = True
+    return cleaned
+
+
+def _cleanup_partial_copy_artifacts(path: Path) -> bool:
+    partial_path = _partial_copy_path(path)
+    cleaned = False
+    if partial_path.exists():
+        partial_path.unlink()
+        cleaned = True
+    for suffix in ("-wal", "-shm"):
+        sidecar = _sidecar(partial_path, suffix)
+        if sidecar.exists():
+            sidecar.unlink()
             cleaned = True
     return cleaned
 
@@ -117,12 +135,31 @@ def _cleanup_orphan_build_sidecars(path: Path) -> bool:
 
 def _copy_index_with_sidecars(source_path: Path, target_path: Path) -> None:
     target_path.parent.mkdir(parents=True, exist_ok=True)
+    partial_path = _partial_copy_path(target_path)
     _cleanup_index_files(target_path)
-    shutil.copy2(source_path, target_path)
-    for suffix in ("-wal", "-shm"):
-        sidecar = _sidecar(source_path, suffix)
-        if sidecar.exists():
-            shutil.copy2(sidecar, _sidecar(target_path, suffix))
+    _cleanup_index_files(partial_path)
+    try:
+        shutil.copy2(source_path, partial_path)
+        _fsync_file(partial_path)
+        for suffix in ("-wal", "-shm"):
+            sidecar = _sidecar(source_path, suffix)
+            if sidecar.exists():
+                partial_sidecar = _sidecar(partial_path, suffix)
+                shutil.copy2(sidecar, partial_sidecar)
+                _fsync_file(partial_sidecar)
+        _fsync_directory(target_path.parent)
+        os.replace(partial_path, target_path)
+        for suffix in ("-wal", "-shm"):
+            partial_sidecar = _sidecar(partial_path, suffix)
+            if partial_sidecar.exists():
+                target_sidecar = _sidecar(target_path, suffix)
+                os.replace(partial_sidecar, target_sidecar)
+                _fsync_file(target_sidecar)
+        _fsync_file(target_path)
+        _fsync_directory(target_path.parent)
+    except Exception:
+        _cleanup_index_files(partial_path)
+        raise
 
 
 def _replay_stale_wal(path: Path) -> bool:
@@ -141,6 +178,14 @@ def _replay_stale_wal(path: Path) -> bool:
     return True
 
 
+def _has_initialized_schema(path: Path) -> bool:
+    conn = connect_database(path)
+    try:
+        return current_schema_version(conn) > 0
+    finally:
+        conn.close()
+
+
 def recover_stale_wal(path: Path) -> bool:
     if not has_stale_wal(path):
         return False
@@ -157,6 +202,7 @@ def recover_stale_wal(path: Path) -> bool:
         return False
     finally:
         _cleanup_index_files(staged_path)
+        _cleanup_index_files(_partial_copy_path(staged_path))
     return not has_stale_wal(path)
 
 
@@ -168,6 +214,9 @@ def recover_interrupted_recovery(path: Path) -> bool:
     logger.warning("resuming interrupted recovery for {}", path)
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
+            return False
+        if not _has_initialized_schema(staged_path):
+            logger.warning("skipping interrupted recovery swap with uninitialized stage {}", staged_path)
             return False
         atomic_replace_index(staged_path, path)
     except (OSError, sqlite3.DatabaseError):
@@ -187,6 +236,9 @@ def recover_interrupted_build(path: Path) -> bool:
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
             return False
+        if not _has_initialized_schema(staged_path):
+            logger.warning("skipping interrupted staged build swap with uninitialized stage {}", staged_path)
+            return False
         atomic_replace_index(staged_path, path)
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted staged build resume for {}", path)
@@ -198,6 +250,7 @@ def recover_interrupted_build(path: Path) -> bool:
 
 def open_index(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
+    _cleanup_partial_copy_artifacts(_staged_recovery_path(path))
     _cleanup_orphan_recovery_sidecars(path)
     _cleanup_orphan_build_sidecars(path)
     recovery_staged = _staged_recovery_path(path).exists()
