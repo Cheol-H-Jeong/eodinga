@@ -1603,6 +1603,23 @@ def test_executor_caches_content_text_sql_templates_by_chunk_size() -> None:
     assert cache_info.currsize == 2
 
 
+def test_executor_caches_compiled_regex_by_pattern_and_flags() -> None:
+    executor_module._compile_regex.cache_clear()
+
+    first = executor_module._compile_regex("report-[0-9]+", "", False)
+    second = executor_module._compile_regex("report-[0-9]+", "", False)
+    third = executor_module._compile_regex("report-[0-9]+", "i", False)
+    fourth = executor_module._compile_regex("report-[0-9]+", "", True)
+
+    assert first is second
+    assert first.flags & executor_module.re.IGNORECASE
+    assert third.flags & executor_module.re.IGNORECASE
+    assert not (fourth.flags & executor_module.re.IGNORECASE)
+    cache_info = executor_module._compile_regex.cache_info()
+    assert cache_info.hits >= 1
+    assert cache_info.currsize == 3
+
+
 def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/alpha.txt", 1024, now, "txt", body_text="alpha")
