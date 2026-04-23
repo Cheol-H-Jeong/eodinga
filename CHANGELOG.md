@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.203 - 2026-04-23
+## 0.1.204 - 2026-04-23
 
 - Added a generated `docs/eodinga.1` man page plus the `scripts/render_man_page.py` renderer, making the shipped CLI contract auditable from the current argparse surface instead of only from README excerpts.
 - Expanded the top-level operator docs with a troubleshooting runbook, explicit docs-refresh commands, and clearer contributor guidance for docs-only validation slices.
