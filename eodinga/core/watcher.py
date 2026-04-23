@@ -284,11 +284,12 @@ class WatchService:
                         self._flushed_retired_sources.discard(event.path)
                     flushed.append(event)
         delivered: list[WatchEvent] = []
-        for event in flushed:
+        for index, event in enumerate(flushed):
             if not self._enqueue_event(event):
                 with self._lock:
-                    self._pending[event.path] = event
-                    self._timestamps[event.path] = now
+                    for undelivered in flushed[index:]:
+                        self._pending[undelivered.path] = undelivered
+                        self._timestamps[undelivered.path] = now
                 break
             delivered.append(event)
         if delivered:
