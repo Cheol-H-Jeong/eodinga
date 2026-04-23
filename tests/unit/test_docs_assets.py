@@ -41,12 +41,15 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Install" in readme
     assert "## Install Matrix" in readme
     assert "## Quick Start" in readme
+    assert "## Surface Startup Recipes" in readme
     assert "## Feature Overview" in readme
     assert "## Feature Inventory" in readme
     assert "## Surface Matrix" in readme
     assert "## Acceptance Quickcheck" in readme
     assert "## Validation Paths" in readme
+    assert "## Validation Ladder" in readme
     assert "## DSL Cheatsheet" in readme
+    assert "## Search Recipes By Goal" in readme
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
     assert "## Task Recipes" in readme
@@ -75,6 +78,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "python packaging/build.py --target windows-dry-run" in readme
     assert "yamllint .github/workflows/release-windows.yml" in readme
     assert "rendered offscreen from the real Qt surfaces" in readme
+    assert "Headless GUI smoke" in readme
+    assert "Scriptable operator check" in readme
     assert "CLI-only hacking" in readme
     assert "Windows packaging tooling" in readme
     assert ".[dev,parsers,gui,packaging]" in readme
@@ -82,6 +87,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "docs only" in readme
     assert "packaging/dist/" in readme
     assert "Docs asset drift after CLI or UI changes" in readme
+    assert "content:\"release checklist\" ext:md" in readme
+    assert "is:empty is:dir" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance

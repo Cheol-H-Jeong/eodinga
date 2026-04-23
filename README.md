@@ -62,6 +62,18 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 | script search or diagnostics in CI-like flows | `eodinga search`, `stats --json`, `doctor` | keeps the same query and index engine available without Qt |
 | jump into files from anywhere with the keyboard | launcher hotkey | opens the popup search surface directly on the shared local index |
 
+## Surface Startup Recipes
+
+Use the smallest single-shot command that matches the surface you want to validate:
+
+| Goal | Command | What it proves |
+| --- | --- | --- |
+| First local desktop run | `source .venv/bin/activate && eodinga gui` | the main window, settings shell, and default config/index paths all start cleanly |
+| CLI-only live refresh | `source .venv/bin/activate && eodinga index --root ~/projects && eodinga watch` | the cold-start index and steady-state watcher path both run without Qt |
+| Headless GUI smoke | `source .venv/bin/activate && QT_QPA_PLATFORM=offscreen eodinga gui --test-mode` | packaged GUI startup works in a non-interactive environment |
+| Scriptable operator check | `source .venv/bin/activate && eodinga doctor && eodinga stats --json && eodinga search 'date:this-week ext:md' --limit 10` | dependency checks, active index state, and a real query all succeed in one pass |
+| Refresh shipped docs assets | `source .venv/bin/activate && python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` | the checked-in man page and screenshots still match the current runtime surface |
+
 ## Quick Start
 
 1. Install with `pip install -e .[all]`.
@@ -134,6 +146,16 @@ Use the smallest path that matches the work you changed:
 | launcher or GUI text/layout | `pytest -q tests/unit/test_gui_app.py tests/unit/test_gui_launcher.py tests/unit/test_docs_assets.py` | `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
 | packaging docs or recipes | `python packaging/build.py --target windows-dry-run` | the matching Linux dry run plus workflow lint from `docs/ACCEPTANCE.md` |
 
+## Validation Ladder
+
+When you are not sure how much validation to run, escalate in this order and stop at the first red stage:
+
+1. `pytest -q tests/unit/test_docs_assets.py` for README or guide wording only.
+2. `pytest -q tests/unit` after each logical commit.
+3. `pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)"` for repo health.
+4. `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` plus the matching packaging dry-run when the round changes GUI or release-facing docs.
+5. The one-command acceptance pass from [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md) before the metadata/tag cut.
+
 ## CLI
 
 ```bash
@@ -203,6 +225,18 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Find the previous calendar month | `date:last-month ext:pdf` |
 | Exclude noisy trees | `-path:node_modules` |
 | Run regex | `/todo|fixme/i` |
+
+## Search Recipes By Goal
+
+| Goal | Query | Why it helps |
+| --- | --- | --- |
+| Find recent markdown work | `date:this-week ext:md roadmap` | combines the calendar macro with a common doc extension and a lexical term |
+| Audit large duplicate media | `is:duplicate size:>10M` | surfaces expensive duplicate files before you open the file manager |
+| Search docs with regex | `regex:/todo|fixme/i path:docs` | keeps the candidate set narrow while still using regex |
+| Exclude draft branches | `-(draft | scratch) ext:pdf` | removes noisy grouped terms before ranking |
+| Look for exact shipped phrases | `content:"release checklist" ext:md` | asks for parser-backed phrase matches inside supported text files |
+| Limit to empty directories | `is:empty is:dir` | finds empty indexed directories without matching zero-byte files |
+| Trace a day-specific change | `modified:2026-04-23 path:projects` | narrows by exact ISO date and path together |
 
 ## Supported Content Types
 
