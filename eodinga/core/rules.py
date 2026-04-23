@@ -8,12 +8,21 @@ from eodinga.common import PathRules
 from eodinga.core.fs import DENYLIST, absolute_safe, resolve_safe
 
 
+def _normalize_text(value: str) -> str:
+    normalized = value.replace("\\", "/")
+    if normalized.startswith("//?/"):
+        normalized = normalized[4:]
+    if len(normalized) >= 2 and normalized[1] == ":" and normalized[0].isalpha():
+        normalized = normalized.casefold()
+    return normalized
+
+
 def _normalize(path: Path) -> str:
-    return str(path).replace("\\", "/")
+    return _normalize_text(str(path))
 
 
 def _compile(patterns: tuple[str, ...]) -> PathSpec:
-    normalized = [pattern.replace("\\", "/") for pattern in patterns]
+    normalized = [_normalize_text(pattern) for pattern in patterns]
     return PathSpec.from_lines("gitignore", normalized)
 
 
@@ -34,7 +43,7 @@ def _expanded_denylist() -> tuple[str, ...]:
 def _matches_default_denylist(path: Path) -> bool:
     normalized = _normalize(resolve_safe(path))
     for pattern in _expanded_denylist():
-        prefix = pattern.replace("\\", "/").rstrip("/")
+        prefix = _normalize_text(pattern).rstrip("/")
         if normalized == prefix or normalized.startswith(f"{prefix}/"):
             return True
     return False
