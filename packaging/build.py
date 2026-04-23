@@ -229,6 +229,7 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         errors.append("AppImage archive filename does not match the package version")
     recipe_payload = payload.get("recipe", {})
     icon_payload = payload.get("icon", {})
+    source_bundle_payload = payload.get("source_bundle", {})
     apprun_payload = payload.get("apprun", {})
     launcher_payload = payload.get("launcher", {})
     required_flags = [
@@ -242,10 +243,14 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (icon_payload.get("exists"), "AppImage icon asset is missing from the staged AppDir"),
         (icon_payload.get("diricon_exists"), "AppImage .DirIcon is missing"),
         (icon_payload.get("desktop_icon_matches_asset"), "AppImage desktop icon no longer matches the shipped asset"),
+        (source_bundle_payload.get("exists"), "AppImage source bundle directory is missing"),
+        (source_bundle_payload.get("package_exists"), "AppImage source bundle no longer ships the eodinga package"),
+        (source_bundle_payload.get("contains_init"), "AppImage source bundle is missing eodinga/__init__.py"),
         (apprun_payload.get("is_executable"), "AppImage AppRun is not executable"),
         (apprun_payload.get("launches_gui"), "AppImage AppRun no longer launches the GUI target"),
         (launcher_payload.get("is_executable"), "AppImage launcher shim is not executable"),
         (launcher_payload.get("executes_python_module"), "AppImage launcher shim no longer executes the Python module"),
+        (launcher_payload.get("uses_bundled_source"), "AppImage launcher shim no longer points at the bundled source tree"),
     ]
     for ok, message in required_flags:
         if not ok:

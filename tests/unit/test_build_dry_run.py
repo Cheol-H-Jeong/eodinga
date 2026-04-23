@@ -160,6 +160,7 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
     module = _load_build_module()
     payload = {
         "version": __version__,
+        "archive": f"packaging/dist/eodinga-{__version__}-linux-appdir.tar.gz",
         "recipe": {
             "exists": True,
             "contains_version_template": True,
@@ -174,6 +175,11 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
             "diricon_exists": True,
             "desktop_icon_matches_asset": True,
         },
+        "source_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "contains_init": True,
+        },
         "apprun": {
             "is_executable": True,
             "launches_gui": True,
@@ -181,6 +187,7 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
         "launcher": {
             "is_executable": True,
             "executes_python_module": False,
+            "uses_bundled_source": True,
         },
     }
 
@@ -208,6 +215,11 @@ def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> Non
             "diricon_exists": True,
             "desktop_icon_matches_asset": True,
         },
+        "source_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "contains_init": True,
+        },
         "apprun": {
             "is_executable": True,
             "launches_gui": True,
@@ -215,12 +227,95 @@ def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> Non
         "launcher": {
             "is_executable": True,
             "executes_python_module": True,
+            "uses_bundled_source": True,
         },
     }
 
     errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
 
     assert "AppImage archive filename does not match the package version" in errors
+
+
+def test_linux_appimage_audit_validator_rejects_missing_source_bundle() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "archive": f"packaging/dist/eodinga-{__version__}-linux-appdir.tar.gz",
+        "recipe": {
+            "exists": True,
+            "contains_version_template": True,
+            "rendered_exists": True,
+            "rendered_version_matches_package": True,
+            "references_desktop_entry": True,
+            "references_icon_asset": True,
+            "launches_gui": True,
+        },
+        "icon": {
+            "exists": True,
+            "diricon_exists": True,
+            "desktop_icon_matches_asset": True,
+        },
+        "source_bundle": {
+            "exists": False,
+            "package_exists": False,
+            "contains_init": False,
+        },
+        "apprun": {
+            "is_executable": True,
+            "launches_gui": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "executes_python_module": True,
+            "uses_bundled_source": True,
+        },
+    }
+
+    errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
+
+    assert "AppImage source bundle directory is missing" in errors
+    assert "AppImage source bundle no longer ships the eodinga package" in errors
+    assert "AppImage source bundle is missing eodinga/__init__.py" in errors
+
+
+def test_linux_appimage_audit_validator_rejects_unbundled_launcher() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "archive": f"packaging/dist/eodinga-{__version__}-linux-appdir.tar.gz",
+        "recipe": {
+            "exists": True,
+            "contains_version_template": True,
+            "rendered_exists": True,
+            "rendered_version_matches_package": True,
+            "references_desktop_entry": True,
+            "references_icon_asset": True,
+            "launches_gui": True,
+        },
+        "icon": {
+            "exists": True,
+            "diricon_exists": True,
+            "desktop_icon_matches_asset": True,
+        },
+        "source_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "contains_init": True,
+        },
+        "apprun": {
+            "is_executable": True,
+            "launches_gui": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "executes_python_module": True,
+            "uses_bundled_source": False,
+        },
+    }
+
+    errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
+
+    assert "AppImage launcher shim no longer points at the bundled source tree" in errors
 
 
 def test_linux_appimage_dry_run_stages_recipe() -> None:
@@ -255,9 +350,13 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["icon"]["exists"] is True
     assert payload["icon"]["diricon_exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True
+    assert payload["source_bundle"]["exists"] is True
+    assert payload["source_bundle"]["package_exists"] is True
+    assert payload["source_bundle"]["contains_init"] is True
     assert payload["apprun"]["is_executable"] is True
     assert payload["apprun"]["launches_gui"] is True
     assert payload["launcher"]["is_executable"] is True
+    assert payload["launcher"]["uses_bundled_source"] is True
     assert payload["launcher"]["executes_python_module"] is True
 
 
