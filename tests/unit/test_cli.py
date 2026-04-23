@@ -465,9 +465,12 @@ def test_index_requires_at_least_one_root(cli_runner, tmp_path: Path) -> None:
     assert "requires at least one root" in result.stderr
 
 
-def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
+def test_stats_json_emits_runtime_counters(
+    tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch
+) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path / "crashes"))
     reset_metrics()
 
     search_exit = main(["--db", str(db_path), "search", "duplicate", "--json"])
@@ -530,10 +533,15 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["recent_snapshot_dropped"] == 0
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
+    assert payload["log_file_exists"] is False
+    assert payload["log_file_size_bytes"] is None
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
     assert payload["crash_dir"]
+    assert payload["crash_log_count"] == 0
+    assert payload["crash_log_total_bytes"] == 0
+    assert payload["latest_crash_log"] is None
     assert payload["counters"]["queries_served"] == 1
     assert payload["counters"]["commands_started"] == 2
     assert payload["counters"]["logging_configurations"] == 2
@@ -954,3 +962,35 @@ def test_stats_json_reports_recent_snapshot_overflow(tmp_path: Path, capsys) -> 
     assert payload["recent_snapshot_count"] == 20
     assert payload["recent_snapshot_dropped"] == 5
     assert [entry["name"] for entry in payload["recent_snapshots"]] == ["command.version"] * 20
+
+
+def test_stats_json_reports_log_and_crash_file_inventory(
+    tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    log_path = tmp_path / "logs" / "eodinga.log"
+    crash_dir = tmp_path / "crashes"
+    crash_dir.mkdir()
+    first_crash = crash_dir / "crash-20260423T010101.000000Z.log"
+    latest_crash = crash_dir / "crash-20260423T010102.000000Z.log"
+    first_crash.write_text("one", encoding="utf-8")
+    latest_crash.write_text("three", encoding="utf-8")
+    log_path.parent.mkdir(parents=True)
+    log_path.write_text("launch metrics", encoding="utf-8")
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    reset_metrics()
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["log_path"] == str(log_path)
+    assert payload["log_file_exists"] is True
+    assert payload["log_file_size_bytes"] == len("launch metrics")
+    assert payload["crash_dir"] == str(crash_dir)
+    assert payload["crash_log_count"] == 2
+    assert payload["crash_log_total_bytes"] == len("one") + len("three")
+    assert payload["latest_crash_log"] == str(latest_crash)

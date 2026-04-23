@@ -151,10 +151,15 @@ class StatsSnapshot(BaseModel):
     roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None
     log_path: Path | None = None
+    log_file_exists: bool = False
+    log_file_size_bytes: int | None = None
     log_rotation: str | int | None = None
     log_retention: str | int | None = None
     log_compression: str | None = None
     crash_dir: Path | None = None
+    crash_log_count: int = 0
+    crash_log_total_bytes: int = 0
+    latest_crash_log: Path | None = None
     file_logging_enabled: bool = True
 
 

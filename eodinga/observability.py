@@ -79,6 +79,12 @@ class SnapshotRecord(TypedDict):
     payload: dict[str, object]
 
 
+class CrashDirSummary(TypedDict):
+    crash_log_count: int
+    crash_log_total_bytes: int
+    latest_crash_log: Path | None
+
+
 _RECENT_SNAPSHOTS: deque[SnapshotRecord] = deque(maxlen=_RECENT_SNAPSHOT_LIMIT)
 _RECENT_SNAPSHOTS_DROPPED = 0
 
@@ -144,6 +150,35 @@ def resolve_crash_dir(crash_dir: Path | None = None) -> Path:
     if override_dir:
         return Path(override_dir).expanduser()
     return default_crash_dir()
+
+
+def describe_path(path: Path | None) -> tuple[bool, int | None]:
+    if path is None:
+        return False, None
+    try:
+        stat_result = path.stat()
+    except OSError:
+        return False, None
+    return True, int(stat_result.st_size)
+
+
+def summarize_crash_dir(crash_dir: Path) -> CrashDirSummary:
+    try:
+        entries = sorted(
+            (
+                entry
+                for entry in crash_dir.iterdir()
+                if entry.is_file() and entry.name.startswith("crash-") and entry.suffix == ".log"
+            ),
+            key=lambda entry: entry.name,
+        )
+    except OSError:
+        return {"crash_log_count": 0, "crash_log_total_bytes": 0, "latest_crash_log": None}
+    return {
+        "crash_log_count": len(entries),
+        "crash_log_total_bytes": sum(entry.stat().st_size for entry in entries),
+        "latest_crash_log": entries[-1] if entries else None,
+    }
 
 
 def resolve_log_rotation() -> str | int:

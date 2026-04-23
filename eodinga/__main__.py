@@ -19,6 +19,7 @@ from eodinga.index.reader import stats as read_index_stats
 from eodinga.index.storage import open_index
 from eodinga.observability import (
     configure_logging,
+    describe_path,
     counter_value,
     file_logging_enabled,
     histogram_snapshot,
@@ -30,6 +31,7 @@ from eodinga.observability import (
     resolve_crash_dir,
     resolve_log_path,
     snapshot_metrics,
+    summarize_crash_dir,
     report_crash,
     resolve_log_compression,
     resolve_log_retention,
@@ -197,6 +199,10 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         index_snapshot = read_index_stats(conn)
     metrics = snapshot_metrics()
     counters = metrics["counters"]
+    log_path = resolve_log_path()
+    log_file_exists, log_file_size_bytes = describe_path(log_path)
+    crash_dir = resolve_crash_dir()
+    crash_summary = summarize_crash_dir(crash_dir)
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
         process_started_at=metrics["process_started_at"],
@@ -253,11 +259,16 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         recent_snapshot_dropped=int(metrics["recent_snapshot_dropped"]),
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
-        log_path=resolve_log_path(),
+        log_path=log_path,
+        log_file_exists=log_file_exists,
+        log_file_size_bytes=log_file_size_bytes,
         log_rotation=resolve_log_rotation(),
         log_retention=resolve_log_retention(),
         log_compression=resolve_log_compression(),
-        crash_dir=resolve_crash_dir(),
+        crash_dir=crash_dir,
+        crash_log_count=int(crash_summary["crash_log_count"]),
+        crash_log_total_bytes=int(crash_summary["crash_log_total_bytes"]),
+        latest_crash_log=crash_summary["latest_crash_log"],
         file_logging_enabled=file_logging_enabled(),
     ).model_dump(mode="json")
     record_snapshot(

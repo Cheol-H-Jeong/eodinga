@@ -14,6 +14,7 @@ from eodinga.core.watcher import WatchService
 from eodinga import __version__
 from eodinga.observability import (
     configure_logging,
+    describe_path,
     default_crash_dir,
     default_log_path,
     file_logging_enabled,
@@ -30,6 +31,7 @@ from eodinga.observability import (
     reset_metrics,
     report_crash,
     snapshot_metrics,
+    summarize_crash_dir,
     write_crash_log,
 )
 
@@ -116,6 +118,31 @@ def test_log_resolution_returns_none_when_file_logging_disabled(monkeypatch) -> 
     assert counters["log_sinks.stderr.configured"] == 1
     assert counters["log_sinks.file.disabled"] == 1
     assert "log_sinks.file.configured" not in counters
+
+
+def test_describe_path_returns_existence_and_size(tmp_path: Path) -> None:
+    target = tmp_path / "logs" / "eodinga.log"
+    target.parent.mkdir(parents=True)
+    target.write_text("hello", encoding="utf-8")
+
+    assert describe_path(target) == (True, 5)
+    assert describe_path(target.with_name("missing.log")) == (False, None)
+    assert describe_path(None) == (False, None)
+
+
+def test_summarize_crash_dir_reports_latest_log_and_total_bytes(tmp_path: Path) -> None:
+    crash_dir = tmp_path / "crashes"
+    crash_dir.mkdir()
+    first = crash_dir / "crash-20260423T010101.000000Z.log"
+    second = crash_dir / "crash-20260423T010102.000000Z.log"
+    first.write_text("one", encoding="utf-8")
+    second.write_text("three", encoding="utf-8")
+    (crash_dir / "notes.txt").write_text("ignored", encoding="utf-8")
+
+    summary = summarize_crash_dir(crash_dir)
+    assert summary["crash_log_count"] == 2
+    assert summary["crash_log_total_bytes"] == 8
+    assert summary["latest_crash_log"] == second
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
