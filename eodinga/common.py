@@ -104,6 +104,7 @@ class StatsSnapshot(BaseModel):
     version: str = ""
     uptime_ms: float = 0.0
     files_indexed: int = 0
+    files_indexed_runtime: int = 0
     documents_indexed: int = 0
     queries_served: int = 0
     queries_zero_results: int = 0
@@ -158,10 +159,14 @@ class StatsSnapshot(BaseModel):
     log_path: Path | None = None
     log_path_source: str | None = None
     log_path_disabled_reason: str | None = None
+    log_file_exists: bool = False
+    log_file_size_bytes: int | None = None
     log_rotation: str | int | None = None
     log_retention: str | int | None = None
     log_compression: str | None = None
     crash_dir: Path | None = None
+    crash_log_count: int = 0
+    latest_crash_log: Path | None = None
     file_logging_enabled: bool = True
 
 

@@ -23,6 +23,8 @@ from eodinga.observability import (
     file_logging_enabled,
     histogram_snapshot,
     increment_counter,
+    inspect_crash_logs,
+    inspect_log_file,
     install_crash_handlers,
     record_snapshot,
     record_histogram,
@@ -208,6 +210,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     metrics = snapshot_metrics()
     counters = metrics["counters"]
     log_target = resolve_log_target()
+    log_file_exists, log_file_size_bytes = inspect_log_file(log_target.path)
+    crash_log_count, latest_crash_log = inspect_crash_logs()
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
         process_started_at=metrics["process_started_at"],
@@ -218,6 +222,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         version=str(metrics["version"]),
         uptime_ms=float(metrics["uptime_ms"]),
         files_indexed=index_snapshot.file_count,
+        files_indexed_runtime=counter_value("files_indexed"),
         documents_indexed=index_snapshot.content_count,
         queries_served=counter_value("queries_served"),
         queries_zero_results=counter_value("queries_zero_results"),
@@ -274,10 +279,14 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         log_path=log_target.path,
         log_path_source=log_target.source,
         log_path_disabled_reason=log_target.disabled_reason,
+        log_file_exists=log_file_exists,
+        log_file_size_bytes=log_file_size_bytes,
         log_rotation=resolve_log_rotation(),
         log_retention=resolve_log_retention(),
         log_compression=resolve_log_compression(),
         crash_dir=resolve_crash_dir(),
+        crash_log_count=crash_log_count,
+        latest_crash_log=latest_crash_log,
         file_logging_enabled=file_logging_enabled(),
     ).model_dump(mode="json")
     record_snapshot(
@@ -285,6 +294,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         {
             "db": str(db_path),
             "files_indexed": snapshot["files_indexed"],
+            "files_indexed_runtime": snapshot["files_indexed_runtime"],
             "documents_indexed": snapshot["documents_indexed"],
             "queries_served": snapshot["queries_served"],
             "commands_started": snapshot["commands_started"],

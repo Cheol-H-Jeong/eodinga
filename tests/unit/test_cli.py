@@ -503,8 +503,13 @@ def test_index_requires_at_least_one_root(cli_runner, tmp_path: Path) -> None:
     assert "requires at least one root" in result.stderr
 
 
-def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
+def test_stats_json_emits_runtime_counters(
+    tmp_path: Path,
+    capsys,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     db_path = tmp_path / "index.db"
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path / "crashes"))
     _build_search_db(db_path)
     reset_metrics()
 
@@ -524,6 +529,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["rss_bytes"] is None or payload["rss_bytes"] > 0
     assert payload["open_fd_count"] is None or payload["open_fd_count"] >= 0
     assert payload["files_indexed"] == 3
+    assert payload["files_indexed_runtime"] == 0
     assert payload["documents_indexed"] == 3
     assert payload["queries_served"] == 1
     assert payload["queries_zero_results"] == 0
@@ -579,10 +585,14 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_path"] is None
     assert payload["log_path_source"] is None
     assert payload["log_path_disabled_reason"] == "disabled_pytest"
+    assert payload["log_file_exists"] is False
+    assert payload["log_file_size_bytes"] is None
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
     assert payload["crash_dir"]
+    assert payload["crash_log_count"] == 0
+    assert payload["latest_crash_log"] is None
     assert payload["counters"]["queries_served"] == 1
     assert payload["counters"]["commands_started"] == 2
     assert payload["counters"]["logging_configurations"] == 2
@@ -607,6 +617,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     broken = tmp_path / "broken.txt"
     broken.write_text("broken parser input\n", encoding="utf-8")
     db_path = tmp_path / "index.db"
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path / "crashes"))
     reset_metrics()
 
     index_exit = main(["--db", str(db_path), "index", "--root", str(docs), "--rebuild"])
@@ -667,6 +678,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert stats_exit == 0
     payload = json.loads(stats_output.out)
     assert payload["counters"]["files_indexed"] == indexed_files
+    assert payload["files_indexed_runtime"] == indexed_files
     assert payload["counters"]["parser_errors"] == 1
     assert payload["counters"]["parsers.broken.error"] == 1
     assert payload["counters"]["parsers.text.parsed"] >= 2
@@ -730,8 +742,12 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_path_source"] is None
     assert payload["log_path_disabled_reason"] == "disabled_pytest"
+    assert payload["log_file_exists"] is False
+    assert payload["log_file_size_bytes"] is None
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
+    assert payload["crash_log_count"] == 0
+    assert payload["latest_crash_log"] is None
     assert payload["log_sink_file_sources"] == {}
     assert payload["log_sink_file_disabled_reasons"] == {"disabled_pytest": 3}
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
@@ -778,6 +794,46 @@ def test_stats_json_structures_parser_success_and_skip_counts(tmp_path: Path, ca
     assert payload["parser_activity"]["tracked"] == {"parsed": 1, "skipped_too_large": 1}
     assert payload["counters"]["parsers.tracked.parsed"] == 1
     assert payload["counters"]["parsers.tracked.skipped_too_large"] == 1
+
+
+def test_stats_json_reports_log_file_and_crash_inventory(
+    tmp_path: Path,
+    capsys,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db_path = tmp_path / "index.db"
+    log_path = tmp_path / "logs" / "eodinga.log"
+    crash_dir = tmp_path / "crashes"
+    _build_search_db(db_path)
+    reset_metrics()
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    def _boom(_args) -> int:
+        raise RuntimeError("version exploded")
+
+    monkeypatch.setattr("eodinga.__main__._cmd_version", _boom)
+
+    exit_code = main(["--log-level", "DEBUG", "--db", str(db_path), "version"])
+    failure_output = capsys.readouterr()
+    assert exit_code == 1
+    assert "crash log written to" in failure_output.err
+
+    stats_exit = main(["--log-level", "DEBUG", "--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["log_path"] == str(log_path)
+    assert payload["log_path_source"] == "env_override"
+    assert payload["log_path_disabled_reason"] is None
+    assert payload["log_file_exists"] is True
+    assert payload["log_file_size_bytes"] is not None
+    assert payload["log_file_size_bytes"] > 0
+    assert payload["crash_dir"] == str(crash_dir)
+    assert payload["crash_log_count"] == 1
+    assert payload["latest_crash_log"] is not None
+    assert payload["latest_crash_log"].startswith(str(crash_dir / "crash-"))
 
 
 def test_stats_json_exposes_zero_result_query_metrics(tmp_path: Path, capsys) -> None:
