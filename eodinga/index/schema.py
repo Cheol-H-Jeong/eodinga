@@ -2,14 +2,19 @@ from __future__ import annotations
 
 import sqlite3
 
-PRAGMAS = (
+BASE_PRAGMAS = (
     "PRAGMA journal_mode=WAL;",
-    "PRAGMA synchronous=NORMAL;",
     "PRAGMA mmap_size=1073741824;",
     "PRAGMA temp_store=MEMORY;",
     "PRAGMA cache_size=-64000;",
     "PRAGMA foreign_keys=ON;",
 )
+
+SYNC_MODE_FULL = "FULL"
+SYNC_MODE_NORMAL = "NORMAL"
+SYNC_MODE_VALUES = frozenset({SYNC_MODE_FULL, SYNC_MODE_NORMAL})
+
+PRAGMAS = BASE_PRAGMAS + (f"PRAGMA synchronous={SYNC_MODE_FULL};",)
 
 SCHEMA_VERSION = 2
 
@@ -108,3 +113,10 @@ def current_schema_version(conn: sqlite3.Connection) -> int:
     except sqlite3.OperationalError:
         return 0
     return int(row[0]) if row else 0
+
+
+def set_synchronous_mode(conn: sqlite3.Connection, mode: str) -> None:
+    normalized = mode.upper()
+    if normalized not in SYNC_MODE_VALUES:
+        raise ValueError(f"unsupported sqlite synchronous mode: {mode}")
+    conn.execute(f"PRAGMA synchronous={normalized};")

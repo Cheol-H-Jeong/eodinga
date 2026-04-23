@@ -4,6 +4,8 @@ import sqlite3
 from pathlib import Path
 from time import perf_counter, time
 
+import pytest
+
 import eodinga.index.writer as writer_module
 from eodinga.content.base import ParsedContent
 from eodinga.common import FileRecord, WatchEvent
@@ -35,6 +37,7 @@ def test_writer_bulk_insert_and_incremental_apply_are_fast(tmp_db: Path, tmp_pat
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         (str(tmp_path), "[]", "[]", 1),
     )
+    conn.commit()
     writer = IndexWriter(conn)
     records = [_synthetic_record(index, tmp_path) for index in range(5000)]
 
@@ -55,6 +58,55 @@ def test_writer_bulk_insert_and_incremental_apply_are_fast(tmp_db: Path, tmp_pat
     incr_elapsed = perf_counter() - started
     assert processed == 100
     assert incr_elapsed < 0.05
+
+
+def test_writer_top_level_transaction_uses_normal_sync_and_restores_full(
+    tmp_db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    conn.commit()
+    writer = IndexWriter(conn)
+    records = [_synthetic_record(index, tmp_path) for index in range(2)]
+    modes: list[str] = []
+    original_set_mode = writer_module.set_synchronous_mode
+
+    def record_mode(target_conn: sqlite3.Connection, mode: str) -> None:
+        modes.append(mode)
+        original_set_mode(target_conn, mode)
+
+    monkeypatch.setattr(writer_module, "set_synchronous_mode", record_mode)
+
+    assert int(conn.execute("PRAGMA synchronous;").fetchone()[0]) == 2
+    assert writer.bulk_upsert(records) == 2
+
+    assert modes == ["NORMAL", "FULL"]
+    assert int(conn.execute("PRAGMA synchronous;").fetchone()[0]) == 2
+
+
+def test_writer_top_level_transaction_restores_full_sync_after_failure(
+    tmp_db: Path, tmp_path: Path
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    conn.commit()
+    record = _synthetic_record(1, tmp_path)
+
+    def fail_parse(_path: Path) -> ParsedContent | None:
+        raise RuntimeError("boom")
+
+    writer = IndexWriter(conn, parser_callback=fail_parse)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        writer.bulk_upsert([record])
+
+    assert int(conn.execute("PRAGMA synchronous;").fetchone()[0]) == 2
 
 
 def test_writer_caches_chunk_shaped_sql_templates() -> None:

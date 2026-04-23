@@ -9,7 +9,13 @@ from time import time
 from typing import NamedTuple, TypeVar
 
 from eodinga.common import FileRecord, ParsedContent, WatchEvent
-from eodinga.index.schema import apply_schema, current_schema_version
+from eodinga.index.schema import (
+    SYNC_MODE_FULL,
+    SYNC_MODE_NORMAL,
+    apply_schema,
+    current_schema_version,
+    set_synchronous_mode,
+)
 
 ParserCallback = Callable[[Path], ParsedContent | None]
 RecordLoader = Callable[[Path], FileRecord | None]
@@ -137,8 +143,12 @@ class IndexWriter:
     @contextmanager
     def _transaction(self) -> Iterator[None]:
         if not self._conn.in_transaction:
-            with self._conn:
-                yield
+            set_synchronous_mode(self._conn, SYNC_MODE_NORMAL)
+            try:
+                with self._conn:
+                    yield
+            finally:
+                set_synchronous_mode(self._conn, SYNC_MODE_FULL)
             return
         self._savepoint_index += 1
         savepoint_name = f"eodinga_writer_{self._savepoint_index}"
