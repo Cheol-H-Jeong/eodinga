@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.510 - 2026-04-23
+## 0.1.512 - 2026-04-23
 
 - Preserved the undelivered tail of a watcher flush batch when queue delivery aborts mid-flight, preventing ready events from disappearing during backpressure or shutdown races.
 - Flushed events emitted while observers are stopping before the watcher fully shuts down, so late filesystem notifications get one last delivery pass instead of being discarded.
