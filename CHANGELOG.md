@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.197 - 2026-04-23
+
+- Expanded `README.md` with a faster-scanning install matrix, docs map, search recipes, and release-health commands so the shipped surface is easier to verify from one page.
+- Deepened `docs/DSL.md` with query-building patterns and execution hints that explain how to compose indexed filters, negation, regex, and root-scoped searches without guesswork.
+- Aligned `docs/ACCEPTANCE.md`, `docs/CONTRIBUTING.md`, `docs/ARCHITECTURE.md`, and `docs/RELEASE.md` with the current Linux packaging checks, diagnostics flow, and local tag handoff process.
+
 ## 0.1.195 - 2026-04-23
 
 - Split the launcher popup window into its own module so the launcher surface stays under the repository's module-size cap while preserving the existing geometry, topmost, and hotkey behavior.
