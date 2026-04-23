@@ -223,6 +223,29 @@ def test_compile_double_negated_group_restores_positive_branches() -> None:
     assert all(not branch.path_terms[0].negated for branch in compiled.branches)
 
 
+def test_compile_negated_and_group_expands_to_demorgan_branches() -> None:
+    compiled = compile_query(parse("-(alpha beta) ext:txt"))
+
+    assert len(compiled.branches) == 2
+    assert {branch.where_sql for branch in compiled.branches} == {"files.ext = ?"}
+    assert {branch.where_params for branch in compiled.branches} == {("txt",)}
+    assert {branch.path_terms[0].value for branch in compiled.branches} == {"alpha", "beta"}
+    assert all(branch.path_terms[0].negated for branch in compiled.branches)
+
+
+def test_compile_negated_nested_group_distributes_to_dnf_branches() -> None:
+    compiled = compile_query(parse("-((alpha | beta) gamma)"))
+
+    assert len(compiled.branches) == 2
+    branch_terms = sorted((tuple(term.value for term in branch.path_terms), branch.path_match_params) for branch in compiled.branches)
+    assert branch_terms == [
+        (("alpha", "beta"), ()),
+        (("gamma",), ()),
+    ]
+    for branch in compiled.branches:
+        assert all(term.negated for term in branch.path_terms)
+
+
 def test_compile_reuses_cached_queries() -> None:
     first = compile("report ext:pdf")
     second = compile("report ext:pdf")

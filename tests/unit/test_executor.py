@@ -385,6 +385,66 @@ def test_execute_phrase_query_matches_across_punctuation_in_path_and_content(
     assert content_hits == ["launch-checklist.txt"]
 
 
+def test_execute_content_regex_multiline_flag_matches_non_initial_line(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/multiline.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="alpha\nnext beta",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/single-line.txt",
+        512,
+        1_713_527_940,
+        "txt",
+        body_text="alpha next beta",
+    )
+    tmp_db.commit()
+
+    multiline_hits = [hit.file.name for hit in search(tmp_db, r"content:/^next/m", limit=5).hits]
+    plain_hits = [hit.file.name for hit in search(tmp_db, r"content:/^next/", limit=5).hits]
+
+    assert multiline_hits == ["multiline.txt"]
+    assert plain_hits == []
+
+
+def test_execute_content_regex_dotall_flag_matches_across_newlines(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/dotall.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="alpha\nnext beta",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/literal-dot.txt",
+        512,
+        1_713_527_940,
+        "txt",
+        body_text="alpha.next beta",
+    )
+    tmp_db.commit()
+
+    dotall_hits = [hit.file.name for hit in search(tmp_db, r"content:/alpha.next/s", limit=5).hits]
+    plain_hits = [hit.file.name for hit in search(tmp_db, r"content:/alpha.next/", limit=5).hits]
+
+    assert dotall_hits == ["dotall.txt", "literal-dot.txt"]
+    assert plain_hits == ["literal-dot.txt"]
+
+
 def test_execute_decomposed_korean_phrase_query_matches_across_punctuation(
     tmp_db: sqlite3.Connection,
 ) -> None:
@@ -939,6 +999,61 @@ def test_execute_negated_group_query_applies_demorgan_truth_table(
     hits = [hit.file.name for hit in search(tmp_db, "-(alpha | beta gamma) ext:txt", limit=10).hits]
 
     assert hits == ["beta-only.txt", "gamma-only.txt", "neutral.txt"]
+
+
+def test_execute_negated_and_group_keeps_records_missing_either_term(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/alpha-only.txt", 1024, now, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, "/workspace/beta-only.txt", 1024, now - 60, "txt", body_text="beta")
+    _insert_file(
+        tmp_db,
+        3,
+        "/workspace/alpha-beta.txt",
+        1024,
+        now - 120,
+        "txt",
+        body_text="alpha beta",
+    )
+    _insert_file(tmp_db, 4, "/workspace/neutral.txt", 1024, now - 180, "txt", body_text="neutral")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "-(alpha beta) ext:txt", limit=10).hits]
+
+    assert hits == ["alpha-only.txt", "beta-only.txt", "neutral.txt"]
+
+
+def test_execute_negated_nested_group_matches_demorgan_distribution(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/alpha-gamma.txt",
+        1024,
+        now,
+        "txt",
+        body_text="alpha gamma",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/beta-gamma.txt",
+        1024,
+        now - 60,
+        "txt",
+        body_text="beta gamma",
+    )
+    _insert_file(tmp_db, 3, "/workspace/gamma-only.txt", 1024, now - 120, "txt", body_text="gamma")
+    _insert_file(tmp_db, 4, "/workspace/alpha-only.txt", 1024, now - 180, "txt", body_text="alpha")
+    _insert_file(tmp_db, 5, "/workspace/neutral.txt", 1024, now - 240, "txt", body_text="neutral")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "-((alpha | beta) gamma) ext:txt", limit=10).hits]
+
+    assert hits == ["alpha-only.txt", "gamma-only.txt", "neutral.txt"]
 
 
 def test_execute_korean_filename_queries(tmp_db: sqlite3.Connection) -> None:
