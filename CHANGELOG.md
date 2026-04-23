@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.555 - 2026-04-23
+
+- Added an atomic runtime metrics store with corruption quarantine, so persisted observability state survives normal CLI exits without leaving half-written JSON behind.
+- Persisted counters, histograms, and recent command snapshots across separate CLI processes, making `eodinga stats --json` reflect prior `search`, `version`, and failure activity instead of only the current process.
+- Exposed the resolved metrics store path in `stats --json` and added subprocess coverage for both successful and failed cross-process metrics accumulation.
+
 ## 0.1.552 - 2026-04-23
 
 - Stabilized tied search-result ordering by breaking equal-name and equal-score ties with the indexed path instead of insertion-order-dependent file ids, so duplicate filenames across directories now sort deterministically.
