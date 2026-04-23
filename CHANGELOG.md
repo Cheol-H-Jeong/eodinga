@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.830 - 2026-04-23
+## 0.1.836 - 2026-04-23
 
 - Cached compiled regex filters inside the query executor, so repeated regex searches stop recompiling the same pattern for every candidate record.
 - Cached regex validation during query compilation, reducing repeated compile-time regex checks for identical `regex:`, `path:/.../`, and `content:/.../` patterns.
