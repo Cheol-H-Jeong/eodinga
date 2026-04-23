@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.503 - 2026-04-23
+
+- Hardened the AppImage dry-run and build audits so staged Linux releases now fail on desktop-entry drift, missing strict-shell launchers, or launcher shims that stop returning to the project root before invoking `python -m eodinga`.
+- Tightened the Debian package audit so staged `.deb` artifacts now enforce control metadata, maintainer, desktop-entry fields, icon payload alignment, and strict-shell launcher behavior instead of only checking that package files exist.
+
 ## 0.1.448 - 2026-04-23
 
 - Counted ordinary nonzero CLI exits as failed commands in observability metrics, so validation and syntax errors now appear in `commands_failed`, per-command failure tallies, and exit-code summaries without being misclassified as crashes.
