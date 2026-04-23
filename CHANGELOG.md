@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.157 - 2026-04-23
+## 0.1.160 - 2026-04-23
 
 - Added a shipped `docs/eodinga.1.md` command manual that mirrors the current `eodinga` CLI surface with synopsis, command semantics, examples, exit codes, and platform path references.
 - Expanded `docs/ARCHITECTURE.md` with a database layout sketch, a search request sequence, watcher event semantics, and failure-containment notes so operator-facing runtime behavior is documented next to the existing flow diagrams.
