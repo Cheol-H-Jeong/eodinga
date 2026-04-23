@@ -138,6 +138,10 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
     yesterday_start = today_start - 86_400
     this_week_start = today_start - local_now.weekday() * 86_400
+    last_week_start = this_week_start - 7 * 86_400
+    this_month_start = int(local_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
+    last_month_anchor = local_now.replace(day=1, hour=12, minute=0, second=0, microsecond=0) - timedelta(days=1)
+    last_month_start = int(last_month_anchor.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
     last_month = int((local_now - timedelta(days=40)).timestamp())
 
     _insert_file(tmp_db, 1, "/workspace/today.txt", 512, today_start + 60, "txt", body_text="today note")
@@ -161,6 +165,24 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     )
     _insert_file(
         tmp_db,
+        5,
+        "/workspace/last-week.txt",
+        2048,
+        last_week_start + 120,
+        "txt",
+        body_text="last week note",
+    )
+    _insert_file(
+        tmp_db,
+        6,
+        "/workspace/last-month.txt",
+        4096,
+        last_month_start + 120,
+        "txt",
+        body_text="last month note",
+    )
+    _insert_file(
+        tmp_db,
         4,
         "/workspace/old.txt",
         4096,
@@ -176,8 +198,15 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     assert "today.txt" in this_week_hits
     assert "yesterday.txt" in this_week_hits
     assert "week.txt" in this_week_hits
+    assert "last-week.txt" not in this_week_hits
+    last_week_hits = [hit.file.name for hit in search(tmp_db, "date:last-week", limit=10).hits]
+    assert last_week_hits == ["last-week.txt"]
     this_month_hits = [hit.file.name for hit in search(tmp_db, "date:this-month", limit=10).hits]
+    assert "last-month.txt" not in this_month_hits
     assert "old.txt" not in this_month_hits
+    last_month_hits = [hit.file.name for hit in search(tmp_db, "date:last-month", limit=10).hits]
+    assert "last-month.txt" in last_month_hits
+    assert all(name not in last_month_hits for name in ["today.txt", "yesterday.txt", "week.txt"])
 
 
 def test_execute_negated_case_true_restores_case_insensitive_matching(

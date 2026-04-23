@@ -233,7 +233,7 @@ def test_invalid_query_fuzz_raises_cleanly(query: str) -> None:
 
 OPERATOR_ATOMS = st.one_of(
     st.builds(lambda value: f"content:{value}", st.sampled_from(["alpha", '"hello world"'])),
-    st.builds(lambda value: f"date:{value}", st.sampled_from(["today", "yesterday", "this-week", "this-month", "2026-01-01", "2026-01-01..2026-01-03"])),
+    st.builds(lambda value: f"date:{value}", st.sampled_from(["today", "yesterday", "this-week", "last-week", "this-month", "last-month", "2026-01-01", "2026-01-01..2026-01-03"])),
     st.builds(lambda value: f"ext:{value}", st.sampled_from(["pdf", "txt", "md"])),
     st.builds(lambda value: f"is:{value}", st.sampled_from(["file", "dir", "symlink", "duplicate"])),
     st.builds(lambda value: f"path:{value}", st.sampled_from(["workspace", "프로젝트", '"team notes"'])),
