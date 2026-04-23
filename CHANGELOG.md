@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.243 - 2026-04-23
+## 0.1.247 - 2026-04-23
 
 - Hardened crash logging by avoiding same-second filename collisions and by tracking both the last written crash log path and the total number of crash logs emitted in-process.
 - Expanded runtime stats with query-outcome counters, including total results returned and zero-result queries, so operators can distinguish slow searches from empty ones.
