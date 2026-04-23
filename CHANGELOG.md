@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.506 - 2026-04-23
+## 0.1.509 - 2026-04-23
 
 - Normalized launcher hotkey combos before binding them, with shared validation and broader named-key support so remaps behave consistently across Linux and Windows backends.
 - Added a no-restart path to disable the global launcher hotkey from Settings and persisted the disabled state cleanly in config.
