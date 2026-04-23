@@ -7,6 +7,7 @@ BUILD_ROOT="${DIST_DIR}/deb-root"
 AUDIT_PATH="${DIST_DIR}/linux-deb-audit.json"
 DESKTOP_ENTRY="${ROOT_DIR}/packaging/linux/eodinga.desktop"
 ICON_ASSET="${ROOT_DIR}/packaging/linux/eodinga.svg"
+DEBIAN_CONTROL_TEMPLATE="${ROOT_DIR}/packaging/linux/debian/control"
 VERSION="$(python3 - <<'PY'
 import pathlib
 import re
@@ -65,6 +66,7 @@ PY
 
 tar -czf "${ARCHIVE_PATH}" -C "${BUILD_ROOT}" "$(basename "${PACKAGE_DIR}")"
 python3 - <<PY
+import gzip
 import json
 import os
 from pathlib import Path
@@ -89,6 +91,14 @@ launcher_path = Path("${PACKAGE_DIR}/usr/bin/eodinga")
 icon_path = Path("${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 license_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE")
 changelog_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
+debian_control_template_path = Path("${DEBIAN_CONTROL_TEMPLATE}")
+template_control_entries = {}
+for line in debian_control_template_path.read_text(encoding="utf-8").splitlines():
+    if not line or ":" not in line:
+        continue
+    key, value = line.split(":", 1)
+    template_control_entries[key] = value.strip()
+changelog_text = gzip.decompress(changelog_path.read_bytes()).decode("utf-8")
 payload = {
     "target": "linux-deb-dry-run" if ${DRY_RUN} else "linux-deb",
     "version": "${VERSION}",
@@ -105,6 +115,14 @@ payload = {
         "depends": control_entries.get("Depends"),
         "description": control_entries.get("Description"),
     },
+    "debian_control_template": {
+        "path": str(debian_control_template_path),
+        "exists": debian_control_template_path.exists(),
+        "source": template_control_entries.get("Source"),
+        "maintainer": template_control_entries.get("Maintainer"),
+        "binary_package": template_control_entries.get("Package"),
+        "description": template_control_entries.get("Description"),
+    },
     "desktop_entry": {
         "path": str(desktop_path),
         "name": desktop_entries.get("Name"),
@@ -112,6 +130,8 @@ payload = {
         "icon": desktop_entries.get("Icon"),
         "categories": desktop_entries.get("Categories"),
         "startup_notify": desktop_entries.get("StartupNotify"),
+        "launches_gui": desktop_entries.get("Exec") == "eodinga gui",
+        "icon_matches_package": desktop_entries.get("Icon") == icon_path.stem,
     },
     "icon": {
         "path": str(icon_path),
@@ -128,6 +148,7 @@ payload = {
         "license_exists": license_path.exists(),
         "changelog_path": str(changelog_path),
         "changelog_exists": changelog_path.exists(),
+        "changelog_has_current_release_heading": changelog_text.startswith("# Changelog\n\n## ${VERSION} - "),
     },
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")

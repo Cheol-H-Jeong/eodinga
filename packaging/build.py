@@ -260,6 +260,8 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
     if payload.get("version") != package_version:
         errors.append("Debian audit version does not match the package version")
     control_payload = payload.get("control", {})
+    control_template_payload = payload.get("debian_control_template", {})
+    desktop_payload = payload.get("desktop_entry", {})
     icon_payload = payload.get("icon", {})
     launcher_payload = payload.get("launcher", {})
     docs_payload = payload.get("docs", {})
@@ -275,12 +277,28 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
     if Path(str(payload.get("deb_path"))).name != expected_deb_name:
         errors.append("Debian package filename does not match the package version and arch")
     required_flags = [
+        (control_template_payload.get("exists"), "Debian control template is missing"),
+        (
+            control_template_payload.get("source") == "eodinga",
+            "Debian control template source package drifted from eodinga",
+        ),
+        (
+            control_template_payload.get("binary_package") == "eodinga",
+            "Debian control template binary package drifted from eodinga",
+        ),
+        (
+            control_template_payload.get("description") == control_payload.get("description"),
+            "Debian control template description drifted from the staged package",
+        ),
+        (desktop_payload.get("launches_gui"), "Debian desktop entry no longer launches the GUI command"),
+        (desktop_payload.get("icon_matches_package"), "Debian desktop entry icon no longer matches the packaged asset"),
         (icon_payload.get("exists"), "Debian icon asset is missing from the package tree"),
         (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),
         (launcher_payload.get("is_executable"), "Debian launcher shim is not executable"),
         (launcher_payload.get("executes_python_module"), "Debian launcher shim no longer executes the Python module"),
         (docs_payload.get("license_exists"), "Debian package no longer ships the license"),
         (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),
+        (docs_payload.get("changelog_has_current_release_heading"), "Debian package changelog no longer starts with the current release heading"),
     ]
     for ok, message in required_flags:
         if not ok:

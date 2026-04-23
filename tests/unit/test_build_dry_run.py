@@ -269,6 +269,16 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
             "package": "eodinga",
             "version": __version__,
         },
+        "debian_control_template": {
+            "exists": True,
+            "source": "eodinga",
+            "binary_package": "eodinga",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "launches_gui": True,
+            "icon_matches_package": True,
+        },
         "icon": {
             "exists": True,
             "desktop_icon_matches_asset": True,
@@ -280,6 +290,7 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
         "docs": {
             "license_exists": True,
             "changelog_exists": False,
+            "changelog_has_current_release_heading": True,
         },
     }
 
@@ -299,6 +310,16 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
             "package": "eodinga",
             "version": __version__,
         },
+        "debian_control_template": {
+            "exists": True,
+            "source": "eodinga",
+            "binary_package": "eodinga",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "launches_gui": True,
+            "icon_matches_package": True,
+        },
         "icon": {
             "exists": True,
             "desktop_icon_matches_asset": True,
@@ -310,6 +331,7 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
         "docs": {
             "license_exists": True,
             "changelog_exists": True,
+            "changelog_has_current_release_heading": True,
         },
     }
 
@@ -362,17 +384,28 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
         "depends": "python3 (>= 3.11)",
         "description": "Instant lexical file search for Windows and Linux",
     }
+    assert payload["debian_control_template"] == {
+        "path": str(Path("packaging/linux/debian/control").resolve()),
+        "exists": True,
+        "source": "eodinga",
+        "maintainer": "Cheol-H-Jeong",
+        "binary_package": "eodinga",
+        "description": "Instant lexical file search for Windows and Linux",
+    }
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
     assert payload["desktop_entry"]["categories"] == "Utility;FileTools;"
     assert payload["desktop_entry"]["startup_notify"] == "true"
+    assert payload["desktop_entry"]["launches_gui"] is True
+    assert payload["desktop_entry"]["icon_matches_package"] is True
     assert payload["icon"]["exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["executes_python_module"] is True
     assert payload["docs"]["license_exists"] is True
     assert payload["docs"]["changelog_exists"] is True
+    assert payload["docs"]["changelog_has_current_release_heading"] is True
 
 
 def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
