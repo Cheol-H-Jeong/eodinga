@@ -730,7 +730,10 @@ def _derive_name_path_hits(
     name_hits: list[int] = []
     path_hits: list[int] = []
     if not positive_terms:
-        ordered = sorted(records.values(), key=lambda item: item.name_lower)
+        ordered = sorted(
+            records.values(),
+            key=lambda item: (item.name_lower, str(item.path), -1 if item.id is None else item.id),
+        )
         ids = [record.id for record in ordered if record.id is not None]
         return ids, ids
     for record in records.values():
