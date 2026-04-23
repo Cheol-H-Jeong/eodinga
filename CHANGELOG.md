@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.572 - 2026-04-23
+## 0.1.573 - 2026-04-23
 
 - Restricted the Windows Inno Setup installer to x64-compatible hosts and pinned the packaging audit to enforce 64-bit install mode in both the script and rendered dry-run manifest.
 - Expanded the AppImage dry-run audit to verify rendered `app_info` metadata, version-token substitution, and included desktop/icon assets so recipe drift is caught before Linux release builds.
