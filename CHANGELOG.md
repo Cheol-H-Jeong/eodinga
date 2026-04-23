@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.301 - 2026-04-23
+## 0.1.304 - 2026-04-23
 
 - Persisted observability counters and histograms to a dedicated runtime `metrics.json` snapshot so separate CLI invocations can accumulate `stats --json` telemetry instead of resetting to zero every process start.
 - Taught the CLI to load and flush that metrics snapshot on every command path, surface the resolved `metrics_path` in `stats --json`, and ignore malformed runtime snapshots without taking the command down.
