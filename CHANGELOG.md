@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.223 - 2026-04-23
+
+- Added explicit accessibility names across launcher support surfaces, including status text, empty-state messaging, and preview metadata, so screen-reader coverage matches the rest of the GUI shell.
+- Strengthened launcher result-match rendering with a bolder, higher-contrast highlight treatment that keeps matched substrings easier to scan at a glance.
+- Refined launcher empty-state guidance to surface pinned filters as concrete search suggestions before and after a miss, improving keyboard-first discoverability without changing query behavior.
+
 ## 0.1.216 - 2026-04-23
 
 - Clarified `README.md` as an operator-facing contract with a tighter at-a-glance summary, reference map, and FAQ coverage for local-only behavior, packaging, uninstall, and generated CLI docs.
