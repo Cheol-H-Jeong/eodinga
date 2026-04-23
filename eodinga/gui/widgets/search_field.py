@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QLineEdit
+from PySide6.QtWidgets import QLineEdit, QToolButton
 
 from eodinga.gui.design import FONT_18
 
@@ -15,3 +15,19 @@ class SearchField(QLineEdit):
         font.setPointSize(FONT_18)
         self.setFont(font)
         self.setClearButtonEnabled(True)
+        self._label_clear_button()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self._label_clear_button()
+
+    def clear_button(self) -> QToolButton | None:
+        buttons = self.findChildren(QToolButton)
+        return buttons[0] if buttons else None
+
+    def _label_clear_button(self) -> None:
+        button = self.clear_button()
+        if button is None:
+            return
+        button.setAccessibleName("Clear launcher search")
+        button.setAccessibleDescription("Clear the current launcher query.")
