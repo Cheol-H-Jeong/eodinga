@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.385 - 2026-04-23
+
+- Normalized quoted phrase boundary matching against NFC-folded text so decomposed Korean content still matches across punctuation and separator boundaries.
+- Made the non-ASCII path and auto-content scan fallbacks phrase-aware, preserving quoted query semantics when FTS tokenization does not recover the candidate set.
+- Expanded executor coverage for `created:` filters and `is:file` / `is:dir` / `is:symlink` so those query operators stay pinned independently from `mtime`.
+
 ## 0.1.377 - 2026-04-23
 
 - Returned a clean `130` exit code for interrupted CLI commands, recording them as interrupted instead of crashed so Ctrl+C and signal stops no longer surface as unhandled failures.
