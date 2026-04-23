@@ -483,9 +483,13 @@ def test_execute_iso_week_date_literals(
 
     week_hits = [hit.file.name for hit in search(tmp_db, "date:2026-W17", limit=10).hits]
     range_hits = [hit.file.name for hit in search(tmp_db, "date:2026-w17..2026-w18", limit=10).hits]
+    compact_week_hits = [hit.file.name for hit in search(tmp_db, "date:2026W17", limit=10).hits]
+    compact_range_hits = [hit.file.name for hit in search(tmp_db, "date:2026W17..2026W18", limit=10).hits]
 
     assert week_hits == ["week-17.txt"]
     assert range_hits == ["week-17.txt", "week-18.txt"]
+    assert compact_week_hits == week_hits
+    assert compact_range_hits == range_hits
 
 
 def test_execute_negated_case_true_restores_case_insensitive_matching(

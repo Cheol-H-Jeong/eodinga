@@ -95,7 +95,7 @@ def _parse_iso_span(value: str) -> DateRange | None:
         except ValueError as error:
             raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
         return _span_bounds(start, _next_month_start(start))
-    week_match = re.fullmatch(r"(?P<year>\d{4})-[Ww](?P<week>\d{2})", value)
+    week_match = re.fullmatch(r"(?P<year>\d{4})-?[Ww](?P<week>\d{2})", value)
     if week_match is None:
         return None
     try:
