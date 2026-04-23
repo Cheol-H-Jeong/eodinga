@@ -52,35 +52,43 @@ def rebuild_index(
         if content_enabled
         else (lambda _path: None)
     )
+    interrupted = False
     try:
         writer = IndexWriter(conn, parser_callback=parser_callback)
-        with conn:
-            for root_id, root in enumerate(effective_roots, start=1):
-                conn.execute(
-                    """
-                    INSERT INTO roots(id, path, include, exclude, added_at)
-                    VALUES (?, ?, ?, ?, strftime('%s', 'now'))
-                    """,
-                    (
-                        root_id,
-                        str(root.path),
-                        json.dumps(root.include),
-                        json.dumps(root.exclude),
-                    ),
-                )
-                rules = PathRules(
-                    root=root.path,
-                    include=tuple(root.include),
-                    exclude=tuple(root.exclude),
-                )
-                for batch in walk_batched(root.path, rules, root_id=root_id):
-                    indexed = writer.bulk_upsert(batch)
-                    files_indexed += indexed
-                    if indexed:
-                        increment_counter("files_indexed", indexed, root=str(root.path))
-    except Exception:
+        conn.execute("BEGIN")
+        for root_id, root in enumerate(effective_roots, start=1):
+            conn.execute(
+                """
+                INSERT INTO roots(id, path, include, exclude, added_at)
+                VALUES (?, ?, ?, ?, strftime('%s', 'now'))
+                """,
+                (
+                    root_id,
+                    str(root.path),
+                    json.dumps(root.include),
+                    json.dumps(root.exclude),
+                ),
+            )
+            rules = PathRules(
+                root=root.path,
+                include=tuple(root.include),
+                exclude=tuple(root.exclude),
+            )
+            for batch in walk_batched(root.path, rules, root_id=root_id):
+                indexed = writer.bulk_upsert(batch)
+                files_indexed += indexed
+                if indexed:
+                    increment_counter("files_indexed", indexed, root=str(root.path))
+        conn.commit()
+    except BaseException as error:
+        interrupted = isinstance(error, KeyboardInterrupt)
+        if interrupted:
+            conn.commit()
+        else:
+            conn.rollback()
         conn.close()
-        _cleanup_index_files(staged_path)
+        if not interrupted:
+            _cleanup_index_files(staged_path)
         raise
     conn.close()
     try:

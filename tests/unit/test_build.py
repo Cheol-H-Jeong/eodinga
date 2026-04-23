@@ -9,6 +9,7 @@ import eodinga.index.build as build_module
 from eodinga.config import RootConfig
 from eodinga.index.build import rebuild_index
 from eodinga.index.schema import apply_schema
+from eodinga.index.storage import open_index
 
 
 def test_rebuild_index_failure_keeps_existing_target_database(
@@ -76,3 +77,41 @@ def test_rebuild_index_failure_keeps_existing_target_database(
     assert not staged_path.exists()
     assert not staged_path.with_name(".index.db.next-wal").exists()
 
+
+def test_rebuild_index_interrupt_keeps_committed_staged_database_for_recovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    target = root / "resume.txt"
+    target.write_text("resume me\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+
+    original_walk_batched = build_module.walk_batched
+    yielded = False
+
+    def interrupted_walk_batched(root_path: Path, rules, root_id: int = 0):
+        nonlocal yielded
+        for batch in original_walk_batched(root_path, rules, root_id=root_id):
+            yield batch
+            if not yielded:
+                yielded = True
+                raise KeyboardInterrupt()
+
+    monkeypatch.setattr(build_module, "walk_batched", interrupted_walk_batched)
+
+    with pytest.raises(KeyboardInterrupt):
+        rebuild_index(db_path, [RootConfig(path=root)])
+
+    staged_path = db_path.with_name(".index.db.next")
+    assert staged_path.exists()
+
+    reopened = open_index(db_path)
+    try:
+        rows = reopened.execute("SELECT path FROM files ORDER BY path").fetchall()
+        assert [str(row[0]) for row in rows] == [str(root), str(target)]
+    finally:
+        reopened.close()
+
+    assert not staged_path.exists()
+    assert not staged_path.with_name(".index.db.next-wal").exists()

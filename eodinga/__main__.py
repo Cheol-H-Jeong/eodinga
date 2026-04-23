@@ -24,6 +24,7 @@ from eodinga.observability import (
     write_crash_log,
 )
 from eodinga.query import QuerySyntaxError, search as run_search
+from eodinga.runtime import install_shutdown_handlers
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -210,7 +211,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     configure_logging(args.log_level)
     try:
-        return args.handler(args)
+        with install_shutdown_handlers():
+            return args.handler(args)
     except KeyboardInterrupt:
         raise
     except Exception as error:
