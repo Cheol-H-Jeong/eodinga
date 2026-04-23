@@ -6,6 +6,7 @@ from typing import cast
 from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.launcher import LauncherState
@@ -934,7 +935,8 @@ def test_launcher_query_chips_expose_accessible_context(qapp) -> None:
     assert recent_chip.accessibleDescription() == "Apply the recent launcher query"
     assert launcher.pinned_queries_row.accessibleDescription() == "1 pinned launcher queries are available: ext:pdf."
     assert launcher.recent_queries_row.accessibleDescription() == "1 recent launcher queries are available: budget."
-    assert launcher.pinned_queries_row.buttons[0].parent().accessibleDescription() == (
+    chips_container = cast(QWidget, launcher.pinned_queries_row.buttons[0].parent())
+    assert chips_container.accessibleDescription() == (
         "Launcher query chips for ext:pdf. Press Tab and Shift+Tab to move across chips, and Enter or Space to apply one."
     )
 

@@ -297,7 +297,9 @@ class LauncherPanel(QWidget):
         previous_hit = self._current_hit()
         self._latest_result = self._search_fn(query, self._max_results)
         if self._state_is_available() and query and not self._skip_remember_query:
-            self._state.remember_query(query)
+            state = self._state
+            if state is not None:
+                state.remember_query(query)
         self._skip_remember_query = False
         self.model.set_items(self._latest_result.items, query)
         self._refresh_status_footer()
