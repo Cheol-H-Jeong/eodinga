@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.405 - 2026-04-23
+
+- Extended launcher keyboard traversal so the action bar is reachable from the results list and can be cycled without leaving the keyboard.
+- Split empty-state guidance into contextual status copy plus a dedicated shortcut hint line, making quick-pick, recall, and escape actions easier to scan.
+- Expanded launcher accessibility coverage around chip groups, the embedded launcher panel, and the empty-state shortcut surface so screen-reader naming stays explicit across both launcher variants.
+
 ## 0.1.401 - 2026-04-23
 
 - Hardened the AppImage dry-run audit so staged desktop and icon payloads must remain byte-for-byte aligned with the shipped Linux assets instead of only existing in the AppDir.
