@@ -91,6 +91,7 @@ class LauncherPanel(QWidget):
             QShortcut(QKeySequence("Ctrl+Return"), self),
             QShortcut(QKeySequence("Shift+Return"), self),
             QShortcut(QKeySequence("Alt+C"), self),
+            QShortcut(QKeySequence.SelectAll, self),
             QShortcut(QKeySequence("Ctrl+L"), self),
             QShortcut(QKeySequence("Alt+Up"), self),
             QShortcut(QKeySequence("Alt+Down"), self),
@@ -99,9 +100,10 @@ class LauncherPanel(QWidget):
         self._shortcuts[1].activated.connect(self.emit_open_containing_folder)
         self._shortcuts[2].activated.connect(self.emit_show_properties)
         self._shortcuts[3].activated.connect(self.emit_copy_path)
-        self._shortcuts[4].activated.connect(self.focus_query_field)
-        self._shortcuts[5].activated.connect(self.recall_previous_query)
-        self._shortcuts[6].activated.connect(self.recall_next_query)
+        self._shortcuts[4].activated.connect(self.select_query_text)
+        self._shortcuts[5].activated.connect(self.focus_query_field)
+        self._shortcuts[6].activated.connect(self.recall_previous_query)
+        self._shortcuts[7].activated.connect(self.recall_next_query)
         self._quick_pick_shortcuts: list[QShortcut] = []
         for index in range(9):
             shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
@@ -146,6 +148,9 @@ class LauncherPanel(QWidget):
     def focus_query_field(self) -> None:
         self.query_field.setFocus()
         self.query_field.selectAll()
+
+    def select_query_text(self) -> None:
+        self.focus_query_field()
 
     def emit_open_containing_folder(self) -> None:
         self._flush_pending_query()
@@ -261,9 +266,15 @@ class LauncherPanel(QWidget):
             else:
                 hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
         elif self.result_list.hasFocus():
-            hint = "Enter opens. Alt+1..9 quick-picks. Up/Down wraps. PgUp/PgDn jumps. Ctrl+Enter reveals. Ctrl+L returns to filter."
+            hint = (
+                "Enter opens. Alt+1..9 quick-picks. Up/Down wraps. "
+                "Home/End and PgUp/PgDn jump. Ctrl+Enter reveals. Ctrl+A or Ctrl+L returns to filter."
+            )
         else:
-            hint = "Tab moves to results. Down/Up navigate. Enter opens the top hit. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
+            hint = (
+                "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. "
+                "Enter opens the top hit. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
+            )
         self.shortcut_label.setText(hint)
 
     def _current_hit(self) -> SearchHit | None:
@@ -287,6 +298,22 @@ class LauncherPanel(QWidget):
                 self._set_selection(self.model.rowCount() - 1)
             else:
                 self._move_selection(-1)
+            return True
+        if event.key() == Qt.Key.Key_Home:
+            self.result_list.setFocus()
+            self._set_selection(0)
+            return True
+        if event.key() == Qt.Key.Key_End:
+            self.result_list.setFocus()
+            self._set_selection(self.model.rowCount() - 1)
+            return True
+        if event.key() == Qt.Key.Key_PageDown:
+            self.result_list.setFocus()
+            self._move_selection(self._page_step())
+            return True
+        if event.key() == Qt.Key.Key_PageUp:
+            self.result_list.setFocus()
+            self._move_selection(-self._page_step())
             return True
         if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
             self.result_list.setFocus()

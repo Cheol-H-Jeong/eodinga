@@ -132,8 +132,8 @@ def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) ->
     assert launcher.result_list.currentIndex().row() == 0
     assert "Ctrl+Enter reveals" in launcher.shortcut_label.text()
     assert "Up/Down wraps" in launcher.shortcut_label.text()
-    assert "PgUp/PgDn jumps" in launcher.shortcut_label.text()
-    assert "Ctrl+L returns to filter" in launcher.shortcut_label.text()
+    assert "Home/End and PgUp/PgDn jump" in launcher.shortcut_label.text()
+    assert "Ctrl+A or Ctrl+L returns to filter" in launcher.shortcut_label.text()
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_End)
     assert launcher.result_list.currentIndex().row() == 2
@@ -191,6 +191,36 @@ def test_launcher_page_keys_jump_through_results(qapp) -> None:
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_PageUp)
     assert launcher.result_list.currentIndex().row() == 2
+
+
+def test_launcher_query_field_home_end_and_page_keys_jump_into_results(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        items = [
+            SearchHit(path=Path(f"/tmp/item-{index}.txt"), parent_path=Path("/tmp"), name=f"item-{index}.txt")
+            for index in range(6)
+        ]
+        return QueryResult(items=items[:limit], total=len(items), elapsed_ms=1.5)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("item")
+    _wait(60)
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_End)
+    assert launcher.result_list.hasFocus()
+    assert launcher.result_list.currentIndex().row() == 5
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Home)
+    assert launcher.result_list.currentIndex().row() == 0
+
+    launcher.query_field.setFocus()
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_PageDown)
+    assert launcher.result_list.currentIndex().row() == 3
+
+    launcher.query_field.setFocus()
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_PageUp)
+    assert launcher.result_list.currentIndex().row() == 0
 
 
 def test_launcher_up_from_query_field_selects_last_result(qapp) -> None:
@@ -397,6 +427,31 @@ def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> 
     assert launcher.query_field.selectedText() == "alpha"
 
 
+def test_launcher_ctrl_a_returns_focus_to_query_field_and_selects_text(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+            ][:limit],
+            total=2,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("alpha")
+    _wait(60)
+    launcher.result_list.setFocus()
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Down)
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
+
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.selectedText() == "alpha"
+
+
 def test_launcher_alt_up_and_down_recall_recent_queries(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
@@ -489,6 +544,7 @@ def test_launcher_alt_number_quick_picks_results(qapp) -> None:
     assert activated == ["item-2.txt"]
     assert launcher.result_list.currentIndex().row() == 2
     assert "Alt+1..9 quick-picks" in launcher.shortcut_label.text()
+    assert "Home/End and PgUp/PgDn jump" in launcher.shortcut_label.text()
 
 
 def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
