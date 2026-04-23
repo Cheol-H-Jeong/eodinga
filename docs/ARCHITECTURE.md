@@ -160,6 +160,18 @@ raw query string
                                             +--> normalized result objects
 ```
 
+## Query Plan Layers
+
+| Layer | Owner | Typical work |
+| --- | --- | --- |
+| Parse | `eodinga.query.dsl` | tokenize phrases, operators, negation, groups, and regex literals |
+| Compile | `eodinga.query.compiler` | lower supported operators into SQL predicates and FTS probes |
+| Fetch | `eodinga.query.executor` | ask SQLite for the reduced candidate set and hydrate file rows |
+| Fallback | `eodinga.query.executor` | apply regex or mixed path/content checks that SQLite cannot express directly |
+| Rank | `eodinga.query.ranker` | blend lexical channels, prefix boosts, and stable tie-breaking |
+
+When a result mismatch appears between CLI and launcher, this table is the fastest way to ask the right question: parse bug, compile bug, SQLite visibility bug, fallback bug, or rank-order bug.
+
 ## Search Decision Path
 
 ```text
@@ -215,6 +227,24 @@ runtime surface changes
 - `scripts/render_docs_screenshots.py` renders offscreen Qt widgets through `eodinga.gui.docs`, keeping screenshots tied to real UI state instead of mock assets.
 - `tests/unit/test_docs_assets.py` pins the presence of the shipped sections and checks that the derived man page still matches the checked-in artifact.
 
+## Release Evidence Chain
+
+```text
+runtime / docs / packaging change
+    |
+    +--> README.md + docs/*.md updated
+    |
+    +--> docs/man/eodinga.1 and docs/screenshots/*.png refreshed when needed
+    |
+    +--> tests/unit/test_docs_assets.py
+    |
+    +--> packaging/build.py --target ...-dry-run
+    |
+    +--> local release tag
+```
+
+The important constraint is ordering: docs assertions come before release tagging, and packaging dry runs are treated as evidence for the shipped surface, not as optional afterthoughts.
+
 ## Release Input Map
 
 ```text
@@ -231,6 +261,13 @@ runtime code / CLI / UI changes
 
 - The release flow treats documentation, generated assets, and packaging manifests as part of the same shipped surface.
 - This is why docs-only rounds still run `tests/unit/test_docs_assets.py` and the matching dry-run or GUI smoke command instead of stopping at markdown edits.
+
+## Surface Consistency Checks
+
+- README, FAQ, architecture, release, and contributing docs should agree on which commands form the default gate and where `packaging/dist/` is reviewed.
+- `docs/man/eodinga.1` must continue to match `eodinga.__main__._build_parser()`; if it drifts, treat that as a release-input mismatch rather than a docs typo.
+- Launcher screenshots and launcher keyboard docs should move together so a release does not describe shortcuts or visible UI affordances that the shipped surface no longer has.
+- If a user reports that the packaged app behaves differently from editable local runs, inspect `packaging/dist/` and the staged launcher shims before changing query or storage code.
 
 ## State Ownership
 
@@ -310,6 +347,27 @@ startup
             |
             +--> no: open live DB directly
 ```
+
+## Startup And Reopen Timeline
+
+```text
+process starts
+    |
+    +--> resolve config + db paths
+    |
+    +--> open_index()
+    |       |
+    |       +--> resume .next staged rebuild if present
+    |       +--> resume .recover swap if present
+    |       +--> stage WAL replay if a stale sidecar exists
+    |       +--> open live SQLite handle
+    |
+    +--> optional watch service start
+    |
+    +--> first CLI / GUI / launcher query
+```
+
+This timeline matters because "startup succeeded" and "startup opened the expected recovered database" are not the same question. `eodinga doctor` helps validate paths and environment, but the actual reopen path still lives inside `open_index()` and the staged-recovery rules above.
 
 ## Packaging Surfaces
 
