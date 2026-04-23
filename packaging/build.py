@@ -261,6 +261,7 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         errors.append("Debian audit version does not match the package version")
     control_payload = payload.get("control", {})
     control_template_payload = payload.get("debian_control_template", {})
+    runtime_control_template_payload = payload.get("runtime_control_template", {})
     desktop_payload = payload.get("desktop_entry", {})
     icon_payload = payload.get("icon", {})
     launcher_payload = payload.get("launcher", {})
@@ -289,6 +290,35 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (
             control_template_payload.get("description") == control_payload.get("description"),
             "Debian control template description drifted from the staged package",
+        ),
+        (runtime_control_template_payload.get("exists"), "Debian runtime control template is missing"),
+        (
+            runtime_control_template_payload.get("contains_version_token"),
+            "Debian runtime control template no longer exposes the version token",
+        ),
+        (
+            runtime_control_template_payload.get("contains_arch_token"),
+            "Debian runtime control template no longer exposes the arch token",
+        ),
+        (
+            runtime_control_template_payload.get("package") == control_payload.get("package"),
+            "Debian runtime control template package drifted from the staged package",
+        ),
+        (
+            runtime_control_template_payload.get("maintainer") == control_template_payload.get("maintainer"),
+            "Debian runtime control template maintainer drifted from Debian metadata",
+        ),
+        (
+            runtime_control_template_payload.get("depends") == control_payload.get("depends"),
+            "Debian runtime control template depends drifted from the staged package",
+        ),
+        (
+            runtime_control_template_payload.get("description") == control_payload.get("description"),
+            "Debian runtime control template description drifted from the staged package",
+        ),
+        (
+            runtime_control_template_payload.get("rendered_has_no_tokens"),
+            "Debian staged control file still contains template tokens",
         ),
         (desktop_payload.get("launches_gui"), "Debian desktop entry no longer launches the GUI command"),
         (desktop_payload.get("icon_matches_package"), "Debian desktop entry icon no longer matches the packaged asset"),

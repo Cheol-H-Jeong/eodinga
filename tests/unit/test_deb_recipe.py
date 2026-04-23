@@ -8,6 +8,7 @@ def test_deb_recipe_tracks_desktop_icon_and_docs_assets() -> None:
     icon = Path("packaging/linux/eodinga.svg").read_text(encoding="utf-8")
     changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
     control = Path("packaging/linux/debian/control").read_text(encoding="utf-8")
+    runtime_control = Path("packaging/linux/debian/control.runtime.in").read_text(encoding="utf-8")
 
     assert "Name=eodinga" in desktop
     assert "Exec=eodinga gui" in desktop
@@ -19,3 +20,7 @@ def test_deb_recipe_tracks_desktop_icon_and_docs_assets() -> None:
     assert "Source: eodinga" in control
     assert "Package: eodinga" in control
     assert "Description: Instant lexical file search for Windows and Linux" in control
+    assert "Package: eodinga" in runtime_control
+    assert "Version: @@APP_VERSION@@" in runtime_control
+    assert "Architecture: @@ARCH@@" in runtime_control
+    assert "Depends: python3 (>= 3.11)" in runtime_control

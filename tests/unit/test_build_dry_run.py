@@ -273,7 +273,18 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
             "exists": True,
             "source": "eodinga",
             "binary_package": "eodinga",
+            "maintainer": "Cheol-H-Jeong",
             "description": "Instant lexical file search for Windows and Linux",
+        },
+        "runtime_control_template": {
+            "exists": True,
+            "contains_version_token": True,
+            "contains_arch_token": True,
+            "package": "eodinga",
+            "maintainer": "Cheol-H-Jeong",
+            "depends": "python3 (>= 3.11)",
+            "description": "Instant lexical file search for Windows and Linux",
+            "rendered_has_no_tokens": True,
         },
         "desktop_entry": {
             "launches_gui": True,
@@ -314,7 +325,18 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
             "exists": True,
             "source": "eodinga",
             "binary_package": "eodinga",
+            "maintainer": "Cheol-H-Jeong",
             "description": "Instant lexical file search for Windows and Linux",
+        },
+        "runtime_control_template": {
+            "exists": True,
+            "contains_version_token": True,
+            "contains_arch_token": True,
+            "package": "eodinga",
+            "maintainer": "Cheol-H-Jeong",
+            "depends": "python3 (>= 3.11)",
+            "description": "Instant lexical file search for Windows and Linux",
+            "rendered_has_no_tokens": True,
         },
         "desktop_entry": {
             "launches_gui": True,
@@ -391,6 +413,17 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
         "maintainer": "Cheol-H-Jeong",
         "binary_package": "eodinga",
         "description": "Instant lexical file search for Windows and Linux",
+    }
+    assert payload["runtime_control_template"] == {
+        "path": str(Path("packaging/linux/debian/control.runtime.in").resolve()),
+        "exists": True,
+        "contains_version_token": True,
+        "contains_arch_token": True,
+        "package": "eodinga",
+        "maintainer": "Cheol-H-Jeong",
+        "depends": "python3 (>= 3.11)",
+        "description": "Instant lexical file search for Windows and Linux",
+        "rendered_has_no_tokens": True,
     }
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"

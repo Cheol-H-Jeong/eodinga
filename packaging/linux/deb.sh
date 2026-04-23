@@ -8,6 +8,9 @@ AUDIT_PATH="${DIST_DIR}/linux-deb-audit.json"
 DESKTOP_ENTRY="${ROOT_DIR}/packaging/linux/eodinga.desktop"
 ICON_ASSET="${ROOT_DIR}/packaging/linux/eodinga.svg"
 DEBIAN_CONTROL_TEMPLATE="${ROOT_DIR}/packaging/linux/debian/control"
+RUNTIME_CONTROL_TEMPLATE="${ROOT_DIR}/packaging/linux/debian/control.runtime.in"
+VERSION_TOKEN="@@APP_VERSION@@"
+ARCH_TOKEN="@@ARCH@@"
 VERSION="$(python3 - <<'PY'
 import pathlib
 import re
@@ -33,16 +36,15 @@ rm -rf "${PACKAGE_DIR}"
 mkdir -p "${PACKAGE_DIR}/DEBIAN" "${PACKAGE_DIR}/usr/bin" "${PACKAGE_DIR}/usr/share/applications" "${PACKAGE_DIR}/usr/share/doc/eodinga"
 mkdir -p "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps"
 
-cat > "${PACKAGE_DIR}/DEBIAN/control" <<EOF
-Package: eodinga
-Version: ${VERSION}
-Section: utils
-Priority: optional
-Architecture: ${ARCH}
-Maintainer: Cheol-H-Jeong
-Depends: python3 (>= 3.11)
-Description: Instant lexical file search for Windows and Linux
-EOF
+python3 - <<PY
+from pathlib import Path
+
+template_path = Path("${RUNTIME_CONTROL_TEMPLATE}")
+rendered = template_path.read_text(encoding="utf-8")
+rendered = rendered.replace("${VERSION_TOKEN}", "${VERSION}")
+rendered = rendered.replace("${ARCH_TOKEN}", "${ARCH}")
+Path("${PACKAGE_DIR}/DEBIAN/control").write_text(rendered, encoding="utf-8")
+PY
 
 cat > "${PACKAGE_DIR}/usr/bin/eodinga" <<'EOF'
 #!/usr/bin/env bash
@@ -98,6 +100,9 @@ for line in debian_control_template_path.read_text(encoding="utf-8").splitlines(
         continue
     key, value = line.split(":", 1)
     template_control_entries[key] = value.strip()
+runtime_control_template_path = Path("${RUNTIME_CONTROL_TEMPLATE}")
+runtime_control_template_text = runtime_control_template_path.read_text(encoding="utf-8")
+staged_control_text = control_path.read_text(encoding="utf-8")
 changelog_text = gzip.decompress(changelog_path.read_bytes()).decode("utf-8")
 payload = {
     "target": "linux-deb-dry-run" if ${DRY_RUN} else "linux-deb",
@@ -122,6 +127,19 @@ payload = {
         "maintainer": template_control_entries.get("Maintainer"),
         "binary_package": template_control_entries.get("Package"),
         "description": template_control_entries.get("Description"),
+    },
+    "runtime_control_template": {
+        "path": str(runtime_control_template_path),
+        "exists": runtime_control_template_path.exists(),
+        "contains_version_token": "${VERSION_TOKEN}" in runtime_control_template_text,
+        "contains_arch_token": "${ARCH_TOKEN}" in runtime_control_template_text,
+        "package": "eodinga" if "Package: eodinga" in runtime_control_template_text else None,
+        "maintainer": "Cheol-H-Jeong" if "Maintainer: Cheol-H-Jeong" in runtime_control_template_text else None,
+        "depends": "python3 (>= 3.11)" if "Depends: python3 (>= 3.11)" in runtime_control_template_text else None,
+        "description": "Instant lexical file search for Windows and Linux"
+        if "Description: Instant lexical file search for Windows and Linux" in runtime_control_template_text
+        else None,
+        "rendered_has_no_tokens": "${VERSION_TOKEN}" not in staged_control_text and "${ARCH_TOKEN}" not in staged_control_text,
     },
     "desktop_entry": {
         "path": str(desktop_path),

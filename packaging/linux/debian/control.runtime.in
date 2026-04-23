@@ -1,0 +1,8 @@
+Package: eodinga
+Version: @@APP_VERSION@@
+Section: utils
+Priority: optional
+Architecture: @@ARCH@@
+Maintainer: Cheol-H-Jeong
+Depends: python3 (>= 3.11)
+Description: Instant lexical file search for Windows and Linux
