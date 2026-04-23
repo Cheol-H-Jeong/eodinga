@@ -290,6 +290,35 @@ def test_compile_double_negated_group_restores_positive_branches() -> None:
     assert all(not branch.path_terms[0].negated for branch in compiled.branches)
 
 
+def _branch_signature(compiled) -> set[tuple[tuple[tuple[str, bool, str], ...], str, tuple[object, ...]]]:
+    return {
+        (
+            tuple((term.value, term.negated, term.kind) for term in branch.path_terms),
+            branch.where_sql,
+            branch.where_params,
+        )
+        for branch in compiled.branches
+    }
+
+
+@pytest.mark.parametrize(
+    ("query", "equivalent"),
+    [
+        ("-(alpha beta)", "-alpha | -beta"),
+        ("-(alpha | beta)", "-alpha -beta"),
+        ("-((alpha | beta) gamma)", "-gamma | (-alpha -beta)"),
+        ("-(-(alpha | beta))", "alpha | beta"),
+    ],
+)
+def test_compile_group_negation_truth_table_matches_equivalent_form(
+    query: str, equivalent: str
+) -> None:
+    compiled = compile_query(parse(query))
+    equivalent_compiled = compile_query(parse(equivalent))
+
+    assert _branch_signature(compiled) == _branch_signature(equivalent_compiled)
+
+
 def test_compile_reuses_cached_queries() -> None:
     first = compile("report ext:pdf")
     second = compile("report ext:pdf")
