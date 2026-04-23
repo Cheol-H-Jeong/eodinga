@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.844 - 2026-04-23
+
+- Added release-evidence guidance across the README, architecture, contributing, release, and performance guides so docs-only and packaging-adjacent rounds now point at one explicit proof bundle instead of ad-hoc command retries.
+- Expanded the DSL and acceptance guides with boolean, negation, regex, and manifest-review examples, making the query semantics and release triage flow easier to verify from the shipped docs alone.
+- Extended the docs-assets contract test to pin the new sections, keeping the checked-in docs surface auditable as part of the unit suite.
+
 ## 0.1.840 - 2026-04-23
 
 - Preserved the launcher popup geometry when toggling `always_on_top` or `frameless` while the window is hidden, so the next show no longer jumps back to a default Qt position.
