@@ -139,7 +139,6 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     yesterday_start = today_start - 86_400
     this_week_start = today_start - local_now.weekday() * 86_400
     last_week_start = this_week_start - 7 * 86_400
-    this_month_start = int(local_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
     last_month_anchor = local_now.replace(day=1, hour=12, minute=0, second=0, microsecond=0) - timedelta(days=1)
     last_month_start = int(last_month_anchor.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
     last_month = int((local_now - timedelta(days=40)).timestamp())
