@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.934 - 2026-04-24
+
+- Enriched the launcher preview pane with filesystem-backed metadata, so selected results now show the on-disk entry type, file size when applicable, and last-modified timestamp alongside the existing snippet fallback.
+- Added right-click result context menus that mirror the keyboard-first open, reveal, copy path, copy name, and properties actions directly on launcher results and the preview surface.
+- Cancelled pending launcher debounce timers on close, avoiding teardown-time queries against destroyed shared state while preserving the configured debounce behavior during normal use.
+
 ## 0.1.926 - 2026-04-24
 
 - Batched the query executor's Python fallback scan for phrase and Unicode path searches, avoiding the previous one-shot `100000`-row materialization and keeping the slower correctness path bounded in memory.
