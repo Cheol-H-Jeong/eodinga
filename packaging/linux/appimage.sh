@@ -7,6 +7,7 @@ APPDIR="${DIST_DIR}/eodinga.AppDir"
 AUDIT_PATH="${DIST_DIR}/linux-appimage-audit.json"
 APPIMAGE_RECIPE="${ROOT_DIR}/packaging/linux/appimage-builder.yml"
 APPIMAGE_ICON="${ROOT_DIR}/packaging/linux/eodinga.svg"
+APPIMAGE_BUILDER_BIN="${APPIMAGE_BUILDER_BIN:-appimage-builder}"
 VERSION="$(python3 - <<'PY'
 import pathlib
 import re
@@ -19,6 +20,7 @@ print(match.group(1))
 PY
 )"
 ARCHIVE_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-appdir.tar.gz"
+APPIMAGE_PATH="${DIST_DIR}/eodinga-${VERSION}-x86_64.AppImage"
 DRY_RUN=0
 
 if [[ "${1:-}" == "--dry-run" ]]; then
@@ -49,6 +51,7 @@ EOF
 chmod +x "${APPDIR}/AppRun" "${APPDIR}/usr/bin/eodinga"
 
 tar -czf "${ARCHIVE_PATH}" -C "${DIST_DIR}" "$(basename "${APPDIR}")"
+rm -f "${APPIMAGE_PATH}"
 python3 - <<PY
 import json
 import os
@@ -74,6 +77,7 @@ payload = {
     "version": "${VERSION}",
     "appdir": "${APPDIR}",
     "archive": "${ARCHIVE_PATH}",
+    "appimage_path": "${APPIMAGE_PATH}",
     "dry_run": bool(${DRY_RUN}),
     "desktop_entry": {
         "path": str(desktop_path),
@@ -107,6 +111,11 @@ payload = {
         "is_executable": os.access(launcher_path, os.X_OK),
         "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
     },
+    "appimage": {
+        "path": "${APPIMAGE_PATH}",
+        "exists": False,
+        "is_executable": False,
+    },
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 PY
@@ -116,4 +125,27 @@ if [[ "${DRY_RUN}" -eq 1 ]]; then
   exit 0
 fi
 
-echo "staged source-backed AppDir at ${APPDIR}"
+"${APPIMAGE_BUILDER_BIN}" --recipe "${APPIMAGE_RECIPE}" --skip-test
+if [[ ! -f "${APPIMAGE_PATH}" ]]; then
+  FOUND_APPIMAGE="$(find "${ROOT_DIR}" "${DIST_DIR}" -maxdepth 2 -type f -name '*.AppImage' ! -path "${APPIMAGE_PATH}" | head -n 1)"
+  if [[ -n "${FOUND_APPIMAGE}" ]]; then
+    mv "${FOUND_APPIMAGE}" "${APPIMAGE_PATH}"
+  fi
+fi
+chmod +x "${APPIMAGE_PATH}"
+python3 - <<PY
+import json
+import os
+from pathlib import Path
+
+audit_path = Path("${AUDIT_PATH}")
+payload = json.loads(audit_path.read_text(encoding="utf-8"))
+appimage_path = Path("${APPIMAGE_PATH}")
+payload["appimage"] = {
+    "path": str(appimage_path),
+    "exists": appimage_path.exists(),
+    "is_executable": os.access(appimage_path, os.X_OK),
+}
+audit_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+PY
+echo "built AppImage at ${APPIMAGE_PATH}"

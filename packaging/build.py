@@ -238,6 +238,12 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], package_version: str
     for ok, message in required_flags:
         if not ok:
             errors.append(message)
+    if not payload.get("dry_run"):
+        appimage_payload = payload.get("appimage", {})
+        if not appimage_payload.get("exists"):
+            errors.append("AppImage build did not produce a runnable .AppImage artifact")
+        elif not appimage_payload.get("is_executable"):
+            errors.append("AppImage build produced a non-executable .AppImage artifact")
     return errors
 
 
