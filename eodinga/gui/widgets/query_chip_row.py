@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QWidget
 
 from eodinga.gui.design import SPACE_4, SPACE_8
@@ -11,11 +12,36 @@ from eodinga.gui.widgets.button import SecondaryButton
 ChipHandler = Callable[[str], None]
 
 
+class QueryChipButton(SecondaryButton):
+    move_requested = Signal(int)
+    jump_requested = Signal(str)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if event.key() == Qt.Key.Key_Left:
+            self.move_requested.emit(-1)
+            event.accept()
+            return
+        if event.key() == Qt.Key.Key_Right:
+            self.move_requested.emit(1)
+            event.accept()
+            return
+        if event.key() == Qt.Key.Key_Home:
+            self.jump_requested.emit("start")
+            event.accept()
+            return
+        if event.key() == Qt.Key.Key_End:
+            self.jump_requested.emit("end")
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+
 class QueryChipRow(QWidget):
     def __init__(self, label: str, *, accessible_name: str, on_chip_clicked: ChipHandler, parent=None) -> None:
         super().__init__(parent)
         self._on_chip_clicked = on_chip_clicked
         self._label_text = label
+        self._visible_limit = 5
         self.setAccessibleName(accessible_name)
 
         layout = QHBoxLayout(self)
@@ -34,9 +60,14 @@ class QueryChipRow(QWidget):
         chips_layout.setContentsMargins(0, 0, 0, 0)
         chips_layout.setSpacing(SPACE_4)
         layout.addWidget(self._chips_container, 1)
+        self._overflow_label = QLabel("", self)
+        self._overflow_label.setProperty("role", "secondary")
+        self._overflow_label.setAccessibleName(f"{label} overflow summary")
+        self._overflow_label.setVisible(False)
+        layout.addWidget(self._overflow_label)
         layout.addStretch(1)
         self._chips_layout = chips_layout
-        self._buttons: list[SecondaryButton] = []
+        self._buttons: list[QueryChipButton] = []
         self.setVisible(False)
         self._refresh_accessibility([])
 
@@ -46,8 +77,9 @@ class QueryChipRow(QWidget):
             self._chips_layout.removeWidget(button)
             button.deleteLater()
 
-        for query in queries:
-            button = SecondaryButton(query, self._chips_container)
+        visible_queries = queries[: self._visible_limit]
+        for query in visible_queries:
+            button = QueryChipButton(query, self._chips_container)
             button.setAccessibleName(f"Use query {query}")
             button.setAccessibleDescription(f"Apply the {self._label_text.lower()} launcher query")
             button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
@@ -57,20 +89,44 @@ class QueryChipRow(QWidget):
 
         self.setVisible(bool(queries))
         self._refresh_accessibility(queries)
+        overflow_count = max(len(queries) - len(visible_queries), 0)
+        self._overflow_label.setVisible(overflow_count > 0)
+        if overflow_count > 0:
+            self._overflow_label.setText(f"+{overflow_count} more")
+            self._overflow_label.setToolTip(", ".join(queries))
+        else:
+            self._overflow_label.clear()
+            self._overflow_label.setToolTip("")
 
     def _refresh_accessibility(self, queries: list[str]) -> None:
         if not queries:
             self.setAccessibleDescription(f"No {self._label_text.lower()} launcher queries are available.")
             self._chips_container.setAccessibleDescription("No launcher query chips are available.")
+            self._overflow_label.setAccessibleDescription("No hidden launcher queries are available.")
             return
         summary = ", ".join(queries)
-        self.setAccessibleDescription(
-            f"{len(queries)} {self._label_text.lower()} launcher queries are available: {summary}."
+        visible_summary = ", ".join(queries[: self._visible_limit])
+        overflow_count = max(len(queries) - self._visible_limit, 0)
+        overflow_suffix = (
+            f" Showing first {self._visible_limit}; {overflow_count} more are available in the tooltip."
+            if overflow_count > 0
+            else ""
         )
+        self.setAccessibleDescription(f"{len(queries)} {self._label_text.lower()} launcher queries are available: {summary}.{overflow_suffix}")
         self._chips_container.setAccessibleDescription(
-            f"Launcher query chips for {summary}. Press Tab to focus a chip and Enter or Space to apply it."
+            f"Launcher query chips for {visible_summary}. Press Enter or Space to apply a chip."
         )
+        if overflow_count > 0:
+            self._overflow_label.setAccessibleDescription(
+                f"{overflow_count} additional {self._label_text.lower()} launcher queries are hidden from the row."
+            )
+        else:
+            self._overflow_label.setAccessibleDescription("No hidden launcher queries are available.")
 
     @property
-    def buttons(self) -> list[SecondaryButton]:
+    def buttons(self) -> list[QueryChipButton]:
         return list(self._buttons)
+
+    @property
+    def overflow_label(self) -> QLabel:
+        return self._overflow_label

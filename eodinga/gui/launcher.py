@@ -15,6 +15,7 @@ from eodinga.gui.widgets import (
     EmptyState,
     LauncherActionBar,
     LauncherPreviewPane,
+    QueryChipButton,
     QueryChipRow,
     ResultItemDelegate,
     SearchField,
@@ -23,6 +24,16 @@ from eodinga.gui.widgets import (
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
+
+
+def _summarize_queries(queries: list[str], *, limit: int = 3, empty_text: str) -> str:
+    if not queries:
+        return empty_text
+    visible = ", ".join(queries[:limit])
+    overflow = len(queries) - limit
+    if overflow > 0:
+        return f"{visible} (+{overflow} more)"
+    return visible
 
 
 class LauncherPanel(QWidget):
@@ -185,12 +196,14 @@ class LauncherPanel(QWidget):
 
     def set_recent_queries(self, queries: list[str]) -> None:
         self._recent_queries = queries
-        self.recent_queries_row.set_queries(queries[:5])
+        self.recent_queries_row.set_queries(queries)
+        self._install_query_chip_navigation()
         self._refresh_empty_state()
 
     def set_pinned_queries(self, queries: list[str]) -> None:
         self._pinned_queries = queries
-        self.pinned_queries_row.set_queries(queries[:5])
+        self.pinned_queries_row.set_queries(queries)
+        self._install_query_chip_navigation()
         self._refresh_empty_state()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
@@ -318,11 +331,17 @@ class LauncherPanel(QWidget):
         query = self.query_field.text().strip()
         details = format_indexing_status(self._indexing_status)
         if not query:
-            recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
-            pinned_queries = f" Pinned: {', '.join(self._pinned_queries[:3])}." if self._pinned_queries else ""
+            recent_queries = _summarize_queries(self._recent_queries, empty_text="No recent queries yet.")
+            pinned_summary = _summarize_queries(self._pinned_queries, empty_text="")
+            pinned_queries = f" Pinned: {pinned_summary}." if pinned_summary else ""
+            chip_guidance = (
+                " Click a launcher chip, then use Left and Right or Home and End to browse suggestions."
+                if self._query_chip_buttons()
+                else ""
+            )
             self.empty_state.set_content(
                 "Type to search",
-                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up and Alt+Down to browse recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
+                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up and Alt+Down to browse recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.{chip_guidance}",
                 details,
             )
         else:
@@ -339,6 +358,8 @@ class LauncherPanel(QWidget):
         if not has_results:
             if self.query_field.text().strip():
                 hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up and Alt+Down browse recent queries."
+            elif self._query_chip_buttons():
+                hint = "Type a filename, path, or content term. Click a chip, then use Left/Right or Home/End to browse suggestions."
             else:
                 hint = "Type a filename, path, or content term. Alt+Up and Alt+Down browse recent queries."
         elif self.result_list.hasFocus():
@@ -515,3 +536,31 @@ class LauncherPanel(QWidget):
         self.query_field.setFocus()
         self._set_query_from_history(query)
         self._flush_pending_query()
+
+    def _query_chip_buttons(self) -> list[QueryChipButton]:
+        return [*self.pinned_queries_row.buttons, *self.recent_queries_row.buttons]
+
+    def _install_query_chip_navigation(self) -> None:
+        for index, button in enumerate(self._query_chip_buttons()):
+            if button.property("chipNavigationConnected"):
+                continue
+            button.move_requested.connect(lambda delta, row=index: self._focus_query_chip_relative(row, delta))
+            button.jump_requested.connect(lambda edge, row=index: self._focus_query_chip_edge(row, edge))
+            button.setProperty("chipNavigationConnected", True)
+
+    def _focus_query_chip_relative(self, index: int, delta: int) -> None:
+        buttons = self._query_chip_buttons()
+        if not buttons or not (0 <= index < len(buttons)):
+            return
+        next_index = min(max(index + delta, 0), len(buttons) - 1)
+        buttons[next_index].setFocus()
+
+    def _focus_query_chip_edge(self, index: int, edge: str) -> None:
+        buttons = self._query_chip_buttons()
+        if not buttons or not (0 <= index < len(buttons)):
+            return
+        if edge == "start":
+            buttons[0].setFocus()
+            return
+        if edge == "end":
+            buttons[-1].setFocus()

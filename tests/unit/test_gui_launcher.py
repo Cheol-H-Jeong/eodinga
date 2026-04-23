@@ -333,6 +333,64 @@ def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
     assert calls == ["ext:pdf"]
 
 
+def test_launcher_query_chips_support_arrow_and_edge_navigation(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf", "date:this-week", "size:>10M"])
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    first_chip, second_chip, third_chip = launcher.pinned_queries_row.buttons
+    first_chip.setFocus()
+    _wait(10)
+    assert first_chip.hasFocus()
+
+    QTest.keyClick(first_chip, Qt.Key.Key_Right)
+    _wait(10)
+    assert second_chip.hasFocus()
+
+    QTest.keyClick(second_chip, Qt.Key.Key_End)
+    _wait(10)
+    assert third_chip.hasFocus()
+
+    QTest.keyClick(third_chip, Qt.Key.Key_Left)
+    _wait(10)
+    assert second_chip.hasFocus()
+
+    QTest.keyClick(second_chip, Qt.Key.Key_Home)
+    _wait(10)
+    assert first_chip.hasFocus()
+
+
+def test_launcher_pinned_query_row_surfaces_overflow_summary(qapp) -> None:
+    state = LauncherState(
+        pinned_queries=["ext:pdf", "date:this-week", "size:>10M", "path:docs", "is:file", "regex:true", "case:false"]
+    )
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    assert [button.text() for button in launcher.pinned_queries_row.buttons] == [
+        "ext:pdf",
+        "date:this-week",
+        "size:>10M",
+        "path:docs",
+        "is:file",
+    ]
+    assert launcher.pinned_queries_row.overflow_label.isVisible()
+    assert launcher.pinned_queries_row.overflow_label.text() == "+2 more"
+    assert launcher.pinned_queries_row.overflow_label.toolTip() == (
+        "ext:pdf, date:this-week, size:>10M, path:docs, is:file, regex:true, case:false"
+    )
+
+
+def test_launcher_empty_state_and_hint_surface_chip_navigation_guidance(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState(pinned_queries=["ext:pdf", "date:this-week"]))
+    launcher.show()
+
+    assert "Left and Right or Home and End" in launcher.empty_state.body_label.text()
+    assert launcher.shortcut_label.text() == (
+        "Type a filename, path, or content term. Click a chip, then use Left/Right or Home/End to browse suggestions."
+    )
+
+
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:
     revealed: list[str] = []
 
@@ -441,6 +499,16 @@ def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> No
     launcher.show()
 
     assert "Pinned: ext:pdf, size:>10M." in launcher.empty_state.body_label.text()
+
+
+def test_launcher_empty_state_summarizes_extra_pinned_queries(qapp) -> None:
+    state = LauncherState(
+        pinned_queries=["ext:pdf", "size:>10M", "date:this-week", "path:docs", "is:file"]
+    )
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    assert "Pinned: ext:pdf, size:>10M, date:this-week (+2 more)." in launcher.empty_state.body_label.text()
 
 
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:
@@ -857,6 +925,23 @@ def test_launcher_query_chips_expose_accessible_context(qapp) -> None:
     assert recent_chip.accessibleDescription() == "Apply the recent launcher query"
     assert launcher.pinned_queries_row.accessibleDescription() == "1 pinned launcher queries are available: ext:pdf."
     assert launcher.recent_queries_row.accessibleDescription() == "1 recent launcher queries are available: budget."
+    assert launcher.pinned_queries_row.overflow_label.accessibleDescription() == "No hidden launcher queries are available."
+
+
+def test_launcher_query_chip_overflow_exposes_accessible_summary(qapp) -> None:
+    state = LauncherState(
+        pinned_queries=["ext:pdf", "date:this-week", "size:>10M", "path:docs", "is:file", "regex:true"]
+    )
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    assert launcher.pinned_queries_row.accessibleDescription() == (
+        "6 pinned launcher queries are available: ext:pdf, date:this-week, size:>10M, path:docs, is:file, regex:true. "
+        "Showing first 5; 1 more are available in the tooltip."
+    )
+    assert launcher.pinned_queries_row.overflow_label.accessibleDescription() == (
+        "1 additional pinned launcher queries are hidden from the row."
+    )
 
 
 def test_launcher_result_markup_surfaces_top_nine_quick_pick_badges(qapp) -> None:
