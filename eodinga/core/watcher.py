@@ -263,6 +263,7 @@ class WatchService:
         self._flush_ready(force=True)
 
     def _flush_ready(self, force: bool) -> None:
+        started = monotonic()
         now = monotonic()
         flushed: list[WatchEvent] = []
         with self._lock:
@@ -295,6 +296,7 @@ class WatchService:
             increment_counter("watcher_flushes")
             increment_counter("watcher_events_flushed", len(delivered))
             record_histogram("watch_flush_batch_size", float(len(delivered)))
+            record_histogram("watch_flush_latency_ms", max((monotonic() - started) * 1000, 0.0))
             for event in delivered:
                 lag_ms = max((now - event.happened_at) * 1000, 0.0)
                 record_histogram("watch_event_lag_ms", lag_ms, event_type=event.event_type)
@@ -316,6 +318,11 @@ class WatchService:
         while not self._stop.is_set():
             try:
                 self.queue.put(event, timeout=_QUEUE_PUT_TIMEOUT_SECONDS)
+                record_histogram(
+                    "watcher_queue_depth",
+                    float(self.queue.qsize()),
+                    event_type=event.event_type,
+                )
                 if blocked_at is not None:
                     record_histogram(
                         "watcher_queue_backpressure_ms",
