@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.717 - 2026-04-23
+
+- Clarified the README’s operator guidance around choosing the smallest validation path, when to refresh docs assets, and why the opt-in perf suite sits outside the default acceptance pass.
+- Deepened the architecture guide with transaction-boundary, search-visibility, and operator-question-by-layer sections so stale-result and release-review investigations map cleanly onto the runtime design.
+- Refreshed the checked-in perf baseline at current `HEAD`, including the exact benchmark summary lines and the fact that walker/rebuild throughput thresholds failed on this Linux dev environment while the query, content, and watch slices still passed.
+- Tightened contributor and release docs for parallel worker rounds with safer single-line commands, explicit pre-tag refresh guidance, and clearer instructions to document perf-threshold failures instead of leaving stale baseline numbers in place.
+
 ## 0.1.707 - 2026-04-23
 
 - Added explicit `regex:` pattern handling to the query compiler, so `regex:/todo|fixme/i` and `regex:report-\d+` now behave as real path/name regex filters while `regex:true|false` still controls regex mode.
