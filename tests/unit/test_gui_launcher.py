@@ -964,7 +964,9 @@ def test_launcher_query_chips_expose_accessible_context(qapp) -> None:
     assert recent_chip.accessibleDescription() == "Apply the recent launcher query"
     assert launcher.pinned_queries_row.accessibleDescription() == "1 pinned launcher queries are available: ext:pdf."
     assert launcher.recent_queries_row.accessibleDescription() == "1 recent launcher queries are available: budget."
-    assert launcher.pinned_queries_row.buttons[0].parentWidget().accessibleDescription() == (
+    pinned_chip_parent = launcher.pinned_queries_row.buttons[0].parentWidget()
+    assert pinned_chip_parent is not None
+    assert pinned_chip_parent.accessibleDescription() == (
         "Launcher query chips for ext:pdf. Press Tab to focus a chip, Left and Right to move between chips, and Enter or Space to apply it."
     )
 

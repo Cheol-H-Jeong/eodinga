@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.914 - 2026-04-24
+
+- Made launcher keyboard traversal reach pinned queries, recent queries, results, and action buttons without relying on the mouse, and added row-style chip/action navigation with arrow keys plus Home/End.
+- Expanded launcher shortcut copy and query-chip accessibility guidance so the footer and chip rows explain the richer keyboard flow instead of only the old query-to-results path.
+- Kept the wider shortcut guidance from inflating launcher geometry by letting the footer hint wrap instead of forcing the window past its configured width.
+
 ## 0.1.908 - 2026-04-23
 
 - Skipped redundant SQLite PRAGMA rewrites when a connection is already in the requested fast-write state, trimming per-batch rebuild overhead without changing steady-state durability defaults.
