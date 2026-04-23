@@ -296,8 +296,15 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
             "exists": True,
             "desktop_icon_matches_asset": True,
         },
+        "package": {
+            "exists": True,
+            "main_exists": True,
+            "i18n_en_exists": True,
+            "i18n_ko_exists": True,
+        },
         "launcher": {
             "is_executable": True,
+            "sets_pythonpath": True,
             "executes_python_module": True,
         },
         "docs": {
@@ -414,7 +421,12 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["desktop_entry"]["icon_matches_package"] is True
     assert payload["icon"]["exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True
+    assert payload["package"]["exists"] is True
+    assert payload["package"]["main_exists"] is True
+    assert payload["package"]["i18n_en_exists"] is True
+    assert payload["package"]["i18n_ko_exists"] is True
     assert payload["launcher"]["is_executable"] is True
+    assert payload["launcher"]["sets_pythonpath"] is True
     assert payload["launcher"]["executes_python_module"] is True
     assert payload["docs"]["license_exists"] is True
     assert payload["docs"]["changelog_exists"] is True

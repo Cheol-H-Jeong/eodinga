@@ -32,6 +32,7 @@ fi
 rm -rf "${PACKAGE_DIR}"
 mkdir -p "${PACKAGE_DIR}/DEBIAN" "${PACKAGE_DIR}/usr/bin" "${PACKAGE_DIR}/usr/share/applications" "${PACKAGE_DIR}/usr/share/doc/eodinga"
 mkdir -p "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps"
+mkdir -p "${PACKAGE_DIR}/usr/lib/eodinga"
 
 cat > "${PACKAGE_DIR}/DEBIAN/control" <<EOF
 Package: eodinga
@@ -47,10 +48,12 @@ EOF
 cat > "${PACKAGE_DIR}/usr/bin/eodinga" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+export PYTHONPATH="/usr/lib/eodinga${PYTHONPATH:+:${PYTHONPATH}}"
 exec python3 -m eodinga "$@"
 EOF
 chmod 0755 "${PACKAGE_DIR}/usr/bin/eodinga"
 
+cp -R "${ROOT_DIR}/eodinga" "${PACKAGE_DIR}/usr/lib/eodinga/"
 install -m 0644 "${DESKTOP_ENTRY}" "${PACKAGE_DIR}/usr/share/applications/eodinga.desktop"
 install -m 0644 "${ICON_ASSET}" "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg"
 install -m 0644 "${ROOT_DIR}/LICENSE" "${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE"
@@ -91,6 +94,7 @@ launcher_path = Path("${PACKAGE_DIR}/usr/bin/eodinga")
 icon_path = Path("${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 license_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE")
 changelog_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
+package_root = Path("${PACKAGE_DIR}/usr/lib/eodinga/eodinga")
 debian_control_template_path = Path("${DEBIAN_CONTROL_TEMPLATE}")
 template_control_entries = {}
 for line in debian_control_template_path.read_text(encoding="utf-8").splitlines():
@@ -138,9 +142,17 @@ payload = {
         "exists": icon_path.exists(),
         "desktop_icon_matches_asset": desktop_entries.get("Icon") == icon_path.stem,
     },
+    "package": {
+        "root": str(package_root),
+        "exists": package_root.exists(),
+        "main_exists": (package_root / "__main__.py").exists(),
+        "i18n_en_exists": (package_root / "i18n" / "en.json").exists(),
+        "i18n_ko_exists": (package_root / "i18n" / "ko.json").exists(),
+    },
     "launcher": {
         "path": str(launcher_path),
         "is_executable": os.access(launcher_path, os.X_OK),
+        "sets_pythonpath": "export PYTHONPATH=" in launcher_path.read_text(encoding="utf-8"),
         "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
     },
     "docs": {

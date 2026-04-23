@@ -269,6 +269,7 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
     control_template_payload = payload.get("debian_control_template", {})
     desktop_payload = payload.get("desktop_entry", {})
     icon_payload = payload.get("icon", {})
+    package_payload = payload.get("package", {})
     launcher_payload = payload.get("launcher", {})
     docs_payload = payload.get("docs", {})
     arch = payload.get("arch")
@@ -300,7 +301,12 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (desktop_payload.get("icon_matches_package"), "Debian desktop entry icon no longer matches the packaged asset"),
         (icon_payload.get("exists"), "Debian icon asset is missing from the package tree"),
         (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),
+        (package_payload.get("exists"), "Debian package no longer stages the eodinga source tree"),
+        (package_payload.get("main_exists"), "Debian package tree is missing eodinga/__main__.py"),
+        (package_payload.get("i18n_en_exists"), "Debian package tree is missing eodinga/i18n/en.json"),
+        (package_payload.get("i18n_ko_exists"), "Debian package tree is missing eodinga/i18n/ko.json"),
         (launcher_payload.get("is_executable"), "Debian launcher shim is not executable"),
+        (launcher_payload.get("sets_pythonpath"), "Debian launcher shim no longer exposes the packaged Python path"),
         (launcher_payload.get("executes_python_module"), "Debian launcher shim no longer executes the Python module"),
         (docs_payload.get("license_exists"), "Debian package no longer ships the license"),
         (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),
