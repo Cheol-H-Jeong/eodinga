@@ -649,12 +649,28 @@ def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     assert "Alt+1 through Alt+9" in launcher.empty_state.body_label.text()
 
 
+def test_launcher_shows_inline_query_chips_for_terms_and_filters(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState())
+    launcher.show()
+
+    launcher.query_field.setText('budget ext:pdf date:this-week content:"release notes" -draft')
+    _wait(60)
+
+    assert launcher.query_chip_label.isVisible()
+    assert "budget" in launcher.query_chip_label.text()
+    assert "ext:pdf" in launcher.query_chip_label.text()
+    assert 'content:&quot;release notes&quot;' in launcher.query_chip_label.text()
+    assert "draft" not in launcher.query_chip_label.text()
+    assert launcher.query_chip_label.accessibleDescription() == 'budget, ext:pdf, date:this-week, content:"release notes"'
+
+
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     launcher = LauncherWindow()
     launcher.show()
 
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
+    assert launcher.query_chip_label.accessibleName() == "Active query chips"
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.preview_pane.accessibleName() == "Launcher preview pane"
     assert launcher.action_bar.accessibleName() == "Launcher action bar"

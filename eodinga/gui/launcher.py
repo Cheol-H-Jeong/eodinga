@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
-from eodinga.gui.widgets import EmptyState, LauncherActionBar, LauncherPreviewPane, ResultItemDelegate, SearchField, StatusChip
+from eodinga.gui.widgets import EmptyState, LauncherActionBar, LauncherPreviewPane, QueryChipLabel, ResultItemDelegate, SearchField, StatusChip
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
@@ -47,6 +47,7 @@ class LauncherPanel(QWidget):
 
         self.query_field = SearchField(parent=self)
         self.query_field.setAccessibleName("Launcher search field")
+        self.query_chip_label = QueryChipLabel(self)
         self.result_list = QListView(self)
         self.result_list.setAccessibleName("Launcher results list")
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
@@ -77,6 +78,7 @@ class LauncherPanel(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
+        layout.addWidget(self.query_chip_label)
 
         content = QHBoxLayout()
         content.setSpacing(SPACE_16)
@@ -238,6 +240,7 @@ class LauncherPanel(QWidget):
         if not self._applying_history_query:
             self._history_index = None
             self._history_draft = ""
+        self.query_chip_label.set_query(self.query_field.text())
         self._debounce_timer.start()
 
     def _flush_pending_query(self) -> None:
@@ -259,6 +262,7 @@ class LauncherPanel(QWidget):
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
         self._refresh_preview()
+        self.query_chip_label.set_query(self.query_field.text())
         self.results_updated.emit(self._latest_result)
         get_logger().debug("launcher query '{}' returned {}", query, self._latest_result.total)
 
