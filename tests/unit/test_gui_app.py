@@ -6,7 +6,7 @@ from typing import cast
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QSystemTrayIcon
+from PySide6.QtWidgets import QMessageBox, QSystemTrayIcon
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.config import AppConfig, load
@@ -396,6 +396,35 @@ def test_settings_tab_normalizes_remapped_hotkey_without_restart(
     ]
     assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+alt+k"
     assert load(temp_config_path).launcher.hotkey == "ctrl+alt+k"
+
+
+def test_settings_tab_rejects_invalid_remapped_hotkey_without_restarting(
+    monkeypatch,
+    qapp,
+    temp_config_path: Path,
+) -> None:
+    hotkey_service = _HotkeyServiceSpy()
+    warnings: list[tuple[str, str]] = []
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path, hotkey_service=hotkey_service)
+    initial_calls = list(hotkey_service.calls)
+    monkeypatch.setattr(
+        "eodinga.gui.tabs.settings.QInputDialog.getText",
+        lambda *args, **kwargs: ("ctrl+k+j", True),
+    )
+    monkeypatch.setattr(
+        QMessageBox,
+        "warning",
+        lambda parent, title, text: warnings.append((title, text)),
+    )
+
+    window.settings_tab.remap_hotkey_button.click()
+    qapp.processEvents()
+
+    assert hotkey_service.calls == initial_calls
+    assert warnings == [("Hotkey update failed", "hotkey combo must include exactly one non-modifier key: ctrl+k+j")]
+    assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+shift+space"
+    assert load(temp_config_path).launcher.hotkey == "ctrl+shift+space"
 
 
 def test_settings_tab_toggles_always_on_top_without_restart(qapp, temp_config_path: Path) -> None:

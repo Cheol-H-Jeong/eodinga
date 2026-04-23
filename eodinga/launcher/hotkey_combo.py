@@ -38,4 +38,15 @@ def normalize_hotkey_combo(combo: str) -> str:
     return "+".join([*ordered_modifiers, *keys])
 
 
-__all__ = ["normalize_hotkey_combo"]
+def validate_hotkey_combo(combo: str) -> str:
+    normalized = normalize_hotkey_combo(combo)
+    if not normalized:
+        raise ValueError("hotkey combo cannot be blank")
+    parts = normalized.split("+")
+    keys = [part for part in parts if part not in _MODIFIER_ALIASES.values()]
+    if len(keys) != 1:
+        raise ValueError(f"hotkey combo must include exactly one non-modifier key: {normalized}")
+    return normalized
+
+
+__all__ = ["normalize_hotkey_combo", "validate_hotkey_combo"]

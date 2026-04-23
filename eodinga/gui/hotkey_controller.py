@@ -4,7 +4,7 @@ from typing import Protocol
 
 from PySide6.QtCore import QObject, Signal
 
-from eodinga.launcher.hotkey_combo import normalize_hotkey_combo
+from eodinga.launcher.hotkey_combo import normalize_hotkey_combo, validate_hotkey_combo
 from eodinga.gui.launcher_window import LauncherWindow
 from eodinga.launcher.hotkey import HotkeyService
 from eodinga.observability import get_logger
@@ -47,7 +47,7 @@ class LauncherHotkeyController(QObject):
         return self._service is not None
 
     def rebind(self, combo: str) -> None:
-        normalized = normalize_hotkey_combo(combo)
+        normalized = validate_hotkey_combo(combo)
         if not normalized or normalized == self._combo:
             return
         previous = self._combo
