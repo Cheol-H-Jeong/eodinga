@@ -114,6 +114,8 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     cli_dist_path = PROJECT_ROOT / "dist" / cli_dist_name
     gui_exe_path = gui_dist_path / gui_exe_name
     cli_exe_path = cli_dist_path / cli_exe_name
+    gui_exe_size = gui_exe_path.stat().st_size if gui_exe_path.exists() else 0
+    cli_exe_size = cli_exe_path.stat().st_size if cli_exe_path.exists() else 0
     return {
         "target": "windows-dry-run",
         "version": version,
@@ -145,6 +147,10 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "exe_exists": {
                 "cli": cli_exe_path.exists(),
                 "gui": gui_exe_path.exists(),
+            },
+            "exe_size_bytes": {
+                "cli": cli_exe_size,
+                "gui": gui_exe_size,
             },
             "required_hiddenimports": spec_namespace.get("REQUIRED_HIDDEN_IMPORTS", []),
             "discovered_source_hiddenimports": spec_namespace.get("DISCOVERED_SOURCE_HIDDEN_IMPORTS", []),
@@ -260,14 +266,19 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     if payload.get("target") == "windows":
         dist_exists = spec_payload.get("dist_exists", {})
         exe_exists = spec_payload.get("exe_exists", {})
+        exe_sizes = spec_payload.get("exe_size_bytes", {})
         if not dist_exists.get("gui"):
             errors.append("Windows build is missing the staged GUI dist directory")
         if not dist_exists.get("cli"):
             errors.append("Windows build is missing the staged CLI dist directory")
         if not exe_exists.get("gui"):
             errors.append("Windows build is missing the staged GUI executable")
+        elif int(exe_sizes.get("gui", 0)) <= 1024:
+            errors.append("Windows build GUI executable still looks like a placeholder artifact")
         if not exe_exists.get("cli"):
             errors.append("Windows build is missing the staged CLI executable")
+        elif int(exe_sizes.get("cli", 0)) <= 1024:
+            errors.append("Windows build CLI executable still looks like a placeholder artifact")
     inno_payload = payload.get("inno_setup", {})
     required_flags = {
         "app_name_matches_package": "Inno AppName macro drifted from eodinga",

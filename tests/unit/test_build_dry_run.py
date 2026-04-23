@@ -145,6 +145,18 @@ def test_windows_audit_validator_rejects_missing_built_artifacts_for_release_tar
     assert "Windows build is missing the staged CLI executable" in errors
 
 
+def test_windows_audit_validator_rejects_placeholder_release_executables() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["target"] = "windows"
+    payload["pyinstaller_spec"]["exe_size_bytes"] = {"cli": 3, "gui": 3}
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "Windows build GUI executable still looks like a placeholder artifact" in errors
+    assert "Windows build CLI executable still looks like a placeholder artifact" in errors
+
+
 def test_windows_audit_validator_rejects_missing_source_hidden_import_contract() -> None:
     module = _load_build_module()
     payload = module._audit_windows_inputs(__version__, __version__)
