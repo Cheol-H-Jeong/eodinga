@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.224 - 2026-04-23
+## 0.1.225 - 2026-04-23
 
 - Added a single-root integration regression that applies live create and delete watcher updates, closes the index, reopens it, and proves the on-disk search view still reflects those changes without a rebuild.
 - Expanded the multi-root integration coverage so live create and delete events in one watched root survive a close/reopen cycle while preserving both global result sets and `search(..., root=...)` scoping.
