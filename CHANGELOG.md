@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.521 - 2026-04-23
+## 0.1.525 - 2026-04-23
 
 - Cached fully rendered executor SQL statements behind bounded LRU helpers, so repeated search paths and content lookups avoid rebuilding equivalent SQL text on hot queries.
 - Raised SQLite's per-connection prepared-statement budget from 128 to 512, keeping more hot search and indexing statements resident across steady-state workloads.
