@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.305 - 2026-04-23
+## 0.1.352 - 2026-04-23
 
 - Accepted spaced range literals for `date:`, `modified:`, `created:`, and `size:` so queries like `date: 2026-04-01 .. 2026-04-23` and `size: 100 .. 500K` now parse the same as their compact forms.
 - Added open-ended `size:` ranges, including `size:100..` and `size:..500K`, with compiler and executor coverage for both direct and negated forms.
