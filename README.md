@@ -333,6 +333,19 @@ Use this table when you want the shortest proof that written docs still match th
 | Packaged artifacts, installer docs, or release payload claims | `python packaging/build.py --target windows-dry-run` or the matching Linux dry run | manifest review under `packaging/dist/` |
 | Docs-only release handoff | `source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run` | docs contract, GUI smoke, and dry-run payload evidence in one pass |
 
+## Smallest Validation Route
+
+Use the smallest route that still proves the surface you edited:
+
+| If you touched... | Run this one command | Why this is enough |
+| --- | --- | --- |
+| README or guide prose only | `source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py` | proves the shipped docs headings, links, and required references still exist |
+| Generated docs assets | `source .venv/bin/activate && python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` | refreshes the derived assets before checking the docs contract |
+| Packaging or release docs | `source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run` | keeps the docs claims tied to the current staged packaging manifests |
+| Full release candidate | `source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)" && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run && yamllint .github/workflows/release-windows.yml && yamllint .github/workflows/release-linux.yml` | matches the release gate documented in `docs/ACCEPTANCE.md` |
+
+Stop at the first failing stage. If the docs-assets test fails, do not jump ahead to packaging or workflow lint until the docs contract is green again.
+
 ## Release Handoff
 
 1. Finish the docs, code, or packaging slice and keep each logical commit green with `pytest -q tests/unit`.
@@ -486,6 +499,10 @@ Use `packaging/dist/`. Each packaging dry run writes its audit manifests or stag
 ### What should I inspect before cutting a docs-only release?
 
 Check `tests/unit/test_docs_assets.py`, the matching GUI smoke or packaging dry run for the surface you documented, and the rendered payload under `packaging/dist/` when the docs describe packaged artifacts.
+
+### What is the smallest clean command for a docs-only round?
+
+Use `source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py` for prose-only docs edits. Add the GUI smoke command or packaging dry runs only when the changed docs describe those surfaces directly.
 
 ### How do I refresh screenshots and the man page without missing a validation step?
 

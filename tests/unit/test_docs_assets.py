@@ -53,6 +53,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Package Artifacts" in readme
     assert "## Release Inputs" in readme
     assert "## Release Evidence Matrix" in readme
+    assert "## Smallest Validation Route" in readme
     assert "## Config and Data Paths" in readme
     assert "## Operator Checklist" in readme
     assert "## Docs-Only Release Pass" in readme
@@ -87,13 +88,17 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "packaging/dist/" in readme
     assert "Review the dry-run output before tagging." in readme
     assert "Treat that docs-only pass as release evidence" in readme
+    assert "Use the smallest route that still proves the surface you edited:" in readme
+    assert "Stop at the first failing stage." in readme
     assert "git fetch origin main --tags && git tag -l | sort -V | tail -5" in readme
     assert "### State Directory Summary" in readme
     assert "EODINGA_LOG_PATH" in readme
     assert "EODINGA_CRASH_DIR" in readme
     assert "Docs asset drift after CLI or UI changes" in readme
     assert "What should I inspect before cutting a docs-only release?" in readme
+    assert "What is the smallest clean command for a docs-only round?" in readme
     assert "How do I refresh screenshots and the man page without missing a validation step?" in readme
+    assert "Add the GUI smoke command or packaging dry runs only when the changed docs describe those surfaces directly." in readme
     assert "Minimum command" in readme
 
     assert "## Required Commands" in acceptance
