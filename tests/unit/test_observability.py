@@ -13,7 +13,10 @@ from eodinga.observability import (
     configure_logging,
     default_crash_dir,
     default_log_path,
+    file_logging_enabled,
     reset_metrics,
+    resolved_crash_dir,
+    resolved_log_path,
     snapshot_metrics,
     write_crash_log,
 )
@@ -48,6 +51,38 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     configure_logging("INFO")
     assert log_path.parent.exists()
+
+
+def test_resolved_log_path_skips_pytest_temp_file_logging(monkeypatch) -> None:
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "tests/unit/test_observability.py::test")
+    monkeypatch.delenv("EODINGA_LOG_PATH", raising=False)
+    monkeypatch.delenv("EODINGA_DISABLE_FILE_LOGGING", raising=False)
+
+    assert file_logging_enabled() is False
+    assert resolved_log_path() is None
+
+
+def test_resolved_log_path_honors_explicit_targets_when_file_logging_disabled(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    explicit_log_path = tmp_path / "logs" / "explicit.log"
+    override_log_path = tmp_path / "logs" / "override.log"
+    monkeypatch.setenv("EODINGA_DISABLE_FILE_LOGGING", "1")
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(override_log_path))
+
+    assert file_logging_enabled() is False
+    assert resolved_log_path(explicit_log_path) == explicit_log_path
+    assert resolved_log_path() == override_log_path
+
+
+def test_resolved_crash_dir_prefers_explicit_then_env_override(tmp_path: Path, monkeypatch) -> None:
+    explicit_crash_dir = tmp_path / "explicit-crashes"
+    override_crash_dir = tmp_path / "override-crashes"
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(override_crash_dir))
+
+    assert resolved_crash_dir(explicit_crash_dir) == explicit_crash_dir
+    assert resolved_crash_dir() == override_crash_dir
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:

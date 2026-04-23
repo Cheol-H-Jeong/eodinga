@@ -88,21 +88,40 @@ def default_crash_dir() -> Path:
     return default_state_dir() / "crashes"
 
 
+def file_logging_enabled() -> bool:
+    if os.environ.get("EODINGA_DISABLE_FILE_LOGGING") == "1":
+        return False
+    if "PYTEST_CURRENT_TEST" in os.environ and not os.environ.get("EODINGA_LOG_PATH"):
+        return False
+    return True
+
+
+def resolved_log_path(log_path: Path | None = None) -> Path | None:
+    if log_path is not None:
+        return log_path.expanduser()
+    override_path = os.environ.get("EODINGA_LOG_PATH")
+    if override_path:
+        return Path(override_path).expanduser()
+    if not file_logging_enabled():
+        return None
+    return default_log_path()
+
+
+def resolved_crash_dir(crash_dir: Path | None = None) -> Path:
+    if crash_dir is not None:
+        return crash_dir.expanduser()
+    override_dir = os.environ.get("EODINGA_CRASH_DIR")
+    if override_dir:
+        return Path(override_dir).expanduser()
+    return default_crash_dir()
+
+
 def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
     logger.remove()
     logger.add(sys.stderr, level=level.upper())
-    if os.environ.get("EODINGA_DISABLE_FILE_LOGGING") == "1":
+    target = resolved_log_path(log_path)
+    if target is None:
         return
-    effective_log_path = log_path
-    if effective_log_path is None:
-        override_path = os.environ.get("EODINGA_LOG_PATH")
-        if override_path:
-            effective_log_path = Path(override_path)
-        else:
-            if "PYTEST_CURRENT_TEST" in os.environ:
-                return
-            effective_log_path = default_log_path()
-    target = effective_log_path.expanduser()
     target.parent.mkdir(parents=True, exist_ok=True)
     logger.add(target, rotation="5 MB", retention=5, level=level.upper())
 
@@ -178,8 +197,7 @@ def write_crash_log(
 ) -> Path:
     from eodinga import __version__
 
-    override_dir = os.environ.get("EODINGA_CRASH_DIR")
-    target_dir = (crash_dir or (Path(override_dir) if override_dir else default_crash_dir())).expanduser()
+    target_dir = resolved_crash_dir(crash_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     crash_path = target_dir / f"crash-{timestamp}.log"
