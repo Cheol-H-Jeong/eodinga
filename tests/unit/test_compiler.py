@@ -133,6 +133,12 @@ def test_compile_double_negated_group_restores_positive_branches() -> None:
     assert all(not branch.path_terms[0].negated for branch in compiled.branches)
 
 
+@pytest.mark.parametrize("query", ["-(case:true alpha)", "-(regex:true report-[0-9]+)"])
+def test_compile_rejects_group_negation_of_contextual_mode_operators(query: str) -> None:
+    with pytest.raises(QuerySyntaxError, match="group negation cannot target"):
+        compile_query(parse(query))
+
+
 def test_compile_reuses_cached_queries() -> None:
     first = compile("report ext:pdf")
     second = compile("report ext:pdf")
@@ -149,6 +155,8 @@ def test_compile_reuses_cached_queries() -> None:
         "size:>tenM report",
         "date:2026-01-01..bogus report",
         "is:folder report",
+        "-(case:true report)",
+        "-(regex:true report-[0-9]+)",
     ],
 )
 def test_compile_invalid_operator_values_raise_query_syntax_error(query: str) -> None:

@@ -101,6 +101,11 @@ def _negate_term(node: WordNode | PhraseNode | RegexNode | OperatorNode) -> AstN
 
 def _to_nnf(node: AstNode, negated: bool = False) -> AstNode:
     if isinstance(node, (WordNode, PhraseNode, RegexNode, OperatorNode)):
+        if negated and isinstance(node, OperatorNode) and node.name in {"case", "regex"}:
+            raise QuerySyntaxError(
+                f"group negation cannot target the contextual {node.name}: operator",
+                0,
+            )
         return _negate_term(node) if negated else node
     if isinstance(node, NotNode):
         return _to_nnf(node.clause, not negated)
