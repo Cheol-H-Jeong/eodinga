@@ -138,6 +138,32 @@ def test_writer_bulk_upsert_batches_content_inserts(tmp_db: Path, tmp_path: Path
     assert hashes[0] == ("file-0.txt", b"sha-file-0.txt")
 
 
+def test_writer_bulk_upsert_parses_duplicate_paths_once(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    record = _synthetic_record(1, tmp_path)
+    calls: list[Path] = []
+
+    def parse_once(path: Path) -> ParsedContent:
+        calls.append(path)
+        return ParsedContent(
+            title=path.name,
+            head_text=f"head {path.name}",
+            body_text=f"body {path.name}",
+            content_sha=f"sha-{path.name}".encode(),
+        )
+
+    writer = IndexWriter(conn, parser_callback=parse_once)
+
+    assert writer.bulk_upsert([record, record, record]) == 3
+    assert calls == [record.path]
+    rows = conn.execute("SELECT COUNT(*), MIN(content_hash) FROM files").fetchone()
+    assert rows == (1, b"sha-file-1.txt")
+
+
 def test_writer_apply_events_batches_deleted_path_cleanup(tmp_db: Path, tmp_path: Path) -> None:
     conn = sqlite3.connect(tmp_db)
     conn.execute(

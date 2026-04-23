@@ -181,13 +181,17 @@ class IndexWriter:
             return
         parsed_by_path: dict[str, ParsedContent] = {}
         path_order: list[str] = []
+        seen_paths: set[str] = set()
         for record in records:
             if record.is_dir:
                 continue
+            path_text = str(record.path)
+            if path_text in seen_paths:
+                continue
+            seen_paths.add(path_text)
             parsed = self._parser_callback(record.path)
             if parsed is None:
                 continue
-            path_text = str(record.path)
             parsed_by_path[path_text] = parsed
             path_order.append(path_text)
         if not parsed_by_path:
