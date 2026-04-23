@@ -22,7 +22,13 @@ _PATH_SPLIT_RE = re.compile(r"[\\/]+")
 
 
 def _path_has_marker_segment(path: str, marker: str) -> bool:
-    return marker in _PATH_SPLIT_RE.split(path)
+    normalized_marker = marker.casefold()
+    return any(segment.casefold() == normalized_marker for segment in _PATH_SPLIT_RE.split(path))
+
+
+def _stable_score_map(scores: Mapping[int, float]) -> dict[int, float]:
+    ordered_ids = sorted(scores, key=lambda file_id: (-scores[file_id], file_id))
+    return {file_id: scores[file_id] for file_id in ordered_ids}
 
 
 def reciprocal_rank_fusion(
@@ -43,7 +49,7 @@ def reciprocal_rank_fusion(
                 continue
             seen.add(file_id)
             score_map[file_id] = score_map.get(file_id, 0.0) + channel_weight / (weights.k + index)
-    return score_map
+    return _stable_score_map(score_map)
 
 
 def apply_prefix_boost(
@@ -59,7 +65,7 @@ def apply_prefix_boost(
             continue
         seen.add(file_id)
         boosted[file_id] = boosted.get(file_id, 0.0) + weights.prefix_boost
-    return boosted
+    return _stable_score_map(boosted)
 
 
 def apply_path_deboost(
@@ -72,7 +78,7 @@ def apply_path_deboost(
     for file_id, path in paths.items():
         if any(_path_has_marker_segment(path, marker) for marker in weights.deboost_markers):
             adjusted[file_id] = adjusted.get(file_id, 0.0) * weights.deboost_factor
-    return adjusted
+    return _stable_score_map(adjusted)
 
 
 def rank_results(

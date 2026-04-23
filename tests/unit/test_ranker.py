@@ -55,6 +55,22 @@ def test_deboost_matches_complete_path_segments_only() -> None:
     assert scores[4] == 1.0
 
 
+def test_deboost_matches_marker_segments_case_insensitively() -> None:
+    scores = apply_path_deboost(
+        {1: 1.0, 2: 1.0, 3: 1.0},
+        {
+            1: r"C:\repo\NODE_MODULES\pkg\index.js",
+            2: r"C:\repo\.GIT\config",
+            3: r"C:\repo\Git-Cache\config",
+        },
+        RankingWeights(deboost_factor=0.25),
+    )
+
+    assert scores[1] == 0.25
+    assert scores[2] == 0.25
+    assert scores[3] == 1.0
+
+
 def test_rank_results_combines_rrf_boost_and_deboost() -> None:
     scores = rank_results(
         name_hits=[1, 2],
@@ -72,3 +88,21 @@ def test_rrf_ignores_duplicate_file_ids_within_same_channel() -> None:
     scores = reciprocal_rank_fusion({"name": [7, 7, 11]}, weights=weights)
 
     assert scores == {7: 1.0, 11: 1 / 3}
+
+
+def test_rrf_tie_order_is_stable_across_channel_mapping_order() -> None:
+    weights = RankingWeights(name=1.0, path=1.0, content=0.0, k=0)
+
+    left_first = reciprocal_rank_fusion({"name": [1], "path": [2]}, weights=weights)
+    right_first = reciprocal_rank_fusion({"path": [2], "name": [1]}, weights=weights)
+
+    assert list(left_first.items()) == [(1, 1.0), (2, 1.0)]
+    assert list(right_first.items()) == [(1, 1.0), (2, 1.0)]
+
+
+def test_prefix_boost_reorders_equal_scores_stably() -> None:
+    weights = RankingWeights(prefix_boost=0.5)
+
+    scores = apply_prefix_boost({9: 0.2, 3: 0.2}, [9, 3], weights=weights)
+
+    assert list(scores.items()) == [(3, 0.7), (9, 0.7)]
