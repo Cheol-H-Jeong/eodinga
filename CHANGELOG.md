@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.275 - 2026-04-23
+
+- Query date ranges now accept relative macro endpoints inside open-ended and bounded windows, so searches like `date:last-week..today`, `date:..yesterday`, and `modified:2026-04-01..yesterday` compile and execute correctly.
+- Added compiler and executor regressions for mixed macro/ISO date ranges to keep local-time window semantics stable across future parser changes.
+- Updated the README and DSL reference to show macro-to-macro and ISO-to-macro range examples alongside the existing absolute date syntax.
+
 ## 0.1.272 - 2026-04-23
 
 - Made staged index rebuilds stop cleanly on `SIGINT` and `SIGTERM` batch boundaries, preserving the `.next` snapshot for later resume instead of discarding already committed work mid-rebuild.
