@@ -52,6 +52,18 @@ def test_compile_regex_mode_promotes_plain_terms_to_regex() -> None:
     assert branch.path_regex_terms[0].negated is False
 
 
+def test_compile_path_regex_without_flags_keeps_regex_term() -> None:
+    compiled = compile_query(parse("path:/tmp/log/ ext:txt"))
+    branch = compiled.branches[0]
+
+    assert branch.path_match_sql is None
+    assert branch.path_regex_terms == (branch.path_regex_terms[0],)
+    assert branch.path_regex_terms[0].pattern == "tmp/log"
+    assert branch.path_regex_terms[0].flags == ""
+    assert branch.where_sql == "files.ext = ?"
+    assert branch.where_params == ("txt",)
+
+
 @pytest.mark.parametrize(
     ("query", "expected_case_sensitive", "expected_regex_mode"),
     [

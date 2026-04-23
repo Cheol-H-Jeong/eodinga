@@ -151,6 +151,27 @@ def test_parse_slash_prefixed_path_regex_with_valid_flags() -> None:
 
 
 @pytest.mark.parametrize(
+    ("query", "expected_value"),
+    [
+        ("path:/tmp/log/", "tmp/log"),
+        ("path:/foo.*/", "foo.*"),
+        ("path:/foo\\/bar/", "foo\\/bar"),
+    ],
+)
+def test_parse_slash_prefixed_path_regex_without_flags(
+    query: str,
+    expected_value: str,
+) -> None:
+    node = parse(query)
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "path"
+    assert node.value == expected_value
+    assert node.value_kind == "regex"
+    assert node.regex_flags == ""
+
+
+@pytest.mark.parametrize(
     ("query", "expected_name", "expected_value", "expected_kind"),
     [
         ('content: "hello world"', "content", "hello world", "phrase"),
@@ -365,6 +386,22 @@ def test_phrase_escape_round_trip_fuzz(value: str) -> None:
     assert node.value == value
 
 
+@given(PHRASE_TEXT, st.sampled_from(["content", "path"]))
+def test_operator_phrase_spacing_round_trip_fuzz(value: str, operator: str) -> None:
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    inline = parse(f'{operator}:"{escaped}"')
+    spaced = parse(f'{operator}: "{escaped}"')
+
+    assert isinstance(inline, OperatorNode)
+    assert isinstance(spaced, OperatorNode)
+    assert inline.name == operator
+    assert spaced.name == operator
+    assert inline.value_kind == "phrase"
+    assert spaced.value_kind == "phrase"
+    assert inline.value == value
+    assert spaced.value == value
+
+
 NEGATABLE_OPERATOR_ATOMS = st.one_of(
     st.sampled_from(
         [
@@ -412,7 +449,13 @@ def test_negated_operator_query_fuzz_parses_and_compiles(query: str) -> None:
                 ),
                 min_size=1,
                 max_size=12,
-            ).filter(lambda value: value.strip() and value != "-" and not value.startswith("-")),
+            ).filter(
+                lambda value: value.strip()
+                and value == value.strip()
+                and not any(char.isspace() for char in value)
+                and value != "-"
+                and not value.startswith("-")
+            ),
         ),
         st.tuples(
             st.just("regex"),

@@ -248,32 +248,51 @@ def test_execute_previous_period_date_queries_use_local_boundaries(
     assert last_month_hits == ["last-month.txt"]
 
 
-def test_execute_negated_case_true_restores_case_insensitive_matching(
+@pytest.mark.parametrize(
+    ("query", "expected_hits"),
+    [
+        ("case:true report", []),
+        ("-case:true report", ["Report.txt"]),
+        ("case:false report", ["Report.txt"]),
+        ("-case:false report", []),
+    ],
+)
+def test_execute_boolean_case_queries_follow_compiler_truth_table(
     tmp_db: sqlite3.Connection,
+    query: str,
+    expected_hits: list[str],
 ) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/Report.txt", 512, now, "txt", body_text="mixed case")
     tmp_db.commit()
 
-    assert search(tmp_db, "case:true report", limit=5).hits == []
-    hits = [hit.file.name for hit in search(tmp_db, "-case:true report", limit=5).hits]
+    hits = [hit.file.name for hit in search(tmp_db, query, limit=5).hits]
 
-    assert hits == ["Report.txt"]
+    assert hits == expected_hits
 
 
-def test_execute_negated_regex_true_restores_literal_term_matching(
+@pytest.mark.parametrize(
+    ("query", "expected_hits"),
+    [
+        ("regex:true report-[0-9]+", ["report-7.txt"]),
+        ("-regex:true report-[0-9]+", ["report-[0-9]+.txt"]),
+        ("regex:false report-[0-9]+", ["report-[0-9]+.txt"]),
+        ("-regex:false report-[0-9]+", ["report-7.txt"]),
+    ],
+)
+def test_execute_boolean_regex_queries_follow_compiler_truth_table(
     tmp_db: sqlite3.Connection,
+    query: str,
+    expected_hits: list[str],
 ) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/report-7.txt", 512, now, "txt", body_text="regex candidate")
     _insert_file(tmp_db, 2, "/workspace/report-[0-9]+.txt", 512, now - 60, "txt", body_text="literal token")
     tmp_db.commit()
 
-    regex_hits = [hit.file.name for hit in search(tmp_db, "regex:true report-[0-9]+", limit=5).hits]
-    literal_hits = [hit.file.name for hit in search(tmp_db, "-regex:true report-[0-9]+", limit=5).hits]
+    hits = [hit.file.name for hit in search(tmp_db, query, limit=5).hits]
 
-    assert "report-7.txt" in regex_hits
-    assert literal_hits == ["report-[0-9]+.txt"]
+    assert hits == expected_hits
 
 
 def test_execute_escaped_phrase_query_matches_literal_quotes_and_backslashes(
@@ -474,6 +493,18 @@ def test_execute_path_filter_with_regex_like_short_unix_basename_literal(
     hits = [hit.file.path.as_posix() for hit in search(tmp_db, "path:/tmp/ms", limit=5).hits]
 
     assert hits == ["/tmp/ms"]
+
+
+def test_execute_path_filter_regex_without_flags(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/tmp/log", 512, now, "", body_text="literal path")
+    _insert_file(tmp_db, 2, "/tmp/logs", 512, now - 60, "", body_text="plural path")
+    _insert_file(tmp_db, 3, "/var/log", 512, now - 120, "", body_text="different root")
+    tmp_db.commit()
+
+    hits = [hit.file.path.as_posix() for hit in search(tmp_db, "path:/tmp/log/", limit=5).hits]
+
+    assert hits == ["/tmp/log", "/tmp/logs"]
 
 
 def test_execute_decomposed_korean_content_query_keeps_snippets(
