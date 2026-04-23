@@ -15,7 +15,7 @@ BATCH_SIZE = 8192
 WalkTarget = Path | ScanEntry
 
 
-def _to_record(root_id: int, path: Path, stat_result: stat_result) -> FileRecord:
+def _to_record(root_id: int, path: Path, stat_result: stat_result, *, indexed_at: int) -> FileRecord:
     is_symlink = S_ISLNK(stat_result.st_mode)
     is_dir = S_ISDIR(stat_result.st_mode)
     if is_symlink and not is_dir:
@@ -35,7 +35,7 @@ def _to_record(root_id: int, path: Path, stat_result: stat_result) -> FileRecord
         ctime=int(stat_result.st_ctime),
         is_dir=is_dir,
         is_symlink=is_symlink,
-        indexed_at=int(time()),
+        indexed_at=indexed_at,
     )
 
 
@@ -45,7 +45,7 @@ def _should_descend(path: Path, root: Path, stat_result: stat_result) -> bool:
     if path != root or not S_ISLNK(stat_result.st_mode):
         return False
     try:
-        return resolve_safe(path).is_dir()
+        return S_ISDIR(stat_follow_safe(path).st_mode)
     except OSError:
         return False
 
@@ -55,6 +55,7 @@ def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[lis
     visited_dirs: set[tuple[int, int]] = set()
     visited_resolved_dirs: set[Path] = set()
     batch: list[FileRecord] = []
+    indexed_at = int(time())
     while queue:
         current = queue.popleft()
         if isinstance(current, ScanEntry):
@@ -69,7 +70,14 @@ def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[lis
             continue
         if not should_index(current_path, rules):
             continue
-        batch.append(_to_record(root_id=root_id, path=current_path, stat_result=current_stat))
+        batch.append(
+            _to_record(
+                root_id=root_id,
+                path=current_path,
+                stat_result=current_stat,
+                indexed_at=indexed_at,
+            )
+        )
         if len(batch) >= BATCH_SIZE:
             yield batch
             batch = []

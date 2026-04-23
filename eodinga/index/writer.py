@@ -14,6 +14,7 @@ from eodinga.index.schema import apply_schema, current_schema_version
 ParserCallback = Callable[[Path], ParsedContent | None]
 RecordLoader = Callable[[Path], FileRecord | None]
 T = TypeVar("T")
+SQLITE_PARAMETER_CHUNK = 900
 
 
 class ExistingContentRow(NamedTuple):
@@ -40,7 +41,7 @@ def _record_tuple(record: FileRecord) -> tuple[object, ...]:
     )
 
 
-def _chunked(values: Sequence[T], size: int = 500) -> Iterable[Sequence[T]]:
+def _chunked(values: Sequence[T], size: int = SQLITE_PARAMETER_CHUNK) -> Iterable[Sequence[T]]:
     for start in range(0, len(values), size):
         yield values[start : start + size]
 

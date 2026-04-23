@@ -63,6 +63,29 @@ def test_walk_batched_reuses_scandir_stat_results_for_discovered_children(
     assert sample not in stat_calls
 
 
+def test_walk_batched_reuses_single_indexed_at_timestamp(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "tree"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha", encoding="utf-8")
+    (root / "beta.txt").write_text("beta", encoding="utf-8")
+
+    calls = {"count": 0}
+
+    def fake_time() -> float:
+        calls["count"] += 1
+        return 1_713_528_000.9
+
+    monkeypatch.setattr(walker_module, "time", fake_time)
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+
+    assert calls["count"] == 1
+    assert {record.indexed_at for record in records} == {1_713_528_000}
+
+
 def test_walk_batched_falls_back_to_stat_safe_when_scandir_metadata_is_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -225,6 +248,32 @@ def test_walk_batched_indexes_symlinked_root_using_alias_paths(tmp_path: Path) -
     assert all(str(path).startswith(str(alias)) for path in paths)
     assert record_by_path[alias].is_symlink is True
     assert record_by_path[alias].is_dir is True
+
+
+def test_walk_batched_uses_follow_stat_when_descending_into_symlinked_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = tmp_path / "real"
+    real.mkdir()
+    (real / "docs").mkdir()
+    (real / "docs" / "guide.txt").write_text("guide", encoding="utf-8")
+    alias = tmp_path / "alias"
+    alias.symlink_to(real, target_is_directory=True)
+
+    follow_calls: list[Path] = []
+    original_follow_stat = walker_module.stat_follow_safe
+
+    def counting_follow_stat(path: Path) -> os.stat_result:
+        follow_calls.append(path)
+        return original_follow_stat(path)
+
+    monkeypatch.setattr(walker_module, "stat_follow_safe", counting_follow_stat)
+
+    rules = PathRules(root=alias, include=(str(alias), f"{alias}/**"), exclude=())
+    records = [record for batch in walk_batched(alias, rules) for record in batch]
+
+    assert alias in {record.path for record in records}
+    assert follow_calls == [alias, alias]
 
 
 def test_walk_batched_marks_symlinked_directories_as_directories(tmp_path: Path) -> None:

@@ -255,6 +255,35 @@ def test_writer_apply_events_batches_moved_source_cleanup(tmp_db: Path, tmp_path
     assert remaining_paths == {str(path) for path in moved_paths}
 
 
+def test_writer_uses_single_chunk_for_mid_sized_delete_batches(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    records = [_synthetic_record(index, tmp_path) for index in range(750)]
+    writer = IndexWriter(conn)
+    assert writer.bulk_upsert(records) == 750
+
+    statements: list[str] = []
+    conn.set_trace_callback(statements.append)
+    try:
+        processed = writer.apply_events(
+            [WatchEvent(event_type="deleted", path=record.path) for record in records],
+            record_loader=lambda _path: None,
+        )
+    finally:
+        conn.set_trace_callback(None)
+
+    assert processed == 750
+    batched_deletes = {
+        statement.strip()
+        for statement in statements
+        if statement.startswith("DELETE FROM files WHERE path IN")
+    }
+    assert len(batched_deletes) == 1
+
+
 def test_writer_bulk_upsert_reuses_existing_content_rowids(tmp_db: Path, tmp_path: Path) -> None:
     conn = sqlite3.connect(tmp_db)
     conn.execute(
