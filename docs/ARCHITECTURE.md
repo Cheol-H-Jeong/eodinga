@@ -75,6 +75,13 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 - `content_map` keeps the FTS row IDs stable across updates so incremental reindexing does not balloon the content index.
 - `eodinga.index.storage` owns WAL replay on startup and atomic staged-index replacement.
 
+## Transaction Boundaries
+
+- Cold rebuilds write into a staged database first, then perform one atomic promote step so partially built indexes never become query-visible.
+- Live watcher updates stay smaller: `IndexWriter.apply_events()` refreshes `files`, `paths_fts`, and `content_fts` inside one commit boundary, so a query sees either the old row set or the new one, not a mixed half-update.
+- Query execution itself is read-only against SQLite plus in-memory fallback predicates; ranking and regex checks do not mutate the index or config state.
+- This split is why rebuild failures are handled as storage recovery problems, while stale-search reports are usually a watcher or active-database-selection problem.
+
 ## SQLite Schema Snapshot
 
 | Table or virtual table | Role in the runtime | Populated by |
@@ -168,6 +175,13 @@ query term or operator
     |
     +--> fuse scores and emit normalized hits
 ```
+
+## Search Visibility Rules
+
+- A rebuilt staged index is only visible after the final promote step succeeds.
+- Watcher-driven changes become visible on the next query after the event batch commit finishes.
+- `eodinga stats --json` and `eodinga doctor` are the operator tools for proving which database file and runtime environment a surface is actually using.
+- Because CLI, GUI, and launcher share the same compiler and executor, cross-surface result mismatches usually point to stale state or configuration drift, not a second search implementation.
 
 ## Observability Flow
 
@@ -295,6 +309,15 @@ startup
 2. Inspect the emitted manifest or staged payload summary under `packaging/dist/`.
 3. Compare the staged docs payload with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 4. Cut the local tag only after the dry-run output and shipped docs agree.
+
+## Operator Questions By Layer
+
+| Question | Best first command | Why that layer first |
+| --- | --- | --- |
+| "Am I reading the expected index?" | `eodinga stats --json` | Confirms the active DB path before you blame ranking or packaging. |
+| "Did startup recovery finish cleanly?" | `eodinga doctor` | Surfaces writable-path and recovery-sidecar issues before a rebuild retry. |
+| "Did a live file change commit yet?" | `eodinga watch` or `eodinga stats --json` | Confirms the watcher path and runtime counters rather than guessing from stale UI state. |
+| "Do packaged docs match the runtime?" | `python packaging/build.py --target ...-dry-run` | The staged manifest under `packaging/dist/` is the release review surface. |
 
 ## Platform Surface Summary
 
