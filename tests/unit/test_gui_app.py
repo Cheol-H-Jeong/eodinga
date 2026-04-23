@@ -170,6 +170,37 @@ def test_tray_indicator_exposes_open_window_and_toggle_launcher_actions(qapp) ->
     assert window.tray_indicator.toggle_launcher_action.text() == "Show launcher"
 
 
+def test_tray_show_main_window_restores_minimized_main_window(qapp) -> None:
+    window = EodingaWindow()
+    window.showMinimized()
+    qapp.processEvents()
+
+    assert window.isMinimized()
+
+    window.tray_indicator.show_main_window()
+    qapp.processEvents()
+
+    assert window.isVisible()
+    assert not window.isMinimized()
+
+
+def test_tray_show_launcher_restores_minimized_launcher(qapp) -> None:
+    window = EodingaWindow()
+    launcher = window.launcher_window
+    launcher.showMinimized()
+    qapp.processEvents()
+
+    assert launcher.isVisible()
+    assert launcher.isMinimized()
+
+    window.tray_indicator.show_launcher()
+    qapp.processEvents()
+
+    assert launcher.isVisible()
+    assert not launcher.isMinimized()
+    assert launcher.query_field.hasFocus()
+
+
 def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_path: Path) -> None:
     config = AppConfig()
     _, window, launcher = cast(
@@ -343,6 +374,22 @@ def test_tray_activation_toggles_launcher_visibility(qapp) -> None:
     assert not window.launcher_window.isVisible()
 
 
+def test_tray_toggle_restores_minimized_launcher_instead_of_hiding_it(qapp) -> None:
+    window = EodingaWindow()
+    launcher = window.launcher_window
+    launcher.showMinimized()
+    qapp.processEvents()
+
+    assert launcher.isVisible()
+    assert launcher.isMinimized()
+
+    window.tray_indicator.toggle_launcher()
+    qapp.processEvents()
+
+    assert launcher.isVisible()
+    assert not launcher.isMinimized()
+
+
 def test_tray_quit_action_calls_application_quit(monkeypatch, qapp) -> None:
     called: list[str] = []
     monkeypatch.setattr("eodinga.gui.app.QSystemTrayIcon.isSystemTrayAvailable", staticmethod(lambda: True))
@@ -380,6 +427,25 @@ def test_window_registers_hotkey_and_toggles_launcher_from_callback(qapp) -> Non
     window.close()
     qapp.processEvents()
     assert hotkey_service.calls[-1] == ("stop", "")
+
+
+def test_hotkey_callback_restores_minimized_launcher(qapp) -> None:
+    hotkey_service = _HotkeyServiceSpy()
+    window = EodingaWindow(config=AppConfig(), hotkey_service=hotkey_service)
+    launcher = window.launcher_window
+    launcher.showMinimized()
+    qapp.processEvents()
+
+    assert hotkey_service.callback is not None
+    assert launcher.isVisible()
+    assert launcher.isMinimized()
+
+    hotkey_service.callback()
+    qapp.processEvents()
+
+    assert launcher.isVisible()
+    assert not launcher.isMinimized()
+    assert launcher.query_field.hasFocus()
 
 
 def test_settings_tab_rebinds_hotkey_without_restart(

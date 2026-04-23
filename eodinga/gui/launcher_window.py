@@ -68,6 +68,16 @@ class LauncherWindow(LauncherPanel):
         self.query_field.selectAll()
         self.visibility_changed.emit(True)
 
+    def present(self) -> None:
+        if self.isMinimized():
+            self.showNormal()
+        else:
+            self.show()
+        self.raise_()
+        self.activateWindow()
+        self.query_field.setFocus()
+        self.query_field.selectAll()
+
     def moveEvent(self, event: QMoveEvent) -> None:
         super().moveEvent(event)
         self._schedule_geometry_persist()
