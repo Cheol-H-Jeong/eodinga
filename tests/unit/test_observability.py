@@ -8,6 +8,7 @@ from eodinga.common import WatchEvent
 from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
+from eodinga import __version__
 from eodinga.observability import (
     configure_logging,
     default_crash_dir,
@@ -53,13 +54,17 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     try:
         raise RuntimeError("boom")
     except RuntimeError as error:
-        crash_path = write_crash_log(error, crash_dir=tmp_path)
+        crash_path = write_crash_log(error, crash_dir=tmp_path, details={"argv": ["search", "boom"]})
     contents = crash_path.read_text(encoding="utf-8")
     assert crash_path.parent == tmp_path
     assert "RuntimeError: boom" in contents
     assert "Traceback" in contents
     assert "timestamp=" in contents
     assert "pid=" in contents
+    assert f"version={__version__}" in contents
+    assert f"platform={sys.platform}" in contents
+    assert f"cwd={Path.cwd()}" in contents
+    assert 'argv=["search", "boom"]' in contents
 
 
 def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:

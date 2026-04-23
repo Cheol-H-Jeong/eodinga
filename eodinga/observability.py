@@ -6,6 +6,7 @@ import traceback
 from dataclasses import dataclass, field
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from json import dumps as json_dumps
 from pathlib import Path
 from threading import Lock
 from typing import Any, TypedDict
@@ -173,19 +174,39 @@ def write_crash_log(
     *,
     crash_dir: Path | None = None,
     context: str = "Unhandled exception",
+    details: Mapping[str, object] | None = None,
 ) -> Path:
+    from eodinga import __version__
+
     override_dir = os.environ.get("EODINGA_CRASH_DIR")
     target_dir = (crash_dir or (Path(override_dir) if override_dir else default_crash_dir())).expanduser()
     target_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     crash_path = target_dir / f"crash-{timestamp}.log"
+    metadata: dict[str, object] = {
+        "timestamp": timestamp,
+        "pid": os.getpid(),
+        "version": __version__,
+        "platform": sys.platform,
+        "python": sys.version.split()[0],
+        "cwd": str(Path.cwd()),
+    }
+    if details:
+        metadata.update(details)
     lines = [
         f"{context}\n",
-        f"timestamp={timestamp}\n",
-        f"pid={os.getpid()}\n",
+        *[f"{key}={_format_detail_value(value)}\n" for key, value in metadata.items()],
         f"{type(error).__name__}: {error}\n",
         "\n",
         *traceback.format_exception(type(error), error, error.__traceback__),
     ]
     crash_path.write_text("".join(lines), encoding="utf-8")
     return crash_path
+
+
+def _format_detail_value(value: object) -> str:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return str(value)
+    return json_dumps(value, sort_keys=True)
