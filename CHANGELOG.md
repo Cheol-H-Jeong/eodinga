@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.242 - 2026-04-23
+
+- Cached executor content-text lookup SQL by `IN (...)` shape and normalized positive query terms once per branch so repeated query scoring does less per-hit string work.
+- Switched top-level index-writer batches to `BEGIN IMMEDIATE` while preserving nested savepoint semantics, reducing lock-escalation churn for bulk upserts and watcher event application.
+- Added unit regressions for the new executor SQL cache, Unicode-normalized Korean path matching, and the writer's top-level versus nested transaction paths.
+
 ## 0.1.238 - 2026-04-23
 
 - Fixed inline quoted operator values so escaped quotes and backslashes decode consistently whether or not the phrase contains whitespace.
