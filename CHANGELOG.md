@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.213 - 2026-04-23
+
+- Persisted the in-process observability registry to an atomic, lock-protected metrics file, so `eodinga stats --json` now reports query, parser, watcher, and latency telemetry across separate CLI invocations instead of only within one process.
+- Exposed crash telemetry through the stats surface, including total crash logs written, per-exception crash counters, and the latest `crash-<ts>.log` path for faster post-failure inspection.
+- Hardened the rotating Loguru file sink with safer defaults for queued writes and disabled traceback diagnostics in release logging, while allowing rotation, retention, and compression to be tuned via environment overrides.
+
 ## 0.1.209 - 2026-04-23
 
 - Expanded the PyInstaller spec to discover dynamic hidden imports loaded through `importlib.import_module(...)`, aliased `importlib` module handles, and direct `__import__(...)` calls, reducing manual packaging drift for optional runtime modules.
