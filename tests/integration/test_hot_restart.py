@@ -286,6 +286,65 @@ def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) 
     assert remaining_hits == {survivor}
 
 
+def test_hot_restart_reopen_after_removed_root_rebuild_accepts_live_updates_on_remaining_root(
+    tmp_path: Path,
+) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    survivor = root_a / "alpha-survivor.txt"
+    removed = root_b / "beta-removed.txt"
+    survivor.write_text("trimmed reopen survivor\n", encoding="utf-8")
+    removed.write_text("trimmed reopen removed root\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+    rebuild_index(db_path, [RootConfig(path=root_a)], content_enabled=True)
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+
+        created = root_a / "after-trimmed-reopen.txt"
+        created.write_text("trimmed reopen live update\n", encoding="utf-8")
+        elapsed = wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "trimmed reopen live update",
+            created,
+            deadline_seconds=0.5,
+        )
+        survivor_hits = {
+            hit.file.path for hit in search(reopened, "trimmed reopen survivor", limit=5).hits
+        }
+        removed_hits = {
+            hit.file.path for hit in search(reopened, "trimmed reopen removed root", limit=5).hits
+        }
+        created_hits = {
+            hit.file.path
+            for hit in search(reopened, "trimmed reopen live update", limit=5, root=root_a).hits
+        }
+        stored_roots = {
+            Path(row[0]) for row in reopened.execute("SELECT path FROM roots ORDER BY id").fetchall()
+        }
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert elapsed <= 0.5
+    assert survivor_hits == {survivor}
+    assert removed_hits == set()
+    assert created_hits == {created}
+    assert stored_roots == {root_a}
+
+
 def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updates(
     tmp_path: Path,
 ) -> None:

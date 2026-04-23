@@ -199,6 +199,40 @@ def test_live_same_root_move_updates_search_visibility_within_500ms(tmp_path: Pa
     assert destination_path_hits == [destination]
 
 
+def test_live_update_visible_after_watcher_restart_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+        service.stop()
+
+        service = WatchService()
+        service.start(root)
+
+        created = root / "after-restart.txt"
+        created.write_text("watcher restart integration coverage\n", encoding="utf-8")
+
+        elapsed = wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "watcher restart integration coverage",
+            created,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    assert elapsed <= 0.5
+
+
 def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
