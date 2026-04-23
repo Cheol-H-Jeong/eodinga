@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 import unicodedata
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -405,6 +405,37 @@ def test_execute_decomposed_korean_phrase_query_matches_across_punctuation(
     ]
 
     assert hits == ["회의록-초안.txt"]
+
+
+def test_root_scope_clause_expands_windows_drive_case_and_long_path_variants() -> None:
+    _, params = executor_module._root_scope_clause(PureWindowsPath("C:/Repo"))
+    exact_params = set(params[: len(params) // 3])
+
+    assert "C:\\Repo" in exact_params
+    assert "c:\\Repo" in exact_params
+    assert "C:/Repo" in exact_params
+    assert "c:/Repo" in exact_params
+    assert "\\\\?\\C:\\Repo" in exact_params
+    assert "\\\\?\\c:\\Repo" in exact_params
+    assert "//?/C:/Repo" in exact_params
+    assert "//?/c:/Repo" in exact_params
+
+
+def test_execute_root_scope_matches_windows_drive_case_and_long_paths(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, r"c:\Repo\notes\alpha.txt", 512, now, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, r"\\?\C:\Repo\notes\beta.txt", 512, now - 60, "txt", body_text="beta")
+    _insert_file(tmp_db, 3, r"D:\Repo\notes\gamma.txt", 512, now - 120, "txt", body_text="gamma")
+    tmp_db.commit()
+
+    hits = [
+        str(hit.file.path)
+        for hit in search(tmp_db, "ext:txt", limit=10, root=PureWindowsPath("C:/Repo")).hits
+    ]
+
+    assert set(hits) == {r"c:\Repo\notes\alpha.txt", r"\\?\C:\Repo\notes\beta.txt"}
 
 
 def test_execute_relative_date_queries_use_local_day_boundaries(

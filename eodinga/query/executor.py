@@ -39,6 +39,8 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+_WINDOWS_LONG_PATH_PREFIXES = ("\\\\?\\", "//?/")
+_WINDOWS_DRIVE_RE = re.compile(r"^(?P<drive>[A-Za-z]):(?=[/\\\\]|$)")
 
 
 @lru_cache(maxsize=256)
@@ -311,17 +313,7 @@ def _fetch_record_batch(
 def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
-    root_text = str(root)
-    normalized = root_text.rstrip("/\\") or root_text
-    variants = tuple(
-        dict.fromkeys(
-            (
-                normalized,
-                normalized.replace("\\", "/"),
-                normalized.replace("/", "\\"),
-            )
-        )
-    )
+    variants = _root_scope_variants(str(root))
     exact_params = variants
     like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
         f"{variant}\\%" for variant in variants
@@ -329,6 +321,56 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
     like_clause = " OR ".join("files.path LIKE ?" for _ in like_params)
     return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
+
+
+def _root_scope_variants(root_text: str) -> tuple[str, ...]:
+    normalized = root_text.rstrip("/\\") or root_text
+    variants: set[str] = {normalized}
+    pending = [normalized]
+
+    while pending:
+        current = pending.pop()
+        derived = _derived_root_scope_variants(current)
+        for candidate in derived:
+            if candidate in variants:
+                continue
+            variants.add(candidate)
+            pending.append(candidate)
+    return tuple(sorted(variants))
+
+
+def _derived_root_scope_variants(value: str) -> set[str]:
+    variants = {
+        value,
+        value.replace("\\", "/"),
+        value.replace("/", "\\"),
+    }
+    for prefix in _WINDOWS_LONG_PATH_PREFIXES:
+        if value.startswith(prefix):
+            variants.add(value[len(prefix) :])
+
+    drive_variants: set[str] = set()
+    for candidate in variants:
+        match = _WINDOWS_DRIVE_RE.match(candidate)
+        if match is None:
+            continue
+        drive = match.group("drive")
+        remainder = candidate[1:]
+        drive_variants.add(f"{drive.upper()}{remainder}")
+        drive_variants.add(f"{drive.lower()}{remainder}")
+    variants.update(drive_variants)
+
+    long_path_variants: set[str] = set()
+    for candidate in variants:
+        if candidate.startswith(_WINDOWS_LONG_PATH_PREFIXES):
+            continue
+        windows_path = candidate.replace("/", "\\")
+        if _WINDOWS_DRIVE_RE.match(windows_path) is None:
+            continue
+        long_path_variants.add(f"\\\\?\\{windows_path}")
+        long_path_variants.add(f"//?/{windows_path.replace('\\', '/')}")
+    variants.update(long_path_variants)
+    return variants
 
 
 def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:
