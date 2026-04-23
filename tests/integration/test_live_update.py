@@ -66,6 +66,53 @@ def test_live_update_visible_to_search_within_500ms(tmp_path: Path) -> None:
     assert elapsed <= 0.5
 
 
+def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        created = root_b / "beta-live-update.txt"
+        created.write_text("beta scoped integration visibility\n", encoding="utf-8")
+
+        elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "scoped integration visibility",
+            created,
+            deadline_seconds=0.5,
+        )
+        alpha_hits = [
+            hit.file.path
+            for hit in search(conn, "scoped integration visibility", limit=5, root=root_a).hits
+        ]
+        beta_hits = [
+            hit.file.path
+            for hit in search(conn, "scoped integration visibility", limit=5, root=root_b).hits
+        ]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert elapsed <= 0.5
+    assert alpha_hits == []
+    assert beta_hits == [created]
+
+
 def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     db_path = tmp_path / "database" / "index.db"
