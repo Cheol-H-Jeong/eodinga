@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.229 - 2026-04-23
+
+- Restored compatibility with persisted `launcher.frameless` config so existing local installs no longer crash on startup while the launcher window keeps honoring that flag.
+- Added an end-to-end watchdog regression that modifies indexed file content in place and proves search refreshes to the new body within the existing live-update budget.
+- Added a hot-restart regression that reopens an existing index, confirms the original query still works, and then verifies a live content edit is searchable without a rebuild.
+
 ## 0.1.224 - 2026-04-23
 
 - Installed global crash hooks for top-level and thread failures so background or early CLI crashes now emit the same `crash-<ts>.log` artifacts as the main exception path.
