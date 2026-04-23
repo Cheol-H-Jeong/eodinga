@@ -13,6 +13,7 @@ from eodinga.observability import (
     configure_logging,
     default_crash_dir,
     default_log_path,
+    default_metrics_path,
     reset_metrics,
     snapshot_metrics,
     write_crash_log,
@@ -23,6 +24,7 @@ def test_default_log_and_crash_paths_follow_platform_state_dirs(monkeypatch) -> 
     monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setenv("XDG_STATE_HOME", "/tmp/eodinga-state")
     assert default_log_path() == Path("/tmp/eodinga-state/eodinga/logs/eodinga.log")
+    assert default_metrics_path() == Path("/tmp/eodinga-state/eodinga/metrics.json")
     assert default_crash_dir() == Path("/tmp/eodinga-state/eodinga/crashes")
 
     monkeypatch.setattr(sys, "platform", "win32")
@@ -75,6 +77,21 @@ def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
         crash_path = write_crash_log(error, context="env override")
     assert crash_path.parent == tmp_path
     assert "env override" in crash_path.read_text(encoding="utf-8")
+
+
+def test_metrics_persist_to_disk_via_env_override(tmp_path: Path, monkeypatch) -> None:
+    from eodinga.observability import increment_counter, record_histogram
+
+    metrics_path = tmp_path / "state" / "metrics.json"
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+    reset_metrics()
+
+    increment_counter("queries_served")
+    record_histogram("query_latency_ms", 12.5)
+
+    payload = metrics_path.read_text(encoding="utf-8")
+    assert '"queries_served": 1' in payload
+    assert '"query_latency_ms"' in payload
 
 
 def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path: Path) -> None:

@@ -79,6 +79,8 @@ def cli_runner(tmp_path: Path) -> Iterator[Callable[..., subprocess.CompletedPro
     def run(*args: str) -> subprocess.CompletedProcess[str]:
         env = os.environ.copy()
         env.setdefault("QT_QPA_PLATFORM", "offscreen")
+        env.setdefault("EODINGA_METRICS_PATH", str(tmp_path / "metrics.json"))
+        env.setdefault("EODINGA_DISABLE_FILE_LOGGING", "1")
         return subprocess.run(
             [sys.executable, "-m", "eodinga", *args],
             cwd=tmp_path,

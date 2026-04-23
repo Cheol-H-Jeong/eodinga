@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from json import dumps as json_dumps
+from json import loads as json_loads
 from pathlib import Path
 from threading import Lock
 from typing import Any, TypedDict
@@ -17,6 +18,7 @@ _DEFAULT_HISTOGRAM_BUCKETS_MS = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0
 _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
+_METRICS_LOADED = False
 
 
 class MetricsSnapshot(TypedDict):
@@ -50,6 +52,53 @@ class _HistogramState:
             "buckets": dict(sorted(self.bucket_hits.items())),
         }
 
+    def to_json(self) -> dict[str, object]:
+        return {
+            "buckets_ms": list(self.buckets_ms),
+            "count": self.count,
+            "sum_ms": self.sum_ms,
+            "min_ms": self.min_ms,
+            "max_ms": self.max_ms,
+            "bucket_hits": dict(sorted(self.bucket_hits.items())),
+        }
+
+    @classmethod
+    def from_json(cls, payload: dict[str, object]) -> _HistogramState | None:
+        buckets_payload = payload.get("buckets_ms")
+        if not isinstance(buckets_payload, list) or not buckets_payload:
+            return None
+        buckets_ms = tuple(value for value in buckets_payload if isinstance(value, (int, float)))
+        if len(buckets_ms) != len(buckets_payload):
+            return None
+        bucket_hits_payload = payload.get("bucket_hits")
+        if not isinstance(bucket_hits_payload, dict):
+            return None
+        bucket_hits = {
+            key: value
+            for key, value in bucket_hits_payload.items()
+            if isinstance(key, str) and isinstance(value, int)
+        }
+        if len(bucket_hits) != len(bucket_hits_payload):
+            return None
+        count = payload.get("count", 0)
+        sum_ms = payload.get("sum_ms", 0.0)
+        min_ms = payload.get("min_ms")
+        max_ms = payload.get("max_ms")
+        if not isinstance(count, int) or not isinstance(sum_ms, (int, float)):
+            return None
+        if min_ms is not None and not isinstance(min_ms, (int, float)):
+            return None
+        if max_ms is not None and not isinstance(max_ms, (int, float)):
+            return None
+        return cls(
+            buckets_ms=tuple(float(value) for value in buckets_ms),
+            count=count,
+            sum_ms=float(sum_ms),
+            min_ms=float(min_ms) if isinstance(min_ms, (int, float)) else None,
+            max_ms=float(max_ms) if isinstance(max_ms, (int, float)) else None,
+            bucket_hits=bucket_hits,
+        )
+
 
 def _bucket_label(value_ms: float, buckets_ms: tuple[float, ...]) -> str:
     for upper_bound in buckets_ms:
@@ -80,6 +129,13 @@ def default_logs_dir() -> Path:
 
 def default_log_path() -> Path:
     return default_logs_dir() / "eodinga.log"
+
+
+def default_metrics_path() -> Path:
+    override_path = os.environ.get("EODINGA_METRICS_PATH")
+    if override_path:
+        return Path(override_path).expanduser()
+    return default_state_dir() / "metrics.json"
 
 
 def default_crash_dir() -> Path:
@@ -113,7 +169,9 @@ def get_logger(name: str | None = None) -> Any:
 
 def increment_counter(name: str, value: int = 1, **fields: object) -> None:
     with _METRICS_LOCK:
+        _load_metrics_locked()
         _COUNTERS[name] = _COUNTERS.get(name, 0) + value
+        _persist_metrics_locked()
     logger.bind(metric=name, **fields).debug("counter +{value}", value=value)
 
 
@@ -129,16 +187,19 @@ def record_histogram(
     **fields: object,
 ) -> None:
     with _METRICS_LOCK:
+        _load_metrics_locked()
         state = _HISTOGRAMS.get(name)
         if state is None:
             state = _HistogramState(buckets_ms=buckets_ms)
             _HISTOGRAMS[name] = state
         state.observe(value_ms)
+        _persist_metrics_locked()
     logger.bind(metric=name, **fields).debug("histogram {value_ms:.3f}ms", value_ms=value_ms)
 
 
 def snapshot_metrics() -> MetricsSnapshot:
     with _METRICS_LOCK:
+        _load_metrics_locked()
         counters = dict(sorted(_COUNTERS.items()))
         histograms: dict[str, dict[str, object]] = {
             name: state.snapshot() for name, state in sorted(_HISTOGRAMS.items())
@@ -147,9 +208,12 @@ def snapshot_metrics() -> MetricsSnapshot:
 
 
 def reset_metrics() -> None:
+    global _METRICS_LOADED
     with _METRICS_LOCK:
         _COUNTERS.clear()
         _HISTOGRAMS.clear()
+        _METRICS_LOADED = True
+        _persist_metrics_locked()
 
 
 def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
@@ -158,11 +222,13 @@ def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
 
 def counter_value(name: str) -> int:
     with _METRICS_LOCK:
+        _load_metrics_locked()
         return _COUNTERS.get(name, 0)
 
 
 def histogram_snapshot(name: str) -> dict[str, object]:
     with _METRICS_LOCK:
+        _load_metrics_locked()
         state = _HISTOGRAMS.get(name)
         if state is None:
             return {}
@@ -210,3 +276,63 @@ def _format_detail_value(value: object) -> str:
     if isinstance(value, (str, int, float, bool)) or value is None:
         return str(value)
     return json_dumps(value, sort_keys=True)
+
+
+def _load_metrics_locked() -> None:
+    global _METRICS_LOADED
+    if _METRICS_LOADED:
+        return
+    _COUNTERS.clear()
+    _HISTOGRAMS.clear()
+    metrics_path = default_metrics_path()
+    try:
+        payload = json_loads(metrics_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        _METRICS_LOADED = True
+        return
+    except (OSError, ValueError, TypeError):
+        _METRICS_LOADED = True
+        return
+
+    for name, value in _coerce_counter_payload(payload.get("counters", {})).items():
+        _COUNTERS[name] = value
+    for name, raw_histogram in _coerce_histogram_payload(payload.get("histograms", {})).items():
+        _HISTOGRAMS[name] = raw_histogram
+    _METRICS_LOADED = True
+
+
+def _persist_metrics_locked() -> None:
+    metrics_path = default_metrics_path()
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "counters": dict(sorted(_COUNTERS.items())),
+        "histograms": {
+            name: state.to_json() for name, state in sorted(_HISTOGRAMS.items())
+        },
+    }
+    temp_path = metrics_path.with_suffix(f"{metrics_path.suffix}.tmp")
+    temp_path.write_text(json_dumps(payload, sort_keys=True), encoding="utf-8")
+    temp_path.replace(metrics_path)
+
+
+def _coerce_counter_payload(payload: object) -> dict[str, int]:
+    if not isinstance(payload, dict):
+        return {}
+    counters: dict[str, int] = {}
+    for key, value in payload.items():
+        if isinstance(key, str) and isinstance(value, int):
+            counters[key] = value
+    return counters
+
+
+def _coerce_histogram_payload(payload: object) -> dict[str, _HistogramState]:
+    if not isinstance(payload, dict):
+        return {}
+    histograms: dict[str, _HistogramState] = {}
+    for key, value in payload.items():
+        if not isinstance(key, str) or not isinstance(value, dict):
+            continue
+        state = _HistogramState.from_json(value)
+        if state is not None:
+            histograms[key] = state
+    return histograms

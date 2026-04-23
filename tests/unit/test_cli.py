@@ -523,3 +523,34 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["queries_served"] == 1
     assert payload["counters"]["watcher_events"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
+
+
+def test_stats_json_persists_metrics_across_cli_processes(
+    cli_runner,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    metrics_path = tmp_path / "state" / "metrics.json"
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+    monkeypatch.setenv("EODINGA_DISABLE_FILE_LOGGING", "1")
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "alpha.txt").write_text("alpha duplicate\n", encoding="utf-8")
+    (docs / "beta.txt").write_text("beta duplicate\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+
+    index_result = cli_runner("--db", str(db_path), "index", "--root", str(docs), "--rebuild")
+    assert index_result.returncode == 0
+    indexed_files = json.loads(index_result.stdout)["files_indexed"]
+
+    search_result = cli_runner("--db", str(db_path), "search", "duplicate", "--json")
+    assert search_result.returncode == 0
+    assert json.loads(search_result.stdout)["count"] == 2
+
+    stats_result = cli_runner("--db", str(db_path), "stats", "--json")
+    assert stats_result.returncode == 0
+    payload = json.loads(stats_result.stdout)
+    assert payload["counters"]["files_indexed"] == indexed_files
+    assert payload["counters"]["queries_served"] == 1
+    assert payload["histograms"]["query_latency_ms"]["count"] == 1
