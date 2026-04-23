@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.519 - 2026-04-23
+
+- Added a dedicated `docs/OPERATIONS.md` runbook that pins default config, database, log, and crash-log paths plus the supported env overrides and first-response troubleshooting commands.
+- Expanded the README and architecture guide so operators can trace resolved runtime paths, crash/log locations, and packaging review steps without reading the source tree.
+- Treated the operations guide as a shipped release input in acceptance, contributor, and release docs, with docs-asset regressions to keep that surface aligned in future rounds.
+
 ## 0.1.510 - 2026-04-23
 
 - Tightened structural query filters so `is:file` now matches regular files only and `is:dir` now matches non-symlink directories only, leaving `is:symlink` as the explicit way to query link entries.
