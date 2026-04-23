@@ -10,6 +10,18 @@
 4. `eodinga.query.dsl.parse()` and `eodinga.query.compiler.compile_query()` lower the DSL into SQLite filters plus in-memory fallback checks.
 5. `eodinga.query.executor.search()` fetches candidates, merges name/path/content rankings, and returns hits to the CLI or GUI.
 
+## Surface-To-Engine Contract
+
+| Surface | Calls into | Shared behavior you should expect |
+| --- | --- | --- |
+| `eodinga search` | parser -> compiler -> executor -> ranker | same DSL parsing, root scoping, regex fallback, and ranking as the desktop surfaces |
+| embedded search tab | parser -> compiler -> executor -> ranker | same hit ordering and filter behavior as the CLI |
+| launcher popup | parser -> compiler -> executor -> ranker | same query semantics as CLI/GUI, with only result rendering and actions differing |
+| `eodinga stats --json` | storage + observability snapshot | reports the same DB path and counters the other surfaces depend on |
+| `eodinga doctor` | config + storage + runtime probes | diagnoses environment and path assumptions before rebuild/watch work |
+
+When CLI and launcher behavior diverge, assume one shared-engine bug first. The architecture intentionally keeps the query and ranking stack singular so operators do not have to debug two search implementations.
+
 ## End-to-End Request Path
 
 ```text
@@ -119,6 +131,17 @@ user / startup
 - `eodinga doctor` reports both resumed staged rebuild/recovery work and unrecoverable stale-WAL failures so the operator sees the same startup path the runtime takes.
 - This keeps crash recovery local to the database directory and avoids mutating indexed user roots.
 
+## Recovery Evidence Path
+
+When recovery or stale results are reported, gather evidence in this order:
+
+1. `eodinga stats --json` to verify the active `db_path`, indexed roots, and current counters.
+2. `eodinga doctor` to inspect writable-path, root, and hotkey/runtime prerequisites.
+3. Runtime logs or crash artifacts under the resolved log/crash directory when the previous two commands show the correct database but behavior is still wrong.
+4. `eodinga index --rebuild` only after the earlier evidence shows you are operating on the intended config and database.
+
+This ordering matters because the recovery code is local to the index directory. Rebuilding the wrong database path only creates fresh evidence for the wrong state.
+
 ## Rebuild Sequence
 
 ```text
@@ -184,6 +207,16 @@ query term or operator
 - Root scoping, regex fallback, duplicate detection, and date/size operators are therefore release-contract behavior, not UI-only affordances.
 - When operators report a mismatch between CLI and launcher results, treat it as one shared engine bug unless there is direct evidence the surfaces are reading different databases.
 
+## Operator Evidence Sources
+
+| Question | Preferred source | Why |
+| --- | --- | --- |
+| "Which database is this surface using?" | `eodinga stats --json` | emits the resolved `db_path`, roots, and counters in one payload |
+| "Did startup recovery actually run?" | `eodinga doctor` plus runtime logs | mirrors the storage-layer checks and reports recoverable failures |
+| "Is this a query bug or a UI bug?" | `eodinga search 'query' --json` | strips rendering out and exercises the same engine directly |
+| "Did packaging include the right operator docs?" | `packaging/dist/` dry-run manifests | these are the reviewable staged outputs before a tag |
+| "Does the checked-in docs set still match runtime?" | `tests/unit/test_docs_assets.py` | verifies screenshot assets and the generated man page contract together |
+
 ## Observability Flow
 
 ```text
@@ -231,6 +264,22 @@ runtime code / CLI / UI changes
 
 - The release flow treats documentation, generated assets, and packaging manifests as part of the same shipped surface.
 - This is why docs-only rounds still run `tests/unit/test_docs_assets.py` and the matching dry-run or GUI smoke command instead of stopping at markdown edits.
+
+## Release Review Loop
+
+```text
+runtime or docs change
+    |
+    +--> update README / docs guide
+    |
+    +--> regenerate man page or screenshots if the CLI or UI surface changed
+    |
+    +--> run docs-assets test and matching dry-run or GUI smoke path
+    |
+    +--> inspect packaging/dist/ for the staged release payload
+    |
+    +--> cut metadata commit and local tag
+```
 
 ## State Ownership
 
