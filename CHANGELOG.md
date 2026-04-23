@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.919 - 2026-04-24
+
+- Batched the query executor's Python fallback scan for phrase and Unicode path searches, avoiding the previous one-shot `100000`-row materialization and keeping the slower correctness path bounded in memory.
+- Cached compiled regex filters in the query executor, so repeated regex-heavy searches reuse the same compiled patterns instead of recompiling them for every candidate record.
+- Added an opt-in fallback-query latency benchmark under `EODINGA_RUN_PERF=1` plus unit coverage that pins the new batched scan behavior.
+
 ## 0.1.918 - 2026-04-24
 
 - Scoped Windows root filters across both plain and extended-length path spellings, so searches under `C:\...` and `\\?\C:\...` stay equivalent even when the index stores the other form.
