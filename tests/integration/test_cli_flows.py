@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 from eodinga.__main__ import main
 from eodinga.observability import reset_metrics
 
 
-def _read_json(capsys) -> dict[str, object]:
+def _read_json(capsys) -> dict[str, Any]:
     captured = capsys.readouterr()
     assert captured.err == ""
-    return json.loads(captured.out)
+    return cast(dict[str, Any], json.loads(captured.out))
 
 
 def test_cli_flow_indexes_searches_and_reports_stats(tmp_path: Path, capsys) -> None:
@@ -26,13 +27,14 @@ def test_cli_flow_indexes_searches_and_reports_stats(tmp_path: Path, capsys) -> 
 
     assert main(["--db", str(db_path), "search", "launch flow", "--json"]) == 0
     search_payload = _read_json(capsys)
+    search_results = cast(list[dict[str, Any]], search_payload["results"])
 
     assert main(["--db", str(db_path), "stats", "--json"]) == 0
     stats_payload = _read_json(capsys)
 
     assert index_payload["command"] == "index"
     assert index_payload["files_indexed"] >= 2
-    assert [Path(item["path"]).name for item in search_payload["results"]] == ["launch-plan.txt"]
+    assert [Path(cast(str, item["path"])).name for item in search_results] == ["launch-plan.txt"]
     assert search_payload["count"] == 1
     assert stats_payload["files_indexed"] == 3
     assert stats_payload["documents_indexed"] == 2
@@ -70,6 +72,7 @@ def test_cli_flow_multi_root_search_respects_root_scope(tmp_path: Path, capsys) 
 
     assert main(["--db", str(db_path), "search", "shared multi root phrase", "--json"]) == 0
     global_payload = _read_json(capsys)
+    global_results = cast(list[dict[str, Any]], global_payload["results"])
 
     assert (
         main(
@@ -86,12 +89,13 @@ def test_cli_flow_multi_root_search_respects_root_scope(tmp_path: Path, capsys) 
         == 0
     )
     beta_payload = _read_json(capsys)
+    beta_results = cast(list[dict[str, Any]], beta_payload["results"])
 
-    assert {Path(item["path"]).name for item in global_payload["results"]} == {
+    assert {Path(cast(str, item["path"])).name for item in global_results} == {
         "alpha-note.txt",
         "beta-note.txt",
     }
-    assert [Path(item["path"]).name for item in beta_payload["results"]] == ["beta-note.txt"]
+    assert [Path(cast(str, item["path"])).name for item in beta_results] == ["beta-note.txt"]
 
 
 def test_cli_flow_rebuild_with_trimmed_roots_drops_removed_scope(tmp_path: Path, capsys) -> None:
@@ -126,6 +130,7 @@ def test_cli_flow_rebuild_with_trimmed_roots_drops_removed_scope(tmp_path: Path,
 
     assert main(["--db", str(db_path), "search", "trimmed scope phrase", "--json"]) == 0
     global_payload = _read_json(capsys)
+    global_results = cast(list[dict[str, Any]], global_payload["results"])
 
     assert (
         main(
@@ -142,6 +147,7 @@ def test_cli_flow_rebuild_with_trimmed_roots_drops_removed_scope(tmp_path: Path,
         == 0
     )
     beta_payload = _read_json(capsys)
+    beta_results = cast(list[dict[str, Any]], beta_payload["results"])
 
-    assert [Path(item["path"]).name for item in global_payload["results"]] == ["alpha-survivor.txt"]
-    assert beta_payload["results"] == []
+    assert [Path(cast(str, item["path"])).name for item in global_results] == ["alpha-survivor.txt"]
+    assert beta_results == []

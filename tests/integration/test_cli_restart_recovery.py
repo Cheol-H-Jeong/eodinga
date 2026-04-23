@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
+from typing import Any, cast
 
 from eodinga.__main__ import main
 from eodinga.common import PathRules
@@ -12,9 +13,9 @@ from eodinga.index.writer import IndexWriter
 from eodinga.core.walker import walk_batched
 
 
-def _read_json(capsys) -> dict[str, object]:
+def _read_json(capsys) -> dict[str, Any]:
     captured = capsys.readouterr()
-    return json.loads(captured.out)
+    return cast(dict[str, Any], json.loads(captured.out))
 
 
 def _seed_index_with_root(db_path: Path, root: Path) -> None:
@@ -61,8 +62,9 @@ def test_cli_search_recovers_stale_wal_before_querying(tmp_path: Path, capsys) -
 
     assert main(["--db", str(snapshot), "search", "stale wal recovery", "--json"]) == 0
     payload = _read_json(capsys)
+    results = cast(list[dict[str, Any]], payload["results"])
 
-    assert [Path(item["path"]).name for item in payload["results"]] == ["restart-note.txt"]
+    assert [Path(cast(str, item["path"])).name for item in results] == ["restart-note.txt"]
     assert not snapshot.with_name("snapshot.db-wal").exists()
     assert not snapshot.with_name("snapshot.db-shm").exists()
 
@@ -83,7 +85,8 @@ def test_cli_search_resumes_interrupted_staged_build_before_querying(tmp_path: P
 
     assert main(["--db", str(target_db), "search", "staged build recovery", "--json"]) == 0
     payload = _read_json(capsys)
+    results = cast(list[dict[str, Any]], payload["results"])
 
-    assert [Path(item["path"]).name for item in payload["results"]] == ["resumed.txt"]
+    assert [Path(cast(str, item["path"])).name for item in results] == ["resumed.txt"]
     assert target_db.exists()
     assert not staged_db.exists()
