@@ -67,6 +67,16 @@ REQUIRED_HIDDEN_IMPORTS = [
 ]
 
 
+def _discover_package_data(package_dir: Path) -> list[tuple[str, str]]:
+    data_files: list[tuple[str, str]] = []
+    for source_path in sorted(package_dir.rglob("*")):
+        if not source_path.is_file() or source_path.suffix != ".json":
+            continue
+        target_dir = source_path.parent.relative_to(PROJECT_ROOT).as_posix()
+        data_files.append((str(source_path), target_dir))
+    return data_files
+
+
 def _module_name_for_path(source_path: Path, source_root: Path) -> str:
     relative = source_path.relative_to(source_root.parent)
     parts = list(relative.parts)
@@ -206,8 +216,7 @@ HIDDEN_IMPORTS = sorted(
 )
 
 DATAS = [
-    (str(I18N_DIR / "en.json"), "eodinga/i18n"),
-    (str(I18N_DIR / "ko.json"), "eodinga/i18n"),
+    *_discover_package_data(I18N_DIR),
     (str(PROJECT_ROOT / "LICENSE"), "."),
 ]
 
