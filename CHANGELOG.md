@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.848 - 2026-04-23
+## 0.1.853 - 2026-04-23
 
 - Audited staged Linux runtimes against the package-data declared in `pyproject.toml`, so AppImage and Debian release checks now fail if shipped locale assets drift from the package metadata.
 - Tightened Debian packaging audits to prove the package preserves user state by shipping no maintainer scripts and no mutable config or state directories under `/etc`, `/var/lib`, or `/etc/skel`.
