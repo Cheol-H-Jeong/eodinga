@@ -51,6 +51,8 @@ One-command acceptance pass:
 source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)" && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run && yamllint .github/workflows/release-windows.yml && yamllint .github/workflows/release-linux.yml
 ```
 
+Run it as written. If it fails, investigate the first failing stage before rerunning; the gate is ordered so earlier commands rule out noise in later packaging or workflow steps.
+
 ## What The Gate Covers
 
 - `pytest -q tests` exercises the unit, integration, safety, packaging, and GUI-offscreen regressions, including the end-to-end index-and-search path.
@@ -60,6 +62,13 @@ source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyri
 - `windows-dry-run` must render the PyInstaller and Inno Setup inputs and write the audit manifest under `packaging/dist/`.
 - `linux-appimage-dry-run` and `linux-deb-dry-run` must render the Linux packaging inputs without mutating user data paths.
 - `yamllint` validates the release workflow YAML shipped in `.github/workflows/release-windows.yml`.
+
+## Failure Triage Order
+
+1. Test or lint failure: fix the repo state before touching packaging or release metadata.
+2. GUI smoke failure: inspect the offscreen Qt path before assuming the packaging recipe is wrong.
+3. Packaging dry-run failure: review the generated manifest or staged payload summary under `packaging/dist/`.
+4. Workflow lint failure: fix the shipped workflow YAML before cutting the local tag.
 
 ## Derived Docs Checks
 
@@ -72,6 +81,8 @@ pytest -q tests/unit/test_docs_assets.py
 ```
 
 These commands are required when CLI help, visible Qt surfaces, or operator-facing docs change.
+
+Treat the generated man page, screenshots, and dry-run manifests as shipped release inputs. Review them after regeneration instead of assuming the derived assets are correct because the command exited cleanly.
 
 ## Documentation Contract
 
@@ -94,5 +105,7 @@ For each improvement round:
 3. Create the local tag with `git tag v0.1.N`.
 
 For docs-only rounds, the changelog entry still needs to say which shipped guide or derived asset changed and why that matters to operators.
+
+The acceptance pass should be green before the version bump and local tag. Keep the metadata cut as the last step so the tag points at a fully validated tree.
 
 Publishing the GitHub Release stays outside this repository-local checklist, but the local tag and changelog entry are required before handing off to the orchestrator.

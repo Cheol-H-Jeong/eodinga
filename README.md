@@ -111,6 +111,8 @@ source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyri
 
 The full SPEC §9 checklist, expected commands, and release-tag workflow live in [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md).
 
+If the quickcheck fails, stop at the first failing command and continue with the matching recovery path from `docs/ACCEPTANCE.md` instead of retrying the whole chain blindly.
+
 ## CLI
 
 ```bash
@@ -247,6 +249,7 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - Validate Windows packaging inputs with `python packaging/build.py --target windows-dry-run`.
 - Validate Linux AppImage packaging with `python packaging/build.py --target linux-appimage-dry-run`.
 - Validate Linux Debian packaging with `python packaging/build.py --target linux-deb-dry-run`.
+- Audit the rendered manifests and staged payload descriptions under `packaging/dist/` after each dry run; that directory is the review surface for release packaging changes.
 
 ## Operator References
 
@@ -264,6 +267,13 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - Linux AppImage dry runs render `packaging/linux/appimage-builder.yml` from the current package version before building.
 - Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, and compressed changelog into the package root.
 - The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
+
+## Release Handoff
+
+1. Finish the docs, code, or packaging slice and keep each logical commit green with `pytest -q tests/unit`.
+2. Run the one-command acceptance pass from `docs/ACCEPTANCE.md`.
+3. Bump `pyproject.toml` and `eodinga/__init__.py`, add the new `CHANGELOG.md` entry, and create the local `v0.1.N` tag.
+4. Hand off the clean branch plus local tag; rebasing, pushing, and GitHub release publication stay outside the worker round.
 
 ## Recovery and Troubleshooting
 
@@ -347,6 +357,10 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 ### Which commands are most useful for a quick health check?
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
+
+### Where do I inspect packaging outputs before a release?
+
+Use `packaging/dist/`. Each packaging dry run writes its audit manifests or staged output summary there so the release review can inspect generated inputs without running the installer.
 
 ### Which files are skipped by default?
 
