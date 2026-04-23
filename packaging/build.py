@@ -270,6 +270,12 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         errors.append("Debian control package name drifted from eodinga")
     if control_payload.get("version") != package_version:
         errors.append("Debian control version does not match the package version")
+    if control_payload.get("section") != control_template_payload.get("section"):
+        errors.append("Debian control section drifted from the template")
+    if control_payload.get("priority") != control_template_payload.get("priority"):
+        errors.append("Debian control priority drifted from the template")
+    if control_payload.get("maintainer") != control_template_payload.get("maintainer"):
+        errors.append("Debian control maintainer drifted from the template")
     expected_archive_name = f"eodinga_{package_version}_{arch}_debroot.tar.gz"
     if Path(str(payload.get("archive"))).name != expected_archive_name:
         errors.append("Debian dry-run archive filename does not match the package version and arch")

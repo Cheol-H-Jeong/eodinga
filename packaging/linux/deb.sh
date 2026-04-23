@@ -33,16 +33,37 @@ rm -rf "${PACKAGE_DIR}"
 mkdir -p "${PACKAGE_DIR}/DEBIAN" "${PACKAGE_DIR}/usr/bin" "${PACKAGE_DIR}/usr/share/applications" "${PACKAGE_DIR}/usr/share/doc/eodinga"
 mkdir -p "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps"
 
-cat > "${PACKAGE_DIR}/DEBIAN/control" <<EOF
-Package: eodinga
-Version: ${VERSION}
-Section: utils
-Priority: optional
-Architecture: ${ARCH}
-Maintainer: Cheol-H-Jeong
-Depends: python3 (>= 3.11)
-Description: Instant lexical file search for Windows and Linux
-EOF
+python3 - <<PY
+from pathlib import Path
+
+template_path = Path("${DEBIAN_CONTROL_TEMPLATE}")
+fields: dict[str, str] = {}
+current_package: str | None = None
+for line in template_path.read_text(encoding="utf-8").splitlines():
+    if not line.strip():
+        continue
+    if ":" not in line:
+        continue
+    key, value = line.split(":", 1)
+    key = key.strip()
+    value = value.strip()
+    if key == "Package":
+        current_package = value
+    if current_package == "eodinga" or key in {"Section", "Priority", "Maintainer"}:
+        fields[key] = value
+
+control_lines = [
+    f"Package: {fields['Package']}",
+    f"Version: ${VERSION}",
+    f"Section: {fields['Section']}",
+    f"Priority: {fields['Priority']}",
+    f"Architecture: ${ARCH}",
+    f"Maintainer: {fields['Maintainer']}",
+    "Depends: python3 (>= 3.11)",
+    f"Description: {fields['Description']}",
+]
+Path("${PACKAGE_DIR}/DEBIAN/control").write_text("\n".join(control_lines) + "\n", encoding="utf-8")
+PY
 
 cat > "${PACKAGE_DIR}/usr/bin/eodinga" <<'EOF'
 #!/usr/bin/env bash
@@ -111,7 +132,10 @@ payload = {
     "control": {
         "package": control_entries.get("Package"),
         "version": control_entries.get("Version"),
+        "section": control_entries.get("Section"),
+        "priority": control_entries.get("Priority"),
         "architecture": control_entries.get("Architecture"),
+        "maintainer": control_entries.get("Maintainer"),
         "depends": control_entries.get("Depends"),
         "description": control_entries.get("Description"),
     },
@@ -119,6 +143,8 @@ payload = {
         "path": str(debian_control_template_path),
         "exists": debian_control_template_path.exists(),
         "source": template_control_entries.get("Source"),
+        "section": template_control_entries.get("Section"),
+        "priority": template_control_entries.get("Priority"),
         "maintainer": template_control_entries.get("Maintainer"),
         "binary_package": template_control_entries.get("Package"),
         "description": template_control_entries.get("Description"),
