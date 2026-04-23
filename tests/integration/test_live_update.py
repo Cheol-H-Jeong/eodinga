@@ -164,6 +164,48 @@ def test_live_rename_updates_path_search_within_500ms(tmp_path: Path) -> None:
     assert miss_elapsed <= 0.5
 
 
+def test_live_modify_updates_searchable_content_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    target = root / "live-modify.txt"
+    target.write_text("before modify integration coverage\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(conn, "before modify integration", limit=5).hits]
+        target.write_text("after modify integration coverage\n", encoding="utf-8")
+
+        hit_elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "after modify integration",
+            target,
+            deadline_seconds=0.5,
+        )
+        miss_elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "before modify integration",
+            target,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_hits == [target]
+    assert hit_elapsed <= 0.5
+    assert miss_elapsed <= 0.5
+
+
 def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
@@ -328,6 +370,69 @@ def test_live_rename_stays_root_scoped_with_multi_root_watchers(tmp_path: Path) 
     assert miss_elapsed <= 0.5
     assert alpha_hits == [alpha]
     assert beta_hits == [beta_destination]
+
+
+def test_live_modify_stays_root_scoped_with_multi_root_watchers(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    alpha = root_a / "alpha-note.txt"
+    beta = root_b / "beta-note.txt"
+    alpha.write_text("alpha original scoped modify\n", encoding="utf-8")
+    beta.write_text("beta original scoped modify\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        initial_alpha_hits = [
+            hit.file.path for hit in search(conn, "alpha original scoped modify", limit=5, root=root_a).hits
+        ]
+        initial_beta_hits = [
+            hit.file.path for hit in search(conn, "beta original scoped modify", limit=5, root=root_b).hits
+        ]
+        beta.write_text("beta updated scoped modify\n", encoding="utf-8")
+
+        hit_elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "beta updated scoped modify",
+            beta,
+            deadline_seconds=0.5,
+        )
+        miss_elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "beta original scoped modify",
+            beta,
+            deadline_seconds=0.5,
+        )
+        alpha_hits = [
+            hit.file.path for hit in search(conn, "alpha original scoped modify", limit=5, root=root_a).hits
+        ]
+        beta_hits = [hit.file.path for hit in search(conn, "beta updated scoped modify", limit=5, root=root_b).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_alpha_hits == [alpha]
+    assert initial_beta_hits == [beta]
+    assert hit_elapsed <= 0.5
+    assert miss_elapsed <= 0.5
+    assert alpha_hits == [alpha]
+    assert beta_hits == [beta]
 
 
 def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Path) -> None:
