@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.590 - 2026-04-23
+
+- Fixed reciprocal-rank fusion and path deboost helpers so they no longer synthesize zero-score entries for file ids that were never actually ranked.
+- Expanded DSL regex coverage around top-level escaped-delimiter literals, including Korean path/content patterns and malformed dangling-escape forms.
+- Added watcher debounce regressions for cross-root flows, pinning both move-enter-then-modify collapsing and create-then-leave-root elision.
+
 ## 0.1.585 - 2026-04-23
 
 - Tightened scoped-search root matching so wildcard characters in root paths no longer leak results from sibling roots, and Windows drive-letter case variants now keep exact-root records in scope.

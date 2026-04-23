@@ -539,7 +539,7 @@ def test_regex_escape_round_trip_fuzz(value: str, flags: str) -> None:
 
 
 @given(
-    REGEX_BODY_TEXT.filter(_is_regex_safe_literal),
+    REGEX_BODY_TEXT.filter(lambda value: _is_regex_safe_literal(_escape_regex_literal(value))),
     st.sampled_from(["", "i", "m", "s", "im", "is", "ms", "ims"]),
 )
 def test_top_level_regex_escape_round_trip_fuzz(value: str, flags: str) -> None:
@@ -550,7 +550,9 @@ def test_top_level_regex_escape_round_trip_fuzz(value: str, flags: str) -> None:
     assert node.pattern == escaped
     assert node.flags == flags
 
-    branch = compile_query(node).branches[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        branch = compile_query(node).branches[0]
 
     assert len(branch.path_regex_terms) == 1
     assert branch.path_regex_terms[0].pattern == escaped
@@ -575,7 +577,9 @@ def test_top_level_regex_with_escaped_slashes_compiles(
     assert node.pattern == expected_pattern
     assert node.flags == expected_flags
 
-    branch = compile_query(node).branches[0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        branch = compile_query(node).branches[0]
 
     assert len(branch.path_regex_terms) == 1
     assert branch.path_regex_terms[0].pattern == expected_pattern
