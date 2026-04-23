@@ -57,19 +57,37 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     window.show()
 
     assert window.tab_widget.accessibleName() == "Main navigation tabs"
+    assert window.tab_widget.accessibleDescription() == "Switch between roots, index, search, settings, and about."
     assert window.roots_tab.accessibleName() == "Roots tab"
     assert window.roots_tab.add_root_button.accessibleName() == "Add root"
+    assert window.roots_tab.add_root_button.accessibleDescription() == "Add a new filesystem root to the index."
     assert window.roots_tab.remove_root_button.accessibleName() == "Remove selected root"
+    assert (
+        window.roots_tab.remove_root_button.accessibleDescription()
+        == "Remove the currently selected filesystem root from the index."
+    )
     assert window.index_tab.accessibleName() == "Index tab"
     assert window.index_tab.rebuild_button.accessibleName() == "Rebuild index"
+    assert window.index_tab.rebuild_button.accessibleDescription() == "Start a full rebuild of the search index."
+    assert window.index_tab.status_chip.accessibleDescription() == "Shows whether indexing is idle or currently running."
+    assert window.index_tab.progress_label.accessibleDescription() == "Summarizes current indexing progress."
     assert window.search_tab.accessibleName() == "Search tab"
     assert window.settings_tab.accessibleName() == "Settings tab"
     assert window.settings_tab.system_theme_checkbox.accessibleName() == "Use system theme"
+    assert window.settings_tab.system_theme_checkbox.accessibleDescription() == "Follow the operating system theme selection."
     assert window.settings_tab.frameless_checkbox.accessibleName() == "Use frameless launcher window"
+    assert window.settings_tab.frameless_checkbox.accessibleDescription() == "Toggle the launcher's frameless window style."
     assert window.settings_tab.always_on_top_checkbox.accessibleName() == "Keep launcher always on top"
+    assert (
+        window.settings_tab.always_on_top_checkbox.accessibleDescription()
+        == "Keep the launcher above other windows while visible."
+    )
     assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"
+    assert window.settings_tab.hotkey_label.accessibleDescription() == "Shows the currently configured launcher hotkey."
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
+    assert window.settings_tab.remap_hotkey_button.accessibleDescription() == "Choose a different global launcher hotkey."
     assert window.about_tab.accessibleName() == "About tab"
+    assert window.launcher_window.pin_query_button.accessibleName() == "Pin current query"
     assert window.launcher_window.pinned_queries_row.accessibleName() == "Pinned launcher queries"
     assert window.launcher_window.recent_queries_row.accessibleName() == "Recent launcher queries"
     assert window.launcher_window.empty_state.accessibleName() == "Launcher empty state"
@@ -113,6 +131,22 @@ def test_launcher_state_is_shared_between_popup_and_search_tab(qapp) -> None:
     launcher._run_query()
 
     assert "release" in window.search_tab.launcher_panel.empty_state.body_label.text()
+
+
+def test_pinned_queries_are_shared_and_persisted_to_config(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher.show()
+    launcher.query_field.setText("ext:pdf")
+    launcher.pin_query_button.click()
+
+    assert [button.text() for button in launcher.pinned_queries_row.buttons] == ["ext:pdf"]
+    assert [button.text() for button in window.search_tab.launcher_panel.pinned_queries_row.buttons] == ["ext:pdf"]
+    assert load(temp_config_path).launcher.pinned_queries == ["ext:pdf"]
 
 
 def test_launchers_respect_configured_limit_and_debounce(qapp) -> None:

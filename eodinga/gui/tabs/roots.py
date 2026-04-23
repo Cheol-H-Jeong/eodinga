@@ -18,8 +18,10 @@ class RootsTab(QWidget):
         body.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.add_root_button = PrimaryButton("Add root", self)
         self.add_root_button.setAccessibleName("Add root")
+        self.add_root_button.setAccessibleDescription("Add a new filesystem root to the index.")
         self.remove_root_button = SecondaryButton("Remove selected", self)
         self.remove_root_button.setAccessibleName("Remove selected root")
+        self.remove_root_button.setAccessibleDescription("Remove the currently selected filesystem root from the index.")
 
         layout.addWidget(title)
         layout.addWidget(body)

@@ -86,6 +86,31 @@ class LauncherState(QObject):
         self._pinned_queries = normalized
         self.pinned_queries_changed.emit(self.pinned_queries)
 
+    def is_pinned_query(self, query: str) -> bool:
+        return query.strip() in self._pinned_queries
+
+    def pin_query(self, query: str) -> None:
+        normalized = query.strip()
+        if not normalized:
+            return
+        self.set_pinned_queries([*self._pinned_queries, normalized])
+
+    def unpin_query(self, query: str) -> None:
+        normalized = query.strip()
+        if not normalized:
+            return
+        self.set_pinned_queries([item for item in self._pinned_queries if item != normalized])
+
+    def toggle_pinned_query(self, query: str) -> bool:
+        normalized = query.strip()
+        if not normalized:
+            return False
+        if self.is_pinned_query(normalized):
+            self.unpin_query(normalized)
+            return False
+        self.pin_query(normalized)
+        return True
+
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
         self.indexing_status_changed.emit(status)

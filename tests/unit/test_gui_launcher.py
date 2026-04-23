@@ -401,6 +401,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "No recent queries yet" in launcher.empty_state.body_label.text()
     assert "Alt+Up" in launcher.empty_state.body_label.text()
     assert "Alt+Down" in launcher.empty_state.body_label.text()
+    assert "Alt+P" in launcher.empty_state.body_label.text()
     assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
     assert "(20%)" in launcher.empty_state.details_label.text()
@@ -408,7 +409,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
     assert (
         launcher.shortcut_label.text()
-        == "Type a filename, path, or content term. Alt+Up and Alt+Down browse recent queries."
+        == "Type a filename, path, or content term. Alt+P pins the current query. Alt+Up and Alt+Down browse recent queries."
     )
 
     launcher.query_field.setText("missing")
@@ -418,9 +419,11 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.empty_state.title_label.text() == 'No results for "missing"'
     assert "date:this-week" in launcher.empty_state.body_label.text()
     assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
+    assert "Alt+P" in launcher.empty_state.body_label.text()
     assert "Alt+Down" in launcher.empty_state.body_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
     assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
+    assert "Alt+P pins this query" in launcher.shortcut_label.text()
     assert "Alt+Up and Alt+Down browse recent queries" in launcher.shortcut_label.text()
 
 
@@ -441,6 +444,40 @@ def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> No
     launcher.show()
 
     assert "Pinned: ext:pdf, size:>10M." in launcher.empty_state.body_label.text()
+
+
+def test_launcher_pin_button_toggles_current_query(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState())
+    launcher.show()
+
+    launcher.query_field.setText("ext:pdf")
+    launcher.pin_query_button.click()
+
+    assert [button.text() for button in launcher.pinned_queries_row.buttons] == ["ext:pdf"]
+    assert launcher.pin_query_button.text() == "Pinned"
+    assert launcher.pin_query_button.accessibleName() == "Unpin current query"
+    assert launcher.pin_query_button.accessibleDescription() == (
+        "Remove the current query from pinned launcher queries with Alt+P."
+    )
+
+    launcher.pin_query_button.click()
+
+    assert launcher.pinned_queries_row.buttons == []
+    assert launcher.pin_query_button.text() == "Pin"
+
+
+def test_launcher_alt_p_toggles_current_query_pin(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState())
+    launcher.show()
+
+    launcher.query_field.setText("budget")
+    launcher._query_pin_shortcut.activated.emit()
+
+    assert [button.text() for button in launcher.pinned_queries_row.buttons] == ["budget"]
+
+    launcher._results_pin_shortcut.activated.emit()
+
+    assert launcher.pinned_queries_row.buttons == []
 
 
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:
@@ -804,6 +841,8 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.query_field.accessibleDescription() == "Type a filename, path, or content term to search the index."
+    assert launcher.pin_query_button.accessibleName() == "Pin current query"
+    assert launcher.pin_query_button.accessibleDescription() == "Enter a query first, then pin it for one-click reuse."
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"

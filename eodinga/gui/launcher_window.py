@@ -42,6 +42,7 @@ class LauncherWindow(LauncherPanel):
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, always_on_top)
         width = self._config.launcher.window_width if self._config is not None else 640
         height = self._config.launcher.window_height if self._config is not None else 480
+        self.setMinimumSize(360, 280)
         self.resize(width, height)
 
     def keyPressEvent(self, event) -> None:
