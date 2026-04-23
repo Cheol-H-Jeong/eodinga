@@ -49,6 +49,8 @@ Recommended order:
 2. `pytest -q tests` once the candidate release branch is assembled.
 3. `ruff`, `pyright`, GUI smoke, packaging dry-runs, and workflow lint after the full test pass.
 
+If the round is docs-only, still run the same order. The runtime may be unchanged, but the shipped release inputs still need to prove they match the current tree.
+
 ## Artifact Inventory
 
 Before tagging, know which release inputs this repository expects to exist:
@@ -79,6 +81,15 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+Fast release-input audit:
+
+1. `pytest -q tests/unit/test_docs_assets.py`
+2. `python packaging/build.py --target windows-dry-run`
+3. `python packaging/build.py --target linux-appimage-dry-run`
+4. `python packaging/build.py --target linux-deb-dry-run`
+
+That sequence catches the common release-input failures first: stale docs sections, stale generated assets, or platform manifests that no longer match current version metadata.
+
 ## Worker Handoff Rules
 
 1. Keep feature or docs commits separate from the final metadata commit.
@@ -86,6 +97,11 @@ Treat docs assets as versioned release inputs: do not cut a tag when the checked
 3. Create the local tag after that final commit.
 4. Do not push tags or release branches from a worker worktree.
 5. Hand the orchestrator a clean branch plus the final local tag to rebase and publish.
+
+Handoff should answer three questions cleanly:
+- what behavior or contract changed,
+- what command proved it,
+- which commit carries the release metadata.
 
 ## Docs-Only Rounds
 
@@ -95,6 +111,11 @@ Use the same release discipline for docs-only changes when the shipped operator 
 2. Regenerate any derived docs assets touched by the round.
 3. Re-run `pytest -q tests/unit/test_docs_assets.py` plus the matching packaging dry-run or GUI smoke command.
 4. Add a changelog entry that names the docs surface changed and why it matters.
+
+Typical docs-only release inputs:
+- `README.md` contract edits,
+- `docs/ARCHITECTURE.md`, `docs/CONTRIBUTING.md`, or `docs/RELEASE.md` workflow changes,
+- refreshed `docs/man/eodinga.1` or screenshots after a UI/CLI-adjacent wording update.
 
 ## Cut The Local Release
 
@@ -132,3 +153,5 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py` all agree on `0.1.N`.
 - The local tag points at the final commit for the round, not an earlier docs or feature commit.
 - The final release commit remains reviewable on its own and does not hide unrelated feature edits.
+
+If any checklist item fails after the metadata commit, fix it in a new commit, recreate the local tag on the new tip, and hand off that corrected tip instead of force-moving an older tag silently.

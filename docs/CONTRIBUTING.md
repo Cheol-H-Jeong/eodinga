@@ -16,6 +16,13 @@ python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]
 4. Run the full local gate before handing off a release candidate.
 5. Update docs and screenshots when the visible or operator-facing contract changes.
 
+Preferred shape for a worker round:
+
+1. Rebase or reset to `origin/main`.
+2. Land 1-4 logical commits inside one theme.
+3. Re-run `pytest -q tests/unit` after each commit.
+4. Save the version bump, changelog update, and local tag for the final metadata commit only.
+
 ## Parallel Worktrees
 
 When multiple workers are landing rounds concurrently, keep the local loop deterministic:
@@ -96,6 +103,11 @@ pytest -q tests/unit
 - Keep `CHANGELOG.md` aligned with landed behavior only; avoid speculative release notes.
 - Prefer documenting one-command validation paths when they exist; release and acceptance docs should not require readers to reverse-engineer command order.
 
+Operator-facing docs should degrade gracefully:
+- lead with the single command or shortest sequence that answers the question,
+- keep platform-specific paths explicit,
+- avoid promising artifacts or flows that the dry runs do not currently stage.
+
 ## Derived Asset Matrix
 
 | If you changed... | Refresh or rerun... |
@@ -127,6 +139,8 @@ When a change affects the shipped contract, refresh docs in this order:
 4. Re-run `pytest -q tests/unit/test_docs_assets.py` before the broader gate.
 5. Re-run any matching packaging dry run if the docs now describe packaging behavior or artifacts differently.
 
+Use this order to avoid churn: broad contract first, detailed guide second, derived assets third. That makes later review diffs easier to validate because the prose and generated artifacts tell the same story.
+
 ## Docs Round Checklist
 
 Use this when the round is docs-only but still release-bearing:
@@ -137,6 +151,8 @@ Use this when the round is docs-only but still release-bearing:
 4. Re-run `pytest -q tests/unit/test_docs_assets.py`.
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
+
+If a docs-only round needs a code change to make the docs true, stop treating it as docs-only and split the runtime fix into its own themed round.
 
 ## Test Selection Guide
 
@@ -154,6 +170,11 @@ Use this when the round is docs-only but still release-bearing:
 - Docs-only rounds still require a changelog entry and local tag when the shipped contract changed.
 - If a change cannot stay inside one theme or one logical commit, stop and split it before proceeding.
 - The final release commit for a round should carry the version bump, changelog entry, and local tag together so earlier feature or docs commits remain easy to review and rebase.
+
+Recommended commit layout:
+- feature/docs commits first,
+- validation reruns as needed,
+- one final `chore(release): bump to v0.1.N` commit for metadata only.
 
 ## Review Checklist
 
