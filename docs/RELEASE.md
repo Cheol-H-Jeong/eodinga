@@ -38,12 +38,35 @@ Before tagging, confirm:
 - `docs/ARCHITECTURE.md` still matches the index lifecycle and packaging surfaces.
 - `docs/PERFORMANCE.md` numbers come from a rerun at the documented HEAD.
 - Screenshot assets under `docs/screenshots/` still match the current UI, or have been refreshed with `python scripts/render_docs_screenshots.py`.
+- `docs/eodinga.1` has been regenerated with `python scripts/generate_man_page.py` if the CLI parser surface changed.
+
+## Build Artifact Audit
+
+Run the dry-run targets before cutting the local tag so the release notes describe shippable artifacts instead of speculative ones:
+
+```bash
+python packaging/build.py --target windows-dry-run
+python packaging/build.py --target linux-appimage-dry-run
+python packaging/build.py --target linux-deb-dry-run
+```
+
+Expected outputs from those audits:
+
+- Windows: rendered PyInstaller inputs plus a validated `eodinga-<version>-win-x64-setup.exe` naming surface.
+- Linux AppImage: a populated AppDir recipe and launch metadata audit for the standalone binary bundle.
+- Linux Debian: staged package tree, desktop assets, compressed changelog, and control metadata suitable for `.deb` assembly.
 
 ## Cut The Local Release
 
 1. Commit the release metadata changes.
 2. Create the local tag with `git tag v0.1.N`.
 3. Stop after the local tag; the orchestrator owns any later rebase, push, and publication steps.
+
+## Recommended Commit Shape
+
+1. Commit functional or documentation changes in reviewable slices.
+2. Reserve the final release commit for `CHANGELOG.md`, `pyproject.toml`, `eodinga/__init__.py`, and any generated release artifacts refreshed for the cut.
+3. Tag only after that final commit and a clean rerun of the gate.
 
 ## Handoff Checklist
 

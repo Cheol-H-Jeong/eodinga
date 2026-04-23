@@ -50,6 +50,7 @@ yamllint .github/workflows/release-linux.yml
 - Refresh `docs/ARCHITECTURE.md` when data flow, rebuild/recovery, or packaging surfaces change materially.
 - Refresh `docs/PERFORMANCE.md` only after rerunning the benchmark you are documenting in the same local environment.
 - Regenerate the shipped screenshots with `python scripts/render_docs_screenshots.py` after visible GUI changes.
+- Regenerate `docs/eodinga.1` with `python scripts/generate_man_page.py` after CLI changes that affect argparse help, commands, or options.
 
 ## Test Selection Guide
 
@@ -64,3 +65,4 @@ yamllint .github/workflows/release-linux.yml
 - Keep `CHANGELOG.md` append-only with the newest round at the top.
 - Patch releases use `0.1.N`; bump `pyproject.toml` and `eodinga/__init__.py` together.
 - Local tags are created during the release-cut handoff flow documented in [RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md).
+- Treat generated docs such as screenshots and `docs/eodinga.1` as reviewable release artifacts, not post-release cleanup.

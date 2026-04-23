@@ -1,0 +1,112 @@
+.TH EODINGA 1 "2026-04-23" "eodinga 0.1.130" "User Commands"
+.SH NAME
+eodinga \- local-first lexical file search for Windows and Linux
+.SH SYNOPSIS
+.B eodinga
+[\-h] [\-\-log\-level LOG_LEVEL] [\-\-config CONFIG] [\-\-db DB]
+\fICOMMAND\fR ...
+.SH DESCRIPTION
+Indexes filenames, paths, and optional parsed document text into a local SQLite/FTS5 database, then exposes the same search engine through CLI, GUI, and launcher surfaces.
+.SH GLOBAL OPTIONS
+.TP
+\fB\-\-log\-level LOG_LEVEL\fR
+argparse option exported from the shipped CLI surface.
+.TP
+\fB\-\-config CONFIG\fR
+argparse option exported from the shipped CLI surface.
+.TP
+\fB\-\-db DB\fR
+argparse option exported from the shipped CLI surface.
+.SH COMMANDS
+.TP
+\fBindex\fR
+usage: eodinga index [\-h] [\-\-root ROOT] [\-\-rebuild]
+.TP
+\fBwatch\fR
+usage: eodinga watch [\-h]
+.TP
+\fBsearch\fR
+usage: eodinga search [\-h] [\-\-json] [\-\-limit LIMIT] [\-\-root ROOT] query
+.TP
+\fBstats\fR
+usage: eodinga stats [\-h] [\-\-json]
+.TP
+\fBgui\fR
+usage: eodinga gui [\-h] [\-\-test\-mode]
+.TP
+\fBdoctor\fR
+usage: eodinga doctor [\-h]
+.TP
+\fBversion\fR
+usage: eodinga version [\-h]
+.SH COMMAND REFERENCE
+.SS index
+.nf
+usage: eodinga index [\-h] [\-\-root ROOT] [\-\-rebuild]
+.fi
+.TP
+\fB\-\-root ROOT\fR
+argparse option exported from the shipped CLI surface.
+.TP
+\fB\-\-rebuild\fR
+argparse option exported from the shipped CLI surface.
+.SS watch
+.nf
+usage: eodinga watch [\-h]
+.fi
+.SS search
+.nf
+usage: eodinga search [\-h] [\-\-json] [\-\-limit LIMIT] [\-\-root ROOT] query
+.fi
+.TP
+\fBQUERY\fR
+argparse positional argument exported from the shipped CLI surface.
+.TP
+\fB\-\-json\fR
+argparse option exported from the shipped CLI surface.
+.TP
+\fB\-\-limit LIMIT\fR
+argparse option exported from the shipped CLI surface.
+.TP
+\fB\-\-root ROOT\fR
+argparse option exported from the shipped CLI surface.
+.SS stats
+.nf
+usage: eodinga stats [\-h] [\-\-json]
+.fi
+.TP
+\fB\-\-json\fR
+argparse option exported from the shipped CLI surface.
+.SS gui
+.nf
+usage: eodinga gui [\-h] [\-\-test\-mode]
+.fi
+.TP
+\fB\-\-test\-mode\fR
+argparse option exported from the shipped CLI surface.
+.SS doctor
+.nf
+usage: eodinga doctor [\-h]
+.fi
+.SS version
+.nf
+usage: eodinga version [\-h]
+.fi
+.SH EXAMPLES
+.TP
+\fBeodinga index \-\-root ~/projects \-\-root ~/docs\fR
+Build or rebuild a local index from multiple roots.
+.TP
+\fBeodinga search 'ext:pdf content:\"release checklist\"' \-\-limit 20\fR
+Run a structured search and emit text output.
+.TP
+\fBeodinga stats \-\-json\fR
+Inspect the active database path, roots, and runtime counters in JSON form.
+.TP
+\fBeodinga gui\fR
+Launch the Qt shell and launcher integration surface.
+.SH FILES
+~/.config/eodinga/config.toml on Linux or %APPDATA%\eodinga\config.toml on Windows stores configuration.
+~/.local/share/eodinga/index.db on Linux or %LOCALAPPDATA%\eodinga\index.db on Windows stores the local index.
+.SH MAINTENANCE
+Regenerate this page with python scripts/generate_man_page.py after argparse-visible CLI changes.
