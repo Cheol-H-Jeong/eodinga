@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.744 - 2026-04-23
+
+- Restored SQLite `synchronous=FULL` outside top-level writer transactions and only relaxed to `NORMAL` during bulk write windows, preserving faster bulk indexing without leaving the live connection in the lower-durability mode.
+- Chunked large content-text backfill reads into 128-id batches so the query executor reuses a small set of prepared statement shapes instead of generating oversized one-off `IN (...)` statements on large scans.
+- Added unit coverage for the synchronous-mode transition/rollback path and for chunked content-text fetching so both performance-oriented behaviors stay pinned.
+
 ## 0.1.738 - 2026-04-23
 
 - Added a `workflows-lint` packaging target and folded it into `release-dry-run`, so the packaging summary now proves the release workflow YAML stays lint-clean alongside the Windows and Linux dry-run audits.
