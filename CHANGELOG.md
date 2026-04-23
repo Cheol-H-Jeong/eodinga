@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.410 - 2026-04-23
+## 0.1.414 - 2026-04-23
 
 - Made `packaging/build.py --target windows` produce real Windows packaging commands by generating audited CLI and GUI PyInstaller bootstrap entries and invoking PyInstaller for both bundles before handing the rendered script to Inno Setup.
 - Normalized AppImage dry-run tarball metadata through a shared reproducible-archive helper so staged archives now pin member order, uid/gid, owner names, and mtimes instead of leaking builder-specific metadata.
