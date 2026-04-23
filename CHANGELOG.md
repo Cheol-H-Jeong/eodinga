@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.558 - 2026-04-23
+## 0.1.563 - 2026-04-23
 
 - Tightened the Windows installer contract with explicit publisher/support/update URLs, x64-only install guards, and audit coverage that fails dry runs if those metadata paths regress.
 - Enriched Linux desktop metadata with a launcher comment, search keywords, and a stable startup WM class, then pinned those fields in both AppImage and Debian dry-run audits.
