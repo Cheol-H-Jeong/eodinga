@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.172 - 2026-04-23
+## 0.1.176 - 2026-04-23
 
 - Prevented incomplete `.next` staged databases from being promoted on startup by requiring an explicit build-complete marker before interrupted-build recovery swaps a staged index into place.
 - Made `eodinga index` stop cooperatively on `SIGINT` and `SIGTERM`, finishing the current batch before exiting with code `130` and preserving the live index instead of swapping ambiguous partial state.
