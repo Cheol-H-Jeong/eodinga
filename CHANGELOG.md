@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.214 - 2026-04-23
+## 0.1.218 - 2026-04-23
 
 - Persisted the observability registry to a state-backed `metrics.json` file, so counters and latency histograms now survive across separate `eodinga` CLI invocations instead of only being visible inside one Python process.
 - Added subprocess-backed CLI regressions and isolated test metrics paths, proving that `eodinga stats --json` reports indexed-file, query, and latency metrics after real `index` and `search` commands complete in separate processes.
