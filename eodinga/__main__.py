@@ -13,10 +13,12 @@ from typing import Any
 from eodinga import __version__
 from eodinga.common import SearchResult, StatsSnapshot
 from eodinga.config import AppConfig, RootConfig, load
+from eodinga.content.registry import parse
 from eodinga.doctor import run_diagnostics
-from eodinga.index.build import rebuild_index
+from eodinga.index.build import DEFAULT_MAX_BODY_CHARS, rebuild_index
 from eodinga.index.reader import stats as read_index_stats
 from eodinga.index.storage import open_index
+from eodinga.index.writer import IndexWriter
 from eodinga.observability import (
     configure_logging,
     counter_value,
@@ -34,6 +36,7 @@ from eodinga.observability import (
     resolve_log_rotation,
 )
 from eodinga.query import QuerySyntaxError, search as run_search
+from eodinga.watch_loop import load_watch_roots, run_watch_loop
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -87,8 +90,10 @@ def _emit(payload: Any, as_json: bool = False) -> int:
     if as_json:
         sys.stdout.write(json.dumps(payload, default=_json_default))
         sys.stdout.write("\n")
+        sys.stdout.flush()
         return 0
     sys.stdout.write(f"{payload}\n")
+    sys.stdout.flush()
     return 0
 
 
@@ -133,8 +138,33 @@ def _cmd_index(args: argparse.Namespace) -> int:
 
 
 def _cmd_watch(args: argparse.Namespace) -> int:
-    payload = {"command": "watch", "db": str(args.db) if args.db else None}
-    return _emit(payload, as_json=True)
+    config = _resolve_config(args)
+    db_path = args.db or config.index.db_path
+    with closing(open_index(db_path)) as conn:
+        roots = load_watch_roots(conn, config.roots)
+        if not roots:
+            sys.stderr.write("watch requires at least one indexed root\n")
+            return 2
+        writer = IndexWriter(
+            conn,
+            parser_callback=(
+                lambda path: parse(path, max_body_chars=DEFAULT_MAX_BODY_CHARS)
+                if config.index.content_enabled
+                else None
+            ),
+        )
+        def emit_ready(watch_roots) -> None:
+            _emit(
+                {
+                    "command": "watch",
+                    "db": str(db_path),
+                    "roots": [str(root.path) for root in watch_roots],
+                    "status": "watching",
+                },
+                as_json=True,
+            )
+
+        return run_watch_loop(conn, roots=roots, writer=writer, on_ready=emit_ready)
 
 
 def _cmd_search(args: argparse.Namespace) -> int:

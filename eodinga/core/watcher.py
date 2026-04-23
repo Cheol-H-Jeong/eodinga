@@ -127,7 +127,7 @@ class WatchService:
         observer.start()
         self._observers[root] = observer
 
-    def stop(self) -> None:
+    def stop(self, *, clear_queue: bool = True) -> None:
         self._stop.set()
         for observer in self._observers.values():
             observer.stop()
@@ -137,7 +137,7 @@ class WatchService:
             self._flush_thread.join(timeout=1)
         self._flush_thread = None
         self._observers.clear()
-        self._reset_state()
+        self._reset_state(clear_queue=clear_queue)
 
     def record(self, event: WatchEvent) -> None:
         increment_counter("watcher_events", event_type=event.event_type)
@@ -299,17 +299,18 @@ class WatchService:
                 lag_ms = max((now - event.happened_at) * 1000, 0.0)
                 record_histogram("watch_event_lag_ms", lag_ms, event_type=event.event_type)
 
-    def _reset_state(self) -> None:
+    def _reset_state(self, *, clear_queue: bool = True) -> None:
         with self._lock:
             self._pending.clear()
             self._retired_sources.clear()
             self._flushed_retired_sources.clear()
             self._timestamps.clear()
-        while True:
-            try:
-                self.queue.get_nowait()
-            except Empty:
-                break
+        if clear_queue:
+            while True:
+                try:
+                    self.queue.get_nowait()
+                except Empty:
+                    break
 
     def _enqueue_event(self, event: WatchEvent) -> bool:
         blocked_at: float | None = None
