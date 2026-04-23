@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.270 - 2026-04-23
+
+- Added a shared `packaging/metadata.py` helper and rewired the Linux packaging scripts to consume it, so version sync and Debian control rendering now come from one audited source instead of duplicated shell snippets.
+- Tightened the Debian packaging audit to pin `Section`, `Priority`, and `Maintainer` against the checked-in control template, catching metadata drift that previously slipped past the dry-run checks.
+- Added aggregate `packaging/build.py` dry-run targets for `linux-dry-run` and `release-dry-run`, so the whole packaging surface can be validated from one entrypoint without changing the per-platform contracts.
+
 ## 0.1.267 - 2026-04-23
 
 - Added clickable pinned and recent query chips to both launcher surfaces, so shared launcher history is now directly reusable without retyping or relying only on keyboard recall.
