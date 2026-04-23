@@ -29,9 +29,9 @@ def _run_cli(tmp_path: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 def _spawn_watch(tmp_path: Path, db_path: Path) -> subprocess.Popen[str]:
-    kwargs: dict[str, object] = {}
-    if sys.platform.startswith("win") and hasattr(subprocess, "CREATE_NEW_PROCESS_GROUP"):
-        kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    creationflags = 0
+    if sys.platform.startswith("win"):
+        creationflags = int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
     return subprocess.Popen(
         [sys.executable, "-m", "eodinga", "--db", str(db_path), "watch"],
         cwd=tmp_path,
@@ -39,7 +39,7 @@ def _spawn_watch(tmp_path: Path, db_path: Path) -> subprocess.Popen[str]:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        **kwargs,
+        creationflags=creationflags,
     )
 
 
@@ -57,8 +57,8 @@ def _wait_for_watch_ready(process: subprocess.Popen[str], *, deadline_seconds: f
 
 def _stop_watch(process: subprocess.Popen[str]) -> tuple[int, str, str]:
     if process.poll() is None:
-        if sys.platform.startswith("win") and hasattr(signal, "CTRL_BREAK_EVENT"):
-            process.send_signal(signal.CTRL_BREAK_EVENT)
+        if sys.platform.startswith("win"):
+            process.send_signal(int(getattr(signal, "CTRL_BREAK_EVENT", signal.SIGINT)))
         else:
             process.send_signal(signal.SIGINT)
     stdout, stderr = process.communicate(timeout=5)
