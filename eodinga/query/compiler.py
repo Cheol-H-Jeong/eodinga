@@ -189,10 +189,18 @@ def _date_to_range(value: str) -> tuple[int, int]:
     if value == "this-week":
         start = today - timedelta(days=today.weekday())
         return _day_bounds(start)[0], _day_bounds(start + timedelta(days=7))[0]
+    if value == "last-week":
+        end = today - timedelta(days=today.weekday())
+        start = end - timedelta(days=7)
+        return _day_bounds(start)[0], _day_bounds(end)[0]
     if value == "this-month":
         start = today.replace(day=1)
         next_month = (start.replace(day=28) + timedelta(days=4)).replace(day=1)
         return _day_bounds(start)[0], _day_bounds(next_month)[0]
+    if value == "last-month":
+        this_month_start = today.replace(day=1)
+        last_month_start = (this_month_start - timedelta(days=1)).replace(day=1)
+        return _day_bounds(last_month_start)[0], _day_bounds(this_month_start)[0]
     if ".." in value:
         left, right = value.split("..", 1)
         try:

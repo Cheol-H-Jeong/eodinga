@@ -286,6 +286,61 @@ def test_execute_relative_date_queries_use_local_day_boundaries(
     assert yesterday_hits == ["local-yesterday.txt"]
 
 
+def test_execute_last_week_and_last_month_queries(tmp_db: sqlite3.Connection) -> None:
+    local_now = datetime.now().astimezone()
+    this_week_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
+        days=local_now.weekday()
+    )
+    last_week_start = this_week_start - timedelta(days=7)
+    this_month_start = local_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    last_month_start = (this_month_start - timedelta(days=1)).replace(day=1)
+
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/last-week.txt",
+        512,
+        int((last_week_start + timedelta(hours=1)).timestamp()),
+        "txt",
+        body_text="last week note",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/this-week.txt",
+        512,
+        int((this_week_start + timedelta(hours=1)).timestamp()),
+        "txt",
+        body_text="this week note",
+    )
+    _insert_file(
+        tmp_db,
+        3,
+        "/workspace/last-month.txt",
+        512,
+        int((last_month_start + timedelta(hours=1)).timestamp()),
+        "txt",
+        body_text="last month note",
+    )
+    _insert_file(
+        tmp_db,
+        4,
+        "/workspace/this-month.txt",
+        512,
+        int((this_month_start + timedelta(hours=1)).timestamp()),
+        "txt",
+        body_text="this month note",
+    )
+    tmp_db.commit()
+
+    assert [hit.file.name for hit in search(tmp_db, "date:last-week", limit=10).hits] == [
+        "last-week.txt"
+    ]
+    assert [hit.file.name for hit in search(tmp_db, "date:last-month", limit=10).hits] == [
+        "last-month.txt"
+    ]
+
+
 def test_execute_reversed_date_range_query(tmp_db: sqlite3.Connection) -> None:
     jan_1 = int(datetime(2026, 1, 1, 12, tzinfo=UTC).timestamp())
     jan_2 = int(datetime(2026, 1, 2, 12, tzinfo=UTC).timestamp())

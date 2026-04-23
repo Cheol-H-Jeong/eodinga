@@ -84,6 +84,19 @@ def test_compile_date_alias_uses_mtime_range() -> None:
     assert len(branch.where_params) == 2
 
 
+@pytest.mark.parametrize("query", ["date:last-week", "date:last-month"])
+def test_compile_extended_relative_date_aliases_use_mtime_range(query: str) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert len(branch.where_params) == 2
+    start, end = branch.where_params
+    assert isinstance(start, int)
+    assert isinstance(end, int)
+    assert start < end
+
+
 def test_compile_reversed_date_range_normalizes_bounds() -> None:
     compiled = compile_query(parse("date:2026-01-03..2026-01-01"))
     branch = compiled.branches[0]
