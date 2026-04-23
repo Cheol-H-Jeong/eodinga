@@ -58,6 +58,35 @@ def _wait_for_query_miss(
     raise AssertionError(f"{missing_path} remained query-visible after {deadline_seconds:.3f}s")
 
 
+def _wait_for_query_state(
+    conn,
+    service: WatchService,
+    writer: IndexWriter,
+    query: str,
+    deadline_seconds: float,
+    *,
+    expected_paths: set[Path],
+    root: Path | None = None,
+) -> float:
+    started = monotonic()
+    deadline = started + deadline_seconds
+    while monotonic() < deadline:
+        try:
+            event = service.queue.get(timeout=0.05)
+        except Empty:
+            continue
+        writer.apply_events([event], record_loader=make_record)
+        hits = {
+            hit.file.path for hit in search(conn, query, limit=10, root=root).hits
+        }
+        if hits == expected_paths:
+            return monotonic() - started
+    raise AssertionError(
+        f"query {query!r} did not reach expected paths {sorted(str(path) for path in expected_paths)} "
+        f"within {deadline_seconds:.3f}s"
+    )
+
+
 def test_live_update_visible_to_search_within_500ms(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     db_path = tmp_path / "database" / "index.db"
@@ -121,6 +150,40 @@ def test_live_delete_removed_from_search_within_500ms(tmp_path: Path) -> None:
     assert elapsed <= 0.5
 
 
+def test_live_move_renames_query_visibility_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    source = root / "draft-note.txt"
+    destination = root / "final-note.txt"
+    source.write_text("rename me for launch handoff\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(conn, "rename me handoff", limit=5).hits]
+        source.rename(destination)
+
+        elapsed = _wait_for_query_state(
+            conn,
+            service,
+            writer,
+            "rename me handoff",
+            deadline_seconds=0.5,
+            expected_paths={destination},
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_hits == [source]
+    assert elapsed <= 0.5
+
+
 def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
@@ -168,6 +231,66 @@ def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: P
     assert beta_hits == [created]
 
 
+def test_live_cross_root_move_updates_root_scoped_results(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    moved = root_a / "shared-note.txt"
+    destination = root_b / "shared-note.txt"
+    moved.write_text("cross root handoff visibility\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        initial_alpha_hits = [
+            hit.file.path
+            for hit in search(conn, "cross root handoff visibility", limit=5, root=root_a).hits
+        ]
+        initial_beta_hits = [
+            hit.file.path
+            for hit in search(conn, "cross root handoff visibility", limit=5, root=root_b).hits
+        ]
+
+        moved.rename(destination)
+
+        elapsed = _wait_for_query_state(
+            conn,
+            service,
+            writer,
+            "cross root handoff visibility",
+            deadline_seconds=1.5,
+            expected_paths={destination},
+        )
+        alpha_hits = [
+            hit.file.path
+            for hit in search(conn, "cross root handoff visibility", limit=5, root=root_a).hits
+        ]
+        beta_hits = [
+            hit.file.path
+            for hit in search(conn, "cross root handoff visibility", limit=5, root=root_b).hits
+        ]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_alpha_hits == [moved]
+    assert initial_beta_hits == []
+    assert elapsed <= 1.5
+    assert alpha_hits == []
+    assert beta_hits == [destination]
+
+
 def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     db_path = tmp_path / "database" / "index.db"
@@ -205,3 +328,40 @@ def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Pat
 
     assert initial_hits == [existing]
     assert reopened_hits == [existing]
+
+
+def test_hot_restart_reopen_accepts_live_delete_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    existing = root / "existing.txt"
+    existing.write_text("persisted restart delete visibility\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    first_conn = open_index(db_path)
+    try:
+        initial_hits = [hit.file.path for hit in search(first_conn, "restart delete visibility", limit=3).hits]
+    finally:
+        first_conn.close()
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        existing.unlink()
+        elapsed = _wait_for_query_miss(
+            reopened,
+            service,
+            writer,
+            "restart delete visibility",
+            existing,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == [existing]
+    assert elapsed <= 0.5
