@@ -167,6 +167,8 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
             "rendered_version_matches_package": True,
             "references_desktop_entry": True,
             "references_icon_asset": True,
+            "references_apprun_template": True,
+            "references_launcher_template": True,
             "launches_gui": True,
         },
         "icon": {
@@ -176,10 +178,12 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
         },
         "apprun": {
             "is_executable": True,
+            "matches_template": True,
             "launches_gui": True,
         },
         "launcher": {
             "is_executable": True,
+            "matches_template": True,
             "executes_python_module": False,
         },
     }
@@ -251,13 +255,17 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["recipe"]["rendered_version_matches_package"] is True
     assert payload["recipe"]["references_desktop_entry"] is True
     assert payload["recipe"]["references_icon_asset"] is True
+    assert payload["recipe"]["references_apprun_template"] is True
+    assert payload["recipe"]["references_launcher_template"] is True
     assert payload["recipe"]["launches_gui"] is True
     assert payload["icon"]["exists"] is True
     assert payload["icon"]["diricon_exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True
     assert payload["apprun"]["is_executable"] is True
+    assert payload["apprun"]["matches_template"] is True
     assert payload["apprun"]["launches_gui"] is True
     assert payload["launcher"]["is_executable"] is True
+    assert payload["launcher"]["matches_template"] is True
     assert payload["launcher"]["executes_python_module"] is True
 
 

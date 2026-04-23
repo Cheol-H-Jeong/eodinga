@@ -5,14 +5,20 @@ from pathlib import Path
 
 def test_appimage_recipe_tracks_desktop_and_icon_assets() -> None:
     recipe = Path("packaging/linux/appimage-builder.yml").read_text(encoding="utf-8")
+    apprun = Path("packaging/linux/AppRun").read_text(encoding="utf-8")
+    launcher = Path("packaging/linux/eodinga").read_text(encoding="utf-8")
 
     assert "name: eodinga" in recipe
     assert "icon: eodinga" in recipe
     assert "version: @@APP_VERSION@@" in recipe
     assert "exec: usr/bin/eodinga" in recipe
     assert "exec_args: gui" in recipe
+    assert "packaging/linux/AppRun" in recipe
+    assert "packaging/linux/eodinga" in recipe
     assert "packaging/linux/eodinga.desktop" in recipe
     assert "packaging/linux/eodinga.svg" in recipe
+    assert 'exec "${APPDIR}/usr/bin/eodinga" gui "$@"' in apprun
+    assert "exec python3 -m eodinga" in launcher
 
 
 def test_appimage_icon_asset_matches_desktop_name() -> None:

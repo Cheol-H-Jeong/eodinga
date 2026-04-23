@@ -8,6 +8,8 @@ AUDIT_PATH="${DIST_DIR}/linux-appimage-audit.json"
 APPIMAGE_RECIPE="${ROOT_DIR}/packaging/linux/appimage-builder.yml"
 RENDERED_RECIPE="${DIST_DIR}/appimage-builder.yml"
 APPIMAGE_ICON="${ROOT_DIR}/packaging/linux/eodinga.svg"
+APPIMAGE_APPRUN_TEMPLATE="${ROOT_DIR}/packaging/linux/AppRun"
+APPIMAGE_LAUNCHER_TEMPLATE="${ROOT_DIR}/packaging/linux/eodinga"
 APPIMAGE_VERSION_TOKEN="@@APP_VERSION@@"
 VERSION="$(python3 - <<'PY'
 import pathlib
@@ -44,19 +46,8 @@ PY
 cp "${ROOT_DIR}/packaging/linux/eodinga.desktop" "${APPDIR}/usr/share/applications/eodinga.desktop"
 cp "${APPIMAGE_ICON}" "${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg"
 cp "${APPIMAGE_ICON}" "${APPDIR}/.DirIcon"
-cat > "${APPDIR}/AppRun" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec "${APPDIR}/usr/bin/eodinga" gui "$@"
-EOF
-cat > "${APPDIR}/usr/bin/eodinga" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)"
-cd "${ROOT_DIR}"
-exec python3 -m eodinga "$@"
-EOF
+install -m 0755 "${APPIMAGE_APPRUN_TEMPLATE}" "${APPDIR}/AppRun"
+install -m 0755 "${APPIMAGE_LAUNCHER_TEMPLATE}" "${APPDIR}/usr/bin/eodinga"
 chmod +x "${APPDIR}/AppRun" "${APPDIR}/usr/bin/eodinga"
 
 tar -czf "${ARCHIVE_PATH}" -C "${DIST_DIR}" "$(basename "${APPDIR}")"
@@ -80,8 +71,12 @@ icon_path = Path("${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 diricon_path = Path("${APPDIR}/.DirIcon")
 recipe_path = Path("${APPIMAGE_RECIPE}")
 rendered_recipe_path = Path("${RENDERED_RECIPE}")
+apprun_template_path = Path("${APPIMAGE_APPRUN_TEMPLATE}")
+launcher_template_path = Path("${APPIMAGE_LAUNCHER_TEMPLATE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
 rendered_recipe_text = rendered_recipe_path.read_text(encoding="utf-8")
+apprun_text = apprun_path.read_text(encoding="utf-8")
+launcher_text = launcher_path.read_text(encoding="utf-8")
 payload = {
     "target": "linux-appimage-dry-run" if ${DRY_RUN} else "linux-appimage",
     "version": "${VERSION}",
@@ -105,6 +100,8 @@ payload = {
         "rendered_version_matches_package": f"version: ${VERSION}" in rendered_recipe_text,
         "references_desktop_entry": "packaging/linux/eodinga.desktop" in recipe_text,
         "references_icon_asset": "packaging/linux/eodinga.svg" in recipe_text,
+        "references_apprun_template": "packaging/linux/AppRun" in recipe_text,
+        "references_launcher_template": "packaging/linux/eodinga" in recipe_text,
         "launches_gui": "exec_args: gui" in recipe_text,
     },
     "icon": {
@@ -116,13 +113,17 @@ payload = {
     },
     "apprun": {
         "path": str(apprun_path),
+        "template_path": str(apprun_template_path),
         "is_executable": os.access(apprun_path, os.X_OK),
-        "launches_gui": 'usr/bin/eodinga" gui ' in apprun_path.read_text(encoding="utf-8"),
+        "matches_template": apprun_text == apprun_template_path.read_text(encoding="utf-8"),
+        "launches_gui": 'usr/bin/eodinga" gui ' in apprun_text,
     },
     "launcher": {
         "path": str(launcher_path),
+        "template_path": str(launcher_template_path),
         "is_executable": os.access(launcher_path, os.X_OK),
-        "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
+        "matches_template": launcher_text == launcher_template_path.read_text(encoding="utf-8"),
+        "executes_python_module": "exec python3 -m eodinga" in launcher_text,
     },
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")

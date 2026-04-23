@@ -238,13 +238,17 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (recipe_payload.get("rendered_version_matches_package"), "Rendered AppImage recipe version does not match the package version"),
         (recipe_payload.get("references_desktop_entry"), "AppImage recipe no longer references the desktop entry"),
         (recipe_payload.get("references_icon_asset"), "AppImage recipe no longer references the icon asset"),
+        (recipe_payload.get("references_apprun_template"), "AppImage recipe no longer references the AppRun template"),
+        (recipe_payload.get("references_launcher_template"), "AppImage recipe no longer references the launcher template"),
         (recipe_payload.get("launches_gui"), "AppImage recipe no longer launches the GUI target"),
         (icon_payload.get("exists"), "AppImage icon asset is missing from the staged AppDir"),
         (icon_payload.get("diricon_exists"), "AppImage .DirIcon is missing"),
         (icon_payload.get("desktop_icon_matches_asset"), "AppImage desktop icon no longer matches the shipped asset"),
         (apprun_payload.get("is_executable"), "AppImage AppRun is not executable"),
+        (apprun_payload.get("matches_template"), "AppImage AppRun drifted from the checked-in template"),
         (apprun_payload.get("launches_gui"), "AppImage AppRun no longer launches the GUI target"),
         (launcher_payload.get("is_executable"), "AppImage launcher shim is not executable"),
+        (launcher_payload.get("matches_template"), "AppImage launcher shim drifted from the checked-in template"),
         (launcher_payload.get("executes_python_module"), "AppImage launcher shim no longer executes the Python module"),
     ]
     for ok, message in required_flags:

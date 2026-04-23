@@ -5,6 +5,9 @@ script:
   - mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/scalable/apps
   - cp packaging/linux/eodinga.desktop AppDir/usr/share/applications/eodinga.desktop
   - cp packaging/linux/eodinga.svg AppDir/usr/share/icons/hicolor/scalable/apps/eodinga.svg
+  - cp packaging/linux/AppRun AppDir/AppRun
+  - cp packaging/linux/eodinga AppDir/usr/bin/eodinga
+  - chmod +x AppDir/AppRun AppDir/usr/bin/eodinga
 
 AppDir:
   path: AppDir
@@ -17,5 +20,7 @@ AppDir:
     exec_args: gui
   files:
     include:
+      - packaging/linux/AppRun
+      - packaging/linux/eodinga
       - packaging/linux/eodinga.desktop
       - packaging/linux/eodinga.svg
