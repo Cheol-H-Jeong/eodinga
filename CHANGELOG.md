@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.217 - 2026-04-23
+## 0.1.219 - 2026-04-23
 
 - Added inline launcher filter chips for active DSL operators like `ext:`, `date:`, `content:`, and `size:` so the query field surfaces structured filters without hiding the raw text.
 - Strengthened launcher result emphasis by rendering matched substrings in bold inside the existing highlight treatment, making hits scan faster across filenames, paths, snippets, and badges.
