@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 
 def test_deb_recipe_tracks_desktop_icon_and_docs_assets() -> None:
+    project_description = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]["description"]
     desktop = Path("packaging/linux/eodinga.desktop").read_text(encoding="utf-8")
     icon = Path("packaging/linux/eodinga.svg").read_text(encoding="utf-8")
     changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
@@ -21,4 +23,4 @@ def test_deb_recipe_tracks_desktop_icon_and_docs_assets() -> None:
     assert "Version: @@APP_VERSION@@" in control
     assert "Architecture: @@TARGET_ARCH@@" in control
     assert "Depends: python3 (>= 3.11)" in control
-    assert "Description: Instant lexical file search for Windows and Linux" in control
+    assert f"Description: {project_description}" in control

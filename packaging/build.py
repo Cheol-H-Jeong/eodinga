@@ -37,6 +37,11 @@ def _read_project_version() -> str:
     return str(payload["project"]["version"])
 
 
+def _read_project_description() -> str:
+    payload = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    return str(payload["project"]["description"])
+
+
 def _read_package_version() -> str:
     match = re.search(
         r'^__version__\s*=\s*"(?P<version>[^"]+)"',
@@ -360,6 +365,7 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
 
 def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, package_version: str) -> list[str]:
     errors: list[str] = []
+    project_description = _read_project_description()
     if project_version != package_version:
         errors.append("project and package versions do not match")
     if payload.get("version") != package_version:
@@ -380,7 +386,7 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         errors.append("Debian control architecture does not match the staged package arch")
     if control_payload.get("depends") != "python3 (>= 3.11)":
         errors.append("Debian control dependency floor drifted from python3 (>= 3.11)")
-    if control_payload.get("description") != "Instant lexical file search for Windows and Linux":
+    if control_payload.get("description") != project_description:
         errors.append("Debian control description drifted from the release metadata")
     expected_archive_name = f"eodinga_{package_version}_{arch}_debroot.tar.gz"
     if Path(str(payload.get("archive"))).name != expected_archive_name:
