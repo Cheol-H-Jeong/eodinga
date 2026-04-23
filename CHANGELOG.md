@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.702 - 2026-04-23
+
+- Avoided repeatedly reapplying the same Qt stylesheet to the shared application instance, which stabilizes repeated GUI test launches and prevents the reproducible offscreen `apply_theme()` crash seen in `tests/unit`.
+- Added an active launcher-filter row that surfaces parsed operators like `ext:`, `content:`, `size:`, and negated filters directly beneath the search field for faster query scanning and refinement.
+- Highlighted query matches inside the launcher preview pane so the selected result's name, path, and snippet now mirror the emphasis already shown in the result list.
+
 ## 0.1.592 - 2026-04-23
 
 - Reduced walker canonicalization overhead by resolving only the root and symlink-backed ancestry, keeping ordinary directory traversals off the `resolve_safe()` hot path while preserving alias-loop protection.
