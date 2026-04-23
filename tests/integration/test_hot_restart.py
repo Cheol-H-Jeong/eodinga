@@ -163,6 +163,90 @@ def test_hot_restart_resumes_interrupted_recovery_stage(tmp_path: Path) -> None:
         assert not sidecar.exists()
 
 
+def test_hot_restart_reopen_preserves_watcher_applied_create(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    created = root / "persisted-live-create.txt"
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        created.write_text("persisted watcher create after reopen\n", encoding="utf-8")
+        elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "persisted watcher create after reopen",
+            created,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    reopened = open_index(db_path)
+    try:
+        reopened_hits = [
+            hit.file.path
+            for hit in search(reopened, "persisted watcher create after reopen", limit=3).hits
+        ]
+    finally:
+        reopened.close()
+
+    assert elapsed <= 0.5
+    assert reopened_hits == [created]
+
+
+def test_hot_restart_reopen_preserves_watcher_applied_delete(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    target = root / "persisted-live-delete.txt"
+    target.write_text("persisted watcher delete after reopen\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [
+            hit.file.path
+            for hit in search(conn, "persisted watcher delete after reopen", limit=3).hits
+        ]
+        target.unlink()
+        elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "persisted watcher delete after reopen",
+            target,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    reopened = open_index(db_path)
+    try:
+        reopened_hits = [
+            hit.file.path
+            for hit in search(reopened, "persisted watcher delete after reopen", limit=3).hits
+        ]
+    finally:
+        reopened.close()
+
+    assert initial_hits == [target]
+    assert elapsed <= 0.5
+    assert reopened_hits == []
+
+
 def test_hot_restart_reopen_multi_root_keeps_queries_and_accepts_live_updates(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
