@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.857 - 2026-04-23
+
+- Preserved negation when summarizing grouped launcher filters, so chips derived from queries like `-(ext:pdf is:file)` now reflect the effective `-ext:` and `-is:` semantics instead of dropping the group-level `NOT`.
+- Aligned launcher result highlighting with ordered `case:` operator evaluation, preventing later or negated boolean case toggles from disagreeing with the actual query compiler behavior.
+- Added direct compiler and executor coverage for `created:` year aliases and ctime-vs-mtime behavior, hardening an uncovered query branch without changing the DSL surface.
+
 ## 0.1.855 - 2026-04-23
 
 - Avoided redundant stylesheet reapplication on the shared Qt application instance, eliminating the test-mode launcher relaunch crash path seen under the offscreen backend.
