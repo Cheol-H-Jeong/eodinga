@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.521 - 2026-04-23
+
+- Cached fully rendered executor SQL statements behind bounded LRU helpers, so repeated search paths and content lookups avoid rebuilding equivalent SQL text on hot queries.
+- Raised SQLite's per-connection prepared-statement budget from 128 to 512, keeping more hot search and indexing statements resident across steady-state workloads.
+- Added a new opt-in perf regression for root-scoped query latency over a multi-root index, extending the existing `EODINGA_RUN_PERF=1` suite with a steady-state scoped-search guardrail.
+
 ## 0.1.518 - 2026-04-23
 
 - Scoped the Windows installer desktop shortcut to the per-user desktop so it matches the existing lowest-privilege install model instead of targeting a machine-wide desktop alias.
