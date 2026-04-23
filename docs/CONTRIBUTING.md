@@ -184,11 +184,23 @@ Collect the smallest reviewable evidence set that matches the docs you changed:
 
 Prefer one explicit evidence bundle over ad-hoc retries. The handoff should show why the docs match the runtime, not just that Markdown changed.
 
+## Docs Evidence Escalation
+
+When the first docs proof is green but review risk remains, widen in this order:
+
+1. `pytest -q tests/unit/test_docs_assets.py`
+2. regenerate the affected derived asset
+3. GUI smoke for screenshot-backed UI text
+4. matching packaging dry run for shipped-artifact wording
+
+That order keeps docs rounds cheap by default while still forcing packaging or UI evidence when the prose makes claims about those surfaces.
+
 ## Metadata Commit Discipline
 
 - Keep the final metadata commit reviewable: version bump, changelog entry, and local tag cut only.
 - If the patch number changes because another worker landed first, retarget just that final metadata commit instead of rewriting earlier docs or feature commits.
 - Re-run `pytest -q tests/unit` after retargeting the metadata commit so the branch tip stays demonstrably green.
+- Record the exact version-retarget command bundle in the handoff note when a collision happened, so the next reviewer can see that the tag refresh and unit rerun were done after the renumbering.
 
 ## Release Retarget Playbook
 
@@ -235,6 +247,7 @@ Before you stop a worker round, confirm:
 - README examples use the current query surface and current operator names.
 - Derived docs assets are regenerated from code, not edited by hand.
 - The final release metadata commit contains only the version/changelog/tag cut unless a same-round asset refresh is required.
+- If the docs describe packaged payload contents, the review packet names the exact manifest under `packaging/dist/` that was inspected.
 
 ## Docs Review Packet
 
@@ -246,6 +259,15 @@ Before handing off a docs-heavy round, gather one small review packet instead of
 4. Any intentionally skipped validation step, with the reason it was not applicable.
 
 That packet gives the next reviewer a direct path to the same evidence without replaying the entire round.
+
+Suggested packet shape:
+
+```text
+Command bundle: <exact command>
+Inspected artifact: <path>
+Changed sections: <headings or examples>
+Skipped step: <n/a or reason>
+```
 
 ## Packaging Review Checklist
 

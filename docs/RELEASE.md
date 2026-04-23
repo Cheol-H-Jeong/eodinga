@@ -23,6 +23,12 @@ git fetch origin main --tags && git tag -l | sort -V | tail -5
 - If another worker lands the same patch version before you tag, choose the next unused patch number and update the metadata commit instead of moving an existing tag.
 - Keep the version bump and changelog update in the last commit of the round so retargeting from `0.1.N` to `0.1.N+1` stays small and auditable.
 
+Preferred retarget bundle:
+
+```bash
+git fetch origin main --tags && git tag -l | sort -V | tail -5 && pytest -q tests/unit
+```
+
 ## Refresh Release Notes
 
 1. Add a new top entry in `CHANGELOG.md`.
@@ -216,6 +222,8 @@ source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && QT_QPA_
 
 If CLI help or visible GUI surfaces changed, regenerate the man page or screenshots before running that pass. Do not tag a docs-only round from stale derived assets.
 
+Use the docs-only pass as a release decision gate, not a smoke convenience. If it fails on the packaging stage, inspect `packaging/dist/` before rerunning so the next attempt is based on the actual staged payload delta rather than guesswork.
+
 ## Evidence Review Questions
 
 Before you cut the local tag, answer these against the actual outputs:
@@ -224,6 +232,8 @@ Before you cut the local tag, answer these against the actual outputs:
 2. Does the offscreen GUI smoke path still match any screenshots or keyboard flows described in the docs?
 3. Do the dry-run manifests under `packaging/dist/` agree with the packaged artifacts the docs claim exist?
 4. If the round changed release instructions, can a reviewer follow the documented commands without inventing missing steps?
+
+If any answer is "not checked", stop before the metadata commit and gather the missing proof. The local tag should never be the point where missing evidence gets discovered.
 
 ## Cut The Local Release
 
@@ -277,6 +287,14 @@ When a parallel worker lands your planned patch number first:
 
 Keep the earlier docs or feature commits unchanged so the round stays reviewable and easy to rebase.
 
+## Retarget Command Bundle
+
+Use one explicit command bundle when you need to prove the tag refresh and retarget happened against the latest mainline state:
+
+```bash
+git fetch origin main --tags && git tag -l "v0.1.*" | sort -V | tail -5 && pytest -q tests/unit
+```
+
 ## Docs Asset Drift Fix Path
 
 If only the docs evidence is stale while runtime tests are green:
@@ -297,3 +315,4 @@ Do not rewrite unrelated docs or code just to refresh one generated asset family
 - The local tag points at the final commit for the round, not an earlier docs or feature commit.
 - The final release commit remains reviewable on its own and does not hide unrelated feature edits.
 - `packaging/dist/` has been reviewed for the dry-run targets touched by the round.
+- If a version collision happened, the handoff note includes the exact retarget command bundle and the final tag name.
