@@ -58,6 +58,36 @@ def _wait_for_query_miss(
     raise AssertionError(f"{missing_path} remained query-visible after {deadline_seconds:.3f}s")
 
 
+def _wait_for_query_paths(
+    conn,
+    service: WatchService,
+    writer: IndexWriter,
+    query: str,
+    expected_paths: set[Path],
+    deadline_seconds: float,
+    *,
+    root: Path | None = None,
+) -> float:
+    started = monotonic()
+    deadline = started + deadline_seconds
+    while monotonic() < deadline:
+        try:
+            event = service.queue.get(timeout=0.05)
+        except Empty:
+            continue
+        writer.apply_events([event], record_loader=make_record)
+        hits = {
+            hit.file.path
+            for hit in search(conn, query, limit=5, root=root).hits
+        }
+        if hits == expected_paths:
+            return monotonic() - started
+    raise AssertionError(
+        f"query {query!r} did not converge to {sorted(str(path) for path in expected_paths)} "
+        f"within {deadline_seconds:.3f}s"
+    )
+
+
 def test_live_update_visible_to_search_within_500ms(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     db_path = tmp_path / "database" / "index.db"
@@ -118,6 +148,40 @@ def test_live_delete_removed_from_search_within_500ms(tmp_path: Path) -> None:
         conn.close()
 
     assert initial_hits == [target]
+    assert elapsed <= 0.5
+
+
+def test_live_rename_replaces_search_hit_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    source = root / "draft-notes.txt"
+    renamed = root / "release-notes.txt"
+    source.write_text("rename integration coverage\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(conn, "rename integration coverage", limit=5).hits]
+        source.rename(renamed)
+
+        elapsed = _wait_for_query_paths(
+            conn,
+            service,
+            writer,
+            "rename integration coverage",
+            {renamed},
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_hits == [source]
     assert elapsed <= 0.5
 
 
