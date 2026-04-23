@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.931 - 2026-04-24
+
+- Recorded watcher flush, queue-backpressure, enqueue-abort, and shutdown-discard incidents as structured runtime snapshots, so transient watch-service pressure is visible in `eodinga stats --json` without reconstructing it from raw counters.
+- Added event-type-specific watcher queue pressure and enqueue-abort counters plus grouped summaries in `eodinga stats --json`, making it clear which filesystem events are saturating or being dropped by the watch queue.
+- Expanded unit and CLI coverage around the new watcher observability surface to keep `recent_snapshots` and stats summaries stable.
+
 ## 0.1.926 - 2026-04-24
 
 - Batched the query executor's Python fallback scan for phrase and Unicode path searches, avoiding the previous one-shot `100000`-row materialization and keeping the slower correctness path bounded in memory.
