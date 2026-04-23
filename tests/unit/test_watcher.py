@@ -66,6 +66,29 @@ def test_watcher_handler_preserves_move_within_root(tmp_path: Path) -> None:
     assert event.root_path == root
 
 
+def test_watcher_handlers_split_cross_root_move_into_delete_and_create(tmp_path: Path) -> None:
+    service = WatchService()
+    root_a = tmp_path / "root-a"
+    root_b = tmp_path / "root-b"
+    source = root_a / "draft.txt"
+    destination = root_b / "draft.txt"
+    handler_a = _Handler(service, root_a)
+    handler_b = _Handler(service, root_b)
+
+    moved = FileMovedEvent(str(source), str(destination))
+    handler_a.on_any_event(moved)
+    handler_b.on_any_event(moved)
+    service._flush_ready(force=True)
+
+    events = [service.queue.get_nowait(), service.queue.get_nowait()]
+
+    assert [(event.event_type, event.path, event.root_path) for event in events] == [
+        ("deleted", source, root_a),
+        ("created", destination, root_b),
+    ]
+    assert all(event.src_path is None for event in events)
+
+
 def test_watcher_handler_normalizes_same_path_move_to_modify(tmp_path: Path) -> None:
     service = WatchService()
     root = tmp_path / "watched"
@@ -80,6 +103,21 @@ def test_watcher_handler_normalizes_same_path_move_to_modify(tmp_path: Path) -> 
     assert event.path == target
     assert event.src_path is None
     assert event.root_path == root
+
+
+def test_watcher_handler_ignores_foreign_root_move_event(tmp_path: Path) -> None:
+    service = WatchService()
+    root = tmp_path / "watched"
+    elsewhere = tmp_path / "elsewhere"
+    source = elsewhere / "draft.txt"
+    destination = elsewhere / "report.txt"
+    handler = _Handler(service, root)
+
+    handler.on_any_event(FileMovedEvent(str(source), str(destination)))
+    service._flush_ready(force=True)
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
 
 
 def test_watcher_coalesces_events_within_500ms(tmp_path: Path) -> None:
