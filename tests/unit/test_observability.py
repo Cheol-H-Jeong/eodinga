@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from typing import cast
@@ -12,6 +13,7 @@ from eodinga import __version__
 from eodinga.observability import (
     configure_logging,
     default_crash_dir,
+    default_metrics_path,
     default_log_path,
     reset_metrics,
     snapshot_metrics,
@@ -33,6 +35,7 @@ def test_default_log_and_crash_paths_follow_platform_state_dirs(monkeypatch) -> 
     monkeypatch.delenv("LOCALAPPDATA", raising=False)
     monkeypatch.delenv("XDG_STATE_HOME", raising=False)
     assert default_log_path() == Path.home() / "Library" / "Logs" / "eodinga" / "eodinga.log"
+    assert default_metrics_path() == Path.home() / "Library" / "Application Support" / "eodinga" / "metrics.json"
     assert default_crash_dir() == Path.home() / "Library" / "Logs" / "eodinga" / "crashes"
 
 
@@ -48,6 +51,22 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     configure_logging("INFO")
     assert log_path.parent.exists()
+
+
+def test_metrics_persist_via_env_override(tmp_path: Path, monkeypatch) -> None:
+    metrics_path = tmp_path / "metrics.json"
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+
+    reset_metrics()
+    assert snapshot_metrics()["counters"] == {}
+
+    service = WatchService()
+    service.record(WatchEvent(event_type="created", path=tmp_path / "note.txt"))
+    payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+    assert payload["counters"]["watcher_events"] == 1
+
+    reset_metrics()
+    assert not metrics_path.exists()
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:

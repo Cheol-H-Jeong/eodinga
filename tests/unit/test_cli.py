@@ -476,6 +476,25 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
 
 
+def test_stats_json_persists_runtime_counters_across_cli_processes(
+    cli_runner,
+    tmp_path: Path,
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+
+    search_result = cli_runner("--db", str(db_path), "search", "duplicate", "--json")
+    assert search_result.returncode == 0
+    assert json.loads(search_result.stdout)["count"] == 2
+
+    stats_result = cli_runner("--db", str(db_path), "stats", "--json")
+    assert stats_result.returncode == 0
+    payload = json.loads(stats_result.stdout)
+    assert payload["queries_served"] == 1
+    assert payload["counters"]["queries_served"] == 1
+    assert payload["histograms"]["query_latency_ms"]["count"] == 1
+
+
 def test_stats_json_exposes_end_to_end_runtime_metrics(
     tmp_path: Path,
     capsys,
