@@ -281,6 +281,8 @@ def test_parse_slash_prefixed_path_regex_with_escaped_slash(
         ("date: 2026-01-01..2026-01-03", "date", "2026-01-01..2026-01-03", "word"),
         ("date:2026-01-01 .. 2026-01-03", "date", "2026-01-01..2026-01-03", "word"),
         ("size:100 .. 500K", "size", "100..500K", "word"),
+        ("size:.. 500K", "size", "..500K", "word"),
+        ("size:100 ..", "size", "100..", "word"),
         ("date:.. 2026-01-03", "date", "..2026-01-03", "word"),
         ("date:2026-01-02 ..", "date", "2026-01-02..", "word"),
     ],
@@ -381,7 +383,10 @@ OPERATOR_ATOMS = st.one_of(
         st.sampled_from(["file", "dir", "symlink", "empty", "duplicate"]),
     ),
     st.builds(lambda value: f"path:{value}", st.sampled_from(["workspace", "프로젝트", '"team notes"'])),
-    st.builds(lambda value: f"size:{value}", st.sampled_from([">10M", "<=42K", "=512B", "100..500K"])),
+    st.builds(
+        lambda value: f"size:{value}",
+        st.sampled_from([">10M", "<=42K", "=512B", "100..500K", "..500K", "100.."]),
+    ),
 )
 
 ATOMS = st.one_of(
