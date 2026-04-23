@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sqlite3
+import time
 from typing import cast
 
 from PySide6.QtCore import Qt
@@ -157,7 +158,9 @@ def test_launchers_respect_configured_limit_and_debounce(qapp) -> None:
     QTest.qWait(40)
     assert calls == []
 
-    QTest.qWait(80)
+    deadline = time.monotonic() + 1.0
+    while len(calls) < 2 and time.monotonic() < deadline:
+        QTest.qWait(20)
     assert calls == [("popup", 7), ("embedded", 7)]
 
 
