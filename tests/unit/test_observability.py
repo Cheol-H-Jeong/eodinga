@@ -28,6 +28,11 @@ def test_default_log_and_crash_paths_follow_platform_state_dirs(monkeypatch) -> 
     monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\tester\AppData\Local")
     assert default_log_path() == Path(r"C:\Users\tester\AppData\Local/eodinga/logs/eodinga.log")
 
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setenv("HOME", "/Users/tester")
+    assert default_log_path() == Path("/Users/tester/Library/Logs/eodinga/eodinga.log")
+    assert default_crash_dir() == Path("/Users/tester/Library/Application Support/eodinga/crashes")
+
 
 def test_configure_logging_respects_explicit_file_target(tmp_path: Path) -> None:
     log_path = tmp_path / "logs" / "app.log"
