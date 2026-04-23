@@ -407,6 +407,26 @@ def test_execute_decomposed_korean_phrase_query_matches_across_punctuation(
     assert hits == ["회의록-초안.txt"]
 
 
+def test_execute_bare_phrase_query_matches_decomposed_korean_path_across_punctuation(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    decomposed = unicodedata.normalize("NFD", "회의록-봄")
+    _insert_file(
+        tmp_db,
+        1,
+        f"/workspace/korean/{decomposed}.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="spring notes",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, '\"회의록 봄\"', limit=5).hits]
+
+    assert hits == [f"{decomposed}.txt"]
+
+
 def test_execute_relative_date_queries_use_local_day_boundaries(
     tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:
