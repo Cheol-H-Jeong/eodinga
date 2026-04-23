@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.958 - 2026-04-24
+
+- Split the standalone launcher panel into smaller launcher-only helper modules, bringing the main launcher widget back under the repository's module-size cap without changing its existing query and accessibility surface.
+- Added a launcher result context menu with Open, Reveal, Copy path, Copy name, and Properties actions, plus keyboard coverage for the Menu key and `Shift+F10` so mouse-first and keyboard-first workflows share the same action set.
+- Made the popup launcher dismiss itself after open, reveal, and properties actions while leaving copy actions in place, matching the expected “launch and get out of the way” behavior for the transient window.
+
 ## 0.1.953 - 2026-04-24
 
 - Fixed open-ended relative date filters so queries like `date:today..` and `date:..yesterday` work the same way as closed relative ranges instead of falling through the ISO-only parser.
