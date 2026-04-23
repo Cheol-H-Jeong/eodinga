@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.175 - 2026-04-23
+## 0.1.177 - 2026-04-23
 
 - Fixed standalone regex literals so patterns ending with escaped backslashes before the closing slash now parse correctly, keeping `/.../flags` behavior aligned with inline operator regex parsing.
 - Stabilized the executor inputs that feed reciprocal-rank fusion so equal-match queries no longer depend on transient dict insertion order when computing name and path channel ranks.
