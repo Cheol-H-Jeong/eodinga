@@ -8,6 +8,7 @@ import pytest
 
 import eodinga.core.walker as walker_module
 from eodinga.common import PathRules
+from eodinga.core.fs import ScandirEntry
 from eodinga.core.walker import walk_batched
 
 
@@ -59,8 +60,8 @@ def test_walk_batched_reuses_discovery_stat_result(
 
     assert {record.path for record in records} == {root, nested, sample}
     assert stat_calls.count(root) == 1
-    assert stat_calls.count(nested) == 1
-    assert stat_calls.count(sample) == 1
+    assert nested not in stat_calls
+    assert sample not in stat_calls
 
 
 def test_walk_batched_uses_fs_wrapper_to_detect_symlinked_directories(
@@ -138,7 +139,11 @@ def test_walk_batched_records_directory_alias_but_skips_reentering_same_inode(
 
     monkeypatch.setattr(walker_module, "resolve_safe", lambda path: path)
     monkeypatch.setattr(walker_module, "stat_safe", fake_stat)
-    monkeypatch.setattr(walker_module, "scandir_safe", fake_scandir)
+    monkeypatch.setattr(
+        walker_module,
+        "scandir_with_stat_safe",
+        lambda path: [ScandirEntry(child, fake_stat(child)) for child in fake_scandir(path)],
+    )
 
     rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
     records = [record for batch in walk_batched(root, rules) for record in batch]
@@ -239,7 +244,11 @@ def test_walk_batched_skips_resolved_alias_cycles_even_when_inode_keys_differ(
 
     monkeypatch.setattr(walker_module, "resolve_safe", fake_resolve)
     monkeypatch.setattr(walker_module, "stat_safe", fake_stat)
-    monkeypatch.setattr(walker_module, "scandir_safe", fake_scandir)
+    monkeypatch.setattr(
+        walker_module,
+        "scandir_with_stat_safe",
+        lambda path: [ScandirEntry(child, fake_stat(child)) for child in fake_scandir(path)],
+    )
 
     rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
     records = [record for batch in walk_batched(root, rules) for record in batch]
