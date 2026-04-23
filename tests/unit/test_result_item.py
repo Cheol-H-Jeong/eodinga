@@ -9,60 +9,62 @@ from eodinga.gui.widgets.result_item import format_hit_html, highlight_text
 def test_highlight_text_marks_all_case_insensitive_matches() -> None:
     rendered = highlight_text("Report report REPORT.txt", "report")
 
-    assert rendered.count("<mark>") == 3
-    assert "<mark>Report</mark>" in rendered
-    assert "<mark>report</mark>" in rendered
-    assert "<mark>REPORT</mark>" in rendered
+    assert rendered.count("<mark ") == 3
+    assert "font-weight:700" in rendered
+    assert ">Report</mark>" in rendered
+    assert ">report</mark>" in rendered
+    assert ">REPORT</mark>" in rendered
 
 
 def test_highlight_text_ignores_dsl_filters_and_marks_free_text_terms() -> None:
     rendered = highlight_text("release notes 2026.pdf", 'release ext:pdf date:this-week -"draft"')
 
-    assert rendered.count("<mark>") == 1
-    assert "<mark>release</mark>" in rendered
+    assert rendered.count("<mark ") == 1
+    assert ">release</mark>" in rendered
     assert "date:this-week" not in rendered
 
 
 def test_highlight_text_marks_quoted_phrases() -> None:
     rendered = highlight_text("quarterly release notes.txt", '"release notes" ext:txt')
 
-    assert "<mark>release notes</mark>" in rendered
+    assert ">release notes</mark>" in rendered
 
 
 def test_highlight_text_marks_escaped_quoted_phrases() -> None:
     rendered = highlight_text('release "candidate" notes.txt', r'"release \"candidate\""')
 
-    assert "<mark>release &quot;candidate&quot;</mark>" in rendered
+    assert ">release &quot;candidate&quot;</mark>" in rendered
 
 
 def test_highlight_text_ignores_negated_terms() -> None:
     rendered = highlight_text("draft release notes.txt", 'release -"draft"')
 
-    assert "<mark>release</mark>" in rendered
-    assert "<mark>draft</mark>" not in rendered
+    assert ">release</mark>" in rendered
+    assert ">draft</mark>" not in rendered
 
 
 def test_highlight_text_supports_path_and_extension_filters_by_target() -> None:
     rendered_path = highlight_text("/tmp/reports/quarterly.pdf", "path:reports ext:pdf", target="path")
     rendered_ext = highlight_text("pdf", "path:reports ext:pdf", target="ext")
 
-    assert "/tmp/<mark>reports</mark>/quarterly.pdf" in rendered_path
-    assert "<mark>pdf</mark>" in rendered_ext
+    assert "/tmp/<mark " in rendered_path
+    assert ">reports</mark>/quarterly.pdf" in rendered_path
+    assert ">pdf</mark>" in rendered_ext
 
 
 def test_highlight_text_supports_regex_and_content_filters() -> None:
     rendered_name = highlight_text("release-notes.txt", "/release[- ]notes/i", target="name")
     rendered_snippet = highlight_text("release notes are attached", 'content:"release notes"', target="snippet")
 
-    assert "<mark>release-notes</mark>.txt" in rendered_name
-    assert "<mark>release notes</mark>" in rendered_snippet
+    assert ">release-notes</mark>.txt" in rendered_name
+    assert ">release notes</mark>" in rendered_snippet
 
 
 def test_highlight_text_respects_case_true_for_literals() -> None:
     rendered = highlight_text("Report report", "case:true Report", target="name")
 
-    assert "<mark>Report</mark>" in rendered
-    assert "<mark>report</mark>" not in rendered
+    assert ">Report</mark>" in rendered
+    assert ">report</mark>" not in rendered
 
 
 def test_format_hit_html_renders_extension_badge() -> None:
@@ -76,7 +78,7 @@ def test_format_hit_html_renders_extension_badge() -> None:
         "report",
     )
 
-    assert "<mark>report</mark>.pdf" in rendered
+    assert ">report</mark>.pdf" in rendered
     assert ">pdf</span>" in rendered
     assert ">report.pdf</div><div" not in rendered
     assert ">/tmp</div>" in rendered
@@ -94,7 +96,7 @@ def test_format_hit_html_renders_highlighted_snippet() -> None:
         'content:"release notes"',
     )
 
-    assert "<mark>release notes</mark>" in rendered
+    assert ">release notes</mark>" in rendered
     assert "the " in rendered
 
 
@@ -109,7 +111,8 @@ def test_format_hit_html_shows_parent_path_line_for_path_filters() -> None:
         "path:reports",
     )
 
-    assert "/workspace/<mark>reports</mark>" in rendered
+    assert "/workspace/<mark " in rendered
+    assert ">reports</mark>" in rendered
     assert "release-notes.txt</div><div" not in rendered
 
 
