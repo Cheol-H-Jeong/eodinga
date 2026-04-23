@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.282 - 2026-04-23
+## 0.1.288 - 2026-04-23
 
 - Added a real watchdog integration regression for same-root renames so a moved file must become query-visible at its new path within 500 ms and stop matching the old filename path filter.
 - Expanded hot-restart coverage to prove watcher-applied live creates remain queryable after the index connection is closed and reopened.
