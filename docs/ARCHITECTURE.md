@@ -52,6 +52,17 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 | Search index | platform data path or `--db` | same database directory plus staged sidecars | rebuilds, WAL replay, and watcher updates are isolated to the index directory |
 | Derived docs assets | `eodinga.__main__`, Qt docs surfaces | `docs/man/`, `docs/screenshots/` | release docs are generated from the real runtime, not hand-maintained copies |
 
+## Runtime Path Layout
+
+| Path class | Typical location | Contents | How to inspect it |
+| --- | --- | --- | --- |
+| Config path | `~/.config/eodinga/config.toml` or `%APPDATA%\\eodinga\\config.toml` | roots, launcher options, pinned queries | `eodinga doctor` or explicit `--config` |
+| Live index path | `~/.local/share/eodinga/index.db` or `%LOCALAPPDATA%\\eodinga\\index.db` | `files`, `paths_fts`, `content_fts`, WAL sidecars | `eodinga stats --json` or explicit `--db` |
+| Crash/log path | platform app-data area or env override | rotating runtime log and `crash-<ts>.log` files | `EODINGA_LOG_PATH`, `EODINGA_CRASH_DIR` |
+| Derived docs assets | `docs/man/`, `docs/screenshots/`, `packaging/dist/` | generated man page, screenshots, dry-run manifests | `tests/unit/test_docs_assets.py` and packaging dry runs |
+
+The split matters operationally: when a query is wrong, first confirm which config and database paths the surface is using before assuming the parser or ranker is inconsistent.
+
 ## Module Map
 
 | Area | Primary modules | Responsibility |
@@ -118,6 +129,15 @@ user / startup
 - If the live database still has a non-empty `-wal` sidecar, recovery is replayed against a staged copy first; only a clean checkpointed database is swapped into place.
 - `eodinga doctor` reports both resumed staged rebuild/recovery work and unrecoverable stale-WAL failures so the operator sees the same startup path the runtime takes.
 - This keeps crash recovery local to the database directory and avoids mutating indexed user roots.
+
+## Recovery Artifact Meanings
+
+| Artifact | Meaning | Expected next action |
+| --- | --- | --- |
+| `.index.db.next` | interrupted staged rebuild or ready-to-promote replacement index | let startup validate and promote it; rebuild only if validation fails |
+| `.index.db.recover` | interrupted atomic swap or WAL-replay recovery copy | restart into `open_index()` so recovery can finish before manual cleanup |
+| `index.db-wal` | live WAL sidecar with uncheckpointed SQLite work | let storage replay/checkpoint it through staged recovery rather than deleting it |
+| `crash-<ts>.log` | top-level runtime failure report | inspect the exception plus the recent runtime snapshot before rerunning commands |
 
 ## Rebuild Sequence
 
@@ -195,6 +215,15 @@ index / watch / search command
             |
             +--> rotating runtime logs / crash-<ts>.log
 ```
+
+## Operator Evidence Sources
+
+| Symptom | First evidence source | Why this is the shortest path |
+| --- | --- | --- |
+| wrong or stale results | `eodinga stats --json` | proves which database path the active surface is reading |
+| startup recovery messages | database directory sidecars plus `eodinga doctor` | shows whether `.next`, `.recover`, or WAL replay is the active path |
+| launcher/hotkey mismatch | `eodinga doctor` plus config path | confirms backend detection and launcher-specific settings before blaming query logic |
+| release-doc drift | `tests/unit/test_docs_assets.py` and `packaging/dist/` | catches mismatches between runtime docs, generated assets, and packaged payloads |
 
 ## Documentation Asset Flow
 

@@ -115,13 +115,16 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Runtime Flow" in architecture
     assert "## Data Flow Diagram" in architecture
     assert "## Module Map" in architecture
+    assert "## Runtime Path Layout" in architecture
     assert "## Index Storage" in architecture
     assert "## SQLite Schema Snapshot" in architecture
     assert "## Index Lifecycle Sequence" in architecture
     assert "## Startup Recovery" in architecture
+    assert "## Recovery Artifact Meanings" in architecture
     assert "## Rebuild Sequence" in architecture
     assert "## Query Execution" in architecture
     assert "## Search Decision Path" in architecture
+    assert "## Operator Evidence Sources" in architecture
     assert "## Live Update Sequence" in architecture
     assert "## Documentation Asset Flow" in architecture
     assert "## Release Input Map" in architecture
@@ -135,6 +138,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "scripts/render_docs_screenshots.py" in architecture
     assert "tests/unit/test_docs_assets.py" in architecture
     assert "packaging/dist/" in architecture
+    assert "EODINGA_LOG_PATH" in architecture
+    assert "crash-<ts>.log" in architecture
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
