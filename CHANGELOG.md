@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.959 - 2026-04-24
+## 0.1.961 - 2026-04-24
 
 - Expanded the top-level README with a concrete `packaging/dist/` audit map and docs-only validation FAQ so release reviewers can open the right evidence file without guessing.
 - Corrected the release guide to inspect the real `*-audit.json` packaging outputs, and added clearer artifact-provenance and metadata-retarget flows for concurrent worker rounds.
