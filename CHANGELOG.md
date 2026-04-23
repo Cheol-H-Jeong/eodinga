@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.191 - 2026-04-23
+
+- Reworked the launcher empty state so recent and pinned queries stay readable while keyboard help lives in its own dedicated hint line instead of one dense paragraph.
+- Expanded launcher accessibility coverage with stable names for the main window, launcher status surfaces, and empty-state labels, and fixed `Home`/`End` so they keep normal text-editing behavior until the caret is already at the query boundary.
+- Strengthened launcher hit emphasis by rendering matched text with a bolder highlighted treatment across names, paths, snippets, and extension badges.
+
 ## 0.1.184 - 2026-04-23
 
 - Wired `launcher.debounce_ms` and `launcher.max_results` into both launcher surfaces, so the popup and embedded search panel now respect the configured debounce window and result cap instead of hard-coded defaults.
