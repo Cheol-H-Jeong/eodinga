@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.929 - 2026-04-24
+
+- Added lateral `Left` and `Right` plus `Home` and `End` keyboard movement for focused launcher query chips, so pinned suggestions are faster to scan without returning to the search box.
+- Stopped truncating pinned query rows silently by surfacing a `+N more` overflow summary with full-query tooltip and accessibility text for the hidden suggestions.
+- Refined launcher chip hints so focused chips expose their full query on hover and screen-reader text now mentions sideways chip navigation.
+
 ## 0.1.918 - 2026-04-24
 
 - Scoped Windows root filters across both plain and extended-length path spellings, so searches under `C:\...` and `\\?\C:\...` stay equivalent even when the index stores the other form.
