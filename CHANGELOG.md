@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.110 - 2026-04-23
+## 0.1.116 - 2026-04-23
 
 - Fixed standalone regex parsing so patterns whose closing `/` is preceded by an even-length backslash run now parse correctly instead of failing as `unterminated regex`.
 - Fixed Windows root scoping so exact root-path matches use case-insensitive comparison for Windows-style paths, which keeps the indexed root directory visible even when the queried root casing differs.
