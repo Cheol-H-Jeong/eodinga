@@ -52,7 +52,7 @@ class LauncherWindow(LauncherPanel):
 
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
-        if not self._geometry_restored and self._config is not None:
+        if self._config is not None:
             self._restore_visible_geometry()
             self._geometry_restored = True
         self.query_field.setFocus()
@@ -131,17 +131,25 @@ class LauncherWindow(LauncherPanel):
         saved_height = max(self.height(), 1)
         width = min(saved_width, available.width())
         height = min(saved_height, available.height())
-        x = self._config.launcher.window_x
-        y = self._config.launcher.window_y
-        if x is None or y is None:
-            self.resize(width, height)
-            return
+        geometry = self.geometry()
+        x = geometry.x()
+        y = geometry.y()
+        if not self._geometry_restored:
+            saved_x = self._config.launcher.window_x
+            saved_y = self._config.launcher.window_y
+            if saved_x is None or saved_y is None:
+                self.resize(width, height)
+                return
+            x = saved_x
+            y = saved_y
         saved_rect = available.__class__(x, y, saved_width, saved_height)
         if saved_rect.intersects(available):
-            self.setGeometry(x, y, width, height)
+            if geometry.x() != x or geometry.y() != y or geometry.width() != width or geometry.height() != height:
+                self.setGeometry(x, y, width, height)
             return
         max_x = available.x() + max(available.width() - width, 0)
         max_y = available.y() + max(available.height() - height, 0)
         clamped_x = min(max(x, available.x()), max_x)
         clamped_y = min(max(y, available.y()), max_y)
         self.setGeometry(clamped_x, clamped_y, width, height)
+        self._persist_geometry()
