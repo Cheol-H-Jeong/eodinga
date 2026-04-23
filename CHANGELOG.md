@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.415 - 2026-04-23
+
+- Expanded the shipped operator docs with clearer troubleshooting, package-artifact expectations, platform state-path guidance, and worker-round recovery steps across `README.md`, `docs/ARCHITECTURE.md`, `docs/CONTRIBUTING.md`, and `docs/RELEASE.md`.
+- Enriched the generated CLI man page with live-update and duplicate-audit examples plus dedicated query-language and output-format sections so packaged CLI help better mirrors the real runtime contract.
+- Stabilized a flaky hot-restart integration assertion by polling query visibility even after the watcher queue drains, restoring a green baseline before the docs round landed.
+
 ## 0.1.410 - 2026-04-23
 
 - Expanded `stats --json` so the typed payload now exposes watcher flush/backpressure metrics and logging sink counters directly, without forcing operators to decode raw counter keys.
