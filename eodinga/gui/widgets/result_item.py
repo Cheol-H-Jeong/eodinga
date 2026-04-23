@@ -64,14 +64,39 @@ def _regex_flags(flag_text: str, default_case_sensitive: bool) -> int:
     return flags
 
 
-def _query_case_sensitive(node: AstNode) -> bool:
-    if isinstance(node, OperatorNode) and node.name == "case" and not node.negated:
-        return node.value.casefold() == "true"
-    if isinstance(node, (AndNode, OrNode)):
-        return any(_query_case_sensitive(child) for child in node.clauses)
-    if isinstance(node, NotNode):
+def _parse_bool(value: str) -> bool | None:
+    normalized = value.casefold()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
         return False
-    return False
+    return None
+
+
+def _query_case_sensitive(node: AstNode) -> bool:
+    case_sensitive = False
+
+    def visit(current: AstNode, *, negated: bool = False) -> None:
+        nonlocal case_sensitive
+        if isinstance(current, OperatorNode):
+            if current.name != "case":
+                return
+            bool_value = _parse_bool(current.value)
+            if bool_value is None:
+                return
+            if negated or current.negated:
+                bool_value = not bool_value
+            case_sensitive = bool_value
+            return
+        if isinstance(current, NotNode):
+            visit(current.clause, negated=not negated)
+            return
+        if isinstance(current, (AndNode, OrNode)):
+            for child in current.clauses:
+                visit(child, negated=negated)
+
+    visit(node)
+    return case_sensitive
 
 
 def _collect_highlight_rules(

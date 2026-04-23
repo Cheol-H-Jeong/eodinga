@@ -65,6 +65,13 @@ def test_highlight_text_respects_case_true_for_literals() -> None:
     assert "<mark>report</mark>" not in rendered
 
 
+def test_highlight_text_uses_last_case_operator_semantics() -> None:
+    rendered = highlight_text("Report report", "case:true -case:true Report", target="name")
+
+    assert "<mark>Report</mark>" in rendered
+    assert "<mark>report</mark>" in rendered
+
+
 def test_format_hit_html_renders_extension_badge() -> None:
     rendered = format_hit_html(
         SearchHit(
