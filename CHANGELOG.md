@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.905 - 2026-04-23
+
+- Rebuilds now mark staged databases as `building` until the final commit point, and startup recovery will only resume `.next` databases explicitly marked `complete`, preventing partial interrupted builds from replacing a live index.
+- Added regression coverage for incomplete staged builds so `open_index()` and `doctor` discard partial `.next` files safely while still resuming completed staged rebuilds.
+- Watcher enqueue aborts during shutdown now emit an explicit warning and snapshot payload, so backpressure-related event loss is diagnosable instead of only surfacing as a counter increment.
+
 ## 0.1.901 - 2026-04-23
 
 - Made the Linux AppImage packaging script emit and audit a versioned `.AppImage` payload on non-dry-run builds instead of stopping at the staged AppDir tarball.
