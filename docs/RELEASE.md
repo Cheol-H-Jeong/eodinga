@@ -81,6 +81,28 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Pre-Tag Review Matrix
+
+| Surface | What to inspect | Expected review location |
+| --- | --- | --- |
+| Windows packaging | installer metadata, bundled executable names, shipped docs payload | `packaging/dist/windows-dry-run/` |
+| Linux AppImage | rendered recipe inputs, launcher shim, desktop metadata | `packaging/dist/linux-appimage-dry-run/` |
+| Linux Debian | staged package root, compressed changelog, desktop/icon payload | `packaging/dist/linux-deb-dry-run/` |
+| Docs assets | current man page and screenshot set | `docs/man/` and `docs/screenshots/` |
+| Release metadata | version strings and top changelog entry | `pyproject.toml`, `eodinga/__init__.py`, `CHANGELOG.md` |
+
+## Failure Triage
+
+When the release pass fails, stop at the first red stage and route it to the owning review surface:
+
+| First failing stage | Inspect next | Typical fix path |
+| --- | --- | --- |
+| `pytest -q tests` | failing test module and nearby runtime files | restore repo health before touching packaging or release metadata |
+| `ruff` or `pyright` | reported file and exact diagnostic | fix source or test typing/lint drift, then rerun the same stage |
+| GUI smoke | current Qt/UI changes plus `docs/screenshots/` if the surface changed | fix the runtime/UI issue first, then rerender screenshots if needed |
+| packaging dry run | staged payload under `packaging/dist/` plus packaging recipe inputs | repair the packaging recipe or docs claim before retrying the tag flow |
+| workflow lint | `.github/workflows/release-*.yml` | fix workflow syntax last, after repo/runtime health is already green |
+
 ## Tag Decision Path
 
 ```text
@@ -108,6 +130,7 @@ round changes assembled
 3. Create the local tag after that final commit.
 4. Do not push tags or release branches from a worker worktree.
 5. Hand the orchestrator a clean branch plus the final local tag to rebase and publish.
+6. If the one-command release pass fails after a docs-only round, fix the failing stage in a new commit instead of amending older docs commits into a harder-to-review blob.
 
 ## Docs-Only Rounds
 
