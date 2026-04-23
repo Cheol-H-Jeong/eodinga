@@ -347,8 +347,6 @@ def _run_command(args: argparse.Namespace) -> int:
                         "elapsed_ms": round(elapsed_ms, 3),
                     },
                 )
-        if failure_reason != "exception":
-            flush_metrics()
     assert exit_code is not None
     if exit_code == 0:
         increment_counter("commands_completed", command=command)
@@ -356,6 +354,8 @@ def _run_command(args: argparse.Namespace) -> int:
     elif exit_code != 130:
         increment_counter("commands_failed", command=command)
         increment_counter(f"commands.{command}.failed")
+    if failure_reason != "exception":
+        flush_metrics()
     return exit_code
 
 

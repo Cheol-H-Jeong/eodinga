@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
+import subprocess
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path, PureWindowsPath
 from threading import Thread
@@ -17,6 +20,21 @@ from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga.index.schema import apply_schema
 from eodinga.observability import reset_metrics, snapshot_metrics
+
+
+def _run_cli_process(tmp_path: Path, env: dict[str, str], *args: str) -> subprocess.CompletedProcess[str]:
+    process_env = os.environ.copy()
+    process_env.pop("PYTEST_CURRENT_TEST", None)
+    process_env.setdefault("QT_QPA_PLATFORM", "offscreen")
+    process_env.update(env)
+    return subprocess.run(
+        [sys.executable, "-m", "eodinga", *args],
+        cwd=tmp_path,
+        env=process_env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
 
 def _insert_file(
@@ -567,6 +585,79 @@ def test_stats_json_exposes_metrics_state_location(
     payload = json.loads(stats_output.out)
     assert payload["metrics_path"] == str(metrics_path)
     assert payload["metrics_persisted_at"]
+
+
+def test_stats_json_persists_metrics_across_cli_processes(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "alpha.txt").write_text("alpha launch note\n", encoding="utf-8")
+    (docs / "beta.txt").write_text("beta launch note\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    metrics_path = tmp_path / "state" / "metrics.json"
+    env = {"EODINGA_METRICS_PATH": str(metrics_path)}
+
+    index_result = _run_cli_process(
+        tmp_path,
+        env,
+        "--db",
+        str(db_path),
+        "index",
+        "--root",
+        str(docs),
+        "--rebuild",
+    )
+    assert index_result.returncode == 0
+
+    search_result = _run_cli_process(
+        tmp_path,
+        env,
+        "--db",
+        str(db_path),
+        "search",
+        "launch",
+        "--json",
+    )
+    assert search_result.returncode == 0
+    assert json.loads(search_result.stdout)["count"] == 2
+
+    stats_result = _run_cli_process(tmp_path, env, "--db", str(db_path), "stats", "--json")
+    assert stats_result.returncode == 0
+    payload = json.loads(stats_result.stdout)
+    assert payload["metrics_path"] == str(metrics_path)
+    assert payload["queries_served"] == 1
+    assert payload["commands_started"] == 3
+    assert payload["commands_completed"] == 2
+    assert [entry["name"] for entry in payload["recent_snapshots"]] == [
+        "command.index",
+        "command.search",
+    ]
+
+
+def test_stats_json_persists_failed_command_metrics_across_cli_processes(tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    metrics_path = tmp_path / "state" / "metrics.json"
+    _build_search_db(db_path)
+    env = {"EODINGA_METRICS_PATH": str(metrics_path)}
+
+    failure_result = _run_cli_process(
+        tmp_path,
+        env,
+        "--db",
+        str(db_path),
+        "search",
+        "date:invalid",
+        "--json",
+    )
+    assert failure_result.returncode == 2
+    assert "invalid date" in failure_result.stderr
+
+    stats_result = _run_cli_process(tmp_path, env, "--db", str(db_path), "stats", "--json")
+    assert stats_result.returncode == 0
+    payload = json.loads(stats_result.stdout)
+    assert payload["commands_failed"] == 1
+    assert payload["exit_codes"] == {"2": 1}
+    assert payload["recent_snapshots"][0]["name"] == "command.failure"
+    assert payload["recent_snapshots"][0]["payload"]["reason"] == "nonzero_exit"
 
 
 def test_stats_json_exposes_end_to_end_runtime_metrics(
