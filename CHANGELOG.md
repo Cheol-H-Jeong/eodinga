@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.446 - 2026-04-23
+## 0.1.449 - 2026-04-23
 
 - Clarified the top-level README with a single-pass docs refresh command plus additional FAQ coverage for docs regeneration, packaging dry runs, and launcher/backend validation.
 - Added a contributor-facing docs change matrix so workers can choose the smallest legitimate asset-refresh and dry-run path for docs-only rounds without guessing.
