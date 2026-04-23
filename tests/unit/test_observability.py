@@ -9,10 +9,15 @@ from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga.observability import (
+    active_log_path,
     configure_logging,
+    counter_value,
     default_crash_dir,
     default_log_path,
+    get_logger,
     reset_metrics,
+    resolved_crash_dir,
+    resolved_log_path,
     snapshot_metrics,
     write_crash_log,
 )
@@ -33,6 +38,17 @@ def test_configure_logging_respects_explicit_file_target(tmp_path: Path) -> None
     log_path = tmp_path / "logs" / "app.log"
     configure_logging("DEBUG", log_path=log_path)
     assert log_path.parent.exists()
+    assert active_log_path() == log_path
+
+
+def test_configure_logging_writes_to_file_target(tmp_path: Path) -> None:
+    log_path = tmp_path / "logs" / "app.log"
+    configure_logging("INFO", log_path=log_path)
+
+    get_logger("test").info("launcher ready")
+
+    contents = log_path.read_text(encoding="utf-8")
+    assert "launcher ready" in contents
 
 
 def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> None:
@@ -41,9 +57,11 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     configure_logging("INFO")
     assert log_path.parent.exists()
+    assert resolved_log_path() == log_path
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
+    reset_metrics()
     try:
         raise RuntimeError("boom")
     except RuntimeError as error:
@@ -54,6 +72,8 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert "Traceback" in contents
     assert "timestamp=" in contents
     assert "pid=" in contents
+    assert crash_path.name.startswith("crash-")
+    assert counter_value("crashes_written") == 1
 
 
 def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
@@ -64,6 +84,7 @@ def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
         crash_path = write_crash_log(error, context="env override")
     assert crash_path.parent == tmp_path
     assert "env override" in crash_path.read_text(encoding="utf-8")
+    assert resolved_crash_dir() == tmp_path
 
 
 def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path: Path) -> None:

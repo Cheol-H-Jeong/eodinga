@@ -9,6 +9,7 @@ import pytest
 
 from eodinga import __version__
 from eodinga.__main__ import main
+from eodinga.content.base import ParserSpec
 from eodinga.index.schema import apply_schema
 from eodinga.observability import reset_metrics
 
@@ -467,4 +468,69 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["queries_served"] == 1
     assert payload["parser_errors"] == 0
     assert payload["watcher_events"] == 0
+    assert payload["crashes_written"] == 0
     assert payload["query_latency_histogram"]["count"] == 1
+    assert payload["metrics"]["counters"]["queries_served"] == 1
+    assert payload["metrics"]["histograms"]["query_latency_ms"]["count"] == 1
+    assert payload["log_path"] is None
+    assert payload["crash_dir"] == str(Path.home() / ".local" / "state" / "eodinga" / "crashes")
+
+
+def test_stats_json_reports_parser_errors_after_index_rebuild(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "broken.txt").write_text("bad parser payload\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    reset_metrics()
+
+    spec = ParserSpec(
+        name="broken",
+        parse=lambda _path, _max_chars: (_ for _ in ()).throw(ValueError("parse failed")),
+        extensions=frozenset({"txt"}),
+        max_bytes=1024,
+    )
+    monkeypatch.setattr("eodinga.content.registry.get_spec_for", lambda _path: spec)
+
+    index_exit = main(["--db", str(db_path), "index", "--root", str(docs), "--rebuild"])
+    index_output = capsys.readouterr()
+    assert index_exit == 0
+    assert json.loads(index_output.out)["files_indexed"] == 2
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["parser_errors"] == 1
+    assert payload["metrics"]["counters"]["parser_errors"] == 1
+    assert payload["files_indexed"] == 2
+
+
+def test_stats_json_tracks_command_invocations_failures_and_latencies(
+    tmp_path: Path, capsys
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    search_exit = main(["--db", str(db_path), "search", "duplicate", "--json"])
+    search_output = capsys.readouterr()
+    assert search_exit == 0
+    assert json.loads(search_output.out)["count"] == 2
+
+    invalid_exit = main(["--db", str(db_path), "search", "content:", "--json"])
+    invalid_output = capsys.readouterr()
+    assert invalid_exit == 2
+    assert "expected operator value" in invalid_output.err
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    counters = payload["metrics"]["counters"]
+    histograms = payload["metrics"]["histograms"]
+    assert counters["commands.search.invoked"] == 2
+    assert counters["commands.search.failed"] == 1
+    assert counters["commands.stats.invoked"] == 1
+    assert histograms["commands.search.latency_ms"]["count"] == 2

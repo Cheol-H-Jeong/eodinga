@@ -5,6 +5,7 @@ import json
 import os
 import re
 import sys
+import time
 from contextlib import closing
 from pathlib import Path
 from typing import Any
@@ -17,9 +18,15 @@ from eodinga.index.build import rebuild_index
 from eodinga.index.reader import stats as read_index_stats
 from eodinga.index.storage import open_index
 from eodinga.observability import (
+    active_log_path,
     configure_logging,
     counter_value,
     histogram_snapshot,
+    increment_counter,
+    record_histogram,
+    resolved_crash_dir,
+    resolved_log_path,
+    snapshot_metrics,
     write_crash_log,
 )
 from eodinga.query import QuerySyntaxError, search as run_search
@@ -161,6 +168,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     db_path = args.db or config.index.db_path
     with closing(open_index(db_path)) as conn:
         index_snapshot = read_index_stats(conn)
+    metrics = snapshot_metrics()
+    counters = metrics.get("counters")
+    crashes_written = int(counters.get("crashes_written", 0)) if isinstance(counters, dict) else 0
     snapshot = StatsSnapshot(
         files_indexed=index_snapshot.file_count,
         documents_indexed=index_snapshot.content_count,
@@ -168,8 +178,12 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         parser_errors=counter_value("parser_errors"),
         watcher_events=counter_value("watcher_events"),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
+        crashes_written=crashes_written,
+        metrics=metrics,
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
+        log_path=active_log_path() or resolved_log_path(),
+        crash_dir=resolved_crash_dir(),
     ).model_dump(mode="json")
     return _emit(snapshot, as_json=bool(args.json))
 
@@ -205,15 +219,26 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     configure_logging(args.log_level)
+    command_name = str(getattr(args, "command", "unknown"))
+    increment_counter(f"commands.{command_name}.invoked")
+    started = time.perf_counter()
     try:
-        return args.handler(args)
+        exit_code = int(args.handler(args))
+        if exit_code != 0:
+            increment_counter(f"commands.{command_name}.failed")
+        return exit_code
     except KeyboardInterrupt:
+        increment_counter(f"commands.{command_name}.interrupted")
         raise
     except Exception as error:
         command = " ".join(argv or sys.argv[1:]) or "<interactive>"
+        increment_counter(f"commands.{command_name}.failed")
         crash_path = write_crash_log(error, context=f"Unhandled exception while running: {command}")
         sys.stderr.write(f"unhandled exception; crash log written to {crash_path}\n")
         return 1
+    finally:
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        record_histogram(f"commands.{command_name}.latency_ms", elapsed_ms)
 
 
 if __name__ == "__main__":

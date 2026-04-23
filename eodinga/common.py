@@ -100,9 +100,13 @@ class StatsSnapshot(BaseModel):
     queries_served: int = 0
     parser_errors: int = 0
     watcher_events: int = 0
+    crashes_written: int = 0
     query_latency_histogram: dict[str, object] = Field(default_factory=dict)
+    metrics: dict[str, object] = Field(default_factory=dict)
     roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None
+    log_path: Path | None = None
+    crash_dir: Path | None = None
 
 
 __all__ = [
