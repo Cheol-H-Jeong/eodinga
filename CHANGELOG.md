@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.959 - 2026-04-24
+
+- Let launcher typing and backspace fall through from the results list back into the search box, so keyboard users can refine a query without manually escaping focus first.
+- Added keyboard access for pinned and recent query chips, including `Tab`/`Shift+Tab` entry from the search field and left/right movement within each chip row.
+- Surfaced launcher guidance directly on the search field via accessibility text and tooltip updates, including available query chips and active filter summaries.
+
 ## 0.1.953 - 2026-04-24
 
 - Fixed open-ended relative date filters so queries like `date:today..` and `date:..yesterday` work the same way as closed relative ranges instead of falling through the ISO-only parser.
