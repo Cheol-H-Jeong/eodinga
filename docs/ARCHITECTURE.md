@@ -327,6 +327,15 @@ startup
 3. Compare the staged docs payload with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 4. Cut the local tag only after the dry-run output and shipped docs agree.
 
+## Release Review Sequence
+
+Use this order when auditing a release-bound change set so architecture drift shows up before the metadata cut hides it:
+
+1. Confirm the runtime path changed where you expect: walker/watcher, writer/storage, query, or GUI/launcher.
+2. Confirm the matching operator docs changed with it: `README.md`, the relevant guide under `docs/`, and generated assets if the CLI or UI surface moved.
+3. Confirm the packaging dry-run or GUI smoke path still proves the surface you documented.
+4. Cut the metadata commit only after those runtime and docs surfaces agree.
+
 ## Platform Surface Summary
 
 | Surface | Entry point | Purpose |
@@ -359,3 +368,13 @@ When an operator reports stale or surprising results, the shortest architecture-
 3. `eodinga watch` or `eodinga index --rebuild` depending on whether the issue is live-update lag or a one-shot recovery need.
 
 That sequence mirrors the architecture itself: active DB selection, environment validation, then either watcher-driven incremental repair or staged rebuild.
+
+## Docs-To-Runtime Map
+
+| Runtime area | Primary release docs to update | Why |
+| --- | --- | --- |
+| CLI parser or subcommands | `README.md`, `docs/ACCEPTANCE.md`, `docs/man/eodinga.1` | command help is part of the shipped operator surface |
+| Query language behavior | `README.md`, `docs/DSL.md` | operators need examples and exact syntax in one place |
+| Watcher, rebuild, or recovery flow | `README.md`, `docs/ARCHITECTURE.md`, `docs/ACCEPTANCE.md` | these behaviors affect both troubleshooting and release validation |
+| GUI or launcher behavior | `README.md`, screenshots under `docs/screenshots/`, `docs/ARCHITECTURE.md` | the visual surface is part of the checked-in release evidence |
+| Packaging behavior | `README.md`, `docs/RELEASE.md`, `docs/ACCEPTANCE.md` | dry-run artifacts and release instructions must agree |

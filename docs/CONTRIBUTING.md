@@ -104,6 +104,16 @@ pytest -q tests/unit
 - Keep `CHANGELOG.md` aligned with landed behavior only; avoid speculative release notes.
 - Prefer documenting one-command validation paths when they exist; release and acceptance docs should not require readers to reverse-engineer command order.
 
+## Docs Routing Matrix
+
+| If your change touches... | Update first | Then check |
+| --- | --- | --- |
+| install, packaging, or release operator flow | `README.md` | `docs/ACCEPTANCE.md` and `docs/RELEASE.md` |
+| query syntax or examples | `README.md` | `docs/DSL.md` and the generated man page if CLI help changed |
+| watcher, rebuild, recovery, or storage behavior | `README.md` | `docs/ARCHITECTURE.md` and `docs/ACCEPTANCE.md` |
+| contributor or worker workflow | `docs/CONTRIBUTING.md` | `docs/RELEASE.md` if the metadata or handoff flow changed too |
+| benchmark or perf claims | `docs/PERFORMANCE.md` | the exact perf command output captured in the same round |
+
 ## Derived Asset Matrix
 
 | If you changed... | Refresh or rerun... |
@@ -145,6 +155,8 @@ Use this when the round is docs-only but still release-bearing:
 4. Re-run `pytest -q tests/unit/test_docs_assets.py`.
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
+
+If the round is docs-only because code landed earlier on `main`, prefer clarifying the shipped contract over duplicating changelog prose that already exists elsewhere.
 
 ## Metadata Commit Discipline
 

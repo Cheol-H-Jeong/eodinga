@@ -104,6 +104,15 @@ When you refresh this table, record:
 - Keep the default release gate and the opt-in perf run separate in status reports; `pytest -q tests` staying green does not mean the perf suite was exercised.
 - If debug logging pollutes stdout, keep the raw log and extract only the benchmark summary prefixes before updating any documentation.
 
+## Baseline Update Decision Guide
+
+| Situation | Update the numeric table? | What to record instead |
+| --- | --- | --- |
+| docs-only round with no perf rerun | no | keep the prior table and describe the docs change in changelog or review notes |
+| code round with a clean same-commit perf rerun | yes | command, summary line, date, and any `EODINGA_PERF_*` overrides |
+| perf rerun failed | no | failing threshold and captured summary lines |
+| perf rerun used non-default dataset sizes | yes, but call out the overrides clearly | the exact env vars and why they changed |
+
 One-command capture example:
 
 ```bash
