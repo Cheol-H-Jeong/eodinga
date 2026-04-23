@@ -156,11 +156,14 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Docs Refresh Order" in contributing
     assert "## Docs Round Checklist" in contributing
     assert "## Metadata Commit Discipline" in contributing
+    assert "## Release Retarget Playbook" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
     assert "## Review Checklist" in contributing
+    assert "## Packaging Review Checklist" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
     assert "The final release commit for a round should carry the version bump" in contributing
+    assert "Do not rewrite earlier docs or feature commits" in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl
@@ -204,11 +207,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Run The Gate" in release
     assert "## Artifact Inventory" in release
     assert "## Verify Shipped Docs" in release
+    assert "## Packaging Audit Checklist" in release
     assert "## Tag Decision Path" in release
     assert "## Worker Handoff Rules" in release
     assert "## Docs-Only Rounds" in release
     assert "## Cut The Local Release" in release
     assert "## Collision And Retag Rules" in release
+    assert "## Retargeting Metadata After A Collision" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release
     assert "python scripts/generate_manpage.py" in release
@@ -218,6 +223,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "packaging/dist/" in release
     assert "Single-shot metadata cut" in release
     assert "git fetch origin main --tags" in release
+    assert "A green dry run without a reviewed manifest is not a completed release check." in release
 
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage

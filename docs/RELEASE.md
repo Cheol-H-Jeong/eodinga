@@ -95,6 +95,18 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Packaging Audit Checklist
+
+Use this review table after each matching dry run:
+
+| Surface | Command | What to confirm before tagging |
+| --- | --- | --- |
+| Windows installer | `python packaging/build.py --target windows-dry-run` | PyInstaller bundle metadata, Inno Setup rendering, shipped docs payload |
+| Linux AppImage | `python packaging/build.py --target linux-appimage-dry-run` | rendered recipe version, artifact naming, bundled docs list |
+| Linux `.deb` | `python packaging/build.py --target linux-deb-dry-run` | staged desktop entry, icon, compressed changelog, docs payload |
+
+Treat `packaging/dist/` as the review surface. A green dry run without a reviewed manifest is not a completed release check.
+
 ## Tag Decision Path
 
 ```text
@@ -166,6 +178,18 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - Never move or delete an existing local release tag just to reuse the version number.
 - If another worker landed the same candidate version first, fetch tags again, pick the next unused patch number, and update the release metadata commit instead of force-retagging.
 - If the final gate fails after the metadata commit, fix the issue in a new commit and recreate the local tag on the new tip only after the gate is green again.
+
+## Retargeting Metadata After A Collision
+
+When a parallel worker lands your planned patch number first:
+
+1. `git fetch origin main --tags`
+2. choose the next unused `0.1.N`
+3. update only the metadata files: `pyproject.toml`, `eodinga/__init__.py`, and the top `CHANGELOG.md` entry
+4. rerun `pytest -q tests/unit`
+5. recreate the local `v0.1.N` tag on the new metadata commit
+
+Keep the earlier docs or feature commits unchanged so the round stays reviewable and easy to rebase.
 
 ## Handoff Checklist
 

@@ -152,6 +152,18 @@ Use this when the round is docs-only but still release-bearing:
 - If the patch number changes because another worker landed first, retarget just that final metadata commit instead of rewriting earlier docs or feature commits.
 - Re-run `pytest -q tests/unit` after retargeting the metadata commit so the branch tip stays demonstrably green.
 
+## Release Retarget Playbook
+
+Use this when another worker lands the same `0.1.N` before your local tag:
+
+1. `git fetch origin main --tags`
+2. pick the next unused patch number from `git tag -l | sort -V | tail -5`
+3. update only `pyproject.toml`, `eodinga/__init__.py`, and the top `CHANGELOG.md` entry
+4. rerun `pytest -q tests/unit`
+5. recreate the local tag on the new metadata commit only after the branch tip is green
+
+Do not rewrite earlier docs or feature commits just to retarget the patch number.
+
 ## Test Selection Guide
 
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`
@@ -176,3 +188,10 @@ Use this when the round is docs-only but still release-bearing:
 - README examples use the current query surface and current operator names.
 - Derived docs assets are regenerated from code, not edited by hand.
 - The final release metadata commit contains only the version/changelog/tag cut unless a same-round asset refresh is required.
+
+## Packaging Review Checklist
+
+- Run only the dry-run targets that match the packaging surface you changed.
+- Inspect `packaging/dist/` instead of trusting command exit status alone.
+- Confirm the staged docs payload still matches `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
+- If the docs describe a packaged artifact, rerun the corresponding dry run before handoff.
