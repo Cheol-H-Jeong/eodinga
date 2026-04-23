@@ -40,6 +40,7 @@ class _ContentPresenceCache(NamedTuple):
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
 _WINDOWS_DRIVE_ROOT_RE = re.compile(r"^(\\\\\?\\)?([A-Za-z]):")
+_WINDOWS_UNC_ROOT_RE = re.compile(r"^(\\\\\?\\UNC\\|\\\\)([^\\/]+)(.*)$")
 
 
 @lru_cache(maxsize=256)
@@ -273,13 +274,15 @@ def _fetch_record_batch(
 def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
-    variants = _root_scope_variants(str(root))
+    root_text = str(root)
+    variants = _root_scope_variants(root_text)
+    comparator = " COLLATE NOCASE" if _is_windows_style_root(root_text) else ""
     exact_params = variants
     like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
         f"{variant}\\%" for variant in variants
     )
-    exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
-    like_clause = " OR ".join("files.path LIKE ?" for _ in like_params)
+    exact_clause = " OR ".join(f"files.path = ?{comparator}" for _ in exact_params)
+    like_clause = " OR ".join(f"files.path LIKE ?{comparator}" for _ in like_params)
     return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
 
 
@@ -304,22 +307,38 @@ def _root_scope_variants(root_text: str) -> tuple[str, ...]:
                 queue.append(slash_variant)
 
         match = _WINDOWS_DRIVE_ROOT_RE.match(candidate)
-        if match is None:
-            continue
+        if match is not None:
+            prefix, drive = match.groups()
+            suffix = candidate[match.end() :]
+            for drive_variant in (drive.upper(), drive.lower()):
+                unprefixed = f"{drive_variant}:{suffix}"
+                prefixed = f"\\\\?\\{drive_variant}:{suffix}"
+                if prefix:
+                    queue.append(prefixed)
+                    queue.append(unprefixed)
+                else:
+                    queue.append(unprefixed)
+                    queue.append(prefixed)
 
-        prefix, drive = match.groups()
-        suffix = candidate[match.end() :]
-        for drive_variant in (drive.upper(), drive.lower()):
-            unprefixed = f"{drive_variant}:{suffix}"
-            prefixed = f"\\\\?\\{drive_variant}:{suffix}"
-            if prefix:
-                queue.append(prefixed)
-                queue.append(unprefixed)
-            else:
-                queue.append(unprefixed)
-                queue.append(prefixed)
+        unc_match = _WINDOWS_UNC_ROOT_RE.match(candidate)
+        if unc_match is not None:
+            prefix, server, suffix = unc_match.groups()
+            normalized_suffix = suffix.replace("/", "\\")
+            for server_variant in (server.upper(), server.lower()):
+                unprefixed = f"\\\\{server_variant}{normalized_suffix}"
+                prefixed = f"\\\\?\\UNC\\{server_variant}{normalized_suffix}"
+                if prefix.lower().startswith("\\\\?\\unc\\"):
+                    queue.append(prefixed)
+                    queue.append(unprefixed)
+                else:
+                    queue.append(unprefixed)
+                    queue.append(prefixed)
 
     return tuple(variants)
+
+
+def _is_windows_style_root(root_text: str) -> bool:
+    return bool(_WINDOWS_DRIVE_ROOT_RE.match(root_text) or _WINDOWS_UNC_ROOT_RE.match(root_text))
 
 
 def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:

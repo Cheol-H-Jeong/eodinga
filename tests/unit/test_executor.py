@@ -947,6 +947,45 @@ def test_search_root_scope_matches_windows_long_path_prefix_variants(
     }
 
 
+def test_search_root_scope_matches_unc_root_directory_case_insensitively(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, r"\\server\share\Reports", 0, now, "", is_dir=1)
+    tmp_db.commit()
+
+    hits = [hit.file.path for hit in search(tmp_db, "is:dir", limit=10, root=Path(r"\\SERVER\share\reports")).hits]
+
+    assert hits == [Path(r"\\server\share\Reports")]
+
+
+def test_search_root_scope_matches_unc_long_path_prefix_variants(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, r"\\?\UNC\server\share\reports", 0, now, "", is_dir=1)
+    _insert_file(
+        tmp_db,
+        2,
+        r"\\?\UNC\server\share\reports\alpha.txt",
+        1024,
+        now - 60,
+        "txt",
+        body_text="alpha",
+    )
+    tmp_db.commit()
+
+    hits = [
+        hit.file.path
+        for hit in search(tmp_db, "alpha | is:dir", limit=10, root=Path(r"\\server\share\reports")).hits
+    ]
+
+    assert set(hits) == {
+        Path(r"\\?\UNC\server\share\reports"),
+        Path(r"\\?\UNC\server\share\reports\alpha.txt"),
+    }
+
+
 def test_plain_query_can_fall_back_to_content_matches(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/projects/alpha.txt", 1024, now, "txt", body_text="launch checklist")
