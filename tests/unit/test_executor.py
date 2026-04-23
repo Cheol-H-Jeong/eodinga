@@ -632,6 +632,42 @@ def test_execute_reuses_cached_sql_shapes_for_content_queries(
     assert executor_module._content_candidates_sql.cache_info().hits >= 1
 
 
+def test_execute_path_filters_skip_content_text_fetch(
+    populated_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = 0
+
+    def fail_fetch_content_texts(_conn, _ids):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        pytest.fail("path-only filters should not fetch content texts")
+
+    monkeypatch.setattr(executor_module, "_fetch_content_texts", fail_fetch_content_texts)
+
+    hits = search(populated_db, "path:projects ext:pdf", limit=10).hits
+
+    assert hits
+    assert calls == 0
+
+
+def test_execute_path_regex_filters_skip_content_text_fetch(
+    populated_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = 0
+
+    def fail_fetch_content_texts(_conn, _ids):  # type: ignore[no-untyped-def]
+        nonlocal calls
+        calls += 1
+        pytest.fail("path regex filters should not fetch content texts")
+
+    monkeypatch.setattr(executor_module, "_fetch_content_texts", fail_fetch_content_texts)
+
+    hits = search(populated_db, r"path:/workspace\/projects/i ext:pdf", limit=10).hits
+
+    assert hits
+    assert calls == 0
+
+
 def test_execute_path_filter_with_short_unix_basename_literal(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/tmp/log", 512, now, "", body_text="system log")
