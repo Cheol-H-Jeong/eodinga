@@ -67,6 +67,16 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 - `docs/man/eodinga.1` is generated from `eodinga.__main__._build_parser()` so packaged CLI help can be audited against the real argparse surface.
 - `docs/screenshots/*.png` are rendered from real Qt widgets via `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
 
+The documentation set is intentionally layered:
+
+| Layer | File | Primary reader |
+| --- | --- | --- |
+| shipped contract | `README.md` | operator or evaluator checking what v0.1 includes |
+| task-specific references | `docs/DSL.md`, `docs/PERFORMANCE.md` | operator debugging a search or benchmark question |
+| contributor workflow | `docs/CONTRIBUTING.md` | worker making a small scoped change |
+| release handoff | `docs/ACCEPTANCE.md`, `docs/RELEASE.md` | person cutting or reviewing a release candidate |
+| generated reference | `docs/man/eodinga.1`, `docs/screenshots/*.png` | package audit and UI/CLI drift detection |
+
 ## Index Storage
 
 - `files` is the source-of-truth table for root membership, timestamps, size, extension, and duplicate detection via `content_hash`.
@@ -129,6 +139,8 @@ eodinga index --rebuild
 - Structured operators such as `ext:`, `path:`, `content:`, `size:`, `date:`, `modified:`, `created:`, and `is:` compile into SQLite predicates where possible.
 - Regex and mixed path/content terms are finalized in Python against the candidate set so the CLI and GUI share identical behavior.
 - `eodinga.query.ranker` applies reciprocal rank fusion, filename prefix boosts, and path deboosting for noisy trees such as `node_modules`.
+
+The split is deliberate: SQLite handles the cheap narrowing work first, while Python fallback only pays for the smaller candidate set where exact regex or mixed-field semantics matter.
 
 ## Query Sequence
 
@@ -200,6 +212,8 @@ runtime surface changes
 - `scripts/render_docs_screenshots.py` renders offscreen Qt widgets through `eodinga.gui.docs`, keeping screenshots tied to real UI state instead of mock assets.
 - `tests/unit/test_docs_assets.py` pins the presence of the shipped sections and checks that the derived man page still matches the checked-in artifact.
 
+That test gives docs the same kind of regression boundary code already has: release-facing sections and generated assets are expected to drift only through intentional, reviewed updates.
+
 ## State Ownership
 
 | State | Owner | Why it lives there |
@@ -223,6 +237,16 @@ runtime surface changes
 - Writer and storage failures are handled at the database boundary so startup recovery can reason about `.next`, `.recover`, and stale WAL artifacts explicitly.
 - Query fallback failures must not mutate state; they only affect one search invocation and are observable through `eodinga stats --json` and runtime logs.
 - Docs or packaging drift is treated as a release-input failure, caught by `tests/unit/test_docs_assets.py` and the packaging dry-run audits before a tag is cut.
+
+## Release Input Boundaries
+
+| Input | Drift detector | Why it matters |
+| --- | --- | --- |
+| `README.md` and `docs/*.md` | `tests/unit/test_docs_assets.py` | keeps the shipped operator contract reviewable and versioned |
+| `docs/man/eodinga.1` | `render_manpage()` equality test | proves the checked-in CLI reference still matches argparse |
+| `docs/screenshots/*.png` | screenshot render test + manual review | catches stale UI docs after visible launcher or app changes |
+| packaging manifests under `packaging/` | dry-run build audits | prevents docs and package metadata from diverging |
+| `CHANGELOG.md` compressed changelog entry | release review + tag discipline | ensures the release summary matches what actually landed |
 
 ## Live Update Sequence
 

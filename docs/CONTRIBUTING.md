@@ -96,6 +96,13 @@ pytest -q tests/unit
 - Keep `CHANGELOG.md` aligned with landed behavior only; avoid speculative release notes.
 - Prefer documenting one-command validation paths when they exist; release and acceptance docs should not require readers to reverse-engineer command order.
 
+When you improve docs without touching runtime code, keep the same engineering standard:
+
+1. Make the top-level contract clearer.
+2. Update the deeper guide that explains the same surface.
+3. Re-run the smallest doc-specific regression first.
+4. Leave versioning and tagging to the final release metadata commit.
+
 ## Derived Asset Matrix
 
 | If you changed... | Refresh or rerun... |
@@ -126,6 +133,8 @@ When a change affects the shipped contract, refresh docs in this order:
 3. Regenerate derived assets such as screenshots or `docs/man/eodinga.1`.
 4. Re-run `pytest -q tests/unit/test_docs_assets.py` before the broader gate.
 5. Re-run any matching packaging dry run if the docs now describe packaging behavior or artifacts differently.
+
+This ordering matters because the docs asset test acts like a schema check for release-facing documentation: it should fail while the contract is half-updated, not after the release tag exists.
 
 ## Docs Round Checklist
 
@@ -162,3 +171,4 @@ Use this when the round is docs-only but still release-bearing:
 - README examples use the current query surface and current operator names.
 - Derived docs assets are regenerated from code, not edited by hand.
 - The final release metadata commit contains only the version/changelog/tag cut unless a same-round asset refresh is required.
+- Docs rounds stay inside the documented theme and do not quietly bundle unrelated runtime cleanup.

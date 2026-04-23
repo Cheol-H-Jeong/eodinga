@@ -49,6 +49,12 @@ Recommended order:
 2. `pytest -q tests` once the candidate release branch is assembled.
 3. `ruff`, `pyright`, GUI smoke, packaging dry-runs, and workflow lint after the full test pass.
 
+For docs-heavy rounds, insert this targeted check before the full suite so you catch contract drift early:
+
+```bash
+pytest -q tests/unit/test_docs_assets.py
+```
+
 ## Artifact Inventory
 
 Before tagging, know which release inputs this repository expects to exist:
@@ -68,6 +74,8 @@ Before tagging, confirm:
 - `docs/PERFORMANCE.md` numbers come from a rerun at the documented HEAD.
 - `docs/man/eodinga.1` has been regenerated if `eodinga.__main__` changed.
 - Screenshot assets under `docs/screenshots/` still match the current UI, or have been refreshed with `python scripts/render_docs_screenshots.py`.
+
+Treat README changes the same way you would treat installer metadata changes: if the shipped contract moved, verify the deeper guide and any generated asset that proves it.
 
 Documentation refresh commands:
 
@@ -95,6 +103,8 @@ Use the same release discipline for docs-only changes when the shipped operator 
 2. Regenerate any derived docs assets touched by the round.
 3. Re-run `pytest -q tests/unit/test_docs_assets.py` plus the matching packaging dry-run or GUI smoke command.
 4. Add a changelog entry that names the docs surface changed and why it matters.
+
+Good docs-only rounds should still be auditable from the changelog alone. If the release note cannot tell a reviewer what operator-facing behavior or workflow became clearer, the round is probably too diffuse.
 
 ## Cut The Local Release
 
@@ -132,3 +142,5 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py` all agree on `0.1.N`.
 - The local tag points at the final commit for the round, not an earlier docs or feature commit.
 - The final release commit remains reviewable on its own and does not hide unrelated feature edits.
+
+If any packaged or generated doc artifact changed during the round, include it in the same review context as the guide that required it so the release reviewer can judge the contract end to end.
