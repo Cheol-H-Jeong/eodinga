@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.840 - 2026-04-23
+## 0.1.843 - 2026-04-23
 
 - Fixed `size:` parsing so whitespace-separated units and bounds like `size:> 10 M`, `size:100 K .. 500 M`, and open-ended forms now normalize to the same query semantics as the compact literals.
 - Added executor-level boolean equivalence coverage for grouped negation across `content:`, `path:`, and extension filters, locking in the De Morgan behavior beyond compiler-only tests.
