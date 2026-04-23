@@ -12,6 +12,12 @@ from eodinga.index.schema import PRAGMAS, current_schema_version
 from eodinga.observability import get_logger
 
 SQLITE_CACHED_STATEMENTS = 128
+_SYNCHRONOUS_PRAGMA_VALUES = {
+    "off": "0",
+    "normal": "1",
+    "full": "2",
+    "extra": "3",
+}
 
 
 def _read_pragma(conn: sqlite3.Connection, name: str) -> str:
@@ -19,6 +25,13 @@ def _read_pragma(conn: sqlite3.Connection, name: str) -> str:
     if row is None:
         raise sqlite3.OperationalError(f"PRAGMA {name} did not return a value")
     return str(row[0])
+
+
+def _normalize_pragma_value(name: str, value: str | int) -> str:
+    normalized = str(value).strip().lower()
+    if name == "synchronous":
+        return _SYNCHRONOUS_PRAGMA_VALUES.get(normalized, normalized)
+    return normalized
 
 
 def _sidecar(path: Path, suffix: str) -> Path:
@@ -54,7 +67,10 @@ def temporary_pragmas(
         return
     previous: dict[str, str] = {}
     for name, value in overrides.items():
-        previous[name] = _read_pragma(conn, name)
+        current = _read_pragma(conn, name)
+        if _normalize_pragma_value(name, current) == _normalize_pragma_value(name, value):
+            continue
+        previous[name] = current
         conn.execute(f"PRAGMA {name}={value};")
     try:
         yield
