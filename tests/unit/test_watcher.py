@@ -650,6 +650,55 @@ def test_watcher_start_ignores_duplicate_root_registration(
     assert stopped == [tmp_path]
 
 
+def test_watcher_start_rolls_back_flush_thread_when_observer_start_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import eodinga.core.watcher as watcher_module
+
+    joined: list[float | None] = []
+
+    class FakeThread:
+        def __init__(self) -> None:
+            self.started = False
+            self.alive = False
+
+        def start(self) -> None:
+            self.started = True
+            self.alive = True
+
+        def is_alive(self) -> bool:
+            return self.alive
+
+        def join(self, timeout: float | None = None) -> None:
+            joined.append(timeout)
+            self.alive = False
+
+    class FailingObserver:
+        def schedule(self, _handler: object, _root_text: str, recursive: bool = True) -> None:
+            assert recursive is True
+
+        def start(self) -> None:
+            raise RuntimeError("simulated observer start failure")
+
+        def stop(self) -> None:
+            raise AssertionError("observer.stop should not run for a failed start")
+
+        def join(self, timeout: float | None = None) -> None:
+            raise AssertionError("observer.join should not run for a failed start")
+
+    monkeypatch.setattr(watcher_module, "_spawn_thread", lambda _target: FakeThread())
+    monkeypatch.setattr(watcher_module, "Observer", FailingObserver)
+
+    service = WatchService()
+
+    with pytest.raises(RuntimeError, match="simulated observer start failure"):
+        service.start(tmp_path)
+
+    assert service._observers == {}
+    assert service._flush_thread is None
+    assert joined == [1]
+
+
 def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path) -> None:
     service = WatchService(queue_maxsize=1)
     first = tmp_path / "first.txt"

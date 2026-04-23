@@ -123,8 +123,12 @@ class WatchService:
             self._flush_thread = _spawn_thread(self._flush_loop)
             self._flush_thread.start()
         observer = Observer()
-        observer.schedule(_Handler(self, root), str(root), recursive=True)
-        observer.start()
+        try:
+            observer.schedule(_Handler(self, root), str(root), recursive=True)
+            observer.start()
+        except Exception:
+            self._stop_flush_thread_if_idle()
+            raise
         self._observers[root] = observer
 
     def stop(self) -> None:
@@ -310,6 +314,17 @@ class WatchService:
                 self.queue.get_nowait()
             except Empty:
                 break
+
+    def _stop_flush_thread_if_idle(self) -> None:
+        if self._observers:
+            return
+        if self._flush_thread is None or not self._flush_thread.is_alive():
+            self._flush_thread = None
+            return
+        self._stop.set()
+        self._flush_thread.join(timeout=1)
+        self._flush_thread = None
+        self._stop = Event()
 
     def _enqueue_event(self, event: WatchEvent) -> bool:
         blocked_at: float | None = None
