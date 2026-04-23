@@ -133,6 +133,17 @@ def test_content_snippet_is_present(populated_db: sqlite3.Connection) -> None:
     assert "launch" in result.hits[0].snippet.lower()
 
 
+def test_fetch_content_texts_caches_chunk_sized_sql(populated_db: sqlite3.Connection) -> None:
+    executor_module._content_texts_sql.cache_clear()
+
+    first = executor_module._fetch_content_texts(populated_db, [1, 2, 3])
+    second = executor_module._fetch_content_texts(populated_db, [4, 5, 6])
+
+    assert len(first) == 3
+    assert len(second) == 3
+    assert executor_module._content_texts_sql.cache_info().hits >= 1
+
+
 def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     local_now = datetime.now().astimezone()
     today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
