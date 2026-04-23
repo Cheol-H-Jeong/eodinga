@@ -3,13 +3,15 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import cast
 
-from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
+from PySide6.QtCore import QEvent, QModelIndex, QObject, QPoint, QTimer, Qt, Signal
 from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
-from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
+from eodinga.gui.launcher_result_menu import build_launcher_result_menu_for_target
+from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer
+from eodinga.gui.launcher_text import launcher_empty_state_content, launcher_shortcut_hint
 from eodinga.gui.widgets import (
     ActiveFilterRow,
     EmptyState,
@@ -21,9 +23,7 @@ from eodinga.gui.widgets import (
     StatusChip,
 )
 from eodinga.observability import get_logger
-
 SearchFn = Callable[[str, int], QueryResult]
-
 
 class LauncherPanel(QWidget):
     results_updated = Signal(object)
@@ -75,6 +75,7 @@ class LauncherPanel(QWidget):
         self.result_list.setUniformItemSizes(False)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
         self.result_list.setMouseTracking(True)
+        self.result_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.status_chip = StatusChip("Idle", self)
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
@@ -91,6 +92,7 @@ class LauncherPanel(QWidget):
         self.result_list.setModel(self.model)
         self.result_list.selectionModel().currentChanged.connect(self._sync_preview_to_current_index)
         self.result_list.entered.connect(self._handle_hovered_index)
+        self.result_list.customContextMenuRequested.connect(self._show_result_context_menu)
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -180,8 +182,7 @@ class LauncherPanel(QWidget):
         self._refresh_preview()
         self._refresh_result_list_accessibility()
 
-    def set_search_fn(self, search_fn: SearchFn) -> None:
-        self._search_fn = search_fn
+    def set_search_fn(self, search_fn: SearchFn) -> None: self._search_fn = search_fn
 
     def set_recent_queries(self, queries: list[str]) -> None:
         self._recent_queries = queries
@@ -199,10 +200,7 @@ class LauncherPanel(QWidget):
         self._refresh_empty_state()
 
     def activate_current_result(self) -> None:
-        self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.result_activated.emit(hit)
+        self._emit_result_signal(self.result_activated)
 
     def activate_result_at(self, row: int) -> None:
         self._flush_pending_query()
@@ -216,38 +214,23 @@ class LauncherPanel(QWidget):
         self.query_field.setFocus()
         self.query_field.selectAll()
 
-    def select_query_text(self) -> None:
-        self.focus_query_field()
+    def select_query_text(self) -> None: self.focus_query_field()
 
     def emit_open_containing_folder(self) -> None:
-        self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.open_containing_folder.emit(hit)
+        self._emit_result_signal(self.open_containing_folder)
 
     def emit_show_properties(self) -> None:
-        self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.show_properties.emit(hit)
+        self._emit_result_signal(self.show_properties)
 
     def emit_copy_path(self) -> None:
-        self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.copy_path_requested.emit(hit)
+        self._emit_result_signal(self.copy_path_requested)
 
     def emit_copy_name(self) -> None:
-        self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.copy_name_requested.emit(hit)
+        self._emit_result_signal(self.copy_name_requested)
 
-    def recall_previous_query(self) -> None:
-        self._navigate_recent_queries(-1)
+    def recall_previous_query(self) -> None: self._navigate_recent_queries(-1)
 
-    def recall_next_query(self) -> None:
-        self._navigate_recent_queries(1)
+    def recall_next_query(self) -> None: self._navigate_recent_queries(1)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusIn:
@@ -316,36 +299,24 @@ class LauncherPanel(QWidget):
     def _refresh_empty_state(self) -> None:
         has_results = self.model.rowCount() > 0
         query = self.query_field.text().strip()
-        details = format_indexing_status(self._indexing_status)
-        if not query:
-            recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
-            pinned_queries = f" Pinned: {', '.join(self._pinned_queries[:3])}." if self._pinned_queries else ""
-            self.empty_state.set_content(
-                "Type to search",
-                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up and Alt+Down to browse recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
-                details,
-            )
-        else:
-            self.empty_state.set_content(
-                f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Alt+Up and Alt+Down to revisit recent queries, Tab to jump back to the filter, or Esc to hide the launcher.",
-                details,
-            )
+        title, body, details = launcher_empty_state_content(
+            query=query,
+            recent_queries=self._recent_queries,
+            pinned_queries=self._pinned_queries,
+            indexing_status=self._indexing_status,
+        )
+        self.empty_state.set_content(title, body, details)
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
 
     def _refresh_shortcut_hint(self) -> None:
-        has_results = self.model.rowCount() > 0
-        if not has_results:
-            if self.query_field.text().strip():
-                hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up and Alt+Down browse recent queries."
-            else:
-                hint = "Type a filename, path, or content term. Alt+Up and Alt+Down browse recent queries."
-        elif self.result_list.hasFocus():
-            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
-        else:
-            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up and Alt+Down browse recent queries."
-        self.shortcut_label.setText(hint)
+        self.shortcut_label.setText(
+            launcher_shortcut_hint(
+                has_results=self.model.rowCount() > 0,
+                has_query=bool(self.query_field.text().strip()),
+                results_have_focus=self.result_list.hasFocus(),
+            )
+        )
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()
@@ -456,6 +427,12 @@ class LauncherPanel(QWidget):
             return
         self._set_selection(index.row())
 
+    def _show_result_context_menu(self, position: QPoint) -> None:
+        menu = build_launcher_result_menu_for_target(self, self.result_list.indexAt(position))
+        if menu is None:
+            return
+        menu.popup(self.result_list.viewport().mapToGlobal(position))
+
     def _sync_preview_to_index(self, index: QModelIndex) -> None:
         current_hit = self.model.item_at(index.row()) if index.isValid() else None
         self.preview_pane.set_hit(current_hit)
@@ -515,3 +492,9 @@ class LauncherPanel(QWidget):
         self.query_field.setFocus()
         self._set_query_from_history(query)
         self._flush_pending_query()
+
+    def _emit_result_signal(self, signal) -> None:
+        self._flush_pending_query()
+        hit = self._current_hit()
+        if hit is not None:
+            signal.emit(hit)
