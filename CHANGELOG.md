@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.708 - 2026-04-23
+
+- Preserved directory `created`, `deleted`, and `moved` watch events long enough for incremental indexing to repair entire subtrees instead of leaving renamed or removed folder contents stale in the live index.
+- Taught incremental writes to delete and repopulate whole directory subtrees from the root-specific include/exclude rules already stored in the index, so nested file paths follow live directory moves and removals instead of requiring a full rebuild.
+- Added integration coverage for nested directory rename/delete live updates and for same-root directory moves after reopening an existing index, pinning the restart path to the same subtree-update contract.
+
 ## 0.1.592 - 2026-04-23
 
 - Reduced walker canonicalization overhead by resolving only the root and symlink-backed ancestry, keeping ordinary directory traversals off the `resolve_safe()` hot path while preserving alias-loop protection.
