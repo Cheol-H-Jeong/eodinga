@@ -192,12 +192,12 @@ def _record_order_key(record: FileRecord, *, case_sensitive: bool) -> tuple[str,
 
 def _text_matches(value: str, needle: str, case_sensitive: bool) -> bool:
     haystack = _normalize_search_text(value, case_sensitive=case_sensitive)
-    normalized_needle = _normalize_search_text(needle, case_sensitive=case_sensitive)
+    normalized_needle = _normalize_query_term(needle, case_sensitive=case_sensitive)
     return normalized_needle in haystack
 
 
 def _phrase_matches(value: str, phrase: str, case_sensitive: bool) -> bool:
-    normalized_phrase = _normalize_search_text(phrase, case_sensitive=case_sensitive)
+    normalized_phrase = _normalize_query_term(phrase, case_sensitive=case_sensitive)
     normalized_value = _normalize_search_text(value, case_sensitive=case_sensitive)
     if normalized_phrase in normalized_value:
         return True
@@ -223,6 +223,11 @@ def _term_matches(
 def _normalize_search_text(value: str, case_sensitive: bool) -> str:
     normalized = unicodedata.normalize("NFC", value)
     return normalized if case_sensitive else normalized.casefold()
+
+
+@lru_cache(maxsize=1024)
+def _normalize_query_term(value: str, case_sensitive: bool) -> str:
+    return _normalize_search_text(value, case_sensitive=case_sensitive)
 
 
 def _fts_prefix_literal(value: str) -> str:
@@ -717,14 +722,17 @@ def _scan_auto_content_candidates(
 
 
 def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> list[int]:
-    positives = [term.value for term in branch.path_terms if not term.negated]
+    positives = [
+        _normalize_query_term(term.value, case_sensitive=branch.case_sensitive)
+        for term in branch.path_terms
+        if not term.negated
+    ]
     if not positives:
         return []
     hits: list[int] = []
     for file_id, record in records.items():
         check_name = _normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
-        for term in positives:
-            needle = _normalize_search_text(term, case_sensitive=branch.case_sensitive)
+        for needle in positives:
             if check_name.startswith(needle):
                 hits.append(file_id)
                 break

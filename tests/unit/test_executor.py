@@ -1513,6 +1513,19 @@ def test_executor_caches_content_text_sql_templates_by_chunk_size() -> None:
     assert cache_info.currsize == 2
 
 
+def test_executor_caches_normalized_query_terms() -> None:
+    executor_module._normalize_query_term.cache_clear()
+
+    executor_module._normalize_query_term("Alpha", False)
+    executor_module._normalize_query_term("Alpha", False)
+    executor_module._normalize_query_term("Alpha", True)
+    executor_module._normalize_query_term("Alpha", True)
+
+    cache_info = executor_module._normalize_query_term.cache_info()
+    assert cache_info.hits >= 2
+    assert cache_info.currsize == 2
+
+
 def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/alpha.txt", 1024, now, "txt", body_text="alpha")
