@@ -397,6 +397,7 @@ def test_watcher_flush_metrics_increment(tmp_path: Path) -> None:
     histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
     assert counters["watcher_flushes"] == 1
     assert counters["watcher_events_flushed"] == 1
+    assert histograms["watch_flush_latency_ms"]["count"] == 1
     assert histograms["watch_flush_batch_size"]["count"] == 1
     assert histograms["watch_event_lag_ms"]["count"] == 1
 

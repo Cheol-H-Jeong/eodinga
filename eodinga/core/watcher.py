@@ -267,6 +267,7 @@ class WatchService:
         self._flush_ready(force=True)
 
     def _flush_ready(self, force: bool) -> None:
+        flush_started = monotonic()
         now = monotonic()
         flushed: list[WatchEvent] = []
         with self._lock:
@@ -299,6 +300,11 @@ class WatchService:
             increment_counter("watcher_flushes")
             increment_counter("watcher_events_flushed", len(delivered))
             record_histogram("watch_flush_batch_size", float(len(delivered)))
+            record_histogram(
+                "watch_flush_latency_ms",
+                (monotonic() - flush_started) * 1000,
+                delivered=len(delivered),
+            )
             for event in delivered:
                 lag_ms = max((now - event.happened_at) * 1000, 0.0)
                 record_histogram("watch_event_lag_ms", lag_ms, event_type=event.event_type)

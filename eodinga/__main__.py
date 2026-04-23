@@ -251,6 +251,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
         query_result_count_histogram=histogram_snapshot("query_result_count"),
         command_latency_histogram=histogram_snapshot("command_latency_ms"),
+        watch_flush_latency_histogram=histogram_snapshot("watch_flush_latency_ms"),
         watch_flush_batch_histogram=histogram_snapshot("watch_flush_batch_size"),
         watch_event_lag_histogram=histogram_snapshot("watch_event_lag_ms"),
         watcher_queue_backpressure_histogram=histogram_snapshot("watcher_queue_backpressure_ms"),
