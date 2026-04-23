@@ -223,6 +223,10 @@ eodinga stats --json
 eodinga index --rebuild
 ```
 
+`stats --json` includes flat counters plus structured observability blocks for `log_sinks`,
+`snapshot_activity`, recent command snapshots, and latency histograms, so operators can inspect
+sink failures or bounded snapshot drops without decoding raw metric keys.
+
 ## Task Recipes
 
 | Task | Command |
