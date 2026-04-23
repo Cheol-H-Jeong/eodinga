@@ -142,6 +142,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "discovered_source_hiddenimports": spec_namespace.get("DISCOVERED_SOURCE_HIDDEN_IMPORTS", []),
             "hiddenimports": spec_namespace.get("HIDDEN_IMPORTS", []),
             "datas": spec_namespace.get("DATAS", []),
+            "release_artifacts_attested": False,
         },
         "inno_setup": {
             "path": str(INNO_SCRIPT),
@@ -229,6 +230,8 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     if payload.get("target") == "windows":
         dist_exists = spec_payload.get("dist_exists", {})
         exe_exists = spec_payload.get("exe_exists", {})
+        if not spec_payload.get("release_artifacts_attested"):
+            errors.append("Windows build artifacts were not produced by the audited release build")
         if not dist_exists.get("gui"):
             errors.append("Windows build is missing the staged GUI dist directory")
         if not dist_exists.get("cli"):
