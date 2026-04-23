@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.217 - 2026-04-23
+## 0.1.223 - 2026-04-23
 
 - Restored standard text-editing behavior in the launcher query field so `Home` and `End` move the caret inside the search box instead of stealing focus into the result list, while `PgUp` and `PgDn` still jump through results quickly.
 - Expanded launcher accessibility metadata across the empty state, preview pane, status labels, and search field so assistive technologies can identify the full popup surface instead of only the top-level controls.
