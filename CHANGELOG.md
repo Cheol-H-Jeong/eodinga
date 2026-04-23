@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.241 - 2026-04-23
+## 0.1.244 - 2026-04-23
 
 - Reused `os.scandir()` entry metadata inside the walker so directory traversal no longer pays an extra `lstat()` for every discovered child before indexing.
 - Bounded executor SQL-shape caching at 128 entries and added reuse for dynamic content-text fetch statements, reducing repeated SQL string construction on content-filtered scans.
