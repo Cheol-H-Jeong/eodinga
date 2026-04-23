@@ -53,6 +53,15 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 3. Keep content indexing enabled if you want document-text matches.
 4. Wait for the initial cold start to finish, then use the launcher hotkey.
 
+## Choose A Surface
+
+| If you want to... | Start here | Why |
+| --- | --- | --- |
+| add roots, inspect settings, or validate the environment | `eodinga gui` | exposes the settings, diagnostics, and indexing status surfaces in one place |
+| keep a shell-only workflow fresh after an initial index | `eodinga watch` | applies live filesystem updates without opening the desktop UI |
+| script search or diagnostics in CI-like flows | `eodinga search`, `stats --json`, `doctor` | keeps the same query and index engine available without Qt |
+| jump into files from anywhere with the keyboard | launcher hotkey | opens the popup search surface directly on the shared local index |
+
 ## Quick Start
 
 1. Install with `pip install -e .[all]`.
@@ -209,10 +218,14 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 - `Enter` opens the top result
 - `Ctrl+Enter` opens the containing folder
 - `Shift+Enter` shows file properties
+- `Alt+1` through `Alt+9` open the first nine hits directly
 - `Alt+Up` / `Alt+Down` recalls recent queries
+- `Alt+C` copies the selected path
+- `Alt+N` copies the selected name
 - `Up` / `Down` wraps through the result list once focus is in the list
 - `PgUp` / `PgDn` jumps through longer result sets
-- `Ctrl+L` returns focus to the filter field
+- `Home` / `End` jump to the start or end of the current result list
+- `Ctrl+A` or `Ctrl+L` returns focus to the filter field
 
 ## Common Workflows
 
@@ -328,6 +341,16 @@ Treat these as part of the shipped surface, not incidental repository files:
 - Override either location with `--config` or `--db` when running CLI commands.
 - Runtime writes stay inside those config/database areas; indexed roots are treated as read-only inputs.
 
+Launcher-specific options live under the `launcher` table in `config.toml`. Example:
+
+```toml
+[launcher]
+hotkey = "ctrl+shift+space"
+pinned_queries = ["ext:pdf", "date:this-week", "size:>10M"]
+always_on_top = false
+frameless = true
+```
+
 ## Diagnostics
 
 Run:
@@ -386,6 +409,14 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 ### Which commands are most useful for a quick health check?
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
+
+### When do I need `eodinga watch`?
+
+Use it when you want CLI-driven live updates after the initial index build. `eodinga index` is a one-shot crawl; it does not keep monitoring for later filesystem changes.
+
+### Where do pinned queries come from?
+
+From the `launcher.pinned_queries` list in `config.toml`. The launcher also keeps a short recent-query history in-process so you can recall earlier searches with `Alt+Up` and reuse pinned chips without retyping.
 
 ### Where do I inspect packaging outputs before a release?
 
