@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.711 - 2026-04-23
+
+- Expanded live watcher integration coverage for cross-root renames so path-filter queries and root-scoped searches both follow the moved file within 500ms instead of only checking content visibility.
+- Added multi-root delete-and-recreate integration coverage for both fresh and reopened sessions, pinning that stale query hits disappear and the recreated file becomes visible again without disturbing the sibling root.
+- Extended reopened index integration coverage to assert cross-root rename path filters stay correct after restart boundaries, closing the gap between live and hot-restart move semantics.
+
 ## 0.1.707 - 2026-04-23
 
 - Added explicit `regex:` pattern handling to the query compiler, so `regex:/todo|fixme/i` and `regex:report-\d+` now behave as real path/name regex filters while `regex:true|false` still controls regex mode.
