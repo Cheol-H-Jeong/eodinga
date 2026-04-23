@@ -121,6 +121,32 @@ def test_rebuild_index_calls_bulk_upsert_without_outer_transaction(
     assert transaction_states == [False]
 
 
+def test_rebuild_index_disables_wal_autocheckpoint_on_staged_connection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    statements: list[str] = []
+    original_connect_database = build_module.connect_database
+
+    def tracing_connect_database(path: Path):  # type: ignore[no-untyped-def]
+        conn = original_connect_database(path)
+        conn.set_trace_callback(statements.append)
+        return conn
+
+    monkeypatch.setattr(build_module, "connect_database", tracing_connect_database)
+
+    result = rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    assert result.files_indexed == 2
+    assert any(
+        statement.strip().upper() == "PRAGMA WAL_AUTOCHECKPOINT=0;"
+        for statement in statements
+    )
+
+
 def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

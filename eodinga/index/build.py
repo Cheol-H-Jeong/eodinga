@@ -102,6 +102,10 @@ def _insert_roots(conn, roots: list[RootConfig]) -> None:
         )
 
 
+def _configure_staged_rebuild_connection(conn) -> None:
+    conn.execute("PRAGMA wal_autocheckpoint=0;")
+
+
 def rebuild_index(
     db_path: Path,
     roots: list[RootConfig],
@@ -120,6 +124,7 @@ def rebuild_index(
     _cleanup_index_files(staged_path)
 
     conn = connect_database(staged_path)
+    _configure_staged_rebuild_connection(conn)
     files_indexed = 0
     parser_callback = (
         (lambda path: parse(path, max_body_chars=max_body_chars))
