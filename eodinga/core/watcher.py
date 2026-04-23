@@ -119,12 +119,24 @@ class WatchService:
             return
         if self._stop.is_set():
             self._stop = Event()
+        started_flush_thread = False
         if self._flush_thread is None or not self._flush_thread.is_alive():
             self._flush_thread = _spawn_thread(self._flush_loop)
             self._flush_thread.start()
+            started_flush_thread = True
         observer = Observer()
-        observer.schedule(_Handler(self, root), str(root), recursive=True)
-        observer.start()
+        try:
+            observer.schedule(_Handler(self, root), str(root), recursive=True)
+            observer.start()
+        except Exception:
+            if started_flush_thread and not self._observers:
+                self._stop.set()
+                flush_thread = self._flush_thread
+                if flush_thread is not None and flush_thread.is_alive():
+                    flush_thread.join(timeout=1)
+                self._flush_thread = None
+                self._reset_state()
+            raise
         self._observers[root] = observer
         increment_counter("watcher_observers_started", root=str(root))
 
@@ -335,4 +347,9 @@ class WatchService:
                         "watch queue full; applying backpressure for {}", event.path
                     )
         increment_counter("watcher_enqueue_aborted", event_type=event.event_type)
+        self._logger.warning(
+            "dropping watcher event during shutdown after backpressure: {} {}",
+            event.event_type,
+            event.path,
+        )
         return False
