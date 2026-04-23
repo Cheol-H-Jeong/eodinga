@@ -149,8 +149,14 @@ def render_manpage() -> str:
             r"\fBeodinga index --root ~/projects --root ~/docs\fR",
             _roff("Build or refresh the index for multiple roots."),
             ".TP",
+            r"\fBeodinga watch\fR",
+            _roff("Start the live-update watcher loop against the configured index."),
+            ".TP",
             r"\fBeodinga search 'date:this-week ext:md roadmap' --limit 20\fR",
             _roff("Run a CLI search using the shared query DSL."),
+            ".TP",
+            r"\fBeodinga search 'is:duplicate size:>10M' --json\fR",
+            _roff("Inspect larger duplicate candidates with structured JSON output."),
             ".TP",
             r"\fBQT_QPA_PLATFORM=offscreen eodinga gui --test-mode\fR",
             _roff("Run the packaged GUI smoke path without requiring a visible desktop session."),
@@ -160,6 +166,21 @@ def render_manpage() -> str:
             ".TP",
             r"\fBeodinga doctor\fR",
             _roff("Check dependencies, writable paths, roots, and hotkey support."),
+            ".SH QUERY LANGUAGE",
+            _roff(
+                "The shared DSL supports plain terms, quoted phrases, grouped OR branches, "
+                "negation, slash-delimited regex literals, date macros such as today or "
+                "last-month, size filters, and structural operators including is:file, "
+                "is:dir, is:symlink, is:empty, and is:duplicate."
+            ),
+            _roff(
+                "See docs/DSL.md for the full grammar, operator notes, and edge-case examples."
+            ),
+            ".SH OUTPUT",
+            _roff(
+                "index, watch, stats --json, and doctor emit JSON-shaped payloads suitable for "
+                "scripts. search emits plain text by default and structured JSON with --json."
+            ),
             ".SH ENVIRONMENT",
             _roff("QT_QPA_PLATFORM=offscreen: force the Qt GUI smoke path for headless checks."),
             _roff("EODINGA_LOG_PATH: override the rotating file-log destination."),
