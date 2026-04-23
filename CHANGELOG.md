@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.195 - 2026-04-23
+
+- Added a live launcher preview pane that follows both keyboard selection and hover, so the popup and embedded search surface now expose the selected path and indexed snippet without opening the file first.
+- Added result-list context menus for the existing launcher actions, making open, reveal, copy-path, copy-name, and properties available directly from the list surface instead of only through keyboard shortcuts.
+- Exposed the launcher always-on-top toggle in Settings and applied changes immediately, so the popup can be pinned or unpinned without restarting the app.
+
 ## 0.1.190 - 2026-04-23
 
 - Expanded multi-root live-update coverage so a real watched delete in one root must disappear from both global and root-scoped search results within 500 ms without disturbing sibling-root hits.
