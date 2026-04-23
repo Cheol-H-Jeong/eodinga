@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.415 - 2026-04-23
+
+- Extended `date:`/`modified:`/`created:` range parsing so relative aliases like `today`, `last-week`, and `last-month` can appear on either side of `..`, including open-ended forms such as `date:..today`.
+- Added open-ended `size:` intervals like `size:..1K` and `size:10K..`, keeping the existing closed-range behavior and negation semantics consistent.
+- Expanded compiler, executor, and CLI regressions so the broader structured-query surface stays pinned end to end.
+
 ## 0.1.410 - 2026-04-23
 
 - Expanded `stats --json` so the typed payload now exposes watcher flush/backpressure metrics and logging sink counters directly, without forcing operators to decode raw counter keys.
