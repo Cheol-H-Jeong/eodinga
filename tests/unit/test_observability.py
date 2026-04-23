@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import cast
@@ -9,10 +10,13 @@ from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga.observability import (
+    counter_value,
     configure_logging,
     default_crash_dir,
     default_log_path,
+    increment_counter,
     reset_metrics,
+    runtime_metadata,
     snapshot_metrics,
     write_crash_log,
 )
@@ -50,16 +54,25 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
+    reset_metrics()
+    increment_counter("queries_served")
     try:
         raise RuntimeError("boom")
     except RuntimeError as error:
-        crash_path = write_crash_log(error, crash_dir=tmp_path)
+        crash_path = write_crash_log(error, crash_dir=tmp_path, command="search boom")
     contents = crash_path.read_text(encoding="utf-8")
     assert crash_path.parent == tmp_path
     assert "RuntimeError: boom" in contents
     assert "Traceback" in contents
     assert "timestamp=" in contents
+    assert "command=search boom" in contents
+    assert "version=" in contents
+    assert "platform=" in contents
+    assert "python=" in contents
+    assert "cwd=" in contents
     assert "pid=" in contents
+    assert "metrics.counters=queries_served:1" in contents
+    assert counter_value("crashes_written") == 1
 
 
 def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
@@ -70,6 +83,16 @@ def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
         crash_path = write_crash_log(error, context="env override")
     assert crash_path.parent == tmp_path
     assert "env override" in crash_path.read_text(encoding="utf-8")
+
+
+def test_runtime_metadata_reports_process_context() -> None:
+    metadata = runtime_metadata()
+
+    assert metadata["version"]
+    assert metadata["platform"] == sys.platform
+    assert metadata["python"]
+    assert metadata["cwd"] == str(Path.cwd())
+    assert metadata["pid"] == os.getpid()
 
 
 def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path: Path) -> None:

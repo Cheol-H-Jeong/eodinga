@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import platform
 import sys
 import traceback
 from dataclasses import dataclass, field
@@ -10,6 +11,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, TypedDict
 
+from eodinga import __version__
 from loguru import logger
 
 _DEFAULT_HISTOGRAM_BUCKETS_MS = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0)
@@ -85,6 +87,16 @@ def default_crash_dir() -> Path:
     if sys.platform == "darwin":
         return default_logs_dir() / "crashes"
     return default_state_dir() / "crashes"
+
+
+def runtime_metadata() -> dict[str, object]:
+    return {
+        "version": __version__,
+        "platform": sys.platform,
+        "python": platform.python_version(),
+        "cwd": str(Path.cwd()),
+        "pid": os.getpid(),
+    }
 
 
 def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
@@ -173,19 +185,43 @@ def write_crash_log(
     *,
     crash_dir: Path | None = None,
     context: str = "Unhandled exception",
+    command: str | None = None,
+    metadata: Mapping[str, object] | None = None,
 ) -> Path:
     override_dir = os.environ.get("EODINGA_CRASH_DIR")
     target_dir = (crash_dir or (Path(override_dir) if override_dir else default_crash_dir())).expanduser()
     target_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     crash_path = target_dir / f"crash-{timestamp}.log"
+    merged_metadata = runtime_metadata()
+    if metadata:
+        merged_metadata.update(metadata)
+    metrics = snapshot_metrics()
     lines = [
         f"{context}\n",
         f"timestamp={timestamp}\n",
-        f"pid={os.getpid()}\n",
         f"{type(error).__name__}: {error}\n",
         "\n",
-        *traceback.format_exception(type(error), error, error.__traceback__),
     ]
+    if command:
+        lines.append(f"command={command}\n")
+    for key, value in merged_metadata.items():
+        lines.append(f"{key}={value}\n")
+    if metrics["counters"] or metrics["histograms"]:
+        lines.extend(
+            [
+                "metrics.counters="
+                f"{','.join(f'{name}:{value}' for name, value in metrics['counters'].items())}\n",
+                "metrics.histograms="
+                f"{','.join(sorted(metrics['histograms']))}\n",
+            ]
+        )
+    lines.extend(
+        [
+            "\n",
+        *traceback.format_exception(type(error), error, error.__traceback__),
+        ]
+    )
     crash_path.write_text("".join(lines), encoding="utf-8")
+    increment_counter("crashes_written")
     return crash_path
