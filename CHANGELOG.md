@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.188 - 2026-04-23
+
+- Made quoted phrase matching boundary-aware in executor scans, so queries like `content:"release notes"` now match indexed text such as `release-notes` instead of requiring an exact space-preserving substring.
+- Extended the same phrase recovery to path and auto-content candidate scans, so quoted generic searches can now find punctuation-separated filenames and content even when SQLite FTS tokenization does not return them directly.
+- Added executor regressions covering positive and negated quoted phrases across punctuation in both content-only and path-driven search flows.
+
 ## 0.1.184 - 2026-04-23
 
 - Wired `launcher.debounce_ms` and `launcher.max_results` into both launcher surfaces, so the popup and embedded search panel now respect the configured debounce window and result cap instead of hard-coded defaults.
