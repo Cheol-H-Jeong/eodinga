@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.364 - 2026-04-23
+
+- Preserved queued watcher flush state under backpressure so a blocked enqueue no longer drops later ready events or forgets moved-file source suppression before the retry succeeds.
+- Relaxed startup staged-index recovery so invalid `.recover` and `.next` artifacts that get cleaned during resume no longer block opening an otherwise healthy live index.
+- Expanded reliability regressions around watcher flush retries and startup handling of cleaned uninitialized staged indexes.
+
 ## 0.1.359 - 2026-04-23
 
 - Rendered the staged Debian `DEBIAN/control` file directly from the checked-in template, with version and architecture tokens enforced by the dry-run audit so package metadata no longer drifts from the Debian recipe.
