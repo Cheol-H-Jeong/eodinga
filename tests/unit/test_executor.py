@@ -248,6 +248,48 @@ def test_execute_previous_period_date_queries_use_local_boundaries(
     assert last_month_hits == ["last-month.txt"]
 
 
+def test_execute_date_keywords_are_case_insensitive_and_allow_underscores(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    local_now = datetime.now().astimezone()
+    today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/today.txt", 512, today_start + 60, "txt", body_text="today note")
+    tmp_db.commit()
+
+    today_hits = [hit.file.name for hit in search(tmp_db, "date:Today", limit=10).hits]
+    this_month_hits = [hit.file.name for hit in search(tmp_db, "date:this_month", limit=10).hits]
+
+    assert today_hits == ["today.txt"]
+    assert this_month_hits == ["today.txt"]
+
+
+def test_execute_date_ranges_accept_relative_keywords(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    frozen_now = datetime(2026, 4, 23, 9, 0, tzinfo=seoul)
+    yesterday_hit = int(datetime(2026, 4, 22, 12, 0, tzinfo=seoul).timestamp())
+    today_hit = int(datetime(2026, 4, 23, 12, 0, tzinfo=seoul).timestamp())
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+
+    _insert_file(tmp_db, 1, "/workspace/yesterday.txt", 512, yesterday_hit, "txt", body_text="yesterday note")
+    _insert_file(tmp_db, 2, "/workspace/today.txt", 512, today_hit, "txt", body_text="today note")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "date:yesterday..today", limit=10).hits]
+
+    assert hits == ["today.txt", "yesterday.txt"]
+
+
 def test_execute_negated_case_true_restores_case_insensitive_matching(
     tmp_db: sqlite3.Connection,
 ) -> None:

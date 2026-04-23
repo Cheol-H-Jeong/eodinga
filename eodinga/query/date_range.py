@@ -56,38 +56,47 @@ def _parse_iso_endpoint(value: str) -> DateRange:
         raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
 
 
-def parse_date_range(value: str) -> DateRange:
+def _relative_range(value: str) -> DateRange | None:
     today = datetime.now().astimezone().date()
-    if value == "today":
+    normalized = value.strip().casefold().replace("_", "-")
+    if normalized == "today":
         return _day_bounds(today)
-    if value == "yesterday":
+    if normalized == "yesterday":
         return _day_bounds(today - timedelta(days=1))
-    if value == "this-week":
+    if normalized == "this-week":
         start = today - timedelta(days=today.weekday())
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(start + timedelta(days=7)).start)
-    if value == "last-week":
+    if normalized == "last-week":
         end = today - timedelta(days=today.weekday())
         start = end - timedelta(days=7)
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(end).start)
-    if value == "this-month":
+    if normalized == "this-month":
         start = _month_start(today)
         next_month = _next_month_start(start)
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(next_month).start)
-    if value == "last-month":
+    if normalized == "last-month":
         this_month = _month_start(today)
         last_month = _month_start(this_month - timedelta(days=1))
         return DateRange(start=_day_bounds(last_month).start, end=_day_bounds(this_month).start)
-    if ".." in value:
-        left, right = (part.strip() for part in value.split("..", 1))
+    return None
+
+
+def parse_date_range(value: str) -> DateRange:
+    stripped = value.strip()
+    relative = _relative_range(stripped)
+    if relative is not None:
+        return relative
+    if ".." in stripped:
+        left, right = (part.strip() for part in stripped.split("..", 1))
         if not left and not right:
-            raise QuerySyntaxError(f"invalid date literal: {value}", 0)
+            raise QuerySyntaxError(f"invalid date literal: {stripped}", 0)
         if not left:
             return DateRange(end=_parse_iso_endpoint(right).end)
         if not right:
             return DateRange(start=_parse_iso_endpoint(left).start)
-        left_range = _parse_iso_endpoint(left)
-        right_range = _parse_iso_endpoint(right)
+        left_range = parse_date_range(left)
+        right_range = parse_date_range(right)
         if (right_range.start or 0) < (left_range.start or 0):
             left_range, right_range = right_range, left_range
         return DateRange(start=left_range.start, end=right_range.end)
-    return _parse_iso_endpoint(value)
+    return _parse_iso_endpoint(stripped)
