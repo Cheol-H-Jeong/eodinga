@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.211 - 2026-04-23
+
+- Clarified `README.md` as an operator-facing contract with a tighter at-a-glance summary, reference map, and FAQ coverage for local-only behavior, packaging, uninstall, and generated CLI docs.
+- Deepened `docs/ARCHITECTURE.md`, `docs/CONTRIBUTING.md`, and `docs/RELEASE.md` around the real documentation lifecycle, including derived-asset refresh order and a one-command local release pass.
+- Added a generated `docs/man/eodinga.1` plus `scripts/generate_manpage.py`, keeping the checked-in CLI reference aligned with the real argparse surface through unit tests.
+
 ## 0.1.209 - 2026-04-23
 
 - Expanded the PyInstaller spec to discover dynamic hidden imports loaded through `importlib.import_module(...)`, aliased `importlib` module handles, and direct `__import__(...)` calls, reducing manual packaging drift for optional runtime modules.
