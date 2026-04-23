@@ -47,13 +47,19 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     try:
         raise RuntimeError("boom")
     except RuntimeError as error:
-        crash_path = write_crash_log(error, crash_dir=tmp_path)
+        crash_path = write_crash_log(
+            error,
+            crash_dir=tmp_path,
+            metadata={"command": "search report", "cwd": "/tmp/workspace"},
+        )
     contents = crash_path.read_text(encoding="utf-8")
     assert crash_path.parent == tmp_path
     assert "RuntimeError: boom" in contents
     assert "Traceback" in contents
     assert "timestamp=" in contents
     assert "pid=" in contents
+    assert "command=search report" in contents
+    assert "cwd=/tmp/workspace" in contents
 
 
 def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:

@@ -160,16 +160,22 @@ def write_crash_log(
     *,
     crash_dir: Path | None = None,
     context: str = "Unhandled exception",
+    metadata: Mapping[str, object] | None = None,
 ) -> Path:
     override_dir = os.environ.get("EODINGA_CRASH_DIR")
     target_dir = (crash_dir or (Path(override_dir) if override_dir else default_crash_dir())).expanduser()
     target_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     crash_path = target_dir / f"crash-{timestamp}.log"
+    metadata_lines = []
+    if metadata:
+        for key, value in metadata.items():
+            metadata_lines.append(f"{key}={value}\n")
     lines = [
         f"{context}\n",
         f"timestamp={timestamp}\n",
         f"pid={os.getpid()}\n",
+        *metadata_lines,
         f"{type(error).__name__}: {error}\n",
         "\n",
         *traceback.format_exception(type(error), error, error.__traceback__),
