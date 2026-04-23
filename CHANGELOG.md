@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.704 - 2026-04-23
+
+- Sized writer-side `IN (...)` batches from SQLite's actual variable limit instead of a fixed 500-row chunk, cutting round trips for large delete/content-map cleanup passes while staying under backend limits.
+- Increased SQLite's prepared-statement cache to keep more hot query and writer templates resident across long-running indexing and search sessions.
+- Disabled WAL auto-checkpointing on staged rebuild connections so large crawls defer checkpoint work until the existing publish-time checkpoint, reducing mid-build stalls.
+
 ## 0.1.592 - 2026-04-23
 
 - Reduced walker canonicalization overhead by resolving only the root and symlink-backed ancestry, keeping ordinary directory traversals off the `resolve_safe()` hot path while preserving alias-loop protection.
