@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.577 - 2026-04-23
+## 0.1.580 - 2026-04-23
 
 - Hardened index-file cleanup against raced `unlink()` outcomes so startup recovery and sidecar scrubbing treat already-disappeared artifacts as successful cleanup instead of aborting on a stale existence check.
 - Kept rebuild signal trapping active through the final staged-index publish, ensuring a late `SIGINT` or `SIGTERM` during the swap path still surfaces as `KeyboardInterrupt` without dropping the finished index update on the floor.
