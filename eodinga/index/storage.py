@@ -45,17 +45,23 @@ def _checkpoint_wal(path: Path) -> None:
         conn.close()
 
 
-def _cleanup_sidecars(path: Path) -> None:
+def _cleanup_sidecars(path: Path) -> bool:
+    cleaned = False
     for suffix in ("-wal", "-shm"):
         sidecar = _sidecar(path, suffix)
         if sidecar.exists():
             sidecar.unlink()
+            cleaned = True
+    return cleaned
 
 
-def _cleanup_index_files(path: Path) -> None:
+def _cleanup_index_files(path: Path) -> bool:
+    cleaned = False
     if path.exists():
         path.unlink()
-    _cleanup_sidecars(path)
+        cleaned = True
+    cleaned = _cleanup_sidecars(path) or cleaned
+    return cleaned
 
 
 def _fsync_file(path: Path) -> None:
@@ -93,7 +99,7 @@ def _partial_copy_path(path: Path) -> Path:
     return path.with_name(f"{path.name}.partial")
 
 
-def _cleanup_orphan_recovery_sidecars(path: Path) -> bool:
+def _cleanup_orphan_recovery_sidecars(path: Path, *, durable: bool = False) -> bool:
     staged_path = _staged_recovery_path(path)
     if staged_path.exists():
         return False
@@ -103,24 +109,20 @@ def _cleanup_orphan_recovery_sidecars(path: Path) -> bool:
         if orphan.exists():
             orphan.unlink()
             cleaned = True
+    if cleaned and durable:
+        _fsync_directory(path.parent)
     return cleaned
 
 
-def _cleanup_partial_copy_artifacts(path: Path) -> bool:
+def _cleanup_partial_copy_artifacts(path: Path, *, durable: bool = False) -> bool:
     partial_path = _partial_copy_path(path)
-    cleaned = False
-    if partial_path.exists():
-        partial_path.unlink()
-        cleaned = True
-    for suffix in ("-wal", "-shm"):
-        sidecar = _sidecar(partial_path, suffix)
-        if sidecar.exists():
-            sidecar.unlink()
-            cleaned = True
+    cleaned = _cleanup_index_files(partial_path)
+    if cleaned and durable:
+        _fsync_directory(path.parent)
     return cleaned
 
 
-def _cleanup_orphan_build_sidecars(path: Path) -> bool:
+def _cleanup_orphan_build_sidecars(path: Path, *, durable: bool = False) -> bool:
     staged_path = _staged_build_path(path)
     if staged_path.exists():
         return False
@@ -130,18 +132,17 @@ def _cleanup_orphan_build_sidecars(path: Path) -> bool:
         if orphan.exists():
             orphan.unlink()
             cleaned = True
+    if cleaned and durable:
+        _fsync_directory(path.parent)
     return cleaned
 
 
-def _cleanup_orphan_live_sidecars(path: Path) -> bool:
+def _cleanup_orphan_live_sidecars(path: Path, *, durable: bool = False) -> bool:
     if path.exists():
         return False
-    cleaned = False
-    for suffix in ("-wal", "-shm"):
-        orphan = _sidecar(path, suffix)
-        if orphan.exists():
-            orphan.unlink()
-            cleaned = True
+    cleaned = _cleanup_sidecars(path)
+    if cleaned and durable:
+        _fsync_directory(path.parent)
     return cleaned
 
 
@@ -265,11 +266,11 @@ def recover_interrupted_build(path: Path) -> bool:
 
 def open_index(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
-    _cleanup_partial_copy_artifacts(_staged_recovery_path(path))
-    _cleanup_partial_copy_artifacts(_staged_build_path(path))
-    _cleanup_orphan_live_sidecars(path)
-    _cleanup_orphan_recovery_sidecars(path)
-    _cleanup_orphan_build_sidecars(path)
+    _cleanup_partial_copy_artifacts(_staged_recovery_path(path), durable=True)
+    _cleanup_partial_copy_artifacts(_staged_build_path(path), durable=True)
+    _cleanup_orphan_live_sidecars(path, durable=True)
+    _cleanup_orphan_recovery_sidecars(path, durable=True)
+    _cleanup_orphan_build_sidecars(path, durable=True)
     recovery_staged = _staged_recovery_path(path).exists()
     if recovery_staged and not recover_interrupted_recovery(path):
         raise RuntimeError(f"failed to resume interrupted recovery for {path}")

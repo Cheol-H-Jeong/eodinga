@@ -797,3 +797,45 @@ def test_open_index_cleans_partial_build_copy_before_open(tmp_path: Path) -> Non
     assert not partial.exists()
     assert not partial.with_name(".index.db.next.partial-wal").exists()
     assert not partial.with_name(".index.db.next.partial-shm").exists()
+
+
+def test_open_index_fsyncs_parent_directory_after_cleaning_startup_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    path.with_name("index.db-wal").write_bytes(b"orphaned")
+    partial = tmp_path / ".index.db.recover.partial"
+    partial.write_bytes(b"sqlite")
+    partial.with_name(".index.db.recover.partial-wal").write_bytes(b"orphaned")
+    partial.with_name(".index.db.recover.partial-shm").write_bytes(b"orphaned")
+
+    calls: list[Path] = []
+    original_fsync_directory = storage_module._fsync_directory
+
+    def record_directory(directory: Path) -> None:
+        calls.append(directory)
+        original_fsync_directory(directory)
+
+    monkeypatch.setattr("eodinga.index.storage._fsync_directory", record_directory)
+
+    reopened = open_index(path)
+    reopened.close()
+
+    assert calls == [tmp_path, tmp_path]
+
+
+def test_open_index_skips_parent_fsync_when_no_startup_artifacts_need_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    calls: list[Path] = []
+
+    def record_directory(directory: Path) -> None:
+        calls.append(directory)
+
+    monkeypatch.setattr("eodinga.index.storage._fsync_directory", record_directory)
+
+    reopened = open_index(path)
+    reopened.close()
+
+    assert calls == []
