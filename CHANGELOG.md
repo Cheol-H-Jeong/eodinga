@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.154 - 2026-04-23
+## 0.1.158 - 2026-04-23
 
 - Reworked the filesystem walker to carry `os.scandir()` child stat metadata forward into batching, eliminating redundant per-child `lstat()` calls while preserving the existing symlink-loop and alias protections.
 - Cached the placeholder-shaped `content_map` lookup SQL used by query-time content text hydration and chunked those reads into fixed-size batches, reducing executor overhead during filtered scans and large result sets.
