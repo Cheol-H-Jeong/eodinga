@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.366 - 2026-04-23
+## 0.1.367 - 2026-04-23
 
 - Added query-result observability so `eodinga stats --json` now reports empty-query counts alongside a `query_result_count` histogram, making zero-hit regressions and broad-match spikes visible without parsing raw counters.
 - Enriched crash artifacts with an inline runtime metrics snapshot and exposed a recent crash-log inventory in `stats --json`, giving operators immediate context about what failed and where the latest `crash-*.log` files landed.
