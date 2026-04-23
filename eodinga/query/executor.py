@@ -39,6 +39,7 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+_CONTENT_TEXT_BATCH_SIZE = 500
 
 
 @lru_cache(maxsize=256)
@@ -141,6 +142,17 @@ def _content_backfill_sql(has_where_sql: bool) -> str:
         sql += " WHERE {where_sql}"
     sql += " ORDER BY files.name_lower ASC LIMIT ? OFFSET ?"
     return sql
+
+
+@lru_cache(maxsize=16)
+def _content_texts_sql(chunk_size: int) -> str:
+    placeholders = ", ".join("?" for _ in range(chunk_size))
+    return f"""
+        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
+        FROM content_map
+        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
+        WHERE content_map.file_id IN ({placeholders})
+    """
 
 
 def _row_to_record(row: Mapping[str, object]) -> FileRecord:
@@ -511,20 +523,15 @@ def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[i
     id_list = tuple(dict.fromkeys(ids))
     if not id_list:
         return {}
-    placeholders = ", ".join("?" for _ in id_list)
-    sql = f"""
-        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
-        FROM content_map
-        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
-        WHERE content_map.file_id IN ({placeholders})
-    """
-    rows = conn.execute(sql, id_list).fetchall()
-    return {
-        row["file_id"]: " ".join(
-            part for part in (row["title"], row["head_text"], row["body_text"]) if part
-        )
-        for row in rows
-    }
+    content_texts: dict[int, str] = {}
+    for start in range(0, len(id_list), _CONTENT_TEXT_BATCH_SIZE):
+        chunk = id_list[start : start + _CONTENT_TEXT_BATCH_SIZE]
+        rows = conn.execute(_content_texts_sql(len(chunk)), chunk).fetchall()
+        for row in rows:
+            content_texts[row["file_id"]] = " ".join(
+                part for part in (row["title"], row["head_text"], row["body_text"]) if part
+            )
+    return content_texts
 
 
 def _fetch_content_backfill(

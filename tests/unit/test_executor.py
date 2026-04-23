@@ -335,6 +335,7 @@ def test_execute_reuses_cached_sql_shapes_for_content_queries(
     executor_module._content_candidates_sql.cache_clear()
     executor_module._auto_content_candidates_sql.cache_clear()
     executor_module._content_backfill_sql.cache_clear()
+    executor_module._content_texts_sql.cache_clear()
 
     first = search(populated_db, "content:launch", limit=5)
     second = search(populated_db, 'content:"alpha project 20"', limit=5)
@@ -342,6 +343,30 @@ def test_execute_reuses_cached_sql_shapes_for_content_queries(
     assert first.hits
     assert second.hits
     assert executor_module._content_candidates_sql.cache_info().hits >= 1
+    executor_module._fetch_content_texts(populated_db, (1, 2, 3))
+    executor_module._fetch_content_texts(populated_db, (1, 2, 3))
+    assert executor_module._content_texts_sql.cache_info().hits >= 1
+
+
+def test_fetch_content_texts_batches_large_id_sets(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    for index in range(520):
+        _insert_file(
+            tmp_db,
+            index + 1,
+            f"/workspace/docs/doc-{index:03}.txt",
+            512,
+            now - index,
+            "txt",
+            body_text=f"body {index}",
+        )
+    tmp_db.commit()
+
+    content_texts = executor_module._fetch_content_texts(tmp_db, range(1, 521))
+
+    assert len(content_texts) == 520
+    assert content_texts[1].endswith("body 0")
+    assert content_texts[520].endswith("body 519")
 
 
 def test_execute_path_filter_with_short_unix_basename_literal(tmp_db: sqlite3.Connection) -> None:
