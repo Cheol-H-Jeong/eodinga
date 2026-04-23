@@ -109,9 +109,11 @@ def parse_date_range(value: str) -> DateRange:
         if not left and not right:
             raise QuerySyntaxError(f"invalid date literal: {stripped}", 0)
         if not left:
-            return DateRange(end=_parse_iso_endpoint(right).end)
+            right_range = parse_date_range(right)
+            return DateRange(end=right_range.end)
         if not right:
-            return DateRange(start=_parse_iso_endpoint(left).start)
+            left_range = parse_date_range(left)
+            return DateRange(start=left_range.start)
         left_range = parse_date_range(left)
         right_range = parse_date_range(right)
         if (right_range.start or 0) < (left_range.start or 0):
