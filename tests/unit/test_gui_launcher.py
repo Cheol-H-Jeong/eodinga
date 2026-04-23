@@ -567,6 +567,31 @@ def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     assert "Alt+1 through Alt+9" in launcher.empty_state.body_label.text()
 
 
+def test_launcher_shows_active_filter_chips_for_operator_terms(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState())
+    launcher.show()
+
+    launcher.query_field.setText('release ext:pdf date:this-week content:"roadmap"')
+    _wait(60)
+
+    assert launcher.filter_chips.isVisible()
+    rendered = launcher.filter_chips.text()
+    assert "ext:pdf" in rendered
+    assert "date:this-week" in rendered
+    assert 'content:&quot;roadmap&quot;' in rendered
+
+
+def test_launcher_filter_chips_fall_back_for_invalid_queries(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState())
+    launcher.show()
+
+    launcher.query_field.setText('ext:pdf "unterminated')
+    _wait(60)
+
+    assert launcher.filter_chips.isVisible()
+    assert "ext:pdf" in launcher.filter_chips.text()
+
+
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     launcher = LauncherWindow()
     launcher.show()
