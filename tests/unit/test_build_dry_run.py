@@ -85,6 +85,8 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["contains_autostart_registry"] is True
     assert payload["inno_setup"]["rendered_autostart_registry_matches_gui_exe"] is True
     assert payload["inno_setup"]["contains_uninstall_purge_prompt"] is True
+    assert payload["inno_setup"]["purge_prompt_is_opt_in"] is True
+    assert payload["inno_setup"]["purge_targets_local_data_dir_only"] is True
 
 
 def test_windows_audit_validator_rejects_version_mismatch() -> None:
@@ -104,6 +106,16 @@ def test_windows_audit_validator_rejects_missing_source_hidden_import_contract()
     errors = module._validate_windows_audit(payload)
 
     assert "PyInstaller hidden imports no longer include the source-derived modules" in errors
+
+
+def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["inno_setup"]["purge_targets_local_data_dir_only"] = False
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "Inno uninstall purge path no longer preserves roaming config by default" in errors
 
 
 def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
@@ -169,9 +181,40 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
         },
     }
 
-    errors = module._validate_linux_appimage_audit(payload, __version__)
+    errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
 
     assert "AppImage launcher shim no longer executes the Python module" in errors
+
+
+def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "archive": "packaging/dist/eodinga-linux-appdir.tar.gz",
+        "recipe": {
+            "exists": True,
+            "references_desktop_entry": True,
+            "references_icon_asset": True,
+            "launches_gui": True,
+        },
+        "icon": {
+            "exists": True,
+            "diricon_exists": True,
+            "desktop_icon_matches_asset": True,
+        },
+        "apprun": {
+            "is_executable": True,
+            "launches_gui": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "executes_python_module": True,
+        },
+    }
+
+    errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
+
+    assert "AppImage archive filename does not match the package version" in errors
 
 
 def test_linux_appimage_dry_run_stages_recipe() -> None:
@@ -230,9 +273,40 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
         },
     }
 
-    errors = module._validate_linux_deb_audit(payload, __version__)
+    errors = module._validate_linux_deb_audit(payload, __version__, __version__)
 
     assert "Debian package no longer ships the changelog" in errors
+
+
+def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "amd64",
+        "archive": "packaging/dist/eodinga_latest_amd64_debroot.tar.gz",
+        "deb_path": "packaging/dist/eodinga_latest_amd64.deb",
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "executes_python_module": True,
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": True,
+        },
+    }
+
+    errors = module._validate_linux_deb_audit(payload, __version__, __version__)
+
+    assert "Debian dry-run archive filename does not match the package version and arch" in errors
+    assert "Debian package filename does not match the package version and arch" in errors
 
 
 def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:

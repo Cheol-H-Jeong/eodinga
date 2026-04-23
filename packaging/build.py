@@ -162,6 +162,9 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             and 'Tasks: autostart' in inno_text,
             "rendered_autostart_registry_matches_gui_exe": f'ValueData: """{{app}}\\\\{gui_exe_name}"""' in rendered_text,
             "contains_uninstall_purge_prompt": _inno_contains(rendered_text, r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);"),
+            "purge_prompt_is_opt_in": "MB_YESNO" in rendered_text and "if MsgBox(" in rendered_text and "= IDYES then" in rendered_text,
+            "purge_targets_local_data_dir_only": r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);" in rendered_text
+            and "{appdata}" not in rendered_text,
         },
     }
 
@@ -205,6 +208,8 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         "contains_autostart_registry": "Inno autostart registry entry is missing",
         "rendered_autostart_registry_matches_gui_exe": "Rendered Inno autostart registry entry does not point at the GUI executable",
         "contains_uninstall_purge_prompt": "Inno uninstall purge prompt is missing",
+        "purge_prompt_is_opt_in": "Inno uninstall purge prompt is no longer opt-in",
+        "purge_targets_local_data_dir_only": "Inno uninstall purge path no longer preserves roaming config by default",
     }
     for key, message in required_flags.items():
         if not inno_payload.get(key):
@@ -212,10 +217,16 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     return errors
 
 
-def _validate_linux_appimage_audit(payload: dict[str, Any], package_version: str) -> list[str]:
+def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str, package_version: str) -> list[str]:
     errors: list[str] = []
+    if project_version != package_version:
+        errors.append("project and package versions do not match")
     if payload.get("version") != package_version:
         errors.append("AppImage audit version does not match the package version")
+    archive_path = payload.get("archive")
+    expected_archive_name = f"eodinga-{package_version}-linux-appdir.tar.gz"
+    if Path(str(archive_path)).name != expected_archive_name:
+        errors.append("AppImage archive filename does not match the package version")
     recipe_payload = payload.get("recipe", {})
     icon_payload = payload.get("icon", {})
     apprun_payload = payload.get("apprun", {})
@@ -239,18 +250,27 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], package_version: str
     return errors
 
 
-def _validate_linux_deb_audit(payload: dict[str, Any], package_version: str) -> list[str]:
+def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, package_version: str) -> list[str]:
     errors: list[str] = []
+    if project_version != package_version:
+        errors.append("project and package versions do not match")
     if payload.get("version") != package_version:
         errors.append("Debian audit version does not match the package version")
     control_payload = payload.get("control", {})
     icon_payload = payload.get("icon", {})
     launcher_payload = payload.get("launcher", {})
     docs_payload = payload.get("docs", {})
+    arch = payload.get("arch")
     if control_payload.get("package") != "eodinga":
         errors.append("Debian control package name drifted from eodinga")
     if control_payload.get("version") != package_version:
         errors.append("Debian control version does not match the package version")
+    expected_archive_name = f"eodinga_{package_version}_{arch}_debroot.tar.gz"
+    if Path(str(payload.get("archive"))).name != expected_archive_name:
+        errors.append("Debian dry-run archive filename does not match the package version and arch")
+    expected_deb_name = f"eodinga_{package_version}_{arch}.deb"
+    if Path(str(payload.get("deb_path"))).name != expected_deb_name:
+        errors.append("Debian package filename does not match the package version and arch")
     required_flags = [
         (icon_payload.get("exists"), "Debian icon asset is missing from the package tree"),
         (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),
@@ -299,10 +319,11 @@ def _run_linux_appimage_dry_run() -> int:
     if result.returncode != 0:
         return result.returncode
     payload = _load_audit(DIST_DIR / "linux-appimage-audit.json")
+    project_version = _read_project_version()
     package_version = _read_package_version()
     return _report_validation_errors(
         "linux-appimage-dry-run",
-        _validate_linux_appimage_audit(payload, package_version),
+        _validate_linux_appimage_audit(payload, project_version, package_version),
     )
 
 
@@ -315,10 +336,11 @@ def _run_linux_appimage() -> int:
     if result.returncode != 0:
         return result.returncode
     payload = _load_audit(DIST_DIR / "linux-appimage-audit.json")
+    project_version = _read_project_version()
     package_version = _read_package_version()
     return _report_validation_errors(
         "linux-appimage",
-        _validate_linux_appimage_audit(payload, package_version),
+        _validate_linux_appimage_audit(payload, project_version, package_version),
     )
 
 
@@ -331,10 +353,11 @@ def _run_linux_deb_dry_run() -> int:
     if result.returncode != 0:
         return result.returncode
     payload = _load_audit(DIST_DIR / "linux-deb-audit.json")
+    project_version = _read_project_version()
     package_version = _read_package_version()
     return _report_validation_errors(
         "linux-deb-dry-run",
-        _validate_linux_deb_audit(payload, package_version),
+        _validate_linux_deb_audit(payload, project_version, package_version),
     )
 
 
@@ -347,10 +370,11 @@ def _run_linux_deb() -> int:
     if result.returncode != 0:
         return result.returncode
     payload = _load_audit(DIST_DIR / "linux-deb-audit.json")
+    project_version = _read_project_version()
     package_version = _read_package_version()
     return _report_validation_errors(
         "linux-deb",
-        _validate_linux_deb_audit(payload, package_version),
+        _validate_linux_deb_audit(payload, project_version, package_version),
     )
 
 
