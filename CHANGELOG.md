@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.908 - 2026-04-23
+
+- Stopped caching compiled `date:`, `modified:`, and `created:` queries when they depend on relative keywords like `today`, `tomorrow`, or `last-week`, so repeated searches keep using the current local-time window instead of stale bounds.
+- Expanded quoted phrase matching across camel-case and alpha-numeric boundaries, so searches like `"launch checklist"` and `"report 2026 summary"` now match `LaunchChecklist` and `report2026-summary`.
+- Hardened the Windows packaging audit so the non-dry-run build target now requires a rendered installer payload instead of passing on stale staged binaries alone.
+
 ## 0.1.905 - 2026-04-23
 
 - Moved CLI stats summarization into a dedicated observability helper so the command surface stays easier to evolve without bloating the main entrypoint.
