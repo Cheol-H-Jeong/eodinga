@@ -108,6 +108,25 @@ def test_compile_reversed_date_range_normalizes_bounds() -> None:
     assert start < end
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_sql", "param_index"),
+    [
+        ("date:2026-01-03..", "files.mtime >= ?", 0),
+        ("created:..2026-01-03", "files.ctime < ?", 0),
+    ],
+)
+def test_compile_open_ended_date_ranges(
+    query: str,
+    expected_sql: str,
+    param_index: int,
+) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == expected_sql
+    assert isinstance(branch.where_params[param_index], int)
+
+
 def test_compile_size_range_normalizes_bounds() -> None:
     compiled = compile_query(parse("size:500K..100"))
     branch = compiled.branches[0]

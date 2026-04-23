@@ -201,7 +201,7 @@ def test_execute_previous_period_date_queries_use_local_boundaries(
                 return frozen_now.replace(tzinfo=None)
             return frozen_now.astimezone(tz)
 
-    monkeypatch.setattr("eodinga.query.compiler.datetime", _FrozenDateTime)
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
 
     _insert_file(
         tmp_db,
@@ -318,7 +318,7 @@ def test_execute_relative_date_queries_use_local_day_boundaries(
                 return frozen_now.replace(tzinfo=None)
             return frozen_now.astimezone(tz)
 
-    monkeypatch.setattr("eodinga.query.compiler.datetime", _FrozenDateTime)
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
 
     _insert_file(
         tmp_db,
@@ -369,6 +369,23 @@ def test_execute_reversed_date_range_query(tmp_db: sqlite3.Connection) -> None:
         for hit in search(tmp_db, "date:2026-01-03..2026-01-01", limit=10).hits
     ]
     assert hits == ["jan-1.txt", "jan-2.txt", "jan-3.txt"]
+
+
+def test_execute_open_ended_date_ranges(tmp_db: sqlite3.Connection) -> None:
+    jan_1 = int(datetime(2026, 1, 1, 12, tzinfo=UTC).timestamp())
+    jan_2 = int(datetime(2026, 1, 2, 12, tzinfo=UTC).timestamp())
+    jan_3 = int(datetime(2026, 1, 3, 12, tzinfo=UTC).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/jan-1.txt", 512, jan_1, "txt", body_text="jan 1")
+    _insert_file(tmp_db, 2, "/workspace/jan-2.txt", 512, jan_2, "txt", body_text="jan 2")
+    _insert_file(tmp_db, 3, "/workspace/jan-3.txt", 512, jan_3, "txt", body_text="jan 3")
+    tmp_db.commit()
+
+    newer_hits = [hit.file.name for hit in search(tmp_db, "date:2026-01-02..", limit=10).hits]
+    older_hits = [hit.file.name for hit in search(tmp_db, "date:..2026-01-02", limit=10).hits]
+
+    assert newer_hits == ["jan-2.txt", "jan-3.txt"]
+    assert older_hits == ["jan-1.txt", "jan-2.txt"]
 
 
 def test_execute_decomposed_korean_path_filter_matches_nfc_paths(

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from datetime import date, datetime, time, timedelta
 from itertools import product
 from typing import Literal
 
@@ -19,6 +18,7 @@ from eodinga.query.dsl import (
     RegexNode,
     WordNode,
 )
+from eodinga.query.date_range import parse_date_range
 from eodinga.query.ranker import RankingWeights
 
 
@@ -194,59 +194,6 @@ def _size_to_range(value: str) -> tuple[int, int] | None:
     return start, end
 
 
-def _day_bounds(day: date) -> tuple[int, int]:
-    local_tz = datetime.now().astimezone().tzinfo
-    start = datetime.combine(day, time.min, tzinfo=local_tz)
-    end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=local_tz)
-    return int(start.timestamp()), int(end.timestamp())
-
-
-def _month_start(day: date) -> date:
-    return day.replace(day=1)
-
-
-def _next_month_start(day: date) -> date:
-    return (day.replace(day=28) + timedelta(days=4)).replace(day=1)
-
-
-def _date_to_range(value: str) -> tuple[int, int]:
-    today = datetime.now().astimezone().date()
-    if value == "today":
-        return _day_bounds(today)
-    if value == "yesterday":
-        return _day_bounds(today - timedelta(days=1))
-    if value == "this-week":
-        start = today - timedelta(days=today.weekday())
-        return _day_bounds(start)[0], _day_bounds(start + timedelta(days=7))[0]
-    if value == "last-week":
-        end = today - timedelta(days=today.weekday())
-        start = end - timedelta(days=7)
-        return _day_bounds(start)[0], _day_bounds(end)[0]
-    if value == "this-month":
-        start = _month_start(today)
-        next_month = _next_month_start(start)
-        return _day_bounds(start)[0], _day_bounds(next_month)[0]
-    if value == "last-month":
-        this_month = _month_start(today)
-        last_month = _month_start(this_month - timedelta(days=1))
-        return _day_bounds(last_month)[0], _day_bounds(this_month)[0]
-    if ".." in value:
-        left, right = value.split("..", 1)
-        try:
-            start = datetime.fromisoformat(left).date()
-            end = datetime.fromisoformat(right).date()
-        except ValueError as error:
-            raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
-        if end < start:
-            start, end = end, start
-        return _day_bounds(start)[0], _day_bounds(end + timedelta(days=1))[0]
-    try:
-        day = datetime.fromisoformat(value).date()
-    except ValueError as error:
-        raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
-    return _day_bounds(day)
-
-
 def _duplicate_clause(negated: bool) -> str:
     clause = (
         "files.content_hash IS NOT NULL AND EXISTS ("
@@ -357,13 +304,19 @@ def _compile_branch(
             where_params.append(term.value.lower())
             continue
         if term.name in {"date", "modified", "created"}:
-            start, end = _date_to_range(term.value)
+            range_bounds = parse_date_range(term.value)
             column = "ctime" if term.name == "created" else "mtime"
-            if term.negated:
-                where_parts.append(f"NOT (files.{column} >= ? AND files.{column} < ?)")
-            else:
-                where_parts.append(f"files.{column} >= ? AND files.{column} < ?")
-            where_params.extend([start, end])
+            clauses: list[str] = []
+            if range_bounds.start is not None:
+                clauses.append(f"files.{column} >= ?")
+                where_params.append(range_bounds.start)
+            if range_bounds.end is not None:
+                clauses.append(f"files.{column} < ?")
+                where_params.append(range_bounds.end)
+            if not clauses:
+                raise QuerySyntaxError(f"invalid date literal: {term.value}", 0)
+            clause_sql = " AND ".join(clauses)
+            where_parts.append(f"NOT ({clause_sql})" if term.negated else clause_sql)
             continue
         if term.name == "size":
             size_range = _size_to_range(term.value)
