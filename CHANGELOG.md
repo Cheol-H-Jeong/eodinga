@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.358 - 2026-04-23
+
+- Rendered the staged Debian `DEBIAN/control` file from the checked-in control template metadata, so package name, maintainer, section, priority, and description no longer drift between the template and the built artifact.
+- Replaced inline AppImage launcher heredocs with tracked `packaging/linux/AppRun` and `packaging/linux/eodinga` templates, and tightened the AppImage audit to require the staged launchers and recipe to match those checked-in assets.
+- Expanded packaging regressions so Debian dry runs assert maintainer parity and AppImage dry runs assert launcher-template references and staged-template equality.
+
 ## 0.1.353 - 2026-04-23
 
 - Expanded the README with an install matrix, a fuller feature inventory, task-focused command recipes, and a packaged-artifacts summary so the shipped operator contract is easier to audit from one page.
