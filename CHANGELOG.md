@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.852 - 2026-04-23
+
+- Cached compiled include and exclude path rules plus the expanded default denylist, removing repeated `PathSpec` rebuilds from every walker rule check.
+- Short-circuited excluded walker paths before `stat()` calls, cutting avoidable filesystem syscalls when large ignored trees are present under an indexed root.
+- Cached compiled query regex patterns in the executor so repeated regex scans reuse one compiled pattern across candidate rows and repeated searches.
+
 ## 0.1.849 - 2026-04-23
 
 - Tightened the Linux packaging audits so staged AppImage and Debian launchers must execute `--help` successfully from outside the repo, proving the bundled runtime can boot headlessly.
