@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from json import dumps as json_dumps
 from pathlib import Path
 from threading import Lock
+from time import monotonic
 from typing import IO, Any, TypedDict
 
 from loguru import logger
@@ -28,6 +29,7 @@ _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
 _PROCESS_STARTED_AT = datetime.now(UTC)
+_ACTIVE_LOG_TARGET: LogPathResolution | None = None
 
 
 @dataclass
@@ -75,6 +77,12 @@ class MetricsSnapshot(TypedDict):
     thread_count: int
     version: str
     uptime_ms: float
+
+
+class FileStatusSnapshot(TypedDict):
+    exists: bool
+    size_bytes: int | None
+    modified_at: str | None
 
 
 class SnapshotRecord(TypedDict):
@@ -144,6 +152,26 @@ def resolve_log_path(log_path: Path | None = None) -> Path | None:
     return resolve_log_target(log_path).path
 
 
+def active_log_target() -> LogPathResolution:
+    return _ACTIVE_LOG_TARGET or resolve_log_target()
+
+
+def file_status(path: Path | None) -> FileStatusSnapshot:
+    if path is None:
+        return {"exists": False, "size_bytes": None, "modified_at": None}
+    try:
+        stat_result = path.stat()
+    except OSError:
+        return {"exists": False, "size_bytes": None, "modified_at": None}
+    return {
+        "exists": True,
+        "size_bytes": int(stat_result.st_size),
+        "modified_at": datetime.fromtimestamp(stat_result.st_mtime, UTC)
+        .isoformat()
+        .replace("+00:00", "Z"),
+    }
+
+
 def resolve_crash_dir(crash_dir: Path | None = None) -> Path:
     if crash_dir is not None:
         return crash_dir.expanduser()
@@ -176,11 +204,13 @@ def resolve_log_compression() -> str | None:
 
 
 def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
+    global _ACTIVE_LOG_TARGET
     logger.remove()
     logger.add(sys.stderr, level=level.upper())
     increment_counter("logging_configurations")
     increment_counter("log_sinks.stderr.configured")
     resolution = resolve_log_target(log_path)
+    _ACTIVE_LOG_TARGET = resolution
     target = resolution.path
     if target is None:
         increment_counter("log_sinks.file.disabled")
@@ -258,10 +288,12 @@ def snapshot_metrics() -> MetricsSnapshot:
 
 
 def reset_metrics() -> None:
+    global _ACTIVE_LOG_TARGET
     with _METRICS_LOCK:
         _COUNTERS.clear()
         _HISTOGRAMS.clear()
         _RECENT_SNAPSHOTS.clear()
+    _ACTIVE_LOG_TARGET = None
 
 
 def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
@@ -306,6 +338,8 @@ def write_crash_log(
     timestamp = occurred_at.strftime("%Y%m%dT%H%M%S.%fZ")
     crash_path = _next_crash_path(target_dir, timestamp)
     metrics = snapshot_metrics()
+    log_target = active_log_target()
+    log_file = file_status(log_target.path)
     metadata: dict[str, object] = {
         "timestamp": timestamp,
         "process_started_at": metrics["process_started_at"],
@@ -322,9 +356,12 @@ def write_crash_log(
         "argv": sys.argv[1:],
         "cwd": str(Path.cwd()),
         "file_logging_enabled": file_logging_enabled(),
-        "log_path": resolve_log_path(),
-        "log_path_source": resolve_log_target().source,
-        "log_path_disabled_reason": resolve_log_target().disabled_reason,
+        "log_path": log_target.path,
+        "log_path_source": log_target.source,
+        "log_path_disabled_reason": log_target.disabled_reason,
+        "log_file_exists": log_file["exists"],
+        "log_file_size_bytes": log_file["size_bytes"],
+        "log_file_modified_at": log_file["modified_at"],
         "log_rotation": resolve_log_rotation(),
         "log_retention": resolve_log_retention(),
         "log_compression": resolve_log_compression(),
@@ -343,7 +380,9 @@ def write_crash_log(
         "\n",
         *traceback.format_exception(type(error), error, error.__traceback__),
     ]
+    started_at = monotonic()
     crash_path.write_text("".join(lines), encoding="utf-8")
+    record_histogram("crash_log_write_ms", max((monotonic() - started_at) * 1000, 0.0))
     increment_counter("crash_logs_written")
     return crash_path
 

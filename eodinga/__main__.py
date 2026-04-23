@@ -18,6 +18,8 @@ from eodinga.index.build import rebuild_index
 from eodinga.index.reader import stats as read_index_stats
 from eodinga.index.storage import open_index
 from eodinga.observability import (
+    active_log_target,
+    file_status,
     configure_logging,
     counter_value,
     file_logging_enabled,
@@ -31,7 +33,6 @@ from eodinga.observability import (
     snapshot_metrics,
     report_crash,
     resolve_log_compression,
-    resolve_log_target,
     resolve_log_retention,
     resolve_log_rotation,
 )
@@ -222,7 +223,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     counters["commands_completed"] = counters.get("commands_completed", 0) + 1
     counters["commands.stats.completed"] = counters.get("commands.stats.completed", 0) + 1
     counters["commands.exit_code.0"] = counters.get("commands.exit_code.0", 0) + 1
-    log_target = resolve_log_target()
+    log_target = active_log_target()
+    log_file = file_status(log_target.path)
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
         process_started_at=metrics["process_started_at"],
@@ -291,11 +293,15 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         log_path=log_target.path,
         log_path_source=log_target.source,
         log_path_disabled_reason=log_target.disabled_reason,
+        log_file_exists=bool(log_file["exists"]),
+        log_file_size_bytes=log_file["size_bytes"],
+        log_file_modified_at=log_file["modified_at"],
         log_rotation=resolve_log_rotation(),
         log_retention=resolve_log_retention(),
         log_compression=resolve_log_compression(),
         crash_dir=resolve_crash_dir(),
         file_logging_enabled=file_logging_enabled(),
+        crash_log_write_histogram=histogram_snapshot("crash_log_write_ms"),
     ).model_dump(mode="json")
     return _emit(snapshot, as_json=bool(args.json))
 

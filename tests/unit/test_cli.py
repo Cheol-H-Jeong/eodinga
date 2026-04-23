@@ -16,7 +16,13 @@ from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga.index.schema import apply_schema
-from eodinga.observability import increment_counter, reset_metrics, snapshot_metrics
+from eodinga.observability import (
+    get_logger,
+    increment_counter,
+    report_crash,
+    reset_metrics,
+    snapshot_metrics,
+)
 
 
 def _insert_file(
@@ -549,10 +555,14 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_path"] is None
     assert payload["log_path_source"] is None
     assert payload["log_path_disabled_reason"] == "disabled_pytest"
+    assert payload["log_file_exists"] is False
+    assert payload["log_file_size_bytes"] is None
+    assert payload["log_file_modified_at"] is None
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
     assert payload["crash_dir"]
+    assert payload["crash_log_write_histogram"] == {}
     assert payload["counters"]["queries_served"] == 1
     assert payload["counters"]["commands_started"] == 2
     assert payload["counters"]["commands_completed"] == 2
@@ -954,8 +964,49 @@ def test_stats_json_exposes_crash_log_write_failures(tmp_path: Path, capsys, mon
     assert payload["crashes_reported"] == 1
     assert payload["crash_logs_written"] == 0
     assert payload["crash_log_write_failures"] == 1
+    assert payload["crash_log_write_histogram"] == {}
     assert payload["crash_types"] == {"RuntimeError": 1}
     assert payload["recent_snapshots"][1]["payload"]["crash_path"] is None
+
+
+def test_stats_json_exposes_log_file_state_and_crash_log_histogram(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    db_path = tmp_path / "index.db"
+    log_path = tmp_path / "logs" / "eodinga.log"
+    _build_search_db(db_path)
+    reset_metrics()
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    search_exit = main(["--db", str(db_path), "search", "duplicate", "--json"])
+    search_output = capsys.readouterr()
+    assert search_exit == 0
+    assert json.loads(search_output.out)["count"] == 2
+    get_logger("test").info("force file sink materialization")
+    assert log_path.exists()
+
+    try:
+        raise RuntimeError("crash for stats")
+    except RuntimeError as error:
+        report_crash(error)
+
+    capsys.readouterr()
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["log_path"] == str(log_path)
+    assert payload["log_path_source"] == "env_override"
+    assert payload["log_path_disabled_reason"] is None
+    assert payload["log_file_exists"] is True
+    assert payload["log_file_size_bytes"] is not None
+    assert payload["log_file_size_bytes"] > 0
+    assert isinstance(payload["log_file_modified_at"], str)
+    assert payload["log_sink_file_sources"] == {"env_override": 2}
+    assert payload["crash_logs_written"] == 1
+    assert payload["crash_log_write_histogram"]["count"] == 1
+    assert payload["histograms"]["crash_log_write_ms"]["count"] == 1
 
 
 def test_stats_json_structures_interrupted_command_counts(

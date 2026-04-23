@@ -160,11 +160,15 @@ class StatsSnapshot(BaseModel):
     log_path: Path | None = None
     log_path_source: str | None = None
     log_path_disabled_reason: str | None = None
+    log_file_exists: bool = False
+    log_file_size_bytes: int | None = None
+    log_file_modified_at: str | None = None
     log_rotation: str | int | None = None
     log_retention: str | int | None = None
     log_compression: str | None = None
     crash_dir: Path | None = None
     file_logging_enabled: bool = True
+    crash_log_write_histogram: dict[str, object] = Field(default_factory=dict)
 
 
 __all__ = [

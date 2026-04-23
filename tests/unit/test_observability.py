@@ -13,10 +13,13 @@ from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga import __version__
 from eodinga.observability import (
+    active_log_target,
     configure_logging,
     default_crash_dir,
     default_log_path,
+    file_status,
     file_logging_enabled,
+    get_logger,
     increment_counter,
     install_crash_handlers,
     recent_snapshots,
@@ -62,6 +65,23 @@ def test_configure_logging_respects_explicit_file_target(tmp_path: Path) -> None
     assert counters["log_sinks.stderr.configured"] == 1
     assert counters["log_sinks.file.configured"] == 1
     assert counters["log_sinks.file.source.explicit"] == 1
+    assert active_log_target().path == log_path
+
+
+def test_file_status_reports_missing_and_present_files(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.log"
+    assert file_status(missing) == {"exists": False, "size_bytes": None, "modified_at": None}
+
+    log_path = tmp_path / "logs" / "app.log"
+    reset_metrics()
+    configure_logging("INFO", log_path=log_path)
+    get_logger("test").info("hello file sink")
+
+    status = file_status(log_path)
+    assert status["exists"] is True
+    assert status["size_bytes"] is not None
+    assert status["size_bytes"] > 0
+    assert isinstance(status["modified_at"], str)
 
 
 def test_install_crash_handlers_records_installation_metric() -> None:
@@ -180,6 +200,7 @@ def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
 
 def test_write_crash_log_records_resolved_log_state(tmp_path: Path, monkeypatch) -> None:
     log_path = tmp_path / "logs" / "eodinga.log"
+    reset_metrics()
     monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
 
@@ -213,6 +234,26 @@ def test_write_crash_log_records_runtime_metrics(tmp_path: Path) -> None:
     assert '"query_latency_ms"' in contents
     assert "metrics_generated_at=" in contents
     assert 'recent_snapshots=[{"name": "command.search"' in contents
+
+
+def test_write_crash_log_records_log_file_state_and_latency_histogram(tmp_path: Path) -> None:
+    log_path = tmp_path / "logs" / "eodinga.log"
+    reset_metrics()
+    configure_logging("INFO", log_path=log_path)
+    get_logger("test").warning("before crash")
+
+    try:
+        raise RuntimeError("crash with log file")
+    except RuntimeError as error:
+        crash_path = write_crash_log(error, crash_dir=tmp_path)
+
+    contents = crash_path.read_text(encoding="utf-8")
+    metrics = snapshot_metrics()
+    assert f"log_path={log_path}" in contents
+    assert "log_file_exists=True" in contents
+    assert "log_file_size_bytes=" in contents
+    assert "log_file_modified_at=" in contents
+    assert metrics["histograms"]["crash_log_write_ms"]["count"] == 1
 
 
 def test_write_crash_log_uses_unique_path_when_timestamp_collides(tmp_path: Path) -> None:
