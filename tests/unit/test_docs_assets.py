@@ -92,12 +92,16 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Data Flow Diagram" in architecture
     assert "## Module Map" in architecture
     assert "## Index Storage" in architecture
+    assert "## Database Layout Sketch" in architecture
     assert "## Index Lifecycle Sequence" in architecture
     assert "## Startup Recovery" in architecture
     assert "## Rebuild Sequence" in architecture
     assert "## Query Execution" in architecture
+    assert "## Search Request Sequence" in architecture
     assert "## Live Update Sequence" in architecture
+    assert "## Watcher Event Contract" in architecture
     assert "## Packaging Surfaces" in architecture
+    assert "## Failure Containment" in architecture
     assert "compressed changelog" in architecture
 
     assert "## Local Setup" in contributing

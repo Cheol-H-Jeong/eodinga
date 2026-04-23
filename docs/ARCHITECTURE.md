@@ -46,6 +46,22 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 - `content_map` keeps the FTS row IDs stable across updates so incremental reindexing does not balloon the content index.
 - `eodinga.index.storage` owns WAL replay on startup and atomic staged-index replacement.
 
+## Database Layout Sketch
+
+```text
+index.db
+    |
+    +-- files          -> one row per indexed filesystem entry
+    +-- paths_fts      -> filename/path lexemes for lexical lookup
+    +-- content_fts    -> parsed document text when content indexing is enabled
+    +-- content_map    -> stable row-id bridge between files and content_fts
+    |
+    +-- index.db-wal   -> transient SQLite write-ahead log during active writes
+    +-- index.db-shm   -> SQLite shared-memory sidecar
+    +-- index.db.next  -> staged rebuild target before atomic promotion
+    +-- index.db.recover -> staged recovery target while replaying stale WAL
+```
+
 ## Index Lifecycle Sequence
 
 ```text
@@ -90,6 +106,32 @@ eodinga index --rebuild
 - Regex and mixed path/content terms are finalized in Python against the candidate set so the CLI and GUI share identical behavior.
 - `eodinga.query.ranker` applies reciprocal rank fusion, filename prefix boosts, and path deboosting for noisy trees such as `node_modules`.
 
+## Search Request Sequence
+
+```text
+user query
+    |
+    v
+parse DSL
+    |
+    +--> syntax error? ----> return QuerySyntaxError / CLI exit 2
+    |
+    v
+compile SQL filters + fallback predicates
+    |
+    v
+execute candidate reads from files / FTS tables
+    |
+    v
+apply Python fallback checks for regex, path/content edge cases, and root scoping
+    |
+    v
+rank + fuse matches
+    |
+    v
+emit hits to CLI JSON/plain output or GUI model
+```
+
 ## Operational Model
 
 - Cold start is walker-driven: discover roots, write metadata in bulk, then parse supported documents for content rows.
@@ -116,6 +158,13 @@ IndexWriter.apply_events()
 next query sees updated results
 ```
 
+## Watcher Event Contract
+
+- Backend events enter through `WatchService`, which debounces and coalesces them before the writer sees them.
+- Renames inside one configured root stay `moved`; renames crossing the root boundary are normalized into `deleted` or `created` so the index never stores out-of-scope paths.
+- Event handling is transaction-shaped: `IndexWriter.apply_events()` updates `files`, refreshes the FTS mirrors, and commits once so the next query sees an all-or-nothing snapshot.
+- The watcher path never mutates indexed user files; its only writes are inside the configured index database.
+
 ## Packaging Surfaces
 
 - Editable local development targets `pip install -e .[all]` on Python 3.11.
@@ -136,3 +185,10 @@ next query sees updated results
 - No runtime network access is allowed; `tests/safety/test_no_network.py` enforces that at source level.
 - Filesystem writes are limited to the application database/config area; the read-only wrappers prevent mutating indexed user roots.
 - Performance tests exist under `tests/perf`, but they stay opt-in for v0.1 so the default gate remains deterministic on developer machines.
+
+## Failure Containment
+
+- Query parse or validation failures stop at the command/UI boundary and do not mutate the on-disk index.
+- Rebuild and recovery failures are contained to staged `.next` or `.recover` files until an atomic replace succeeds.
+- Watcher failures can delay freshness, but committed query reads still operate against the last durable snapshot.
+- Unhandled runtime exceptions go through the crash-log path so operators get a timestamped local artifact instead of silent process exit.
