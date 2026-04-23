@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.828 - 2026-04-23
+
+- Stabilized reciprocal-rank-fusion, prefix-boost, and path-deboost score maps so equal-score results no longer depend on caller channel order, and marker deboosts now catch mixed-case Windows path segments.
+- Added DSL regressions for regex literals with embedded spaces, locking in the operator rewind path that keeps `/.../flags` parsing correct even when the pattern contains whitespace.
+- Expanded compiler truth-table coverage for grouped negation that mixes plain terms with metadata operators, pinning De Morgan normalization across `ext:`, `size:`, and `path:` branches.
+
 ## 0.1.822 - 2026-04-23
 
 - Hardened watcher lifecycle recovery so failed observer startup now rolls back the flush thread cleanly, and shutdown continues best-effort observer teardown even if one observer raises.
