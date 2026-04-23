@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.121 - 2026-04-23
+## 0.1.125 - 2026-04-23
 
 - Split the launcher state and result-model helpers into a dedicated module, bringing the main launcher widget back under the repository's module-size guard without changing its runtime behavior.
 - Expanded launcher keyboard flow so `Home`, `End`, `PgUp`, and `PgDn` can jump directly from the query field into results, and `Ctrl+A` now reliably returns focus to the query with the current text selected.
