@@ -243,6 +243,24 @@ IndexWriter.apply_events()
 next query sees updated results
 ```
 
+## Incremental Update Decision Path
+
+```text
+watchdog event
+    |
+    +--> same-root modify/create/delete?
+    |       |
+    |       +--> yes: coalesce and update existing rows in place
+    |
+    +--> cross-root move or root removal?
+            |
+            +--> yes: delete stale root-scoped rows, then upsert the new location if still in scope
+```
+
+- `WatchService` owns debounce and coalescing so bursty edits become one writer transaction instead of many tiny commits.
+- `IndexWriter.apply_events()` mirrors live changes back into both metadata and FTS tables, which keeps the steady-state path aligned with rebuild semantics.
+- Query surfaces never talk to the watcher directly; they only observe the committed database state on the next search.
+
 ## Recovery Decision Tree
 
 ```text
@@ -263,6 +281,15 @@ startup
             +--> no: open live DB directly
 ```
 
+## Transaction Boundaries
+
+| Operation | Transaction model | Why it matters |
+| --- | --- | --- |
+| Cold rebuild | large staged transactions written into `.next` | keeps half-built indexes out of the live path |
+| Startup recovery | staged replay then atomic swap | stale WAL or interrupted recovery never mutates the live DB in place |
+| Live watcher updates | short commit after a debounced batch | makes the next query see a coherent update set |
+| Search requests | read-only connection usage | query execution never repairs or mutates state |
+
 ## Packaging Surfaces
 
 - Editable local development targets `pip install -e .[all]` on Python 3.11.
@@ -271,6 +298,23 @@ startup
 - Windows packaging uses `packaging/pyinstaller.spec`, `packaging/windows/eodinga.iss`, and `packaging/build.py --target windows-dry-run`.
 - Documentation screenshots are rendered from the real Qt surfaces through `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
 - Release docs also ship a generated CLI man page under `docs/man/` so packaged audits can verify the command surface without importing the project interactively.
+
+## Packaging Audit Sequence
+
+```text
+release candidate
+    |
+    +--> packaging/build.py --target windows-dry-run
+    |
+    +--> packaging/build.py --target linux-appimage-dry-run
+    |
+    +--> packaging/build.py --target linux-deb-dry-run
+    |
+    +--> verify docs/man + screenshots + compressed changelog are still aligned
+```
+
+- The dry-run targets are architectural checks, not just packaging scripts: they prove the runtime version, installer metadata, launcher shims, and shipped docs still agree.
+- The Debian path explicitly stages the compressed changelog, desktop entry, and icon, so docs drift is caught as a packaging failure rather than after publication.
 
 ## Platform Surface Summary
 
@@ -294,6 +338,19 @@ startup
 - No runtime network access is allowed; `tests/safety/test_no_network.py` enforces that at source level.
 - Filesystem writes are limited to the application database/config area; the read-only wrappers prevent mutating indexed user roots.
 - Performance tests exist under `tests/perf`, but they stay opt-in for v0.1 so the default gate remains deterministic on developer machines.
+- Release metadata writes are intentionally narrow: version files, `CHANGELOG.md`, generated docs assets, and local tags.
+
+## Release Input Boundary
+
+The release process treats more than Python modules as architectural inputs. The final tagged artifact depends on:
+
+- runtime code under `eodinga/`
+- generated CLI docs under `docs/man/`
+- rendered screenshots under `docs/screenshots/`
+- packaging recipes under `packaging/`
+- the compressed changelog staged by Linux packaging
+
+This boundary is why docs regressions and packaging dry runs live in the normal gate instead of an optional postscript.
 
 ## Operator Debug Path
 
@@ -304,3 +361,5 @@ When an operator reports stale or surprising results, the shortest architecture-
 3. `eodinga watch` or `eodinga index --rebuild` depending on whether the issue is live-update lag or a one-shot recovery need.
 
 That sequence mirrors the architecture itself: active DB selection, environment validation, then either watcher-driven incremental repair or staged rebuild.
+
+If the report is packaging- or docs-specific instead, switch to the release-input path: `pytest -q tests/unit/test_docs_assets.py`, regenerate the affected asset, then run the matching packaging dry-run target before tagging.
