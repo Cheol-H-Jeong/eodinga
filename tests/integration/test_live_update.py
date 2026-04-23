@@ -168,6 +168,63 @@ def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: P
     assert beta_hits == [created]
 
 
+def test_live_delete_removed_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    survivor = root_a / "alpha-keep.txt"
+    target = root_b / "beta-live-delete.txt"
+    survivor.write_text("alpha scoped integration retention\n", encoding="utf-8")
+    target.write_text("beta scoped integration deletion\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        initial_hits = [hit.file.path for hit in search(conn, "scoped integration deletion", limit=5).hits]
+        initial_beta_hits = [
+            hit.file.path
+            for hit in search(conn, "scoped integration deletion", limit=5, root=root_b).hits
+        ]
+        target.unlink()
+
+        elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "scoped integration deletion",
+            target,
+            deadline_seconds=0.5,
+        )
+        alpha_hits = [
+            hit.file.path
+            for hit in search(conn, "scoped integration retention", limit=5, root=root_a).hits
+        ]
+        beta_hits = [
+            hit.file.path
+            for hit in search(conn, "scoped integration deletion", limit=5, root=root_b).hits
+        ]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_hits == [target]
+    assert initial_beta_hits == [target]
+    assert elapsed <= 0.5
+    assert alpha_hits == [survivor]
+    assert beta_hits == []
+
+
 def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     db_path = tmp_path / "database" / "index.db"
