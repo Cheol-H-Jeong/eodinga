@@ -755,6 +755,24 @@ def test_execute_is_alias_queries(tmp_db: sqlite3.Connection) -> None:
     assert link_hits == ["/workspace/alpha.txt"]
 
 
+def test_execute_is_file_and_dir_exclude_symlinks(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/regular.txt", 1, now, "txt", body_text="file")
+    _insert_file(tmp_db, 2, "/workspace/linked.txt", 1, now - 60, "txt", body_text="link")
+    _insert_file(tmp_db, 3, "/workspace/regular-dir", 0, now - 120, "", is_dir=True)
+    _insert_file(tmp_db, 4, "/workspace/linked-dir", 0, now - 180, "", is_dir=True)
+    tmp_db.execute("UPDATE files SET is_symlink = 1 WHERE id IN (?, ?)", (2, 4))
+    tmp_db.commit()
+
+    file_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "is:file", limit=10).hits]
+    dir_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "is:dir", limit=10).hits]
+    symlink_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "is:symlink", limit=10).hits]
+
+    assert file_hits == ["/workspace/regular.txt"]
+    assert dir_hits == ["/workspace/regular-dir"]
+    assert symlink_hits == ["/workspace/linked-dir", "/workspace/linked.txt"]
+
+
 def test_execute_size_range_queries(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/tiny.txt", 99, now, "txt", body_text="tiny")

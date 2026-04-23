@@ -357,9 +357,9 @@ def _compile_branch(
         if term.name == "is":
             normalized = _normalize_is_value(term.value)
             if normalized == "dir":
-                clause = "files.is_dir = 1"
+                clause = "files.is_dir = 1 AND files.is_symlink = 0"
             elif normalized == "file":
-                clause = "files.is_dir = 0"
+                clause = "files.is_dir = 0 AND files.is_symlink = 0"
             elif normalized == "symlink":
                 clause = "files.is_symlink = 1"
             elif normalized == "empty":
