@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.269 - 2026-04-23
+
+- Strengthened launcher result highlighting with higher-contrast, bold matched terms so names, paths, and snippets scan faster without losing the original HTML-based emphasis behavior.
+- Added visible `Alt+1` through `Alt+9` badges to the top launcher hits, making the existing quick-pick shortcuts discoverable directly in the result list instead of only in footer hints.
+- Finished launcher accessibility labeling across the status footer, empty state, preview pane, and query-chip controls, with GUI regressions covering the added names.
+
 ## 0.1.267 - 2026-04-23
 
 - Added clickable pinned and recent query chips to both launcher surfaces, so shared launcher history is now directly reusable without retyping or relying only on keyboard recall.
