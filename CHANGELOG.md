@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.736 - 2026-04-23
+
+- Added parser workload observability to `stats --json`, including parsed-document and byte counters plus parser input/body/latency histograms and per-parser volume summaries.
+- Added watcher backlog visibility with queue-retry counters and pending/queue-depth histograms so coalescing pressure and queue saturation are inspectable without debug logging.
+- Added query diagnostics for syntax failures and returned-result counts, making `stats --json` distinguish invalid queries from empty results and truncated matches from returned hits.
+
 ## 0.1.721 - 2026-04-23
 
 - Derived PyInstaller `datas` entries from the project metadata instead of a hardcoded list, so packaging audits now track the source tree's declared package data directly.

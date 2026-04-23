@@ -4,6 +4,7 @@ from pathlib import Path
 from queue import Empty
 from threading import Thread
 from time import monotonic, sleep
+from typing import cast
 
 import pytest
 from watchdog.events import FileMovedEvent
@@ -702,5 +703,5 @@ def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path)
     metrics = snapshot_metrics()
     assert metrics["counters"]["watcher_queue_full"] == 1
     assert metrics["counters"]["watcher_queue_retries"] >= 1
-    assert histogram_snapshot("watch_pending_events")["count"] >= 2
-    assert histogram_snapshot("watch_queue_depth")["count"] == 2
+    assert cast(int, histogram_snapshot("watch_pending_events")["count"]) >= 2
+    assert cast(int, histogram_snapshot("watch_queue_depth")["count"]) == 2
