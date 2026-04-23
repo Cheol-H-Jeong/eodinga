@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.286 - 2026-04-23
+## 0.1.301 - 2026-04-23
 
 - Made quoted phrase matching more forgiving across whitespace boundaries, so `content:"alpha project"` and bare `"alpha project"` searches can recover hits where content is split by newlines or repeated spacing.
 - Kept phrase queries on the Python scan supplement path even when FTS returns partial candidates, closing the recall gap where only some whitespace-separated phrase matches surfaced.
