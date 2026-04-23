@@ -209,6 +209,43 @@ def test_search_json_executes_regex_mode_query(cli_runner, tmp_path: Path) -> No
     ]
 
 
+def test_search_json_accepts_iso_span_date_literals(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        april_hit = int(datetime(2026, 4, 20, 12, 0).astimezone().timestamp())
+        may_hit = int(datetime(2026, 5, 7, 12, 0).astimezone().timestamp())
+        next_year_hit = int(datetime(2027, 1, 5, 12, 0).astimezone().timestamp())
+        _insert_file(conn, 1, "/workspace/april-week.txt", 1024, april_hit, "txt", body_text="april week")
+        _insert_file(conn, 2, "/workspace/may-note.txt", 1024, may_hit, "txt", body_text="may note")
+        _insert_file(
+            conn,
+            3,
+            "/workspace/next-year-note.txt",
+            1024,
+            next_year_hit,
+            "txt",
+            body_text="next year note",
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    year_result = cli_runner("--db", str(db_path), "search", "date:2026", "--json")
+    week_result = cli_runner("--db", str(db_path), "search", "date:2026-W17", "--json")
+
+    assert year_result.returncode == 0
+    assert week_result.returncode == 0
+    year_payload = json.loads(year_result.stdout)
+    week_payload = json.loads(week_result.stdout)
+    assert [Path(item["path"]).name for item in year_payload["results"]] == [
+        "april-week.txt",
+        "may-note.txt",
+    ]
+    assert [Path(item["path"]).name for item in week_payload["results"]] == ["april-week.txt"]
+
+
 def test_search_json_honors_root_filter(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
