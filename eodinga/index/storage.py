@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 
 from eodinga.index.migrations import migrate
-from eodinga.index.schema import PRAGMAS
+from eodinga.index.schema import connection_pragmas
 from eodinga.observability import get_logger
 
 SQLITE_CACHED_STATEMENTS = 128
@@ -17,21 +17,28 @@ def _sidecar(path: Path, suffix: str) -> Path:
 
 
 def configure_connection(
-    conn: sqlite3.Connection, *, row_factory: type[sqlite3.Row] | None = sqlite3.Row
+    conn: sqlite3.Connection,
+    *,
+    row_factory: type[sqlite3.Row] | None = sqlite3.Row,
+    synchronous: str = "FULL",
 ) -> sqlite3.Connection:
     if row_factory is not None:
         conn.row_factory = row_factory
-    for pragma in PRAGMAS:
+    for pragma in connection_pragmas(synchronous=synchronous):
         conn.execute(pragma)
     return conn
 
 
 def connect_database(
-    path: Path, *, row_factory: type[sqlite3.Row] | None = sqlite3.Row
+    path: Path,
+    *,
+    row_factory: type[sqlite3.Row] | None = sqlite3.Row,
+    synchronous: str = "FULL",
 ) -> sqlite3.Connection:
     return configure_connection(
         sqlite3.connect(path, cached_statements=SQLITE_CACHED_STATEMENTS),
         row_factory=row_factory,
+        synchronous=synchronous,
     )
 
 

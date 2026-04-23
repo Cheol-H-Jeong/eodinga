@@ -96,3 +96,25 @@ def test_rebuild_index_records_runtime_metrics(tmp_path: Path) -> None:
     assert metrics["counters"]["files_indexed"] == 3
     assert metrics["histograms"]["index_rebuild_latency_ms"]["count"] == 1
     assert cast(int, batch_histogram["count"]) >= 1
+
+
+def test_rebuild_index_uses_normal_sync_for_staged_bulk_build(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+
+    seen: list[str] = []
+    original_connect_database = build_module.connect_database
+
+    def recording_connect_database(path: Path, *, row_factory=sqlite3.Row, synchronous: str = "FULL"):
+        seen.append(synchronous)
+        return original_connect_database(path, row_factory=row_factory, synchronous=synchronous)
+
+    monkeypatch.setattr(build_module, "connect_database", recording_connect_database)
+
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    assert seen == ["NORMAL"]
