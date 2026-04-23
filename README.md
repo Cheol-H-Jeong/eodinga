@@ -168,6 +168,7 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Goal | Query |
 | --- | --- |
 | Search by plain term | `roadmap` |
+| Make plain terms case-sensitive | `case:true README` |
 | Restrict by extension | `ext:pdf invoice` |
 | Restrict by path | `path:projects content:"design review"` |
 | Find recent files | `date:this-week` |
@@ -175,12 +176,14 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Stop at an ISO date | `created:..2026-04-23` |
 | Match one instant | `modified:2026-04-23T09:15:30+00:00` |
 | Find size ranges | `size:100K..500K` |
+| Find files smaller than 1 KiB | `size:<1K` |
 | Find empty files only | `is:empty -is:dir` |
 | Find regular files only | `is:file` |
 | Find duplicates | `is:duplicate` |
 | Find the previous calendar month | `date:last-month ext:pdf` |
 | Exclude noisy trees | `-path:node_modules` |
-| Run regex | `regex:/todo|fixme/i` |
+| Run regex with flags | `regex:/todo|fixme/i` |
+| Match across lines with regex | `content:/release.*checklist/ms` |
 
 ## Supported Content Types
 
@@ -193,13 +196,19 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 
 - Default launcher shortcut: `Ctrl+Shift+Space`
 - `Esc` hides the launcher
+- `Tab` and `Shift+Tab` move focus between the query field and results
 - `Enter` opens the top result
 - `Ctrl+Enter` opens the containing folder
 - `Shift+Enter` shows file properties
+- `Alt+1` through `Alt+9` quick-open the top nine results
+- `Alt+C` copies the selected result path
+- `Alt+N` copies the selected result name
 - `Alt+Up` / `Alt+Down` recalls recent queries
 - `Up` / `Down` wraps through the result list once focus is in the list
-- `PgUp` / `PgDn` jumps through longer result sets
-- `Ctrl+L` returns focus to the filter field
+- `Home` / `End` jump to the first or last result
+- `PgUp` / `PgDn` jump through longer result sets
+- `Ctrl+A` or `Ctrl+L` returns focus to the filter field
+- Pinned query chips stay clickable in the launcher, and the right-hand preview follows the selected or hovered result
 
 ## Common Workflows
 
@@ -360,6 +369,10 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 ### Which commands are most useful for a quick health check?
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
+
+### Which regex flags are supported?
+
+Slash-delimited regex literals accept `i`, `m`, and `s`. Use `case:true` when you want plain lexical terms to become case-sensitive; explicit regex flags still control regex matching on their own.
 
 ### Where do I inspect packaging outputs before a release?
 

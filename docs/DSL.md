@@ -19,6 +19,14 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 | negation | Exclude a term or operator | `-path:node_modules` |
 | grouping | Combine branches safely | `(invoice | receipt) ext:pdf` |
 
+## Regex Flags
+
+- `i`: case-insensitive regex matching
+- `m`: `^` and `$` match per line
+- `s`: `.` also matches newlines
+
+These flags apply to slash-delimited regex literals such as `regex:/todo|fixme/i`, `path:/^src\\//m`, or `content:/release.*checklist/ms`.
+
 ## Relative Dates
 
 - `date:today`
@@ -38,10 +46,14 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 ```text
 ext:pdf content:"release notes"
 size:>10M date:this-month
+size:<1K -is:dir
+size:100..500K date:last-month
 modified:today created:2026-04-23
 date:2026-04-01.. modified:..2026-04-23
 modified:2026-04-23T09:15:30+00:00
 regex:true report-\d+
+case:true README
+content:/회의록.*초안/ms
 -is:duplicate -path:node_modules
 (invoice | receipt) ext:pdf
 regex:/launch|ship/i path:docs
@@ -53,10 +65,12 @@ regex:/launch|ship/i path:docs
 - Content operators only match indexed document text; unsupported files fall back to filename/path search.
 - `date:`, `modified:`, and `created:` accept `today`, `yesterday`, `this-week`, `this-month`, a single ISO date, open-ended ISO ranges, full ISO ranges, and exact ISO datetimes.
 - `size:` comparisons use binary suffixes, so `10M` means `10 * 1024 * 1024` bytes.
+- `size:` also accepts bounded or open-ended ranges such as `size:100..500K`, `size:..10M`, and comparator forms like `size:<1K`.
 - `is:duplicate` matches entries that share a content hash with at least one other indexed file.
 - `is:file` matches regular files only, `is:dir` matches non-symlink directories only, and `is:symlink` remains available when you want the link entries themselves.
 - `is:empty` matches zero-byte files and directories with no indexed descendants.
 - `regex:true` only changes how plain terms are interpreted; explicit `/pattern/flags` literals still work without it.
+- `case:true` affects plain lexical terms, while regex literals use only their own `i`, `m`, and `s` flags.
 - Negation applies to the next term or the entire parenthesized group.
 
 ## Practical Limits

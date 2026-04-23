@@ -77,6 +77,12 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Windows packaging tooling" in readme
     assert ".[dev,parsers,gui,packaging]" in readme
     assert "Refresh shipped docs assets" in readme
+    assert "Alt+1` through `Alt+9" in readme
+    assert "Alt+C` copies the selected result path" in readme
+    assert "Pinned query chips stay clickable" in readme
+    assert "Which regex flags are supported?" in readme
+    assert "case:true README" in readme
+    assert "content:/release.*checklist/ms" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance
@@ -155,11 +161,16 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "created:..2026-04-23" in dsl
     assert "modified:2026-04-23T09:15:30+00:00" in dsl
     assert "size:>10M" in dsl
+    assert "size:<1K" in dsl
+    assert "size:100..500K" in dsl
     assert "is:file" in dsl
     assert "is:dir" in dsl
     assert "is:symlink" in dsl
     assert "is:empty" in dsl
     assert "is:duplicate" in dsl
+    assert "## Regex Flags" in dsl
+    assert "content:/회의록.*초안/ms" in dsl
+    assert "case:true" in dsl
     assert "regex:true" in dsl
     assert "-path:node_modules" in dsl
     assert "## Operator Notes" in dsl
