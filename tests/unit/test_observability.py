@@ -509,6 +509,8 @@ def test_record_snapshot_keeps_recent_entries_bounded() -> None:
         record_snapshot("command.search", {"index": index})
 
     snapshots = recent_snapshots()
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
     assert len(snapshots) == 20
     assert snapshots[0]["payload"]["index"] == 5
     assert snapshots[-1]["payload"]["index"] == 24
+    assert counters["recent_snapshots_dropped"] == 5

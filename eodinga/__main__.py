@@ -253,6 +253,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         log_sinks_stderr_configured=counter_value("log_sinks.stderr.configured"),
         log_sinks_file_configured=counter_value("log_sinks.file.configured"),
         log_sinks_file_disabled=counter_value("log_sinks.file.disabled"),
+        recent_snapshots_dropped=counter_value("recent_snapshots_dropped"),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
         query_result_count_histogram=histogram_snapshot("query_result_count"),
         command_latency_histogram=histogram_snapshot("command_latency_ms"),

@@ -16,7 +16,7 @@ from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga.index.schema import apply_schema
-from eodinga.observability import increment_counter, reset_metrics, snapshot_metrics
+from eodinga.observability import increment_counter, record_snapshot, reset_metrics, snapshot_metrics
 
 
 def _insert_file(
@@ -551,6 +551,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_sinks_stderr_configured"] == 2
     assert payload["log_sinks_file_configured"] == 0
     assert payload["log_sinks_file_disabled"] == 2
+    assert payload["recent_snapshots_dropped"] == 0
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["query_result_count_histogram"]["count"] == 1
     assert payload["command_latency_histogram"]["count"] == 1
@@ -708,6 +709,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["log_sinks_stderr_configured"] == 3
     assert payload["log_sinks_file_configured"] == 0
     assert payload["log_sinks_file_disabled"] == 3
+    assert payload["recent_snapshots_dropped"] == 0
     assert payload["commands_started"] == 3
     assert payload["commands_completed"] == 2
     assert payload["commands_failed"] == 0
@@ -1049,3 +1051,23 @@ def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> 
     assert payload["recent_snapshots"][0]["name"] == "command.failure"
     assert payload["recent_snapshots"][0]["payload"]["command"] == "search"
     assert payload["recent_snapshots"][0]["payload"]["reason"] == "nonzero_exit"
+
+
+def test_stats_json_exposes_dropped_recent_snapshot_count(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    for index in range(25):
+        record_snapshot("command.search", {"index": index})
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["recent_snapshots_dropped"] == 5
+    assert payload["recent_snapshot_count"] == 20
+    assert payload["recent_snapshot_activity"] == {"command.search": 20}
+    assert payload["recent_snapshots"][0]["payload"]["index"] == 5
+    assert payload["recent_snapshots"][-1]["payload"]["index"] == 24
+    assert payload["counters"]["recent_snapshots_dropped"] == 5
