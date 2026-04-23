@@ -611,6 +611,9 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["watcher_events_flushed"] == 2
     assert payload["watcher_queue_full"] == 1
     assert payload["watcher_enqueue_aborted"] == 0
+    assert payload["process_started_at"].endswith("Z")
+    assert payload["pid"] > 0
+    assert payload["version"] == __version__
     assert payload["counters"]["logging_configurations"] == 3
     assert payload["counters"]["log_sinks.stderr.configured"] == 3
     assert payload["counters"]["log_sinks.file.disabled"] == 3
@@ -623,6 +626,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["commands_failed"] == 0
     assert payload["crashes_reported"] == 0
     assert payload["crash_logs_written"] == 0
+    assert payload["crash_handlers_installed"] == 3
     assert payload["commands"]["index"]["completed"] == 1
     assert payload["commands"]["search"]["completed"] == 1
     assert payload["commands"]["stats"]["started"] == 1

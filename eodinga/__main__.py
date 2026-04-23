@@ -176,6 +176,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     counters = metrics["counters"]
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
+        process_started_at=metrics["process_started_at"],
+        pid=int(metrics["pid"]),
+        version=str(metrics["version"]),
         uptime_ms=float(metrics["uptime_ms"]),
         files_indexed=index_snapshot.file_count,
         documents_indexed=index_snapshot.content_count,
@@ -194,6 +197,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         commands_interrupted=counter_value("commands_interrupted"),
         crashes_reported=counter_value("crashes_reported"),
         crash_logs_written=counter_value("crash_logs_written"),
+        crash_handlers_installed=counter_value("crash_handlers_installed"),
         logging_configurations=counter_value("logging_configurations"),
         log_sinks_stderr_configured=counter_value("log_sinks.stderr.configured"),
         log_sinks_file_configured=counter_value("log_sinks.file.configured"),

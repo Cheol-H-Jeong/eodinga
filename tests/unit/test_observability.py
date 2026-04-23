@@ -60,6 +60,15 @@ def test_configure_logging_respects_explicit_file_target(tmp_path: Path) -> None
     assert counters["log_sinks.file.configured"] == 1
 
 
+def test_install_crash_handlers_records_installation_metric() -> None:
+    reset_metrics()
+
+    install_crash_handlers()
+
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["crash_handlers_installed"] == 1
+
+
 def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> None:
     log_path = tmp_path / "custom" / "override.log"
     monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
@@ -361,4 +370,7 @@ def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:
     metrics = snapshot_metrics()
 
     assert metrics["generated_at"].endswith("Z")
+    assert metrics["process_started_at"].endswith("Z")
+    assert metrics["pid"] > 0
+    assert metrics["version"] == __version__
     assert metrics["uptime_ms"] >= 0

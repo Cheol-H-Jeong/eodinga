@@ -27,6 +27,9 @@ class MetricsSnapshot(TypedDict):
     counters: dict[str, int]
     histograms: dict[str, dict[str, object]]
     generated_at: str
+    process_started_at: str
+    pid: int
+    version: str
     uptime_ms: float
 
 
@@ -197,6 +200,8 @@ def record_histogram(
 
 
 def snapshot_metrics() -> MetricsSnapshot:
+    from eodinga import __version__
+
     with _METRICS_LOCK:
         counters = dict(sorted(_COUNTERS.items()))
         histograms: dict[str, dict[str, object]] = {
@@ -207,6 +212,9 @@ def snapshot_metrics() -> MetricsSnapshot:
         "counters": counters,
         "histograms": histograms,
         "generated_at": now.isoformat().replace("+00:00", "Z"),
+        "process_started_at": _PROCESS_STARTED_AT.isoformat().replace("+00:00", "Z"),
+        "pid": os.getpid(),
+        "version": __version__,
         "uptime_ms": round((now - _PROCESS_STARTED_AT).total_seconds() * 1000, 3),
     }
 
@@ -241,8 +249,6 @@ def write_crash_log(
     context: str = "Unhandled exception",
     details: Mapping[str, object] | None = None,
 ) -> Path:
-    from eodinga import __version__
-
     target_dir = resolve_crash_dir(crash_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
     occurred_at = datetime.now(UTC)
@@ -251,10 +257,10 @@ def write_crash_log(
     metrics = snapshot_metrics()
     metadata: dict[str, object] = {
         "timestamp": timestamp,
-        "process_started_at": _PROCESS_STARTED_AT.isoformat().replace("+00:00", "Z"),
+        "process_started_at": metrics["process_started_at"],
         "uptime_ms": metrics["uptime_ms"],
-        "pid": os.getpid(),
-        "version": __version__,
+        "pid": metrics["pid"],
+        "version": metrics["version"],
         "platform": sys.platform,
         "python": sys.version.split()[0],
         "thread": threading.current_thread().name,
@@ -300,6 +306,8 @@ def report_crash(
 
 
 def install_crash_handlers(*, stream: IO[str] | None = None) -> None:
+    increment_counter("crash_handlers_installed")
+
     def _handle_exception(
         exc_type: type[BaseException],
         error: BaseException,

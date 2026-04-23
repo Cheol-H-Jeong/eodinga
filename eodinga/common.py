@@ -96,6 +96,9 @@ class StatsSnapshot(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     generated_at: str | None = None
+    process_started_at: str | None = None
+    pid: int = 0
+    version: str = ""
     uptime_ms: float = 0.0
     files_indexed: int = 0
     documents_indexed: int = 0
@@ -114,6 +117,7 @@ class StatsSnapshot(BaseModel):
     commands_interrupted: int = 0
     crashes_reported: int = 0
     crash_logs_written: int = 0
+    crash_handlers_installed: int = 0
     logging_configurations: int = 0
     log_sinks_stderr_configured: int = 0
     log_sinks_file_configured: int = 0
