@@ -63,6 +63,32 @@ def _dotted_name(node: ast.AST) -> str | None:
     return None
 
 
+def _collect_import_aliases(tree: ast.AST) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                local_name = alias.asname or alias.name.split(".", 1)[0]
+                aliases[local_name] = alias.name
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            for alias in node.names:
+                local_name = alias.asname or alias.name
+                aliases[local_name] = f"{module}.{alias.name}" if module else alias.name
+    return aliases
+
+
+def _resolve_dotted_name(node: ast.AST, aliases: dict[str, str]) -> str | None:
+    dotted = _dotted_name(node)
+    if dotted is None:
+        return None
+    head, _, tail = dotted.partition(".")
+    resolved_head = aliases.get(head, head)
+    if not tail:
+        return resolved_head
+    return f"{resolved_head}.{tail}"
+
+
 def _string_literal(node: ast.AST) -> str | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
@@ -91,6 +117,7 @@ def _shell_uses_banned_command(command: str) -> str | None:
 
 def _scan_python_source(path: Path, root: Path) -> list[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    aliases = _collect_import_aliases(tree)
     violations: list[str] = []
 
     for node in ast.walk(tree):
@@ -100,11 +127,18 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                     violations.append(f"{path.relative_to(root)}:{node.lineno}:import {alias.name}")
         elif isinstance(node, ast.ImportFrom):
             module = node.module or ""
-            if module in _BANNED_IMPORTS or module.startswith("http."):
-                imported = ", ".join(alias.name for alias in node.names)
+            imported = ", ".join(alias.name for alias in node.names)
+            full_targets = [
+                f"{module}.{alias.name}" if module else alias.name for alias in node.names
+            ]
+            if (
+                module in _BANNED_IMPORTS
+                or module.startswith("http.")
+                or any(target in _BANNED_IMPORTS or target.startswith("http.") for target in full_targets)
+            ):
                 violations.append(f"{path.relative_to(root)}:{node.lineno}:from {module} import {imported}")
         elif isinstance(node, ast.Call):
-            dotted = _dotted_name(node.func)
+            dotted = _resolve_dotted_name(node.func, aliases)
             if dotted in _BANNED_CALLS:
                 violations.append(f"{path.relative_to(root)}:{node.lineno}:{dotted}")
             if dotted in {
@@ -156,6 +190,30 @@ def test_python_source_scan_flags_shell_wrapped_network_commands(tmp_path: Path)
     assert violations == [
         "candidate.py:2:subprocess curl",
         "candidate.py:3:subprocess wget",
+    ]
+
+
+def test_python_source_scan_flags_parent_module_imports_and_aliased_calls(tmp_path: Path) -> None:
+    source = tmp_path / "candidate.py"
+    source.write_text(
+        "from urllib import request as request_module\n"
+        "from http import client as http_client\n"
+        "from socket import create_connection as connect\n"
+        "request_module.urlopen('https://example.com')\n"
+        "http_client.HTTPConnection('example.com')\n"
+        "connect(('example.com', 443))\n",
+        encoding="utf-8",
+    )
+
+    violations = _scan_python_source(source, tmp_path)
+
+    assert violations == [
+        "candidate.py:1:from urllib import request",
+        "candidate.py:2:from http import client",
+        "candidate.py:3:from socket import create_connection",
+        "candidate.py:4:urllib.request.urlopen",
+        "candidate.py:5:http.client.HTTPConnection",
+        "candidate.py:6:socket.create_connection",
     ]
 
 
