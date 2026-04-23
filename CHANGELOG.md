@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.832 - 2026-04-23
+## 0.1.835 - 2026-04-23
 
 - Centered the popup launcher on the active screen when no saved window position exists, so a fresh frameless launch no longer appears at an arbitrary corner.
 - Added frameless launcher affordances with a visible drag handle and resize grip, giving the popup a direct move/resize path without turning the native frame back on.
