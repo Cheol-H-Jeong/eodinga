@@ -16,13 +16,34 @@ def test_load_missing_file_returns_defaults(temp_config_path: Path) -> None:
 def test_config_round_trip_save_and_load(temp_config_path: Path, tmp_path: Path) -> None:
     config = AppConfig(
         launcher=AppConfig().launcher.model_copy(
-            update={"window_x": 120, "window_y": 64, "window_width": 800, "window_height": 520}
+            update={
+                "pinned_queries": ["reports", "today"],
+                "window_x": 120,
+                "window_y": 64,
+                "window_width": 800,
+                "window_height": 520,
+            }
         ),
         roots=[RootConfig(path=tmp_path / "docs")],
     )
     config.save(temp_config_path)
     loaded = load(temp_config_path)
     assert loaded.model_dump() == config.model_dump()
+
+
+def test_load_accepts_pinned_queries_in_launcher_config(temp_config_path: Path) -> None:
+    temp_config_path.write_text(
+        """
+[launcher]
+pinned_queries = ["reports", "today"]
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    config = load(temp_config_path)
+
+    assert config.launcher.pinned_queries == ["reports", "today"]
 
 
 def test_config_save_is_atomic_and_cleans_temp_file_on_replace_failure(
