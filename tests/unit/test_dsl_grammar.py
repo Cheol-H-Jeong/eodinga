@@ -85,6 +85,28 @@ def test_parse_operator_regex_value() -> None:
 
 
 @pytest.mark.parametrize(
+    ("query", "expected_name", "expected_value", "expected_kind"),
+    [
+        ("DATE:today", "date", "today", "word"),
+        ('Content:"hello world"', "content", "hello world", "phrase"),
+        ("IS:Duplicate", "is", "Duplicate", "word"),
+    ],
+)
+def test_parse_operator_names_case_insensitively(
+    query: str,
+    expected_name: str,
+    expected_value: str,
+    expected_kind: str,
+) -> None:
+    node = parse(query)
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == expected_name
+    assert node.value == expected_value
+    assert node.value_kind == expected_kind
+
+
+@pytest.mark.parametrize(
     ("query", "expected_name", "expected_value"),
     [
         ('"release \\"candidate\\""', None, 'release "candidate"'),

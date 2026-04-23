@@ -349,6 +349,17 @@ def test_execute_negated_case_true_restores_case_insensitive_matching(
     assert hits == ["Report.txt"]
 
 
+def test_execute_mixed_case_operator_names(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/report.txt", 512, now, "txt", body_text="launch note")
+    _insert_file(tmp_db, 2, "/workspace/report.md", 512, now - 60, "md", body_text="launch note")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, 'EXT:txt Content:"launch note"', limit=10).hits]
+
+    assert hits == ["report.txt"]
+
+
 def test_execute_negated_regex_true_restores_literal_term_matching(
     tmp_db: sqlite3.Connection,
 ) -> None:

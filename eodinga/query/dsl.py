@@ -146,13 +146,14 @@ class _Parser:
             raise QuerySyntaxError("expected term", self.index)
         if ":" in token:
             name, raw = token.split(":", 1)
-            if name in OP_NAMES:
+            normalized_name = name.casefold()
+            if normalized_name in OP_NAMES:
                 if (raw.startswith('"') and not raw.endswith('"')) or (
                     raw.startswith("/") and raw.count("/") < 2
                 ):
                     self.index = token_start + len(name) + 1
-                    return self._parse_operator(name, "", negated)
-                return self._parse_operator(name, raw, negated)
+                    return self._parse_operator(normalized_name, "", negated)
+                return self._parse_operator(normalized_name, raw, negated)
         return WordNode(value=token, negated=negated)
 
     def _parse_operator(self, name: str, initial_value: str, negated: bool) -> OperatorNode:
