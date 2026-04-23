@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.136 - 2026-04-23
+
+- Buffered coalesced watcher events behind a retryable ready queue so bounded consumer queues no longer block the flush lock or silently lose filesystem notifications under backpressure.
+- Deferred `SIGINT` and `SIGTERM` during staged rebuilds until the current root insert or batch write had committed, then cleaned the staged database on interrupt so the live index stays unchanged after an aborted rebuild.
+- Added a rollback regression that proves `IndexWriter.bulk_upsert()` leaves both file rows and FTS content empty when parser work fails partway through a batch.
+
 ## 0.1.130 - 2026-04-23
 
 - Expanded integration coverage so one live `WatchService` can monitor multiple configured roots while `search(..., root=...)` still isolates newly indexed results to the correct root.
