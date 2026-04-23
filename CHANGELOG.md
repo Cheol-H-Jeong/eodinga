@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.226 - 2026-04-23
+## 0.1.228 - 2026-04-23
 
 - Fixed whitespace phrase matching so `path:"release notes"`, `content:"release notes"`, and plain quoted phrases can bridge punctuation token boundaries like `-`, `_`, and `.` instead of collapsing to literal substring-only matches.
 - Added open-ended `size:` windows, so queries like `size:100..`, `size:..500K`, and their negated forms now compile and execute directly alongside the existing bounded-size syntax.
