@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.193 - 2026-04-23
+## 0.1.197 - 2026-04-23
 
 - Hardened staged-index recovery so `.index.db.next` is promoted only after an explicit completion marker is written, and incomplete or corrupt staged builds are discarded instead of replacing a healthy live index after restart.
 - Added hot-restart and storage regressions that cover interrupted staged builds, unreadable staged databases, and the new discard-on-startup path, keeping partial rebuild state from leaking into live search results.
