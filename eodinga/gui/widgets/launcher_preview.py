@@ -106,6 +106,7 @@ class LauncherActionBar(QWidget):
             self.properties_button,
         ):
             layout.addWidget(button)
+        self.set_context(None)
 
     def set_enabled(self, enabled: bool) -> None:
         self.open_button.setEnabled(enabled)
@@ -113,6 +114,14 @@ class LauncherActionBar(QWidget):
         self.copy_path_button.setEnabled(enabled)
         self.copy_name_button.setEnabled(enabled)
         self.properties_button.setEnabled(enabled)
+
+    def set_context(self, hit: SearchHit | None) -> None:
+        if hit is None:
+            self.setAccessibleDescription("No launcher result is selected, so result actions are unavailable.")
+            return
+        self.setAccessibleDescription(
+            f"Actions for {hit.name}: Enter opens, Ctrl+Enter reveals, Alt+C copies the path, Alt+N copies the name, and Shift+Enter shows properties."
+        )
 
 
 __all__ = ["LauncherActionBar", "LauncherPreviewPane"]

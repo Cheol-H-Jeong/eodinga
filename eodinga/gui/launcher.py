@@ -457,8 +457,10 @@ class LauncherPanel(QWidget):
         self._set_selection(index.row())
 
     def _sync_preview_to_index(self, index: QModelIndex) -> None:
-        self.preview_pane.set_hit(self.model.item_at(index.row()) if index.isValid() else None)
+        current_hit = self.model.item_at(index.row()) if index.isValid() else None
+        self.preview_pane.set_hit(current_hit)
         self.action_bar.set_enabled(index.isValid())
+        self.action_bar.set_context(current_hit)
         self._refresh_result_list_accessibility()
 
     def _refresh_preview(self) -> None:
@@ -472,8 +474,11 @@ class LauncherPanel(QWidget):
         current_hit = self._current_hit()
         description = f"{count} launcher results."
         if current_hit is not None:
-            description = f"{description} Selected {current_hit.name}."
-        self.result_list.setAccessibleDescription(f"{description} Use Up and Down to move between results.")
+            current_row = max(self.result_list.currentIndex().row(), 0) + 1
+            description = f"{description} Selected {current_row} of {count}: {current_hit.name}."
+        self.result_list.setAccessibleDescription(
+            f"{description} Use Up and Down to move between results, Enter to open, and Alt+1 through Alt+9 for quick picks."
+        )
 
     def _navigate_recent_queries(self, direction: int) -> None:
         if not self._recent_queries:

@@ -829,6 +829,9 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.action_bar.copy_name_button.accessibleDescription() == "Copy the selected result name with Alt+N."
     assert launcher.action_bar.properties_button.accessibleName() == "Show selected properties"
     assert launcher.action_bar.properties_button.accessibleDescription() == "Open selected result properties with Shift+Enter."
+    assert launcher.action_bar.accessibleDescription() == (
+        "No launcher result is selected, so result actions are unavailable."
+    )
     assert launcher.shortcut_label.accessibleName() == "Launcher shortcut guidance"
     assert launcher.status_label.accessibleName() == "Launcher result summary"
     assert launcher.status_chip.accessibleName() == "Launcher status"
@@ -908,10 +911,13 @@ def test_launcher_results_expose_accessible_text_and_preview_summary(qapp) -> No
     assert "Path /tmp/release-notes.txt." in accessible_text
     assert tooltip == accessible_text
     assert launcher.result_list.accessibleDescription() == (
-        "1 launcher results. Selected release-notes.txt. Use Up and Down to move between results."
+        "1 launcher results. Selected 1 of 1: release-notes.txt. Use Up and Down to move between results, Enter to open, and Alt+1 through Alt+9 for quick picks."
     )
     assert "Previewing release-notes.txt at /tmp/release-notes.txt." in launcher.preview_pane.accessibleDescription()
     assert "Snippet: ...the release notes are attached..." in launcher.preview_pane.accessibleDescription()
+    assert launcher.action_bar.accessibleDescription() == (
+        "Actions for release-notes.txt: Enter opens, Ctrl+Enter reveals, Alt+C copies the path, Alt+N copies the name, and Shift+Enter shows properties."
+    )
 
 
 def test_launcher_active_filter_row_exposes_full_filter_summary_in_tooltip(qapp) -> None:
