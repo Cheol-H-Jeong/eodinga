@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.973 - 2026-04-24
+
+- Fixed the PyInstaller source-import scanner so internal relative imports under `eodinga.*` no longer leak into hidden-import lists as bogus third-party module names such as widget or tab module basenames.
+- Extended dynamic hidden-import discovery to resolve relative `importlib.import_module(..., package=...)` calls and literal `__import__(..., fromlist=...)` submodules, reducing the chance of Windows bundle regressions when imports are assembled at runtime.
+
 ## 0.1.970 - 2026-04-24
 
 - Hardened the Windows release audit so the non-dry-run packaging target now fails on non-Windows hosts instead of going green from whatever stale staged artifacts happen to be present locally.
