@@ -39,6 +39,18 @@ class LauncherWindow(LauncherPanel):
         height = self._config.launcher.window_height if self._config is not None else 480
         self.resize(width, height)
 
+    def set_always_on_top(self, enabled: bool) -> None:
+        if bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint) == enabled:
+            return
+        was_visible = self.isVisible()
+        geometry = self.geometry()
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, enabled)
+        if was_visible:
+            self.show()
+            self.setGeometry(geometry)
+            self.raise_()
+            self.activateWindow()
+
     def keyPressEvent(self, event) -> None:
         if event.key() == Qt.Key.Key_Escape:
             self.hide()

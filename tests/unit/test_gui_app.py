@@ -64,6 +64,7 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.search_tab.accessibleName() == "Search tab"
     assert window.settings_tab.accessibleName() == "Settings tab"
     assert window.settings_tab.system_theme_checkbox.accessibleName() == "Use system theme"
+    assert window.settings_tab.always_on_top_checkbox.accessibleName() == "Keep launcher always on top"
     assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
     assert window.about_tab.accessibleName() == "About tab"
@@ -202,6 +203,23 @@ def test_launcher_respects_always_on_top_config(qapp, temp_config_path: Path) ->
 
     top_window.close()
     qapp.processEvents()
+
+
+def test_settings_tab_toggles_always_on_top_without_restart(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"always_on_top": False})
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher.show()
+    qapp.processEvents()
+    window.settings_tab.always_on_top_checkbox.click()
+    qapp.processEvents()
+
+    assert bool(launcher.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
+    assert load(temp_config_path).launcher.always_on_top is True
 
 
 def test_tray_activation_toggles_launcher_visibility(qapp) -> None:
