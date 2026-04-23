@@ -776,3 +776,16 @@ def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:
 
     hits = [hit.file.name for hit in search(tmp_db, "-(-(alpha | beta))", limit=10).hits]
     assert hits == ["alpha.txt", "beta.txt"]
+
+
+def test_execute_same_score_same_name_ties_break_by_path_stably(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/z/report.txt", 1024, now, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, "/workspace/a/report.txt", 1024, now, "txt", body_text="alpha")
+    tmp_db.commit()
+
+    hits = [str(hit.file.path) for hit in search(tmp_db, "report", limit=10).hits]
+
+    assert hits == ["/workspace/a/report.txt", "/workspace/z/report.txt"]

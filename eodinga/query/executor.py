@@ -412,6 +412,7 @@ def _fetch_path_candidates_python_scan(
             )
             else 1,
             record.name if branch.case_sensitive else record.name_lower,
+            str(record.path) if branch.case_sensitive else str(record.path).lower(),
         ),
     )[:limit]
     ids = [record.id for record in ordered if record.id is not None]
@@ -690,8 +691,7 @@ def _derive_name_path_hits(
     name_hits: list[int] = []
     path_hits: list[int] = []
     if not positive_terms:
-        ordered = sorted(records.values(), key=lambda item: item.name_lower)
-        ids = [record.id for record in ordered if record.id is not None]
+        ids = [record.id for record in records.values() if record.id is not None]
         return ids, ids
     for record in records.values():
         if record.id is None:
@@ -708,7 +708,50 @@ def _derive_name_path_hits(
             for term in positive_terms
         ):
             path_hits.append(record.id)
-    return name_hits, path_hits
+    return (
+        _stable_same_name_ids(name_hits, records, case_sensitive=branch.case_sensitive),
+        _stable_same_name_ids(path_hits, records, case_sensitive=branch.case_sensitive),
+    )
+
+
+def _ordered_unique_ids(*groups: Iterable[int]) -> list[int]:
+    seen: set[int] = set()
+    ordered: list[int] = []
+    for group in groups:
+        for file_id in group:
+            if file_id in seen:
+                continue
+            seen.add(file_id)
+            ordered.append(file_id)
+    return ordered
+
+
+def _stable_same_name_ids(
+    ids: Iterable[int],
+    records: Mapping[int, FileRecord],
+    *,
+    case_sensitive: bool,
+) -> list[int]:
+    grouped: dict[str, list[int]] = {}
+    for file_id in ids:
+        record = records[file_id]
+        name_key = record.name if case_sensitive else record.name_lower
+        grouped.setdefault(name_key, []).append(file_id)
+
+    stabilized: list[int] = []
+    for _name_key, group in sorted(grouped.items(), key=lambda item: min(item[1])):
+        stabilized.extend(
+            sorted(
+                group,
+                key=lambda current_id: (
+                    str(records[current_id].path)
+                    if case_sensitive
+                    else str(records[current_id].path).lower(),
+                    current_id,
+                ),
+            )
+        )
+    return stabilized
 
 
 def _execute_branch(
@@ -731,12 +774,13 @@ def _execute_branch(
         content_records = auto_content_records
         snippets = auto_snippets
     if branch.path_match_sql and branch.content_required:
-        candidate_ids = set(path_ids) & set(content_ids or path_ids)
+        content_id_set = set(content_ids or path_ids)
+        candidate_ids = [file_id for file_id in path_ids if file_id in content_id_set]
     elif branch.path_match_sql:
-        candidate_ids = set(path_ids) | set(content_ids)
+        candidate_ids = _ordered_unique_ids(path_ids, content_ids)
     elif branch.content_required:
         if content_ids:
-            candidate_ids = set(content_ids)
+            candidate_ids = list(content_ids)
         else:
             content_backfill = _scan_filtered_content_records(
                 conn,
@@ -744,14 +788,14 @@ def _execute_branch(
                 max(limit * 4, 1000),
             )
             extra_records = content_backfill
-            candidate_ids = set(content_backfill)
+            candidate_ids = list(content_backfill)
     else:
         if _needs_record_filter(branch):
             scanned_records = _scan_filtered_records(conn, branch, max(limit * 4, 1000))
             extra_records = scanned_records
-            candidate_ids = set(scanned_records)
+            candidate_ids = list(scanned_records)
         else:
-            candidate_ids = set(
+            candidate_ids = list(
                 _fetch_records(conn, branch.where_sql, branch.where_params, max(limit * 10, 1000))
             )
     records = {**path_records, **content_records, **extra_records}
@@ -760,7 +804,7 @@ def _execute_branch(
             _fetch_records(conn, branch.where_sql, branch.where_params, max(limit * 10, 1000))
         )
     if not candidate_ids and not branch.path_match_sql and not branch.content_required:
-        candidate_ids = set(records)
+        candidate_ids = list(records)
     if _needs_record_filter(branch):
         content_texts = _fetch_content_texts(conn, candidate_ids)
         filtered_records = {
@@ -814,7 +858,12 @@ def execute(
                 merged_snippets[file_id] = snippet
     ordered_ids = sorted(
         merged_scores,
-        key=lambda file_id: (-merged_scores[file_id], merged_records[file_id].name_lower, file_id),
+        key=lambda file_id: (
+            -merged_scores[file_id],
+            merged_records[file_id].name_lower,
+            str(merged_records[file_id].path).lower(),
+            file_id,
+        ),
     )[:limit]
     hits = [
         SearchHit(
