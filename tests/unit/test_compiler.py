@@ -96,6 +96,23 @@ def test_compile_previous_period_date_aliases_use_mtime_ranges(query: str) -> No
     assert branch.where_params[0] < branch.where_params[1]
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_sql"),
+    [
+        ("date:last-week..today", "files.mtime >= ? AND files.mtime < ?"),
+        ("modified:2026-01-03..yesterday", "files.mtime >= ? AND files.mtime < ?"),
+        ("created:..today", "files.ctime < ?"),
+        ("created:last-month..", "files.ctime >= ?"),
+    ],
+)
+def test_compile_date_ranges_accept_macro_endpoints(query: str, expected_sql: str) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == expected_sql
+    assert all(isinstance(param, int) for param in branch.where_params)
+
+
 def test_compile_reversed_date_range_normalizes_bounds() -> None:
     compiled = compile_query(parse("date:2026-01-03..2026-01-01"))
     branch = compiled.branches[0]

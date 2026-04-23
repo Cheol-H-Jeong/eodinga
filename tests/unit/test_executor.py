@@ -248,6 +248,70 @@ def test_execute_previous_period_date_queries_use_local_boundaries(
     assert last_month_hits == ["last-month.txt"]
 
 
+def test_execute_date_ranges_accept_macro_endpoints(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    frozen_now = datetime(2026, 4, 23, 9, 30, tzinfo=seoul)
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/last-week.txt",
+        512,
+        int(datetime(2026, 4, 15, 12, 0, tzinfo=seoul).timestamp()),
+        "txt",
+        body_text="last week note",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/today.txt",
+        512,
+        int(datetime(2026, 4, 23, 12, 0, tzinfo=seoul).timestamp()),
+        "txt",
+        body_text="today note",
+    )
+    _insert_file(
+        tmp_db,
+        3,
+        "/workspace/future.txt",
+        512,
+        int(datetime(2026, 4, 24, 12, 0, tzinfo=seoul).timestamp()),
+        "txt",
+        body_text="future note",
+    )
+    _insert_file(
+        tmp_db,
+        4,
+        "/workspace/last-month.txt",
+        512,
+        int(datetime(2026, 3, 15, 12, 0, tzinfo=seoul).timestamp()),
+        "txt",
+        body_text="last month note",
+    )
+    tmp_db.commit()
+
+    between_hits = [hit.file.name for hit in search(tmp_db, "date:last-week..today", limit=10).hits]
+    until_today_hits = [hit.file.name for hit in search(tmp_db, "date:..today", limit=10).hits]
+    since_last_month_hits = [
+        hit.file.name for hit in search(tmp_db, "date:last-month..", limit=10).hits
+    ]
+
+    assert between_hits == ["last-week.txt", "today.txt"]
+    assert until_today_hits == ["last-month.txt", "last-week.txt", "today.txt"]
+    assert set(since_last_month_hits) == {"last-month.txt", "last-week.txt", "today.txt", "future.txt"}
+
+
 def test_execute_negated_case_true_restores_case_insensitive_matching(
     tmp_db: sqlite3.Connection,
 ) -> None:

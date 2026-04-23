@@ -56,38 +56,45 @@ def _parse_iso_endpoint(value: str) -> DateRange:
         raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
 
 
-def parse_date_range(value: str) -> DateRange:
-    today = datetime.now().astimezone().date()
+def _parse_endpoint_range(value: str) -> DateRange:
     if value == "today":
-        return _day_bounds(today)
+        return _day_bounds(datetime.now().astimezone().date())
     if value == "yesterday":
-        return _day_bounds(today - timedelta(days=1))
+        return _day_bounds(datetime.now().astimezone().date() - timedelta(days=1))
     if value == "this-week":
+        today = datetime.now().astimezone().date()
         start = today - timedelta(days=today.weekday())
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(start + timedelta(days=7)).start)
     if value == "last-week":
+        today = datetime.now().astimezone().date()
         end = today - timedelta(days=today.weekday())
         start = end - timedelta(days=7)
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(end).start)
     if value == "this-month":
+        today = datetime.now().astimezone().date()
         start = _month_start(today)
         next_month = _next_month_start(start)
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(next_month).start)
     if value == "last-month":
+        today = datetime.now().astimezone().date()
         this_month = _month_start(today)
         last_month = _month_start(this_month - timedelta(days=1))
         return DateRange(start=_day_bounds(last_month).start, end=_day_bounds(this_month).start)
+    return _parse_iso_endpoint(value)
+
+
+def parse_date_range(value: str) -> DateRange:
     if ".." in value:
         left, right = (part.strip() for part in value.split("..", 1))
         if not left and not right:
             raise QuerySyntaxError(f"invalid date literal: {value}", 0)
         if not left:
-            return DateRange(end=_parse_iso_endpoint(right).end)
+            return DateRange(end=_parse_endpoint_range(right).end)
         if not right:
-            return DateRange(start=_parse_iso_endpoint(left).start)
-        left_range = _parse_iso_endpoint(left)
-        right_range = _parse_iso_endpoint(right)
+            return DateRange(start=_parse_endpoint_range(left).start)
+        left_range = _parse_endpoint_range(left)
+        right_range = _parse_endpoint_range(right)
         if (right_range.start or 0) < (left_range.start or 0):
             left_range, right_range = right_range, left_range
         return DateRange(start=left_range.start, end=right_range.end)
-    return _parse_iso_endpoint(value)
+    return _parse_endpoint_range(value)
