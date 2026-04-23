@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.305 - 2026-04-23
+## 0.1.354 - 2026-04-23
 
 - Added an observer-backed rename regression that proves path and content queries swap from the old name to the new one within the live-update latency budget.
 - Added a hot-restart regression that reopens a persisted index, processes a watched delete without a rebuild, and keeps unaffected files queryable.
