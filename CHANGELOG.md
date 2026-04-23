@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.918 - 2026-04-24
+## 0.1.923 - 2026-04-24
 
 - Made `eodinga stats --json` self-observing, so the payload now includes the current stats request, its JSON-mode counter, and the successful `stats` command snapshot instead of stopping at `started`.
 - Exposed active file-log sink state through runtime stats and crash reports, including the configured sink path, whether the log file currently exists, and file size/mtime when the sink has materialized on disk.
