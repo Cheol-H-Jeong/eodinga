@@ -23,6 +23,9 @@ from eodinga.observability import increment_counter, record_histogram
 
 DEFAULT_MAX_BODY_CHARS = 4096
 _BULK_WRITE_PRAGMAS = {"synchronous": "NORMAL", "cache_size": -128000}
+_BUILD_STATE_KEY = "build_state"
+_BUILD_STATE_BUILDING = "building"
+_BUILD_STATE_COMPLETE = "complete"
 
 
 class RebuildResult(NamedTuple):
@@ -108,6 +111,15 @@ def _insert_roots(conn, roots: list[RootConfig]) -> None:
         )
 
 
+def _set_build_state(conn, state: str) -> None:
+    with conn:
+        conn.execute(
+            "INSERT INTO meta(key, value) VALUES(?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (_BUILD_STATE_KEY, state),
+        )
+
+
 def rebuild_index(
     db_path: Path,
     roots: list[RootConfig],
@@ -134,6 +146,7 @@ def rebuild_index(
     )
     try:
         writer = IndexWriter(conn, parser_callback=parser_callback)
+        _set_build_state(conn, _BUILD_STATE_BUILDING)
         _insert_roots(conn, effective_roots)
         with temporary_pragmas(conn, _BULK_WRITE_PRAGMAS):
             with _SignalStop() as stop:
@@ -158,6 +171,7 @@ def rebuild_index(
                             increment_counter("files_indexed", indexed, root=str(root.path))
                         stop.raise_if_requested()
                 stop.raise_if_requested()
+        _set_build_state(conn, _BUILD_STATE_COMPLETE)
     except KeyboardInterrupt:
         conn.close()
         raise

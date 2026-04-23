@@ -37,6 +37,14 @@ def _make_recovery_snapshot(source: Path, snapshot: Path) -> None:
     shutil.copy2(source.with_name(f"{source.name}-shm"), snapshot.with_name(f"{snapshot.name}-shm"))
 
 
+def _mark_build_complete(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "INSERT INTO meta(key, value) VALUES('build_state', 'complete') "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+    )
+    conn.commit()
+
+
 def test_atomic_replace_index_swaps_in_staged_database(tmp_path: Path) -> None:
     target = tmp_path / "index.db"
     staged = tmp_path / "index.staged.db"
@@ -649,7 +657,7 @@ def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         ("/rebuilt", "[]", "[]", 1),
     )
-    staged_conn.commit()
+    _mark_build_complete(staged_conn)
     staged_conn.close()
 
     assert recover_interrupted_build(target) is True
@@ -677,7 +685,7 @@ def test_recover_interrupted_build_cleans_partial_stage_artifacts(tmp_path: Path
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         ("/rebuilt", "[]", "[]", 1),
     )
-    staged_conn.commit()
+    _mark_build_complete(staged_conn)
     staged_conn.close()
 
     partial.write_bytes(b"orphaned")
@@ -713,7 +721,7 @@ def test_recover_interrupted_build_preserves_stage_when_swap_fails(
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         ("/rebuilt", "[]", "[]", 1),
     )
-    staged_conn.commit()
+    _mark_build_complete(staged_conn)
     staged_conn.close()
 
     partial.write_bytes(b"orphaned")
@@ -754,6 +762,37 @@ def test_recover_interrupted_build_rejects_uninitialized_stage(tmp_path: Path) -
     assert not staged.exists()
 
 
+def test_recover_interrupted_build_discards_incomplete_stage(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/partial", "[]", "[]", 1),
+    )
+    staged_conn.execute(
+        "INSERT INTO meta(key, value) VALUES('build_state', 'building') "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    assert recover_interrupted_build(target) is False
+    assert _read_root_paths(target) == ["/live"]
+    assert not staged.exists()
+
+
 def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     target = tmp_path / "index.db"
     staged = tmp_path / ".index.db.next"
@@ -773,7 +812,7 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         ("/rebuilt-startup", "[]", "[]", 1),
     )
-    staged_conn.commit()
+    _mark_build_complete(staged_conn)
     staged_conn.close()
 
     reopened = open_index(target)
@@ -786,6 +825,42 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     assert not staged.exists()
     assert not staged.with_name(".index.db.next-wal").exists()
     assert not staged.with_name(".index.db.next-shm").exists()
+
+
+def test_open_index_discards_incomplete_interrupted_staged_build(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/partial", "[]", "[]", 1),
+    )
+    staged_conn.execute(
+        "INSERT INTO meta(key, value) VALUES('build_state', 'building') "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    reopened = open_index(target)
+    try:
+        rows = reopened.execute("SELECT path FROM roots ORDER BY path").fetchall()
+        assert [str(row[0]) for row in rows] == ["/live"]
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
 
 
 def test_open_index_resumes_interrupted_recovery_with_staged_wal(tmp_path: Path) -> None:

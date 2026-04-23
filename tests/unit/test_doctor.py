@@ -9,6 +9,14 @@ from eodinga.doctor import run_diagnostics
 from eodinga.index.schema import apply_schema
 
 
+def _mark_build_complete(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "INSERT INTO meta(key, value) VALUES('build_state', 'complete') "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+    )
+    conn.commit()
+
+
 def test_doctor_returns_expected_shape(tmp_path: Path) -> None:
     config = AppConfig(roots=[RootConfig(path=tmp_path)])
     report, exit_code = run_diagnostics(config=config, db_path=tmp_path / "index.db")
@@ -115,7 +123,7 @@ def test_doctor_resumes_interrupted_build_before_reporting(tmp_path: Path) -> No
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         (str(tmp_path), "[]", "[]", 1),
     )
-    conn.commit()
+    _mark_build_complete(conn)
     conn.close()
 
     report, exit_code = run_diagnostics(config=AppConfig(), db_path=db_path)
