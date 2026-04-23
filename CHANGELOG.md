@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.815 - 2026-04-23
+
+- Re-clamped launcher geometry whenever the window is shown again, so stale off-screen positions are corrected against the current display and immediately written back to config instead of lingering across sessions.
+- Made direct launcher flag toggles persist their own `frameless` and `always_on_top` settings, keeping window-state changes consistent even when callers bypass the main settings flow.
+- Hardened the Windows packaging preflight test against ambient `dist/` artifacts by forcing the missing-build path explicitly, keeping the repo gate deterministic while launcher work is in flight.
+
 ## 0.1.809 - 2026-04-23
 
 - Added a scoped SQLite pragma override helper so performance-sensitive write paths can raise cache budgets or relax sync policy temporarily without leaking connection state afterward.
