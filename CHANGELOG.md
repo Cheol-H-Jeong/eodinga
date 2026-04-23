@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.359 - 2026-04-23
+
+- Rendered the staged Debian `DEBIAN/control` file directly from the checked-in template, with version and architecture tokens enforced by the dry-run audit so package metadata no longer drifts from the Debian recipe.
+- Added explicit build-tool preflight checks in `packaging/build.py`, causing packaging targets to fail early with a named missing command instead of surfacing only a later subprocess error.
+- Expanded packaging regressions to cover Debian control-template rendering and build-tool preflight behavior across Windows and Linux packaging targets.
+
 ## 0.1.353 - 2026-04-23
 
 - Expanded the README with an install matrix, a fuller feature inventory, task-focused command recipes, and a packaged-artifacts summary so the shipped operator contract is easier to audit from one page.
