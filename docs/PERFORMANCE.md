@@ -96,6 +96,20 @@ When you refresh this table, record:
 - If you do rerun the suite, update the measurement date, note the exact command, and describe the code or docs change that explains the new sample.
 - When a README or release guide cites the perf baseline, describe it as the "current checked-in baseline" unless the benchmark was rerun at the same commit being released.
 
+## If The Perf Run Fails
+
+- Do not overwrite the baseline table with numbers from a failing run.
+- Capture the printed summary lines and the first failing threshold in the same note or handoff so the regression stays reviewable.
+- Treat the failure as diagnostic evidence for the subsystem you changed, not as a reason to quietly relax the documented baseline.
+- Keep the default release gate and the opt-in perf run separate in status reports; `pytest -q tests` staying green does not mean the perf suite was exercised.
+- If debug logging pollutes stdout, keep the raw log and extract only the benchmark summary prefixes before updating any documentation.
+
+One-command capture example:
+
+```bash
+source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s 2>&1 | tee /tmp/eodinga-perf.log && rg '^(bulk_upsert|cold_start|rebuild_cold_start|rebuild_index|walk_batched|query_latency|content_query_latency|watch_latency)' /tmp/eodinga-perf.log
+```
+
 ## Repro Checklist
 
 Use this short checklist before replacing the baseline table:
@@ -143,3 +157,4 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 - Perf results are informational for `0.1.x`; they do not replace the default acceptance gate.
 - A perf-table refresh belongs in the same round only when the benchmark was rerun at the current HEAD and the documented numbers come from that run.
 - If a code or docs round did not rerun the benchmark, leave the baseline table alone and avoid pretending the old numbers describe the new tip exactly.
+- If a same-round perf run failed, report the failing summary lines separately and leave the checked-in baseline untouched until the regression is understood.

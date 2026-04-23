@@ -63,6 +63,8 @@ Recommended order:
 2. `pytest -q tests` once the candidate release branch is assembled.
 3. `ruff`, `pyright`, GUI smoke, packaging dry-runs, and workflow lint after the full test pass.
 
+Optional perf evidence belongs after the default gate, not inside it. If you run `EODINGA_RUN_PERF=1 pytest -q tests/perf -s`, capture the printed benchmark summaries and keep failing perf output out of the release baseline or changelog until the regression is understood.
+
 ## Artifact Inventory
 
 Before tagging, know which release inputs this repository expects to exist:
@@ -129,6 +131,7 @@ Use the same release discipline for docs-only changes when the shipped operator 
 2. Regenerate any derived docs assets touched by the round.
 3. Re-run `pytest -q tests/unit/test_docs_assets.py` plus the matching packaging dry-run or GUI smoke command.
 4. Add a changelog entry that names the docs surface changed and why it matters.
+5. If you also ran the opt-in perf suite, only refresh `docs/PERFORMANCE.md` when the benchmark completed cleanly and the new table comes from that same commit.
 
 ## Cut The Local Release
 

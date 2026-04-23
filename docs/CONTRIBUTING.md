@@ -72,6 +72,14 @@ yamllint .github/workflows/release-windows.yml
 yamllint .github/workflows/release-linux.yml
 ```
 
+Optional perf pass:
+
+```bash
+EODINGA_RUN_PERF=1 pytest -q tests/perf -s
+```
+
+Treat the perf suite as separate diagnostic evidence. If it fails, record the summary lines and the failing threshold instead of overwriting `docs/PERFORMANCE.md` with numbers from a red run.
+
 Commit-level minimum:
 
 ```bash
