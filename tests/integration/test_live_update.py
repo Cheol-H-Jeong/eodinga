@@ -287,3 +287,42 @@ def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Pat
 
     assert initial_hits == [existing]
     assert reopened_hits == [existing]
+
+
+def test_hot_restart_reopen_preserves_live_update_without_rebuild(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    existing = root / "existing.txt"
+    existing.write_text("legacy seed query\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    first_conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(first_conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        created = root / "persisted-live-update.txt"
+        created.write_text("incremental update survives reopen\n", encoding="utf-8")
+        _wait_for_query_hit(
+            first_conn,
+            service,
+            writer,
+            "survives reopen",
+            created,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        first_conn.close()
+
+    reopened = open_index(db_path)
+    try:
+        reopened_hits = [hit.file.path for hit in search(reopened, "survives reopen", limit=3).hits]
+        existing_hits = [hit.file.path for hit in search(reopened, "legacy seed", limit=3).hits]
+    finally:
+        reopened.close()
+
+    assert reopened_hits == [created]
+    assert existing_hits == [existing]
