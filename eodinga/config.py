@@ -60,7 +60,7 @@ class GeneralConfig(BaseModel):
 
 
 class LauncherConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     hotkey: str = "ctrl+shift+space"
     debounce_ms: int = 30
