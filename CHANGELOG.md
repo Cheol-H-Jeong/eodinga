@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.117 - 2026-04-23
+
+- Fixed slash-delimited regex parsing so a closing `/` is recognized by backslash parity instead of only checking the immediately previous character, which restores correct handling for patterns that end with escaped backslashes.
+- Hardened compiler normalization to reject grouped negation over contextual `case:` and `regex:` operators, avoiding silently incorrect query semantics for expressions such as `-(case:true report)`.
+- Made inline operator regex parsing (`content:/.../flags`, `regex:/.../flags`) reject invalid flag suffixes consistently instead of silently downgrading malformed regexes to plain word literals.
+
 ## 0.1.115 - 2026-04-23
 
 - Expanded the shipped README with an explicit feature inventory, a compact DSL cheatsheet, generated-screenshot provenance, and direct links to contributor and release workflows so the top-level product contract is easier to audit.
