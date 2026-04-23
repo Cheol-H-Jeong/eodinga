@@ -90,7 +90,7 @@ def rebuild_index(
     staged_path = _staged_build_path(target_path)
     _cleanup_index_files(staged_path)
 
-    conn = connect_database(staged_path)
+    conn = connect_database(staged_path, profile="bulk")
     files_indexed = 0
     parser_callback = (
         (lambda path: parse(path, max_body_chars=max_body_chars))

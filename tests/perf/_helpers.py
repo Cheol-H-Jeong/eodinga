@@ -37,7 +37,7 @@ def perf_float_env(name: str, default: float) -> float:
 
 
 def open_perf_db(path: Path) -> sqlite3.Connection:
-    conn = connect_database(path)
+    conn = connect_database(path, profile="bulk")
     apply_schema(conn)
     return conn
 

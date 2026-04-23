@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import sqlite3
 
-PRAGMAS = (
+BASE_PRAGMAS = (
     "PRAGMA journal_mode=WAL;",
-    "PRAGMA synchronous=NORMAL;",
     "PRAGMA mmap_size=1073741824;",
     "PRAGMA temp_store=MEMORY;",
     "PRAGMA cache_size=-64000;",
@@ -91,7 +90,7 @@ END;
 
 
 def apply_schema(conn: sqlite3.Connection) -> None:
-    for pragma in PRAGMAS:
+    for pragma in BASE_PRAGMAS:
         conn.execute(pragma)
     conn.executescript(SCHEMA_SQL)
     conn.execute(

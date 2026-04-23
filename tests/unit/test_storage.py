@@ -257,6 +257,9 @@ def test_connect_database_applies_row_factory_and_pragmas(tmp_path: Path) -> Non
         cache_size = conn.execute("PRAGMA cache_size;").fetchone()
         assert cache_size is not None
         assert int(cache_size[0]) == -64000
+        synchronous = conn.execute("PRAGMA synchronous;").fetchone()
+        assert synchronous is not None
+        assert int(synchronous[0]) == 2
     finally:
         conn.close()
 
@@ -267,6 +270,18 @@ def test_connect_database_accepts_disabled_row_factory(tmp_path: Path) -> None:
     conn = connect_database(path, row_factory=None)
     try:
         assert conn.row_factory is None
+    finally:
+        conn.close()
+
+
+def test_connect_database_supports_bulk_profile(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+
+    conn = connect_database(path, profile="bulk")
+    try:
+        synchronous = conn.execute("PRAGMA synchronous;").fetchone()
+        assert synchronous is not None
+        assert int(synchronous[0]) == 1
     finally:
         conn.close()
 
