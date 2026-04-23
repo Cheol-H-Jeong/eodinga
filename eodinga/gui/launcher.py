@@ -138,6 +138,7 @@ class LauncherPanel(QWidget):
         self.query_field.textChanged.connect(self._schedule_query)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
         self.query_field.installEventFilter(self)
+        self.pin_query_button.installEventFilter(self)
         self.result_list.installEventFilter(self)
 
         self._shortcuts = [
@@ -265,15 +266,17 @@ class LauncherPanel(QWidget):
         self._refresh_pin_query_button()
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusIn:
+        if watched in {self.query_field, self.pin_query_button, self.result_list} and event.type() == QEvent.Type.FocusIn:
             self._refresh_shortcut_hint()
-        if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusOut:
+        if watched in {self.query_field, self.pin_query_button, self.result_list} and event.type() == QEvent.Type.FocusOut:
             QTimer.singleShot(0, self._refresh_shortcut_hint)
         if event.type() != QEvent.Type.KeyPress:
             return super().eventFilter(watched, event)
         key_event = cast(QKeyEvent, event)
         if watched is self.query_field:
             return self._handle_query_field_keypress(key_event)
+        if watched is self.pin_query_button:
+            return self._handle_pin_button_keypress(key_event)
         if watched is self.result_list:
             return self._handle_result_list_keypress(key_event)
         return super().eventFilter(watched, event)
@@ -359,8 +362,10 @@ class LauncherPanel(QWidget):
                 hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
         elif self.result_list.hasFocus():
             hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+P pins this filter. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
+        elif self.pin_query_button.hasFocus():
+            hint = "Space toggles pinning. Tab moves to results. Shift+Tab returns to the filter."
         else:
-            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+P pins this filter. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
+            hint = "Tab moves to results. Shift+Tab reaches pinning. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+P pins this filter. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
 
     def _refresh_pin_query_button(self) -> None:
@@ -412,11 +417,35 @@ class LauncherPanel(QWidget):
             self.result_list.setFocus()
             self._move_selection(-self._page_step())
             return True
-        if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
+        if event.key() == Qt.Key.Key_Backtab:
+            if self.pin_query_button.isEnabled():
+                self.pin_query_button.setFocus()
+                return True
             self.result_list.setFocus()
             current_index = self.result_list.currentIndex()
             if not current_index.isValid() and self.model.rowCount() > 0:
                 self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
+            return True
+        if event.key() == Qt.Key.Key_Tab:
+            self.result_list.setFocus()
+            current_index = self.result_list.currentIndex()
+            if not current_index.isValid() and self.model.rowCount() > 0:
+                self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
+            return True
+        return False
+
+    def _handle_pin_button_keypress(self, event: QKeyEvent) -> bool:
+        if event.key() == Qt.Key.Key_Backtab:
+            self.query_field.setFocus()
+            return True
+        if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Down}:
+            if self.model.rowCount() > 0:
+                self.result_list.setFocus()
+                if not self.result_list.currentIndex().isValid():
+                    self._set_selection(0)
+            return True
+        if event.key() in {Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space}:
+            self.toggle_current_query_pin()
             return True
         return False
 

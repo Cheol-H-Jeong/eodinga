@@ -373,6 +373,28 @@ def test_launcher_alt_p_toggles_pinned_query(qapp) -> None:
     assert launcher.pin_query_button.text() == "Pin"
 
 
+def test_launcher_shift_tab_reaches_pin_button_and_space_toggles_pin(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    launcher.query_field.setText("notes")
+    _wait(60)
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Backtab)
+
+    assert launcher.pin_query_button.hasFocus()
+    assert launcher.shortcut_label.text() == "Space toggles pinning. Tab moves to results. Shift+Tab returns to the filter."
+
+    QTest.keyClick(launcher.pin_query_button, Qt.Key.Key_Space)
+    assert state.pinned_queries == ["notes"]
+    assert launcher.pin_query_button.text() == "Unpin"
+
+    QTest.keyClick(launcher.pin_query_button, Qt.Key.Key_Tab)
+    assert launcher.result_list.hasFocus()
+    assert launcher.result_list.currentIndex().row() == 0
+
+
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:
     revealed: list[str] = []
 
