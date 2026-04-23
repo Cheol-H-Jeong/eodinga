@@ -127,3 +127,47 @@ def test_watcher_flush_metrics_increment(tmp_path: Path) -> None:
     assert counters["watcher_events_flushed"] == 1
     assert histograms["watch_flush_batch_size"]["count"] == 1
     assert histograms["watch_event_lag_ms"]["count"] == 1
+
+
+def test_watcher_backpressure_metrics_increment(tmp_path: Path) -> None:
+    from threading import Thread
+    from time import sleep
+
+    service = WatchService(queue_maxsize=1)
+    reset_metrics()
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "first.txt",
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    thread = Thread(
+        target=lambda: (
+            service.record(
+                WatchEvent(
+                    event_type="created",
+                    path=tmp_path / "second.txt",
+                    root_path=tmp_path,
+                    happened_at=2.0,
+                )
+            ),
+            service._flush_ready(force=True),
+        ),
+        daemon=True,
+    )
+    thread.start()
+    sleep(0.1)
+    service.queue.get_nowait()
+    thread.join(timeout=1)
+    service.queue.get_nowait()
+
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
+    histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
+    assert counters["watcher_queue_full"] == 1
+    assert histograms["watcher_queue_backpressure_ms"]["count"] == 1

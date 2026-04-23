@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from queue import Empty
+from threading import Thread
 from time import monotonic, sleep
 
 import pytest
@@ -647,3 +648,48 @@ def test_watcher_start_ignores_duplicate_root_registration(
 
     assert started == [tmp_path]
     assert stopped == [tmp_path]
+
+
+def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path) -> None:
+    service = WatchService(queue_maxsize=1)
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    finished = False
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=first,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    def emit_second() -> None:
+        nonlocal finished
+        service.record(
+            WatchEvent(
+                event_type="created",
+                path=second,
+                root_path=tmp_path,
+                happened_at=2.0,
+            )
+        )
+        service._flush_ready(force=True)
+        finished = True
+
+    thread = Thread(target=emit_second, daemon=True)
+    thread.start()
+    sleep(0.1)
+
+    assert finished is False
+
+    first_event = service.queue.get_nowait()
+    assert first_event.path == first
+
+    thread.join(timeout=1)
+    assert finished is True
+
+    second_event = service.queue.get_nowait()
+    assert second_event.path == second
