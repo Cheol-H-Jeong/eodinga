@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.551 - 2026-04-23
+## 0.1.552 - 2026-04-23
 
 - Stabilized tied search-result ordering by breaking equal-name and equal-score ties with the indexed path instead of insertion-order-dependent file ids, so duplicate filenames across directories now sort deterministically.
 - Added executor regressions for duplicate-name ordering and boolean query truth tables, pinning both metadata-only and scored query behavior against future ranking/compiler changes.
