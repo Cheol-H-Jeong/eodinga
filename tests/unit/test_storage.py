@@ -291,6 +291,46 @@ def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, m
         conn.close()
 
 
+def test_cleanup_index_files_tolerates_raced_delete(monkeypatch: pytest.MonkeyPatch) -> None:
+    path = Path("/virtual/index.db")
+    calls: list[Path] = []
+
+    def raced_unlink(target: Path) -> None:
+        calls.append(target)
+        raise FileNotFoundError(target)
+
+    monkeypatch.setattr(Path, "unlink", raced_unlink)
+
+    storage_module._cleanup_index_files(path)
+
+    assert calls == [
+        path,
+        path.with_name("index.db-wal"),
+        path.with_name("index.db-shm"),
+    ]
+
+
+def test_cleanup_partial_copy_artifacts_tolerates_raced_delete(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = Path("/virtual/.index.db.recover")
+    partial = path.with_name(".index.db.recover.partial")
+    calls: list[Path] = []
+
+    def raced_unlink(target: Path) -> None:
+        calls.append(target)
+        raise FileNotFoundError(target)
+
+    monkeypatch.setattr(Path, "unlink", raced_unlink)
+
+    assert storage_module._cleanup_partial_copy_artifacts(path) is False
+    assert calls == [
+        partial,
+        partial.with_name(".index.db.recover.partial-wal"),
+        partial.with_name(".index.db.recover.partial-shm"),
+    ]
+
+
 def test_recover_stale_wal_returns_false_when_nonempty_sidecar_survives(
     tmp_path: Path, monkeypatch
 ) -> None:

@@ -16,6 +16,14 @@ def _sidecar(path: Path, suffix: str) -> Path:
     return path.with_name(f"{path.name}{suffix}")
 
 
+def _unlink_if_present(path: Path) -> bool:
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return False
+    return True
+
+
 def configure_connection(
     conn: sqlite3.Connection, *, row_factory: type[sqlite3.Row] | None = sqlite3.Row
 ) -> sqlite3.Connection:
@@ -48,13 +56,11 @@ def _checkpoint_wal(path: Path) -> None:
 def _cleanup_sidecars(path: Path) -> None:
     for suffix in ("-wal", "-shm"):
         sidecar = _sidecar(path, suffix)
-        if sidecar.exists():
-            sidecar.unlink()
+        _unlink_if_present(sidecar)
 
 
 def _cleanup_index_files(path: Path) -> None:
-    if path.exists():
-        path.unlink()
+    _unlink_if_present(path)
     _cleanup_sidecars(path)
 
 
@@ -100,23 +106,17 @@ def _cleanup_orphan_recovery_sidecars(path: Path) -> bool:
     cleaned = False
     for suffix in ("-wal", "-shm"):
         orphan = _sidecar(staged_path, suffix)
-        if orphan.exists():
-            orphan.unlink()
-            cleaned = True
+        cleaned = _unlink_if_present(orphan) or cleaned
     return cleaned
 
 
 def _cleanup_partial_copy_artifacts(path: Path) -> bool:
     partial_path = _partial_copy_path(path)
     cleaned = False
-    if partial_path.exists():
-        partial_path.unlink()
-        cleaned = True
+    cleaned = _unlink_if_present(partial_path) or cleaned
     for suffix in ("-wal", "-shm"):
         sidecar = _sidecar(partial_path, suffix)
-        if sidecar.exists():
-            sidecar.unlink()
-            cleaned = True
+        cleaned = _unlink_if_present(sidecar) or cleaned
     return cleaned
 
 
@@ -127,9 +127,7 @@ def _cleanup_orphan_build_sidecars(path: Path) -> bool:
     cleaned = False
     for suffix in ("-wal", "-shm"):
         orphan = _sidecar(staged_path, suffix)
-        if orphan.exists():
-            orphan.unlink()
-            cleaned = True
+        cleaned = _unlink_if_present(orphan) or cleaned
     return cleaned
 
 
@@ -139,9 +137,7 @@ def _cleanup_orphan_live_sidecars(path: Path) -> bool:
     cleaned = False
     for suffix in ("-wal", "-shm"):
         orphan = _sidecar(path, suffix)
-        if orphan.exists():
-            orphan.unlink()
-            cleaned = True
+        cleaned = _unlink_if_present(orphan) or cleaned
     return cleaned
 
 
@@ -185,8 +181,7 @@ def _replay_stale_wal(path: Path) -> bool:
         sidecar = _sidecar(path, suffix)
         if sidecar.exists() and sidecar.stat().st_size > 0:
             return False
-        if sidecar.exists():
-            sidecar.unlink()
+        _unlink_if_present(sidecar)
     return True
 
 
