@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.821 - 2026-04-23
+
+- Added a bounded filesystem-backed launcher preview fallback for text results that do not yet have an indexed snippet, while still skipping binary content and preserving indexed snippets when they exist.
+- Let the Settings remap flow disable the global launcher hotkey by accepting a blank combo, updating the persisted config and settings label immediately without requiring an app restart.
+
 ## 0.1.810 - 2026-04-23
 
 - Escaped literal `%`, `_`, and `^` characters in the query compiler's `path:` SQL fast path, so wildcard-like path fragments now stay literal without falling back to slower broad matches.
