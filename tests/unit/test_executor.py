@@ -21,6 +21,7 @@ def _insert_file(
     ext: str,
     body_text: str = "",
     is_dir: int = 0,
+    is_symlink: int = 0,
     content_hash: bytes | None = None,
 ) -> None:
     path_obj = Path(path)
@@ -43,7 +44,7 @@ def _insert_file(
             mtime,
             mtime,
             is_dir,
-            0,
+            is_symlink,
             content_hash,
             mtime,
         ),
@@ -662,6 +663,35 @@ def test_execute_regex_true_query(tmp_db: sqlite3.Connection) -> None:
     assert hits == ["report-011.py"]
 
 
+def test_execute_regex_multiline_and_dotall_flags(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/meeting.txt",
+        1024,
+        now,
+        "txt",
+        body_text="alpha line\nbeta marker\nfinal summary",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/notes.txt",
+        1024,
+        now - 60,
+        "txt",
+        body_text="alpha line beta marker",
+    )
+    tmp_db.commit()
+
+    dotall_hits = [hit.file.name for hit in search(tmp_db, r"content:/alpha.*beta/s", limit=10).hits]
+    multiline_hits = [hit.file.name for hit in search(tmp_db, r"content:/^beta/m", limit=10).hits]
+
+    assert dotall_hits == ["meeting.txt", "notes.txt"]
+    assert multiline_hits == ["meeting.txt"]
+
+
 def test_execute_regex_only_query_scans_beyond_initial_window(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     for index in range(1, 1501):
@@ -694,6 +724,30 @@ def test_execute_negated_group_query(tmp_db: sqlite3.Connection) -> None:
 
     hits = [hit.file.name for hit in search(tmp_db, "-(alpha | beta) ext:txt", limit=10).hits]
     assert hits == ["gamma-plan.txt"]
+
+
+def test_execute_is_operator_distinguishes_files_dirs_and_symlinks(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/plain.txt", 32, now, "txt", body_text="plain file")
+    _insert_file(tmp_db, 2, "/workspace/folder", 0, now - 60, "", is_dir=True)
+    _insert_file(
+        tmp_db,
+        3,
+        "/workspace/plain-link",
+        0,
+        now - 120,
+        "",
+        is_symlink=True,
+    )
+    tmp_db.commit()
+
+    file_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "is:file", limit=10).hits]
+    dir_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "is:dir", limit=10).hits]
+    symlink_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "is:symlink", limit=10).hits]
+
+    assert file_hits == ["/workspace/plain-link", "/workspace/plain.txt"]
+    assert dir_hits == ["/workspace/folder"]
+    assert symlink_hits == ["/workspace/plain-link"]
 
 
 def test_execute_korean_filename_queries(tmp_db: sqlite3.Connection) -> None:
