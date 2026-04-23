@@ -257,6 +257,30 @@ Before handing off a docs-heavy round, gather one small review packet instead of
 
 That packet gives the next reviewer a direct path to the same evidence without replaying the entire round.
 
+## Validation Escalation Ladder
+
+Pick the next proof step only after the current one is green:
+
+1. `pytest -q tests/unit/test_docs_assets.py` for docs-only wording, links, and derived-asset references.
+2. The nearest surface-specific proof, such as GUI smoke, manpage regeneration, or one packaging dry run.
+3. `pytest -q tests/unit` before each commit when the round spans multiple docs files or pinned tests.
+4. The full repository gate only after the round-level doc set is assembled and ready for release handoff.
+
+This keeps worker rounds deterministic: narrow proof first, broad proof last.
+
+## Proof Bundle Expectations
+
+A reviewable docs round should leave one compact evidence bundle behind:
+
+| Field | Expectation |
+| --- | --- |
+| command | exact command bundle that was run |
+| proof file | the generated asset or manifest path that was inspected |
+| changed contract | the headings, examples, or workflow steps that changed |
+| skipped validation | anything intentionally omitted, plus why it was not needed |
+
+If the docs claim a packaged artifact, the proof file should come from `packaging/dist/` rather than from memory or shell output alone.
+
 ## Packaging Review Checklist
 
 - Run only the dry-run targets that match the packaging surface you changed.
@@ -270,3 +294,5 @@ That packet gives the next reviewer a direct path to the same evidence without r
 - Avoid interactive prompts in contributor docs unless the workflow genuinely requires them.
 - When a command can emit benign noise during setup, suppress it so copy-paste runs stay readable.
 - If a docs-only round depends on a packaged artifact, document the exact dry-run command instead of sending the reader to guess between targets.
+
+When a command fails, record the first failing proof and fix that layer before widening the validation bundle. Repeating the whole gate without narrowing the failure just burns time and produces noisier handoffs.

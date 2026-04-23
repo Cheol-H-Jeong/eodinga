@@ -202,6 +202,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Commit and Release Notes" in contributing
     assert "## Review Checklist" in contributing
     assert "## Docs Review Packet" in contributing
+    assert "## Validation Escalation Ladder" in contributing
+    assert "## Proof Bundle Expectations" in contributing
     assert "## Packaging Review Checklist" in contributing
     assert "## Command Hygiene" in contributing
     assert "treat the requested module spec as a hard scope boundary" in contributing
@@ -212,6 +214,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "The final release commit for a round should carry the version bump" in contributing
     assert "Do not rewrite earlier docs or feature commits" in contributing
     assert "Prefer one explicit evidence bundle over ad-hoc retries." in contributing
+    assert "narrow proof first, broad proof last" in contributing
+    assert "proof file should come from `packaging/dist/`" in contributing
+    assert "record the first failing proof and fix that layer before widening the validation bundle" in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl
