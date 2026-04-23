@@ -193,6 +193,17 @@ def test_compile_iso_year_and_month_literals_expand_to_spans(query: str) -> None
     assert start < end
 
 
+def test_compile_iso_week_literal_expands_to_week_span() -> None:
+    compiled = compile_query(parse("created:2026-W17"))
+    branch = compiled.branches[0]
+    start, end = branch.where_params
+
+    assert branch.where_sql == "files.ctime >= ? AND files.ctime < ?"
+    assert isinstance(start, int)
+    assert isinstance(end, int)
+    assert end - start == 7 * 24 * 60 * 60
+
+
 def test_compile_iso_year_month_range_keeps_outer_bounds() -> None:
     compiled = compile_query(parse("date:2026..2026-03"))
     branch = compiled.branches[0]
@@ -202,6 +213,17 @@ def test_compile_iso_year_month_range_keeps_outer_bounds() -> None:
     assert isinstance(start, int)
     assert isinstance(end, int)
     assert start < end
+
+
+def test_compile_iso_week_range_accepts_lowercase_week_marker() -> None:
+    compiled = compile_query(parse("date:2026-w17..2026-w18"))
+    branch = compiled.branches[0]
+    start, end = branch.where_params
+
+    assert branch.where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert isinstance(start, int)
+    assert isinstance(end, int)
+    assert end - start == 14 * 24 * 60 * 60
 
 
 def test_compile_datetime_ranges_preserve_exact_endpoints() -> None:

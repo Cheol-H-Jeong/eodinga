@@ -437,6 +437,25 @@ def test_execute_iso_year_and_month_date_literals(
     assert range_hits == ["february-note.txt", "january-note.txt"]
 
 
+def test_execute_iso_week_date_literals(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    week_seventeen_hit = int(datetime(2026, 4, 20, 12, 0).astimezone().timestamp())
+    week_eighteen_hit = int(datetime(2026, 4, 28, 12, 0).astimezone().timestamp())
+    week_nineteen_hit = int(datetime(2026, 5, 7, 12, 0).astimezone().timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/week-17.txt", 512, week_seventeen_hit, "txt", body_text="week 17")
+    _insert_file(tmp_db, 2, "/workspace/week-18.txt", 512, week_eighteen_hit, "txt", body_text="week 18")
+    _insert_file(tmp_db, 3, "/workspace/week-19.txt", 512, week_nineteen_hit, "txt", body_text="week 19")
+    tmp_db.commit()
+
+    week_hits = [hit.file.name for hit in search(tmp_db, "date:2026-W17", limit=10).hits]
+    range_hits = [hit.file.name for hit in search(tmp_db, "date:2026-w17..2026-w18", limit=10).hits]
+
+    assert week_hits == ["week-17.txt"]
+    assert range_hits == ["week-17.txt", "week-18.txt"]
+
+
 def test_execute_negated_case_true_restores_case_insensitive_matching(
     tmp_db: sqlite3.Connection,
 ) -> None:

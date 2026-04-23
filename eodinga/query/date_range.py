@@ -56,13 +56,20 @@ def _parse_iso_span(value: str) -> DateRange | None:
         start = date(int(value), 1, 1)
         return _span_bounds(start, _next_year_start(start))
     month_match = re.fullmatch(r"(?P<year>\d{4})-(?P<month>\d{2})", value)
-    if month_match is None:
+    if month_match is not None:
+        try:
+            start = date(int(month_match.group("year")), int(month_match.group("month")), 1)
+        except ValueError as error:
+            raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
+        return _span_bounds(start, _next_month_start(start))
+    week_match = re.fullmatch(r"(?P<year>\d{4})-[Ww](?P<week>\d{2})", value)
+    if week_match is None:
         return None
     try:
-        start = date(int(month_match.group("year")), int(month_match.group("month")), 1)
+        start = date.fromisocalendar(int(week_match.group("year")), int(week_match.group("week")), 1)
     except ValueError as error:
         raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
-    return _span_bounds(start, _next_month_start(start))
+    return _span_bounds(start, start + timedelta(days=7))
 
 
 def _instant_bounds(moment: datetime) -> DateRange:
