@@ -723,6 +723,103 @@ def test_launcher_action_bar_triggers_result_actions(qapp) -> None:
     assert properties == ["release-notes.txt"]
 
 
+def test_launcher_result_context_menu_triggers_result_actions(qapp) -> None:
+    activated: list[str] = []
+    revealed: list[str] = []
+    copied_paths: list[str] = []
+    copied_names: list[str] = []
+    properties: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/release-notes.txt"), parent_path=Path("/tmp"), name="release-notes.txt")
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: activated.append(hit.name))
+    launcher.open_containing_folder.connect(lambda hit: revealed.append(hit.name))
+    launcher.copy_path_requested.connect(lambda hit: copied_paths.append(str(hit.path)))
+    launcher.copy_name_requested.connect(lambda hit: copied_names.append(hit.name))
+    launcher.show_properties.connect(lambda hit: properties.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(60)
+
+    assert launcher.result_context_menu.sync_enabled(launcher._current_hit())
+
+    launcher.result_context_menu.open_action.trigger()
+    launcher.result_context_menu.reveal_action.trigger()
+    launcher.result_context_menu.copy_path_action.trigger()
+    launcher.result_context_menu.copy_name_action.trigger()
+    launcher.result_context_menu.properties_action.trigger()
+
+    assert activated == ["release-notes.txt"]
+    assert revealed == ["release-notes.txt"]
+    assert copied_paths == ["/tmp/release-notes.txt"]
+    assert copied_names == ["release-notes.txt"]
+    assert properties == ["release-notes.txt"]
+
+
+def test_launcher_result_context_menu_selects_clicked_row(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+            ][:limit],
+            total=2,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("notes")
+    _wait(60)
+
+    position = launcher.result_list.visualRect(launcher.model.index(1, 0)).center()
+    assert launcher.result_context_menu.show_for_position(
+        launcher.result_list,
+        position,
+        current_hit=launcher._current_hit,
+        select_row=launcher._set_selection,
+    )
+    assert launcher.result_list.currentIndex().row() == 1
+    launcher.result_context_menu.menu.hide()
+
+
+def test_launcher_result_context_menu_supports_menu_key(qapp, monkeypatch) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt")][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("alpha")
+    _wait(60)
+    launcher.result_list.setFocus()
+
+    called: list[str] = []
+    monkeypatch.setattr(
+        launcher.result_context_menu,
+        "show_for_current",
+        lambda *_args, **_kwargs: called.append("shown") or True,
+    )
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Menu)
+
+    assert called == ["shown"]
+
+
 def test_launcher_alt_number_quick_picks_results(qapp) -> None:
     activated: list[str] = []
 

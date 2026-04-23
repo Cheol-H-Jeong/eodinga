@@ -8,7 +8,9 @@ from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
+from eodinga.gui.launcher_navigation import handle_query_field_keypress, handle_result_list_keypress
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer
+from eodinga.gui.launcher_result_menu import LauncherResultContextMenu
 from eodinga.gui.launcher_text import format_empty_state_body, format_result_list_accessibility, format_shortcut_hint
 from eodinga.gui.widgets import (
     ActiveFilterRow,
@@ -73,6 +75,7 @@ class LauncherPanel(QWidget):
         self.result_list.setUniformItemSizes(False)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
         self.result_list.setMouseTracking(True)
+        self.result_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.status_chip = StatusChip("Idle", self)
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
@@ -84,11 +87,27 @@ class LauncherPanel(QWidget):
         self.preview_pane = LauncherPreviewPane(self)
         self.preview_pane.setMinimumWidth(240)
         self.action_bar = LauncherActionBar(self)
+        self.result_context_menu = LauncherResultContextMenu(
+            open_result=self.activate_current_result,
+            reveal_result=self.emit_open_containing_folder,
+            copy_path=self.emit_copy_path,
+            copy_name=self.emit_copy_name,
+            show_properties=self.emit_show_properties,
+            parent=self,
+        )
 
         self.model = ResultListModel(self)
         self.result_list.setModel(self.model)
         self.result_list.selectionModel().currentChanged.connect(self._sync_preview_to_current_index)
         self.result_list.entered.connect(self._handle_hovered_index)
+        self.result_list.customContextMenuRequested.connect(
+            lambda position: self.result_context_menu.show_for_position(
+                self.result_list,
+                position,
+                current_hit=self._current_hit,
+                select_row=self._set_selection,
+            )
+        )
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -256,9 +275,9 @@ class LauncherPanel(QWidget):
             return super().eventFilter(watched, event)
         key_event = cast(QKeyEvent, event)
         if watched is self.query_field:
-            return self._handle_query_field_keypress(key_event)
+            return handle_query_field_keypress(self, key_event)
         if watched is self.result_list:
-            return self._handle_result_list_keypress(key_event)
+            return handle_result_list_keypress(self, key_event)
         return super().eventFilter(watched, event)
 
     def _emit_activation(self, row: int) -> None:
@@ -337,86 +356,6 @@ class LauncherPanel(QWidget):
         index = self.result_list.currentIndex()
         row = index.row() if index.isValid() else 0
         return self.model.item_at(row)
-
-    def _handle_query_field_keypress(self, event: QKeyEvent) -> bool:
-        if self.model.rowCount() == 0:
-            return False
-        if event.key() == Qt.Key.Key_Down:
-            self.result_list.setFocus()
-            if not self.result_list.currentIndex().isValid():
-                self._set_selection(0)
-            else:
-                self._move_selection(1)
-            return True
-        if event.key() == Qt.Key.Key_Up:
-            self.result_list.setFocus()
-            if not self.result_list.currentIndex().isValid():
-                self._set_selection(self.model.rowCount() - 1)
-            else:
-                self._move_selection(-1)
-            return True
-        if event.key() == Qt.Key.Key_Home:
-            self.result_list.setFocus()
-            self._set_selection(0)
-            return True
-        if event.key() == Qt.Key.Key_End:
-            self.result_list.setFocus()
-            self._set_selection(self.model.rowCount() - 1)
-            return True
-        if event.key() == Qt.Key.Key_PageDown:
-            self.result_list.setFocus()
-            self._move_selection(self._page_step())
-            return True
-        if event.key() == Qt.Key.Key_PageUp:
-            self.result_list.setFocus()
-            self._move_selection(-self._page_step())
-            return True
-        if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
-            self.result_list.setFocus()
-            current_index = self.result_list.currentIndex()
-            if not current_index.isValid() and self.model.rowCount() > 0:
-                self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
-            return True
-        return False
-
-    def _handle_result_list_keypress(self, event: QKeyEvent) -> bool:
-        if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
-            self.query_field.setFocus()
-            return True
-        if event.key() == Qt.Key.Key_Down:
-            self._move_selection(1, wrap=True)
-            return True
-        if event.key() == Qt.Key.Key_Up:
-            self._move_selection(-1, wrap=True)
-            return True
-        if event.key() == Qt.Key.Key_Home:
-            self._set_selection(0)
-            return True
-        if event.key() == Qt.Key.Key_End:
-            self._set_selection(self.model.rowCount() - 1)
-            return True
-        if event.key() == Qt.Key.Key_PageDown:
-            self._move_selection(self._page_step())
-            return True
-        if event.key() == Qt.Key.Key_PageUp:
-            self._move_selection(-self._page_step())
-            return True
-        return False
-
-    def _move_selection(self, delta: int, *, wrap: bool = False) -> None:
-        if self.model.rowCount() == 0:
-            return
-        current_row = self.result_list.currentIndex().row()
-        if current_row < 0:
-            current_row = 0
-        if wrap:
-            next_row = (current_row + delta) % self.model.rowCount()
-        else:
-            next_row = min(max(current_row + delta, 0), self.model.rowCount() - 1)
-        self._set_selection(next_row)
-
-    def _page_step(self) -> int:
-        return min(max(self.model.rowCount() // 2, 1), 10)
 
     def _restore_selection(self, previous_hit: SearchHit | None) -> None:
         if self.model.rowCount() == 0:
