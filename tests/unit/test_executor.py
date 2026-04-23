@@ -127,6 +127,19 @@ def test_node_modules_are_deboosted(populated_db: sqlite3.Connection) -> None:
     assert preferred.hits[0].file.name == "doc-018.txt"
 
 
+def test_execute_breaks_equal_score_ties_by_path_not_file_id(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 10, "/workspace/zeta/report.txt", 512, now, "txt", body_text="same rank")
+    _insert_file(tmp_db, 1, "/workspace/alpha/report.txt", 512, now, "txt", body_text="same rank")
+    tmp_db.commit()
+
+    hits = [hit.file.path.as_posix() for hit in search(tmp_db, "report", limit=10).hits]
+
+    assert hits == ["/workspace/alpha/report.txt", "/workspace/zeta/report.txt"]
+
+
 def test_content_snippet_is_present(populated_db: sqlite3.Connection) -> None:
     result = search(populated_db, "content:launch", limit=5)
     assert result.hits[0].snippet is not None

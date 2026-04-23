@@ -854,7 +854,11 @@ def execute(
                 merged_snippets[file_id] = snippet
     ordered_ids = sorted(
         merged_scores,
-        key=lambda file_id: (-merged_scores[file_id], merged_records[file_id].name_lower, file_id),
+        key=lambda file_id: (
+            -merged_scores[file_id],
+            merged_records[file_id].name_lower,
+            str(merged_records[file_id].path).replace("\\", "/").casefold(),
+        ),
     )[:limit]
     hits = [
         SearchHit(
