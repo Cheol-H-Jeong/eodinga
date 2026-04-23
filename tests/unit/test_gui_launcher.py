@@ -642,6 +642,29 @@ def test_launcher_alt_number_quick_picks_results(qapp) -> None:
     assert "Home/End and PgUp/PgDn jump" in launcher.shortcut_label.text()
 
 
+def test_launcher_renders_quick_pick_badges_for_top_results(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        items = [
+            SearchHit(path=Path(f"/tmp/item-{index}.txt"), parent_path=Path("/tmp"), name=f"item-{index}.txt")
+            for index in range(10)
+        ]
+        return QueryResult(items=items[:limit], total=len(items), elapsed_ms=2.0)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("item")
+    _wait(60)
+
+    first_row = launcher.model.data(launcher.model.index(0, 0), Qt.ItemDataRole.DisplayRole)
+    ninth_row = launcher.model.data(launcher.model.index(8, 0), Qt.ItemDataRole.DisplayRole)
+    tenth_row = launcher.model.data(launcher.model.index(9, 0), Qt.ItemDataRole.DisplayRole)
+
+    assert "Alt+1" in first_row
+    assert "Alt+9" in ninth_row
+    assert "Alt+10" not in tenth_row
+
+
 def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     launcher = LauncherWindow(state=LauncherState())
     launcher.show()
