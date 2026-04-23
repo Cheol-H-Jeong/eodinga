@@ -1,18 +1,16 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from pathlib import Path
 from typing import cast
 
 from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
-from PySide6.QtGui import QCloseEvent, QHideEvent, QKeyEvent, QKeySequence, QMoveEvent, QResizeEvent, QShortcut, QShowEvent
+from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
-from eodinga.config import AppConfig
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
-from eodinga.gui.widgets import EmptyState, ResultItemDelegate, SearchField, StatusChip
+from eodinga.gui.widgets import EmptyState, PreviewPane, ResultItemDelegate, SearchField, StatusChip
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
@@ -54,15 +52,19 @@ class LauncherPanel(QWidget):
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
         self.result_list.setUniformItemSizes(False)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
+        self.result_list.setMouseTracking(True)
         self.status_chip = StatusChip("Idle", self)
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
         self.empty_state = EmptyState("Type to search", "Recent queries and indexing progress will appear here.", self)
+        self.preview_pane = PreviewPane(self)
 
         self.model = ResultListModel(self)
         self.result_list.setModel(self.model)
+        self.result_list.selectionModel().currentChanged.connect(self._handle_current_changed)
+        self.result_list.entered.connect(self._handle_hovered_index)
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -73,8 +75,12 @@ class LauncherPanel(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
-        layout.addWidget(self.result_list, 1)
-        layout.addWidget(self.empty_state)
+        body = QHBoxLayout()
+        body.setSpacing(SPACE_8)
+        body.addWidget(self.result_list, 3)
+        body.addWidget(self.preview_pane, 2)
+        layout.addLayout(body, 1)
+        layout.addWidget(self.empty_state, 1)
 
         footer = QHBoxLayout()
         footer.addWidget(self.status_chip)
@@ -209,6 +215,15 @@ class LauncherPanel(QWidget):
         if hit is not None:
             self.result_activated.emit(hit)
 
+    def _handle_current_changed(self, current: QModelIndex, previous: QModelIndex) -> None:
+        del previous
+        self.preview_pane.set_hit(self.model.item_at(current.row()))
+
+    def _handle_hovered_index(self, index: QModelIndex) -> None:
+        if not index.isValid():
+            return
+        self._set_selection(index.row())
+
     def _schedule_query(self, _: str) -> None:
         if not self._applying_history_query:
             self._history_index = None
@@ -268,6 +283,9 @@ class LauncherPanel(QWidget):
             )
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
+        self.preview_pane.setVisible(has_results)
+        if not has_results:
+            self.preview_pane.clear()
 
     def _refresh_shortcut_hint(self) -> None:
         has_results = self.model.rowCount() > 0
@@ -411,89 +429,9 @@ class LauncherPanel(QWidget):
             self.query_field.setCursorPosition(len(query))
         finally:
             self._applying_history_query = False
+def __getattr__(name: str):
+    if name == "LauncherWindow":
+        from eodinga.gui.launcher_window import LauncherWindow
 
-
-class LauncherWindow(LauncherPanel):
-    def __init__(
-        self,
-        search_fn: SearchFn | None = None,
-        max_results: int = 200,
-        debounce_ms: int = MOTION_DEBOUNCE_MS,
-        state: LauncherState | None = None,
-        config: AppConfig | None = None,
-        config_path: Path | None = None,
-        parent=None,
-    ) -> None:
-        super().__init__(search_fn=search_fn, max_results=max_results, debounce_ms=debounce_ms, state=state, parent=parent)
-        self._config = config
-        self._config_path = config_path.expanduser() if config_path is not None else None
-        self._geometry_restored = False
-        self._geometry_save_timer = QTimer(self)
-        self._geometry_save_timer.setSingleShot(True)
-        self._geometry_save_timer.setInterval(150)
-        self._geometry_save_timer.timeout.connect(self._persist_geometry)
-        self.setObjectName("surface")
-        self.setAccessibleName("Launcher window")
-        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
-        self.setWindowFlag(Qt.WindowType.Tool, True)
-        always_on_top = self._config.launcher.always_on_top if self._config is not None else False
-        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, always_on_top)
-        width = self._config.launcher.window_width if self._config is not None else 640
-        height = self._config.launcher.window_height if self._config is not None else 480
-        self.resize(width, height)
-
-    def keyPressEvent(self, event) -> None:
-        if event.key() == Qt.Key.Key_Escape:
-            self.hide()
-            event.accept()
-            return
-        super().keyPressEvent(event)
-
-    def showEvent(self, event: QShowEvent) -> None:
-        super().showEvent(event)
-        if not self._geometry_restored and self._config is not None:
-            if self._config.launcher.window_x is not None and self._config.launcher.window_y is not None:
-                self.move(self._config.launcher.window_x, self._config.launcher.window_y)
-            self._geometry_restored = True
-        self.query_field.setFocus()
-        self.query_field.selectAll()
-
-    def moveEvent(self, event: QMoveEvent) -> None:
-        super().moveEvent(event)
-        self._schedule_geometry_persist()
-
-    def resizeEvent(self, event: QResizeEvent) -> None:
-        super().resizeEvent(event)
-        self._schedule_geometry_persist()
-
-    def hideEvent(self, event: QHideEvent) -> None:
-        self._persist_geometry()
-        super().hideEvent(event)
-
-    def closeEvent(self, event: QCloseEvent) -> None:
-        self._persist_geometry()
-        super().closeEvent(event)
-
-    def _schedule_geometry_persist(self) -> None:
-        if self._config is None or self._config_path is None or not self._geometry_restored or not self.isVisible():
-            return
-        self._geometry_save_timer.start()
-
-    def _persist_geometry(self) -> None:
-        if self._config is None or self._config_path is None or not self._geometry_restored:
-            return
-        geometry = {
-            "window_x": self.x(),
-            "window_y": self.y(),
-            "window_width": self.width(),
-            "window_height": self.height(),
-        }
-        if (
-            self._config.launcher.window_x == geometry["window_x"]
-            and self._config.launcher.window_y == geometry["window_y"]
-            and self._config.launcher.window_width == geometry["window_width"]
-            and self._config.launcher.window_height == geometry["window_height"]
-        ):
-            return
-        self._config.launcher = self._config.launcher.model_copy(update=geometry)
-        self._config.save(self._config_path)
+        return LauncherWindow
+    raise AttributeError(name)
