@@ -170,6 +170,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     with closing(open_index(db_path)) as conn:
         index_snapshot = read_index_stats(conn)
     metrics = snapshot_metrics()
+    counters = metrics["counters"]
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
         uptime_ms=float(metrics["uptime_ms"]),
@@ -185,7 +186,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         crash_logs_written=counter_value("crash_logs_written"),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
         command_latency_histogram=histogram_snapshot("command_latency_ms"),
-        counters=metrics["counters"],
+        commands=_command_summary(counters),
+        exit_codes=_exit_code_summary(counters),
+        counters=counters,
         histograms=metrics["histograms"],
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
@@ -228,19 +231,44 @@ def _run_command(args: argparse.Namespace) -> int:
     increment_counter("commands_started", command=command)
     increment_counter(f"commands.{command}.started")
     started_at = monotonic()
+    exit_code: int | None = None
     try:
         exit_code = int(args.handler(args))
     except Exception:
+        exit_code = 1
         increment_counter("commands_failed", command=command)
         increment_counter(f"commands.{command}.failed")
         raise
     finally:
         elapsed_ms = max((monotonic() - started_at) * 1000, 0.0)
         record_histogram("command_latency_ms", elapsed_ms, command=command)
+        if exit_code is not None:
+            increment_counter(f"commands.exit_code.{exit_code}")
     increment_counter("commands_completed", command=command)
     increment_counter(f"commands.{command}.completed")
-    increment_counter(f"commands.exit_code.{exit_code}")
+    assert exit_code is not None
     return exit_code
+
+
+def _command_summary(counters: dict[str, int]) -> dict[str, dict[str, int]]:
+    commands: dict[str, dict[str, int]] = {}
+    prefix = "commands."
+    for name, value in counters.items():
+        if not name.startswith(prefix) or name.startswith("commands.exit_code."):
+            continue
+        command_name, _, status = name[len(prefix) :].rpartition(".")
+        if not command_name or status not in {"started", "completed", "failed"}:
+            continue
+        commands.setdefault(command_name, {})[status] = value
+    return dict(sorted((name, dict(sorted(statuses.items()))) for name, statuses in commands.items()))
+
+
+def _exit_code_summary(counters: dict[str, int]) -> dict[str, int]:
+    prefix = "commands.exit_code."
+    exit_codes = {
+        name[len(prefix) :]: value for name, value in counters.items() if name.startswith(prefix)
+    }
+    return dict(sorted(exit_codes.items(), key=lambda item: int(item[0])))
 
 
 def main(argv: list[str] | None = None) -> int:

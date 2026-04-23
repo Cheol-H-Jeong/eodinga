@@ -481,6 +481,10 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["crash_logs_written"] == 0
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["command_latency_histogram"]["count"] == 1
+    assert payload["commands"]["search"]["completed"] == 1
+    assert payload["commands"]["search"]["started"] == 1
+    assert payload["commands"]["stats"]["started"] == 1
+    assert payload["exit_codes"]["0"] == 1
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
     assert payload["crash_dir"]
@@ -543,6 +547,10 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["commands_failed"] == 0
     assert payload["crashes_reported"] == 0
     assert payload["crash_logs_written"] == 0
+    assert payload["commands"]["index"]["completed"] == 1
+    assert payload["commands"]["search"]["completed"] == 1
+    assert payload["commands"]["stats"]["started"] == 1
+    assert payload["exit_codes"]["0"] == 2
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
 
@@ -569,3 +577,26 @@ def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path
     assert metrics["counters"]["crash_logs_written"] == 1
     assert "commands_completed" not in metrics["counters"]
     assert metrics["histograms"]["command_latency_ms"]["count"] == 1
+
+
+def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Path, capsys, monkeypatch) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    def _boom(_args) -> int:
+        raise RuntimeError("search exploded")
+
+    monkeypatch.setattr("eodinga.__main__._cmd_version", _boom)
+
+    exit_code = main(["--db", str(db_path), "version"])
+    assert exit_code == 1
+    capsys.readouterr()
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["commands"]["version"]["failed"] == 1
+    assert payload["commands"]["version"]["started"] == 1
+    assert payload["exit_codes"]["1"] == 1
