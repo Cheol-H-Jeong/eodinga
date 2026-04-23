@@ -20,6 +20,7 @@ from eodinga.observability import (
     configure_logging,
     counter_value,
     histogram_snapshot,
+    observability_runtime,
     snapshot_metrics,
     write_crash_log,
 )
@@ -163,7 +164,12 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     with closing(open_index(db_path)) as conn:
         index_snapshot = read_index_stats(conn)
     metrics = snapshot_metrics()
+    runtime = observability_runtime()
     snapshot = StatsSnapshot(
+        timestamp_utc=str(runtime["timestamp_utc"]),
+        file_logging_enabled=bool(runtime["file_logging_enabled"]),
+        log_path=runtime["log_path"],
+        crash_dir=runtime["crash_dir"],
         files_indexed=index_snapshot.file_count,
         documents_indexed=index_snapshot.content_count,
         queries_served=counter_value("queries_served"),

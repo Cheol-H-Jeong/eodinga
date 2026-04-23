@@ -95,6 +95,10 @@ class SearchResult(BaseModel):
 class StatsSnapshot(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    timestamp_utc: str = ""
+    file_logging_enabled: bool = False
+    log_path: Path | None = None
+    crash_dir: Path | None = None
     files_indexed: int = 0
     documents_indexed: int = 0
     queries_served: int = 0

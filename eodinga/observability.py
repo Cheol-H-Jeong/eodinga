@@ -23,6 +23,13 @@ class MetricsSnapshot(TypedDict):
     histograms: dict[str, dict[str, object]]
 
 
+class ObservabilityRuntime(TypedDict):
+    timestamp_utc: str
+    file_logging_enabled: bool
+    log_path: Path | None
+    crash_dir: Path
+
+
 @dataclass
 class _HistogramState:
     buckets_ms: tuple[float, ...]
@@ -91,21 +98,40 @@ def current_timestamp() -> str:
     return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
+def resolve_log_path(log_path: Path | None = None) -> Path | None:
+    if os.environ.get("EODINGA_DISABLE_FILE_LOGGING") == "1":
+        return None
+    if log_path is not None:
+        return log_path.expanduser()
+    override_path = os.environ.get("EODINGA_LOG_PATH")
+    if override_path:
+        return Path(override_path).expanduser()
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return None
+    return default_log_path()
+
+
+def observability_runtime() -> ObservabilityRuntime:
+    log_path = resolve_log_path()
+    return {
+        "timestamp_utc": current_timestamp(),
+        "file_logging_enabled": log_path is not None,
+        "log_path": log_path,
+        "crash_dir": (
+            Path(os.environ["EODINGA_CRASH_DIR"]).expanduser()
+            if os.environ.get("EODINGA_CRASH_DIR")
+            else default_crash_dir()
+        ),
+    }
+
+
 def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
     logger.remove()
     logger.add(sys.stderr, level=level.upper())
-    if os.environ.get("EODINGA_DISABLE_FILE_LOGGING") == "1":
-        return
-    effective_log_path = log_path
+    effective_log_path = resolve_log_path(log_path)
     if effective_log_path is None:
-        override_path = os.environ.get("EODINGA_LOG_PATH")
-        if override_path:
-            effective_log_path = Path(override_path)
-        else:
-            if "PYTEST_CURRENT_TEST" in os.environ:
-                return
-            effective_log_path = default_log_path()
-    target = effective_log_path.expanduser()
+        return
+    target = effective_log_path
     target.parent.mkdir(parents=True, exist_ok=True)
     logger.add(
         target,

@@ -486,6 +486,10 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     stats_output = capsys.readouterr()
     assert stats_exit == 0
     payload = json.loads(stats_output.out)
+    assert payload["timestamp_utc"].endswith("Z")
+    assert payload["file_logging_enabled"] is False
+    assert payload["log_path"] is None
+    assert Path(payload["crash_dir"]) == Path.home() / ".local" / "state" / "eodinga" / "crashes"
     assert payload["files_indexed"] == 3
     assert payload["documents_indexed"] == 3
     assert payload["queries_served"] == 1
@@ -537,9 +541,34 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     stats_output = capsys.readouterr()
     assert stats_exit == 0
     payload = json.loads(stats_output.out)
+    assert payload["timestamp_utc"].endswith("Z")
     assert payload["counters"]["files_indexed"] == indexed_files
     assert payload["counters"]["parser_errors"] == 1
     assert payload["counters"]["parsers.broken.error"] == 1
     assert payload["counters"]["queries_served"] == 1
     assert payload["counters"]["watcher_events"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
+
+
+def test_stats_json_reports_observability_runtime_overrides(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    log_path = tmp_path / "logs" / "override.log"
+    crash_dir = tmp_path / "crashes"
+    reset_metrics()
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["file_logging_enabled"] is True
+    assert Path(payload["log_path"]) == log_path
+    assert Path(payload["crash_dir"]) == crash_dir

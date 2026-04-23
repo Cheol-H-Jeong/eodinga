@@ -16,7 +16,9 @@ from eodinga.observability import (
     default_crash_dir,
     default_log_path,
     get_logger,
+    observability_runtime,
     reset_metrics,
+    resolve_log_path,
     snapshot_metrics,
     write_crash_log,
 )
@@ -64,6 +66,34 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     configure_logging("INFO")
     assert log_path.parent.exists()
+
+
+def test_resolve_log_path_respects_disable_and_pytest(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("EODINGA_DISABLE_FILE_LOGGING", "1")
+    assert resolve_log_path() is None
+
+    monkeypatch.delenv("EODINGA_DISABLE_FILE_LOGGING", raising=False)
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "tests/unit/test_observability.py::test")
+    monkeypatch.delenv("EODINGA_LOG_PATH", raising=False)
+    assert resolve_log_path() is None
+
+    explicit = tmp_path / "logs" / "explicit.log"
+    assert resolve_log_path(explicit) == explicit
+
+
+def test_observability_runtime_uses_overrides(tmp_path: Path, monkeypatch) -> None:
+    log_path = tmp_path / "runtime" / "app.log"
+    crash_dir = tmp_path / "crashes"
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    runtime = observability_runtime()
+
+    assert runtime["file_logging_enabled"] is True
+    assert runtime["log_path"] == log_path
+    assert runtime["crash_dir"] == crash_dir
+    assert str(runtime["timestamp_utc"]).endswith("Z")
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
