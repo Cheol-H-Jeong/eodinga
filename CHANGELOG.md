@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.806 - 2026-04-23
+
+- Fixed watcher flush retries so a queueing failure can no longer silently drop the rest of a ready batch; undelivered events are requeued intact and retried in order.
+- Made interrupted recovery and interrupted staged-build cleanup durable by fsyncing the parent directory after invalid stage artifacts are removed during startup recovery.
+- Applied the same durable cleanup rule to stale-WAL recovery scratch files so failed or completed replay cleanup survives a crash instead of leaving recovery debris behind.
+
 ## 0.1.801 - 2026-04-23
 
 - Expanded the shipped operator docs with a packaging audit checklist, state-directory summary, and FAQ entries for logs, crash reports, docs-only release checks, and packaged payload review.
