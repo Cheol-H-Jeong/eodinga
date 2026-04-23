@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.449 - 2026-04-23
+## 0.1.505 - 2026-04-23
 
 - Replaced the stubbed `eodinga watch` subcommand with a real watchdog-backed live-update loop that keeps the SQLite index fresh until interrupted, matching the documented CLI surface.
 - Added subprocess integration coverage for the full CLI watch path, including single-root live refresh, multi-root root-scoped updates, and restart-without-rebuild behavior.
