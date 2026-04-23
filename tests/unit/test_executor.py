@@ -1611,6 +1611,44 @@ def test_search_root_scope_matches_plain_windows_paths_for_extended_root(
     assert hits == [Path(r"C:\workspace\reports\alpha.txt")]
 
 
+def test_search_root_scope_matches_unc_paths_for_lowercase_extended_unc_root(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, r"\\server\share\reports\alpha.txt", 1024, now, "txt", body_text="alpha")
+    _insert_file(
+        tmp_db,
+        2,
+        r"\\?\UNC\server\share\reports\beta.txt",
+        1024,
+        now - 60,
+        "txt",
+        body_text="beta",
+    )
+    _insert_file(
+        tmp_db,
+        3,
+        r"\\server\share\archive\alpha.txt",
+        1024,
+        now - 120,
+        "txt",
+        body_text="alpha archive",
+    )
+    tmp_db.commit()
+
+    alpha_hits = [
+        hit.file.path
+        for hit in search(tmp_db, "alpha", limit=10, root=Path(r"\\?\unc\server\share\reports")).hits
+    ]
+    beta_hits = [
+        hit.file.path
+        for hit in search(tmp_db, "beta", limit=10, root=Path(r"\\?\unc\server\share\reports")).hits
+    ]
+
+    assert alpha_hits == [Path(r"\\server\share\reports\alpha.txt")]
+    assert beta_hits == [Path(r"\\?\UNC\server\share\reports\beta.txt")]
+
+
 def test_search_root_scope_escapes_like_wildcards_in_posix_paths(
     tmp_db: sqlite3.Connection,
 ) -> None:

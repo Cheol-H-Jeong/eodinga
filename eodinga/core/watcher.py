@@ -50,9 +50,13 @@ def _is_windows_root_text(root_text: str) -> bool:
     return bool(re.match(r"^[A-Za-z]:[\\/]", root_text) or root_text.startswith("\\\\"))
 
 
+def _has_windows_extended_unc_prefix(root_text: str) -> bool:
+    return len(root_text) >= 8 and root_text[:8].upper() == "\\\\?\\UNC\\"
+
+
 def _normalize_windows_root_text(root_text: str) -> str:
     windows_root = root_text.replace("/", "\\")
-    if windows_root.startswith("\\\\?\\UNC\\"):
+    if _has_windows_extended_unc_prefix(windows_root):
         suffix = windows_root[8:].lstrip("\\").rstrip("\\")
         return f"\\\\?\\UNC\\{suffix}"
     if (

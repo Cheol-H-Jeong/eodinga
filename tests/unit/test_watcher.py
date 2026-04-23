@@ -715,6 +715,12 @@ def test_watcher_normalize_root_preserves_extended_windows_prefix() -> None:
     assert normalized == Path(r"\\?\C:\workspace\reports")
 
 
+def test_watcher_normalize_root_canonicalizes_extended_unc_prefix_case() -> None:
+    normalized = _normalize_root(Path(r"\\?\unc\server\share\reports\\"))
+
+    assert normalized == Path(r"\\?\UNC\server\share\reports")
+
+
 def test_watcher_start_normalizes_equivalent_extended_windows_root_paths(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -749,6 +755,42 @@ def test_watcher_start_normalizes_equivalent_extended_windows_root_paths(
     service.stop()
 
     assert started == [Path(r"\\?\C:\workspace\reports")]
+
+
+def test_watcher_start_normalizes_equivalent_extended_unc_root_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import eodinga.core.watcher as watcher_module
+
+    started: list[Path] = []
+
+    class FakeObserver:
+        def __init__(self) -> None:
+            self.root: Path | None = None
+
+        def schedule(self, _handler: object, root_text: str, recursive: bool = True) -> None:
+            assert recursive is True
+            self.root = Path(root_text)
+
+        def start(self) -> None:
+            assert self.root is not None
+            started.append(self.root)
+
+        def stop(self) -> None:
+            return None
+
+        def join(self, timeout: float | None = None) -> None:
+            assert timeout == 1
+
+    monkeypatch.setattr(watcher_module, "Observer", FakeObserver)
+
+    service = WatchService()
+
+    service.start(Path(r"\\?\unc\server\share\reports"))
+    service.start(Path(r"\\?\UNC\server\share\reports\\"))
+    service.stop()
+
+    assert started == [Path(r"\\?\UNC\server\share\reports")]
 
 
 @pytest.mark.parametrize("failure_stage", ["schedule", "start"])

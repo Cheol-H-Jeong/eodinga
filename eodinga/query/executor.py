@@ -419,10 +419,14 @@ def _root_variants(root_text: str) -> tuple[str, ...]:
     return tuple(variants)
 
 
+def _has_windows_extended_unc_prefix(root_text: str) -> bool:
+    return len(root_text) >= 8 and root_text[:8].upper() == "\\\\?\\UNC\\"
+
+
 def _strip_windows_extended_prefix(root_text: str) -> str:
     if len(root_text) >= 6 and root_text.startswith("\\\\?\\") and root_text[4].isalpha() and root_text[5] == ":":
         return root_text[4:]
-    if root_text.startswith("\\\\?\\UNC\\"):
+    if _has_windows_extended_unc_prefix(root_text):
         return f"\\\\{root_text[8:]}"
     return root_text
 
