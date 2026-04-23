@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from queue import Empty
+from threading import Thread
 from time import monotonic, sleep
 
 import pytest
@@ -647,3 +648,59 @@ def test_watcher_start_ignores_duplicate_root_registration(
 
     assert started == [tmp_path]
     assert stopped == [tmp_path]
+
+
+def test_watcher_flush_blocks_until_queue_has_capacity(tmp_path: Path) -> None:
+    service = WatchService(max_queue_size=1)
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    flushed: list[str] = []
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=first,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service._flush_ready(force=True)
+    assert service.queue.get_nowait().path == first
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=first,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=second,
+            root_path=tmp_path,
+            happened_at=3.0,
+        )
+    )
+
+    def flush_pending() -> None:
+        service._flush_ready(force=True)
+        flushed.append("done")
+
+    worker = Thread(target=flush_pending, daemon=True)
+    worker.start()
+    sleep(0.05)
+    assert worker.is_alive()
+    assert flushed == []
+
+    released = service.queue.get_nowait()
+    assert released.path == first
+
+    worker.join(timeout=0.2)
+    assert worker.is_alive() is False
+    assert flushed == ["done"]
+    assert service.queue.get_nowait().path == second
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
