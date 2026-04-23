@@ -159,6 +159,19 @@ Collect the smallest reviewable evidence set that matches the docs you changed:
 
 Prefer one explicit evidence bundle over ad-hoc retries. The handoff should show why the docs match the runtime, not just that Markdown changed.
 
+## Evidence Escalation Guide
+
+Use this before defaulting to the full acceptance pass:
+
+| You changed... | Start here | Escalate when... |
+| --- | --- | --- |
+| prose only | `pytest -q tests/unit/test_docs_assets.py` | the prose now claims a different command, artifact, or UI state |
+| CLI help or parser-derived docs | regenerate man page plus docs-assets test | the command behavior changed along with the wording |
+| screenshot-backed UI docs | regenerate screenshots, docs-assets test, GUI smoke | the documented behavior depends on query or storage changes |
+| packaging or release docs | matching dry run plus `packaging/dist/` review | the round also changed packaging code or shipped payload contents |
+
+The escalation rule is simple: once the round changes runtime behavior instead of evidence surfaces, switch to the broader release gate.
+
 ## Metadata Commit Discipline
 
 - Keep the final metadata commit reviewable: version bump, changelog entry, and local tag cut only.

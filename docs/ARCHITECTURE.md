@@ -422,3 +422,14 @@ When an operator reports stale or surprising results, the shortest architecture-
 3. `eodinga watch` or `eodinga index --rebuild` depending on whether the issue is live-update lag or a one-shot recovery need.
 
 That sequence mirrors the architecture itself: active DB selection, environment validation, then either watcher-driven incremental repair or staged rebuild.
+
+## Release Debug Path
+
+When a docs or packaging round fails late in the release flow, keep the evidence path aligned with the architecture:
+
+1. `tests/unit/test_docs_assets.py` to confirm the written contract and derived-doc expectations.
+2. offscreen GUI smoke if the failure involves screenshots, launcher text, or visible keyboard flows.
+3. the matching `packaging/build.py --target ...-dry-run` command plus manifest review under `packaging/dist/` if the failure involves shipped artifacts.
+4. only then revisit version metadata, because a tag cannot fix a mismatch between runtime-derived assets and the written contract.
+
+This mirrors the system boundaries in the rest of the document: docs contract first, runtime-derived evidence second, release metadata last.
