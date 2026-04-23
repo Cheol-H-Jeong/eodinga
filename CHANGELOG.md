@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.522 - 2026-04-23
+## 0.1.529 - 2026-04-23
 
 - Reused cached SQL shapes for repeated content-text backfill reads in the query executor, chunking large `content_map` lookups so filtered searches stop generating one-off `IN (...)` statements.
 - Tuned rebuild-time SQLite write behavior to suspend WAL auto-checkpoint churn and cache spilling during bulk indexing, then restore the connection settings once the rebuild path exits.
