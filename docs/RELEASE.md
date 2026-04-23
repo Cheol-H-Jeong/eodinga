@@ -99,13 +99,20 @@ Treat docs assets as versioned release inputs: do not cut a tag when the checked
 
 Use this review table after each matching dry run:
 
-| Surface | Command | What to confirm before tagging |
-| --- | --- | --- |
-| Windows installer | `python packaging/build.py --target windows-dry-run` | PyInstaller bundle metadata, Inno Setup rendering, shipped docs payload |
-| Linux AppImage | `python packaging/build.py --target linux-appimage-dry-run` | rendered recipe version, artifact naming, bundled docs list |
-| Linux `.deb` | `python packaging/build.py --target linux-deb-dry-run` | staged desktop entry, icon, compressed changelog, docs payload |
+| Surface | Command | Review artifact | What to confirm before tagging |
+| --- | --- | --- | --- |
+| Windows installer inputs | `python packaging/build.py --target windows-dry-run` | `packaging/dist/windows-dry-run-audit.json` and `packaging/dist/windows/eodinga.iss` | PyInstaller bundle metadata, Inno Setup rendering, shipped docs payload, and output filename template |
+| Windows installer release audit | `python packaging/build.py --target windows` | `packaging/dist/windows-audit.json` | release-only check that the staged GUI/CLI bundles and `packaging/dist/windows/eodinga-<version>-win-x64-setup.exe` exist |
+| Linux AppImage | `python packaging/build.py --target linux-appimage-dry-run` | `packaging/dist/linux-appimage-audit.json` | rendered recipe version, archive naming, bundled docs list, and archive digest metadata |
+| Linux `.deb` | `python packaging/build.py --target linux-deb-dry-run` | `packaging/dist/linux-deb-audit.json` | staged desktop entry, icon, compressed changelog, docs payload, and `.deb` metadata |
 
 Treat `packaging/dist/` as the review surface. A green dry run without a reviewed manifest is not a completed release check.
+
+Read the release targets literally:
+
+- `windows-dry-run` validates the installer inputs only; it does not prove an `.exe` installer was rendered.
+- `windows` reuses the same audit path but fails unless the versioned installer executable is present under `packaging/dist/windows/`.
+- The Linux dry-run targets already stage the versioned archive artifacts, so the audit should include filename, size, and digest checks before tagging.
 
 ## Tag Decision Path
 

@@ -286,11 +286,11 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 
 Use this quick review after any release-facing docs or packaging change:
 
-| Target | Command | Inspect in `packaging/dist/` |
-| --- | --- | --- |
-| Windows installer inputs | `python packaging/build.py --target windows-dry-run` | PyInstaller summary, Inno Setup script rendering, staged docs payload |
-| Linux AppImage inputs | `python packaging/build.py --target linux-appimage-dry-run` | rendered AppImage recipe, versioned artifact name, bundled docs list |
-| Linux `.deb` inputs | `python packaging/build.py --target linux-deb-dry-run` | staged desktop files, SVG icon, compressed changelog, package manifest |
+| Target | Command | Inspect in `packaging/dist/` | Release-mode expectation |
+| --- | --- | --- | --- |
+| Windows installer inputs | `python packaging/build.py --target windows-dry-run` | `windows-dry-run-audit.json` plus `windows/eodinga.iss` | `python packaging/build.py --target windows` also expects `windows/eodinga-<version>-win-x64-setup.exe` |
+| Linux AppImage inputs | `python packaging/build.py --target linux-appimage-dry-run` | `linux-appimage-audit.json`, rendered recipe, and `eodinga-<version>-linux-<arch>-appdir.tar.gz` | `python packaging/build.py --target linux-appimage` must leave the same archive and a green audit |
+| Linux `.deb` inputs | `python packaging/build.py --target linux-deb-dry-run` | `linux-deb-audit.json`, rendered control file, `eodinga_<version>_<arch>.deb`, and deb-root tarball | `python packaging/build.py --target linux-deb` must leave the same `.deb` artifact and a green audit |
 
 Review the dry-run output before tagging. If the staged payload disagrees with `README.md`, `docs/ACCEPTANCE.md`, or `docs/man/eodinga.1`, treat that as a release-input failure instead of a docs-only nit.
 
@@ -306,9 +306,10 @@ Review the dry-run output before tagging. If the staged payload disagrees with `
 
 ## Package Artifacts
 
-- Windows release builds emit a PyInstaller bundle plus an Inno Setup installer audit under `packaging/dist/`.
-- Linux AppImage dry runs render `packaging/linux/appimage-builder.yml` from the current package version before building.
-- Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, and compressed changelog into the package root.
+- `windows-dry-run` writes `packaging/dist/windows-dry-run-audit.json` and the rendered Inno Setup script under `packaging/dist/windows/`.
+- `windows` is stricter than the dry run: the audit only passes when the staged PyInstaller bundle and the rendered installer executable both exist.
+- Linux AppImage dry runs render `packaging/linux/appimage-builder.yml` from the current package version and stage `eodinga-<version>-linux-<arch>-appdir.tar.gz`.
+- Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, compressed changelog, deb-root tarball, and the versioned `.deb` under `packaging/dist/`.
 - The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
 
 ## Release Inputs
