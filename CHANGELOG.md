@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.186 - 2026-04-23
+## 0.1.187 - 2026-04-23
 
 - Surfaced configured launcher `pinned_queries` through the shared popup and Search tab state, so empty states and query hints now expose reusable filters alongside recent searches.
 - Filled in accessible names across the launcher status surfaces, empty-state labels, and the remaining tab widgets to tighten keyboard and assistive-technology coverage.
