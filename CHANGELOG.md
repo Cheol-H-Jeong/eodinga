@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.157 - 2026-04-23
+
+- Added a shipped `docs/eodinga.1.md` command manual that mirrors the current `eodinga` CLI surface with synopsis, command semantics, examples, exit codes, and platform path references.
+- Expanded `docs/ARCHITECTURE.md` with a database layout sketch, a search request sequence, watcher event semantics, and failure-containment notes so operator-facing runtime behavior is documented next to the existing flow diagrams.
+- Tightened `docs/RELEASE.md` and `docs/CONTRIBUTING.md` with a packaging build matrix, generated-surface refresh steps, and an explicit docs-drift checklist, then pinned the new documentation contract in `tests/unit/test_docs_assets.py`.
+
 ## 0.1.149 - 2026-04-23
 
 - Expanded the Windows PyInstaller packaging spec so hidden imports now include third-party modules discovered directly from real `import` and `from ... import ...` usage across the `eodinga/` source tree, reducing dependence on a hand-maintained list.
