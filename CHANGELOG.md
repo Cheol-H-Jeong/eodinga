@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.145 - 2026-04-23
+
+- Fixed DSL regex parsing so a closing `/` is still recognized after an even run of backslashes, which keeps literals like trailing escaped separators from being rejected as unterminated regexes.
+- Normalized Windows search-root variants in query execution, covering slash direction, drive-letter case, and `\\?\` long-path prefixes so scoped searches no longer miss matching files under equivalent roots.
+- Normalized Windows-style paths before default-denylist checks, making system-path blocking consistent for lowercase drive letters and long-path-prefixed inputs.
+
 ## 0.1.142 - 2026-04-23
 
 - Expanded the Windows PyInstaller spec so packaging now auto-discovers real `eodinga.*` module imports from the source tree, including relative imports, instead of relying only on a hand-maintained runtime list.
