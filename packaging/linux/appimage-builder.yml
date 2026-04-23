@@ -5,6 +5,8 @@ script:
   - mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/scalable/apps
   - cp packaging/linux/eodinga.desktop AppDir/usr/share/applications/eodinga.desktop
   - cp packaging/linux/eodinga.svg AppDir/usr/share/icons/hicolor/scalable/apps/eodinga.svg
+  - printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail' 'ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)"' 'cd "${ROOT_DIR}"' 'exec python3 -m eodinga "$@"' > AppDir/usr/bin/eodinga
+  - chmod +x AppDir/usr/bin/eodinga
 
 AppDir:
   path: AppDir
@@ -19,3 +21,7 @@ AppDir:
     include:
       - packaging/linux/eodinga.desktop
       - packaging/linux/eodinga.svg
+
+AppImage:
+  arch: @@APPIMAGE_ARCH@@
+  file_name: eodinga-@@APP_VERSION@@-@@APPIMAGE_ARCH@@.AppImage
