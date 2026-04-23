@@ -161,8 +161,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Operator Debug Path" in architecture
     assert "## Packaging Surfaces" in architecture
     assert "## Packaging Review Path" in architecture
+    assert "## Symptom-To-Subsystem Map" in architecture
     assert "## Release Evidence Sequence" in architecture
     assert "## Derived Asset Ownership Matrix" in architecture
+    assert "## Evidence Ownership Matrix" in architecture
     assert "## Release Failure Isolation" in architecture
     assert "is the index that points at the underlying Windows, AppImage, Debian, and workflow-lint evidence" in architecture
     assert "compressed changelog" in architecture
@@ -172,6 +174,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "packaging/dist/" in architecture
     assert "EODINGA_LOG_PATH" in architecture
     assert "crash-<ts>.log" in architecture
+    assert "CLI and launcher disagree on the same query" in architecture
+    assert "One worker round maps to one released surface" in architecture
+    assert "## Docs-And-Release Debug Path" in architecture
+    assert 'the docs say X but the artifact says Y' in architecture
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing

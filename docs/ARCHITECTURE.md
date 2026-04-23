@@ -421,6 +421,16 @@ startup
 
 Treat the platform-specific audit as the actionable source of truth. `packaging/dist/release-dry-run-audit.json` is the index that points at the underlying Windows, AppImage, Debian, and workflow-lint evidence; it should not replace reading the failing platform audit itself.
 
+## Symptom-To-Subsystem Map
+
+| Symptom | First subsystem to inspect | Why this is the narrowest path |
+| --- | --- | --- |
+| CLI and launcher disagree on the same query | `query.*` plus active DB selection from `eodinga stats --json` | both surfaces share the same parser/compiler/executor, so disagreement usually means different database/config inputs before it means different logic |
+| File changes are not visible after a successful initial crawl | `core.watcher` and `IndexWriter.apply_events()` | the rebuild path already proved enumeration and storage; the delta path is the first suspect |
+| Startup repeatedly mentions recovery or WAL replay | `index.storage.open_index()` and the database directory sidecars | recovery ownership is isolated to `.next`, `.recover`, and `-wal` handling before any UI surface runs |
+| Packaging docs mention files the audit cannot find | `packaging/build.py` and the matching `packaging/dist/*-audit.json` output | packaging manifests are the review surface for staged payload claims |
+| A docs-only round looks green but reviewers still cannot trace the proof | `tests/unit/test_docs_assets.py` plus the matching generated asset family | docs contract failures usually mean stale headings, stale examples, or a missing manpage/screenshot refresh rather than runtime logic drift |
+
 ## Release Evidence Sequence
 
 ```text
@@ -448,6 +458,16 @@ docs/runtime change
 | Linux packages | `packaging/linux/*` | AppImage and `.deb` dry-run and release artifacts. |
 | Windows package | `packaging/windows/eodinga.iss` | Per-user installer generated from the PyInstaller build output. |
 
+## Evidence Ownership Matrix
+
+| Release claim | Primary evidence | Owning code or asset family |
+| --- | --- | --- |
+| CLI help and examples match the shipped parser | `docs/man/eodinga.1` | `eodinga.__main__` via `scripts/generate_manpage.py` |
+| Screenshots still describe the real visible UI | `docs/screenshots/*.png` | `eodinga.gui.docs` via `scripts/render_docs_screenshots.py` |
+| Packaging docs match staged artifacts | `packaging/dist/*-audit.json` | `packaging/build.py` plus platform recipes |
+| Runtime paths, recovery, and release workflow text stayed current | `README.md`, `docs/ARCHITECTURE.md`, `docs/RELEASE.md`, `docs/CONTRIBUTING.md` | checked-in docs plus `tests/unit/test_docs_assets.py` |
+| One worker round maps to one released surface | top `CHANGELOG.md` entry plus local tag | isolated metadata commit and local `v0.1.N` tag |
+
 ## UI Surfaces
 
 - `eodinga.__main__` exposes the seven subcommands required by the v0.1 contract.
@@ -470,3 +490,14 @@ When an operator reports stale or surprising results, the shortest architecture-
 3. `eodinga watch` or `eodinga index --rebuild` depending on whether the issue is live-update lag or a one-shot recovery need.
 
 That sequence mirrors the architecture itself: active DB selection, environment validation, then either watcher-driven incremental repair or staged rebuild.
+
+## Docs-And-Release Debug Path
+
+When the bug report is "the docs say X but the artifact says Y", use this order:
+
+1. `tests/unit/test_docs_assets.py` to confirm the checked-in contract changed where you expect.
+2. Regenerate only the affected derived asset family, such as `docs/man/eodinga.1` or `docs/screenshots/*.png`.
+3. Run the matching GUI smoke command or `packaging/build.py --target ...-dry-run`.
+4. Inspect the exact `packaging/dist/` audit or generated asset path before changing more prose.
+
+That keeps docs rounds architecture-aware: contract first, derived evidence second, release metadata last.
