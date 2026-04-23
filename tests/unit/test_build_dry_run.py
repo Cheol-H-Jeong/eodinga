@@ -42,6 +42,9 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
         "cli": "eodinga-cli.exe",
         "gui": "eodinga-gui.exe",
     }
+    discovered_source_hiddenimports = set(payload["pyinstaller_spec"]["discovered_source_hiddenimports"])
+    assert discovered_source_hiddenimports
+    assert discovered_source_hiddenimports <= set(payload["pyinstaller_spec"]["hiddenimports"])
     datas = {tuple(item) for item in payload["pyinstaller_spec"]["datas"]}
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
     assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas
@@ -93,6 +96,16 @@ def test_windows_audit_validator_rejects_version_mismatch() -> None:
     assert "project and package versions do not match" in errors
 
 
+def test_windows_audit_validator_rejects_missing_source_hidden_import_contract() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["pyinstaller_spec"]["hiddenimports"] = ["PySide6"]
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "PyInstaller hidden imports no longer include the source-derived modules" in errors
+
+
 def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
     result = subprocess.run(
         [sys.executable, "packaging/build.py", "--target", "windows-dry-run"],
@@ -123,10 +136,12 @@ def test_windows_dry_run_covers_source_imported_third_party_modules() -> None:
     audit_path = Path("packaging/dist/windows-dry-run-audit.json")
     payload = json.loads(audit_path.read_text(encoding="utf-8"))
     hidden_imports = set(payload["pyinstaller_spec"]["hiddenimports"])
+    discovered_source_hiddenimports = set(payload["pyinstaller_spec"]["discovered_source_hiddenimports"])
 
     assert "charset_normalizer" in hidden_imports
     assert "pathspec" in hidden_imports
     assert "ebooklib.epub" in hidden_imports
+    assert {"charset_normalizer", "pathspec", "ebooklib.epub"} <= discovered_source_hiddenimports
 
 
 def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> None:

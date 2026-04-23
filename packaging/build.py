@@ -118,6 +118,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
                 "gui": gui_exe_name,
             },
             "required_hiddenimports": spec_namespace.get("REQUIRED_HIDDEN_IMPORTS", []),
+            "discovered_source_hiddenimports": spec_namespace.get("DISCOVERED_SOURCE_HIDDEN_IMPORTS", []),
             "hiddenimports": spec_namespace.get("HIDDEN_IMPORTS", []),
             "datas": spec_namespace.get("DATAS", []),
         },
@@ -185,6 +186,11 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         errors.append("PyInstaller spec is missing")
     if not spec_payload.get("hiddenimports"):
         errors.append("PyInstaller hidden imports are empty")
+    discovered_source_hiddenimports = spec_payload.get("discovered_source_hiddenimports", [])
+    if not discovered_source_hiddenimports:
+        errors.append("PyInstaller source-derived hidden imports are empty")
+    elif not set(discovered_source_hiddenimports).issubset(set(spec_payload.get("hiddenimports", []))):
+        errors.append("PyInstaller hidden imports no longer include the source-derived modules")
     if not spec_payload.get("datas"):
         errors.append("PyInstaller data files are empty")
     inno_payload = payload.get("inno_setup", {})
