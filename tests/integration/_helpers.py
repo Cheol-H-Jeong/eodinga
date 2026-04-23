@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import io
+import json
 from collections.abc import Callable
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from queue import Empty
 from time import monotonic
 
+from eodinga.__main__ import main
 from eodinga.common import WatchEvent
 from eodinga.core.watcher import WatchService
 from eodinga.index.writer import IndexWriter
@@ -91,3 +95,13 @@ def wait_for_query_miss(
         if _matches():
             return min(monotonic() - started, deadline_seconds)
     raise AssertionError(f"{missing_path} remained query-visible after {deadline_seconds:.3f}s")
+
+
+def run_cli_json(argv: list[str]) -> tuple[int, dict[str, object], str]:
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):
+        exit_code = main(argv)
+    stdout = stdout_buffer.getvalue().strip()
+    payload = json.loads(stdout) if stdout else {}
+    return exit_code, payload, stderr_buffer.getvalue()
