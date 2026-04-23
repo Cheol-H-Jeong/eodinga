@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.532 - 2026-04-23
+
+- Clamped restored launcher popup geometry back onto the available screen, so saved window positions from old monitor layouts no longer reopen off-screen or oversize the popup past the current desktop bounds.
+- Centered the launcher on first show when no saved position exists, using the live widget size rather than the raw configured size so the popup lands predictably even when Qt expands it to satisfy layout minimums.
+- Expanded GUI launcher regressions to pin both behaviors and to keep geometry-preservation tests scoped to truly on-screen layouts.
+
 ## 0.1.525 - 2026-04-23
 
 - Counted successful parser runs alongside existing skip and error paths, so `stats --json` now reports fuller per-parser activity instead of only failures.
