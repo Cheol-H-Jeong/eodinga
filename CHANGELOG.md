@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.387 - 2026-04-23
+
+- Hardened the AppImage dry-run audit so staged desktop and icon payloads must remain byte-for-byte aligned with the shipped Linux assets instead of only existing in the AppDir.
+- Hardened the Debian dry-run audit so the staged desktop/icon payloads must stay aligned with the checked-in assets and the packaged changelog gzip header remains reproducible.
+- Tightened the Windows installer audit so dry runs now fail if the packaged `LICENSE` goes missing or the rendered desktop shortcut stops pointing at the GUI executable.
+
 ## 0.1.385 - 2026-04-23
 
 - Fixed slash-delimited query parsing so top-level regex literals and spaced operator regex values now close correctly when the pattern ends with an even run of backslashes before the delimiter.
