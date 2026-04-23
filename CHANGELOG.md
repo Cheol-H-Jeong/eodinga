@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.827 - 2026-04-23
+## 0.1.832 - 2026-04-23
 
 - Added snapshot ring-buffer telemetry to `stats --json`, including current occupancy, fixed capacity, and dropped-record counts so operators can tell when recent command history has wrapped.
 - Hardened the observability snapshot store to deep-copy nested payloads on write and read, preventing callers from mutating retained diagnostic history through shared references.
