@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.443 - 2026-04-23
+
+- Retained labeled counter and histogram series in the in-memory observability registry, so metrics tagged with fields such as parser name, command, event type, or root are no longer flattened away after increment time.
+- Expanded `eodinga stats --json` with raw metric series plus operator-friendly breakdowns for files indexed by root, parser errors by parser, watcher events by type, and command or watcher latency grouped by label.
+- Enriched `crash-*.log` artifacts with the same labeled metric series and added focused CLI and observability regressions so structured telemetry remains visible in both healthy and failing runs.
+
 ## 0.1.442 - 2026-04-23
 
 - Added a dedicated `.[packaging]` extra for Windows release tooling and wired the Windows release workflow to install it explicitly instead of relying on ambient build dependencies.
