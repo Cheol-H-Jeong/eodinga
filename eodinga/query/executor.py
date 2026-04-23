@@ -274,15 +274,16 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
         return "", ()
     root_text = str(root)
     normalized = root_text.rstrip("/\\") or root_text
-    variants = tuple(
-        dict.fromkeys(
-            (
-                normalized,
-                normalized.replace("\\", "/"),
-                normalized.replace("/", "\\"),
-            )
-        )
-    )
+    slash_variants = [
+        normalized,
+        normalized.replace("\\", "/"),
+        normalized.replace("/", "\\"),
+    ]
+    raw_variants = list(slash_variants)
+    drive, separator, tail = normalized[:1], normalized[1:3], normalized[3:]
+    if separator in {":\\", ":/"} and drive.isalpha():
+        raw_variants.extend(f"{case_drive}{variant[1:]}" for variant in slash_variants for case_drive in (drive.upper(), drive.lower()))
+    variants = tuple(dict.fromkeys(raw_variants))
     exact_params = variants
     like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
         f"{variant}\\%" for variant in variants
