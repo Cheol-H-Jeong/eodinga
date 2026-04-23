@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.918 - 2026-04-24
+
+- Scoped Windows root filters across both plain and extended-length path spellings, so searches under `C:\...` and `\\?\C:\...` stay equivalent even when the index stores the other form.
+- Canonicalized extended-length watcher roots without forcing `resolve()` on non-Windows hosts, preventing duplicate observer registration when the same Windows path is passed with different slash or drive-letter spellings.
+
 ## 0.1.911 - 2026-04-24
 
 - Normalized list-form subprocess command matching in the no-network source audit, so absolute-path invocations like `['/usr/bin/curl', ...]` and `wget.exe` tuples are rejected the same way as bare command names.

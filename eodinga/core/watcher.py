@@ -68,7 +68,8 @@ def _normalize_windows_root_text(root_text: str) -> str:
         suffix = windows_root[2:].lstrip("\\").rstrip("\\")
         return f"\\\\{suffix}"
     if len(windows_root) >= 2 and windows_root[1] == ":" and windows_root[0].isalpha():
-        return f"{windows_root[0].upper()}{windows_root[1:].rstrip('\\')}"
+        suffix = windows_root[1:].rstrip("\\")
+        return f"{windows_root[0].upper()}{suffix}"
     return windows_root.rstrip("\\")
 
 
