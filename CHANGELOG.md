@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.160 - 2026-04-23
+
+- Expanded live-update integration coverage with same-root rename tracking, cross-root move convergence, and reopened-index delete handling so watcher-driven search behavior is pinned against more real filesystem flows.
+- Added a multi-root hot-restart regression that reopens an existing index, deletes one root's live file, and verifies both global and root-scoped search converge correctly without forcing a rebuild.
+- Added a rebuild regression that reruns a multi-root index with one root removed and proves stale files and stored root metadata from the removed root are pruned from the searchable snapshot.
+
 ## 0.1.155 - 2026-04-23
 
 - Fixed the default observability paths on macOS so rotating logs now land under `~/Library/Logs/eodinga` and crash reports follow the same platform-native log root instead of falling back to Linux-style state directories.
