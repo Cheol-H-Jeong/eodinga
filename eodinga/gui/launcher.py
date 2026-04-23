@@ -11,8 +11,9 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.config import AppConfig
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
-from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
-from eodinga.gui.widgets import EmptyState, ResultItemDelegate, SearchField, StatusChip
+from eodinga.gui.launcher_text import empty_state_content, shortcut_hint
+from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer
+from eodinga.gui.widgets import EmptyState, LauncherPreviewPane, ResultItemDelegate, SearchField, StatusChip
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
@@ -51,6 +52,7 @@ class LauncherPanel(QWidget):
         self.result_list.setAccessibleName("Launcher results list")
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
         self.result_list.setUniformItemSizes(False)
+        self.result_list.setMouseTracking(True)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
         self.status_chip = StatusChip("Idle", self)
         self.shortcut_label = QLabel("", self)
@@ -58,9 +60,13 @@ class LauncherPanel(QWidget):
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
         self.empty_state = EmptyState("Type to search", "Recent queries and indexing progress will appear here.", self)
+        self.preview_pane = LauncherPreviewPane(self)
 
         self.model = ResultListModel(self)
         self.result_list.setModel(self.model)
+        self.result_list.selectionModel().currentChanged.connect(lambda current, _: self._update_preview_from_index(current))
+        self.result_list.entered.connect(self._update_preview_from_index)
+        self.result_list.viewport().installEventFilter(self)
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -71,8 +77,16 @@ class LauncherPanel(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
-        layout.addWidget(self.result_list, 1)
-        layout.addWidget(self.empty_state)
+        content = QHBoxLayout()
+        content.setSpacing(SPACE_16)
+        results_column = QVBoxLayout()
+        results_column.setContentsMargins(0, 0, 0, 0)
+        results_column.setSpacing(0)
+        results_column.addWidget(self.result_list, 1)
+        results_column.addWidget(self.empty_state)
+        content.addLayout(results_column, 3)
+        content.addWidget(self.preview_pane, 2)
+        layout.addLayout(content, 1)
 
         footer = QHBoxLayout()
         footer.addWidget(self.status_chip)
@@ -181,6 +195,8 @@ class LauncherPanel(QWidget):
             self._refresh_shortcut_hint()
         if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusOut:
             QTimer.singleShot(0, self._refresh_shortcut_hint)
+        if watched is self.result_list.viewport() and event.type() == QEvent.Type.Leave:
+            self._update_preview()
         if event.type() != QEvent.Type.KeyPress:
             return super().eventFilter(watched, event)
         key_event = cast(QKeyEvent, event)
@@ -219,6 +235,7 @@ class LauncherPanel(QWidget):
         self._restore_selection(previous_hit)
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
+        self._update_preview()
         self.results_updated.emit(self._latest_result)
         get_logger().debug("launcher query '{}' returned {}", query, self._latest_result.total)
 
@@ -241,41 +258,19 @@ class LauncherPanel(QWidget):
     def _refresh_empty_state(self) -> None:
         has_results = self.model.rowCount() > 0
         query = self.query_field.text().strip()
-        details = format_indexing_status(self._indexing_status)
-        if not query:
-            recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
-            self.empty_state.set_content(
-                "Type to search",
-                f"Recent: {recent_queries} Press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
-                details,
-            )
-        else:
-            self.empty_state.set_content(
-                f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Tab to jump back to the filter or Esc to hide the launcher.",
-                details,
-            )
+        title, body, details = empty_state_content(query, self._recent_queries, self._indexing_status)
+        self.empty_state.set_content(title, body, details)
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
 
     def _refresh_shortcut_hint(self) -> None:
-        has_results = self.model.rowCount() > 0
-        if not has_results:
-            if self.query_field.text().strip():
-                hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries."
-            else:
-                hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
-        elif self.result_list.hasFocus():
-            hint = (
-                "Enter opens. Alt+1..9 quick-picks. Up/Down wraps. "
-                "Home/End and PgUp/PgDn jump. Ctrl+Enter reveals. Ctrl+A or Ctrl+L returns to filter."
+        self.shortcut_label.setText(
+            shortcut_hint(
+                has_results=self.model.rowCount() > 0,
+                has_query=bool(self.query_field.text().strip()),
+                results_has_focus=self.result_list.hasFocus(),
             )
-        else:
-            hint = (
-                "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. "
-                "Enter opens the top hit. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
-            )
-        self.shortcut_label.setText(hint)
+        )
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()
@@ -375,6 +370,12 @@ class LauncherPanel(QWidget):
     def _set_selection(self, row: int) -> None:
         self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(row, 0)))
         self.result_list.scrollTo(self.result_list.currentIndex())
+
+    def _update_preview(self) -> None:
+        self.preview_pane.set_hit(self._current_hit())
+
+    def _update_preview_from_index(self, index: QModelIndex) -> None:
+        self.preview_pane.set_hit(self.model.item_at(index.row()) if index.isValid() else self._current_hit())
 
     def _navigate_recent_queries(self, direction: int) -> None:
         if not self._recent_queries:

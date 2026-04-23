@@ -561,3 +561,70 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.result_list.accessibleName() == "Launcher results list"
+    assert launcher.preview_pane.accessibleName() == "Launcher preview pane"
+
+
+def test_launcher_preview_pane_shows_default_empty_state(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    assert launcher.preview_pane.title_label.text() == "Preview"
+    assert "Hover or select a result" in launcher.preview_pane.path_label.text()
+    assert launcher.preview_pane.snippet_label.text() == ""
+
+
+def test_launcher_preview_pane_tracks_selected_result(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/alpha.txt"),
+                    parent_path=Path("/tmp"),
+                    name="alpha.txt",
+                    snippet="alpha body",
+                ),
+                SearchHit(
+                    path=Path("/tmp/beta.txt"),
+                    parent_path=Path("/tmp"),
+                    name="beta.txt",
+                    snippet="beta body",
+                ),
+            ][:limit],
+            total=2,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("a")
+    _wait(60)
+    assert launcher.preview_pane.title_label.text() == "alpha.txt"
+    assert launcher.preview_pane.snippet_label.text() == "alpha body"
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Down)
+
+    assert launcher.preview_pane.title_label.text() == "beta.txt"
+    assert launcher.preview_pane.snippet_label.text() == "beta body"
+
+
+def test_launcher_preview_pane_updates_when_hovering_result(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt", snippet="alpha body"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt", snippet="beta body"),
+            ][:limit],
+            total=2,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("a")
+    _wait(60)
+    launcher._update_preview_from_index(launcher.model.index(1, 0))
+
+    assert launcher.preview_pane.title_label.text() == "beta.txt"
+    assert launcher.preview_pane.snippet_label.text() == "beta body"
