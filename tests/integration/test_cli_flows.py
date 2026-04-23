@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from queue import Empty
 from time import monotonic
+from typing import Any, cast
 
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
@@ -13,7 +14,11 @@ from tests.conftest import make_record
 
 
 def _json_payload(stdout: str) -> dict[str, object]:
-    return json.loads(stdout)
+    return cast(dict[str, object], json.loads(stdout))
+
+
+def _result_items(stdout: str) -> list[dict[str, Any]]:
+    return cast(list[dict[str, Any]], _json_payload(stdout)["results"])
 
 
 def _search_paths(cli_runner, db_path: Path, query: str, *, root: Path | None = None) -> list[Path]:
@@ -22,7 +27,7 @@ def _search_paths(cli_runner, db_path: Path, query: str, *, root: Path | None = 
         args.extend(["--root", str(root)])
     result = cli_runner(*args)
     assert result.returncode == 0
-    return [Path(item["path"]) for item in _json_payload(result.stdout)["results"]]
+    return [Path(str(item["path"])) for item in _result_items(result.stdout)]
 
 
 def _wait_for_cli_hit(
@@ -78,7 +83,7 @@ def test_cli_multi_root_index_and_root_scoped_search(cli_runner, tmp_path: Path)
     assert index_payload["command"] == "index"
     assert index_payload["db"] == str(db_path)
     assert index_payload["roots"] == [str(root_a), str(root_b)]
-    assert int(index_payload["files_indexed"]) >= 3
+    assert int(cast(int | str, index_payload["files_indexed"])) >= 3
 
     global_search = cli_runner(
         "--db",
@@ -99,8 +104,8 @@ def test_cli_multi_root_index_and_root_scoped_search(cli_runner, tmp_path: Path)
 
     assert global_search.returncode == 0
     assert beta_search.returncode == 0
-    global_paths = {Path(item["path"]) for item in _json_payload(global_search.stdout)["results"]}
-    beta_paths = {Path(item["path"]) for item in _json_payload(beta_search.stdout)["results"]}
+    global_paths = {Path(str(item["path"])) for item in _result_items(global_search.stdout)}
+    beta_paths = {Path(str(item["path"])) for item in _result_items(beta_search.stdout)}
     assert global_paths == {alpha, beta}
     assert beta_paths == {beta}
 
@@ -159,8 +164,8 @@ def test_cli_rebuild_drops_removed_root_content_from_followup_search(
     assert rebuild.returncode == 0
     assert global_search.returncode == 0
     assert beta_search.returncode == 0
-    global_paths = {Path(item["path"]) for item in _json_payload(global_search.stdout)["results"]}
-    beta_paths = {Path(item["path"]) for item in _json_payload(beta_search.stdout)["results"]}
+    global_paths = {Path(str(item["path"])) for item in _result_items(global_search.stdout)}
+    beta_paths = {Path(str(item["path"])) for item in _result_items(beta_search.stdout)}
     assert global_paths == {alpha}
     assert beta_paths == set()
 
