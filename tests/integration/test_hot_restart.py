@@ -222,6 +222,58 @@ def test_hot_restart_reopen_multi_root_keeps_queries_and_accepts_live_updates(tm
     assert reopened_beta_hits == {existing_b}
 
 
+def test_hot_restart_reopen_multi_root_create_updates_global_and_root_scoped_queries(
+    tmp_path: Path,
+) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        created = root_b / "reopen-created-beta.txt"
+        created.write_text("reopen scoped beta creation\n", encoding="utf-8")
+        elapsed = _wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "reopen scoped beta creation",
+            created,
+            deadline_seconds=0.5,
+        )
+        global_hits = {
+            hit.file.path for hit in search(reopened, "reopen scoped beta creation", limit=5).hits
+        }
+        alpha_hits = {
+            hit.file.path
+            for hit in search(reopened, "reopen scoped beta creation", limit=5, root=root_a).hits
+        }
+        beta_hits = {
+            hit.file.path
+            for hit in search(reopened, "reopen scoped beta creation", limit=5, root=root_b).hits
+        }
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert elapsed <= 0.5
+    assert global_hits == {created}
+    assert alpha_hits == set()
+    assert beta_hits == {created}
+
+
 def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
