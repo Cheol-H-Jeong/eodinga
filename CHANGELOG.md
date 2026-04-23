@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.566 - 2026-04-23
+
+- Reworked launcher keyboard traversal so `Tab` now reaches visible pinned and recent query chips before results, `Tab` from results moves into the action bar, and chip/action focus surfaces show matching shortcut guidance.
+- Added reverse `Shift+Tab` traversal through launcher chips, keeping keyboard-only navigation symmetrical instead of skipping visible shortcuts on the way back to the filter field.
+- Returned focus to the launcher query field when a focused action button loses its backing result set, avoiding dead focus on disabled actions after a search narrows to zero hits.
+
 ## 0.1.562 - 2026-04-23
 
 - Expanded the top-level README with a validation-path matrix, release-input map, and docs-asset drift runbook entry so operators can pick the right verification path faster.
