@@ -110,6 +110,29 @@ One-command capture example:
 source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s 2>&1 | tee /tmp/eodinga-perf.log && rg '^(bulk_upsert|cold_start|rebuild_cold_start|rebuild_index|walk_batched|query_latency|content_query_latency|watch_latency)' /tmp/eodinga-perf.log
 ```
 
+## Mixed Result Example
+
+A same-day rerun on this branch showed why the failure-handling rule matters. Using:
+
+```bash
+source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s 2>&1 | tee /tmp/eodinga-perf.log && rg '^(bulk_upsert|cold_start|rebuild_cold_start|rebuild_index|walk_batched|query_latency|content_query_latency|watch_latency)' /tmp/eodinga-perf.log
+```
+
+the branch produced these summary lines:
+
+- `bulk_upsert records=50000 elapsed=0.897s throughput=55766 records/s min_rps=20000`
+- `cold_start files=20201 elapsed=3.521s throughput=5738 files/s min_fps=4000`
+- `rebuild_cold_start files=20201 elapsed=3.409s throughput=5925 files/s min_fps=3500`
+- `content_query docs=5000 count=500 p50=0.85ms p95=0.93ms p99=1.07ms limit_p95=150.00ms`
+- `query_latency files=50000 count=2000 p50=0.13ms p95=0.16ms p99=0.21ms limit_p95=30.00ms`
+- `watch_latency count=25 p99=0.132s limit_p99=2.000s`
+- `rebuild_index records=30257 elapsed=5.417s throughput=5586 records/s min_rps=12000`
+- `walk_batched records=40257 elapsed=7.098s throughput=5672 records/s min_rps=25000`
+
+That run passed the query, watch, bulk-upsert, and cold-start checks but failed `tests/perf/test_rebuild_throughput.py` and `tests/perf/test_walk_throughput.py`. Because the suite was not fully green, the checked-in baseline table above was intentionally left unchanged.
+
+When you capture a mixed result like this, keep both the passing and failing summary lines. They show whether the slowdown is isolated to one throughput probe or reflects a wider regression.
+
 ## Repro Checklist
 
 Use this short checklist before replacing the baseline table:
@@ -119,6 +142,18 @@ Use this short checklist before replacing the baseline table:
 3. Capture the exact stdout summary line from the perf test instead of paraphrasing the result.
 4. Record every non-default `EODINGA_PERF_*` override next to the benchmark output.
 5. Update the document only after a repeat run lands in the same range.
+
+## Failure Note Template
+
+When the suite is mixed or red, record the result in this shape instead of editing the baseline table:
+
+1. exact command used
+2. benchmark summary lines copied from stdout
+3. failing test names and threshold lines
+4. whether the rest of the suite passed or was skipped
+5. whether the baseline table was intentionally left unchanged
+
+This gives later reviewers enough evidence to compare environments without guessing what actually failed.
 
 ## Interpreting Results
 

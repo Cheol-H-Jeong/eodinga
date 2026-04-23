@@ -203,12 +203,16 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Baseline" in performance
     assert "## Baseline Freshness Policy" in performance
     assert "## Repro Checklist" in performance
+    assert "## Mixed Result Example" in performance
+    assert "## Failure Note Template" in performance
     assert "## Profiling Workflow" in performance
     assert "## Release Use" in performance
     assert "Each benchmark prints a structured summary line to stdout." in performance
     assert "The defaults currently checked into the suite are:" in performance
     assert "The printed benchmark summary line." in performance
     assert "current checked-in baseline" in performance
+    assert "the checked-in baseline table above was intentionally left unchanged" in performance
+    assert "tests/perf/test_rebuild_throughput.py" in performance
 
     assert "## Pick The Version" in release
     assert "## Version Collision Guard" in release
