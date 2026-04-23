@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.588 - 2026-04-23
+
+- Batched executor content-text hydration into fixed-size chunks, reducing one-off `IN (...)` statement shapes and improving statement-cache reuse during record filtering and content backfill.
+- Reduced repeated query-text normalization work when deriving name, path, and prefix hits, so the ranking pass now normalizes each positive term and each record field once instead of once per comparison.
+- Switched case-insensitive path-scan name matching from `lower(files.name)` to the stored `files.name_lower` column, avoiding an extra SQLite function call on every scanned row.
+
 ## 0.1.585 - 2026-04-23
 
 - Tightened scoped-search root matching so wildcard characters in root paths no longer leak results from sibling roots, and Windows drive-letter case variants now keep exact-root records in scope.
