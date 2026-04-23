@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.108 - 2026-04-23
+
+- Honored the launcher `always_on_top` config instead of forcing the popup to stay pinned above every window, and split the popup-specific geometry logic into its own module so the launcher controller stays under the 500-line cap.
+- Added a dedicated launcher `copy name` action alongside the existing open, reveal, properties, and copy-path flows, with shortcut and wiring coverage for both the popup and embedded search panel.
+- Added a lightweight preview pane that follows launcher selection and hover state, showing the full file path plus an indexed content snippet without leaving the keyboard-first launcher workflow.
+
 ## 0.1.104 - 2026-04-23
 
 - Added a multi-root integration regression that rebuilds one index from two configured roots, proves both roots are persisted, and pins `search(..., root=...)` scoping against cross-root result leakage.
