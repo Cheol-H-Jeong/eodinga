@@ -165,6 +165,8 @@ def _is_stdlib_module(module_name: str) -> bool:
 def _discover_source_hidden_imports(source_root: Path) -> list[str]:
     discovered: set[str] = set()
     for source_path in source_root.rglob("*.py"):
+        module_name = _module_name_for_path(source_path, source_root)
+        current_package = module_name if source_path.name == "__init__.py" else module_name.rpartition(".")[0]
         module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
         for node in ast.walk(module):
             if isinstance(node, ast.Import):
@@ -174,7 +176,7 @@ def _discover_source_hidden_imports(source_root: Path) -> list[str]:
                         continue
                     discovered.add(module_name)
             elif isinstance(node, ast.ImportFrom):
-                module_name = node.module
+                module_name = _resolve_imported_module(node.module, node.level, current_package)
                 if not module_name or module_name.startswith("eodinga") or _is_stdlib_module(module_name):
                     continue
                 discovered.add(module_name)
