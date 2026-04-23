@@ -24,10 +24,14 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 
 - `date:today`
 - `date:yesterday`
+- `date:next-day`
 - `date:this-week`
+- `date:next-week`
 - `date:last-week`
 - `date:this-month`
+- `date:next-month`
 - `date:last-month`
+- `date:next-year`
 - `date:2026-04-23`
 - `date:2026-04-01..2026-04-23`
 - `date:2026-04-01..`
@@ -40,6 +44,8 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 ext:pdf content:"release notes"
 size:>10M date:this-month
 modified:today created:2026-04-23
+date:next-week ext:md
+date:next-year created:..2026-12-31
 date:2026-04-01.. modified:..2026-04-23
 modified:2026-04-23T09:15:30+00:00
 regex:true report-\d+
@@ -53,7 +59,7 @@ regex:/launch|ship/i path:docs
 
 - Path/name terms are case-insensitive unless `case:true` is set.
 - Content operators only match indexed document text; unsupported files fall back to filename/path search.
-- `date:`, `modified:`, and `created:` accept `today`, `yesterday`, `this-week`, `this-month`, a single ISO date, open-ended ISO ranges, full ISO ranges, and exact ISO datetimes.
+- `date:`, `modified:`, and `created:` accept relative aliases such as `today`, `previous-day`, `next-week`, `next-month`, and `next-year`, plus single ISO dates, open-ended ISO ranges, full ISO ranges, and exact ISO datetimes.
 - `size:` comparisons use binary suffixes, so `10M` means `10 * 1024 * 1024` bytes.
 - `is:duplicate` matches entries that share a content hash with at least one other indexed file.
 - `is:file` matches regular files only, `is:dir` matches non-symlink directories only, and `is:symlink` remains available when you want the link entries themselves.

@@ -169,6 +169,7 @@ eodinga doctor
 - `path:projects content:"design review"` : path and content filters
 - `size:>10M modified:today` : size and date filters
 - `size:100K..500K date:last-month` : bounded range plus date macro
+- `date:next-week ext:md` : future calendar window
 - `date:2026-04-01.. modified:..2026-04-23` : open-ended ISO ranges
 - `modified:2026-04-23T09:15:30+00:00` : exact ISO datetime filter
 - `date:yesterday is:duplicate` : relative date plus duplicate detection
@@ -193,6 +194,7 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Restrict by extension | `ext:pdf invoice` |
 | Restrict by path | `path:projects content:"design review"` |
 | Find recent files | `date:this-week` |
+| Find the next calendar week | `date:next-week` |
 | Start from an ISO date | `date:2026-04-01..` |
 | Stop at an ISO date | `created:..2026-04-23` |
 | Match one instant | `modified:2026-04-23T09:15:30+00:00` |
@@ -201,6 +203,7 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Find regular files only | `is:file` |
 | Find duplicates | `is:duplicate` |
 | Find the previous calendar month | `date:last-month ext:pdf` |
+| Find the next calendar year | `date:next-year` |
 | Exclude noisy trees | `-path:node_modules` |
 | Run regex | `/todo|fixme/i` |
 

@@ -191,8 +191,12 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "created:2026-04-23" in dsl
     assert "date:this-week" in dsl
     assert "date:yesterday" in dsl
+    assert "date:next-day" in dsl
     assert "date:last-week" in dsl
+    assert "date:next-week" in dsl
     assert "date:last-month" in dsl
+    assert "date:next-month" in dsl
+    assert "date:next-year" in dsl
     assert "date:2026-04-01.." in dsl
     assert "created:..2026-04-23" in dsl
     assert "modified:2026-04-23T09:15:30+00:00" in dsl
