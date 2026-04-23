@@ -405,7 +405,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "(20%)" in launcher.empty_state.details_label.text()
     assert launcher.status_chip.text() == "Indexing"
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
-    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Alt+Up recalls recent queries."
+    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Parsed filters surface as inline chips. Alt+Up recalls recent queries."
 
     launcher.query_field.setText("missing")
     _wait(60)
@@ -413,9 +413,11 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.status_chip.text() == "No results"
     assert launcher.empty_state.title_label.text() == 'No results for "missing"'
     assert "date:this-week" in launcher.empty_state.body_label.text()
+    assert "inline chips" in launcher.empty_state.body_label.text()
     assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
     assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
+    assert "inline chips" in launcher.shortcut_label.text()
     assert "Alt+Up recalls recent queries" in launcher.shortcut_label.text()
 
 
@@ -428,6 +430,7 @@ def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> No
     state.remember_query("budget")
 
     assert "budget, report" in launcher.empty_state.body_label.text()
+    assert "inline filter chips" in launcher.empty_state.body_label.text()
 
 
 def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> None:

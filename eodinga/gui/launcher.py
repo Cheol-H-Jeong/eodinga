@@ -5,7 +5,7 @@ from typing import cast
 
 from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
 from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QSizePolicy, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
@@ -80,6 +80,7 @@ class LauncherPanel(QWidget):
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
         self.shortcut_label.setAccessibleName("Launcher shortcut guidance")
+        self.shortcut_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
         self.status_label.setAccessibleName("Launcher result summary")
@@ -323,13 +324,13 @@ class LauncherPanel(QWidget):
             pinned_queries = f" Pinned: {', '.join(self._pinned_queries[:3])}." if self._pinned_queries else ""
             self.empty_state.set_content(
                 "Type to search",
-                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
+                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up to recall recent queries, watch inline filter chips appear for parsed ext:/date:/size: filters, use Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
                 details,
             )
         else:
             self.empty_state.set_content(
                 f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Tab to jump back to the filter or Esc to hide the launcher.",
+                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Parsed filters stay visible as inline chips in the search field. Press Tab to jump back to the filter or Esc to hide the launcher.",
                 details,
             )
         self.empty_state.setVisible(not has_results)
@@ -339,9 +340,9 @@ class LauncherPanel(QWidget):
         has_results = self.model.rowCount() > 0
         if not has_results:
             if self.query_field.text().strip():
-                hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries."
+                hint = "Refine with ext:, date:, size:, or content: filters. Parsed filters stay visible as inline chips. Alt+Up recalls recent queries."
             else:
-                hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
+                hint = "Type a filename, path, or content term. Parsed filters surface as inline chips. Alt+Up recalls recent queries."
         elif self.result_list.hasFocus():
             hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
         else:
