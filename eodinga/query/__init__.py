@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from pathlib import Path
+from pathlib import PurePath
 from sqlite3 import Connection
 
 from eodinga.query.compiler import CompiledQuery, compile_query
@@ -19,7 +19,7 @@ def compile(query: str) -> CompiledQuery:
 
 
 def search(
-    conn: Connection, query_str: str, limit: int = 200, root: Path | None = None
+    conn: Connection, query_str: str, limit: int = 200, root: PurePath | None = None
 ) -> QueryResult:
     return execute(conn, compile(query_str), limit=limit, root=root)
 

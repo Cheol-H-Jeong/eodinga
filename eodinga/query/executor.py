@@ -6,7 +6,7 @@ import time
 import unicodedata
 from collections.abc import Iterable, Mapping
 from functools import lru_cache
-from pathlib import Path
+from pathlib import PurePath
 from typing import NamedTuple
 
 from pydantic import BaseModel, ConfigDict
@@ -310,7 +310,7 @@ def _fetch_record_batch(
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
-def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
+def _root_scope_clause(root: PurePath | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
     variants = _root_scope_variants(str(root))
@@ -367,13 +367,14 @@ def _derived_root_scope_variants(value: str) -> set[str]:
         windows_path = candidate.replace("/", "\\")
         if _WINDOWS_DRIVE_RE.match(windows_path) is None:
             continue
-        long_path_variants.add(f"\\\\?\\{windows_path}")
-        long_path_variants.add(f"//?/{windows_path.replace('\\', '/')}")
+        slash_path = windows_path.replace("\\", "/")
+        long_path_variants.add("\\\\?\\" + windows_path)
+        long_path_variants.add("//?/" + slash_path)
     variants.update(long_path_variants)
     return variants
 
 
-def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:
+def _scoped_branch(branch: CompiledBranch, root: PurePath | None) -> CompiledBranch:
     scope_sql, scope_params = _root_scope_clause(root)
     if not scope_sql:
         return branch
@@ -874,7 +875,7 @@ def execute(
     conn: sqlite3.Connection,
     compiled: CompiledQuery,
     limit: int = 200,
-    root: Path | None = None,
+    root: PurePath | None = None,
 ) -> QueryResult:
     started = time.perf_counter()
     merged_records: dict[int, FileRecord] = {}
