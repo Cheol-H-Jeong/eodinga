@@ -408,6 +408,25 @@ def test_settings_tab_rebinds_hotkey_without_restart(
     assert load(temp_config_path).launcher.hotkey == "ctrl+alt+k"
 
 
+def test_pinned_queries_persist_from_shared_launcher_state(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+
+    window.search_tab.launcher_panel.query_field.setText("ext:pdf")
+    window.search_tab.launcher_panel.toggle_current_query_pin()
+    qapp.processEvents()
+
+    assert load(temp_config_path).launcher.pinned_queries == ["ext:pdf"]
+    assert [button.text() for button in window.launcher_window.pinned_queries_row.buttons] == ["ext:pdf"]
+
+    window.launcher_window.query_field.setText("ext:pdf")
+    window.launcher_window.toggle_current_query_pin()
+    qapp.processEvents()
+
+    assert load(temp_config_path).launcher.pinned_queries == []
+    assert window.search_tab.launcher_panel.pinned_queries_row.buttons == []
+
+
 def test_settings_tab_normalizes_remapped_hotkey_without_restart(
     monkeypatch,
     qapp,
