@@ -10,7 +10,16 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
-from eodinga.gui.widgets import EmptyState, LauncherActionBar, LauncherPreviewPane, ResultItemDelegate, SearchField, StatusChip
+from eodinga.gui.widgets import (
+    EmptyState,
+    LauncherActionBar,
+    LauncherPreviewPane,
+    QueryChipBar,
+    ResultItemDelegate,
+    SearchField,
+    StatusChip,
+)
+from eodinga.gui.widgets.query_chips import extract_filter_chips
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
@@ -47,6 +56,7 @@ class LauncherPanel(QWidget):
 
         self.query_field = SearchField(parent=self)
         self.query_field.setAccessibleName("Launcher search field")
+        self.query_chip_bar = QueryChipBar(self)
         self.result_list = QListView(self)
         self.result_list.setAccessibleName("Launcher results list")
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
@@ -77,6 +87,7 @@ class LauncherPanel(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
+        layout.addWidget(self.query_chip_bar)
 
         content = QHBoxLayout()
         content.setSpacing(SPACE_16)
@@ -146,6 +157,7 @@ class LauncherPanel(QWidget):
             self.set_indexing_status(self._state.indexing_status)
 
         self._refresh_empty_state()
+        self._refresh_query_chips()
         self._refresh_shortcut_hint()
         self._refresh_preview()
 
@@ -155,9 +167,11 @@ class LauncherPanel(QWidget):
     def set_recent_queries(self, queries: list[str]) -> None:
         self._recent_queries = queries
         self._refresh_empty_state()
+
     def set_pinned_queries(self, queries: list[str]) -> None:
         self._pinned_queries = queries
         self._refresh_empty_state()
+        self._refresh_query_chips()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
@@ -257,10 +271,16 @@ class LauncherPanel(QWidget):
         self._refresh_status_footer()
         self._restore_selection(previous_hit)
         self._refresh_empty_state()
+        self._refresh_query_chips()
         self._refresh_shortcut_hint()
         self._refresh_preview()
         self.results_updated.emit(self._latest_result)
         get_logger().debug("launcher query '{}' returned {}", query, self._latest_result.total)
+
+    def _refresh_query_chips(self) -> None:
+        query = self.query_field.text().strip()
+        chips = extract_filter_chips(query) if query else self._pinned_queries[:3]
+        self.query_chip_bar.set_chips(chips)
 
     def _refresh_status_footer(self) -> None:
         query = self.query_field.text().strip()

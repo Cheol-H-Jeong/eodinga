@@ -406,6 +406,19 @@ def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> No
     launcher.show()
 
     assert "Pinned: ext:pdf, size:>10M." in launcher.empty_state.body_label.text()
+    assert launcher.query_chip_bar.isVisible()
+    assert launcher.query_chip_bar.findChildren(type(launcher.empty_state.title_label))[0].text() == "ext:pdf"
+
+
+def test_launcher_query_chip_bar_surfaces_active_filters(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState(pinned_queries=["ext:pdf"]))
+    launcher.show()
+
+    launcher.query_field.setText('release date:this-week size:>10M content:"draft plan"')
+    _wait(60)
+
+    chips = [label.text() for label in launcher.query_chip_bar.findChildren(type(launcher.empty_state.title_label))]
+    assert chips == ["date:this-week", "size:>10M", 'content:"draft plan"']
 
 
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:
