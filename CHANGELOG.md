@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.581 - 2026-04-23
+## 0.1.582 - 2026-04-23
 
 - Expanded the README launcher documentation with a keyboard map, recent and pinned query workflow, preview-pane behavior, and direct action shortcuts so the top-level docs match the shipped launcher surface more closely.
 - Added an operator-facing path map and launcher interaction sequence to `docs/ARCHITECTURE.md`, documenting where config, index, log, and crash state live on Linux and Windows.
