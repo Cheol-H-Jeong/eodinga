@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.979 - 2026-04-24
+## 0.1.980 - 2026-04-24
 
 - Cached repeated root-scope SQL clause generation in the query executor, trimming repeated path-variant expansion work for searches scoped to the same root.
 - Memoized normalized search text in the executor hot path so repeated Unicode-aware matching avoids redundant NFC normalization and casefolding.
