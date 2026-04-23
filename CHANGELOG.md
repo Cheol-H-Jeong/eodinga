@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.931 - 2026-04-24
+
+- Tolerated raced-away SQLite database and sidecar cleanup during startup recovery, so normal file-system timing windows no longer abort stale-WAL replay or staging cleanup.
+- Counted raced cleanup as a real removal for durable cleanup paths, preserving the parent-directory `fsync` even when another actor deletes the same artifact first.
+- Dropped late watcher callbacks once shutdown has started, preventing stale post-stop events from leaking into the next watcher session after restart.
+
 ## 0.1.926 - 2026-04-24
 
 - Batched the query executor's Python fallback scan for phrase and Unicode path searches, avoiding the previous one-shot `100000`-row materialization and keeping the slower correctness path bounded in memory.
