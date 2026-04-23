@@ -53,6 +53,16 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 3. Keep content indexing enabled if you want document-text matches.
 4. Wait for the initial cold start to finish, then use the launcher hotkey.
 
+## Indexing Modes
+
+| Mode | Command or surface | Use it when | Stops when |
+| --- | --- | --- | --- |
+| One-shot rebuild | `eodinga index --root ...` | you want to crawl now and do not need live updates afterward | the crawl finishes |
+| Continuous watch | `eodinga watch` | you already have an index and want CLI-driven live updates | you stop the process |
+| Main GUI | `eodinga gui` | you want to manage roots, settings, diagnostics, and indexing from one surface | you close the app |
+
+`eodinga index` is not a daemon. If you close the GUI or skip `eodinga watch`, later filesystem changes will not appear until the next rebuild or watch session.
+
 ## Choose A Surface
 
 | If you want to... | Start here | Why |
@@ -71,6 +81,15 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 5. Use `Enter` to open the selected result or `Ctrl+Enter` to reveal it in the file manager.
 6. Use `Alt+Up` to recall recent queries, `Ctrl+L` to jump back to the filter, and `PgUp` / `PgDn` to move through longer result sets without leaving the keyboard.
 7. Re-run `python scripts/render_docs_screenshots.py` if you update the Qt surfaces and want the shipped screenshots refreshed.
+
+## First Index Checklist
+
+| Stage | What to do | Why |
+| --- | --- | --- |
+| Before indexing | choose the smallest roots that still match your workflow | keeps the initial crawl and later watcher churn bounded |
+| During indexing | leave content indexing enabled only if you need document-body search | parser-backed content indexing is more expensive than filename/path indexing |
+| After indexing | run `eodinga search 'query' --limit 10` and `eodinga stats --json` | confirms the active database and a representative query before relying on launcher results |
+| Before relying on live updates | keep the GUI open or start `eodinga watch` | one-shot indexing alone will not track later file changes |
 
 ## Feature Overview
 
@@ -258,6 +277,8 @@ eodinga index --rebuild
 | Audit large duplicate media | `eodinga search 'is:duplicate size:>10M' --limit 50` |
 | Search docs with regex | `eodinga search 'regex:/todo|fixme/i path:docs' --json` |
 | Exclude grouped terms before regex | `eodinga search '-(draft | scratch) /todo|fixme/i' --limit 20` |
+| Confirm content indexing is the missing piece | `eodinga search 'content:\"release checklist\"' --limit 10 && eodinga search '\"release checklist\"' --limit 10` |
+| Check one root without changing the shared DB | `eodinga search 'roadmap' --root ~/projects --limit 20` |
 | Confirm runtime health | `eodinga doctor && eodinga stats --json` |
 | Refresh shipped docs assets | `python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` |
 
@@ -329,8 +350,11 @@ Treat these as part of the shipped surface, not incidental repository files:
 | --- | --- | --- |
 | No search hits you expect | `eodinga search 'query' --json` | confirm the query shape and whether filename/path-only search would have matched |
 | Results look stale after file changes | `eodinga stats --json` | verify the active database path, then run `eodinga watch` or `eodinga index --rebuild` |
+| Filename hits work but content hits do not | `eodinga search 'content:\"term\"' --limit 10` | confirm parser extras are installed and content indexing is enabled for that root |
+| Root-scoped search looks wrong | `eodinga search 'query' --root /exact/root --json` | confirm the root path matches the indexed root spelling and casing used during indexing |
 | Startup mentions recovery | `eodinga doctor` | check that the live DB path is writable and recovery sidecars are gone after startup |
 | Hotkey or launcher looks wrong | `eodinga doctor` | inspect detected hotkey backend and then re-open `eodinga gui` for settings/state |
+| Duplicate search shows nothing | `eodinga search 'is:duplicate' --limit 20` | confirm the files share stable content hashes and are in indexed roots |
 | Packaging audit failed | `python packaging/build.py --target windows-dry-run` | re-run the matching Linux dry run and workflow lint from `docs/ACCEPTANCE.md` |
 | Docs asset drift after CLI or UI changes | `pytest -q tests/unit/test_docs_assets.py` | regenerate `docs/man/eodinga.1` or `docs/screenshots/*.png`, then rerun the docs-assets test |
 
@@ -417,6 +441,14 @@ Use it when you want CLI-driven live updates after the initial index build. `eod
 ### Where do pinned queries come from?
 
 From the `launcher.pinned_queries` list in `config.toml`. The launcher also keeps a short recent-query history in-process so you can recall earlier searches with `Alt+Up` and reuse pinned chips without retyping.
+
+### How do I tell whether a miss is about content indexing or the query itself?
+
+Compare a `content:"phrase"` query with a plain quoted phrase. If `content:"phrase"` misses but `"phrase"` still finds filename or path matches, the query parser is working and the gap is probably parser coverage or content indexing for that root.
+
+### Can I validate one root without reconfiguring the whole app?
+
+Yes. Use `eodinga search 'query' --root /path/to/root` to scope a query to one indexed root without editing the shared config file.
 
 ### Where do I inspect packaging outputs before a release?
 
