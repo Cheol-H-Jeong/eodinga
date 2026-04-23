@@ -7,6 +7,7 @@ APPDIR="${DIST_DIR}/eodinga.AppDir"
 AUDIT_PATH="${DIST_DIR}/linux-appimage-audit.json"
 APPIMAGE_RECIPE="${ROOT_DIR}/packaging/linux/appimage-builder.yml"
 APPIMAGE_ICON="${ROOT_DIR}/packaging/linux/eodinga.svg"
+APPIMAGE_TOOL="${APPIMAGE_TOOL:-$(command -v appimagetool || true)}"
 VERSION="$(python3 - <<'PY'
 import pathlib
 import re
@@ -18,7 +19,14 @@ if match is None:
 print(match.group(1))
 PY
 )"
+ARCH="${TARGET_ARCH:-$(uname -m)}"
+case "${ARCH}" in
+  amd64) APPIMAGE_ARCH="x86_64" ;;
+  arm64) APPIMAGE_ARCH="aarch64" ;;
+  *) APPIMAGE_ARCH="${ARCH}" ;;
+esac
 ARCHIVE_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-appdir.tar.gz"
+APPIMAGE_PATH="${DIST_DIR}/eodinga-${VERSION}-${APPIMAGE_ARCH}.AppImage"
 DRY_RUN=0
 
 if [[ "${1:-}" == "--dry-run" ]]; then
@@ -26,6 +34,7 @@ if [[ "${1:-}" == "--dry-run" ]]; then
 fi
 
 rm -rf "${APPDIR}"
+rm -f "${APPIMAGE_PATH}"
 mkdir -p "${APPDIR}/usr/bin" "${APPDIR}/usr/share/applications"
 mkdir -p "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
 mkdir -p "${DIST_DIR}"
@@ -72,8 +81,13 @@ recipe_text = recipe_path.read_text(encoding="utf-8")
 payload = {
     "target": "linux-appimage-dry-run" if ${DRY_RUN} else "linux-appimage",
     "version": "${VERSION}",
+    "arch": "${APPIMAGE_ARCH}",
     "appdir": "${APPDIR}",
     "archive": "${ARCHIVE_PATH}",
+    "appimage": {
+        "path": "${APPIMAGE_PATH}",
+        "exists": Path("${APPIMAGE_PATH}").exists(),
+    },
     "dry_run": bool(${DRY_RUN}),
     "desktop_entry": {
         "path": str(desktop_path),
@@ -107,6 +121,12 @@ payload = {
         "is_executable": os.access(launcher_path, os.X_OK),
         "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
     },
+    "tools": {
+        "appimagetool": {
+            "path": "${APPIMAGE_TOOL}",
+            "available": bool("${APPIMAGE_TOOL}"),
+        },
+    },
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 PY
@@ -116,4 +136,19 @@ if [[ "${DRY_RUN}" -eq 1 ]]; then
   exit 0
 fi
 
-echo "staged source-backed AppDir at ${APPDIR}"
+if [[ -n "${APPIMAGE_TOOL}" ]]; then
+  ARCH="${APPIMAGE_ARCH}" "${APPIMAGE_TOOL}" "${APPDIR}" "${APPIMAGE_PATH}"
+  python3 - <<PY
+import json
+from pathlib import Path
+
+audit_path = Path("${AUDIT_PATH}")
+payload = json.loads(audit_path.read_text(encoding="utf-8"))
+payload["appimage"]["exists"] = Path("${APPIMAGE_PATH}").exists()
+audit_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+PY
+  echo "built AppImage at ${APPIMAGE_PATH}"
+  exit 0
+fi
+
+echo "staged source-backed AppDir at ${APPDIR} (appimagetool not available; no .AppImage artifact built)"

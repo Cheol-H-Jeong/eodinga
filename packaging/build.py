@@ -220,6 +220,9 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], package_version: str
     icon_payload = payload.get("icon", {})
     apprun_payload = payload.get("apprun", {})
     launcher_payload = payload.get("launcher", {})
+    appimage_payload = payload.get("appimage", {})
+    tools_payload = payload.get("tools", {})
+    appimagetool_payload = tools_payload.get("appimagetool", {})
     required_flags = [
         (recipe_payload.get("exists"), "AppImage recipe is missing"),
         (recipe_payload.get("references_desktop_entry"), "AppImage recipe no longer references the desktop entry"),
@@ -236,6 +239,8 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], package_version: str
     for ok, message in required_flags:
         if not ok:
             errors.append(message)
+    if payload.get("target") == "linux-appimage" and appimagetool_payload.get("available") and not appimage_payload.get("exists"):
+        errors.append("AppImage build did not produce a .AppImage artifact")
     return errors
 
 

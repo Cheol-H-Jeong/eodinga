@@ -188,8 +188,10 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-appimage-dry-run"
     assert payload["version"] == __version__
+    assert payload["arch"]
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
+    assert payload["appimage"]["exists"] is False
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
@@ -206,6 +208,7 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["apprun"]["launches_gui"] is True
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["executes_python_module"] is True
+    assert payload["tools"]["appimagetool"]["available"] in {True, False}
 
 
 def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
@@ -251,6 +254,11 @@ def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
     assert payload["dry_run"] is False
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
+    if payload["tools"]["appimagetool"]["available"]:
+        assert Path(payload["appimage"]["path"]).exists()
+        assert payload["appimage"]["exists"] is True
+    else:
+        assert payload["appimage"]["exists"] is False
 
 
 def test_linux_deb_dry_run_stages_recipe() -> None:
