@@ -13,6 +13,7 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DIST_DIR = PROJECT_ROOT / "packaging" / "dist"
+PYINSTALLER_BUILD_DIR = DIST_DIR / "pyinstaller"
 WINDOWS_SPEC = PROJECT_ROOT / "packaging" / "pyinstaller.spec"
 INNO_SCRIPT = PROJECT_ROOT / "packaging" / "windows" / "eodinga.iss"
 PACKAGE_INIT = PROJECT_ROOT / "eodinga" / "__init__.py"
@@ -93,6 +94,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     )
     rendered_text = rendered_path.read_text(encoding="utf-8")
     output_base_filename = f"eodinga-{version}-win-x64-setup"
+    installer_path = rendered_path.parent / f"{output_base_filename}.exe"
     source_entries = _source_entries(inno_text)
     expected_source_entries = [
         f"dist\\\\{INNO_GUI_DIST_TOKEN}\\\\*",
@@ -195,6 +197,8 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "purge_targets_local_and_roaming_user_state": r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);" in rendered_text
             and r"DelTree(ExpandConstant('{userappdata}\\eodinga'), True, True, True);" in rendered_text
             and "{commonappdata}" not in rendered_text,
+            "installer_path": str(installer_path),
+            "installer_exists": installer_path.exists(),
         },
     }
 
@@ -258,6 +262,8 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     for key, message in required_flags.items():
         if not inno_payload.get(key):
             errors.append(message)
+    if payload.get("target") == "windows" and not inno_payload.get("installer_exists"):
+        errors.append("Windows build is missing the Inno Setup installer artifact")
     return errors
 
 
@@ -429,6 +435,62 @@ def _preflight_required_commands(target: str, commands: list[str]) -> int:
     )
 
 
+def _data_arg(source: str, destination: str) -> str:
+    return f"{source};{destination}"
+
+
+def _windows_pyinstaller_command(
+    entry: str,
+    *,
+    dist_name: str,
+    windowed: bool,
+    hiddenimports: list[str],
+    datas: list[tuple[str, str]],
+) -> list[str]:
+    command = [
+        "pyinstaller",
+        "--noconfirm",
+        "--clean",
+        "--onedir",
+        "--distpath",
+        str((PROJECT_ROOT / "dist").resolve()),
+        "--workpath",
+        str((PYINSTALLER_BUILD_DIR / "build").resolve()),
+        "--specpath",
+        str(PYINSTALLER_BUILD_DIR.resolve()),
+        "--name",
+        dist_name,
+        "--contents-directory",
+        ".",
+    ]
+    if windowed:
+        command.append("--windowed")
+    for hiddenimport in hiddenimports:
+        command.extend(["--hidden-import", hiddenimport])
+    for source, destination in datas:
+        command.extend(["--add-data", _data_arg(source, destination)])
+    command.append(entry)
+    return command
+
+
+def _run_command(command: list[str], *, cwd: Path = PROJECT_ROOT) -> int:
+    result = subprocess.run(command, cwd=cwd, check=False)
+    return int(result.returncode)
+
+
+def _remove_windows_build_outputs(version: str) -> None:
+    for path in (
+        PROJECT_ROOT / "dist" / "eodinga-cli",
+        PROJECT_ROOT / "dist" / "eodinga-gui",
+        DIST_DIR / "windows" / "eodinga.iss",
+        DIST_DIR / "windows" / f"eodinga-{version}-win-x64-setup.exe",
+    ):
+        if path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink(missing_ok=True)
+
+
 def _run_windows_dry_run() -> int:
     version = _read_project_version()
     package_version = _read_package_version()
@@ -443,6 +505,47 @@ def _run_windows() -> int:
         return preflight
     version = _read_project_version()
     package_version = _read_package_version()
+    spec_namespace = _load_windows_spec_namespace()
+    hiddenimports = list(spec_namespace.get("HIDDEN_IMPORTS", []))
+    datas = [tuple(item) for item in spec_namespace.get("DATAS", [])]
+    cli_dist_name = str(spec_namespace.get("CLI_DIST_NAME", "eodinga-cli"))
+    gui_dist_name = str(spec_namespace.get("GUI_DIST_NAME", "eodinga-gui"))
+    gui_exe_name = str(spec_namespace.get("GUI_EXE_NAME", f"{gui_dist_name}.exe"))
+    _remove_windows_build_outputs(version)
+    cli_command = _windows_pyinstaller_command(
+        str(spec_namespace.get("ENTRY_CLI", PROJECT_ROOT / "eodinga" / "__main__.py")),
+        dist_name=cli_dist_name,
+        windowed=False,
+        hiddenimports=hiddenimports,
+        datas=datas,
+    )
+    gui_command = _windows_pyinstaller_command(
+        str(spec_namespace.get("ENTRY_GUI", PROJECT_ROOT / "eodinga" / "__main__.py")),
+        dist_name=gui_dist_name,
+        windowed=True,
+        hiddenimports=hiddenimports,
+        datas=datas,
+    )
+    for command in (cli_command, gui_command):
+        result = _run_command(command)
+        if result != 0:
+            return result
+    rendered_path = _render_inno_script(
+        version,
+        gui_dist_name=gui_dist_name,
+        cli_dist_name=cli_dist_name,
+        gui_exe_name=gui_exe_name,
+    )
+    result = _run_command(
+        [
+            "iscc",
+            "/Qp",
+            f"/O{rendered_path.parent}",
+            str(rendered_path),
+        ]
+    )
+    if result != 0:
+        return result
     payload = _audit_windows_inputs(version, package_version)
     payload["target"] = "windows"
     payload["platform_tools"] = ["pyinstaller", "iscc"]
