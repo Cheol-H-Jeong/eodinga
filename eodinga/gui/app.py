@@ -28,11 +28,20 @@ class _DesktopActionsLike(Protocol):
 
 
 class TrayIndicatorController:
-    def __init__(self, app: QApplication, launcher_window: LauncherWindow, main_window: QMainWindow, parent: QWidget) -> None:
+    def __init__(
+        self,
+        app: QApplication,
+        launcher_window: LauncherWindow,
+        main_window: QMainWindow,
+        parent: QWidget,
+        *,
+        hotkey_combo: str = "",
+    ) -> None:
         self._app = app
         self._launcher_window = launcher_window
         self._main_window = main_window
         self._tray: QSystemTrayIcon | None = None
+        self._hotkey_combo = hotkey_combo
         self.tooltip = format_indexing_status(IndexingStatus())
         self.status_text = self.tooltip
         self.icon_state = "idle"
@@ -101,7 +110,14 @@ class TrayIndicatorController:
 
     def _sync_launcher_action_text(self, visible: bool) -> None:
         if hasattr(self, "toggle_launcher_action"):
-            self.toggle_launcher_action.setText("Hide launcher" if visible else "Show launcher")
+            label = "Hide launcher" if visible else "Show launcher"
+            if self._hotkey_combo:
+                label = f"{label} ({self._hotkey_combo})"
+            self.toggle_launcher_action.setText(label)
+
+    def set_hotkey_combo(self, combo: str) -> None:
+        self._hotkey_combo = combo
+        self._sync_launcher_action_text(self._launcher_window.isVisible())
 
     def _handle_activation(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason in {
@@ -171,7 +187,13 @@ class EodingaWindow(QMainWindow):
         self.desktop_actions = desktop_actions or DesktopActions(app)
         self._connect_launcher_actions(self.launcher_window)
         self._connect_launcher_actions(self.search_tab.launcher_panel)
-        self.tray_indicator = TrayIndicatorController(app, self.launcher_window, self, self)
+        self.tray_indicator = TrayIndicatorController(
+            app,
+            self.launcher_window,
+            self,
+            self,
+            hotkey_combo=resolved_config.launcher.hotkey,
+        )
         self._hotkey_controller = LauncherHotkeyController(
             self.launcher_window,
             resolved_config.launcher.hotkey,
@@ -213,6 +235,7 @@ class EodingaWindow(QMainWindow):
         self._config.launcher = self._config.launcher.model_copy(update={"hotkey": self._hotkey_controller.combo})
         self._config.save(self._config_path)
         self.settings_tab.set_hotkey_combo(self._hotkey_controller.combo)
+        self.tray_indicator.set_hotkey_combo(self._hotkey_controller.combo)
 
     def _change_always_on_top(self, enabled: bool) -> None:
         self.launcher_window.set_always_on_top(enabled)
