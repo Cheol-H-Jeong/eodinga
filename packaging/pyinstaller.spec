@@ -8,7 +8,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENTRY_CLI = PROJECT_ROOT / "eodinga" / "__main__.py"
-ENTRY_GUI = PROJECT_ROOT / "eodinga" / "__main__.py"
+ENTRY_GUI = PROJECT_ROOT / "packaging" / "windows" / "gui_entry.py"
 CLI_DIST_NAME = "eodinga-cli"
 GUI_DIST_NAME = "eodinga-gui"
 CLI_EXE_NAME = f"{CLI_DIST_NAME}.exe"
@@ -240,3 +240,70 @@ SPEC_AUDIT = {
     "datas": DATAS,
     "mode": "onedir",
 }
+
+if all(name in globals() for name in ("Analysis", "PYZ", "EXE", "COLLECT")):
+    cli_analysis = Analysis(
+        [str(ENTRY_CLI)],
+        pathex=[str(PROJECT_ROOT)],
+        binaries=[],
+        datas=DATAS,
+        hiddenimports=HIDDEN_IMPORTS,
+        hookspath=[],
+        hooksconfig={},
+        runtime_hooks=[],
+        excludes=[],
+        noarchive=False,
+        optimize=0,
+    )
+    cli_pyz = PYZ(cli_analysis.pure)
+    cli_exe = EXE(
+        cli_pyz,
+        cli_analysis.scripts,
+        cli_analysis.binaries,
+        cli_analysis.datas,
+        [],
+        name=CLI_DIST_NAME,
+        console=True,
+    )
+    cli_collect = COLLECT(
+        cli_exe,
+        cli_analysis.binaries,
+        cli_analysis.datas,
+        strip=False,
+        upx=True,
+        upx_exclude=[],
+        name=CLI_DIST_NAME,
+    )
+
+    gui_analysis = Analysis(
+        [str(ENTRY_GUI)],
+        pathex=[str(PROJECT_ROOT)],
+        binaries=[],
+        datas=DATAS,
+        hiddenimports=HIDDEN_IMPORTS,
+        hookspath=[],
+        hooksconfig={},
+        runtime_hooks=[],
+        excludes=[],
+        noarchive=False,
+        optimize=0,
+    )
+    gui_pyz = PYZ(gui_analysis.pure)
+    gui_exe = EXE(
+        gui_pyz,
+        gui_analysis.scripts,
+        gui_analysis.binaries,
+        gui_analysis.datas,
+        [],
+        name=GUI_DIST_NAME,
+        console=False,
+    )
+    gui_collect = COLLECT(
+        gui_exe,
+        gui_analysis.binaries,
+        gui_analysis.datas,
+        strip=False,
+        upx=True,
+        upx_exclude=[],
+        name=GUI_DIST_NAME,
+    )
