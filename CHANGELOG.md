@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.806 - 2026-04-23
+
+- Preserved watcher move-source suppression across queue backpressure, so a delayed `moved` flush no longer leaks a false follow-up `deleted` event for the retired source path.
+- Normalized same-path move notifications to `modified`, avoiding misleading rename events when a filesystem or editor reports a no-op move inside the watched root.
+- Added compiler truth-table coverage for grouped negation and double-negation equivalence, locking in the intended De Morgan normalization path at compile time.
+
 ## 0.1.801 - 2026-04-23
 
 - Expanded the shipped operator docs with a packaging audit checklist, state-directory summary, and FAQ entries for logs, crash reports, docs-only release checks, and packaged payload review.
