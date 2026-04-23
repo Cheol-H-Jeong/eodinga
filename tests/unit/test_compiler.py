@@ -127,6 +127,24 @@ def test_compile_open_ended_date_ranges(
     assert isinstance(branch.where_params[param_index], int)
 
 
+def test_compile_datetime_literals_preserve_instant_granularity() -> None:
+    compiled = compile_query(parse("modified:2026-01-03T09:15:30"))
+    branch = compiled.branches[0]
+    start, end = branch.where_params
+
+    assert branch.where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert end - start == 1
+
+
+def test_compile_datetime_ranges_preserve_exact_endpoints() -> None:
+    compiled = compile_query(parse("created:2026-01-03T09:15:30..2026-01-03T09:16:00"))
+    branch = compiled.branches[0]
+    start, end = branch.where_params
+
+    assert branch.where_sql == "files.ctime >= ? AND files.ctime < ?"
+    assert end - start == 31
+
+
 def test_compile_size_range_normalizes_bounds() -> None:
     compiled = compile_query(parse("size:500K..100"))
     branch = compiled.branches[0]

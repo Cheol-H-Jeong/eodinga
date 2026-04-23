@@ -388,6 +388,29 @@ def test_execute_open_ended_date_ranges(tmp_db: sqlite3.Connection) -> None:
     assert older_hits == ["jan-1.txt", "jan-2.txt"]
 
 
+def test_execute_datetime_literal_and_range_queries(tmp_db: sqlite3.Connection) -> None:
+    base = int(datetime(2026, 1, 3, 9, 15, 30, tzinfo=UTC).timestamp())
+    _insert_file(tmp_db, 1, "/workspace/exact-second.txt", 512, base, "txt", body_text="exact")
+    _insert_file(tmp_db, 2, "/workspace/later-second.txt", 512, base + 30, "txt", body_text="later")
+    _insert_file(tmp_db, 3, "/workspace/day-neighbor.txt", 512, base + 300, "txt", body_text="neighbor")
+    tmp_db.commit()
+
+    exact_hits = [
+        hit.file.name for hit in search(tmp_db, "modified:2026-01-03T09:15:30+00:00", limit=10).hits
+    ]
+    range_hits = [
+        hit.file.name
+        for hit in search(
+            tmp_db,
+            "modified:2026-01-03T09:15:30+00:00..2026-01-03T09:16:00+00:00",
+            limit=10,
+        ).hits
+    ]
+
+    assert exact_hits == ["exact-second.txt"]
+    assert range_hits == ["exact-second.txt", "later-second.txt"]
+
+
 def test_execute_decomposed_korean_path_filter_matches_nfc_paths(
     tmp_db: sqlite3.Connection,
 ) -> None:

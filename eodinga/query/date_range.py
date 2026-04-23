@@ -38,6 +38,24 @@ def _parse_iso_day(value: str) -> date:
         raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
 
 
+def _instant_bounds(moment: datetime) -> DateRange:
+    localized = moment if moment.tzinfo is not None else moment.replace(tzinfo=_local_tzinfo())
+    start = int(localized.timestamp())
+    return DateRange(start=start, end=start + 1)
+
+
+def _parse_iso_endpoint(value: str) -> DateRange:
+    try:
+        return _day_bounds(_parse_iso_day(value))
+    except QuerySyntaxError:
+        pass
+    normalized = value.replace("Z", "+00:00")
+    try:
+        return _instant_bounds(datetime.fromisoformat(normalized))
+    except ValueError as error:
+        raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
+
+
 def parse_date_range(value: str) -> DateRange:
     today = datetime.now().astimezone().date()
     if value == "today":
@@ -64,12 +82,12 @@ def parse_date_range(value: str) -> DateRange:
         if not left and not right:
             raise QuerySyntaxError(f"invalid date literal: {value}", 0)
         if not left:
-            return DateRange(end=_day_bounds(_parse_iso_day(right)).end)
+            return DateRange(end=_parse_iso_endpoint(right).end)
         if not right:
-            return DateRange(start=_day_bounds(_parse_iso_day(left)).start)
-        start_day = _parse_iso_day(left)
-        end_day = _parse_iso_day(right)
-        if end_day < start_day:
-            start_day, end_day = end_day, start_day
-        return DateRange(start=_day_bounds(start_day).start, end=_day_bounds(end_day).end)
-    return _day_bounds(_parse_iso_day(value))
+            return DateRange(start=_parse_iso_endpoint(left).start)
+        left_range = _parse_iso_endpoint(left)
+        right_range = _parse_iso_endpoint(right)
+        if (right_range.start or 0) < (left_range.start or 0):
+            left_range, right_range = right_range, left_range
+        return DateRange(start=left_range.start, end=right_range.end)
+    return _parse_iso_endpoint(value)
