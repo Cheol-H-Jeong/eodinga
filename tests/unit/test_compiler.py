@@ -77,6 +77,20 @@ def test_compile_negated_boolean_operators_invert_requested_mode(
     assert branch.regex_mode is expected_regex_mode
 
 
+@pytest.mark.parametrize("literal", ["1", "true", "yes", "on", "TRUE", "YeS"])
+def test_compile_case_operator_accepts_all_true_literals(literal: str) -> None:
+    compiled = compile_query(parse(f"case:{literal} alpha"))
+
+    assert compiled.branches[0].case_sensitive is True
+
+
+@pytest.mark.parametrize("literal", ["0", "false", "no", "off", "FALSE", "OfF"])
+def test_compile_regex_operator_accepts_all_false_literals(literal: str) -> None:
+    compiled = compile_query(parse(f"regex:{literal} alpha"))
+
+    assert compiled.branches[0].regex_mode is False
+
+
 def test_compile_date_alias_uses_mtime_range() -> None:
     compiled = compile_query(parse("date:this-week"))
     branch = compiled.branches[0]

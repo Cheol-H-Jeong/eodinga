@@ -127,7 +127,7 @@ def _has_non_ascii(value: str) -> bool:
 
 
 def _parse_bool(value: str) -> bool:
-    normalized = value.lower()
+    normalized = value.strip().casefold()
     if normalized in {"1", "true", "yes", "on"}:
         return True
     if normalized in {"0", "false", "no", "off"}:
