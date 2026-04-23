@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.824 - 2026-04-23
+
+- Fixed the PyInstaller hidden-import source scan so relative package imports no longer leak local module aliases like `about` or `button` into the packaged hidden-import set.
+- Tightened the Windows installer audit to prove default uninstall still preserves `%LOCALAPPDATA%\\eodinga` and `%APPDATA%\\eodinga` unless the user explicitly opts into purge.
+- Tightened the AppImage and Debian packaging audits to prove the staged launchers keep forwarding user arguments through `"$@"`, preventing silent packaging regressions for CLI and GUI invocations.
+
 ## 0.1.821 - 2026-04-23
 
 - Added a bounded filesystem-backed launcher preview fallback for text results that do not yet have an indexed snippet, while still skipping binary content and preserving indexed snippets when they exist.
