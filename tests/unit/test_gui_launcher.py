@@ -621,7 +621,8 @@ def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
 
     assert launcher.preview_pane.title_label.text() == "alpha.txt"
     assert "/tmp/alpha.txt" in launcher.preview_pane.path_label.text()
-    assert "Alpha release notes" in launcher.preview_pane.snippet_label.text()
+    assert "Alpha release " in launcher.preview_pane.snippet_label.text()
+    assert "background-color:#FDE68A" in launcher.preview_pane.snippet_label.text()
     assert launcher.action_bar.open_button.isEnabled()
 
     launcher._handle_hovered_index(launcher.model.index(1, 0))
@@ -629,6 +630,33 @@ def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
     assert launcher.preview_pane.title_label.text() == "beta.txt"
     assert "Beta launch checklist" in launcher.preview_pane.snippet_label.text()
     assert launcher.result_list.currentIndex().row() == 1
+
+
+def test_launcher_preview_highlights_name_path_and_snippet_matches(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/reports/release-notes.txt"),
+                    parent_path=Path("/tmp/reports"),
+                    name="release-notes.txt",
+                    snippet="release notes are attached",
+                )
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("release path:reports")
+    _wait(60)
+
+    assert "background-color:#FDE68A" in launcher.preview_pane.title_label.text()
+    assert ">release</mark>-notes.txt" in launcher.preview_pane.title_label.text()
+    assert "/tmp/<mark style='font-weight:700; background-color:#FDE68A; color:#111827'>reports</mark>" in launcher.preview_pane.path_label.text()
+    assert ">release</mark> notes are attached" in launcher.preview_pane.snippet_label.text()
 
 
 def test_launcher_hovered_result_becomes_action_target(qapp) -> None:

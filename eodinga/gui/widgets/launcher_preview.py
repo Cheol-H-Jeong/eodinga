@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+from html import escape
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from eodinga.common import SearchHit
 from eodinga.gui.design import SPACE_4, SPACE_8, SPACE_16
 from eodinga.gui.widgets.button import SecondaryButton
+from eodinga.gui.widgets.result_item import MARK_OPEN, highlight_text
 
 
-def _preview_text(hit: SearchHit | None) -> tuple[str, str, str]:
+def _preview_text(hit: SearchHit | None, query: str = "") -> tuple[str, str, str]:
     if hit is None:
         return (
             "No preview yet",
@@ -19,7 +22,41 @@ def _preview_text(hit: SearchHit | None) -> tuple[str, str, str]:
     snippet = (hit.snippet or "").strip()
     if not snippet:
         snippet = "No indexed content snippet is available for this result."
-    return hit.name, path_text, snippet
+    return (
+        _render_highlighted_preview_text(hit.highlighted_name or hit.name, query, target="name"),
+        _render_highlighted_preview_text(hit.highlighted_path or path_text, query, target="path"),
+        _render_preview_snippet(snippet, query),
+    )
+
+
+def _render_highlighted_preview_text(text: str, query: str, *, target: str) -> str:
+    if "<mark>" in text:
+        return text.replace("<mark>", MARK_OPEN)
+    return _style_marks(highlight_text(text, query, target=target))
+
+
+def _render_preview_snippet(snippet: str, query: str) -> str:
+    if "[" in snippet and "]" in snippet:
+        parts: list[str] = []
+        cursor = 0
+        while True:
+            start = snippet.find("[", cursor)
+            if start < 0:
+                parts.append(escape(snippet[cursor:]))
+                break
+            end = snippet.find("]", start + 1)
+            if end < 0:
+                parts.append(escape(snippet[cursor:]))
+                break
+            parts.append(escape(snippet[cursor:start]))
+            parts.append(f"{MARK_OPEN}{escape(snippet[start + 1:end])}</mark>")
+            cursor = end + 1
+        return "".join(parts)
+    return _render_highlighted_preview_text(snippet, query, target="snippet")
+
+
+def _style_marks(html: str) -> str:
+    return html.replace("<mark>", MARK_OPEN)
 
 
 class LauncherPreviewPane(QWidget):
@@ -35,15 +72,18 @@ class LauncherPreviewPane(QWidget):
         eyebrow.setAccessibleName("Launcher preview heading")
         self.title_label = QLabel(self)
         self.title_label.setWordWrap(True)
+        self.title_label.setTextFormat(Qt.TextFormat.RichText)
         self.title_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.title_label.setAccessibleName("Previewed result name")
         self.path_label = QLabel(self)
         self.path_label.setProperty("role", "secondary")
         self.path_label.setWordWrap(True)
+        self.path_label.setTextFormat(Qt.TextFormat.RichText)
         self.path_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.path_label.setAccessibleName("Previewed result path")
         self.snippet_label = QLabel(self)
         self.snippet_label.setWordWrap(True)
+        self.snippet_label.setTextFormat(Qt.TextFormat.RichText)
         self.snippet_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.snippet_label.setMinimumWidth(220)
         self.snippet_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
@@ -56,8 +96,8 @@ class LauncherPreviewPane(QWidget):
 
         self.set_hit(None)
 
-    def set_hit(self, hit: SearchHit | None) -> None:
-        title, path_text, snippet = _preview_text(hit)
+    def set_hit(self, hit: SearchHit | None, query: str = "") -> None:
+        title, path_text, snippet = _preview_text(hit, query)
         self.title_label.setText(title)
         self.path_label.setText(path_text)
         self.snippet_label.setText(snippet)

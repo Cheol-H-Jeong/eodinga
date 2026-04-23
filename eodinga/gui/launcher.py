@@ -455,7 +455,7 @@ class LauncherPanel(QWidget):
         self._set_selection(index.row())
 
     def _sync_preview_to_index(self, index: QModelIndex) -> None:
-        self.preview_pane.set_hit(self.model.item_at(index.row()) if index.isValid() else None)
+        self.preview_pane.set_hit(self.model.item_at(index.row()) if index.isValid() else None, self.query_field.text().strip())
         self.action_bar.set_enabled(index.isValid())
 
     def _refresh_preview(self) -> None:
