@@ -80,3 +80,45 @@ def test_multi_root_rebuild_replaces_removed_root_content_and_scope(tmp_path: Pa
     assert alpha_hits == {alpha}
     assert beta_hits == set()
     assert stored_roots == {root_a}
+
+
+def test_multi_root_reopen_after_root_removal_keeps_removed_scope_absent(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+
+    root_a.mkdir()
+    root_b.mkdir()
+    alpha = root_a / "alpha-keep.txt"
+    beta = root_b / "beta-drop.txt"
+    alpha.write_text("reopen root removal alpha\n", encoding="utf-8")
+    beta.write_text("reopen root removal beta\n", encoding="utf-8")
+
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+    rebuild_index(db_path, [RootConfig(path=root_a)], content_enabled=True)
+
+    reopened = open_index(db_path)
+    try:
+        hits = {hit.file.path for hit in search(reopened, "reopen root removal", limit=10).hits}
+        alpha_hits = {
+            hit.file.path
+            for hit in search(reopened, "reopen root removal", limit=10, root=root_a).hits
+        }
+        beta_hits = {
+            hit.file.path
+            for hit in search(reopened, "reopen root removal", limit=10, root=root_b).hits
+        }
+        stored_roots = {
+            Path(row[0]) for row in reopened.execute("SELECT path FROM roots ORDER BY id").fetchall()
+        }
+    finally:
+        reopened.close()
+
+    assert hits == {alpha}
+    assert alpha_hits == {alpha}
+    assert beta_hits == set()
+    assert stored_roots == {root_a}
