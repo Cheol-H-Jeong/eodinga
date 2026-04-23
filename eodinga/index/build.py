@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import NamedTuple
 
@@ -40,10 +41,12 @@ def rebuild_index(
     *,
     content_enabled: bool = True,
     max_body_chars: int = DEFAULT_MAX_BODY_CHARS,
+    stop_requested: Callable[[], bool] | None = None,
 ) -> RebuildResult:
     effective_roots = [_normalize_root(root) for root in roots]
     if not effective_roots:
         raise ValueError("index rebuild requires at least one root")
+    should_stop = stop_requested or (lambda: False)
 
     target_path = db_path.expanduser()
     target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -61,6 +64,8 @@ def rebuild_index(
         writer = IndexWriter(conn, parser_callback=parser_callback)
         with conn:
             for root_id, root in enumerate(effective_roots, start=1):
+                if should_stop():
+                    raise InterruptedError("index rebuild interrupted")
                 conn.execute(
                     """
                     INSERT INTO roots(id, path, include, exclude, added_at)
@@ -83,6 +88,8 @@ def rebuild_index(
                     files_indexed += indexed
                     if indexed:
                         increment_counter("files_indexed", indexed, root=str(root.path))
+                    if should_stop():
+                        raise InterruptedError("index rebuild interrupted")
             mark_build_complete(conn)
     except Exception:
         conn.close()

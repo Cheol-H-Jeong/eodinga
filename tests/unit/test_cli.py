@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import signal
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path, PureWindowsPath
@@ -8,7 +9,7 @@ from pathlib import Path, PureWindowsPath
 import pytest
 
 from eodinga import __version__
-from eodinga.__main__ import main
+from eodinga.__main__ import _cooperative_termination_signals, main
 from eodinga.common import WatchEvent
 from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
@@ -450,6 +451,55 @@ def test_index_requires_at_least_one_root(cli_runner, tmp_path: Path) -> None:
 
     assert result.returncode == 2
     assert "requires at least one root" in result.stderr
+
+
+def test_cooperative_termination_signals_restore_previous_handlers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    previous_handlers = {
+        signal.SIGINT: object(),
+        signal.SIGTERM: object(),
+    }
+    installed: list[tuple[signal.Signals, object]] = []
+
+    monkeypatch.setattr(signal, "getsignal", lambda sig: previous_handlers[sig])
+    monkeypatch.setattr(
+        signal,
+        "signal",
+        lambda sig, handler: installed.append((sig, handler)),
+    )
+
+    seen: list[int] = []
+    with _cooperative_termination_signals(lambda signum, _frame: seen.append(signum)):
+        handler = installed[0][1]
+        assert callable(handler)
+        handler(signal.SIGINT, None)
+
+    assert seen == [signal.SIGINT]
+    assert installed[-2:] == [
+        (signal.SIGINT, previous_handlers[signal.SIGINT]),
+        (signal.SIGTERM, previous_handlers[signal.SIGTERM]),
+    ]
+
+
+def test_index_returns_130_when_rebuild_is_interrupted(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "alpha.txt").write_text("alpha launch note\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+
+    def interrupted_rebuild(*_args, **_kwargs):
+        raise InterruptedError("index rebuild interrupted")
+
+    monkeypatch.setattr("eodinga.__main__.rebuild_index", interrupted_rebuild)
+
+    exit_code = main(["--db", str(db_path), "index", "--root", str(docs), "--rebuild"])
+    output = capsys.readouterr()
+
+    assert exit_code == 130
+    assert "interrupted after committing the current batch" in output.err
 
 
 def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:

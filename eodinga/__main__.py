@@ -4,10 +4,12 @@ import argparse
 import json
 import os
 import re
+import signal
 import sys
-from contextlib import closing
+from contextlib import closing, contextmanager
 from pathlib import Path
-from typing import Any
+from types import FrameType
+from typing import Any, Callable
 
 from eodinga import __version__
 from eodinga.common import SearchResult, StatsSnapshot
@@ -101,17 +103,47 @@ def _resolve_index_roots(args: argparse.Namespace, config: AppConfig) -> list[Ro
     return list(config.roots)
 
 
+@contextmanager
+def _cooperative_termination_signals(
+    on_signal: Callable[[int, FrameType | None], None],
+):
+    handled_signals = [signal.SIGINT]
+    sigterm = getattr(signal, "SIGTERM", None)
+    if sigterm is not None:
+        handled_signals.append(sigterm)
+    previous_handlers = {sig: signal.getsignal(sig) for sig in handled_signals}
+    for sig in handled_signals:
+        signal.signal(sig, on_signal)
+    try:
+        yield
+    finally:
+        for sig, previous in previous_handlers.items():
+            signal.signal(sig, previous)
+
+
 def _cmd_index(args: argparse.Namespace) -> int:
     config = _resolve_config(args)
     roots = _resolve_index_roots(args, config)
     if not roots:
         sys.stderr.write("index rebuild requires at least one root\n")
         return 2
-    result = rebuild_index(
-        args.db or config.index.db_path,
-        roots,
-        content_enabled=config.index.content_enabled,
-    )
+    interrupted = False
+
+    def request_stop(_signum: int, _frame: FrameType | None) -> None:
+        nonlocal interrupted
+        interrupted = True
+
+    try:
+        with _cooperative_termination_signals(request_stop):
+            result = rebuild_index(
+                args.db or config.index.db_path,
+                roots,
+                content_enabled=config.index.content_enabled,
+                stop_requested=lambda: interrupted,
+            )
+    except InterruptedError:
+        sys.stderr.write("index rebuild interrupted after committing the current batch\n")
+        return 130
     payload = {
         "command": "index",
         "rebuild": bool(args.rebuild),
