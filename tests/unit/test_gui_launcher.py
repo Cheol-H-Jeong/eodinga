@@ -690,6 +690,7 @@ def test_launcher_alt_number_quick_picks_results(qapp) -> None:
     _wait(10)
 
     third_result_html = launcher.model.data(launcher.model.index(2, 0), Qt.ItemDataRole.DisplayRole)
+    assert isinstance(third_result_html, str)
     assert "Alt+3" in third_result_html
 
     assert activated == ["item-2.txt"]
