@@ -20,10 +20,13 @@ from eodinga.index.storage import open_index
 from eodinga.observability import (
     configure_logging,
     counter_value,
+    file_logging_enabled,
     histogram_snapshot,
     increment_counter,
     install_crash_handlers,
     record_histogram,
+    resolve_crash_dir,
+    resolve_log_path,
     snapshot_metrics,
     report_crash,
 )
@@ -173,11 +176,17 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         queries_served=counter_value("queries_served"),
         parser_errors=counter_value("parser_errors"),
         watcher_events=counter_value("watcher_events"),
+        commands_started=counter_value("commands_started"),
+        commands_failed=counter_value("commands_failed"),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
+        command_latency_histogram=histogram_snapshot("command_latency_ms"),
         counters=metrics["counters"],
         histograms=metrics["histograms"],
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
+        log_path=resolve_log_path(),
+        crash_dir=resolve_crash_dir(),
+        file_logging_enabled=file_logging_enabled(),
     ).model_dump(mode="json")
     return _emit(snapshot, as_json=bool(args.json))
 
