@@ -350,6 +350,8 @@ def test_compile_is_empty_escapes_descendant_like_patterns() -> None:
         "/[a-/",
         "regex:true [a-",
         "size:>tenM report",
+        "size:>100..500K report",
+        "size:100..<500K report",
         "date:2026-01-01..bogus report",
         "is:bundle report",
     ],

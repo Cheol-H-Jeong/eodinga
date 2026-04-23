@@ -377,6 +377,7 @@ def test_search_reports_invalid_query_cleanly(cli_runner, tmp_path: Path) -> Non
     [
         ("case:maybe duplicate", "invalid boolean value"),
         ("date:2026-01-01..bogus duplicate", "invalid date literal"),
+        ("size:>100..500K duplicate", "invalid size literal"),
         ("/[a-/", "invalid regex"),
         ("content:/todo/ii", "duplicate regex flag"),
     ],

@@ -213,14 +213,24 @@ def _size_to_bytes(value: str) -> tuple[str, int]:
     return comparator, _parse_size_number(match.group("number"), match.group("unit"), value)
 
 
+def _size_endpoint_to_bytes(value: str, original: str) -> int:
+    text = value.strip()
+    if any(text.startswith(prefix) for prefix in (">=", "<=", ">", "<", "=")):
+        raise QuerySyntaxError(f"invalid size literal: {original}", 0)
+    match = re.fullmatch(r"(?P<number>\d+(?:\.\d+)?)(?P<unit>[A-Za-z]*)", text)
+    if match is None:
+        raise QuerySyntaxError(f"invalid size literal: {original}", 0)
+    return _parse_size_number(match.group("number"), match.group("unit"), original)
+
+
 def _size_to_range(value: str) -> tuple[int | None, int | None] | None:
     if ".." not in value:
         return None
     left, right = (part.strip() for part in value.split("..", 1))
     if not left and not right:
         raise QuerySyntaxError(f"invalid size literal: {value}", 0)
-    start = _size_to_bytes(left)[1] if left else None
-    end = _size_to_bytes(right)[1] if right else None
+    start = _size_endpoint_to_bytes(left, value) if left else None
+    end = _size_endpoint_to_bytes(right, value) if right else None
     if start is not None and end is not None and end < start:
         start, end = end, start
     return start, end
