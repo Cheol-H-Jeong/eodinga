@@ -308,14 +308,17 @@ def _run_command(args: argparse.Namespace) -> int:
     increment_counter(f"commands.{command}.started")
     started_at = monotonic()
     exit_code: int | None = None
+    failure_reason: str | None = None
     try:
         exit_code = int(args.handler(args))
     except KeyboardInterrupt:
         exit_code = 130
+        failure_reason = "interrupted"
         increment_counter("commands_interrupted", command=command)
         increment_counter(f"commands.{command}.interrupted")
     except Exception:
         exit_code = 1
+        failure_reason = "exception"
         increment_counter("commands_failed", command=command)
         increment_counter(f"commands.{command}.failed")
         raise
@@ -324,6 +327,16 @@ def _run_command(args: argparse.Namespace) -> int:
         record_histogram("command_latency_ms", elapsed_ms, command=command)
         if exit_code is not None:
             increment_counter(f"commands.exit_code.{exit_code}")
+            if exit_code != 0:
+                record_snapshot(
+                    "command.failure",
+                    {
+                        "command": command,
+                        "exit_code": exit_code,
+                        "reason": failure_reason or "nonzero_exit",
+                        "elapsed_ms": round(elapsed_ms, 3),
+                    },
+                )
     assert exit_code is not None
     if exit_code == 0:
         increment_counter("commands_completed", command=command)
@@ -403,10 +416,18 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as error:
         command_argv = argv or sys.argv[1:]
         command = " ".join(command_argv) or "<interactive>"
-        report_crash(
+        crash_path = report_crash(
             error,
             context=f"Unhandled exception while running: {command}",
             details={"argv": command_argv},
+        )
+        record_snapshot(
+            "command.crash",
+            {
+                "command": command,
+                "error_type": type(error).__name__,
+                "crash_path": str(crash_path),
+            },
         )
         return 1
 

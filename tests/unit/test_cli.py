@@ -792,6 +792,12 @@ def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Pat
     assert payload["commands"]["version"]["started"] == 1
     assert payload["exit_codes"]["1"] == 1
     assert payload["crash_types"] == {"RuntimeError": 1}
+    assert [entry["name"] for entry in payload["recent_snapshots"]] == [
+        "command.failure",
+        "command.crash",
+    ]
+    assert payload["recent_snapshots"][0]["payload"]["reason"] == "exception"
+    assert payload["recent_snapshots"][1]["payload"]["error_type"] == "RuntimeError"
 
 
 def test_stats_json_structures_interrupted_command_counts(
@@ -818,6 +824,18 @@ def test_stats_json_structures_interrupted_command_counts(
     assert payload["commands"]["version"]["interrupted"] == 1
     assert payload["commands"]["version"]["started"] == 1
     assert payload["exit_codes"]["130"] == 1
+    assert payload["recent_snapshots"] == [
+        {
+            "name": "command.failure",
+            "recorded_at": payload["recent_snapshots"][0]["recorded_at"],
+            "payload": {
+                "command": "version",
+                "elapsed_ms": payload["recent_snapshots"][0]["payload"]["elapsed_ms"],
+                "exit_code": 130,
+                "reason": "interrupted",
+            },
+        }
+    ]
 
 
 def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> None:
@@ -837,3 +855,7 @@ def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> 
     assert payload["commands"]["search"]["failed"] == 1
     assert payload["commands"]["search"]["started"] == 1
     assert payload["exit_codes"]["2"] == 1
+    assert len(payload["recent_snapshots"]) == 1
+    assert payload["recent_snapshots"][0]["name"] == "command.failure"
+    assert payload["recent_snapshots"][0]["payload"]["command"] == "search"
+    assert payload["recent_snapshots"][0]["payload"]["reason"] == "nonzero_exit"
