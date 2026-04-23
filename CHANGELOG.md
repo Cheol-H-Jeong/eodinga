@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.964 - 2026-04-24
+
+- Moved launcher filesystem preview reads onto the read-only filesystem wrapper and pinned that behavior with a regression test, so preview fallback reads stay on the same constrained path as parser reads.
+- Made watcher startup rollback the flush thread when either the watcher thread or `watchdog.Observer()` fails to start, preventing stranded background threads after a partial startup failure.
+- Hardened stale-WAL detection and sidecar cleanup against `FileNotFoundError` races, so startup recovery and atomic index replacement tolerate artifacts disappearing mid-cleanup instead of failing spuriously.
+
 ## 0.1.961 - 2026-04-24
 
 - Expanded the top-level README with a concrete `packaging/dist/` audit map and docs-only validation FAQ so release reviewers can open the right evidence file without guessing.
