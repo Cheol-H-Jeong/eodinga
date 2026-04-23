@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.829 - 2026-04-23
+## 0.1.830 - 2026-04-23
 
 - Tightened the shipped docs around docs-only validation so README and the release/contributor guides now point at one explicit evidence bundle covering docs assets, GUI smoke, and packaging dry runs.
 - Added acceptance and architecture guidance that explains the review order for docs-only rounds, version-collision retargeting, and why `packaging/dist/` plus generated assets are part of the release contract.
