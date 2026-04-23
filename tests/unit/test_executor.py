@@ -443,6 +443,38 @@ def test_execute_negated_regex_true_restores_literal_term_matching(
     assert literal_hits == ["report-[0-9]+.txt"]
 
 
+def test_execute_regex_flags_override_case_and_line_boundaries(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/release-notes.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="Launch\nChecklist\nsigned off",
+    )
+    tmp_db.commit()
+
+    insensitive_hits = [
+        hit.file.name
+        for hit in search(tmp_db, r"case:true content:/launch.checklist/is", limit=5).hits
+    ]
+    multiline_hits = [
+        hit.file.name
+        for hit in search(tmp_db, r"case:true content:/^Checklist$/m", limit=5).hits
+    ]
+    strict_hits = [
+        hit.file.name
+        for hit in search(tmp_db, r"case:true content:/launch.checklist/", limit=5).hits
+    ]
+
+    assert insensitive_hits == ["release-notes.txt"]
+    assert multiline_hits == ["release-notes.txt"]
+    assert strict_hits == []
+
+
 def test_execute_escaped_phrase_query_matches_literal_quotes_and_backslashes(
     tmp_db: sqlite3.Connection,
 ) -> None:
@@ -529,6 +561,47 @@ def test_execute_phrase_query_matches_across_underscores_in_path_and_content(
 
     assert path_hits == ["launch_checklist.txt"]
     assert content_hits == ["launch_checklist.txt"]
+
+
+def test_execute_date_ranges_accept_open_ended_relative_and_iso_datetime_bounds(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    frozen_now = datetime(2026, 4, 23, 9, 0, tzinfo=seoul)
+    yesterday_hit = int(datetime(2026, 4, 22, 12, 0, tzinfo=seoul).timestamp())
+    morning_hit = int(datetime(2026, 4, 23, 8, 0, tzinfo=seoul).timestamp())
+    noon_hit = int(datetime(2026, 4, 23, 12, 0, tzinfo=seoul).timestamp())
+    exact_second_hit = int(datetime(2026, 4, 23, 12, 0, 1, tzinfo=seoul).timestamp())
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+
+    _insert_file(tmp_db, 1, "/workspace/yesterday.txt", 512, yesterday_hit, "txt", body_text="yesterday")
+    _insert_file(tmp_db, 2, "/workspace/morning.txt", 512, morning_hit, "txt", body_text="morning")
+    _insert_file(tmp_db, 3, "/workspace/noon.txt", 512, noon_hit, "txt", body_text="noon")
+    _insert_file(tmp_db, 4, "/workspace/exact-second.txt", 512, exact_second_hit, "txt", body_text="exact")
+    tmp_db.commit()
+
+    up_to_yesterday_hits = [hit.file.name for hit in search(tmp_db, "date:..yesterday", limit=10).hits]
+    since_today_hits = [hit.file.name for hit in search(tmp_db, "date:today..", limit=10).hits]
+    iso_second_hits = [
+        hit.file.name
+        for hit in search(
+            tmp_db,
+            "date:2026-04-23T12:00:00+09:00..2026-04-23T12:00:01+09:00",
+            limit=10,
+        ).hits
+    ]
+
+    assert up_to_yesterday_hits == ["yesterday.txt"]
+    assert since_today_hits == ["exact-second.txt", "morning.txt", "noon.txt"]
+    assert iso_second_hits == ["exact-second.txt", "noon.txt"]
 
 
 def test_execute_phrase_query_matches_across_path_separators(

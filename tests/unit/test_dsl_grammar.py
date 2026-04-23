@@ -84,6 +84,17 @@ def test_parse_operator_regex_value() -> None:
     assert node.regex_flags == "i"
 
 
+def test_compile_explicit_regex_operator_preserves_inline_flags() -> None:
+    compiled = compile_query(parse("case:true regex:/^Report-[0-9]+$/im"))
+
+    branch = compiled.branches[0]
+    assert branch.case_sensitive is True
+    assert len(branch.path_regex_terms) == 1
+    assert branch.path_regex_terms[0].pattern == "^Report-[0-9]+$"
+    assert branch.path_regex_terms[0].flags == "im"
+    assert branch.path_regex_terms[0].negated is False
+
+
 @pytest.mark.parametrize(
     ("query", "expected_name", "expected_value"),
     [
