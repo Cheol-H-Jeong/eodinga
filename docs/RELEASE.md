@@ -237,6 +237,33 @@ Before you cut the local tag, answer these against the actual outputs:
 3. Do the dry-run manifests under `packaging/dist/` agree with the packaged artifacts the docs claim exist?
 4. If the round changed release instructions, can a reviewer follow the documented commands without inventing missing steps?
 
+## Evidence Packet Template
+
+Keep the release handoff small enough that the next reviewer can replay the proof without reconstructing your shell history:
+
+| Packet field | What to record | Example |
+| --- | --- | --- |
+| command bundle | the exact single-shot command or dry run you executed | `source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && python packaging/build.py --target windows-dry-run` |
+| artifact path | the generated file you inspected afterward | `packaging/dist/windows-dry-run-audit.json` |
+| changed sections | the exact docs or release headings that moved | `README.md` FAQ, `docs/RELEASE.md` handoff checklist |
+| skipped proof | any intentionally omitted validation step plus reason | `linux-appimage-dry-run` skipped because the round touched Windows installer docs only |
+
+The packet should answer "what did you run, what file did you inspect, and what changed?" in one screenful.
+
+## Failure Narrowing Table
+
+When the release pass breaks, use the first failing proof to choose the next command instead of rerunning the full sequence immediately:
+
+| First failing proof | Next command | Narrowed question |
+| --- | --- | --- |
+| `tests/unit/test_docs_assets.py` | inspect the missing heading or asset path directly in the changed docs file | did the docs contract change without updating the pinned section or derived asset reference? |
+| GUI smoke command | `python scripts/render_docs_screenshots.py` or inspect the visible widget text in code | is the visible Qt surface different from the screenshot-backed docs? |
+| packaging dry run | open the matching `packaging/dist/*-audit.json` | which staged payload or metadata field disagrees with the docs and release claims? |
+| workflow lint | open the cited workflow file and rerun only that linter | is the failure in release automation rather than in the package payload itself? |
+| metadata/tag collision | `git fetch origin main --tags && git tag -l | sort -V | tail -5` | do you actually have a version collision, or is the local tag just stale? |
+
+The goal is failure isolation, not faster repetition. A second full release pass is only useful after the first broken proof has been repaired.
+
 ## Cut The Local Release
 
 1. Commit the release metadata changes.
