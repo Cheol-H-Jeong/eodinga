@@ -4,8 +4,8 @@ from collections.abc import Callable
 from typing import cast
 
 from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
-from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtGui import QAction, QKeyEvent, QKeySequence, QShortcut
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QMenu, QSizePolicy, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
@@ -82,6 +82,7 @@ class LauncherPanel(QWidget):
         self.result_list.setUniformItemSizes(False)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
         self.result_list.setMouseTracking(True)
+        self.result_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.status_chip = StatusChip("Idle", self)
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
@@ -99,6 +100,7 @@ class LauncherPanel(QWidget):
         self.result_list.setModel(self.model)
         self.result_list.selectionModel().currentChanged.connect(self._sync_preview_to_current_index)
         self.result_list.entered.connect(self._handle_hovered_index)
+        self.result_list.customContextMenuRequested.connect(self._show_result_context_menu)
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -484,6 +486,33 @@ class LauncherPanel(QWidget):
         if not index.isValid():
             return
         self._set_selection(index.row())
+
+    def _build_result_context_menu(self, hit: SearchHit | None = None) -> QMenu:
+        target = hit or self._current_hit()
+        menu = QMenu(self)
+        actions = [
+            ("Open", self.activate_current_result),
+            ("Reveal", self.emit_open_containing_folder),
+            ("Copy Path", self.emit_copy_path),
+            ("Copy Name", self.emit_copy_name),
+            ("Properties", self.emit_show_properties),
+        ]
+        for label, callback in actions:
+            action = QAction(label, menu)
+            action.setEnabled(target is not None)
+            action.triggered.connect(callback)
+            menu.addAction(action)
+        return menu
+
+    def _context_menu_hit(self, position) -> SearchHit | None:
+        index = self.result_list.indexAt(position)
+        if index.isValid():
+            self._set_selection(index.row())
+        return self._current_hit()
+
+    def _show_result_context_menu(self, position) -> None:
+        menu = self._build_result_context_menu(self._context_menu_hit(position))
+        menu.exec(self.result_list.viewport().mapToGlobal(position))
 
     def _sync_preview_to_index(self, index: QModelIndex) -> None:
         current_hit = self.model.item_at(index.row()) if index.isValid() else None
