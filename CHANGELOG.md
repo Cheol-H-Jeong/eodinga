@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.566 - 2026-04-23
+## 0.1.571 - 2026-04-23
 
 - Reworked launcher keyboard traversal so `Tab` now reaches visible pinned and recent query chips before results, `Tab` from results moves into the action bar, and chip/action focus surfaces show matching shortcut guidance.
 - Added reverse `Shift+Tab` traversal through launcher chips, keeping keyboard-only navigation symmetrical instead of skipping visible shortcuts on the way back to the filter field.
