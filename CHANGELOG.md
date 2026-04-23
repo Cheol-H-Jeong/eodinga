@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.301 - 2026-04-23
+
+- Persisted observability counters and histograms to a dedicated runtime `metrics.json` snapshot so separate CLI invocations can accumulate `stats --json` telemetry instead of resetting to zero every process start.
+- Taught the CLI to load and flush that metrics snapshot on every command path, surface the resolved `metrics_path` in `stats --json`, and ignore malformed runtime snapshots without taking the command down.
+- Added per-command latency histograms alongside the global command latency view, making it possible to distinguish `search` and `stats` timing directly from the exported histogram map.
+
 ## 0.1.287 - 2026-04-23
 
 - Expanded the tray controller so it now exposes explicit `Open eodinga`, `Show launcher`, and `Hide launcher` actions while keeping the launcher toggle text synchronized with the popup window state.
