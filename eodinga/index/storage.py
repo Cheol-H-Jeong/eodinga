@@ -320,10 +320,10 @@ def open_index(path: Path) -> sqlite3.Connection:
     _cleanup_orphan_recovery_sidecars(path, durable=True)
     _cleanup_orphan_build_sidecars(path, durable=True)
     recovery_staged = _staged_recovery_path(path).exists()
-    if recovery_staged and not recover_interrupted_recovery(path):
+    if recovery_staged and not recover_interrupted_recovery(path) and _staged_recovery_path(path).exists():
         raise RuntimeError(f"failed to resume interrupted recovery for {path}")
     build_staged = _staged_build_path(path).exists()
-    if build_staged and not recover_interrupted_build(path):
+    if build_staged and not recover_interrupted_build(path) and _staged_build_path(path).exists():
         raise RuntimeError(f"failed to resume interrupted staged build for {path}")
     if has_stale_wal(path) and not recover_stale_wal(path):
         raise RuntimeError(f"failed to recover stale WAL for {path}")

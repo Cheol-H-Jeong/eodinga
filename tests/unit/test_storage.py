@@ -788,6 +788,21 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     assert not staged.with_name(".index.db.next-shm").exists()
 
 
+def test_open_index_ignores_cleaned_uninitialized_interrupted_build(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+    staged.write_bytes(b"")
+
+    reopened = open_index(path)
+    try:
+        row = reopened.execute("PRAGMA user_version;").fetchone()
+        assert row is not None
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
+
+
 def test_open_index_resumes_interrupted_recovery_with_staged_wal(tmp_path: Path) -> None:
     source = tmp_path / "source.db"
     target = tmp_path / "index.db"
@@ -823,6 +838,21 @@ def test_open_index_resumes_interrupted_recovery_with_staged_wal(tmp_path: Path)
     assert not staged.exists()
     assert not staged.with_name(".index.db.recover-wal").exists()
     assert not staged.with_name(".index.db.recover-shm").exists()
+
+
+def test_open_index_ignores_cleaned_uninitialized_interrupted_recovery(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+    staged.write_bytes(b"")
+
+    reopened = open_index(path)
+    try:
+        row = reopened.execute("PRAGMA user_version;").fetchone()
+        assert row is not None
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
 
 
 def test_open_index_raises_when_interrupted_recovery_resume_fails(
