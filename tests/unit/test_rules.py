@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import eodinga.core.rules as rules_module
 from eodinga.common import PathRules
 from eodinga.core.rules import should_index
 
@@ -61,3 +62,17 @@ def test_explicit_root_overrides_default_denylist(tmp_path: Path) -> None:
 
     assert should_index(root, rules)
     assert should_index(target, rules)
+
+
+def test_should_index_reuses_compiled_specs_for_identical_rules(tmp_path: Path) -> None:
+    rules_module._compile.cache_clear()
+    root = tmp_path / "root"
+    target = root / "docs" / "note.txt"
+    target.parent.mkdir(parents=True)
+    target.write_text("x", encoding="utf-8")
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=("**/*.tmp",))
+
+    assert should_index(target, rules)
+    assert should_index(target, rules)
+    assert rules_module._compile.cache_info().hits >= 2

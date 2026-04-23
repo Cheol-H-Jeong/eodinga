@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 
 from pathspec import PathSpec
@@ -8,15 +9,20 @@ from eodinga.common import PathRules
 from eodinga.core.fs import DENYLIST, absolute_safe, resolve_safe
 
 
+RULE_CACHE_SIZE = 128
+
+
 def _normalize(path: Path) -> str:
     return str(path).replace("\\", "/")
 
 
+@lru_cache(maxsize=RULE_CACHE_SIZE)
 def _compile(patterns: tuple[str, ...]) -> PathSpec:
     normalized = [pattern.replace("\\", "/") for pattern in patterns]
     return PathSpec.from_lines("gitignore", normalized)
 
 
+@lru_cache(maxsize=1)
 def _expanded_denylist() -> tuple[str, ...]:
     home = Path.home()
     system_root = Path.home().drive + "/Windows" if Path.home().drive else "C:/Windows"
