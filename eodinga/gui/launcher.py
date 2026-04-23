@@ -12,6 +12,7 @@ from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.config import AppConfig
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
+from eodinga.gui.launcher_text import format_empty_state_body, format_filter_chip_markup, format_shortcut_hint
 from eodinga.gui.widgets import EmptyState, ResultItemDelegate, SearchField, StatusChip
 from eodinga.observability import get_logger
 
@@ -47,6 +48,11 @@ class LauncherPanel(QWidget):
 
         self.query_field = SearchField(parent=self)
         self.query_field.setAccessibleName("Launcher search field")
+        self.filter_chip_label = QLabel("", self)
+        self.filter_chip_label.setProperty("role", "secondary")
+        self.filter_chip_label.setTextFormat(Qt.TextFormat.RichText)
+        self.filter_chip_label.setWordWrap(True)
+        self.filter_chip_label.setVisible(False)
         self.result_list = QListView(self)
         self.result_list.setAccessibleName("Launcher results list")
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
@@ -71,6 +77,7 @@ class LauncherPanel(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
+        layout.addWidget(self.filter_chip_label)
         layout.addWidget(self.result_list, 1)
         layout.addWidget(self.empty_state)
 
@@ -82,6 +89,7 @@ class LauncherPanel(QWidget):
         layout.addLayout(footer)
 
         self.query_field.textChanged.connect(self._schedule_query)
+        self.query_field.textChanged.connect(lambda _: self._refresh_filter_chips())
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
@@ -117,6 +125,7 @@ class LauncherPanel(QWidget):
             self.set_indexing_status(self._state.indexing_status)
 
         self._refresh_empty_state()
+        self._refresh_filter_chips()
         self._refresh_shortcut_hint()
 
     def set_search_fn(self, search_fn: SearchFn) -> None:
@@ -218,6 +227,7 @@ class LauncherPanel(QWidget):
         self._refresh_status_footer()
         self._restore_selection(previous_hit)
         self._refresh_empty_state()
+        self._refresh_filter_chips()
         self._refresh_shortcut_hint()
         self.results_updated.emit(self._latest_result)
         get_logger().debug("launcher query '{}' returned {}", query, self._latest_result.total)
@@ -243,39 +253,33 @@ class LauncherPanel(QWidget):
         query = self.query_field.text().strip()
         details = format_indexing_status(self._indexing_status)
         if not query:
-            recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
             self.empty_state.set_content(
                 "Type to search",
-                f"Recent: {recent_queries} Press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
+                format_empty_state_body(self._recent_queries, query=query),
                 details,
             )
         else:
             self.empty_state.set_content(
                 f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Tab to jump back to the filter or Esc to hide the launcher.",
+                format_empty_state_body(self._recent_queries, query=query),
                 details,
             )
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
 
+    def _refresh_filter_chips(self) -> None:
+        markup = format_filter_chip_markup(self.query_field.text())
+        self.filter_chip_label.setText(markup)
+        self.filter_chip_label.setVisible(bool(markup))
+
     def _refresh_shortcut_hint(self) -> None:
-        has_results = self.model.rowCount() > 0
-        if not has_results:
-            if self.query_field.text().strip():
-                hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries."
-            else:
-                hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
-        elif self.result_list.hasFocus():
-            hint = (
-                "Enter opens. Alt+1..9 quick-picks. Up/Down wraps. "
-                "Home/End and PgUp/PgDn jump. Ctrl+Enter reveals. Ctrl+A or Ctrl+L returns to filter."
+        self.shortcut_label.setText(
+            format_shortcut_hint(
+                has_results=self.model.rowCount() > 0,
+                has_query=bool(self.query_field.text().strip()),
+                results_focused=self.result_list.hasFocus(),
             )
-        else:
-            hint = (
-                "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. "
-                "Enter opens the top hit. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
-            )
-        self.shortcut_label.setText(hint)
+        )
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()

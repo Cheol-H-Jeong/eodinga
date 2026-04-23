@@ -554,6 +554,38 @@ def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     assert "Alt+1 through Alt+9" in launcher.empty_state.body_label.text()
 
 
+def test_launcher_shows_active_filter_chips_for_structured_query(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState())
+    launcher.show()
+
+    launcher.query_field.setText('report ext:pdf date:"this week" -path:/archive/i')
+    _wait(60)
+
+    assert launcher.filter_chip_label.isVisible()
+    markup = launcher.filter_chip_label.text()
+    assert "Filters:" in markup
+    assert "ext:pdf" in markup
+    assert 'date:&quot;this week&quot;' in markup
+    assert "-path:/archive/i" in markup
+
+
+def test_launcher_hides_filter_chips_when_query_has_no_filters(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState())
+    launcher.show()
+
+    launcher.query_field.setText("report notes")
+    _wait(60)
+    assert not launcher.filter_chip_label.isVisible()
+
+    launcher.query_field.setText("size:>10M report")
+    _wait(60)
+    assert launcher.filter_chip_label.isVisible()
+
+    launcher.query_field.setText("")
+    _wait(60)
+    assert not launcher.filter_chip_label.isVisible()
+
+
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     launcher = LauncherWindow()
     launcher.show()
