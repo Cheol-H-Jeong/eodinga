@@ -44,3 +44,43 @@ def test_multi_root_rebuild_indexes_all_roots_and_respects_root_scope(tmp_path: 
     assert beta_hits == {root_b / "beta-shared.txt"}
     assert stored_roots == {root_a, root_b}
     assert indexed_files is not None and int(indexed_files[0]) == 3
+
+
+def test_multi_root_rebuild_replaces_removed_root_content(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+
+    root_a.mkdir()
+    root_b.mkdir()
+    alpha_file = root_a / "alpha-shared.txt"
+    beta_file = root_b / "beta-shared.txt"
+    alpha_file.write_text("handoff rebuild coverage\n", encoding="utf-8")
+    beta_file.write_text("handoff rebuild coverage\n", encoding="utf-8")
+
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    try:
+        hits = {hit.file.path for hit in search(conn, "handoff rebuild coverage", limit=10).hits}
+        alpha_hits = {hit.file.path for hit in search(conn, "handoff rebuild coverage", limit=10, root=root_a).hits}
+        beta_hits = {hit.file.path for hit in search(conn, "handoff rebuild coverage", limit=10, root=root_b).hits}
+        stored_roots = {
+            Path(row[0]) for row in conn.execute("SELECT path FROM roots ORDER BY id").fetchall()
+        }
+    finally:
+        conn.close()
+
+    assert hits == {beta_file}
+    assert alpha_hits == set()
+    assert beta_hits == {beta_file}
+    assert stored_roots == {root_b}
