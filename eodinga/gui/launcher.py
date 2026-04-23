@@ -1,124 +1,25 @@
 from __future__ import annotations
 
-from collections import deque
 from collections.abc import Callable
-from pathlib import Path
 from typing import cast
 
-from PySide6.QtCore import QAbstractListModel, QEvent, QModelIndex, QObject, QTimer, Qt, Signal
-from PySide6.QtGui import QCloseEvent, QHideEvent, QKeyEvent, QKeySequence, QMoveEvent, QResizeEvent, QShortcut, QShowEvent
+from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
+from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
-from eodinga.config import AppConfig
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
+from eodinga.gui.launcher_core import (
+    LauncherState,
+    ResultListModel,
+    default_search,
+    format_indexing_footer,
+    format_indexing_status,
+)
 from eodinga.gui.widgets import EmptyState, ResultItemDelegate, SearchField, StatusChip
-from eodinga.gui.widgets.result_item import format_hit_html
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
-
-
-def _default_search(query: str, limit: int) -> QueryResult:
-    hit = SearchHit(
-        path=Path("/tmp/example.txt"),
-        parent_path=Path("/tmp"),
-        name="example.txt",
-        ext="txt",
-        highlighted_name="example.txt",
-        highlighted_path="/tmp/example.txt",
-    )
-    items = [hit] if query else []
-    return QueryResult(items=items[:limit], total=len(items), elapsed_ms=2.0)
-
-
-def format_indexing_status(status: IndexingStatus) -> str:
-    if status.phase != "indexing":
-        return "Indexing idle. Results update automatically when your roots change."
-    total = str(status.total_files) if status.total_files > 0 else "?"
-    progress = ""
-    if status.total_files > 0:
-        percent = round((status.processed_files / status.total_files) * 100)
-        progress = f" ({percent}%)"
-    root_label = f" in {status.current_root}" if status.current_root is not None else ""
-    return f"Indexing {status.processed_files}/{total} files{progress}{root_label}."
-
-
-def format_indexing_footer(status: IndexingStatus) -> str:
-    if status.phase != "indexing":
-        return "0 results · 0.0 ms"
-    total = str(status.total_files) if status.total_files > 0 else "?"
-    parts = [f"{status.processed_files}/{total} files"]
-    if status.total_files > 0:
-        percent = round((status.processed_files / status.total_files) * 100)
-        parts.append(f"{percent}% indexed")
-    else:
-        parts.append("indexing")
-    return " · ".join(parts)
-
-
-class LauncherState(QObject):
-    recent_queries_changed = Signal(list)
-    indexing_status_changed = Signal(object)
-
-    def __init__(self, parent: QObject | None = None) -> None:
-        super().__init__(parent)
-        self._recent_queries: deque[str] = deque(maxlen=5)
-        self._indexing_status = IndexingStatus()
-
-    @property
-    def recent_queries(self) -> list[str]:
-        return list(self._recent_queries)
-
-    @property
-    def indexing_status(self) -> IndexingStatus:
-        return self._indexing_status
-
-    def remember_query(self, query: str) -> None:
-        normalized = query.strip()
-        if not normalized:
-            return
-        items = [item for item in self._recent_queries if item != normalized]
-        items.insert(0, normalized)
-        self._recent_queries = deque(items[: self._recent_queries.maxlen], maxlen=self._recent_queries.maxlen)
-        self.recent_queries_changed.emit(self.recent_queries)
-
-    def set_indexing_status(self, status: IndexingStatus) -> None:
-        self._indexing_status = status
-        self.indexing_status_changed.emit(status)
-
-
-class ResultListModel(QAbstractListModel):
-    def __init__(self, parent: QObject | None = None) -> None:
-        super().__init__(parent)
-        self._items: list[SearchHit] = []
-        self._query = ""
-
-    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
-        if parent.isValid():
-            return 0
-        return len(self._items)
-
-    def data(self, index: QModelIndex, role: int = Qt.ItemDataRole.DisplayRole):
-        if not index.isValid():
-            return None
-        item = self._items[index.row()]
-        if role == Qt.ItemDataRole.DisplayRole:
-            return format_hit_html(item, self._query)
-        if role == Qt.ItemDataRole.UserRole:
-            return item
-        return None
-
-    def set_items(self, items: list[SearchHit], query: str) -> None:
-        self.beginResetModel()
-        self._items = items
-        self._query = query
-        self.endResetModel()
-
-    def item_at(self, row: int) -> SearchHit | None:
-        if 0 <= row < len(self._items):
-            return self._items[row]
-        return None
 
 
 class LauncherPanel(QWidget):
@@ -137,7 +38,7 @@ class LauncherPanel(QWidget):
     ) -> None:
         super().__init__(parent)
         self.setAccessibleName("Launcher panel")
-        self._search_fn = search_fn or _default_search
+        self._search_fn = search_fn or default_search
         self._max_results = max_results
         self._latest_result = QueryResult()
         self._recent_queries: list[str] = []
@@ -155,15 +56,27 @@ class LauncherPanel(QWidget):
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
         self.result_list.setUniformItemSizes(False)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
+        self.result_list.setMouseTracking(True)
+        self.result_list.viewport().setMouseTracking(True)
         self.status_chip = StatusChip("Idle", self)
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
         self.empty_state = EmptyState("Type to search", "Recent queries and indexing progress will appear here.", self)
+        self.preview_title = QLabel("Preview", self)
+        self.preview_title.setProperty("role", "secondary")
+        self.preview_label = QLabel("Select a result to inspect its snippet.", self)
+        self.preview_label.setAccessibleName("Launcher preview pane")
+        self.preview_label.setWordWrap(True)
+        self.preview_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.preview_label.setProperty("role", "secondary")
 
         self.model = ResultListModel(self)
         self.result_list.setModel(self.model)
+        self.result_list.selectionModel().currentChanged.connect(
+            lambda current, _previous: self._update_preview_from_index(current)
+        )
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -176,6 +89,8 @@ class LauncherPanel(QWidget):
         layout.addWidget(self.query_field)
         layout.addWidget(self.result_list, 1)
         layout.addWidget(self.empty_state)
+        layout.addWidget(self.preview_title)
+        layout.addWidget(self.preview_label)
 
         footer = QHBoxLayout()
         footer.addWidget(self.status_chip)
@@ -186,6 +101,7 @@ class LauncherPanel(QWidget):
 
         self.query_field.textChanged.connect(self._schedule_query)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
+        self.result_list.entered.connect(self._update_preview_from_index)
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
 
@@ -315,6 +231,7 @@ class LauncherPanel(QWidget):
         self.model.set_items(self._latest_result.items, query)
         self._refresh_status_footer()
         self._restore_selection(previous_hit)
+        self._refresh_preview()
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
         self.results_updated.emit(self._latest_result)
@@ -355,6 +272,8 @@ class LauncherPanel(QWidget):
             )
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
+        self.preview_title.setVisible(has_results)
+        self.preview_label.setVisible(has_results)
 
     def _refresh_shortcut_hint(self) -> None:
         has_results = self.model.rowCount() > 0
@@ -452,6 +371,20 @@ class LauncherPanel(QWidget):
         self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(row, 0)))
         self.result_list.scrollTo(self.result_list.currentIndex())
 
+    def _refresh_preview(self) -> None:
+        self._update_preview(self._current_hit())
+
+    def _update_preview_from_index(self, index: QModelIndex) -> None:
+        row = index.row() if index.isValid() else -1
+        self._update_preview(self.model.item_at(row))
+
+    def _update_preview(self, hit: SearchHit | None) -> None:
+        if hit is None:
+            self.preview_label.setText("Select a result to inspect its snippet.")
+            return
+        preview = (hit.snippet or str(hit.path)).strip()
+        self.preview_label.setText(preview or str(hit.path))
+
     def _navigate_recent_queries(self, direction: int) -> None:
         if not self._recent_queries:
             return
@@ -484,86 +417,9 @@ class LauncherPanel(QWidget):
             self._applying_history_query = False
 
 
-class LauncherWindow(LauncherPanel):
-    def __init__(
-        self,
-        search_fn: SearchFn | None = None,
-        max_results: int = 200,
-        state: LauncherState | None = None,
-        config: AppConfig | None = None,
-        config_path: Path | None = None,
-        parent=None,
-    ) -> None:
-        super().__init__(search_fn=search_fn, max_results=max_results, state=state, parent=parent)
-        self._config = config
-        self._config_path = config_path.expanduser() if config_path is not None else None
-        self._geometry_restored = False
-        self._geometry_save_timer = QTimer(self)
-        self._geometry_save_timer.setSingleShot(True)
-        self._geometry_save_timer.setInterval(150)
-        self._geometry_save_timer.timeout.connect(self._persist_geometry)
-        self.setObjectName("surface")
-        self.setAccessibleName("Launcher window")
-        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
-        self.setWindowFlag(Qt.WindowType.Tool, True)
-        always_on_top = self._config.launcher.always_on_top if self._config is not None else False
-        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, always_on_top)
-        width = self._config.launcher.window_width if self._config is not None else 640
-        height = self._config.launcher.window_height if self._config is not None else 480
-        self.resize(width, height)
+def __getattr__(name: str):
+    if name == "LauncherWindow":
+        from eodinga.gui.launcher_window import LauncherWindow
 
-    def keyPressEvent(self, event) -> None:
-        if event.key() == Qt.Key.Key_Escape:
-            self.hide()
-            event.accept()
-            return
-        super().keyPressEvent(event)
-
-    def showEvent(self, event: QShowEvent) -> None:
-        super().showEvent(event)
-        if not self._geometry_restored and self._config is not None:
-            if self._config.launcher.window_x is not None and self._config.launcher.window_y is not None:
-                self.move(self._config.launcher.window_x, self._config.launcher.window_y)
-            self._geometry_restored = True
-        self.query_field.setFocus()
-        self.query_field.selectAll()
-
-    def moveEvent(self, event: QMoveEvent) -> None:
-        super().moveEvent(event)
-        self._schedule_geometry_persist()
-
-    def resizeEvent(self, event: QResizeEvent) -> None:
-        super().resizeEvent(event)
-        self._schedule_geometry_persist()
-
-    def hideEvent(self, event: QHideEvent) -> None:
-        self._persist_geometry()
-        super().hideEvent(event)
-
-    def closeEvent(self, event: QCloseEvent) -> None:
-        self._persist_geometry()
-        super().closeEvent(event)
-
-    def _schedule_geometry_persist(self) -> None:
-        if self._config is None or self._config_path is None or not self._geometry_restored or not self.isVisible():
-            return
-        self._geometry_save_timer.start()
-
-    def _persist_geometry(self) -> None:
-        if self._config is None or self._config_path is None or not self._geometry_restored:
-            return
-        geometry = {
-            "window_x": self.x(),
-            "window_y": self.y(),
-            "window_width": self.width(),
-            "window_height": self.height(),
-        }
-        if (
-            self._config.launcher.window_x == geometry["window_x"]
-            and self._config.launcher.window_y == geometry["window_y"]
-            and self._config.launcher.window_width == geometry["window_width"]
-            and self._config.launcher.window_height == geometry["window_height"]
-        ):
-            return
-        self._config.launcher = self._config.launcher.model_copy(update=geometry)
-        self._config.save(self._config_path)
+        return LauncherWindow
+    raise AttributeError(name)

@@ -498,6 +498,43 @@ def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     assert "Alt+1 through Alt+9" in launcher.empty_state.body_label.text()
 
 
+def test_launcher_preview_tracks_selection_and_hover(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/release-notes.txt"),
+                    parent_path=Path("/tmp"),
+                    name="release-notes.txt",
+                    snippet="Release notes preview",
+                ),
+                SearchHit(
+                    path=Path("/tmp/changelog.md"),
+                    parent_path=Path("/tmp"),
+                    name="changelog.md",
+                    snippet="Changelog preview",
+                ),
+            ][:limit],
+            total=2,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(60)
+
+    assert launcher.preview_title.isVisible()
+    assert launcher.preview_label.text() == "Release notes preview"
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Down)
+    assert launcher.preview_label.text() == "Changelog preview"
+
+    launcher._update_preview_from_index(launcher.model.index(0, 0))
+    assert launcher.preview_label.text() == "Release notes preview"
+
+
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     launcher = LauncherWindow()
     launcher.show()
@@ -505,3 +542,4 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.result_list.accessibleName() == "Launcher results list"
+    assert launcher.preview_label.accessibleName() == "Launcher preview pane"
