@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.936 - 2026-04-24
+
+- Reused nested SQLite temporary PRAGMA overrides per connection, which cuts redundant PRAGMA reads and rewrites when rebuild and writer code stack the same fast-write mode.
+- Raised the writer's SQL chunk size to `900`, reducing the number of delete/select round trips for large bulk path retirements while staying under SQLite's default bind-parameter ceiling.
+- Added unit coverage for nested PRAGMA restore semantics and for the widened writer chunk sizing, so both optimizations are pinned by targeted regression tests.
+
 ## 0.1.932 - 2026-04-24
 
 - Added contributor guidance for orchestrated module-worker rounds, including strict scope handling and a compact docs review packet for handoff evidence.
