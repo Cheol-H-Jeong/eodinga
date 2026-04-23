@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.442 - 2026-04-23
+
+- Broadened the PyInstaller hidden-import scan so packaging now captures keyword-based `import_module(name=...)` and `__import__(name=...)` call sites instead of only positional forms.
+- Hardened Linux package audits to fail if the staged AppImage or Debian launcher shims lose their bash shebang or strict-shell mode, protecting the release pipeline from brittle wrapper regressions.
+- Added a single `python packaging/build.py --target release-dry-run` entrypoint that executes the Windows, AppImage, and Debian dry-run audits together and writes a summary manifest under `packaging/dist/`.
+
 ## 0.1.431 - 2026-04-23
 
 - Tightened the top-level operator docs so the README now points reviewers directly at `packaging/dist/`, the local release handoff sequence, and the acceptance recovery path when the one-command gate fails.
