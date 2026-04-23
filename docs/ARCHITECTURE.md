@@ -38,6 +38,15 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 | Content extraction | `eodinga.content.*` | Parse supported document formats into searchable text. |
 | UI + CLI | `eodinga.__main__`, `eodinga.gui.*`, `eodinga.launcher.*` | Expose the same engine through commands, the main window, and the hotkey launcher. |
 
+## Process Boundaries
+
+| Boundary | Reads | Writes | Notes |
+| --- | --- | --- | --- |
+| Indexed roots | File metadata and optional parser input | None | `eodinga.core.fs` keeps roots read-only. |
+| Config area | `config.toml` and root list | Updated config writes | `eodinga.config` uses atomic temp-file replacement. |
+| Data area | Existing `index.db`, staged `.next`, recovery `.recover`, SQLite sidecars | Index rebuilds, WAL checkpoints, crash-safe swaps | Index ownership stays inside the app data directory. |
+| State area | Existing logs and crash reports | Rotating logs and `crash-<ts>.log` files | `eodinga.observability` owns these paths. |
+
 ## Index Storage
 
 - `files` is the source-of-truth table for root membership, timestamps, size, extension, and duplicate detection via `content_hash`.
@@ -90,6 +99,26 @@ eodinga index --rebuild
 - Regex and mixed path/content terms are finalized in Python against the candidate set so the CLI and GUI share identical behavior.
 - `eodinga.query.ranker` applies reciprocal rank fusion, filename prefix boosts, and path deboosting for noisy trees such as `node_modules`.
 
+## Search Sequence
+
+```text
+CLI / GUI / launcher query
+    |
+    v
+parse() --> compiler.compile_query()
+    |              |
+    |              +--> SQLite predicates + fallback matchers
+    v
+executor.search()
+    |
+    +--> fetch candidate rows from files + FTS tables
+    +--> apply regex / fallback checks in Python when needed
+    +--> rank with reciprocal rank fusion + path weighting
+    |
+    v
+result models returned to CLI / GUI / launcher
+```
+
 ## Operational Model
 
 - Cold start is walker-driven: discover roots, write metadata in bulk, then parse supported documents for content rows.
@@ -115,6 +144,16 @@ IndexWriter.apply_events()
     v
 next query sees updated results
 ```
+
+## Failure and Recovery Map
+
+| Failure mode | Detection point | Recovery path |
+| --- | --- | --- |
+| Interrupted rebuild | `open_index()` sees `.index.db.next` | Resume staged rebuild promotion on next startup. |
+| Interrupted recovery swap | `open_index()` sees `.index.db.recover` | Resume the pending atomic rename before opening the live database. |
+| Stale SQLite WAL | `open_index()` sees a non-empty `-wal` sidecar | Replay against a staged copy, checkpoint, then swap the clean database into place. |
+| Unhandled CLI / GUI exception | `eodinga.__main__.main()` exception guard | Write `crash-<ts>.log` and return a non-zero exit. |
+| Watcher lag or burst | `WatchService` debounce/coalescing layer | Preserve updates through the queued writer path so the next committed query view catches up. |
 
 ## Packaging Surfaces
 
