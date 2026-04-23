@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path, PureWindowsPath
 from threading import Thread
 from time import sleep
@@ -151,6 +151,58 @@ def test_search_json_queries_real_index(cli_runner, tmp_path: Path) -> None:
     assert [Path(item["path"]).name for item in payload["results"]] == [
         "today-alpha-clone.txt",
         "today-alpha-copy.txt",
+    ]
+
+
+def test_search_json_supports_iso_period_literals(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        _insert_file(
+            conn,
+            1,
+            "/workspace/archive/april-week.txt",
+            2_048,
+            int(datetime(2026, 4, 22, 12, tzinfo=UTC).timestamp()),
+            "txt",
+            body_text="april week note",
+        )
+        _insert_file(
+            conn,
+            2,
+            "/workspace/archive/may-note.txt",
+            2_048,
+            int(datetime(2026, 5, 6, 12, tzinfo=UTC).timestamp()),
+            "txt",
+            body_text="may note",
+        )
+        _insert_file(
+            conn,
+            3,
+            "/workspace/archive/january-2027.txt",
+            2_048,
+            int(datetime(2027, 1, 6, 12, tzinfo=UTC).timestamp()),
+            "txt",
+            body_text="future note",
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "date:2026-W17..2026-05",
+        "--json",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == [
+        "april-week.txt",
+        "may-note.txt",
     ]
 
 

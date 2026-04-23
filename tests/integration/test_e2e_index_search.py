@@ -146,6 +146,36 @@ def test_e2e_index_search_preserves_symlink_root_alias_paths(tmp_path: Path) -> 
     assert all(str(path).startswith(str(alias_root)) for path in indexed_paths)
 
 
+def test_e2e_index_search_supports_iso_period_literals(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir(parents=True)
+    april = root / "archive" / "april-week.txt"
+    may = root / "archive" / "may-note.txt"
+    january = root / "archive" / "january-2027.txt"
+    april.parent.mkdir(parents=True, exist_ok=True)
+    april.write_text("april week note\n", encoding="utf-8")
+    may.write_text("may note\n", encoding="utf-8")
+    january.write_text("future note\n", encoding="utf-8")
+
+    for path, moment in (
+        (april, datetime(2026, 4, 22, 12, 0, 0).timestamp()),
+        (may, datetime(2026, 5, 6, 12, 0, 0).timestamp()),
+        (january, datetime(2027, 1, 6, 12, 0, 0).timestamp()),
+    ):
+        os.utime(path, (moment, moment))
+
+    _index_tree(root, db_path)
+
+    conn = open_index(db_path)
+    try:
+        hits = [hit.file.name for hit in search(conn, "date:2026-W17..2026-05 is:file", limit=5).hits]
+    finally:
+        conn.close()
+
+    assert hits == ["april-week.txt", "may-note.txt"]
+
+
 def test_e2e_plain_negated_term_filters_auto_content_hits(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     db_path = tmp_path / "database" / "index.db"
