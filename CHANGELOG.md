@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.964 - 2026-04-24
+## 0.1.969 - 2026-04-24
 
 - Moved launcher filesystem preview reads onto the read-only filesystem wrapper and pinned that behavior with a regression test, so preview fallback reads stay on the same constrained path as parser reads.
 - Made watcher startup rollback the flush thread when either the watcher thread or `watchdog.Observer()` fails to start, preventing stranded background threads after a partial startup failure.
