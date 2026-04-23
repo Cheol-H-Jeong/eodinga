@@ -25,6 +25,11 @@ INNO_GUI_DIST_TOKEN = "@@GUI_DIST_NAME@@"
 INNO_CLI_DIST_TOKEN = "@@CLI_DIST_NAME@@"
 INNO_GUI_EXE_TOKEN = "@@GUI_EXE_NAME@@"
 _INNO_APP_ID_PATTERN = re.compile(r"^\{\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$")
+_REQUIRED_WINDOWS_DATA_FILES = {
+    (str((PROJECT_ROOT / "eodinga" / "i18n" / "en.json").resolve()), "eodinga/i18n"),
+    (str((PROJECT_ROOT / "eodinga" / "i18n" / "ko.json").resolve()), "eodinga/i18n"),
+    (str((PROJECT_ROOT / "LICENSE").resolve()), "."),
+}
 
 
 def _read_project_version() -> str:
@@ -224,8 +229,11 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         errors.append("PyInstaller source-derived hidden imports are empty")
     elif not set(discovered_source_hiddenimports).issubset(set(spec_payload.get("hiddenimports", []))):
         errors.append("PyInstaller hidden imports no longer include the source-derived modules")
-    if not spec_payload.get("datas"):
+    datas = {tuple(item) for item in spec_payload.get("datas", [])}
+    if not datas:
         errors.append("PyInstaller data files are empty")
+    elif not _REQUIRED_WINDOWS_DATA_FILES.issubset(datas):
+        errors.append("PyInstaller data files no longer include the required i18n catalogs and LICENSE")
     if payload.get("target") == "windows":
         dist_exists = spec_payload.get("dist_exists", {})
         exe_exists = spec_payload.get("exe_exists", {})

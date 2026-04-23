@@ -131,6 +131,16 @@ def test_windows_audit_validator_rejects_missing_source_hidden_import_contract()
     assert "PyInstaller hidden imports no longer include the source-derived modules" in errors
 
 
+def test_windows_audit_validator_rejects_missing_required_data_files() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["pyinstaller_spec"]["datas"] = [[str(Path("LICENSE").resolve()), "."]]
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "PyInstaller data files no longer include the required i18n catalogs and LICENSE" in errors
+
+
 def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -> None:
     module = _load_build_module()
     payload = module._audit_windows_inputs(__version__, __version__)
