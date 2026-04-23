@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.229 - 2026-04-23
+## 0.1.231 - 2026-04-23
 
 - Expanded `README.md` with a clearer surface-selection matrix, task-oriented query cookbook, and keyboard quick reference so users can map launcher, GUI, and CLI workflows faster.
 - Deepened `docs/ARCHITECTURE.md` with schema snapshots, lifecycle ownership tables, query-stage boundaries, and failure-domain notes that match the current runtime and recovery model.
