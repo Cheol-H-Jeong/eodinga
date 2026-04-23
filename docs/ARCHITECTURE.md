@@ -200,6 +200,17 @@ runtime surface changes
 - `scripts/render_docs_screenshots.py` renders offscreen Qt widgets through `eodinga.gui.docs`, keeping screenshots tied to real UI state instead of mock assets.
 - `tests/unit/test_docs_assets.py` pins the presence of the shipped sections and checks that the derived man page still matches the checked-in artifact.
 
+## Release Input Map
+
+| Release input | Generated or maintained by | Why it matters |
+| --- | --- | --- |
+| `README.md` and `docs/*.md` | hand-edited docs rounds | Defines the shipped operator contract for install, query syntax, recovery, and packaging. |
+| `docs/man/eodinga.1` | `scripts/generate_manpage.py` | Keeps packaged CLI help aligned with the real argparse tree. |
+| `docs/screenshots/*.png` | `scripts/render_docs_screenshots.py` | Proves that the checked-in screenshots come from the real Qt surfaces. |
+| `packaging/dist/` manifests | `packaging/build.py --target ...-dry-run` | Shows what the packaging recipes would stage without performing a release push. |
+
+This keeps the release surface auditable: prose docs, generated assets, and packaging manifests all map back to code paths that are exercised in-tree.
+
 ## State Ownership
 
 | State | Owner | Why it lives there |
@@ -272,6 +283,11 @@ startup
 - Documentation screenshots are rendered from the real Qt surfaces through `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
 - Release docs also ship a generated CLI man page under `docs/man/` so packaged audits can verify the command surface without importing the project interactively.
 
+The packaging layer is intentionally downstream of the runtime:
+- Search/index/query behavior lives entirely under `eodinga/` and can be validated from the editable install.
+- Packaging scripts only collect that runtime plus docs/manpage/screenshots into platform-shaped artifacts.
+- Release drift usually means one of three things: the runtime changed, the derived docs assets were not refreshed, or the packaging recipe stopped matching the current version metadata.
+
 ## Platform Surface Summary
 
 | Surface | Entry point | Purpose |
@@ -304,3 +320,10 @@ When an operator reports stale or surprising results, the shortest architecture-
 3. `eodinga watch` or `eodinga index --rebuild` depending on whether the issue is live-update lag or a one-shot recovery need.
 
 That sequence mirrors the architecture itself: active DB selection, environment validation, then either watcher-driven incremental repair or staged rebuild.
+
+Use the same order when triaging release failures:
+1. Prove the live runtime surface with `eodinga doctor`, `eodinga stats --json`, or a direct `eodinga search`.
+2. Prove the derived release inputs with `tests/unit/test_docs_assets.py`.
+3. Prove the packaging surfaces with the platform dry runs.
+
+That avoids blaming packaging for defects that started in the runtime, and avoids blaming the runtime when the only drift is a stale man page, screenshot, or compressed changelog payload.
