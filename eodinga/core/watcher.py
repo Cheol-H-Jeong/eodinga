@@ -119,12 +119,22 @@ class WatchService:
             return
         if self._stop.is_set():
             self._stop = Event()
+        started_flush_thread = False
         if self._flush_thread is None or not self._flush_thread.is_alive():
             self._flush_thread = _spawn_thread(self._flush_loop)
             self._flush_thread.start()
+            started_flush_thread = True
         observer = Observer()
-        observer.schedule(_Handler(self, root), str(root), recursive=True)
-        observer.start()
+        try:
+            observer.schedule(_Handler(self, root), str(root), recursive=True)
+            observer.start()
+        except Exception:
+            if started_flush_thread and self._flush_thread is not None:
+                self._stop.set()
+                self._flush_thread.join(timeout=1)
+                self._flush_thread = None
+                self._stop = Event()
+            raise
         self._observers[root] = observer
         increment_counter("watcher_observers_started", root=str(root))
 
