@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.214 - 2026-04-23
+
+- Persisted the observability registry to a state-backed `metrics.json` file, so counters and latency histograms now survive across separate `eodinga` CLI invocations instead of only being visible inside one Python process.
+- Added subprocess-backed CLI regressions and isolated test metrics paths, proving that `eodinga stats --json` reports indexed-file, query, and latency metrics after real `index` and `search` commands complete in separate processes.
+- Counted per-command invocations and unexpected command crashes in the shared metrics registry, making `stats` expose command activity alongside crash-log creation for post-failure debugging.
+
 ## 0.1.209 - 2026-04-23
 
 - Expanded the PyInstaller spec to discover dynamic hidden imports loaded through `importlib.import_module(...)`, aliased `importlib` module handles, and direct `__import__(...)` calls, reducing manual packaging drift for optional runtime modules.
