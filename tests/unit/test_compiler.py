@@ -113,6 +113,8 @@ def test_compile_reversed_date_range_normalizes_bounds() -> None:
     [
         ("date:2026-01-03..", "files.mtime >= ?", 0),
         ("created:..2026-01-03", "files.ctime < ?", 0),
+        ("modified:last-week..", "files.mtime >= ?", 0),
+        ("date:..yesterday", "files.mtime < ?", 0),
     ],
 )
 def test_compile_open_ended_date_ranges(
@@ -125,6 +127,28 @@ def test_compile_open_ended_date_ranges(
 
     assert branch.where_sql == expected_sql
     assert isinstance(branch.where_params[param_index], int)
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "date:last-week..today",
+        "modified:2026-01-03..yesterday",
+        "created:last-month..2026-04-23",
+    ],
+)
+def test_compile_date_ranges_accept_macro_endpoints(query: str) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+    start, end = branch.where_params
+
+    assert branch.where_sql in {
+        "files.mtime >= ? AND files.mtime < ?",
+        "files.ctime >= ? AND files.ctime < ?",
+    }
+    assert isinstance(start, int)
+    assert isinstance(end, int)
+    assert start < end
 
 
 def test_compile_datetime_literals_preserve_instant_granularity() -> None:
