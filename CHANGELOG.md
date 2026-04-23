@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.827 - 2026-04-23
+
+- Added snapshot ring-buffer telemetry to `stats --json`, including current occupancy, fixed capacity, and dropped-record counts so operators can tell when recent command history has wrapped.
+- Hardened the observability snapshot store to deep-copy nested payloads on write and read, preventing callers from mutating retained diagnostic history through shared references.
+- Expanded CLI coverage for the successful `version` path and snapshot-buffer rollover, locking in end-to-end command, exit-code, and recent-snapshot metrics.
+
 ## 0.1.822 - 2026-04-23
 
 - Hardened watcher lifecycle recovery so failed observer startup now rolls back the flush thread cleanly, and shutdown continues best-effort observer teardown even if one observer raises.
