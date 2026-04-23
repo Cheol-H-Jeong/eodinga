@@ -54,13 +54,15 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 
 ## Feature Overview
 
-- Shared engine across CLI, main GUI, and hotkey launcher.
-- Local-only indexing of filenames, paths, and supported document text.
-- Real-time refresh through watchdog-backed filesystem events.
-- Query DSL with terms, phrases, groups, negation, regex, path filters, size filters, date macros, and duplicate detection.
-- Content extraction for text, source code, Office files, PDF, EPUB, HTML, and HWP when parser extras are installed.
-- Atomic staged rebuild and startup recovery for interrupted index swaps and stale WAL state.
-- Packaging flows for Windows installer, Linux AppImage, and Linux `.deb`.
+| Area | Included in `0.1.x` |
+| --- | --- |
+| Search surfaces | Shared engine across CLI, main GUI, and hotkey launcher. |
+| Local-first behavior | Local-only indexing of filenames, paths, and supported document text. |
+| Freshness | Real-time refresh through watchdog-backed filesystem events. |
+| Query language | Terms, phrases, groups, negation, regex, path filters, size filters, date macros, and duplicate detection. |
+| Content extraction | Text, source code, Office files, PDF, EPUB, HTML, and HWP when parser extras are installed. |
+| Recovery | Atomic staged rebuild and startup recovery for interrupted index swaps and stale WAL state. |
+| Packaging | Windows installer, Linux AppImage, and Linux `.deb` dry-run paths. |
 
 ## Acceptance Quickcheck
 
@@ -106,9 +108,11 @@ eodinga doctor
 - `ext:pdf invoice` : extension filter plus term
 - `path:projects content:"design review"` : path and content filters
 - `size:>10M modified:today` : size and date filters
+- `size:100K..500K date:last-month` : bounded range plus date macro
 - `date:2026-04-01.. modified:..2026-04-23` : open-ended ISO ranges
 - `modified:2026-04-23T09:15:30+00:00` : exact ISO datetime filter
 - `date:yesterday is:duplicate` : relative date plus duplicate detection
+- `is:empty -is:dir` : empty files only
 - `created:2026-04-23` : creation-time filter
 - `regex:true report-\\d+` : treat plain terms as regex
 - `regex:/todo|fixme/i` : regex search
@@ -130,7 +134,9 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Stop at an ISO date | `created:..2026-04-23` |
 | Match one instant | `modified:2026-04-23T09:15:30+00:00` |
 | Find size ranges | `size:100K..500K` |
+| Find empty files only | `is:empty -is:dir` |
 | Find duplicates | `is:duplicate` |
+| Find the previous calendar month | `date:last-month ext:pdf` |
 | Exclude noisy trees | `-path:node_modules` |
 | Run regex | `regex:/todo|fixme/i` |
 
@@ -152,6 +158,28 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 - `Up` / `Down` wraps through the result list once focus is in the list
 - `PgUp` / `PgDn` jumps through longer result sets
 - `Ctrl+L` returns focus to the filter field
+
+## Common Workflows
+
+Open the launcher, search across multiple roots, and reveal the selected hit in the file manager:
+
+```bash
+eodinga index --root ~/projects --root ~/docs && eodinga watch
+```
+
+```bash
+eodinga search 'date:this-week ext:md roadmap' --limit 20
+eodinga search 'regex:/todo|fixme/i path:src' --json
+eodinga search 'is:duplicate size:>10M' --limit 50
+```
+
+Check runtime state when results look stale:
+
+```bash
+eodinga doctor
+eodinga stats --json
+eodinga index --rebuild
+```
 
 ## Architecture
 
@@ -217,6 +245,22 @@ Contributor workflow lives in [docs/CONTRIBUTING.md](/home/cheol/projects/eoding
 Release-specific steps live in [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md), with [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md) as the short gate checklist.
 
 ## FAQ
+
+### Does `eodinga` send file contents anywhere?
+
+No. The runtime is local-only, the source tree is guarded by `tests/safety/test_no_network.py`, and indexed roots are treated as read-only inputs.
+
+### What happens if indexing is interrupted?
+
+Startup resumes interrupted staged rebuilds and recovery swaps automatically. If recovery still looks suspicious, run `eodinga doctor` and then `eodinga index --rebuild`.
+
+### Do I need parser extras for basic filename search?
+
+No. Filename and path indexing work without parser extras. The `parsers` extra only expands content extraction for supported document formats.
+
+### Which commands are most useful for a quick health check?
+
+Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
 
 ### Does eodinga send any data over the network?
 
