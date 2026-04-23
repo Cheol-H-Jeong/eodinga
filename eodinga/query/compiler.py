@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import lru_cache
 import re
 import unicodedata
 from itertools import product
@@ -164,6 +165,7 @@ def _regex_flags(flags: str) -> int:
     return compiled_flags
 
 
+@lru_cache(maxsize=256)
 def _validate_regex_pattern(pattern: str, flags: str = "") -> None:
     try:
         re.compile(pattern, _regex_flags(flags))

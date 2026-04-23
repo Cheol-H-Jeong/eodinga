@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from eodinga.query import compile
+from eodinga.query import compiler as compiler_module
 from eodinga.query.compiler import compile_query
 from eodinga.query.dsl import QuerySyntaxError, parse
 
@@ -79,6 +80,17 @@ def test_compile_regex_operator_accepts_word_pattern_alias() -> None:
     assert branch.path_regex_terms[0].pattern == r"report-\d+"
     assert branch.path_regex_terms[0].flags == ""
     assert branch.path_regex_terms[0].negated is False
+
+
+def test_compile_reuses_regex_validation_cache_for_repeated_patterns() -> None:
+    compiler_module._validate_regex_pattern.cache_clear()
+
+    first = compile_query(parse(r"regex:report-\d+"))
+    second = compile_query(parse(r"regex:report-\d+"))
+
+    assert first.branches[0].path_regex_terms[0].pattern == r"report-\d+"
+    assert second.branches[0].path_regex_terms[0].pattern == r"report-\d+"
+    assert compiler_module._validate_regex_pattern.cache_info().hits >= 1
 
 
 @pytest.mark.parametrize(
