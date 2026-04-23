@@ -14,6 +14,7 @@ from eodinga.index.writer import IndexWriter
 from eodinga.observability import increment_counter
 
 DEFAULT_MAX_BODY_CHARS = 4096
+_BUILD_COMPLETE_KEY = "build_complete"
 
 
 class RebuildResult(NamedTuple):
@@ -55,6 +56,12 @@ def rebuild_index(
     )
     try:
         writer = IndexWriter(conn, parser_callback=parser_callback)
+        conn.execute(
+            "INSERT INTO meta(key, value) VALUES(?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (_BUILD_COMPLETE_KEY, "0"),
+        )
+        conn.commit()
         with conn:
             for root_id, root in enumerate(effective_roots, start=1):
                 conn.execute(
@@ -79,7 +86,12 @@ def rebuild_index(
                     files_indexed += indexed
                     if indexed:
                         increment_counter("files_indexed", indexed, root=str(root.path))
-    except Exception:
+            conn.execute(
+                "INSERT INTO meta(key, value) VALUES(?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (_BUILD_COMPLETE_KEY, "1"),
+            )
+    except BaseException:
         conn.close()
         _cleanup_index_files(staged_path)
         raise

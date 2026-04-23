@@ -10,6 +10,7 @@ from eodinga.index.schema import apply_schema
 from eodinga.index.storage import (
     atomic_replace_index,
     has_stale_wal,
+    is_complete_staged_build,
     open_index,
     recover_interrupted_build,
     recover_interrupted_recovery,
@@ -348,6 +349,10 @@ def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path
     staged_conn = sqlite3.connect(staged)
     apply_schema(staged_conn)
     staged_conn.execute(
+        "INSERT INTO meta(key, value) VALUES('build_complete', '1') "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+    )
+    staged_conn.execute(
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         ("/rebuilt", "[]", "[]", 1),
     )
@@ -375,6 +380,10 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     staged_conn = sqlite3.connect(staged)
     apply_schema(staged_conn)
     staged_conn.execute(
+        "INSERT INTO meta(key, value) VALUES('build_complete', '1') "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+    )
+    staged_conn.execute(
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         ("/rebuilt-startup", "[]", "[]", 1),
     )
@@ -385,6 +394,58 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     try:
         rows = reopened.execute("SELECT path FROM roots ORDER BY path").fetchall()
         assert [str(row[0]) for row in rows] == ["/rebuilt-startup"]
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.next-wal").exists()
+    assert not staged.with_name(".index.db.next-shm").exists()
+
+
+def test_recover_interrupted_build_discards_incomplete_staged_database(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/partial", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    assert is_complete_staged_build(target) is False
+    assert recover_interrupted_build(target) is False
+    assert not staged.exists()
+
+
+def test_open_index_discards_incomplete_staged_build_before_open(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/partial", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    reopened = open_index(target)
+    try:
+        rows = reopened.execute("SELECT path FROM roots ORDER BY path").fetchall()
+        assert [str(row[0]) for row in rows] == ["/live"]
     finally:
         reopened.close()
 
