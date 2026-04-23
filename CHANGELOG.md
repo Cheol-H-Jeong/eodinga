@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.872 - 2026-04-23
+## 0.1.878 - 2026-04-23
 
 - Tightened the launcher's idle and no-results guidance so it only advertises recent-query, pinned-chip, and quick-pick affordances when those paths actually exist in the current state.
 - Added keyboard-first navigation for pinned and recent query chips, including `Tab` entry from an idle search box plus `Left`/`Right`, `Up`/`Down`, and `Home`/`End` movement across chip rows.
