@@ -23,6 +23,7 @@ class _DesktopActionsLike(Protocol):
     def reveal_hit(self, hit: SearchHit) -> None: ...
     def show_properties(self, hit: SearchHit) -> None: ...
     def copy_hit_path(self, hit: SearchHit) -> None: ...
+    def copy_hit_name(self, hit: SearchHit) -> None: ...
 
 
 class TrayIndicatorController:
@@ -141,6 +142,7 @@ class EodingaWindow(QMainWindow):
         launcher.open_containing_folder.connect(self.desktop_actions.reveal_hit)
         launcher.show_properties.connect(self.desktop_actions.show_properties)
         launcher.copy_path_requested.connect(self.desktop_actions.copy_hit_path)
+        launcher.copy_name_requested.connect(self.desktop_actions.copy_hit_name)
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self.launcher_state.set_indexing_status(status)
