@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.162 - 2026-04-23
+
+- Audited the Linux AppImage packaging path so `linux-appimage` now records whether it produced a real `.AppImage` artifact and only requires that artifact when `appimagetool` is actually available on the build host.
+- Hardened the Debian packaging target to inspect the built `.deb` itself, validating shipped launcher, desktop entry, icon, license, changelog, and control metadata instead of trusting only the staging directory.
+- Tightened the Windows installer audit around uninstall behavior so packaging tests now pin the opt-in LocalAppData purge flow and fail if the installer starts deleting broader user state by default.
+
 ## 0.1.155 - 2026-04-23
 
 - Fixed the default observability paths on macOS so rotating logs now land under `~/Library/Logs/eodinga` and crash reports follow the same platform-native log root instead of falling back to Linux-style state directories.
