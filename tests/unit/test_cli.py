@@ -552,6 +552,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_sinks_file_configured"] == 0
     assert payload["log_sinks_file_disabled"] == 2
     assert payload["recent_snapshots_dropped"] == 0
+    assert payload["recent_snapshot_limit"] == 20
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["query_result_count_histogram"]["count"] == 1
     assert payload["command_latency_histogram"]["count"] == 1
@@ -577,6 +578,11 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert len(payload["recent_snapshots"]) == 1
     assert payload["recent_snapshot_count"] == 1
     assert payload["recent_snapshot_activity"] == {"command.search": 1}
+    assert payload["latest_recent_snapshot_name"] == "command.search"
+    assert (
+        payload["latest_recent_snapshot_recorded_at"]
+        == payload["recent_snapshots"][0]["recorded_at"]
+    )
     assert payload["recent_snapshots"][0]["name"] == "command.search"
     assert payload["recent_snapshots"][0]["payload"]["query"] == "duplicate"
     assert payload["file_logging_enabled"] is True
@@ -710,6 +716,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["log_sinks_file_configured"] == 0
     assert payload["log_sinks_file_disabled"] == 3
     assert payload["recent_snapshots_dropped"] == 0
+    assert payload["recent_snapshot_limit"] == 20
     assert payload["commands_started"] == 3
     assert payload["commands_completed"] == 2
     assert payload["commands_failed"] == 0
@@ -754,6 +761,11 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
         "command.index": 1,
         "command.search": 1,
     }
+    assert payload["latest_recent_snapshot_name"] == "command.search"
+    assert (
+        payload["latest_recent_snapshot_recorded_at"]
+        == payload["recent_snapshots"][-1]["recorded_at"]
+    )
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
         "command.index",
         "command.search",
@@ -1026,6 +1038,11 @@ def test_stats_json_structures_interrupted_command_counts(
     ]
     assert payload["recent_snapshot_count"] == 1
     assert payload["recent_snapshot_activity"] == {"command.failure": 1}
+    assert payload["latest_recent_snapshot_name"] == "command.failure"
+    assert (
+        payload["latest_recent_snapshot_recorded_at"]
+        == payload["recent_snapshots"][0]["recorded_at"]
+    )
 
 
 def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> None:
@@ -1048,6 +1065,11 @@ def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> 
     assert len(payload["recent_snapshots"]) == 1
     assert payload["recent_snapshot_count"] == 1
     assert payload["recent_snapshot_activity"] == {"command.failure": 1}
+    assert payload["latest_recent_snapshot_name"] == "command.failure"
+    assert (
+        payload["latest_recent_snapshot_recorded_at"]
+        == payload["recent_snapshots"][0]["recorded_at"]
+    )
     assert payload["recent_snapshots"][0]["name"] == "command.failure"
     assert payload["recent_snapshots"][0]["payload"]["command"] == "search"
     assert payload["recent_snapshots"][0]["payload"]["reason"] == "nonzero_exit"
@@ -1068,6 +1090,12 @@ def test_stats_json_exposes_dropped_recent_snapshot_count(tmp_path: Path, capsys
     assert payload["recent_snapshots_dropped"] == 5
     assert payload["recent_snapshot_count"] == 20
     assert payload["recent_snapshot_activity"] == {"command.search": 20}
+    assert payload["recent_snapshot_limit"] == 20
+    assert payload["latest_recent_snapshot_name"] == "command.search"
+    assert (
+        payload["latest_recent_snapshot_recorded_at"]
+        == payload["recent_snapshots"][-1]["recorded_at"]
+    )
     assert payload["recent_snapshots"][0]["payload"]["index"] == 5
     assert payload["recent_snapshots"][-1]["payload"]["index"] == 24
     assert payload["counters"]["recent_snapshots_dropped"] == 5

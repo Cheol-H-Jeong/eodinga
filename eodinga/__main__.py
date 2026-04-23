@@ -26,6 +26,7 @@ from eodinga.observability import (
     install_crash_handlers,
     record_snapshot,
     record_histogram,
+    recent_snapshot_limit,
     recent_snapshots,
     resolve_crash_dir,
     snapshot_metrics,
@@ -210,6 +211,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     counters = metrics["counters"]
     log_target = resolve_log_target()
     snapshots = [dict(entry) for entry in recent_snapshots()]
+    latest_snapshot = snapshots[-1] if snapshots else None
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
         process_started_at=metrics["process_started_at"],
@@ -254,6 +256,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         log_sinks_file_configured=counter_value("log_sinks.file.configured"),
         log_sinks_file_disabled=counter_value("log_sinks.file.disabled"),
         recent_snapshots_dropped=counter_value("recent_snapshots_dropped"),
+        recent_snapshot_limit=recent_snapshot_limit(),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
         query_result_count_histogram=histogram_snapshot("query_result_count"),
         command_latency_histogram=histogram_snapshot("command_latency_ms"),
@@ -274,6 +277,12 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         histograms=metrics["histograms"],
         recent_snapshot_count=len(snapshots),
         recent_snapshot_activity=recent_snapshot_summary(snapshots),
+        latest_recent_snapshot_name=(
+            str(latest_snapshot["name"]) if latest_snapshot is not None else None
+        ),
+        latest_recent_snapshot_recorded_at=(
+            str(latest_snapshot["recorded_at"]) if latest_snapshot is not None else None
+        ),
         recent_snapshots=snapshots,
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,

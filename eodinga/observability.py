@@ -282,6 +282,10 @@ def recent_snapshots() -> list[SnapshotRecord]:
         return list(_RECENT_SNAPSHOTS)
 
 
+def recent_snapshot_limit() -> int:
+    return _RECENT_SNAPSHOT_LIMIT
+
+
 def counter_value(name: str) -> int:
     with _METRICS_LOCK:
         return _COUNTERS.get(name, 0)

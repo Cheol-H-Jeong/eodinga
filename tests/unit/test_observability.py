@@ -19,6 +19,7 @@ from eodinga.observability import (
     file_logging_enabled,
     increment_counter,
     install_crash_handlers,
+    recent_snapshot_limit,
     recent_snapshots,
     record_histogram,
     record_snapshot,
@@ -514,3 +515,7 @@ def test_record_snapshot_keeps_recent_entries_bounded() -> None:
     assert snapshots[0]["payload"]["index"] == 5
     assert snapshots[-1]["payload"]["index"] == 24
     assert counters["recent_snapshots_dropped"] == 5
+
+
+def test_recent_snapshot_limit_matches_runtime_retention_window() -> None:
+    assert recent_snapshot_limit() == 20

@@ -136,6 +136,7 @@ class StatsSnapshot(BaseModel):
     log_sinks_file_configured: int = 0
     log_sinks_file_disabled: int = 0
     recent_snapshots_dropped: int = 0
+    recent_snapshot_limit: int = 0
     query_latency_histogram: dict[str, object] = Field(default_factory=dict)
     query_result_count_histogram: dict[str, object] = Field(default_factory=dict)
     command_latency_histogram: dict[str, object] = Field(default_factory=dict)
@@ -156,6 +157,8 @@ class StatsSnapshot(BaseModel):
     histograms: dict[str, dict[str, object]] = Field(default_factory=dict)
     recent_snapshot_count: int = 0
     recent_snapshot_activity: dict[str, int] = Field(default_factory=dict)
+    latest_recent_snapshot_name: str | None = None
+    latest_recent_snapshot_recorded_at: str | None = None
     recent_snapshots: list[dict[str, object]] = Field(default_factory=list)
     roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None
