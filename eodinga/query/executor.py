@@ -168,6 +168,29 @@ def _text_matches(value: str, needle: str, case_sensitive: bool) -> bool:
     return normalized_needle in haystack
 
 
+def _phrase_matches(value: str, phrase: str, case_sensitive: bool) -> bool:
+    normalized_phrase = _normalize_search_text(phrase, case_sensitive=case_sensitive)
+    if normalized_phrase in _normalize_search_text(value, case_sensitive=case_sensitive):
+        return True
+    tokens = tuple(token for token in re.split(r"\s+", normalized_phrase) if token)
+    if len(tokens) < 2:
+        return False
+    pattern = r"\W+".join(re.escape(token) for token in tokens)
+    return bool(re.search(pattern, value, 0 if case_sensitive else re.IGNORECASE))
+
+
+def _term_matches(
+    value: str,
+    term_value: str,
+    *,
+    kind: str,
+    case_sensitive: bool,
+) -> bool:
+    if kind == "phrase":
+        return _phrase_matches(value, term_value, case_sensitive=case_sensitive)
+    return _text_matches(value, term_value, case_sensitive=case_sensitive)
+
+
 def _normalize_search_text(value: str, case_sensitive: bool) -> str:
     normalized = unicodedata.normalize("NFC", value)
     return normalized if case_sensitive else normalized.casefold()
@@ -178,8 +201,8 @@ def _fts_prefix_literal(value: str) -> str:
     return f'"{escaped}"*'
 
 
-def _term_ok(text: str, term_value: str, case_sensitive: bool, negated: bool) -> bool:
-    matched = _text_matches(text, term_value, case_sensitive)
+def _term_ok(text: str, term_value: str, kind: str, case_sensitive: bool, negated: bool) -> bool:
+    matched = _term_matches(text, term_value, kind=kind, case_sensitive=case_sensitive)
     return not matched if negated else matched
 
 
@@ -203,11 +226,13 @@ def _plain_term_matches_record(
     record: FileRecord,
     content_text: str,
     term_value: str,
+    kind: str,
     case_sensitive: bool,
 ) -> bool:
     target_text = f"{record.name} {record.parent_path} {record.path}"
-    return _text_matches(target_text, term_value, case_sensitive) or (
-        bool(content_text) and _text_matches(content_text, term_value, case_sensitive)
+    return _term_matches(target_text, term_value, kind=kind, case_sensitive=case_sensitive) or (
+        bool(content_text)
+        and _term_matches(content_text, term_value, kind=kind, case_sensitive=case_sensitive)
     )
 
 
@@ -217,6 +242,7 @@ def _filter_record(branch: CompiledBranch, record: FileRecord, content_text: str
             record,
             content_text,
             term.value,
+            term.kind,
             branch.case_sensitive,
         )
         if term.negated and matched:
@@ -224,11 +250,23 @@ def _filter_record(branch: CompiledBranch, record: FileRecord, content_text: str
         if not term.negated and not matched:
             return False
     for term in branch.path_filters:
-        if not _term_ok(str(record.path), term.value, branch.case_sensitive, term.negated):
+        if not _term_ok(
+            str(record.path),
+            term.value,
+            term.kind,
+            branch.case_sensitive,
+            term.negated,
+        ):
             return False
     target_text = f"{record.name} {record.parent_path} {record.path}"
     for term in branch.content_terms:
-        if not _term_ok(content_text, term.value, branch.case_sensitive, term.negated):
+        if not _term_ok(
+            content_text,
+            term.value,
+            term.kind,
+            branch.case_sensitive,
+            term.negated,
+        ):
             return False
     for term in branch.path_regex_terms:
         if not _regex_ok(

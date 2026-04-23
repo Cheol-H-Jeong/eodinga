@@ -303,6 +303,46 @@ def test_execute_escaped_phrase_query_matches_literal_quotes_and_backslashes(
     assert content_hits == ['release "candidate" notes.txt']
 
 
+def test_execute_phrase_query_matches_across_newlines_in_content(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/launch-plan.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="launch\nchecklist and sign-off",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, 'content:"launch checklist"', limit=5).hits]
+
+    assert hits == ["launch-plan.txt"]
+
+
+def test_execute_phrase_query_matches_across_punctuation_in_path_and_content(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/launch-checklist.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="launch/checklist approved",
+    )
+    tmp_db.commit()
+
+    path_hits = [hit.file.name for hit in search(tmp_db, '"launch checklist"', limit=5).hits]
+    content_hits = [hit.file.name for hit in search(tmp_db, 'content:"launch checklist"', limit=5).hits]
+
+    assert path_hits == ["launch-checklist.txt"]
+    assert content_hits == ["launch-checklist.txt"]
+
+
 def test_execute_relative_date_queries_use_local_day_boundaries(
     tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:
