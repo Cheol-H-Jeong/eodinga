@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.385 - 2026-04-23
+
+- Fixed slash-delimited DSL regex parsing so closing `/` detection now honors even vs odd backslash runs, which keeps valid patterns ending in a literal backslash from being misread as unterminated.
+- Stopped `content:` and `regex:` inline operators from silently downgrading malformed regex suffixes such as `imsi` or `i1` into plain word filters; these now fail with a syntax error consistently.
+- Expanded parser and CLI regressions around malformed inline regex suffixes and escaped-backslash regex delimiters to keep the grammar edge cases pinned.
+
 ## 0.1.377 - 2026-04-23
 
 - Returned a clean `130` exit code for interrupted CLI commands, recording them as interrupted instead of crashed so Ctrl+C and signal stops no longer surface as unhandled failures.
