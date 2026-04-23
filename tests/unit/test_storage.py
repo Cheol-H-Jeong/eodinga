@@ -148,6 +148,33 @@ def test_cleanup_index_files_fsyncs_parent_directory_when_durable(
     assert not path.with_name("index.db-shm").exists()
 
 
+def test_cleanup_index_files_tolerates_concurrent_missing_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    wal_path = path.with_name("index.db-wal")
+    shm_path = path.with_name("index.db-shm")
+    path.write_bytes(b"sqlite")
+    wal_path.write_bytes(b"wal")
+    shm_path.write_bytes(b"shm")
+    attempts: dict[Path, int] = {}
+    original_unlink = Path.unlink
+
+    def flaky_unlink(target: Path, *args: object, **kwargs: object) -> None:
+        attempts[target] = attempts.get(target, 0) + 1
+        if target in {path, wal_path, shm_path} and attempts[target] == 1:
+            original_unlink(target, *args, **kwargs)
+            raise FileNotFoundError(target)
+        original_unlink(target, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+
+    assert storage_module._cleanup_index_files(path) is False
+    assert not path.exists()
+    assert not wal_path.exists()
+    assert not shm_path.exists()
+
+
 def test_copy_index_with_sidecars_fsyncs_promoted_sidecars(tmp_path: Path, monkeypatch) -> None:
     source = tmp_path / "source.db"
     target = tmp_path / ".index.db.recover"
@@ -409,6 +436,34 @@ def test_recover_stale_wal_returns_false_when_nonempty_sidecar_survives(
     assert not staged_path.exists()
     assert not staged_wal_path.exists()
     assert not staged_path.with_name(".index.db.recover-shm").exists()
+
+
+def test_replay_stale_wal_tolerates_sidecar_cleanup_races(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    conn = sqlite3.connect(path)
+    apply_schema(conn)
+    conn.close()
+    wal_path = path.with_name("index.db-wal")
+    shm_path = path.with_name("index.db-shm")
+    wal_path.write_bytes(b"")
+    shm_path.write_bytes(b"")
+    attempts: dict[Path, int] = {}
+    original_unlink = Path.unlink
+
+    def flaky_unlink(target: Path, *args: object, **kwargs: object) -> None:
+        attempts[target] = attempts.get(target, 0) + 1
+        if target in {wal_path, shm_path} and attempts[target] == 1:
+            original_unlink(target, *args, **kwargs)
+            raise FileNotFoundError(target)
+        original_unlink(target, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+
+    assert storage_module._replay_stale_wal(path) is True
+    assert not wal_path.exists()
+    assert not shm_path.exists()
 
 
 def test_recover_stale_wal_uses_staged_copy_before_atomic_swap(

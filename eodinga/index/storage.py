@@ -98,16 +98,14 @@ def _cleanup_sidecars(path: Path) -> bool:
     cleaned = False
     for suffix in ("-wal", "-shm"):
         sidecar = _sidecar(path, suffix)
-        if sidecar.exists():
-            sidecar.unlink()
+        if _unlink_if_exists(sidecar):
             cleaned = True
     return cleaned
 
 
 def _cleanup_index_files(path: Path, *, durable: bool = False) -> bool:
     cleaned = False
-    if path.exists():
-        path.unlink()
+    if _unlink_if_exists(path):
         cleaned = True
     cleaned = _cleanup_sidecars(path) or cleaned
     if cleaned and durable:
@@ -131,6 +129,14 @@ def _fsync_directory(path: Path) -> None:
         os.fsync(fd)
     finally:
         os.close(fd)
+
+
+def _unlink_if_exists(path: Path) -> bool:
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return False
+    return True
 
 
 def has_stale_wal(path: Path) -> bool:
@@ -157,8 +163,7 @@ def _cleanup_orphan_recovery_sidecars(path: Path, *, durable: bool = False) -> b
     cleaned = False
     for suffix in ("-wal", "-shm"):
         orphan = _sidecar(staged_path, suffix)
-        if orphan.exists():
-            orphan.unlink()
+        if _unlink_if_exists(orphan):
             cleaned = True
     if cleaned and durable:
         _fsync_directory(path.parent)
@@ -177,8 +182,7 @@ def _cleanup_orphan_build_sidecars(path: Path, *, durable: bool = False) -> bool
     cleaned = False
     for suffix in ("-wal", "-shm"):
         orphan = _sidecar(staged_path, suffix)
-        if orphan.exists():
-            orphan.unlink()
+        if _unlink_if_exists(orphan):
             cleaned = True
     if cleaned and durable:
         _fsync_directory(path.parent)
@@ -234,8 +238,7 @@ def _replay_stale_wal(path: Path) -> bool:
         sidecar = _sidecar(path, suffix)
         if sidecar.exists() and sidecar.stat().st_size > 0:
             return False
-        if sidecar.exists():
-            sidecar.unlink()
+        _unlink_if_exists(sidecar)
     return True
 
 
