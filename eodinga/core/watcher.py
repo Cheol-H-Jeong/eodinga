@@ -230,6 +230,9 @@ class WatchService:
         self._reset_state()
 
     def record(self, event: WatchEvent) -> None:
+        if self._stop.is_set():
+            increment_counter("watcher_events_discarded_on_stop")
+            return
         increment_counter("watcher_events", event_type=event.event_type)
         increment_counter(f"watcher_events.{event.event_type}")
         immediate_emit: WatchEvent | None = None

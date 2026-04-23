@@ -487,6 +487,28 @@ def test_watcher_stop_counts_discarded_pending_and_queued_events(tmp_path: Path)
     assert counters["watcher_events_discarded_on_stop"] == 2
 
 
+def test_watcher_record_after_stop_counts_as_discarded_without_new_event_metrics(
+    tmp_path: Path,
+) -> None:
+    service = WatchService()
+    reset_metrics()
+
+    service.stop()
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "late.txt",
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["watcher_events_discarded_on_stop"] == 1
+    assert "watcher_events" not in counters
+    assert "watcher_events.created" not in counters
+
+
 def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:
     reset_metrics()
 

@@ -629,6 +629,43 @@ def test_watcher_stop_clears_stale_pending_events_before_restart(tmp_path: Path)
         service.stop()
 
 
+def test_watcher_ignores_late_events_recorded_after_stop_before_restart(tmp_path: Path) -> None:
+    service = WatchService()
+    late = tmp_path / "late.txt"
+    fresh = tmp_path / "fresh.txt"
+
+    service.stop()
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=late,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+
+    service.start(tmp_path)
+    try:
+        service.record(
+            WatchEvent(
+                event_type="created",
+                path=fresh,
+                root_path=tmp_path,
+                happened_at=2.0,
+            )
+        )
+        service._flush_ready(force=True)
+
+        event = service.queue.get_nowait()
+        assert event.event_type == "created"
+        assert event.path == fresh
+
+        with pytest.raises(Empty):
+            service.queue.get_nowait()
+    finally:
+        service.stop()
+
+
 def test_watcher_start_ignores_duplicate_root_registration(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
