@@ -84,6 +84,8 @@ testpaths = ["tests"]
 
 [tool.pyright]
 pythonVersion = "3.11"
+venvPath = "."
+venv = ".venv"
 include = ["eodinga", "tests", "packaging/build.py"]
 exclude = ["tests/fixtures"]
 typeCheckingMode = "basic"
