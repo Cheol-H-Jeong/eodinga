@@ -331,8 +331,12 @@ def _should_scan_path_candidates(branch: CompiledBranch, fts_ids: list[int]) -> 
         return False
     if not fts_ids:
         return True
-    # Keep the scan supplement for scripts where unicode token boundaries are less predictable.
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    if any(any(ord(char) > 127 for char in term.value) for term in positive_terms):
+        return True
+    if len(positive_terms) == 1 and positive_terms[0].value.isalpha() and len(fts_ids) <= 1:
+        # FTS can miss later punctuation-delimited ASCII tokens such as "alpha-gamma.txt".
+        return True
+    return False
 
 
 def _fetch_path_candidates_fts(
