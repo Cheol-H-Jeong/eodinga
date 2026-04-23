@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.515 - 2026-04-23
+
+- Canonicalized parsed regex flags to lowercase so equivalent queries like `/todo/IM` and `/todo/im` now produce the same AST and compiled flag payloads.
+- Added end-to-end executor regressions for multiline (`m`) and dotall (`s`) content regex searches, pinning matches on non-initial lines and across embedded newlines.
+- Expanded compiler and executor truth-table coverage for negated `AND` groups and nested negated groups so De Morgan distribution stays correct as the DSL evolves.
+
 ## 0.1.510 - 2026-04-23
 
 - Tightened structural query filters so `is:file` now matches regular files only and `is:dir` now matches non-symlink directories only, leaving `is:symlink` as the explicit way to query link entries.
