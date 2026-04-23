@@ -39,6 +39,28 @@ def _wait_for_query_hit(
     raise AssertionError(f"{expected_path} did not become query-visible within {deadline_seconds:.3f}s")
 
 
+def _wait_for_query_miss(
+    conn,
+    service: WatchService,
+    writer: IndexWriter,
+    query: str,
+    missing_path: Path,
+    deadline_seconds: float,
+) -> float:
+    started = monotonic()
+    deadline = started + deadline_seconds
+    while monotonic() < deadline:
+        try:
+            event = service.queue.get(timeout=0.05)
+        except Empty:
+            continue
+        writer.apply_events([event], record_loader=make_record)
+        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
+        if missing_path not in hits:
+            return monotonic() - started
+    raise AssertionError(f"{missing_path} remained query-visible after {deadline_seconds:.3f}s")
+
+
 def test_hot_restart_recovers_stale_wal_and_preserves_queries(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     root.mkdir()
@@ -198,3 +220,58 @@ def test_hot_restart_reopen_multi_root_keeps_queries_and_accepts_live_updates(tm
     assert elapsed <= 0.5
     assert reopened_hits == {existing_a, existing_b}
     assert reopened_beta_hits == {existing_b}
+
+
+def test_hot_restart_persists_live_create_and_delete_across_reopen(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    removed = root / "remove-after-watch.txt"
+    removed.write_text("restart deleted query\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        created = root / "persist-after-watch.txt"
+        created.write_text("restart created query\n", encoding="utf-8")
+        created_elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "restart created query",
+            created,
+            deadline_seconds=0.5,
+        )
+
+        initial_removed_hits = [
+            hit.file.path for hit in search(conn, "restart deleted query", limit=5).hits
+        ]
+        removed.unlink()
+        deleted_elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "restart deleted query",
+            removed,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    reopened = open_index(db_path)
+    try:
+        created_hits = [hit.file.path for hit in search(reopened, "restart created query", limit=5).hits]
+        deleted_hits = [hit.file.path for hit in search(reopened, "restart deleted query", limit=5).hits]
+    finally:
+        reopened.close()
+
+    assert created_elapsed <= 0.5
+    assert initial_removed_hits == [removed]
+    assert deleted_elapsed <= 0.5
+    assert created_hits == [created]
+    assert deleted_hits == []
