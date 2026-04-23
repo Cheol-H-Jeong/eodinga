@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.266 - 2026-04-23
+## 0.1.269 - 2026-04-23
 
 - Expanded `README.md` with dependency profiles, task-oriented query recipes, and packaging-output checks so operators can choose the right local install and validation path faster.
 - Clarified `docs/DSL.md` with precedence rules, calendar-boundary date macros, range examples, and regex-flag coverage so complex queries are easier to reason about correctly.
