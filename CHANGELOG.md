@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.551 - 2026-04-23
+## 0.1.553 - 2026-04-23
 
 - Expanded the README operator contract with a capability matrix, validation-path table, and explicit docs-asset workflow so contributors can tell which extras and checks are required for each surface.
 - Deepened the architecture guide with query ownership, query-visibility boundaries, release-asset provenance, and an operator triage map, making it easier to trace surprising search or packaging behavior to the right subsystem.
