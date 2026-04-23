@@ -11,10 +11,10 @@ from datetime import UTC, datetime
 from json import dumps as json_dumps
 from pathlib import Path
 from threading import Lock
-from typing import IO, Any, TypedDict
+from typing import IO, Any, TypedDict, cast
 
 from loguru import logger
-from eodinga.metrics_store import clear_metrics, load_metrics, save_metrics
+from eodinga.metrics_store import StoredMetrics, clear_metrics, load_metrics, save_metrics
 
 try:
     import resource
@@ -314,7 +314,7 @@ def flush_metrics() -> None:
     with _METRICS_LOCK:
         if not _METRICS_DIRTY:
             return
-        payload = {
+        payload: StoredMetrics = {
             "counters": dict(sorted(_COUNTERS.items())),
             "histograms": {
                 name: {
@@ -327,7 +327,7 @@ def flush_metrics() -> None:
                 }
                 for name, state in sorted(_HISTOGRAMS.items())
             },
-            "recent_snapshots": list(_RECENT_SNAPSHOTS),
+            "recent_snapshots": [dict(snapshot) for snapshot in _RECENT_SNAPSHOTS],
         }
     save_metrics(resolve_metrics_path(), payload)
     with _METRICS_LOCK:
@@ -489,20 +489,27 @@ def _ensure_metrics_loaded() -> None:
         for name, payload in persisted["histograms"].items():
             if not isinstance(payload, dict):
                 continue
-            buckets = payload.get("buckets_ms")
-            bucket_hits = payload.get("bucket_hits")
+            raw_payload = cast(dict[str, object], payload)
+            buckets = raw_payload.get("buckets_ms")
+            bucket_hits = raw_payload.get("bucket_hits")
             if not isinstance(buckets, list) or not isinstance(bucket_hits, dict):
                 continue
+            count = raw_payload.get("count", 0)
+            sum_ms = raw_payload.get("sum_ms", 0.0)
+            min_ms = raw_payload.get("min_ms")
+            max_ms = raw_payload.get("max_ms")
             _HISTOGRAMS[name] = _HistogramState(
                 buckets_ms=tuple(float(value) for value in buckets),
-                count=int(payload.get("count", 0)),
-                sum_ms=float(payload.get("sum_ms", 0.0)),
-                min_ms=None if payload.get("min_ms") is None else float(payload["min_ms"]),
-                max_ms=None if payload.get("max_ms") is None else float(payload["max_ms"]),
+                count=int(cast(int | str | bytes, count)),
+                sum_ms=float(cast(int | float | str | bytes, sum_ms)),
+                min_ms=None if min_ms is None else float(cast(int | float | str | bytes, min_ms)),
+                max_ms=None if max_ms is None else float(cast(int | float | str | bytes, max_ms)),
                 bucket_hits={label: int(value) for label, value in bucket_hits.items()},
             )
         _RECENT_SNAPSHOTS.extend(
-            entry for entry in persisted["recent_snapshots"] if isinstance(entry, dict)
+            cast(SnapshotRecord, entry)
+            for entry in persisted["recent_snapshots"]
+            if isinstance(entry, dict)
         )
         _METRICS_LOADED = True
 

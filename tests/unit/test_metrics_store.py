@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from eodinga.metrics_store import clear_metrics, empty_metrics, load_metrics, save_metrics
+from eodinga.metrics_store import StoredMetrics, clear_metrics, empty_metrics, load_metrics, save_metrics
 
 
 def test_load_metrics_returns_empty_when_missing(tmp_path: Path) -> None:
@@ -12,7 +12,7 @@ def test_load_metrics_returns_empty_when_missing(tmp_path: Path) -> None:
 
 def test_save_metrics_writes_atomic_json_payload(tmp_path: Path) -> None:
     path = tmp_path / "metrics" / "runtime.json"
-    payload = {
+    payload: StoredMetrics = {
         "counters": {"queries_served": 2},
         "histograms": {"query_latency_ms": {"count": 1}},
         "recent_snapshots": [{"name": "command.search"}],
