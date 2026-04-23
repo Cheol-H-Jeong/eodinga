@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.718 - 2026-04-23
+## 0.1.720 - 2026-04-23
 
 - Clarified the top-level README with a release-evidence matrix, docs-asset ownership table, and a least-invasive operator recovery order so release and support checks start from the smallest matching proof.
 - Added a contributor worker-round playbook and explicit metadata-retarget flow, making parallel worktree rounds easier to rebase without rewriting earlier substantive commits.
