@@ -141,6 +141,64 @@ def test_hot_restart_resumes_interrupted_recovery_stage(tmp_path: Path) -> None:
         assert not sidecar.exists()
 
 
+def test_hot_restart_resumes_interrupted_build_stage_with_queries(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    root.mkdir()
+    target = root / "build-notes.txt"
+    target.write_text("resumed staged build query\n", encoding="utf-8")
+
+    source = tmp_path / "source.db"
+    target_db = tmp_path / "index.db"
+    staged_db = tmp_path / ".index.db.next"
+
+    target_conn = open_index(target_db)
+    try:
+        target_conn.execute(
+            "INSERT INTO roots(id, path, include, exclude, added_at) VALUES (?, ?, ?, ?, ?)",
+            (1, "/obsolete", "[]", "[]", 1),
+        )
+        target_conn.commit()
+    finally:
+        target_conn.close()
+
+    source_conn = open_index(source)
+    try:
+        source_conn.execute("PRAGMA wal_autocheckpoint=0;")
+        source_conn.execute(
+            "INSERT INTO roots(id, path, include, exclude, added_at) VALUES (?, ?, ?, ?, ?)",
+            (1, str(root), "[]", "[]", 1),
+        )
+        source_conn.commit()
+        writer = IndexWriter(source_conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+        records = [
+            record
+            for batch in walk_batched(root, rules, root_id=1)
+            for record in batch
+        ]
+        assert writer.bulk_upsert(records) == len(records)
+
+        shutil.copy2(source, staged_db)
+        shutil.copy2(source.with_name("source.db-wal"), staged_db.with_name(".index.db.next-wal"))
+        shutil.copy2(source.with_name("source.db-shm"), staged_db.with_name(".index.db.next-shm"))
+    finally:
+        source_conn.close()
+
+    reopened = open_index(target_db)
+    try:
+        hits = [hit.file.name for hit in search(reopened, "resumed staged build", limit=3).hits]
+        stored_roots = [str(row[0]) for row in reopened.execute("SELECT path FROM roots").fetchall()]
+    finally:
+        reopened.close()
+
+    assert hits == ["build-notes.txt"]
+    assert stored_roots == [str(root)]
+    assert not staged_db.exists()
+    for suffix in ("-wal", "-shm"):
+        sidecar = staged_db.with_name(f"{staged_db.name}{suffix}")
+        assert not sidecar.exists()
+
+
 def test_hot_restart_reopen_multi_root_keeps_queries_and_accepts_live_updates(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
