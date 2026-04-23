@@ -1351,6 +1351,44 @@ def test_executor_caches_compiled_regex_by_pattern_and_flags(
     assert compile_calls[1][0] == r"report-\d+"
 
 
+def test_row_to_record_decodes_sqlite_rows_without_validation_round_trip() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    try:
+        row = conn.execute(
+            """
+            SELECT
+              7 AS id,
+              3 AS root_id,
+              '/workspace/reports/alpha.txt' AS path,
+              '/workspace/reports' AS parent_path,
+              'alpha.txt' AS name,
+              'alpha.txt' AS name_lower,
+              'txt' AS ext,
+              2048 AS size,
+              1713528000 AS mtime,
+              1713528001 AS ctime,
+              0 AS is_dir,
+              1 AS is_symlink,
+              x'616263' AS content_hash,
+              1713528002 AS indexed_at
+            """
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row is not None
+    record = executor_module._row_to_record(row)
+
+    assert record.id == 7
+    assert record.root_id == 3
+    assert record.path == Path("/workspace/reports/alpha.txt")
+    assert record.parent_path == Path("/workspace/reports")
+    assert record.is_dir is False
+    assert record.is_symlink is True
+    assert record.content_hash == b"abc"
+
+
 def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/alpha.txt", 1024, now, "txt", body_text="alpha")

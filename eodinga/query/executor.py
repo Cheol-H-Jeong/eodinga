@@ -7,7 +7,7 @@ import unicodedata
 from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, cast
 
 from pydantic import BaseModel, ConfigDict
 
@@ -39,6 +39,21 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+
+
+def _row_int(row: Mapping[str, object], key: str) -> int:
+    return int(cast(int | str | bytes, row[key]))
+
+
+def _row_str(row: Mapping[str, object], key: str) -> str:
+    return str(cast(str | Path, row[key]))
+
+
+def _row_bytes(row: Mapping[str, object], key: str) -> bytes | None:
+    value = row[key]
+    if value is None:
+        return None
+    return bytes(cast(bytes | bytearray | memoryview, value))
 
 
 @lru_cache(maxsize=256)
@@ -158,10 +173,22 @@ def _content_texts_sql(chunk_size: int) -> str:
 
 
 def _row_to_record(row: Mapping[str, object]) -> FileRecord:
-    payload = {key: row[key] for key in row.keys()}  # type: ignore[arg-type]
-    payload["is_dir"] = bool(payload["is_dir"])
-    payload["is_symlink"] = bool(payload["is_symlink"])
-    return FileRecord.model_validate(payload)
+    return FileRecord.model_construct(
+        id=_row_int(row, "id") if row["id"] is not None else None,
+        root_id=_row_int(row, "root_id"),
+        path=Path(_row_str(row, "path")),
+        parent_path=Path(_row_str(row, "parent_path")),
+        name=_row_str(row, "name"),
+        name_lower=_row_str(row, "name_lower"),
+        ext=_row_str(row, "ext"),
+        size=_row_int(row, "size"),
+        mtime=_row_int(row, "mtime"),
+        ctime=_row_int(row, "ctime"),
+        is_dir=bool(row["is_dir"]),
+        is_symlink=bool(row["is_symlink"]),
+        content_hash=_row_bytes(row, "content_hash"),
+        indexed_at=_row_int(row, "indexed_at"),
+    )
 
 
 def _make_flags(flag_text: str) -> int:
@@ -224,6 +251,11 @@ def _term_matches(
 def _normalize_search_text(value: str, case_sensitive: bool) -> str:
     normalized = unicodedata.normalize("NFC", value)
     return normalized if case_sensitive else normalized.casefold()
+
+
+@lru_cache(maxsize=512)
+def _normalized_needles(values: tuple[str, ...], case_sensitive: bool) -> tuple[str, ...]:
+    return tuple(_normalize_search_text(value, case_sensitive=case_sensitive) for value in values)
 
 
 def _fts_prefix_literal(value: str) -> str:
@@ -466,15 +498,16 @@ def _fetch_path_candidates_python_scan(
     if not positive_terms:
         return [], {}
     records = _fetch_records(conn, branch.where_sql, branch.where_params, limit=100_000)
-    matched = {
-        file_id: record
-        for file_id, record in records.items()
-        if all(
-            _text_matches(record.name, term.value, branch.case_sensitive)
-            or _text_matches(str(record.path), term.value, branch.case_sensitive)
-            for term in positive_terms
-        )
-    }
+    normalized_needles = _normalized_needles(
+        tuple(term.value for term in positive_terms),
+        branch.case_sensitive,
+    )
+    matched: dict[int, FileRecord] = {}
+    for file_id, record in records.items():
+        target_name = record.name if branch.case_sensitive else record.name_lower
+        target_path = _normalize_search_text(str(record.path), case_sensitive=branch.case_sensitive)
+        if all(needle in target_name or needle in target_path for needle in normalized_needles):
+            matched[file_id] = record
     ordered = sorted(
         matched.values(),
         key=lambda record: (
@@ -675,6 +708,10 @@ def _scan_auto_content_candidates(
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return {}
+    normalized_needles = _normalized_needles(
+        tuple(term.value for term in positive_terms),
+        branch.case_sensitive,
+    )
     target = max(limit, 1)
     batch_size = max(min(target * 2, 2000), 500)
     offset = 0
@@ -685,11 +722,11 @@ def _scan_auto_content_candidates(
             break
         content_texts = _fetch_content_texts(conn, batch)
         for file_id, record in batch.items():
-            content_text = content_texts.get(file_id, "")
-            if not all(
-                _text_matches(content_text, term.value, branch.case_sensitive)
-                for term in positive_terms
-            ):
+            content_text = _normalize_search_text(
+                content_texts.get(file_id, ""),
+                case_sensitive=branch.case_sensitive,
+            )
+            if not all(needle in content_text for needle in normalized_needles):
                 continue
             matched[file_id] = record
             if len(matched) >= target:
@@ -699,17 +736,15 @@ def _scan_auto_content_candidates(
 
 
 def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> list[int]:
-    positives = [term.value for term in branch.path_terms if not term.negated]
+    positives = tuple(term.value for term in branch.path_terms if not term.negated)
     if not positives:
         return []
+    normalized_needles = _normalized_needles(positives, branch.case_sensitive)
     hits: list[int] = []
     for file_id, record in records.items():
-        check_name = _normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
-        for term in positives:
-            needle = _normalize_search_text(term, case_sensitive=branch.case_sensitive)
-            if check_name.startswith(needle):
-                hits.append(file_id)
-                break
+        check_name = record.name if branch.case_sensitive else record.name_lower
+        if any(check_name.startswith(needle) for needle in normalized_needles):
+            hits.append(file_id)
     return hits
 
 
@@ -754,7 +789,7 @@ def _metadata_only_total_estimate(
 def _derive_name_path_hits(
     records: Mapping[int, FileRecord], branch: CompiledBranch
 ) -> tuple[list[int], list[int]]:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_terms = tuple(term for term in branch.path_terms if not term.negated)
     name_hits: list[int] = []
     path_hits: list[int] = []
     if not positive_terms:
@@ -764,20 +799,18 @@ def _derive_name_path_hits(
         )
         ids = [record.id for record in ordered if record.id is not None]
         return ids, ids
+    normalized_needles = _normalized_needles(
+        tuple(term.value for term in positive_terms),
+        branch.case_sensitive,
+    )
     for record in records.values():
         if record.id is None:
             continue
-        target_name = record.name
-        target_path = str(record.path)
-        if any(
-            _text_matches(target_name, term.value, branch.case_sensitive)
-            for term in positive_terms
-        ):
+        target_name = record.name if branch.case_sensitive else record.name_lower
+        target_path = _normalize_search_text(str(record.path), case_sensitive=branch.case_sensitive)
+        if any(needle in target_name for needle in normalized_needles):
             name_hits.append(record.id)
-        if any(
-            _text_matches(target_path, term.value, branch.case_sensitive)
-            for term in positive_terms
-        ):
+        if any(needle in target_path for needle in normalized_needles):
             path_hits.append(record.id)
     return name_hits, path_hits
 
