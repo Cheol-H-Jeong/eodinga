@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.431 - 2026-04-23
+
+- Tightened the top-level operator docs so the README now points reviewers directly at `packaging/dist/`, the local release handoff sequence, and the acceptance recovery path when the one-command gate fails.
+- Deepened the architecture and release references with an explicit release-input map, packaging review path, tag decision flow, and stronger guidance that derived docs assets and dry-run manifests are part of the shipped surface.
+- Added reproducibility guidance for perf-baseline refreshes and pinned the expanded docs contract in `tests/unit/test_docs_assets.py` so future docs-only release rounds stay auditable.
+
 ## 0.1.415 - 2026-04-23
 
 - Accepted spaced range syntax in query operators, so filters like `date:2026-01-01 .. 2026-01-03`, `date:.. 2026-01-03`, and `size:100 .. 500K` compile as intended instead of breaking into stray terms.
