@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QEventLoop, QPoint, QPointF, QTimer
+from PySide6.QtCore import QEvent, QEventLoop, QPoint, QPointF, QRect, QTimer
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtTest import QTest
@@ -693,6 +693,7 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
 
 def test_launcher_can_drag_frameless_window_from_footer_surface(qapp) -> None:
     launcher = LauncherWindow()
+    launcher._available_geometry = lambda: QRect(0, 0, 1920, 1080)  # type: ignore[method-assign]
     launcher.show()
     launcher.move(120, 90)
     qapp.processEvents()
@@ -730,3 +731,35 @@ def test_launcher_can_drag_frameless_window_from_footer_surface(qapp) -> None:
     assert launcher.pos() == QPoint(254, 174)
     assert launcher.eventFilter(launcher.shortcut_label, release)
     assert launcher.shortcut_label.cursor().shape() == Qt.CursorShape.OpenHandCursor
+
+
+def test_launcher_drag_stays_within_available_screen(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+    available = QRect(40, 20, launcher.width() + 120, launcher.height() + 100)
+    launcher._available_geometry = lambda: available  # type: ignore[method-assign]
+    launcher.move(80, 60)
+    qapp.processEvents()
+
+    press = QMouseEvent(
+        QEvent.Type.MouseButtonPress,
+        QPointF(6, 6),
+        QPointF(6, 6),
+        QPointF(86, 66),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    move = QMouseEvent(
+        QEvent.Type.MouseMove,
+        QPointF(30, 22),
+        QPointF(30, 22),
+        QPointF(700, 520),
+        Qt.MouseButton.NoButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+    assert launcher.eventFilter(launcher.status_label, press)
+    assert launcher.eventFilter(launcher.status_label, move)
+    assert launcher.pos() == QPoint(160, 120)

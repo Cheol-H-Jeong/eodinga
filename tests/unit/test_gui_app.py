@@ -228,6 +228,35 @@ def test_launcher_clamps_saved_geometry_to_available_screen(qapp, temp_config_pa
     qapp.processEvents()
 
 
+def test_launcher_persists_clamped_geometry_after_offscreen_move(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+    launcher._available_geometry = lambda: QRect(40, 20, 640, 360)  # type: ignore[method-assign]
+
+    launcher.show()
+    launcher.resize(500, 280)
+    launcher.move(900, 700)
+    qapp.processEvents()
+    launcher.hide()
+    qapp.processEvents()
+
+    stored = load(temp_config_path)
+    available = launcher._available_geometry()
+
+    assert stored.launcher.window_x is not None
+    assert stored.launcher.window_y is not None
+    assert stored.launcher.window_x >= available.left()
+    assert stored.launcher.window_y >= available.top()
+    assert stored.launcher.window_x + stored.launcher.window_width <= available.right() + 1
+    assert stored.launcher.window_y + stored.launcher.window_height <= available.bottom() + 1
+
+    window.close()
+    qapp.processEvents()
+
+
 def test_launcher_respects_always_on_top_config(qapp, temp_config_path: Path) -> None:
     config = AppConfig()
     config.launcher = config.launcher.model_copy(update={"always_on_top": False})

@@ -141,6 +141,12 @@ class LauncherWindow(LauncherPanel):
         top_left = QPoint(self._config.launcher.window_x, self._config.launcher.window_y)
         return QRect(_clamp_top_left(top_left, target_size, available), target_size)
 
+    def _normalized_geometry(self) -> QRect:
+        available = self._available_geometry()
+        size = _bounded_size(self.size(), available)
+        top_left = _clamp_top_left(self.pos(), size, available)
+        return QRect(top_left, size)
+
     def _schedule_geometry_persist(self) -> None:
         if self._config is None or self._config_path is None or not self._geometry_restored or not self.isVisible():
             return
@@ -149,11 +155,15 @@ class LauncherWindow(LauncherPanel):
     def _persist_geometry(self) -> None:
         if self._config is None or self._config_path is None or not self._geometry_restored:
             return
+        geometry_rect = self._normalized_geometry()
+        if geometry_rect.topLeft() != self.pos() or geometry_rect.size() != self.size():
+            self.resize(geometry_rect.size())
+            self.move(geometry_rect.topLeft())
         geometry = {
-            "window_x": self.x(),
-            "window_y": self.y(),
-            "window_width": self.width(),
-            "window_height": self.height(),
+            "window_x": geometry_rect.x(),
+            "window_y": geometry_rect.y(),
+            "window_width": geometry_rect.width(),
+            "window_height": geometry_rect.height(),
         }
         if (
             self._config.launcher.window_x == geometry["window_x"]
@@ -177,7 +187,9 @@ class LauncherWindow(LauncherPanel):
             mouse_event = cast(QMouseEvent, event)
             if not mouse_event.buttons() & Qt.MouseButton.LeftButton:
                 return False
-            self.move(mouse_event.globalPosition().toPoint() - self._drag_offset)
+            geometry = QRect(mouse_event.globalPosition().toPoint() - self._drag_offset, self.size())
+            clamped_top_left = _clamp_top_left(geometry.topLeft(), geometry.size(), self._available_geometry())
+            self.move(clamped_top_left)
             return True
         if event.type() == QEvent.Type.MouseButtonRelease and self._drag_offset is not None:
             mouse_event = cast(QMouseEvent, event)
