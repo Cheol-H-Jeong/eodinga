@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.182 - 2026-04-23
+## 0.1.188 - 2026-04-23
 
 - Added uncaught-exception crash hooks for main-thread, background-thread, and unraisable runtime failures so `crash-<ts>.log` artifacts are written even when errors bypass the CLI handler.
 - Added command-level observability counters and runtime histograms, exposing invoked, completed, failed, and interrupted command activity through `eodinga stats --json`.
