@@ -88,10 +88,13 @@ def test_compile_date_alias_uses_mtime_range() -> None:
 def test_compile_extended_date_aliases_use_mtime_ranges(query: str) -> None:
     compiled = compile_query(parse(query))
     branch = compiled.branches[0]
+    start, end = branch.where_params
 
     assert branch.where_sql == "files.mtime >= ? AND files.mtime < ?"
     assert len(branch.where_params) == 2
-    assert branch.where_params[0] < branch.where_params[1]
+    assert isinstance(start, int)
+    assert isinstance(end, int)
+    assert start < end
 
 
 def test_compile_reversed_date_range_normalizes_bounds() -> None:

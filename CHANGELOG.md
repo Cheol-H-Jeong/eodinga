@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.134 - 2026-04-23
+
+- Added `date:last-week` and `date:last-month` so relative date filters can target the prior calendar week and prior calendar month without spelling out ISO ranges.
+- Implemented bounded size filters like `size:100K..500K` and `size:100..500K`, normalizing reversed bounds and matching the documented DSL contract.
+- Added `is:empty` as a zero-byte regular-file filter and expanded query unit coverage so the new date, size, and emptiness predicates are pinned end to end.
+
 ## 0.1.130 - 2026-04-23
 
 - Expanded integration coverage so one live `WatchService` can monitor multiple configured roots while `search(..., root=...)` still isolates newly indexed results to the correct root.
