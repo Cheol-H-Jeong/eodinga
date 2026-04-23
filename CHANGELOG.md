@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.957 - 2026-04-24
+## 0.1.960 - 2026-04-24
 
 - Made staged-index cleanup tolerate unlink races, so startup and failed-swap artifact cleanup no longer crashes if another process already removed the same database sidecar.
 - Hardened the no-network safety audit to catch `curl` and `wget` launched through wrappers such as `/usr/bin/env`, `bash -lc`, `powershell -Command`, or `cmd /c`.
