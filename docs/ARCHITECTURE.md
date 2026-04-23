@@ -43,6 +43,15 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
                                                  CLI / GUI / launcher
 ```
 
+## Read And Write Boundaries
+
+| Boundary | Read from | Write to | Why it matters |
+| --- | --- | --- | --- |
+| Indexed user roots | configured filesystem roots | never | search targets stay read-only inputs; the runtime should not mutate indexed files |
+| Runtime config | platform config path or `--config` | same config path | launcher/UI preferences and pinned queries live outside the SQLite index |
+| Search index | platform data path or `--db` | same database directory plus staged sidecars | rebuilds, WAL replay, and watcher updates are isolated to the index directory |
+| Derived docs assets | `eodinga.__main__`, Qt docs surfaces | `docs/man/`, `docs/screenshots/` | release docs are generated from the real runtime, not hand-maintained copies |
+
 ## Module Map
 
 | Area | Primary modules | Responsibility |
@@ -169,6 +178,12 @@ query term or operator
     +--> fuse scores and emit normalized hits
 ```
 
+## Query Consistency Contract
+
+- `eodinga search`, the embedded search tab, and the launcher all call the same parser, compiler, executor, and ranker path.
+- Root scoping, regex fallback, duplicate detection, and date/size operators are therefore release-contract behavior, not UI-only affordances.
+- When operators report a mismatch between CLI and launcher results, treat it as one shared engine bug unless there is direct evidence the surfaces are reading different databases.
+
 ## Observability Flow
 
 ```text
@@ -258,6 +273,22 @@ IndexWriter.apply_events()
     |
     v
 next query sees updated results
+```
+
+## Watch-To-Query Sequence
+
+```text
+filesystem change
+    |
+    +--> watchdog event
+            |
+            +--> WatchService debounce/coalesce
+                    |
+                    +--> IndexWriter.apply_events()
+                            |
+                            +--> SQLite commit
+                                    |
+                                    +--> next CLI / GUI / launcher query sees the new row set
 ```
 
 ## Recovery Decision Tree
