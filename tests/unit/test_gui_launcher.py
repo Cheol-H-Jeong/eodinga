@@ -332,6 +332,47 @@ def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
     assert calls == ["ext:pdf"]
 
 
+def test_launcher_pin_button_toggles_current_query(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    launcher.query_field.setText("ext:pdf")
+    _wait(60)
+
+    assert launcher.pin_query_button.text() == "Pin"
+    assert launcher.pin_query_button.isEnabled()
+
+    launcher.pin_query_button.click()
+
+    assert state.pinned_queries == ["ext:pdf"]
+    assert launcher.pin_query_button.text() == "Unpin"
+    assert [button.text() for button in launcher.pinned_queries_row.buttons] == ["ext:pdf"]
+
+    launcher.pin_query_button.click()
+
+    assert state.pinned_queries == []
+    assert launcher.pin_query_button.text() == "Pin"
+
+
+def test_launcher_alt_p_toggles_pinned_query(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    launcher.query_field.setText("budget")
+    _wait(60)
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_P, Qt.KeyboardModifier.AltModifier)
+    assert state.pinned_queries == ["budget"]
+    assert launcher.pin_query_button.text() == "Unpin"
+    assert "Alt+P" in launcher.shortcut_label.text()
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_P, Qt.KeyboardModifier.AltModifier)
+    assert state.pinned_queries == []
+    assert launcher.pin_query_button.text() == "Pin"
+
+
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:
     revealed: list[str] = []
 
