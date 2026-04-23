@@ -1259,6 +1259,19 @@ def test_plain_query_can_fall_back_to_content_matches(tmp_db: sqlite3.Connection
     assert hits == ["alpha.txt"]
 
 
+def test_executor_caches_content_text_sql_templates_by_chunk_size() -> None:
+    executor_module._content_texts_sql.cache_clear()
+
+    executor_module._content_texts_sql(2)
+    executor_module._content_texts_sql(2)
+    executor_module._content_texts_sql(3)
+    executor_module._content_texts_sql(3)
+
+    cache_info = executor_module._content_texts_sql.cache_info()
+    assert cache_info.hits >= 2
+    assert cache_info.currsize == 2
+
+
 def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/alpha.txt", 1024, now, "txt", body_text="alpha")
