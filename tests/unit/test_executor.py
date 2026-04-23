@@ -452,6 +452,24 @@ def test_execute_reuses_cached_sql_shapes_for_content_queries(
     assert executor_module._content_candidates_sql.cache_info().hits >= 1
 
 
+def test_execute_reuses_cached_sql_shapes_for_content_text_fetch(
+    populated_db: sqlite3.Connection,
+) -> None:
+    executor_module._content_texts_sql.cache_clear()
+    ids = tuple(
+        int(row[0])
+        for row in populated_db.execute(
+            "SELECT file_id FROM content_map ORDER BY file_id LIMIT 3"
+        ).fetchall()
+    )
+
+    first = executor_module._fetch_content_texts(populated_db, ids)
+    second = executor_module._fetch_content_texts(populated_db, ids)
+
+    assert first == second
+    assert executor_module._content_texts_sql.cache_info().hits >= 1
+
+
 def test_execute_path_filter_with_short_unix_basename_literal(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/tmp/log", 512, now, "", body_text="system log")
