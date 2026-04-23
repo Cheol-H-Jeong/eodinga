@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 from typing import cast
 
 
@@ -69,3 +70,34 @@ def test_pyinstaller_runtime_modules_map_to_real_sources() -> None:
     for module_name in discovered_runtime_modules:
         module_path = Path(*module_name.split("."))
         assert module_path.with_suffix(".py").exists() or (module_path / "__init__.py").exists(), module_name
+
+
+def test_pyinstaller_hidden_import_discovery_supports_common_dynamic_import_shapes(tmp_path: Path) -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_hidden_imports = cast(Callable[[Path], list[str]], namespace["_discover_hidden_imports"])
+
+    source_root = tmp_path / "eodinga"
+    source_root.mkdir()
+    (source_root / "__init__.py").write_text("", encoding="utf-8")
+    (source_root / "dynamic_imports.py").write_text(
+        "\n".join(
+            [
+                "import importlib",
+                "import importlib as importlib_alias",
+                "from importlib import import_module as load_module",
+                "",
+                'FIRST = importlib.import_module("pkg.alpha")',
+                'SECOND = importlib_alias.import_module("pkg.beta")',
+                'THIRD = load_module("pkg.gamma")',
+                'FOURTH = __import__("pkg.delta")',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    hiddenimports = cast(list[str], discover_hidden_imports(source_root))
+
+    assert hiddenimports == ["pkg.alpha", "pkg.beta", "pkg.delta", "pkg.gamma"]

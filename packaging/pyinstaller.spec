@@ -124,17 +124,48 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
     discovered: set[str] = set()
     for source_path in source_root.rglob("*.py"):
         module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+        importlib_aliases = {"importlib"}
+        import_module_aliases = {"import_module"}
         for node in ast.walk(module):
-            if not isinstance(node, ast.Call):
-                continue
-            if not isinstance(node.func, ast.Name) or node.func.id != "import_module":
-                continue
-            if not node.args or not isinstance(node.args[0], ast.Constant):
-                continue
-            if not isinstance(node.args[0].value, str):
-                continue
-            discovered.add(node.args[0].value)
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "importlib":
+                        importlib_aliases.add(alias.asname or alias.name)
+            elif isinstance(node, ast.ImportFrom) and node.module == "importlib":
+                for alias in node.names:
+                    if alias.name == "import_module":
+                        import_module_aliases.add(alias.asname or alias.name)
+            elif isinstance(node, ast.Call):
+                module_name = _hidden_import_call_target(
+                    node,
+                    importlib_aliases=importlib_aliases,
+                    import_module_aliases=import_module_aliases,
+                )
+                if module_name is not None:
+                    discovered.add(module_name)
     return sorted(discovered)
+
+
+def _hidden_import_call_target(
+    node: ast.Call,
+    *,
+    importlib_aliases: set[str],
+    import_module_aliases: set[str],
+) -> str | None:
+    if not node.args:
+        return None
+    module_arg = node.args[0]
+    if not isinstance(module_arg, ast.Constant) or not isinstance(module_arg.value, str):
+        return None
+    func = node.func
+    if isinstance(func, ast.Name):
+        if func.id == "__import__" or func.id in import_module_aliases:
+            return module_arg.value
+        return None
+    if isinstance(func, ast.Attribute) and func.attr == "import_module":
+        if isinstance(func.value, ast.Name) and func.value.id in importlib_aliases:
+            return module_arg.value
+    return None
 
 
 def _is_stdlib_module(module_name: str) -> bool:
