@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.290 - 2026-04-23
+## 0.1.302 - 2026-04-23
 
 - Normalized query fallback phrase matching so quoted phrases still match across separators such as newlines and punctuation in path and content scans.
 - Accepted lowercase `z` as a UTC suffix in datetime filters, keeping ISO timestamp queries compatible with common shell and API output.
