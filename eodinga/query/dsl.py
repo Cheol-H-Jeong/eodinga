@@ -223,8 +223,14 @@ class _Parser:
             char = self._peek()
             if char is None:
                 raise QuerySyntaxError("unterminated regex", start)
-            if char == "/" and self.source[self.index - 1] != "\\":
-                break
+            if char == "/":
+                backslashes = 0
+                probe = self.index - 1
+                while probe >= pattern_start and self.source[probe] == "\\":
+                    backslashes += 1
+                    probe -= 1
+                if backslashes % 2 == 0:
+                    break
             self.index += 1
         pattern = self.source[pattern_start:self.index]
         self.index += 1

@@ -76,6 +76,24 @@ def test_parse_operator_regex_value() -> None:
     assert node.regex_flags == "i"
 
 
+def test_parse_regex_literal_with_even_backslashes_before_closing_slash() -> None:
+    node = parse(r"/foo\\\\/i")
+
+    assert isinstance(node, RegexNode)
+    assert node.pattern == r"foo\\\\"
+    assert node.flags == "i"
+
+
+def test_parse_operator_regex_value_with_even_backslashes_before_closing_slash() -> None:
+    node = parse(r"content:/foo\\\\/i")
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "content"
+    assert node.value_kind == "regex"
+    assert node.value == r"foo\\\\"
+    assert node.regex_flags == "i"
+
+
 @pytest.mark.parametrize(
     ("query", "expected_name", "expected_value"),
     [
