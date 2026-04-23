@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.197 - 2026-04-23
+## 0.1.202 - 2026-04-23
 
 - Expanded `README.md` with a faster-scanning install matrix, docs map, search recipes, and release-health commands so the shipped surface is easier to verify from one page.
 - Deepened `docs/DSL.md` with query-building patterns and execution hints that explain how to compose indexed filters, negation, regex, and root-scoped searches without guesswork.
