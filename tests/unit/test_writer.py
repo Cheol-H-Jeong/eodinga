@@ -68,8 +68,10 @@ def test_writer_bulk_upsert_uses_fast_write_pragmas(tmp_db: Path, tmp_path: Path
     records = [_synthetic_record(index, tmp_path) for index in range(2)]
 
     assert conn.execute("PRAGMA synchronous;").fetchone() == (2,)
+    assert conn.execute("PRAGMA cache_size;").fetchone() == (-2000,)
     assert writer.bulk_upsert(records) == 2
     assert conn.execute("PRAGMA synchronous;").fetchone() == (2,)
+    assert conn.execute("PRAGMA cache_size;").fetchone() == (-2000,)
 
 
 def test_writer_apply_events_uses_fast_write_pragmas(tmp_db: Path, tmp_path: Path) -> None:
@@ -83,12 +85,14 @@ def test_writer_apply_events_uses_fast_write_pragmas(tmp_db: Path, tmp_path: Pat
     path = tmp_path / "live.txt"
     path.write_text("live", encoding="utf-8")
 
-    seen_states: list[int] = []
+    seen_states: list[tuple[int, int]] = []
 
     def recording_loader(candidate: Path) -> FileRecord | None:
         synchronous = conn.execute("PRAGMA synchronous;").fetchone()
+        cache_size = conn.execute("PRAGMA cache_size;").fetchone()
         assert synchronous is not None
-        seen_states.append(int(synchronous[0]))
+        assert cache_size is not None
+        seen_states.append((int(synchronous[0]), int(cache_size[0])))
         return make_record(candidate)
 
     processed = writer.apply_events(
@@ -97,8 +101,9 @@ def test_writer_apply_events_uses_fast_write_pragmas(tmp_db: Path, tmp_path: Pat
     )
 
     assert processed == 1
-    assert seen_states == [1]
+    assert seen_states == [(1, -128000)]
     assert conn.execute("PRAGMA synchronous;").fetchone() == (2,)
+    assert conn.execute("PRAGMA cache_size;").fetchone() == (-2000,)
 
 
 def test_writer_caches_chunk_shaped_sql_templates() -> None:

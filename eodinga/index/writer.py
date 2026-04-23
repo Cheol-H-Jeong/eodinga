@@ -15,7 +15,7 @@ from eodinga.index.storage import temporary_pragmas
 ParserCallback = Callable[[Path], ParsedContent | None]
 RecordLoader = Callable[[Path], FileRecord | None]
 T = TypeVar("T")
-_WRITE_PRAGMAS = {"synchronous": "NORMAL"}
+_WRITE_PRAGMAS = {"synchronous": "NORMAL", "cache_size": -128000}
 
 
 class ExistingContentRow(NamedTuple):
