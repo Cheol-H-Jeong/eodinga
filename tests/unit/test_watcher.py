@@ -177,6 +177,25 @@ def test_watcher_create_then_move_ignores_late_source_delete(tmp_path: Path) -> 
         service.queue.get_nowait()
 
 
+def test_watcher_ignores_events_recorded_after_stop(tmp_path: Path) -> None:
+    service = WatchService()
+    service.stop()
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "late.txt",
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    assert service._pending == {}
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+
 def test_watcher_move_then_modify_preserves_move_metadata(tmp_path: Path) -> None:
     service = WatchService()
     source = tmp_path / "before.txt"

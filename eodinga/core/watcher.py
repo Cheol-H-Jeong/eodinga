@@ -231,11 +231,15 @@ class WatchService:
         self._reset_state()
 
     def record(self, event: WatchEvent) -> None:
+        if self._stop.is_set():
+            return
         increment_counter("watcher_events", event_type=event.event_type)
         increment_counter(f"watcher_events.{event.event_type}")
         immediate_emit: WatchEvent | None = None
         flush_now = False
         with self._lock:
+            if self._stop.is_set():
+                return
             if event.event_type in {"created", "modified"}:
                 self._flushed_retired_sources.discard(event.path)
             existing = self._pending.get(event.path)
