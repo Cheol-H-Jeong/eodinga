@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.745 - 2026-04-23
+## 0.1.747 - 2026-04-23
 
 - Surfaced launcher hotkey backend availability in Settings, disabling remap controls when the session cannot register a global shortcut instead of presenting a dead control.
 - Validated remapped launcher hotkeys before rebinding, rejecting blank, modifier-only, and multi-key chord input with a stable error path that leaves the current binding untouched.
