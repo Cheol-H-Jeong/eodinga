@@ -475,6 +475,32 @@ def test_execute_regex_flags_override_case_and_line_boundaries(
     assert strict_hits == []
 
 
+def test_execute_explicit_regex_operator_honors_uppercase_inline_flags(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/Report-011.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="Launch\nChecklist",
+    )
+    tmp_db.commit()
+
+    path_hits = [
+        hit.file.name for hit in search(tmp_db, r"case:true regex:/report-[0-9]+/I", limit=5).hits
+    ]
+    content_hits = [
+        hit.file.name
+        for hit in search(tmp_db, r"case:true content:/launch.checklist/IS", limit=5).hits
+    ]
+
+    assert path_hits == ["Report-011.txt"]
+    assert content_hits == ["Report-011.txt"]
+
+
 def test_execute_escaped_phrase_query_matches_literal_quotes_and_backslashes(
     tmp_db: sqlite3.Connection,
 ) -> None:
