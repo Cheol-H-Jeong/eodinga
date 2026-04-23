@@ -989,3 +989,41 @@ def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:
 
     hits = [hit.file.name for hit in search(tmp_db, "-(-(alpha | beta))", limit=10).hits]
     assert hits == ["alpha.txt", "beta.txt"]
+
+
+def test_fetch_content_texts_caches_sql_by_id_shape(tmp_db: sqlite3.Connection) -> None:
+    executor_module._content_texts_sql.cache_clear()
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/alpha.txt", 1024, now, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, "/workspace/beta.txt", 1024, now - 60, "txt", body_text="beta")
+    tmp_db.commit()
+
+    first = executor_module._fetch_content_texts(tmp_db, (1, 2))
+    second = executor_module._fetch_content_texts(tmp_db, (2, 1))
+
+    assert first[1].endswith("alpha")
+    assert second[2].endswith("beta")
+    assert executor_module._content_texts_sql.cache_info().hits >= 1
+
+
+def test_case_insensitive_prefix_and_name_hits_match_normalized_korean(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    composed = "가나다"
+    decomposed = unicodedata.normalize("NFD", composed)
+    _insert_file(tmp_db, 1, f"/workspace/{composed}.txt", 1024, now, "txt", body_text="alpha")
+    _insert_file(
+        tmp_db,
+        2,
+        f"/workspace/{decomposed}-memo.txt",
+        1024,
+        now - 60,
+        "txt",
+        body_text="beta",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "case:false 가나다", limit=10).hits]
+
+    assert hits[:2] == [f"{composed}.txt", f"{decomposed}-memo.txt"]
