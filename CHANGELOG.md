@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.531 - 2026-04-23
+## 0.1.532 - 2026-04-23
 
 - Surfaced `Alt+1` through `Alt+9` quick-pick badges directly on the top launcher results so the keyboard path is visible instead of hidden behind shortcut text alone.
 - Labeled the search-field clear button accessibly when the launcher is shown, closing the remaining unnamed interactive control in the launcher surface.
