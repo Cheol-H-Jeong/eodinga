@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.749 - 2026-04-23
+
+- Added a live launcher preview fallback that reads safe text snippets directly from the selected file when the index has no stored snippet, while reporting empty, folder, and binary cases explicitly.
+- Added right-click launcher result menus for `Open`, `Reveal`, `Copy Path`, `Copy Name`, and `Properties`, so the popup and embedded launcher expose the same actions without memorizing shortcuts first.
+- Improved launcher popup geometry restore on multi-monitor setups by picking the screen that best matches the saved window position before clamping oversized or off-screen bounds.
+
 ## 0.1.744 - 2026-04-23
 
 - Extended query date macros with `tomorrow`, `year`, and previous-period aliases like `prev-week`, `previous_month`, and `previous_year`, keeping them on the existing local-time boundary rules.
