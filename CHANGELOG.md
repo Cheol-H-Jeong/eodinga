@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.588 - 2026-04-23
+## 0.1.590 - 2026-04-23
 
 - Blocked false-positive Windows release audits from passing purely because stale `dist/` artifacts already existed, so the non-dry-run packaging target now stays red until a real audited release build attests its outputs.
 - Marked staged rebuild databases as `building` until the crawl fully completes, then flips them to `ready` just before publish so startup can distinguish resumable completed builds from interrupted partial ones.
