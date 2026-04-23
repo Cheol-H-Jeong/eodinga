@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.745 - 2026-04-23
+
+- Reworked the launcher's keyboard focus flow so `Tab` and `Shift+Tab` can reach pinned queries, recent queries, results, and result actions without trapping keyboard users between only the search box and result list.
+- Updated launcher preview and action-bar accessibility descriptions to announce whether a result is selected and which file is currently being previewed.
+- Aligned the empty-state and shortcut-hint copy with the new focus cycle, including chip-aware `Tab` guidance and clearer action-bar navigation hints.
+
 ## 0.1.744 - 2026-04-23
 
 - Extended query date macros with `tomorrow`, `year`, and previous-period aliases like `prev-week`, `previous_month`, and `previous_year`, keeping them on the existing local-time boundary rules.
