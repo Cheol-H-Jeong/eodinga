@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.915 - 2026-04-24
+
+- Rejected blank quoted phrases, including operator-scoped phrases that only contain whitespace, so empty-phrase validation no longer lets through searches that compile but cannot match meaningfully.
+- Rejected grouped negation around `case:` and `regex:` boolean toggles, preventing those mode operators from collapsing into tautological branches that returned incorrect search results.
+- Normalized Windows extended-length drive and UNC roots before building root-scope variants, so scoped searches now match indexed `C:\\...` and `\\\\server\\share\\...` paths when the caller supplies `\\\\?\\` roots.
+
 ## 0.1.911 - 2026-04-24
 
 - Normalized list-form subprocess command matching in the no-network source audit, so absolute-path invocations like `['/usr/bin/curl', ...]` and `wget.exe` tuples are rejected the same way as bare command names.
