@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.250 - 2026-04-23
+
+- Extended `date:`, `modified:`, and `created:` so relative macros like `today`, `yesterday`, `last-week`, and `last-month` can be used as range endpoints, including open-ended forms such as `date:today..` and `modified:..last-week`.
+- Added compiler and executor regressions that freeze local time and verify mixed relative/ISO ranges compile into the expected timestamp windows and return the intended files end to end.
+- Updated the README and DSL reference so the documented query surface now includes the new relative-range forms and the full previous-period macro set.
+
 ## 0.1.244 - 2026-04-23
 
 - Hardened staged index recovery so interrupted `.recover` and `.next` snapshots must contain initialized schema before they can replace a live index, preventing empty or half-built files from being promoted during startup recovery.
