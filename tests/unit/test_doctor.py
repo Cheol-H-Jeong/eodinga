@@ -90,6 +90,10 @@ def test_doctor_resumes_interrupted_recovery_before_reporting(tmp_path: Path) ->
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         (str(tmp_path), "[]", "[]", 1),
     )
+    conn.execute(
+        "INSERT INTO meta(key, value) VALUES('build_state', 'ready') "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+    )
     conn.commit()
     conn.close()
 
@@ -114,6 +118,10 @@ def test_doctor_resumes_interrupted_build_before_reporting(tmp_path: Path) -> No
     conn.execute(
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         (str(tmp_path), "[]", "[]", 1),
+    )
+    conn.execute(
+        "INSERT INTO meta(key, value) VALUES('build_state', 'ready') "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
     )
     conn.commit()
     conn.close()

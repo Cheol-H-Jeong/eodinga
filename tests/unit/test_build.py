@@ -99,6 +99,23 @@ def test_rebuild_index_records_runtime_metrics(tmp_path: Path) -> None:
     assert cast(int, batch_histogram["count"]) >= 1
 
 
+def test_rebuild_index_marks_published_database_ready(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    reopened = sqlite3.connect(db_path)
+    try:
+        row = reopened.execute("SELECT value FROM meta WHERE key = 'build_state'").fetchone()
+        assert row is not None
+        assert str(row[0]) == "ready"
+    finally:
+        reopened.close()
+
+
 def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -144,6 +161,46 @@ def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
             str(root / "alpha.txt"),
             str(root / "beta.txt"),
         ]
+    finally:
+        resumed.close()
+
+
+def test_rebuild_index_interrupt_leaves_stage_marked_incomplete(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    staged_path = db_path.with_name(".index.db.next")
+
+    original_walk_batched = build_module.walk_batched
+
+    def interrupting_walk_batched(root_path: Path, rules, root_id: int = 0):
+        yield from original_walk_batched(root_path, rules, root_id=root_id)
+        stop = current_stop
+        assert stop is not None
+        stop._handle_signal(signal.SIGTERM, None)
+
+    current_stop: build_module._SignalStop | None = None
+    original_enter = build_module._SignalStop.__enter__
+
+    def recording_enter(self: build_module._SignalStop) -> build_module._SignalStop:
+        nonlocal current_stop
+        current_stop = self
+        return original_enter(self)
+
+    monkeypatch.setattr(build_module, "walk_batched", interrupting_walk_batched)
+    monkeypatch.setattr(build_module._SignalStop, "__enter__", recording_enter)
+
+    with pytest.raises(KeyboardInterrupt):
+        rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    resumed = sqlite3.connect(staged_path)
+    try:
+        row = resumed.execute("SELECT value FROM meta WHERE key = 'build_state'").fetchone()
+        assert row is not None
+        assert str(row[0]) == "building"
     finally:
         resumed.close()
 

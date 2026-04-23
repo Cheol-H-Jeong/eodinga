@@ -10,6 +10,9 @@ from eodinga.index.schema import PRAGMAS, current_schema_version
 from eodinga.observability import get_logger
 
 SQLITE_CACHED_STATEMENTS = 128
+_BUILD_STATE_META_KEY = "build_state"
+_BUILD_STATE_BUILDING = "building"
+_BUILD_STATE_READY = "ready"
 
 
 def _sidecar(path: Path, suffix: str) -> Path:
@@ -199,6 +202,37 @@ def _has_initialized_schema(path: Path) -> bool:
         conn.close()
 
 
+def _meta_value(conn: sqlite3.Connection, key: str) -> str | None:
+    row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+    if row is None:
+        return None
+    return str(row[0])
+
+
+def _write_meta_value(conn: sqlite3.Connection, key: str, value: str) -> None:
+    conn.execute(
+        "INSERT INTO meta(key, value) VALUES(?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, value),
+    )
+
+
+def mark_staged_build_in_progress(conn: sqlite3.Connection) -> None:
+    _write_meta_value(conn, _BUILD_STATE_META_KEY, _BUILD_STATE_BUILDING)
+
+
+def mark_staged_build_ready(conn: sqlite3.Connection) -> None:
+    _write_meta_value(conn, _BUILD_STATE_META_KEY, _BUILD_STATE_READY)
+
+
+def _is_staged_build_ready(path: Path) -> bool:
+    conn = connect_database(path)
+    try:
+        return _meta_value(conn, _BUILD_STATE_META_KEY) == _BUILD_STATE_READY
+    finally:
+        conn.close()
+
+
 def recover_stale_wal(path: Path) -> bool:
     if not has_stale_wal(path):
         return False
@@ -267,7 +301,12 @@ def recover_interrupted_build(path: Path) -> bool:
             logger.warning("skipping interrupted staged build swap with uninitialized stage {}", staged_path)
             _cleanup_index_files(staged_path)
             _cleanup_partial_copy_artifacts(staged_path)
-            return False
+            return not staged_path.exists()
+        if not _is_staged_build_ready(staged_path):
+            logger.warning("skipping interrupted staged build swap with incomplete stage {}", staged_path)
+            _cleanup_index_files(staged_path)
+            _cleanup_partial_copy_artifacts(staged_path)
+            return not staged_path.exists()
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted staged build preparation for {}", path)
         _cleanup_index_files(staged_path)
@@ -324,6 +363,8 @@ __all__ = [
     "configure_connection",
     "connect_database",
     "has_stale_wal",
+    "mark_staged_build_in_progress",
+    "mark_staged_build_ready",
     "open_index",
     "recover_interrupted_build",
     "recover_interrupted_recovery",

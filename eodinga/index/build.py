@@ -12,7 +12,13 @@ from eodinga.common import PathRules
 from eodinga.config import RootConfig
 from eodinga.content.registry import parse
 from eodinga.core.walker import walk_batched
-from eodinga.index.storage import _cleanup_index_files, atomic_replace_index, connect_database
+from eodinga.index.storage import (
+    _cleanup_index_files,
+    atomic_replace_index,
+    connect_database,
+    mark_staged_build_in_progress,
+    mark_staged_build_ready,
+)
 from eodinga.index.writer import IndexWriter
 from eodinga.observability import increment_counter, record_histogram
 
@@ -108,6 +114,8 @@ def rebuild_index(
     )
     try:
         writer = IndexWriter(conn, parser_callback=parser_callback)
+        with conn:
+            mark_staged_build_in_progress(conn)
         with _SignalStop() as stop:
             for root_id, root in enumerate(effective_roots, start=1):
                 stop.raise_if_requested()
@@ -144,6 +152,8 @@ def rebuild_index(
                         increment_counter("files_indexed", indexed, root=str(root.path))
                     stop.raise_if_requested()
             stop.raise_if_requested()
+        with conn:
+            mark_staged_build_ready(conn)
     except KeyboardInterrupt:
         conn.close()
         raise
