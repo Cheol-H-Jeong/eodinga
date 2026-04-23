@@ -535,6 +535,27 @@ def test_execute_datetime_literal_and_range_queries(tmp_db: sqlite3.Connection) 
     assert range_hits == ["exact-second.txt", "later-second.txt"]
 
 
+def test_execute_mixed_date_and_datetime_range_queries(tmp_db: sqlite3.Connection) -> None:
+    day_start = int(datetime(2026, 1, 3, 0, 0, 0, tzinfo=UTC).timestamp())
+    cutoff = int(datetime(2026, 1, 3, 9, 16, 0, tzinfo=UTC).timestamp())
+    _insert_file(tmp_db, 1, "/workspace/day-start.txt", 512, day_start, "txt", body_text="day start")
+    _insert_file(tmp_db, 2, "/workspace/exact-second.txt", 512, cutoff, "txt", body_text="exact")
+    _insert_file(tmp_db, 3, "/workspace/after-cutoff.txt", 512, cutoff + 1, "txt", body_text="after")
+    tmp_db.commit()
+
+    forward_hits = [
+        hit.file.name
+        for hit in search(tmp_db, "modified:2026-01-03..2026-01-03T09:16:00+00:00", limit=10).hits
+    ]
+    reversed_hits = [
+        hit.file.name
+        for hit in search(tmp_db, "modified:2026-01-03T09:16:00+00:00..2026-01-03", limit=10).hits
+    ]
+
+    assert forward_hits == ["day-start.txt", "exact-second.txt"]
+    assert reversed_hits == forward_hits
+
+
 def test_execute_datetime_query_accepts_lowercase_utc_suffix(tmp_db: sqlite3.Connection) -> None:
     base = int(datetime(2026, 1, 3, 9, 15, 30, tzinfo=UTC).timestamp())
     _insert_file(tmp_db, 1, "/workspace/exact-second.txt", 512, base, "txt", body_text="exact")

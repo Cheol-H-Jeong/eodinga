@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
 from eodinga.query import compile
@@ -158,6 +160,30 @@ def test_compile_datetime_ranges_preserve_exact_endpoints() -> None:
     assert isinstance(start, int)
     assert isinstance(end, int)
     assert end - start == 31
+
+
+def test_compile_mixed_date_and_datetime_ranges_preserve_endpoint_precision() -> None:
+    compiled = compile_query(parse("modified:2026-01-03..2026-01-03T09:16:00+00:00"))
+    branch = compiled.branches[0]
+    local_tz = datetime.now().astimezone().tzinfo
+
+    assert branch.where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert branch.where_params == (
+        int(datetime(2026, 1, 3, 0, 0, 0, tzinfo=local_tz).timestamp()),
+        int(datetime(2026, 1, 3, 9, 16, 1, tzinfo=UTC).timestamp()),
+    )
+
+
+def test_compile_reversed_mixed_date_and_datetime_ranges_normalize_bounds() -> None:
+    compiled = compile_query(parse("created:2026-01-03T09:16:00+00:00..2026-01-03"))
+    branch = compiled.branches[0]
+    local_tz = datetime.now().astimezone().tzinfo
+
+    assert branch.where_sql == "files.ctime >= ? AND files.ctime < ?"
+    assert branch.where_params == (
+        int(datetime(2026, 1, 3, 0, 0, 0, tzinfo=local_tz).timestamp()),
+        int(datetime(2026, 1, 3, 9, 16, 1, tzinfo=UTC).timestamp()),
+    )
 
 
 def test_compile_size_range_normalizes_bounds() -> None:
