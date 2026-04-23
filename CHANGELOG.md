@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.153 - 2026-04-23
+## 0.1.154 - 2026-04-23
 
 - Surfaced config-backed pinned launcher queries in the shared popup and Search-tab state, so the empty state now shows both recent and pinned search shortcuts instead of only recents.
 - Added visible launcher query chips for pinned searches and active DSL filters, including click-to-apply chip actions and offscreen GUI regressions that cover the shared chip surface.
