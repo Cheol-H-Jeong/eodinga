@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.911 - 2026-04-24
+
+- Normalized list-form subprocess command matching in the no-network source audit, so absolute-path invocations like `['/usr/bin/curl', ...]` and `wget.exe` tuples are rejected the same way as bare command names.
+- Made staged index cleanup durable after failed rebuild, stale-WAL recovery, and interrupted recovery/build resume paths, reducing the chance that crash-retry loops resurrect already-deleted staging artifacts.
+- Counted watcher events discarded during shutdown, including both queued and still-debounced events, so stop-time loss is visible in runtime stats instead of being silently drained.
+
 ## 0.1.908 - 2026-04-23
 
 - Skipped redundant SQLite PRAGMA rewrites when a connection is already in the requested fast-write state, trimming per-batch rebuild overhead without changing steady-state durability defaults.
