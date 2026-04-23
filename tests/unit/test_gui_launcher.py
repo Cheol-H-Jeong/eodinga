@@ -405,7 +405,18 @@ def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> No
     launcher = LauncherWindow(state=state)
     launcher.show()
 
-    assert "Pinned: ext:pdf, size:>10M." in launcher.empty_state.body_label.text()
+    assert "Pinned filters: ext:pdf, size:>10M." in launcher.empty_state.body_label.text()
+
+
+def test_launcher_empty_state_uses_pinned_queries_as_no_result_suggestions(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf", "size:>10M"])
+    launcher = LauncherWindow(search_fn=lambda query, limit: QueryResult(items=[], total=0, elapsed_ms=1.0), state=state)
+    launcher.show()
+
+    launcher.query_field.setText("invoice")
+    _wait(60)
+
+    assert "Try pinned filters like ext:pdf, size:>10M." in launcher.empty_state.body_label.text()
 
 
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:

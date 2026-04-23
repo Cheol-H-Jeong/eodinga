@@ -287,12 +287,28 @@ class LauncherPanel(QWidget):
         details = format_indexing_status(self._indexing_status)
         if not query:
             recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
-            pinned_queries = f" Pinned: {', '.join(self._pinned_queries[:3])}." if self._pinned_queries else ""
-            self.empty_state.set_content("Type to search", f"Recent: {recent_queries}.{pinned_queries} Press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.", details)
+            pinned_queries = ""
+            if self._pinned_queries:
+                pinned_queries = f" Pinned filters: {', '.join(self._pinned_queries[:3])}."
+            self.empty_state.set_content(
+                "Type to search",
+                (
+                    f"Recent: {recent_queries}.{pinned_queries} "
+                    "Press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, "
+                    "Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder."
+                ),
+                details,
+            )
         else:
+            pinned_hint = ""
+            if self._pinned_queries:
+                pinned_hint = f" Try pinned filters like {', '.join(self._pinned_queries[:2])}."
             self.empty_state.set_content(
                 f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Tab to jump back to the filter or Esc to hide the launcher.",
+                (
+                    "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M."
+                    f"{pinned_hint} Press Tab to jump back to the filter or Esc to hide the launcher."
+                ),
                 details,
             )
         self.empty_state.setVisible(not has_results)
