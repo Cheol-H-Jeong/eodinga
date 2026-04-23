@@ -10,7 +10,15 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
-from eodinga.gui.widgets import EmptyState, LauncherActionBar, LauncherPreviewPane, ResultItemDelegate, SearchField, StatusChip
+from eodinga.gui.widgets import (
+    EmptyState,
+    LauncherActionBar,
+    LauncherPreviewPane,
+    QueryChipRow,
+    ResultItemDelegate,
+    SearchField,
+    StatusChip,
+)
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
@@ -47,6 +55,18 @@ class LauncherPanel(QWidget):
 
         self.query_field = SearchField(parent=self)
         self.query_field.setAccessibleName("Launcher search field")
+        self.pinned_queries_row = QueryChipRow(
+            "Pinned",
+            accessible_name="Pinned launcher queries",
+            on_chip_clicked=self._apply_query_chip,
+            parent=self,
+        )
+        self.recent_queries_row = QueryChipRow(
+            "Recent",
+            accessible_name="Recent launcher queries",
+            on_chip_clicked=self._apply_query_chip,
+            parent=self,
+        )
         self.result_list = QListView(self)
         self.result_list.setAccessibleName("Launcher results list")
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
@@ -77,6 +97,8 @@ class LauncherPanel(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
+        layout.addWidget(self.pinned_queries_row)
+        layout.addWidget(self.recent_queries_row)
 
         content = QHBoxLayout()
         content.setSpacing(SPACE_16)
@@ -154,9 +176,12 @@ class LauncherPanel(QWidget):
 
     def set_recent_queries(self, queries: list[str]) -> None:
         self._recent_queries = queries
+        self.recent_queries_row.set_queries(queries[:5])
         self._refresh_empty_state()
+
     def set_pinned_queries(self, queries: list[str]) -> None:
         self._pinned_queries = queries
+        self.pinned_queries_row.set_queries(queries[:5])
         self._refresh_empty_state()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
@@ -285,7 +310,11 @@ class LauncherPanel(QWidget):
         if not query:
             recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
             pinned_queries = f" Pinned: {', '.join(self._pinned_queries[:3])}." if self._pinned_queries else ""
-            self.empty_state.set_content("Type to search", f"Recent: {recent_queries}.{pinned_queries} Press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.", details)
+            self.empty_state.set_content(
+                "Type to search",
+                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
+                details,
+            )
         else:
             self.empty_state.set_content(
                 f'No results for "{query}"',
@@ -448,3 +477,8 @@ class LauncherPanel(QWidget):
             self.query_field.setCursorPosition(len(query))
         finally:
             self._applying_history_query = False
+
+    def _apply_query_chip(self, query: str) -> None:
+        self.query_field.setFocus()
+        self._set_query_from_history(query)
+        self._flush_pending_query()

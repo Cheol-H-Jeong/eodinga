@@ -303,6 +303,35 @@ def test_launcher_activation_flushes_debounced_query_before_opening(qapp) -> Non
     assert launcher.status_chip.text() == "Ready"
 
 
+def test_launcher_shows_clickable_pinned_and_recent_query_chips(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf", "date:this-week"])
+    state.remember_query("release notes")
+    state.remember_query("budget")
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    assert [button.text() for button in launcher.pinned_queries_row.buttons] == ["ext:pdf", "date:this-week"]
+    assert [button.text() for button in launcher.recent_queries_row.buttons] == ["budget", "release notes"]
+
+
+def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
+    calls: list[str] = []
+    state = LauncherState(pinned_queries=["ext:pdf"])
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        calls.append(query)
+        return QueryResult(items=[], total=0, elapsed_ms=1.0)
+
+    launcher = LauncherWindow(search_fn=search_fn, state=state)
+    launcher.show()
+
+    chip = launcher.pinned_queries_row.buttons[0]
+    chip.click()
+
+    assert launcher.query_field.text() == "ext:pdf"
+    assert calls == ["ext:pdf"]
+
+
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:
     revealed: list[str] = []
 
