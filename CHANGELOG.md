@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.548 - 2026-04-23
+
+- Locked the Windows Inno Setup installer to x64-compatible systems explicitly and audited that the rendered installer keeps 64-bit install mode enabled instead of relying on the output filename alone.
+- Added SHA-256 companion files for staged AppImage archives and made the Linux AppImage packaging audit fail if the checksum sidecar is missing or no longer matches the generated archive.
+- Added SHA-256 companion files for Debian dry-run archives and built `.deb` packages, with audit coverage that validates both staged and release artifact checksums.
+
 ## 0.1.540 - 2026-04-23
 
 - Normalized remapped launcher hotkeys into a stable canonical form, so spaced or alias-heavy input like `Control + Alt + K` now rebinds, persists, and displays as `ctrl+alt+k`.
