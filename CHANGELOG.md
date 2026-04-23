@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.375 - 2026-04-23
+## 0.1.376 - 2026-04-23
 
 - Hardened the frameless launcher restore path so saved popup geometry is clamped back onto an available screen instead of reopening completely off-screen after display layout changes.
 - Applied a minimum visible restore floor for launcher geometry and added launcher regressions around off-screen restores and undersized persisted dimensions.
