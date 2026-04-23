@@ -250,7 +250,13 @@ def write_crash_log(
         "version": __version__,
         "platform": sys.platform,
         "python": sys.version.split()[0],
+        "thread": threading.current_thread().name,
+        "executable": sys.executable,
+        "argv": sys.argv[1:],
         "cwd": str(Path.cwd()),
+        "file_logging_enabled": file_logging_enabled(),
+        "log_path": resolve_log_path(),
+        "crash_dir": target_dir,
     }
     if details:
         metadata.update(details)

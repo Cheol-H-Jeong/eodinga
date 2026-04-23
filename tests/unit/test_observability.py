@@ -103,7 +103,11 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert "pid=" in contents
     assert f"version={__version__}" in contents
     assert f"platform={sys.platform}" in contents
+    assert f"thread={threading.current_thread().name}" in contents
+    assert f"executable={sys.executable}" in contents
     assert f"cwd={Path.cwd()}" in contents
+    assert f"crash_dir={tmp_path}" in contents
+    assert "file_logging_enabled=True" in contents
     assert 'argv=["search", "boom"]' in contents
 
 
@@ -115,6 +119,20 @@ def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
         crash_path = write_crash_log(error, context="env override")
     assert crash_path.parent == tmp_path
     assert "env override" in crash_path.read_text(encoding="utf-8")
+
+
+def test_write_crash_log_records_resolved_log_state(tmp_path: Path, monkeypatch) -> None:
+    log_path = tmp_path / "logs" / "eodinga.log"
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    try:
+        raise RuntimeError("log state")
+    except RuntimeError as error:
+        crash_path = write_crash_log(error, crash_dir=tmp_path)
+
+    contents = crash_path.read_text(encoding="utf-8")
+    assert f"log_path={log_path}" in contents
 
 
 def test_write_crash_log_uses_unique_path_when_timestamp_collides(tmp_path: Path) -> None:
