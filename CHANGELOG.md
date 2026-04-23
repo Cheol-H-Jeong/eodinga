@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.377 - 2026-04-23
+## 0.1.382 - 2026-04-23
 
 - Added launcher query pinning directly in the popup and embedded search surfaces, including `Alt+P`, a dedicated pin button, and one-click pinned-filter chips fed by shared launcher state.
 - Persisted pinned launcher queries back to config immediately so toggles made in either launcher surface survive restart and stay synchronized across the popup and tabbed search UI.
