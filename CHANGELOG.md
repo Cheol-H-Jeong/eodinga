@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.188 - 2026-04-23
+## 0.1.190 - 2026-04-23
 
 - Added an active-filter chip row to the launcher so `ext:`, `date:`, `size:`, `content:`, and other DSL operators stay visible while typing, including fallback rendering when the query is temporarily invalid mid-edit.
 - Extended launcher accessibility labels to cover the shortcut hint, status summary, status chip, and empty-state copy, improving screen-reader coverage across the full popup surface instead of only the top-level inputs.
