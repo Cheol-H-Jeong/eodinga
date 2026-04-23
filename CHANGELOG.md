@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.853 - 2026-04-23
+
+- Clamped restored launcher popup origins back into the visible screen when saved coordinates drift left or above the active display, without changing the existing restore behavior for still-visible right-edge positions.
+- Added launcher result context menus for open, reveal, copy path, copy name, and properties, and exposed the same menu from the keyboard via the `Menu` key and `Shift+F10`.
+- Tightened the Windows release packaging audit so `packaging/build.py --target windows` now requires the current versioned installer payload instead of passing on stale build outputs from older rounds.
+
 ## 0.1.849 - 2026-04-23
 
 - Tightened the Linux packaging audits so staged AppImage and Debian launchers must execute `--help` successfully from outside the repo, proving the bundled runtime can boot headlessly.

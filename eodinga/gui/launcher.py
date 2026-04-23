@@ -398,6 +398,11 @@ class LauncherPanel(QWidget):
         if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
             self.query_field.setFocus()
             return True
+        if event.key() == Qt.Key.Key_Menu or (
+            event.key() == Qt.Key.Key_F10 and event.modifiers() == Qt.KeyboardModifier.ShiftModifier
+        ):
+            self._open_result_context_menu_for_current_selection()
+            return True
         if event.key() == Qt.Key.Key_Down:
             self._move_selection(1, wrap=True)
             return True
@@ -470,7 +475,7 @@ class LauncherPanel(QWidget):
         menu = self._create_result_context_menu()
         if menu is None:
             return
-        menu.exec(self.result_list.viewport().mapToGlobal(position))
+        self._present_result_context_menu(menu, self.result_list.viewport().mapToGlobal(position))
 
     def _create_result_context_menu(self) -> LauncherResultMenu | None:
         if self._current_hit() is None:
@@ -483,6 +488,19 @@ class LauncherPanel(QWidget):
             on_properties=self.emit_show_properties,
             parent=self.result_list,
         )
+
+    def _open_result_context_menu_for_current_selection(self) -> None:
+        index = self.result_list.currentIndex()
+        if not index.isValid():
+            return
+        menu = self._create_result_context_menu()
+        if menu is None:
+            return
+        anchor = self.result_list.visualRect(index).center()
+        self._present_result_context_menu(menu, self.result_list.viewport().mapToGlobal(anchor))
+
+    def _present_result_context_menu(self, menu: LauncherResultMenu, global_position) -> None:
+        menu.popup(global_position)
 
     def _navigate_recent_queries(self, direction: int) -> None:
         if not self._recent_queries:

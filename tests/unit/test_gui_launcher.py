@@ -765,6 +765,64 @@ def test_launcher_result_context_menu_is_unavailable_without_a_selection(qapp) -
     assert launcher._create_result_context_menu() is None
 
 
+def test_launcher_menu_key_opens_result_context_menu_for_selected_hit(qapp, monkeypatch) -> None:
+    opened: list[tuple[list[str], int, int]] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/release-notes.txt"), parent_path=Path("/tmp"), name="release-notes.txt")
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+    launcher.query_field.setText("release")
+    _wait(60)
+    launcher.result_list.setFocus()
+
+    def record_menu(menu, global_position) -> None:
+        opened.append(([action.text() for action in menu.actions() if action.text()], global_position.x(), global_position.y()))
+
+    monkeypatch.setattr(launcher, "_present_result_context_menu", record_menu)
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Menu)
+
+    assert opened
+    assert opened[0][0] == ["Open", "Reveal", "Copy Path", "Copy Name", "Properties"]
+
+
+def test_launcher_shift_f10_opens_result_context_menu_for_selected_hit(qapp, monkeypatch) -> None:
+    opened: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/release-notes.txt"), parent_path=Path("/tmp"), name="release-notes.txt")
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+    launcher.query_field.setText("release")
+    _wait(60)
+    launcher.result_list.setFocus()
+
+    monkeypatch.setattr(
+        launcher,
+        "_present_result_context_menu",
+        lambda menu, global_position: opened.extend(action.text() for action in menu.actions() if action.text()),
+    )
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_F10, Qt.KeyboardModifier.ShiftModifier)
+
+    assert opened == ["Open", "Reveal", "Copy Path", "Copy Name", "Properties"]
+
+
 def test_launcher_alt_number_quick_picks_results(qapp) -> None:
     activated: list[str] = []
 
