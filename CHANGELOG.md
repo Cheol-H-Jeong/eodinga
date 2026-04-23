@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.175 - 2026-04-23
+## 0.1.180 - 2026-04-23
 
 - Added a shared `packaging/project_metadata.py` helper so Debian control data and packaging audits now read the same name, version, description, publisher, and Python requirement from `pyproject.toml` instead of drifting across hardcoded strings.
 - Rendered the AppImage recipe through package-version and app-name templates during dry runs, and hardened the audit so `packaging/build.py` now proves the rendered recipe matches the current release metadata before packaging passes.
