@@ -335,13 +335,19 @@ def test_execute_reuses_cached_sql_shapes_for_content_queries(
     executor_module._content_candidates_sql.cache_clear()
     executor_module._auto_content_candidates_sql.cache_clear()
     executor_module._content_backfill_sql.cache_clear()
+    executor_module._content_texts_sql.cache_clear()
 
     first = search(populated_db, "content:launch", limit=5)
     second = search(populated_db, 'content:"alpha project 20"', limit=5)
+    third = search(populated_db, "notes -launch", limit=5)
+    fourth = search(populated_db, "notes -launch", limit=5)
 
     assert first.hits
     assert second.hits
+    assert third.hits
+    assert fourth.hits
     assert executor_module._content_candidates_sql.cache_info().hits >= 1
+    assert executor_module._content_texts_sql.cache_info().hits >= 1
 
 
 def test_execute_path_filter_with_short_unix_basename_literal(tmp_db: sqlite3.Connection) -> None:
