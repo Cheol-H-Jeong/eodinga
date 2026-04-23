@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.901 - 2026-04-23
+## 0.1.904 - 2026-04-23
 
 - Added reopen-persistence integration coverage for single-root live-created files, proving a watcher-applied update remains queryable after closing and reopening the index without a rebuild.
 - Added multi-root reopen-persistence coverage so post-watch live updates stay visible globally and remain constrained to the correct root-scoped queries after restart.
