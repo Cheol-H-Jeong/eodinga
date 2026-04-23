@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.571 - 2026-04-23
+## 0.1.572 - 2026-04-23
 
 - Persisted observability counters, histograms, and recent command snapshots to a metrics state file, so `eodinga stats --json` now survives separate CLI invocations instead of only reflecting one Python process.
 - Exposed the effective metrics-store path in `stats --json` and `crash-*.log`, and hardened metrics-state loading so a corrupt file is ignored with a warning instead of breaking command execution.
