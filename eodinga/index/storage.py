@@ -225,18 +225,21 @@ def recover_interrupted_recovery(path: Path) -> bool:
         return False
     logger = get_logger("index.storage")
     logger.warning("resuming interrupted recovery for {}", path)
+    preserve_stage = True
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
             return False
         if not _has_initialized_schema(staged_path):
             logger.warning("skipping interrupted recovery swap with uninitialized stage {}", staged_path)
+            preserve_stage = False
             return False
         atomic_replace_index(staged_path, path)
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted recovery resume for {}", path)
         return False
     finally:
-        _cleanup_index_files(staged_path)
+        if not preserve_stage:
+            _cleanup_index_files(staged_path)
         _cleanup_partial_copy_artifacts(staged_path)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
@@ -247,18 +250,21 @@ def recover_interrupted_build(path: Path) -> bool:
         return False
     logger = get_logger("index.storage")
     logger.warning("resuming interrupted staged build for {}", path)
+    preserve_stage = True
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
             return False
         if not _has_initialized_schema(staged_path):
             logger.warning("skipping interrupted staged build swap with uninitialized stage {}", staged_path)
+            preserve_stage = False
             return False
         atomic_replace_index(staged_path, path)
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted staged build resume for {}", path)
         return False
     finally:
-        _cleanup_index_files(staged_path)
+        if not preserve_stage:
+            _cleanup_index_files(staged_path)
         _cleanup_partial_copy_artifacts(staged_path)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
