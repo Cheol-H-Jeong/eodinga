@@ -7,6 +7,7 @@ from ctypes import wintypes
 from time import sleep
 from typing import Any, cast
 
+from eodinga.launcher.hotkey_combo import normalize_hotkey_combo
 from eodinga.observability import get_logger
 
 HotkeyCallback = Callable[[], None]
@@ -20,8 +21,20 @@ MOD_SHIFT = 0x0004
 MOD_WIN = 0x0008
 
 _VK_MAP = {
+    "backspace": 0x08,
+    "delete": 0x2E,
+    "down": 0x28,
+    "end": 0x23,
     "space": 0x20,
     "enter": 0x0D,
+    "escape": 0x1B,
+    "home": 0x24,
+    "left": 0x25,
+    "pagedown": 0x22,
+    "pageup": 0x21,
+    "right": 0x27,
+    "tab": 0x09,
+    "up": 0x26,
 }
 
 
@@ -49,7 +62,7 @@ def _windll() -> Any:
 
 
 def _parse_combo(combo: str) -> tuple[int, int]:
-    parts = [part.strip().lower() for part in combo.split("+") if part.strip()]
+    parts = normalize_hotkey_combo(combo).split("+")
     modifiers = 0
     key_name = ""
     for part in parts:
@@ -65,10 +78,23 @@ def _parse_combo(combo: str) -> tuple[int, int]:
             key_name = part
     if not key_name:
         raise ValueError(f"hotkey combo missing key: {combo}")
-    virtual_key = _VK_MAP.get(key_name, ord(key_name.upper()) if len(key_name) == 1 else 0)
+    function_key = _function_key_code(key_name)
+    virtual_key = _VK_MAP.get(key_name, function_key if function_key is not None else ord(key_name.upper()) if len(key_name) == 1 else 0)
     if virtual_key == 0:
         raise ValueError(f"unsupported hotkey key: {key_name}")
     return modifiers, virtual_key
+
+
+def _function_key_code(key_name: str) -> int | None:
+    if not key_name.startswith("f"):
+        return None
+    try:
+        index = int(key_name[1:])
+    except ValueError:
+        return None
+    if not 1 <= index <= 12:
+        return None
+    return 0x70 + index - 1
 
 
 class PlatformHotkeyService:

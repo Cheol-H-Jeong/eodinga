@@ -6,6 +6,7 @@ from importlib import import_module
 from threading import Event, Thread
 from time import sleep
 
+from eodinga.launcher.hotkey_combo import normalize_hotkey_combo
 from eodinga.observability import get_logger
 
 HotkeyCallback = Callable[[], None]
@@ -58,7 +59,7 @@ class _PynputBackend(_BackendBase):
             return
         if self._listener is not None:
             self._listener.stop()
-        normalized = self._combo.replace("ctrl", "<ctrl>").replace("shift", "<shift>").replace("alt", "<alt>")
+        normalized = _pynput_combo(self._combo)
         self._listener = self._listener_cls({normalized: self._callback})
         self._listener.start()
 
@@ -123,23 +124,73 @@ def _parse_x_combo(display, combo: str) -> tuple[int, int]:
     x_module = import_module("Xlib.X")
     key_name = ""
     modifiers = 0
-    for part in [item.strip().lower() for item in combo.split("+") if item.strip()]:
+    for part in normalize_hotkey_combo(combo).split("+"):
         if part == "ctrl":
             modifiers |= x_module.ControlMask
         elif part == "shift":
             modifiers |= x_module.ShiftMask
         elif part == "alt":
             modifiers |= x_module.Mod1Mask
+        elif part == "win":
+            modifiers |= x_module.Mod4Mask
         else:
             key_name = part
     if not key_name:
         raise ValueError(f"hotkey combo missing key: {combo}")
-    keysym = getattr(xk_module, f"XK_{key_name}", None)
+    keysym = getattr(xk_module, f"XK_{_x_keysym_name(key_name)}", None)
     if keysym is None:
         if len(key_name) != 1:
             raise ValueError(f"unsupported hotkey key: {key_name}")
         keysym = ord(key_name)
     return modifiers, display.keysym_to_keycode(keysym)
+
+
+def _pynput_combo(combo: str) -> str:
+    parts = []
+    for part in normalize_hotkey_combo(combo).split("+"):
+        if part in {"ctrl", "shift", "alt", "win"}:
+            parts.append(f"<{part}>")
+            continue
+        parts.append(f"<{_pynput_key_name(part)}>") if len(part) > 1 else parts.append(part)
+    return "+".join(parts)
+
+
+def _pynput_key_name(key_name: str) -> str:
+    return {
+        "delete": "delete",
+        "down": "down",
+        "end": "end",
+        "enter": "enter",
+        "escape": "esc",
+        "home": "home",
+        "left": "left",
+        "pagedown": "page_down",
+        "pageup": "page_up",
+        "right": "right",
+        "space": "space",
+        "tab": "tab",
+        "up": "up",
+        "backspace": "backspace",
+    }.get(key_name, key_name)
+
+
+def _x_keysym_name(key_name: str) -> str:
+    return {
+        "backspace": "BackSpace",
+        "delete": "Delete",
+        "down": "Down",
+        "end": "End",
+        "enter": "Return",
+        "escape": "Escape",
+        "home": "Home",
+        "left": "Left",
+        "pagedown": "Page_Down",
+        "pageup": "Page_Up",
+        "right": "Right",
+        "space": "space",
+        "tab": "Tab",
+        "up": "Up",
+    }.get(key_name, key_name.upper() if key_name.startswith("f") else key_name)
 
 
 class PlatformHotkeyService:
@@ -166,4 +217,3 @@ class PlatformHotkeyService:
             except ModuleNotFoundError:
                 get_logger().warning("python-xlib unavailable, falling back to pynput")
         return _PynputBackend()
-
