@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.709 - 2026-04-23
+## 0.1.711 - 2026-04-23
 
 - Added launcher filter suggestion chips that stay visible below the query field, seed common DSL filters when empty, and append refinements like `ext:pdf` or `date:this-week` onto an active search.
 - Filled in accessibility labels for the launcher clear-search control, launcher query sections, tab headings, and indexing progress copy so assistive technology can describe more of the GUI surface explicitly.
