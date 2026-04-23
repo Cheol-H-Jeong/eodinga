@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.822 - 2026-04-23
+
+- Fixed one-sided date ranges so relative endpoints like `date:..yesterday` and `date:today..` use the same parser path as closed ranges instead of rejecting non-ISO keywords.
+- Added executor coverage for multiline and dotall regex behavior under explicit `case:true`, locking in the intended interaction between inline regex flags and the default case mode.
+- Added parser, compiler, and executor coverage for uppercase inline regex flags on explicit `regex:` and `content:` filters, preserving case-insensitive flag handling end to end.
+
 ## 0.1.810 - 2026-04-23
 
 - Escaped literal `%`, `_`, and `^` characters in the query compiler's `path:` SQL fast path, so wildcard-like path fragments now stay literal without falling back to slower broad matches.
