@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.738 - 2026-04-23
+
+- Fixed spaced slash-prefixed `path:` filters so `path: /tmp/log` and `path: /tmp/log/i` now follow the same literal-versus-regex rules as the compact `path:/...` forms instead of misparsing as invalid regex input.
+- Extended root-scoped search matching across Windows `\\\\?\\` long-path prefixes, so scoped queries still hit indexed records when the root and stored path disagree only on long-path normalization.
+- Added parser and executor coverage for the new spaced `path:` forms and Windows long-path root variants to lock both correctness fixes in place.
+
 ## 0.1.721 - 2026-04-23
 
 - Derived PyInstaller `datas` entries from the project metadata instead of a hardcoded list, so packaging audits now track the source tree's declared package data directly.
