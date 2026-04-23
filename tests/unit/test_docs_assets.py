@@ -41,16 +41,19 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Install" in readme
     assert "## Install Matrix" in readme
     assert "## Quick Start" in readme
+    assert "## Search Surface Decision Guide" in readme
     assert "## Feature Overview" in readme
     assert "## Feature Inventory" in readme
     assert "## Surface Matrix" in readme
     assert "## Acceptance Quickcheck" in readme
     assert "## Validation Paths" in readme
     assert "## DSL Cheatsheet" in readme
+    assert "## Query Building Ladder" in readme
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
     assert "## Task Recipes" in readme
     assert "## Package Artifacts" in readme
+    assert "## Release Evidence Checklist" in readme
     assert "## Release Inputs" in readme
     assert "## Config and Data Paths" in readme
     assert "## Operator Checklist" in readme
@@ -83,6 +86,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "docs only" in readme
     assert "packaging/dist/" in readme
     assert "Review the dry-run output before tagging." in readme
+    assert "If any one of those four is out of sync" in readme
     assert "### State Directory Summary" in readme
     assert "EODINGA_LOG_PATH" in readme
     assert "EODINGA_CRASH_DIR" in readme
@@ -121,12 +125,16 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Index Lifecycle Sequence" in architecture
     assert "## Startup Recovery" in architecture
     assert "## Recovery Artifact Meanings" in architecture
+    assert "## Hot Restart Path" in architecture
     assert "## Rebuild Sequence" in architecture
     assert "## Query Execution" in architecture
+    assert "## Surface Consistency Checklist" in architecture
     assert "## Search Decision Path" in architecture
     assert "## Operator Evidence Sources" in architecture
+    assert "## Debug Decision Tree" in architecture
     assert "## Live Update Sequence" in architecture
     assert "## Documentation Asset Flow" in architecture
+    assert "## Release Evidence Flow" in architecture
     assert "## Release Input Map" in architecture
     assert "## State Ownership" in architecture
     assert "## Failure Domains" in architecture
@@ -140,6 +148,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "packaging/dist/" in architecture
     assert "EODINGA_LOG_PATH" in architecture
     assert "crash-<ts>.log" in architecture
+    assert "queries work without a fresh filesystem walk" in architecture
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
@@ -155,12 +164,14 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "scripts/render_docs_screenshots.py" in contributing
     assert "## Docs Refresh Order" in contributing
     assert "## Docs Round Checklist" in contributing
+    assert "## Evidence Capture" in contributing
     assert "## Metadata Commit Discipline" in contributing
     assert "## Release Retarget Playbook" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
     assert "## Review Checklist" in contributing
     assert "## Packaging Review Checklist" in contributing
+    assert "## Handoff Notes" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
     assert "The final release commit for a round should carry the version bump" in contributing
     assert "Do not rewrite earlier docs or feature commits" in contributing
@@ -193,6 +204,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Running the Suite" in performance
     assert "## Baseline" in performance
     assert "## Baseline Freshness Policy" in performance
+    assert "## Benchmark Evidence Bundle" in performance
     assert "## Repro Checklist" in performance
     assert "## Profiling Workflow" in performance
     assert "## Release Use" in performance
@@ -200,6 +212,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "The defaults currently checked into the suite are:" in performance
     assert "The printed benchmark summary line." in performance
     assert "current checked-in baseline" in performance
+    assert "If you cannot provide all five" in performance
 
     assert "## Pick The Version" in release
     assert "## Version Collision Guard" in release
@@ -207,6 +220,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Run The Gate" in release
     assert "## Artifact Inventory" in release
     assert "## Verify Shipped Docs" in release
+    assert "## Release Evidence Bundle" in release
     assert "## Packaging Audit Checklist" in release
     assert "## Tag Decision Path" in release
     assert "## Worker Handoff Rules" in release
@@ -224,6 +238,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Single-shot metadata cut" in release
     assert "git fetch origin main --tags" in release
     assert "A green dry run without a reviewed manifest is not a completed release check." in release
+    assert "screenshots or the generated man page were refreshed" in release
 
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage

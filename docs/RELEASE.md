@@ -95,6 +95,19 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Release Evidence Bundle
+
+Before you move the patch version, gather these review surfaces in one pass:
+
+| Evidence class | Minimum proof |
+| --- | --- |
+| Repo health | green `pytest`, `ruff`, `pyright`, and GUI smoke output |
+| Docs contract | green `tests/unit/test_docs_assets.py` plus manual spot-check of touched guides |
+| Packaging contract | reviewed `packaging/dist/` manifests for every touched dry run |
+| Metadata | matching `CHANGELOG.md`, `pyproject.toml`, `eodinga/__init__.py`, and intended local tag |
+
+This keeps release review anchored in concrete artifacts instead of memory of what the commands printed.
+
 ## Packaging Audit Checklist
 
 Use this review table after each matching dry run:
@@ -200,3 +213,4 @@ Keep the earlier docs or feature commits unchanged so the round stays reviewable
 - The local tag points at the final commit for the round, not an earlier docs or feature commit.
 - The final release commit remains reviewable on its own and does not hide unrelated feature edits.
 - `packaging/dist/` has been reviewed for the dry-run targets touched by the round.
+- Handoff notes state whether screenshots or the generated man page were refreshed in the same round.

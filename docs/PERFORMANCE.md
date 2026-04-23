@@ -100,6 +100,18 @@ When you refresh this table, record:
 - If you do rerun the suite, update the measurement date, note the exact command, and describe the code or docs change that explains the new sample.
 - When a README or release guide cites the perf baseline, describe it as the "current checked-in baseline" unless the benchmark was rerun at the same commit being released.
 
+## Benchmark Evidence Bundle
+
+When you refresh the checked-in baseline, keep these items together:
+
+- the exact `pytest -q tests/perf ... -s` command
+- the raw stdout summary lines
+- every non-default `EODINGA_PERF_*` override
+- whether the run used a warm cache or a deliberately cold filesystem cache
+- the commit that the sample is meant to describe
+
+If you cannot provide all five, leave the baseline table alone and document the run as an out-of-band measurement instead.
+
 ## If The Perf Run Fails
 
 - Do not overwrite the baseline table with numbers from a failing run.

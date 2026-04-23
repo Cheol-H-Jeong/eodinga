@@ -146,6 +146,17 @@ Use this when the round is docs-only but still release-bearing:
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
 
+## Evidence Capture
+
+Keep one short scratch note per round with:
+
+1. the exact validation command you ran
+2. whether the run was full-gate, docs-only, or package-only
+3. the files or artifacts you actually inspected after the command finished
+4. any reason you intentionally skipped a derived asset refresh
+
+That note does not need to be checked in, but it should exist before you claim a docs or packaging surface is verified.
+
 ## Metadata Commit Discipline
 
 - Keep the final metadata commit reviewable: version bump, changelog entry, and local tag cut only.
@@ -195,3 +206,9 @@ Do not rewrite earlier docs or feature commits just to retarget the patch number
 - Inspect `packaging/dist/` instead of trusting command exit status alone.
 - Confirm the staged docs payload still matches `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 - If the docs describe a packaged artifact, rerun the corresponding dry run before handoff.
+
+## Handoff Notes
+
+- Report whether the round changed user-facing docs, derived assets, or only deeper operator guides.
+- Mention the smallest validation slice that stayed green for every intermediate commit.
+- If you refreshed screenshots or the man page, say so explicitly so the next worker does not regenerate them blindly.
