@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.914 - 2026-04-24
+## 0.1.915 - 2026-04-24
 
 - Made launcher keyboard traversal reach pinned queries, recent queries, results, and action buttons without relying on the mouse, and added row-style chip/action navigation with arrow keys plus Home/End.
 - Expanded launcher shortcut copy and query-chip accessibility guidance so the footer and chip rows explain the richer keyboard flow instead of only the old query-to-results path.
