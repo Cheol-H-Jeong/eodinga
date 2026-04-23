@@ -136,3 +136,66 @@ def test_multi_root_rename_keeps_secondary_root_identity_after_watch_update(
     assert scoped_hits == {target}
     assert old_hits == set()
     assert [(str(row[0]), int(row[1])) for row in rows] == [(str(target), 2)]
+
+
+def test_hot_restart_multi_root_reopen_keeps_scope_and_accepts_live_updates(
+    tmp_path: Path,
+) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    existing = root_a / "alpha-existing.txt"
+    existing.write_text("alpha persisted query\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    first_conn = open_index(db_path)
+    try:
+        initial_hits = {
+            hit.file.path
+            for hit in search(first_conn, "alpha persisted query", limit=10, root=root_a).hits
+        }
+    finally:
+        first_conn.close()
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        _start_multi_root_watch(service, root_a, root_b)
+
+        created = root_b / "beta-after-reopen.txt"
+        created.write_text("beta reopen live update\n", encoding="utf-8")
+        _wait_for_query_hit(reopened, service, writer, "beta reopen live update", created, 0.5)
+
+        reopened_hits = {
+            hit.file.path
+            for hit in search(reopened, "alpha persisted query", limit=10, root=root_a).hits
+        }
+        scoped_hits = {
+            hit.file.path
+            for hit in search(reopened, "beta reopen live update", limit=10, root=root_b).hits
+        }
+        other_root_hits = {
+            hit.file.path
+            for hit in search(reopened, "beta reopen live update", limit=10, root=root_a).hits
+        }
+        row = reopened.execute(
+            "SELECT root_id FROM files WHERE path = ?",
+            (str(created),),
+        ).fetchone()
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == {existing}
+    assert reopened_hits == {existing}
+    assert scoped_hits == {created}
+    assert other_root_hits == set()
+    assert row is not None
+    assert int(row[0]) == 2
