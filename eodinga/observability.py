@@ -264,6 +264,7 @@ def write_crash_log(
         "log_path": resolve_log_path(),
         "crash_dir": target_dir,
     }
+    metadata.update(_crash_metrics_metadata())
     if details:
         metadata.update(details)
     lines = [
@@ -358,3 +359,13 @@ def _parse_log_policy_value(raw: str) -> str | int:
     if value.isdigit():
         return int(value)
     return value
+
+
+def _crash_metrics_metadata() -> dict[str, object]:
+    metrics = snapshot_metrics()
+    return {
+        "metrics_generated_at": metrics["generated_at"],
+        "metrics_uptime_ms": metrics["uptime_ms"],
+        "metrics_counters": metrics["counters"],
+        "metrics_histograms": metrics["histograms"],
+    }
