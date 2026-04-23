@@ -138,6 +138,17 @@ Use this when the round is docs-only but still release-bearing:
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
 
+## Commit Shapes
+
+Prefer a predictable stack during worker rounds:
+
+1. Land docs-content commits first, grouped by one operator-facing topic at a time.
+2. Keep derived-asset refreshes in the same commit only when the prose change requires them immediately.
+3. Reserve the final commit for `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py`.
+4. Create the local tag only after the metadata commit and a green gate.
+
+This keeps review and rebase work cheap when several workers are landing in parallel.
+
 ## Test Selection Guide
 
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`
@@ -162,3 +173,4 @@ Use this when the round is docs-only but still release-bearing:
 - README examples use the current query surface and current operator names.
 - Derived docs assets are regenerated from code, not edited by hand.
 - The final release metadata commit contains only the version/changelog/tag cut unless a same-round asset refresh is required.
+- Historical notes identify when numbers or workflows were measured so stale baselines are easy to spot during later rounds.

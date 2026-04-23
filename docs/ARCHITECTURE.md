@@ -53,6 +53,17 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 | Content extraction | `eodinga.content.*` | Parse supported document formats into searchable text. |
 | UI + CLI | `eodinga.__main__`, `eodinga.gui.*`, `eodinga.launcher.*` | Expose the same engine through commands, the main window, and the hotkey launcher. |
 
+## Command Surface Map
+
+| User entry point | First module | Shared runtime path after dispatch |
+| --- | --- | --- |
+| `eodinga index` | `eodinga.__main__` | `core.walker` -> `index.writer` -> SQLite/FTS |
+| `eodinga watch` | `eodinga.__main__` | `core.watcher` -> `index.writer.apply_events()` |
+| `eodinga search` | `eodinga.__main__` | `query.dsl` -> `query.compiler` -> `query.executor` |
+| `eodinga stats --json` | `eodinga.__main__` | observability registry + active storage metadata |
+| `eodinga gui` | `eodinga.gui.app` | same reader/compiler/executor stack behind Qt models |
+| launcher popup | `eodinga.gui.launcher` | same reader/compiler/executor stack behind the hotkey surface |
+
 ## Why The Pieces Are Split This Way
 
 - `core.*` owns contact with the real filesystem so read-only guarantees stay centralized.
@@ -109,6 +120,16 @@ user / startup
 - If the live database still has a non-empty `-wal` sidecar, recovery is replayed against a staged copy first; only a clean checkpointed database is swapped into place.
 - `eodinga doctor` reports both resumed staged rebuild/recovery work and unrecoverable stale-WAL failures so the operator sees the same startup path the runtime takes.
 - This keeps crash recovery local to the database directory and avoids mutating indexed user roots.
+
+## On-Disk Recovery Artifacts
+
+| Path shape | Meaning | Expected cleanup point |
+| --- | --- | --- |
+| `index.db` | live SQLite database | retained |
+| `index.db-wal`, `index.db-shm` | live WAL sidecars | checkpointed or replayed during open/recovery |
+| `index.db.next` | staged rebuild target | atomically promoted or removed after rebuild |
+| `index.db.recover` | staged recovery snapshot | atomically promoted or removed after recovery |
+| `*.partial*` | interrupted copy/swap residue | scrubbed before resume or after failed recovery |
 
 ## Rebuild Sequence
 
@@ -271,6 +292,24 @@ startup
 - Windows packaging uses `packaging/pyinstaller.spec`, `packaging/windows/eodinga.iss`, and `packaging/build.py --target windows-dry-run`.
 - Documentation screenshots are rendered from the real Qt surfaces through `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
 - Release docs also ship a generated CLI man page under `docs/man/` so packaged audits can verify the command surface without importing the project interactively.
+
+## Release Input Graph
+
+```text
+runtime / CLI change
+    |
+    +--> README.md + docs/*.md
+    |
+    +--> scripts/generate_manpage.py ----> docs/man/eodinga.1
+    |
+    +--> scripts/render_docs_screenshots.py -> docs/screenshots/*.png
+    |
+    +--> tests/unit/test_docs_assets.py
+    |
+    +--> packaging/build.py --target ...-dry-run
+```
+
+This graph matters because the docs are treated as release inputs, not after-the-fact notes. A launcher or packaging change is incomplete until the derived docs assets and dry-run audits agree with the checked-in prose.
 
 ## Platform Surface Summary
 

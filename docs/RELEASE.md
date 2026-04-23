@@ -87,6 +87,17 @@ Treat docs assets as versioned release inputs: do not cut a tag when the checked
 4. Do not push tags or release branches from a worker worktree.
 5. Hand the orchestrator a clean branch plus the final local tag to rebase and publish.
 
+## Commit Layout
+
+For predictable rebases across parallel workers, prefer this shape:
+
+1. One or more topic commits for the actual docs/feature/packaging change.
+2. Optional derived-asset refresh commit only if regenerated artifacts would otherwise be misleading.
+3. One final metadata commit containing `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py`.
+4. `git tag v0.1.N` on that final commit only.
+
+This keeps release metadata easy to rewrite if another worker lands the same patch number first.
+
 ## Docs-Only Rounds
 
 Use the same release discipline for docs-only changes when the shipped operator contract moved:
@@ -123,6 +134,17 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - Never move or delete an existing local release tag just to reuse the version number.
 - If another worker landed the same candidate version first, fetch tags again, pick the next unused patch number, and update the release metadata commit instead of force-retagging.
 - If the final gate fails after the metadata commit, fix the issue in a new commit and recreate the local tag on the new tip only after the gate is green again.
+
+## Metadata Collision Recovery
+
+If the patch number collides after you already prepared the metadata commit:
+
+1. `git fetch --tags origin`
+2. pick the next unused `0.1.N`
+3. edit only `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py`
+4. replace the local tag with the new version only after the gate is green again
+
+Do not rewrite the earlier topic commits for a pure patch-number collision; only the metadata layer should move.
 
 ## Handoff Checklist
 
