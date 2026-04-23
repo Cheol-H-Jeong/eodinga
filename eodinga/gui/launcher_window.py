@@ -89,16 +89,19 @@ class LauncherWindow(LauncherPanel):
         self._geometry_save_timer.start()
 
     def _restore_geometry(self) -> None:
+        config = self._config
+        if config is None:
+            return
         available = self._available_geometry()
         width = min(max(self.width(), 1), max(available.width(), 1))
         height = min(max(self.height(), 1), max(available.height(), 1))
         self.resize(width, height)
-        if self._config.launcher.window_x is None or self._config.launcher.window_y is None:
+        if config.launcher.window_x is None or config.launcher.window_y is None:
             return
         max_x = available.x() + max(available.width() - width, 0)
         max_y = available.y() + max(available.height() - height, 0)
-        clamped_x = min(max(self._config.launcher.window_x, available.x()), max_x)
-        clamped_y = min(max(self._config.launcher.window_y, available.y()), max_y)
+        clamped_x = min(max(config.launcher.window_x, available.x()), max_x)
+        clamped_y = min(max(config.launcher.window_y, available.y()), max_y)
         self.move(clamped_x, clamped_y)
 
     def _available_geometry(self) -> QRect:

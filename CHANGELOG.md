@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.235 - 2026-04-23
+
+- Added query pinning directly to the launcher with a visible `Pin`/`Unpin` toggle, `Ctrl+P` shortcut, shared-state sync between popup and embedded launchers, and persisted pinned queries in config.
+- Wired the Settings launcher checkbox so `always_on_top` applies to the popup immediately and saves without requiring a restart.
+- Clamped restored launcher geometry to the active screen bounds before persisting it again, so stale monitor layouts no longer reopen the frameless popup off-screen.
+
 ## 0.1.233 - 2026-04-23
 
 - Expanded `README.md` with a surface matrix, a compact operator checklist, and a troubleshooting runbook so the top-level contract points operators to the right CLI and packaging checks faster.
