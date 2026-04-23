@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.232 - 2026-04-23
+## 0.1.233 - 2026-04-23
 
 - Expanded `README.md` with a surface matrix, a compact operator checklist, and a troubleshooting runbook so the top-level contract points operators to the right CLI and packaging checks faster.
 - Deepened `docs/ARCHITECTURE.md` with a concrete SQLite schema snapshot, generated-docs asset flow, and an operator debug path that mirrors the runtime stack.
