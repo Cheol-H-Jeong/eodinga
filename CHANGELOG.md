@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.197 - 2026-04-23
+## 0.1.198 - 2026-04-23
 
 - Normalized Windows root-scoped search matching across drive-letter case changes, full-path case changes, and `\\?\\C:\\...` extended-length variants so exact root-directory queries no longer disappear while descendant `LIKE` matches still work.
 - Added UNC root normalization for both plain `\\\\server\\share\\...` and extended `\\\\?\\UNC\\server\\share\\...` paths, including coverage for case-insensitive exact root matches and prefixed/unprefixed scoping.
