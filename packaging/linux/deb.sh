@@ -75,11 +75,12 @@ with source.open("rb") as src, gzip.GzipFile(filename="", mode="wb", fileobj=tar
     dst.write(src.read())
 PY
 
-tar -czf "${ARCHIVE_PATH}" -C "${BUILD_ROOT}" "$(basename "${PACKAGE_DIR}")"
+python3 "${ROOT_DIR}/packaging/reproducible_tar.py" --source "${PACKAGE_DIR}" --output "${ARCHIVE_PATH}"
 python3 - <<PY
 import gzip
 import json
 import os
+import tarfile
 from pathlib import Path
 
 desktop_path = Path("${PACKAGE_DIR}/usr/share/applications/eodinga.desktop")
@@ -110,6 +111,8 @@ for line in debian_control_template_path.read_text(encoding="utf-8").splitlines(
     key, value = line.split(":", 1)
     template_control_entries[key] = value.strip()
 changelog_text = gzip.decompress(changelog_path.read_bytes()).decode("utf-8")
+with tarfile.open("${ARCHIVE_PATH}", "r:gz") as archive:
+    members = archive.getmembers()
 payload = {
     "target": "linux-deb-dry-run" if ${DRY_RUN} else "linux-deb",
     "version": "${VERSION}",
@@ -137,6 +140,13 @@ payload = {
         "maintainer": template_control_entries.get("Maintainer"),
         "binary_package": template_control_entries.get("Package"),
         "description": template_control_entries.get("Description"),
+    },
+    "archive_audit": {
+        "member_names": [member.name for member in members],
+        "root_directory": members[0].name if members else None,
+        "all_mtime_zero": all(member.mtime == 0 for member in members),
+        "all_root_owned": all(member.uid == 0 and member.gid == 0 for member in members),
+        "all_root_named": all(member.uname == "root" and member.gname == "root" for member in members),
     },
     "desktop_entry": {
         "path": str(desktop_path),

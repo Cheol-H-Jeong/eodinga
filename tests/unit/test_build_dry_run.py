@@ -377,6 +377,11 @@ def test_linux_deb_dry_run_renders_control_template() -> None:
     assert payload["control"]["version"] == __version__
     assert payload["control"]["architecture"] == "amd64"
     assert payload["control"]["depends"] == "python3 (>= 3.11)"
+    assert payload["archive_audit"]["root_directory"] == f"eodinga_{__version__}_amd64"
+    assert payload["archive_audit"]["all_mtime_zero"] is True
+    assert payload["archive_audit"]["all_root_owned"] is True
+    assert payload["archive_audit"]["all_root_named"] is True
+    assert payload["archive_audit"]["member_names"][0] == f"eodinga_{__version__}_amd64"
     assert payload["debian_control_template"]["exists"] is True
     assert payload["debian_control_template"]["contains_version_template"] is True
     assert payload["debian_control_template"]["contains_arch_template"] is True
@@ -396,6 +401,12 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
         "control": {
             "package": "eodinga",
             "version": __version__,
+        },
+        "archive_audit": {
+            "root_directory": f"eodinga_{__version__}_amd64",
+            "all_mtime_zero": True,
+            "all_root_owned": True,
+            "all_root_named": True,
         },
         "debian_control_template": {
             "exists": True,
@@ -434,6 +445,12 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
         "arch": "amd64",
         "archive": "packaging/dist/eodinga_latest_amd64_debroot.tar.gz",
         "deb_path": "packaging/dist/eodinga_latest_amd64.deb",
+        "archive_audit": {
+            "root_directory": f"eodinga_{__version__}_amd64",
+            "all_mtime_zero": True,
+            "all_root_owned": True,
+            "all_root_named": True,
+        },
         "control": {
             "package": "eodinga",
             "version": __version__,
@@ -555,5 +572,6 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert Path(payload["package_dir"]).exists()
     assert Path(payload["control_path"]).exists()
     assert Path(payload["deb_path"]).exists()
+    assert payload["archive_audit"]["all_mtime_zero"] is True
     assert payload["icon"]["exists"] is True
     assert payload["docs"]["changelog_exists"] is True

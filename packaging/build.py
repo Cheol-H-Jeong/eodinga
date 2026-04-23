@@ -321,6 +321,7 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
     icon_payload = payload.get("icon", {})
     launcher_payload = payload.get("launcher", {})
     docs_payload = payload.get("docs", {})
+    archive_payload = payload.get("archive_audit", {})
     arch = payload.get("arch")
     if control_payload.get("package") != "eodinga":
         errors.append("Debian control package name drifted from eodinga")
@@ -349,6 +350,13 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
             control_template_payload.get("description") == control_payload.get("description"),
             "Debian control template description drifted from the staged package",
         ),
+        (
+            archive_payload.get("root_directory") == f"eodinga_{package_version}_{arch}",
+            "Debian dry-run archive root no longer matches the staged package directory",
+        ),
+        (archive_payload.get("all_mtime_zero"), "Debian dry-run archive members are no longer normalized to mtime zero"),
+        (archive_payload.get("all_root_owned"), "Debian dry-run archive members are no longer normalized to uid/gid zero"),
+        (archive_payload.get("all_root_named"), "Debian dry-run archive members are no longer normalized to root ownership names"),
         (desktop_payload.get("matches_source_asset"), "Debian desktop entry no longer matches the shipped asset"),
         (desktop_payload.get("launches_gui"), "Debian desktop entry no longer launches the GUI command"),
         (desktop_payload.get("icon_matches_package"), "Debian desktop entry icon no longer matches the packaged asset"),
