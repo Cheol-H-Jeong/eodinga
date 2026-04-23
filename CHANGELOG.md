@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.182 - 2026-04-23
+
+- Expanded `eodinga stats --json` with per-process session metadata, including session start time, uptime, PID, active log file, and crash-log directory so live diagnostics can be interpreted without inspecting the host directly.
+- Added command lifecycle counters for starts, completions, and failures on a per-command basis, making it possible to distinguish healthy search traffic from failing CLI workflows in one metrics snapshot.
+- Instrumented query result volume and crash-log writes, so runtime metrics now show how many hits were returned or estimated over time and whether the current process emitted crash artifacts.
+
 ## 0.1.178 - 2026-04-23
 
 - Enriched `crash-<ts>.log` artifacts with stable runtime metadata including version, platform, current working directory, and argv so unhandled failures are easier to reproduce from one file.
