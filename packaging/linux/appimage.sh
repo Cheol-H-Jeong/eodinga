@@ -9,6 +9,7 @@ APPIMAGE_RECIPE="${ROOT_DIR}/packaging/linux/appimage-builder.yml"
 RENDERED_RECIPE="${DIST_DIR}/appimage-builder.yml"
 APPIMAGE_ICON="${ROOT_DIR}/packaging/linux/eodinga.svg"
 RUNTIME_ROOT="${APPDIR}/usr/lib/eodinga"
+STAGE_RUNTIME="${ROOT_DIR}/packaging/linux/stage_runtime.py"
 APPIMAGE_VERSION_TOKEN="@@APP_VERSION@@"
 VERSION="$(python3 - <<'PY'
 import pathlib
@@ -47,18 +48,7 @@ PY
 cp "${ROOT_DIR}/packaging/linux/eodinga.desktop" "${APPDIR}/usr/share/applications/eodinga.desktop"
 cp "${APPIMAGE_ICON}" "${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg"
 cp "${APPIMAGE_ICON}" "${APPDIR}/.DirIcon"
-python3 - <<PY
-import shutil
-from pathlib import Path
-
-source = Path("${ROOT_DIR}/eodinga")
-target = Path("${RUNTIME_ROOT}/eodinga")
-shutil.copytree(
-    source,
-    target,
-    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
-)
-PY
+python3 "${STAGE_RUNTIME}" "${RUNTIME_ROOT}"
 cat > "${APPDIR}/AppRun" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail

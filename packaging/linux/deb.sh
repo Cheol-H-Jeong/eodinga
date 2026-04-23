@@ -8,6 +8,7 @@ AUDIT_PATH="${DIST_DIR}/linux-deb-audit.json"
 DESKTOP_ENTRY="${ROOT_DIR}/packaging/linux/eodinga.desktop"
 ICON_ASSET="${ROOT_DIR}/packaging/linux/eodinga.svg"
 RUNTIME_ROOT_REL="usr/lib/eodinga"
+STAGE_RUNTIME="${ROOT_DIR}/packaging/linux/stage_runtime.py"
 DEBIAN_CONTROL_TEMPLATE="${ROOT_DIR}/packaging/linux/debian/control"
 DEBIAN_CONTROL_RENDERED="${DIST_DIR}/debian-control"
 APP_VERSION_TOKEN="@@APP_VERSION@@"
@@ -66,18 +67,7 @@ exec python3 -Im eodinga "$@"
 EOF
 chmod 0755 "${PACKAGE_DIR}/usr/bin/eodinga"
 
-python3 - <<PY
-import shutil
-from pathlib import Path
-
-source = Path("${ROOT_DIR}/eodinga")
-target = Path("${PACKAGE_DIR}/${RUNTIME_ROOT_REL}/eodinga")
-shutil.copytree(
-    source,
-    target,
-    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
-)
-PY
+python3 "${STAGE_RUNTIME}" "${PACKAGE_DIR}/${RUNTIME_ROOT_REL}"
 
 install -m 0644 "${DESKTOP_ENTRY}" "${PACKAGE_DIR}/usr/share/applications/eodinga.desktop"
 install -m 0644 "${ICON_ASSET}" "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg"
