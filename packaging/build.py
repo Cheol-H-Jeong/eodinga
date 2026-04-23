@@ -146,6 +146,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             },
             "required_hiddenimports": spec_namespace.get("REQUIRED_HIDDEN_IMPORTS", []),
             "discovered_source_hiddenimports": spec_namespace.get("DISCOVERED_SOURCE_HIDDEN_IMPORTS", []),
+            "discovered_entry_point_modules": spec_namespace.get("DISCOVERED_ENTRY_POINT_MODULES", []),
             "hiddenimports": spec_namespace.get("HIDDEN_IMPORTS", []),
             "datas": spec_namespace.get("DATAS", []),
         },

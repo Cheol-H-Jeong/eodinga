@@ -127,6 +127,7 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
         module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
         import_module_aliases = {"import_module"}
         importlib_module_aliases = {"importlib"}
+        constant_strings: dict[str, str] = {}
         for node in ast.walk(module):
             if isinstance(node, ast.Import):
                 for alias in node.names:
@@ -136,6 +137,15 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
                 for alias in node.names:
                     if alias.name == "import_module":
                         import_module_aliases.add(alias.asname or alias.name)
+            elif isinstance(node, ast.Assign) and len(node.targets) == 1:
+                target = node.targets[0]
+                value = node.value
+                if (
+                    isinstance(target, ast.Name)
+                    and isinstance(value, ast.Constant)
+                    and isinstance(value.value, str)
+                ):
+                    constant_strings[target.id] = value.value
         for node in ast.walk(module):
             if not isinstance(node, ast.Call):
                 continue
@@ -150,11 +160,14 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
                     continue
             else:
                 continue
-            if not node.args or not isinstance(node.args[0], ast.Constant):
+            if not node.args:
                 continue
-            if not isinstance(node.args[0].value, str):
+            arg = node.args[0]
+            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                discovered.add(arg.value)
                 continue
-            discovered.add(node.args[0].value)
+            if isinstance(arg, ast.Name) and arg.id in constant_strings:
+                discovered.add(constant_strings[arg.id])
     return sorted(discovered)
 
 
@@ -212,9 +225,24 @@ def _discover_package_datas(project_root: Path) -> list[tuple[str, str]]:
     return sorted(discovered)
 
 
+def _discover_entry_point_modules(project_root: Path) -> list[str]:
+    payload = tomllib.loads((project_root / "pyproject.toml").read_text(encoding="utf-8"))
+    entry_points = payload.get("project", {}).get("entry-points", {})
+    discovered: set[str] = set()
+    for group_entries in entry_points.values():
+        for value in group_entries.values():
+            if not isinstance(value, str) or not value.strip():
+                continue
+            module_name = value.split(":", 1)[0].strip()
+            if module_name:
+                discovered.add(module_name)
+    return sorted(discovered)
+
+
 DISCOVERED_RUNTIME_MODULES = _discover_runtime_modules(SOURCE_ROOT)
 DISCOVERED_HIDDEN_IMPORTS = _discover_hidden_imports(SOURCE_ROOT)
 DISCOVERED_SOURCE_HIDDEN_IMPORTS = _discover_source_hidden_imports(SOURCE_ROOT)
+DISCOVERED_ENTRY_POINT_MODULES = _discover_entry_point_modules(PROJECT_ROOT)
 DISCOVERED_PACKAGE_DATAS = _discover_package_datas(PROJECT_ROOT)
 
 HIDDEN_IMPORTS = sorted(
@@ -224,6 +252,7 @@ HIDDEN_IMPORTS = sorted(
         *DISCOVERED_RUNTIME_MODULES,
         *DISCOVERED_HIDDEN_IMPORTS,
         *DISCOVERED_SOURCE_HIDDEN_IMPORTS,
+        *DISCOVERED_ENTRY_POINT_MODULES,
     }
 )
 

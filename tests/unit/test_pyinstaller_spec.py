@@ -15,6 +15,7 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     discovered_hiddenimports = cast(list[str], namespace["DISCOVERED_HIDDEN_IMPORTS"])
     required_hiddenimports = cast(list[str], namespace["REQUIRED_HIDDEN_IMPORTS"])
     runtime_modules = cast(list[str], namespace["RUNTIME_MODULES"])
+    discovered_entry_point_modules = cast(list[str], namespace["DISCOVERED_ENTRY_POINT_MODULES"])
     datas = cast(list[tuple[str, str]], namespace["DATAS"])
     assert "watchdog" in hiddenimports
     assert "watchdog.observers.inotify" in hiddenimports
@@ -34,6 +35,7 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
         "Xlib.display",
         "pynput.keyboard",
     ]
+    assert discovered_entry_point_modules == []
     assert set(required_hiddenimports).issubset(set(hiddenimports))
     assert set(runtime_modules).issubset(set(hiddenimports))
     assert set(discovered_runtime_modules).issubset(set(hiddenimports))
@@ -88,10 +90,12 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
             [
                 "import importlib as il",
                 "from importlib import import_module as load_module",
+                'module_name = "package.delta"',
                 "",
                 'il.import_module("package.alpha")',
                 'load_module("package.beta")',
                 '__import__("package.gamma")',
+                "load_module(module_name)",
                 "",
             ]
         ),
@@ -100,4 +104,36 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
 
     discovered = discover_hidden_imports(source_root)
 
-    assert discovered == ["package.alpha", "package.beta", "package.gamma"]
+    assert discovered == ["package.alpha", "package.beta", "package.delta", "package.gamma"]
+
+
+def test_pyinstaller_spec_discovers_entry_point_modules(tmp_path: Path) -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_entry_point_modules = cast(Callable[[Path], list[str]], namespace["_discover_entry_point_modules"])
+
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    (project_root / "pyproject.toml").write_text(
+        "\n".join(
+            [
+                "[project]",
+                'name = "demo"',
+                'version = "0.1.0"',
+                "",
+                "[project.entry-points.\"eodinga.parsers\"]",
+                'markdown = "demo.parsers.markdown:get_parser_spec"',
+                'csv = "demo.parsers.csv:build_parser"',
+                "",
+                "[project.entry-points.\"console_scripts\"]",
+                'demo = "demo.cli:main"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    discovered = discover_entry_point_modules(project_root)
+
+    assert discovered == ["demo.cli", "demo.parsers.csv", "demo.parsers.markdown"]

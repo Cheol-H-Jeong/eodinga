@@ -65,7 +65,9 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
         "gui": str(Path("dist/eodinga-gui/eodinga-gui.exe").resolve()),
     }
     discovered_source_hiddenimports = set(payload["pyinstaller_spec"]["discovered_source_hiddenimports"])
+    discovered_entry_point_modules = set(payload["pyinstaller_spec"]["discovered_entry_point_modules"])
     assert discovered_source_hiddenimports
+    assert discovered_entry_point_modules == set()
     assert discovered_source_hiddenimports <= set(payload["pyinstaller_spec"]["hiddenimports"])
     datas = {tuple(item) for item in payload["pyinstaller_spec"]["datas"]}
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
