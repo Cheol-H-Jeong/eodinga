@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.533 - 2026-04-23
+## 0.1.539 - 2026-04-23
 
 - Escaped literal `%` and `_` characters in ASCII `path:` SQL prefilters so negated path filters no longer drop false matches when users search for wildcard-looking filenames.
 - Taught the DSL parser to accept spaced `size:` comparators such as `size: > 10M` and `size: = 512B`, keeping the query language tolerant without changing comparator semantics.
