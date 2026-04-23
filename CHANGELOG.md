@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.402 - 2026-04-23
+## 0.1.406 - 2026-04-23
 
 - Exposed the effective file log sink policy in `stats --json`, including rotation, retention, compression, and whether file logging is active for the current process.
 - Enriched crash logs with runtime context such as thread name, executable path, argv, resolved log path, and crash directory so a single artifact is enough to reconstruct failure conditions.
