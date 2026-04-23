@@ -765,6 +765,23 @@ def test_execute_size_range_queries(tmp_db: sqlite3.Connection) -> None:
     assert negated_hits == ["tiny.txt", "too-large.txt"]
 
 
+def test_execute_open_ended_size_range_queries(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/tiny.txt", 99, now, "txt", body_text="tiny")
+    _insert_file(tmp_db, 2, "/workspace/one-kib.txt", 1024, now - 60, "txt", body_text="one kib")
+    _insert_file(tmp_db, 3, "/workspace/medium.txt", 10 * 1024, now - 120, "txt", body_text="medium")
+    _insert_file(tmp_db, 4, "/workspace/huge.txt", 700 * 1024, now - 180, "txt", body_text="huge")
+    tmp_db.commit()
+
+    at_most_hits = [hit.file.name for hit in search(tmp_db, "size:..1K", limit=10).hits]
+    at_least_hits = [hit.file.name for hit in search(tmp_db, "size:10K..", limit=10).hits]
+    negated_hits = [hit.file.name for hit in search(tmp_db, "-size:..1K", limit=10).hits]
+
+    assert at_most_hits == ["one-kib.txt", "tiny.txt"]
+    assert at_least_hits == ["huge.txt", "medium.txt"]
+    assert negated_hits == ["huge.txt", "medium.txt"]
+
+
 def test_execute_metadata_only_query_reports_uncapped_total_estimate(
     tmp_db: sqlite3.Connection,
 ) -> None:

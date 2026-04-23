@@ -209,6 +209,31 @@ def test_search_json_executes_regex_mode_query(cli_runner, tmp_path: Path) -> No
     ]
 
 
+def test_search_json_executes_open_ended_size_range_query(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        _insert_file(conn, 1, "/workspace/tiny.log", 99, 1_713_528_000, "log", body_text="tiny")
+        _insert_file(conn, 2, "/workspace/empty.txt", 0, 1_713_527_940, "txt", body_text="")
+        _insert_file(conn, 3, "/workspace/medium.txt", 2_048, 1_713_527_880, "txt", body_text="medium")
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "size:..1K",
+        "--json",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == ["empty.txt", "tiny.log"]
+
+
 def test_search_json_honors_root_filter(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
