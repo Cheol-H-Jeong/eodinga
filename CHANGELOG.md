@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.872 - 2026-04-23
+
+- Persisted packaging preflight failures as JSON audits, so missing toolchains now leave machine-readable evidence instead of only stderr.
+- Added explicit toolchain metadata to packaging audits and taught `release-dry-run` to summarize passed and failed targets, making CI triage faster from a single artifact.
+
 ## 0.1.863 - 2026-04-23
 
 - Expanded the launcher’s inline and empty-state keyboard guidance to cover both `Alt+Up` and `Alt+Down`, so recent-query browsing is explained consistently anywhere the user can get stuck.
