@@ -194,6 +194,14 @@ def test_parse_content_regex_with_escaped_slash_and_korean_text() -> None:
     assert node.regex_flags == "ms"
 
 
+def test_parse_top_level_regex_with_even_backslashes_before_delimiter() -> None:
+    node = parse(r"/foo\\\\/i")
+
+    assert isinstance(node, RegexNode)
+    assert node.pattern == r"foo\\\\"
+    assert node.flags == "i"
+
+
 @pytest.mark.parametrize(
     ("query", "expected_pattern", "expected_flags"),
     [
