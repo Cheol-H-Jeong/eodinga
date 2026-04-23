@@ -203,13 +203,17 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
             "exists": True,
             "diricon_exists": True,
             "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
         },
         "apprun": {
             "is_executable": True,
             "launches_gui": True,
+            "has_strict_shell": True,
         },
         "launcher": {
             "is_executable": True,
+            "has_strict_shell": True,
+            "changes_to_project_root": True,
             "executes_python_module": False,
         },
     }
@@ -294,9 +298,14 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["icon"]["exists"] is True
     assert payload["icon"]["diricon_exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True
+    assert payload["icon"]["matches_source_asset"] is True
     assert payload["apprun"]["is_executable"] is True
     assert payload["apprun"]["launches_gui"] is True
+    assert payload["apprun"]["has_strict_shell"] is True
     assert payload["launcher"]["is_executable"] is True
+    assert payload["launcher"]["has_strict_shell"] is True
+    assert payload["launcher"]["changes_to_project_root"] is True
+    assert payload["launcher"]["executes_python_module"] is True
 
 
 def test_linux_deb_dry_run_renders_control_template() -> None:
