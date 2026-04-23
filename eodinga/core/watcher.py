@@ -268,7 +268,7 @@ class WatchService:
 
     def _flush_ready(self, force: bool) -> None:
         now = monotonic()
-        flushed: list[WatchEvent] = []
+        flushed: list[tuple[WatchEvent, set[Path]]] = []
         with self._lock:
             ready_paths = [
                 path
@@ -286,13 +286,11 @@ class WatchService:
                         self._flushed_retired_sources.update(retired_sources)
                     if event.event_type in {"created", "modified", "deleted"}:
                         self._flushed_retired_sources.discard(event.path)
-                    flushed.append(event)
+                    flushed.append((event, retired_sources))
         delivered: list[WatchEvent] = []
-        for event in flushed:
+        for event, retired_sources in flushed:
             if not self._enqueue_event(event):
-                with self._lock:
-                    self._pending[event.path] = event
-                    self._timestamps[event.path] = now
+                self._restore_flushed_event(event, retired_sources, now=now)
                 break
             delivered.append(event)
         if delivered:
@@ -302,6 +300,14 @@ class WatchService:
             for event in delivered:
                 lag_ms = max((now - event.happened_at) * 1000, 0.0)
                 record_histogram("watch_event_lag_ms", lag_ms, event_type=event.event_type)
+
+    def _restore_flushed_event(self, event: WatchEvent, retired_sources: set[Path], *, now: float) -> None:
+        with self._lock:
+            self._pending[event.path] = event
+            if retired_sources:
+                self._retired_sources[event.path] = set(retired_sources)
+                self._flushed_retired_sources.difference_update(retired_sources)
+            self._timestamps[event.path] = now
 
     def _reset_state(self) -> None:
         with self._lock:
