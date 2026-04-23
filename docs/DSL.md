@@ -59,6 +59,20 @@ regex:/launch|ship/i path:docs
 - `regex:true` only changes how plain terms are interpreted; explicit `/pattern/flags` literals still work without it.
 - Negation applies to the next term or the entire parenthesized group.
 
+## Precedence And Scoping
+
+- Spaces are implicit `AND`, so `ext:pdf invoice` means both constraints must match.
+- `|` splits OR branches at the current group level, so `(invoice | receipt) ext:pdf` is safer than `invoice | receipt ext:pdf`.
+- A leading `-` only negates the next atom unless you wrap the branch: `-path:cache report` differs from `-(path:cache report)`.
+- Structured operators keep their own scope even when `regex:true` is enabled; `path:docs regex:true report-[0-9]+` still treats `path:docs` as a literal path filter.
+
+## Debugging Queries
+
+- If a query returns too many filename hits, move the critical term into `content:` or quote it as a phrase.
+- If a regex feels broader than expected, replace `regex:true` with explicit field-scoped literals such as `content:/todo|fixme/i`.
+- If a date filter feels off around midnight, remember relative windows use the local machine timezone, not UTC day boundaries.
+- If `is:file` or `is:dir` misses a symlink entry, use `is:symlink`; the structural filters are intentionally strict about regular files versus real directories.
+
 ## Practical Limits
 
 - Regex terms are evaluated against the candidate set after SQL filtering, so broad regex queries are naturally slower than indexed term searches.

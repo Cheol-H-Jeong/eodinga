@@ -182,6 +182,19 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Exclude noisy trees | `-path:node_modules` |
 | Run regex | `regex:/todo|fixme/i` |
 
+## Query Patterns
+
+Use these when a search feels ambiguous and you want to force the engine down one path:
+
+| Intent | Query | Why |
+| --- | --- | --- |
+| Restrict a plain term to path metadata only | `path:docs release` | keeps `release` broad while `path:` narrows the subtree |
+| Require document body text | `content:"release checklist" ext:md` | avoids filename-only false positives |
+| Search exact text across punctuation or newlines | `"incident review"` | quoted phrases normalize separators during fallback checks |
+| Exclude an entire noisy branch | `-(path:node_modules | path:.venv) report` | group negation is clearer than repeating `-path:` |
+| Run regex only on free-text terms | `regex:true report-[0-9]+ ext:md` | plain tokens become regex while structured filters stay structured |
+| Keep regex scoped to one field | `content:/TODO|FIXME/i path:src` | avoids broad path/name regex scans when only content matters |
+
 ## Supported Content Types
 
 - Plain text and source code: `.txt`, `.md`, `.py`, and similar text-first formats.
@@ -360,6 +373,14 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 ### Which commands are most useful for a quick health check?
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
+
+### Why did a quoted phrase match across punctuation or line breaks?
+
+Phrase matching normalizes separator boundaries during fallback evaluation so `"incident review"` still finds `incident-review` and `incident\nreview`. If you need exact punctuation-sensitive matching, use a regex literal instead.
+
+### How do I tell whether a regex applied to everything or only one field?
+
+`regex:true` changes plain free-text tokens into regex path/name terms. `content:/.../`, `path:/.../`, or a top-level `/.../` literal are explicit field-scoped regex forms and are easier to debug in shared docs or shell history.
 
 ### Where do I inspect packaging outputs before a release?
 
