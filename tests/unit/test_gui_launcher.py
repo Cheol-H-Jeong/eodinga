@@ -404,7 +404,10 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "(20%)" in launcher.empty_state.details_label.text()
     assert launcher.status_chip.text() == "Indexing"
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
-    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Alt+Up recalls recent queries."
+    assert (
+        launcher.shortcut_label.text()
+        == "Type a filename, path, or content term. Alt+Up recalls recent queries. Alt+P pins the current query."
+    )
 
     launcher.query_field.setText("missing")
     _wait(60)
@@ -671,6 +674,44 @@ def test_launcher_alt_number_quick_picks_results(qapp) -> None:
     assert "Home/End and PgUp/PgDn jump" in launcher.shortcut_label.text()
 
 
+def test_launcher_pin_button_toggles_current_query(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    launcher.query_field.setText("ext:pdf")
+    _wait(60)
+
+    assert launcher.pin_query_button.isEnabled()
+    assert launcher.pin_query_button.text() == "Pin query"
+
+    launcher.pin_query_button.click()
+
+    assert state.pinned_queries == ["ext:pdf"]
+    assert [button.text() for button in launcher.pinned_queries_row.buttons] == ["ext:pdf"]
+    assert launcher.pin_query_button.text() == "Unpin query"
+
+    launcher.pin_query_button.click()
+
+    assert state.pinned_queries == []
+    assert not launcher.pinned_queries_row.isVisible()
+    assert launcher.pin_query_button.text() == "Pin query"
+
+
+def test_launcher_alt_p_toggles_query_pin(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    launcher.query_field.setText("date:this-week")
+    _wait(60)
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_P, Qt.KeyboardModifier.AltModifier)
+
+    assert state.pinned_queries == ["date:this-week"]
+    assert "Alt+P pins the current query" in launcher.shortcut_label.text()
+    assert "Alt+P to pin the current query" in launcher.empty_state.body_label.text()
+
+
 def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     launcher = LauncherWindow(state=LauncherState())
     launcher.show()
@@ -684,6 +725,7 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
 
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
+    assert launcher.pin_query_button.accessibleName() == "Toggle pinned query"
     assert launcher.active_filters_row.accessibleName() == "Active launcher filters"
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
