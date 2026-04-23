@@ -120,7 +120,7 @@ class LauncherActionBar(QWidget):
             self.setAccessibleDescription("No launcher result is selected, so result actions are unavailable.")
             return
         self.setAccessibleDescription(
-            f"Actions for {hit.name}: Enter opens, Ctrl+Enter reveals, Alt+C copies the path, Alt+N copies the name, and Shift+Enter shows properties."
+            f"Actions for {hit.name}: Enter opens, Ctrl+Enter reveals, Alt+C copies the path, Alt+N copies the name, Shift+Enter shows properties, Tab moves across actions, and Shift+Tab returns to the results."
         )
 
 

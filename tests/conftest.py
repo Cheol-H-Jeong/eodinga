@@ -129,6 +129,9 @@ def qapp() -> Iterator[QApplication]:
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     app = cast(QApplication, QApplication.instance() or QApplication([]))
     yield app
+    for widget in app.topLevelWidgets():
+        widget.close()
+    app.processEvents()
 
 
 @pytest.fixture()

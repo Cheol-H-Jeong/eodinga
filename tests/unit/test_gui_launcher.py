@@ -91,7 +91,7 @@ def test_launcher_keyboard_flow_supports_arrow_navigation_and_tab_return(qapp) -
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_Backtab)
     assert launcher.query_field.hasFocus()
-    assert "Tab moves to results" in launcher.shortcut_label.text()
+    assert "Tab cycles through chips, results, and actions." in launcher.shortcut_label.text()
 
 
 def test_launcher_tab_moves_focus_into_results_without_mouse(qapp) -> None:
@@ -485,7 +485,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
     assert (
         launcher.shortcut_label.text()
-        == "Type a filename, path, or content term. Alt+Up and Alt+Down browse recent queries."
+        == "Type a filename, path, or content term. Tab reviews launcher chips. Alt+Up and Alt+Down browse recent queries."
     )
 
     launcher.query_field.setText("missing")
@@ -934,6 +934,9 @@ def test_launcher_query_chips_expose_accessible_context(qapp) -> None:
     assert recent_chip.accessibleDescription() == "Apply the recent launcher query"
     assert launcher.pinned_queries_row.accessibleDescription() == "1 pinned launcher queries are available: ext:pdf."
     assert launcher.recent_queries_row.accessibleDescription() == "1 recent launcher queries are available: budget."
+    assert launcher.pinned_queries_row.buttons[0].parent().accessibleDescription() == (
+        "Launcher query chips for ext:pdf. Press Tab and Shift+Tab to move across chips, and Enter or Space to apply one."
+    )
 
 
 def test_launcher_result_markup_surfaces_top_nine_quick_pick_badges(qapp) -> None:
@@ -988,13 +991,40 @@ def test_launcher_results_expose_accessible_text_and_preview_summary(qapp) -> No
     assert "Path /tmp/release-notes.txt." in accessible_text
     assert tooltip == accessible_text
     assert launcher.result_list.accessibleDescription() == (
-        "1 launcher results. Selected 1 of 1: release-notes.txt. Use Up and Down to move between results, Enter to open, and Alt+1 through Alt+9 for quick picks."
+        "1 launcher results. Selected 1 of 1: release-notes.txt. Use Up and Down to move between results, Enter to open, Tab to reach result actions, Shift+Tab to return to filters, and Alt+1 through Alt+9 for quick picks."
     )
     assert "Previewing release-notes.txt at /tmp/release-notes.txt." in launcher.preview_pane.accessibleDescription()
     assert "Snippet: ...the release notes are attached..." in launcher.preview_pane.accessibleDescription()
     assert launcher.action_bar.accessibleDescription() == (
-        "Actions for release-notes.txt: Enter opens, Ctrl+Enter reveals, Alt+C copies the path, Alt+N copies the name, and Shift+Enter shows properties."
+        "Actions for release-notes.txt: Enter opens, Ctrl+Enter reveals, Alt+C copies the path, Alt+N copies the name, Shift+Enter shows properties, Tab moves across actions, and Shift+Tab returns to the results."
     )
+
+
+def test_launcher_shortcut_and_search_accessibility_describe_full_focus_cycle(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/report.txt"), parent_path=Path("/tmp"), name="report.txt")][:limit],
+            total=1,
+            elapsed_ms=1.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn, state=state)
+    launcher.show()
+
+    launcher.query_field.setText("report")
+    _wait(60)
+
+    assert "3 launcher history chips are available from the search field with Tab." in launcher.query_field.accessibleDescription()
+    assert "Tab moves through chips, results, and action buttons; Shift+Tab reverses." in launcher.query_field.accessibleDescription()
+    assert "Tab cycles through chips, results, and actions." in launcher.shortcut_label.text()
+
+    launcher.result_list.setFocus()
+    launcher._refresh_shortcut_hint()
+    assert "Tab moves to actions." in launcher.shortcut_label.text()
+    assert "Shift+Tab returns to filters." in launcher.shortcut_label.text()
 
 
 def test_launcher_active_filter_row_exposes_full_filter_summary_in_tooltip(qapp) -> None:

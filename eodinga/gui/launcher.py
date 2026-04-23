@@ -5,7 +5,8 @@ from typing import cast
 
 from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
 from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QSizePolicy, QVBoxLayout, QWidget
+from shiboken6 import isValid
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
@@ -79,6 +80,7 @@ class LauncherPanel(QWidget):
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
         self.shortcut_label.setAccessibleName("Launcher shortcut guidance")
+        self.shortcut_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
         self.status_label.setAccessibleName("Launcher result summary")
@@ -176,6 +178,7 @@ class LauncherPanel(QWidget):
 
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
+        self._refresh_query_field_accessibility()
         self.active_filter_row.set_query(self.query_field.text())
         self._refresh_preview()
         self._refresh_result_list_accessibility()
@@ -189,12 +192,14 @@ class LauncherPanel(QWidget):
         self.recent_queries_row.set_queries(queries[:5])
         self._install_auxiliary_event_filters()
         self._refresh_empty_state()
+        self._refresh_query_field_accessibility()
 
     def set_pinned_queries(self, queries: list[str]) -> None:
         self._pinned_queries = queries
         self.pinned_queries_row.set_queries(queries[:5])
         self._install_auxiliary_event_filters()
         self._refresh_empty_state()
+        self._refresh_query_field_accessibility()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
@@ -291,7 +296,7 @@ class LauncherPanel(QWidget):
         query = self.query_field.text().strip()
         previous_hit = self._current_hit()
         self._latest_result = self._search_fn(query, self._max_results)
-        if self._state is not None and query and not self._skip_remember_query:
+        if self._state_is_available() and query and not self._skip_remember_query:
             self._state.remember_query(query)
         self._skip_remember_query = False
         self.model.set_items(self._latest_result.items, query)
@@ -299,6 +304,7 @@ class LauncherPanel(QWidget):
         self._restore_selection(previous_hit)
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
+        self._refresh_query_field_accessibility()
         self._refresh_preview()
         self._refresh_result_list_accessibility()
         self.results_updated.emit(self._latest_result)
@@ -329,13 +335,20 @@ class LauncherPanel(QWidget):
             pinned_queries = f" Pinned: {', '.join(self._pinned_queries[:3])}." if self._pinned_queries else ""
             self.empty_state.set_content(
                 "Type to search",
-                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up and Alt+Down to browse recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
+                (
+                    f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or use Alt+Up and Alt+Down for history. "
+                    "Tab cycles chips, results, and actions, Shift+Tab reverses, Alt+1 through Alt+9 opens a top hit, "
+                    "Enter opens it, and Ctrl+Enter reveals its folder."
+                ),
                 details,
             )
         else:
             self.empty_state.set_content(
                 f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Alt+Up and Alt+Down to revisit recent queries, Tab to jump back to the filter, or Esc to hide the launcher.",
+                (
+                    "Try another term or refine with ext:pdf, date:this-week, or size:>10M. "
+                    "Use Alt+Up and Alt+Down for recent queries, Tab or Shift+Tab for chips, or Esc to hide the launcher."
+                ),
                 details,
             )
         self.empty_state.setVisible(not has_results)
@@ -345,13 +358,24 @@ class LauncherPanel(QWidget):
         has_results = self.model.rowCount() > 0
         if not has_results:
             if self.query_field.text().strip():
-                hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up and Alt+Down browse recent queries."
+                hint = (
+                    "Refine with ext:, date:, size:, or content:. Tab reviews launcher chips. Alt+Up and Alt+Down browse recent queries."
+                )
             else:
-                hint = "Type a filename, path, or content term. Alt+Up and Alt+Down browse recent queries."
+                hint = (
+                    "Type a filename, path, or content term. Tab reviews launcher chips. Alt+Up and Alt+Down browse recent queries."
+                )
         elif self.result_list.hasFocus():
-            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
+            hint = (
+                "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. "
+                "Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Tab moves to actions. Shift+Tab returns to filters. Ctrl+A or Ctrl+L returns to filter."
+            )
         else:
-            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up and Alt+Down browse recent queries."
+            hint = (
+                "Tab cycles through chips, results, and actions. Shift+Tab reverses. Down/Up navigate. Home/End and PgUp/PgDn jump. "
+                "Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. "
+                "Alt+Up and Alt+Down browse recent queries."
+            )
         self.shortcut_label.setText(hint)
 
     def _current_hit(self) -> SearchHit | None:
@@ -486,9 +510,21 @@ class LauncherPanel(QWidget):
     def _page_step(self) -> int:
         return min(max(self.model.rowCount() // 2, 1), 10)
 
+    def _refresh_query_field_accessibility(self) -> None:
+        description_parts = ["Type a filename, path, or content term to search the index."]
+        chip_count = len(self._chip_buttons())
+        if chip_count:
+            description_parts.append(f"{chip_count} launcher history chips are available from the search field with Tab.")
+        if self.model.rowCount() > 0:
+            description_parts.append("Tab moves through chips, results, and action buttons; Shift+Tab reverses.")
+        self.query_field.setAccessibleDescription(" ".join(description_parts))
+
     def _install_auxiliary_event_filters(self) -> None:
         for widget in [*self._chip_buttons(), *self._action_buttons()]:
             widget.installEventFilter(self)
+
+    def _state_is_available(self) -> bool:
+        return self._state is not None and isValid(self._state)
 
     def _chip_buttons(self) -> list[QWidget]:
         return [*self.pinned_queries_row.buttons, *self.recent_queries_row.buttons]
@@ -597,7 +633,7 @@ class LauncherPanel(QWidget):
             current_row = max(self.result_list.currentIndex().row(), 0) + 1
             description = f"{description} Selected {current_row} of {count}: {current_hit.name}."
         self.result_list.setAccessibleDescription(
-            f"{description} Use Up and Down to move between results, Enter to open, and Alt+1 through Alt+9 for quick picks."
+            f"{description} Use Up and Down to move between results, Enter to open, Tab to reach result actions, Shift+Tab to return to filters, and Alt+1 through Alt+9 for quick picks."
         )
 
     def _navigate_recent_queries(self, direction: int) -> None:

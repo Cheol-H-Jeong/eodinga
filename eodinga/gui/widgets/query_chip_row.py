@@ -68,7 +68,7 @@ class QueryChipRow(QWidget):
             f"{len(queries)} {self._label_text.lower()} launcher queries are available: {summary}."
         )
         self._chips_container.setAccessibleDescription(
-            f"Launcher query chips for {summary}. Press Tab to focus a chip and Enter or Space to apply it."
+            f"Launcher query chips for {summary}. Press Tab and Shift+Tab to move across chips, and Enter or Space to apply one."
         )
 
     @property
