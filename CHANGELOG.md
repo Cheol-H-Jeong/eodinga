@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.972 - 2026-04-24
+## 0.1.975 - 2026-04-24
 
 - Added public-CLI integration coverage for end-to-end `index` and `search` flows, including multi-root root-scoped queries against a real on-disk index.
 - Added CLI live-update integration coverage that re-searches after watcher-applied creates, verifying both global and root-scoped results through the user-facing command surface.
