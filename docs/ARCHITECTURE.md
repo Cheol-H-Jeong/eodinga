@@ -63,6 +63,26 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 
 The split matters operationally: when a query is wrong, first confirm which config and database paths the surface is using before assuming the parser or ranker is inconsistent.
 
+## Surface State Resolution
+
+Every surface resolves state in the same order:
+
+```text
+CLI flags / GUI-selected overrides
+    |
+    +--> explicit --config / --db values when present
+    |
+    +--> platform default config path
+            |
+            +--> configured roots + launcher settings
+            |
+            +--> platform default database path unless --db overrides it
+```
+
+- `eodinga doctor` is the shortest confirmation path for config resolution because it reports the effective paths and environment assumptions without mutating indexed roots.
+- `eodinga stats --json` is the shortest confirmation path for database resolution because it proves which live index file the active process is reading.
+- Launcher drift, pinned-query surprises, and CLI-vs-GUI mismatches are often path-resolution problems first and query-engine problems second.
+
 ## Module Map
 
 | Area | Primary modules | Responsibility |
@@ -260,6 +280,26 @@ runtime code / CLI / UI changes
 
 - The release flow treats documentation, generated assets, and packaging manifests as part of the same shipped surface.
 - This is why docs-only rounds still run `tests/unit/test_docs_assets.py` and the matching dry-run or GUI smoke command instead of stopping at markdown edits.
+
+## Release Evidence Loop
+
+```text
+runtime or packaging change
+    |
+    +--> README.md / docs/*.md updated
+    |
+    +--> generated man page and screenshots refreshed when the surface changed
+    |
+    +--> docs-assets test proves the checked-in contract still exists
+    |
+    +--> packaging dry-run manifests under packaging/dist/ prove the packaged payload agrees
+    |
+    +--> local tag cut only after docs, derived assets, and manifests line up
+```
+
+- The docs test is the fast structural check: required sections and generated-manpage drift.
+- The packaging manifest review is the release-surface check: whether the staged payload still matches the documented contract.
+- Keeping those checks separate is intentional; a green docs test does not prove the packaging payload is still correct, and a green dry run does not prove the written docs stayed aligned.
 
 ## State Ownership
 

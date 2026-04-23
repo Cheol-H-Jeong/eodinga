@@ -121,6 +121,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Data Flow Diagram" in architecture
     assert "## Module Map" in architecture
     assert "## Runtime Path Layout" in architecture
+    assert "## Surface State Resolution" in architecture
     assert "## Index Storage" in architecture
     assert "## SQLite Schema Snapshot" in architecture
     assert "## Index Lifecycle Sequence" in architecture
@@ -133,6 +134,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Live Update Sequence" in architecture
     assert "## Documentation Asset Flow" in architecture
     assert "## Release Input Map" in architecture
+    assert "## Release Evidence Loop" in architecture
     assert "## State Ownership" in architecture
     assert "## Failure Domains" in architecture
     assert "## Operator Debug Path" in architecture
@@ -145,6 +147,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "packaging/dist/" in architecture
     assert "EODINGA_LOG_PATH" in architecture
     assert "crash-<ts>.log" in architecture
+    assert "CLI-vs-GUI mismatches are often path-resolution problems first" in architecture
+    assert "a green docs test does not prove the packaging payload is still correct" in architecture
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
