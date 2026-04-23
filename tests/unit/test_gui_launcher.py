@@ -599,10 +599,39 @@ def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
     assert "Alpha release notes" in launcher.preview_pane.snippet_label.text()
     assert launcher.action_bar.open_button.isEnabled()
 
-    launcher._sync_preview_to_index(launcher.model.index(1, 0))
+    launcher._handle_hovered_index(launcher.model.index(1, 0))
 
     assert launcher.preview_pane.title_label.text() == "beta.txt"
     assert "Beta launch checklist" in launcher.preview_pane.snippet_label.text()
+    assert launcher.result_list.currentIndex().row() == 1
+
+
+def test_launcher_hovered_result_becomes_action_target(qapp) -> None:
+    activated: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+            ][:limit],
+            total=2,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: activated.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("notes")
+    _wait(60)
+
+    assert launcher.result_list.currentIndex().row() == 0
+
+    launcher._handle_hovered_index(launcher.model.index(1, 0))
+    launcher.action_bar.open_button.click()
+
+    assert activated == ["beta.txt"]
 
 
 def test_launcher_action_bar_triggers_result_actions(qapp) -> None:
