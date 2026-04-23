@@ -94,6 +94,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "git tag v0.1.N" in acceptance
     assert "docs/man/eodinga.1" in acceptance
     assert "## Derived Docs Checks" in acceptance
+    assert "## One-Command Acceptance Pass" in acceptance
+    assert "## Worker Round Handoff" in acceptance
     assert "python scripts/render_docs_screenshots.py" in acceptance
 
     assert "## Runtime Flow" in architecture
@@ -133,8 +135,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "scripts/generate_manpage.py" in contributing
     assert "scripts/render_docs_screenshots.py" in contributing
     assert "## Docs Refresh Order" in contributing
+    assert "## Docs-Only Round Checklist" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
+    assert "## Handoff Artifacts" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
     assert "The final release commit for a round should carry the version bump" in contributing
 
@@ -175,6 +179,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Worker Handoff Rules" in release
     assert "## Docs-Only Rounds" in release
     assert "## Cut The Local Release" in release
+    assert "## Collision And Recovery Cases" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release
     assert "python scripts/generate_manpage.py" in release

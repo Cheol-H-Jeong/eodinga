@@ -45,6 +45,14 @@ yamllint .github/workflows/release-windows.yml
 yamllint .github/workflows/release-linux.yml
 ```
 
+## One-Command Acceptance Pass
+
+When you want one non-interactive release check instead of reconstructing the order manually, use:
+
+```bash
+source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)" && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run && yamllint .github/workflows/release-windows.yml && yamllint .github/workflows/release-linux.yml
+```
+
 ## What The Gate Covers
 
 - `pytest -q tests` exercises the unit, integration, safety, packaging, and GUI-offscreen regressions, including the end-to-end index-and-search path.
@@ -90,3 +98,13 @@ For each improvement round:
 For docs-only rounds, the changelog entry still needs to say which shipped guide or derived asset changed and why that matters to operators.
 
 Publishing the GitHub Release stays outside this repository-local checklist, but the local tag and changelog entry are required before handing off to the orchestrator.
+
+## Worker Round Handoff
+
+Before declaring the round done, confirm:
+
+- the focused per-commit unit gate stayed green while the round was being assembled
+- the final full acceptance pass was re-run after the version bump
+- `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py` agree on the same `0.1.N`
+- the local tag points at the release-metadata commit rather than an earlier docs or feature commit
+- the branch is ready for the orchestrator to rebase and push without extra local cleanup

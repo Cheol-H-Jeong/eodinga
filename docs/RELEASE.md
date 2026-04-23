@@ -108,6 +108,13 @@ Collision check example:
 if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 ```
 
+## Collision And Recovery Cases
+
+- If `origin/main` moved while the round was in progress, fetch and reset before starting the next round instead of trying to recycle the old patch number.
+- If the chosen patch version or local tag now exists, pick the next unused `0.1.N`; never retag an older commit in place.
+- If the full gate fails after the release-metadata commit, fix the failure in a new commit and move the local tag to the corrected final commit before handoff.
+- If a docs-only round changed generated assets, keep those regenerated files in the same final review set so the tag still points at a self-consistent shipped surface.
+
 ## Handoff Checklist
 
 - Working tree clean except for intended release artifacts.

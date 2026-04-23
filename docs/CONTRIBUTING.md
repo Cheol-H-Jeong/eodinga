@@ -127,6 +127,16 @@ When a change affects the shipped contract, refresh docs in this order:
 4. Re-run `pytest -q tests/unit/test_docs_assets.py` before the broader gate.
 5. Re-run any matching packaging dry run if the docs now describe packaging behavior or artifacts differently.
 
+## Docs-Only Round Checklist
+
+Use this when the shipped contract changed but runtime code did not:
+
+1. Update `README.md` plus the deeper guide that explains the same surface.
+2. Refresh derived assets if CLI help or visible UI changed.
+3. Run `pytest -q tests/unit/test_docs_assets.py`.
+4. Run the matching dry run or GUI smoke command for the surface you documented.
+5. Save the version bump, changelog update, and local tag for the final release-metadata commit.
+
 ## Test Selection Guide
 
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`
@@ -143,3 +153,12 @@ When a change affects the shipped contract, refresh docs in this order:
 - Docs-only rounds still require a changelog entry and local tag when the shipped contract changed.
 - If a change cannot stay inside one theme or one logical commit, stop and split it before proceeding.
 - The final release commit for a round should carry the version bump, changelog entry, and local tag together so earlier feature or docs commits remain easy to review and rebase.
+
+## Handoff Artifacts
+
+Before handing the branch back to the orchestrator, record:
+
+- the exact version chosen from `git tag -l | sort -V | tail -3`
+- the commands used for the focused unit gate and the final full gate
+- whether docs assets were regenerated in this round
+- the local tag name created for the release-metadata commit
