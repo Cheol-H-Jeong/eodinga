@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QCheckBox, QInputDialog, QLabel, QVBoxLayout, QWidget
 
+from eodinga.gui.hotkey_controller import normalize_hotkey_combo
 from eodinga.gui.widgets import SecondaryButton
 
 
@@ -41,8 +42,8 @@ class SettingsTab(QWidget):
         layout.addStretch(1)
 
     def set_hotkey_combo(self, combo: str) -> None:
-        self._hotkey_combo = combo
-        self.hotkey_label.setText(f"Launcher hotkey: {combo}")
+        self._hotkey_combo = normalize_hotkey_combo(combo)
+        self.hotkey_label.setText(f"Launcher hotkey: {self._hotkey_combo}")
 
     def set_always_on_top(self, enabled: bool) -> None:
         self.always_on_top_checkbox.blockSignals(True)
@@ -56,7 +57,7 @@ class SettingsTab(QWidget):
             "Enter a launcher hotkey:",
             text=self._hotkey_combo,
         )
-        normalized = combo.strip()
+        normalized = normalize_hotkey_combo(combo)
         if not accepted or not normalized:
             return
         self.hotkey_change_requested.emit(normalized)

@@ -8,6 +8,20 @@ from eodinga.gui.launcher_window import LauncherWindow
 from eodinga.launcher.hotkey import HotkeyService
 from eodinga.observability import get_logger
 
+_MODIFIER_ALIASES = {
+    "ctrl": "ctrl",
+    "control": "ctrl",
+    "alt": "alt",
+    "option": "alt",
+    "shift": "shift",
+    "win": "win",
+    "meta": "win",
+    "super": "win",
+    "cmd": "win",
+    "command": "win",
+}
+_MODIFIER_ORDER = ("ctrl", "alt", "shift", "win")
+
 
 class HotkeyServiceLike(Protocol):
     def register(self, combo: str, callback) -> None: ...
@@ -32,10 +46,10 @@ class LauncherHotkeyController(QObject):
         super().__init__(parent)
         self._launcher_window = launcher_window
         self._service = hotkey_service if hotkey_service is not None else self._build_service()
-        self._combo = combo
+        self._combo = normalize_hotkey_combo(combo)
         self.toggle_requested.connect(self.toggle_launcher)
-        if self._service is not None and combo:
-            self._apply_combo(combo)
+        if self._service is not None and self._combo:
+            self._apply_combo(self._combo)
 
     @property
     def combo(self) -> str:
@@ -46,7 +60,7 @@ class LauncherHotkeyController(QObject):
         return self._service is not None
 
     def rebind(self, combo: str) -> None:
-        normalized = combo.strip()
+        normalized = normalize_hotkey_combo(combo)
         if not normalized or normalized == self._combo:
             return
         previous = self._combo
@@ -89,3 +103,23 @@ class LauncherHotkeyController(QObject):
         self._service.start()
         self._combo = combo
         get_logger().debug("launcher hotkey bound to {}", combo)
+
+
+def normalize_hotkey_combo(combo: str) -> str:
+    parts = [part.strip().lower() for part in combo.split("+") if part.strip()]
+    if not parts:
+        return ""
+    modifiers: list[str] = []
+    key_parts: list[str] = []
+    for part in parts:
+        modifier = _MODIFIER_ALIASES.get(part)
+        if modifier is not None:
+            if modifier not in modifiers:
+                modifiers.append(modifier)
+            continue
+        key_parts.append(part)
+    if not key_parts:
+        return "+".join(modifier for modifier in _MODIFIER_ORDER if modifier in modifiers)
+    key = key_parts[-1]
+    ordered_modifiers = [modifier for modifier in _MODIFIER_ORDER if modifier in modifiers]
+    return "+".join([*ordered_modifiers, key])
