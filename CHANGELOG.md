@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.111 - 2026-04-23
+
+- Expanded `eodinga stats --json` so it now carries the full in-process counter and histogram snapshot alongside the existing high-level runtime fields, keeping machine-readable observability data available without scraping logs.
+- Enriched `crash-<ts>.log` output with invocation metadata such as command, cwd, Python version, and platform so post-mortem debugging has enough context even when stderr output is gone.
+- Added end-to-end observability regressions that exercise rebuild, search, and watcher ingress in one process and require the emitted stats payload to report the same counter state back.
+
 ## 0.1.104 - 2026-04-23
 
 - Added a multi-root integration regression that rebuilds one index from two configured roots, proves both roots are persisted, and pins `search(..., root=...)` scoping against cross-root result leakage.
