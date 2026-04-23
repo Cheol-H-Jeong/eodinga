@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.921 - 2026-04-24
+## 0.1.927 - 2026-04-24
 
 - Cached compiled include/exclude path rules and expanded denylist data in the walker filter path, eliminating repeated `PathSpec` rebuilds while traversing large trees.
 - Let staged rebuilds reuse their outer fast-write SQLite pragma scope instead of re-entering the same writer-level pragma context for every batch, trimming rebuild overhead without changing default writer durability behavior.
