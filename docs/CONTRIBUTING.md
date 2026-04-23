@@ -51,6 +51,18 @@ pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summ
 
 After the focused slice is green, run the broader acceptance gate before release handoff.
 
+## Single-Shot Worker Loop
+
+Prefer one deterministic command chain per stage instead of manually hopping between tests:
+
+1. Rebase the worktree and refresh the venv once.
+2. Run the smallest theme-sized test slice until it is green.
+3. Commit one logical change.
+4. Re-run `pytest -q tests/unit` before starting the next commit.
+5. Leave the version bump, changelog entry, and local tag for the final metadata cut.
+
+This keeps parallel worktree collisions small: if another worker lands first, only the last metadata commit should need retargeting.
+
 ## Quality Gates
 
 Default repository gate:
@@ -188,6 +200,13 @@ Do not rewrite earlier docs or feature commits just to retarget the patch number
 - README examples use the current query surface and current operator names.
 - Derived docs assets are regenerated from code, not edited by hand.
 - The final release metadata commit contains only the version/changelog/tag cut unless a same-round asset refresh is required.
+
+## Docs Review Heuristics
+
+- If a README claim depends on a generated artifact, review the artifact itself instead of trusting prose.
+- If a guide mentions packaged payloads, inspect `packaging/dist/` from the matching dry run before treating the docs as complete.
+- If a command list grows into a mini-procedure, collapse it back into a single-shot command when the tooling already supports that.
+- If a docs-only round changes the shipped contract, add or tighten a `tests/unit/test_docs_assets.py` assertion so the improvement survives later churn.
 
 ## Packaging Review Checklist
 

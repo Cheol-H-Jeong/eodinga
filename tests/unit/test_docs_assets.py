@@ -158,6 +158,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Derived Asset Matrix" in contributing
     assert "## Parallel Worktrees" in contributing
     assert "Required start gate for worker rounds" in contributing
+    assert "## Single-Shot Worker Loop" in contributing
     assert "## Theme-Sized Test Guide" in contributing
     assert "Commit-level minimum" in contributing
     assert "scripts/generate_manpage.py" in contributing
@@ -169,10 +170,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
     assert "## Review Checklist" in contributing
+    assert "## Docs Review Heuristics" in contributing
     assert "## Packaging Review Checklist" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
     assert "The final release commit for a round should carry the version bump" in contributing
     assert "Do not rewrite earlier docs or feature commits" in contributing
+    assert "only the last metadata commit should need retargeting" in contributing
+    assert "review the artifact itself instead of trusting prose" in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl
@@ -217,12 +221,14 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Artifact Inventory" in release
     assert "## Verify Shipped Docs" in release
     assert "## Packaging Audit Checklist" in release
+    assert "## Release Evidence Review Order" in release
     assert "## Tag Decision Path" in release
     assert "## Worker Handoff Rules" in release
     assert "## Docs-Only Rounds" in release
     assert "## Cut The Local Release" in release
     assert "## Collision And Retag Rules" in release
     assert "## Retargeting Metadata After A Collision" in release
+    assert "## Metadata Retarget Checklist" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release
     assert "python scripts/generate_manpage.py" in release
@@ -233,6 +239,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Single-shot metadata cut" in release
     assert "git fetch origin main --tags" in release
     assert "A green dry run without a reviewed manifest is not a completed release check." in release
+    assert "if another worker lands the same patch number first" in release
+    assert "The local `v0.1.N` tag points at the retargeted metadata commit" in release
 
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage

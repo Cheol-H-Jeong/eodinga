@@ -107,6 +107,18 @@ Use this review table after each matching dry run:
 
 Treat `packaging/dist/` as the review surface. A green dry run without a reviewed manifest is not a completed release check.
 
+## Release Evidence Review Order
+
+Use the same evidence order every round so release handoff stays predictable:
+
+1. Prove the code or docs slice with the smallest relevant test command.
+2. Re-run `pytest -q tests/unit` so the branch tip is stable across themes.
+3. Run the broader acceptance gate from `docs/ACCEPTANCE.md`.
+4. Review generated docs assets and the matching `packaging/dist/` manifests for any surface the round described.
+5. Cut the metadata commit and local tag only after those artifacts agree.
+
+This order keeps parallel retargets cheap: if another worker lands the same patch number first, you only need to refresh the final metadata step instead of reopening earlier feature or docs commits.
+
 ## Tag Decision Path
 
 ```text
@@ -190,6 +202,16 @@ When a parallel worker lands your planned patch number first:
 5. recreate the local `v0.1.N` tag on the new metadata commit
 
 Keep the earlier docs or feature commits unchanged so the round stays reviewable and easy to rebase.
+
+## Metadata Retarget Checklist
+
+When you lose the patch-number race to another worker, verify all of these before recreating the local tag:
+
+- `git fetch origin main --tags` shows the conflicting version on the remote tag list.
+- `pyproject.toml`, `eodinga/__init__.py`, and the top `CHANGELOG.md` entry all agree on the replacement `0.1.N`.
+- `pytest -q tests/unit` is green on the new metadata tip.
+- The local `v0.1.N` tag points at the retargeted metadata commit, not the earlier pre-retarget commit.
+- Earlier docs, feature, or packaging commits are unchanged apart from the final metadata cut.
 
 ## Handoff Checklist
 
