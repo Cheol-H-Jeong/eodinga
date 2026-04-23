@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.443 - 2026-04-23
+
+- Counted ordinary nonzero CLI exits as failed commands in observability metrics, so validation and syntax errors now appear in `commands_failed`, per-command failure tallies, and exit-code summaries without being misclassified as crashes.
+- Added watcher observer lifecycle counters for start and stop events, making `stats --json` reflect whether live-update monitoring was actually brought up and torn down during the current process.
+- Exposed runtime process metadata in `stats --json` and metrics snapshots, including process start time, pid, version, and crash-handler installation count, so operators can correlate a stats payload with the exact running process that produced it.
+
 ## 0.1.442 - 2026-04-23
 
 - Added a dedicated `.[packaging]` extra for Windows release tooling and wired the Windows release workflow to install it explicitly instead of relying on ambient build dependencies.
