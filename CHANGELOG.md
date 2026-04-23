@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.303 - 2026-04-23
+## 0.1.304 - 2026-04-23
 
 - Kept the frameless launcher popup usable across screen changes by centering first launch, restoring saved geometry only after clamping it to the visible screen, and adding mouse dragging from non-editing launcher surfaces.
 - Clamped dragged and persisted launcher bounds to the active screen so oversized or off-screen popup positions are normalized before they are saved back into config.
