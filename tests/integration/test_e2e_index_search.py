@@ -86,6 +86,7 @@ def _index_tree(root: Path, db_path: Path) -> None:
         ("invoice budget", "invoice-budget.txt"),
         ("date:today size:>10M is:duplicate -path:archive", "today-alpha-copy.txt"),
         ("date:yesterday -is:duplicate", "yesterday-beta.txt"),
+        ("date:yesterday size:..9M", "yesterday-beta.txt"),
     ],
 )
 def test_e2e_index_search_returns_expected_file_in_top_three(

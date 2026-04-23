@@ -252,6 +252,8 @@ def test_parse_slash_prefixed_path_regex_with_escaped_slash(
         ("date: 2026-01-01..2026-01-03", "date", "2026-01-01..2026-01-03", "word"),
         ("date:2026-01-01 .. 2026-01-03", "date", "2026-01-01..2026-01-03", "word"),
         ("size:100 .. 500K", "size", "100..500K", "word"),
+        ("size:.. 500K", "size", "..500K", "word"),
+        ("size:100 ..", "size", "100..", "word"),
         ("date:.. 2026-01-03", "date", "..2026-01-03", "word"),
         ("date:2026-01-02 ..", "date", "2026-01-02..", "word"),
     ],

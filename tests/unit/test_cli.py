@@ -154,6 +154,26 @@ def test_search_json_queries_real_index(cli_runner, tmp_path: Path) -> None:
     ]
 
 
+def test_search_json_accepts_open_ended_size_ranges(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "size:11M.. -path:archive",
+        "--json",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == [
+        "today-alpha-clone.txt",
+        "today-alpha-copy.txt",
+    ]
+
+
 def test_search_json_reports_total_count_not_page_length(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     conn = sqlite3.connect(db_path)
