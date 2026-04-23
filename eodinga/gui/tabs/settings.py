@@ -29,12 +29,16 @@ class SettingsTab(QWidget):
         self.hotkey_label = QLabel("", self)
         self.hotkey_label.setProperty("role", "secondary")
         self.hotkey_label.setAccessibleName("Current launcher hotkey")
+        self.hotkey_status_label = QLabel("", self)
+        self.hotkey_status_label.setProperty("role", "secondary")
+        self.hotkey_status_label.setAccessibleName("Launcher hotkey support status")
         self.remap_hotkey_button = SecondaryButton("Remap hotkey", self)
         self.remap_hotkey_button.setAccessibleName("Remap hotkey")
         self.remap_hotkey_button.clicked.connect(self._prompt_hotkey_combo)
         self.frameless_checkbox.toggled.connect(self.frameless_changed.emit)
         self.always_on_top_checkbox.toggled.connect(self.always_on_top_changed.emit)
         self.set_hotkey_combo(self._hotkey_combo)
+        self.set_hotkey_availability(True)
 
         layout.addWidget(title)
         layout.addWidget(body)
@@ -42,6 +46,7 @@ class SettingsTab(QWidget):
         layout.addWidget(self.frameless_checkbox)
         layout.addWidget(self.always_on_top_checkbox)
         layout.addWidget(self.hotkey_label)
+        layout.addWidget(self.hotkey_status_label)
         layout.addWidget(self.remap_hotkey_button)
         layout.addStretch(1)
 
@@ -58,6 +63,13 @@ class SettingsTab(QWidget):
         self.frameless_checkbox.blockSignals(True)
         self.frameless_checkbox.setChecked(enabled)
         self.frameless_checkbox.blockSignals(False)
+
+    def set_hotkey_availability(self, available: bool) -> None:
+        self.remap_hotkey_button.setEnabled(available)
+        if available:
+            self.hotkey_status_label.setText("Global launcher hotkey is active.")
+            return
+        self.hotkey_status_label.setText("Global launcher hotkey is unavailable in this session.")
 
     def _prompt_hotkey_combo(self) -> None:
         combo, accepted = QInputDialog.getText(

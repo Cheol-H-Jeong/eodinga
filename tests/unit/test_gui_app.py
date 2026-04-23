@@ -67,6 +67,7 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.settings_tab.frameless_checkbox.accessibleName() == "Use frameless launcher window"
     assert window.settings_tab.always_on_top_checkbox.accessibleName() == "Keep launcher always on top"
     assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"
+    assert window.settings_tab.hotkey_status_label.accessibleName() == "Launcher hotkey support status"
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
     assert window.about_tab.accessibleName() == "About tab"
     assert window.launcher_window.pinned_queries_row.accessibleName() == "Pinned launcher queries"
@@ -333,6 +334,16 @@ def test_window_registers_hotkey_and_toggles_launcher_from_callback(qapp) -> Non
     window.close()
     qapp.processEvents()
     assert hotkey_service.calls[-1] == ("stop", "")
+
+
+def test_settings_tab_disables_hotkey_remap_when_backend_is_unavailable(monkeypatch, qapp) -> None:
+    monkeypatch.setattr("eodinga.gui.hotkey_controller.LauncherHotkeyController._build_service", lambda self: None)
+
+    window = EodingaWindow()
+    window.show()
+
+    assert not window.settings_tab.remap_hotkey_button.isEnabled()
+    assert window.settings_tab.hotkey_status_label.text() == "Global launcher hotkey is unavailable in this session."
 
 
 def test_settings_tab_rebinds_hotkey_without_restart(
