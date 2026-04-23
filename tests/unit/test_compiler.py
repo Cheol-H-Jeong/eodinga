@@ -207,12 +207,31 @@ def test_compile_negated_group_pushes_negation_to_leaf_terms() -> None:
     assert all(term.negated for term in branch.path_terms)
 
 
+def test_compile_negated_and_group_splits_into_negated_branches() -> None:
+    compiled = compile_query(parse("-(alpha beta) ext:txt"))
+
+    assert len(compiled.branches) == 2
+    assert all(branch.where_sql == "files.ext = ?" for branch in compiled.branches)
+    assert all(branch.where_params == ("txt",) for branch in compiled.branches)
+    assert {branch.path_terms[0].value for branch in compiled.branches} == {"alpha", "beta"}
+    assert all(branch.path_terms[0].negated for branch in compiled.branches)
+
+
 def test_compile_double_negated_group_restores_positive_branches() -> None:
     compiled = compile_query(parse("-(-(alpha | beta))"))
 
     assert len(compiled.branches) == 2
     assert {branch.path_match_params for branch in compiled.branches} == {('"alpha"',), ('"beta"',)}
     assert all(not branch.path_terms[0].negated for branch in compiled.branches)
+
+
+def test_compile_double_negated_and_group_restores_positive_conjunction() -> None:
+    compiled = compile_query(parse("-(-(alpha beta))"))
+
+    assert len(compiled.branches) == 1
+    assert compiled.branches[0].path_match_params == ('"alpha" "beta"',)
+    assert [term.value for term in compiled.branches[0].path_terms] == ["alpha", "beta"]
+    assert all(not term.negated for term in compiled.branches[0].path_terms)
 
 
 def test_compile_reuses_cached_queries() -> None:

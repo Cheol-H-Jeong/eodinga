@@ -318,6 +318,33 @@ def test_execute_negated_regex_true_restores_literal_term_matching(
     assert literal_hits == ["report-[0-9]+.txt"]
 
 
+def test_execute_negated_and_group_matches_either_missing_term_branch(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/alpha-only.txt", 512, now, "txt", body_text="alpha body")
+    _insert_file(tmp_db, 2, "/workspace/beta-only.txt", 512, now - 60, "txt", body_text="beta body")
+    _insert_file(tmp_db, 3, "/workspace/alpha-beta.txt", 512, now - 120, "txt", body_text="alpha beta")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "-(alpha beta)", limit=10).hits]
+
+    assert hits == ["alpha-only.txt", "beta-only.txt"]
+
+
+def test_execute_double_negated_and_group_restores_conjunction(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/alpha-only.txt", 512, now, "txt", body_text="alpha body")
+    _insert_file(tmp_db, 2, "/workspace/alpha-beta.txt", 512, now - 60, "txt", body_text="alpha beta")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "-(-(alpha beta))", limit=10).hits]
+
+    assert hits == ["alpha-beta.txt"]
+
+
 def test_execute_escaped_phrase_query_matches_literal_quotes_and_backslashes(
     tmp_db: sqlite3.Connection,
 ) -> None:
