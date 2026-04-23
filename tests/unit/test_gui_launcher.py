@@ -713,21 +713,64 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
 
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
+    assert launcher.query_field.accessibleDescription() == "Type a filename, path, or content term to search the index."
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"
     assert launcher.empty_state.body_label.accessibleName() == "Launcher empty state guidance"
     assert launcher.empty_state.details_label.accessibleName() == "Launcher indexing details"
+    assert launcher.pinned_queries_row.accessibleName() == "Pinned launcher queries"
+    assert launcher.pinned_queries_row.buttons == []
+    assert launcher.recent_queries_row.accessibleName() == "Recent launcher queries"
     assert launcher.preview_pane.accessibleName() == "Launcher preview pane"
     assert launcher.preview_pane.title_label.accessibleName() == "Previewed result name"
     assert launcher.preview_pane.path_label.accessibleName() == "Previewed result path"
     assert launcher.preview_pane.snippet_label.accessibleName() == "Previewed result snippet"
     assert launcher.action_bar.accessibleName() == "Launcher action bar"
     assert launcher.action_bar.open_button.accessibleName() == "Open selected result"
+    assert launcher.action_bar.open_button.accessibleDescription() == "Open the selected result with Enter."
     assert launcher.action_bar.reveal_button.accessibleName() == "Reveal selected result"
+    assert launcher.action_bar.reveal_button.accessibleDescription() == "Reveal the selected result with Ctrl+Enter."
     assert launcher.action_bar.copy_path_button.accessibleName() == "Copy selected path"
+    assert launcher.action_bar.copy_path_button.accessibleDescription() == "Copy the selected result path with Alt+C."
     assert launcher.action_bar.copy_name_button.accessibleName() == "Copy selected name"
+    assert launcher.action_bar.copy_name_button.accessibleDescription() == "Copy the selected result name with Alt+N."
     assert launcher.action_bar.properties_button.accessibleName() == "Show selected properties"
+    assert launcher.action_bar.properties_button.accessibleDescription() == "Open selected result properties with Shift+Enter."
     assert launcher.shortcut_label.accessibleName() == "Launcher shortcut guidance"
     assert launcher.status_label.accessibleName() == "Launcher result summary"
-    assert launcher.status_chip.accessibleName() == "Status"
+    assert launcher.status_chip.accessibleName() == "Launcher status"
+
+
+def test_launcher_query_chips_expose_accessible_context(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    pinned_chip = launcher.pinned_queries_row.buttons[0]
+    recent_chip = launcher.recent_queries_row.buttons[0]
+
+    assert pinned_chip.accessibleName() == "Use query ext:pdf"
+    assert pinned_chip.accessibleDescription() == "Apply the pinned launcher query"
+    assert recent_chip.accessibleName() == "Use query budget"
+    assert recent_chip.accessibleDescription() == "Apply the recent launcher query"
+
+
+def test_launcher_result_markup_surfaces_top_nine_quick_pick_badges(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        items = [
+            SearchHit(path=Path(f"/tmp/item-{index}.txt"), parent_path=Path("/tmp"), name=f"item-{index}.txt")
+            for index in range(11)
+        ]
+        return QueryResult(items=items[:limit], total=len(items), elapsed_ms=2.0)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("item")
+    _wait(60)
+
+    assert "Alt+1" in launcher.model.data(launcher.model.index(0, 0))
+    assert "Alt+9" in launcher.model.data(launcher.model.index(8, 0))
+    assert "Alt+10" not in launcher.model.data(launcher.model.index(9, 0))

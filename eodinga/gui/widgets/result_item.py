@@ -25,6 +25,13 @@ from eodinga.query.dsl import (
 HTML_MARGIN = 8
 MARK_OPEN = "<mark style='font-weight:700; background-color:#FDE68A; color:#111827'>"
 _TARGET_ALL = frozenset({"name", "path", "snippet"})
+QUICK_PICK_BADGE_TEMPLATE = (
+    "<span style='display:inline-block; margin-right:8px; padding:1px 6px; "
+    "border-radius:999px; font-size:10px; font-weight:700; letter-spacing:0.08em; "
+    "text-transform:uppercase; color:#1D4ED8; background:#DBEAFE'>"
+    "Alt+{number}"
+    "</span>"
+)
 
 
 @dataclass(frozen=True)
@@ -220,7 +227,7 @@ def _style_marks(html: str) -> str:
     return html.replace("<mark>", MARK_OPEN)
 
 
-def format_hit_html(hit: SearchHit, query: str) -> str:
+def format_hit_html(hit: SearchHit, query: str, *, quick_pick_number: int | None = None) -> str:
     primary = _style_marks(hit.highlighted_name or highlight_text(hit.name, query, target="name"))
     secondary = _style_marks(hit.highlighted_path or highlight_text(str(hit.parent_path), query, target="path"))
     snippet_html = ""
@@ -241,8 +248,11 @@ def format_hit_html(hit: SearchHit, query: str) -> str:
             f"{ext_html}"
             "</span>"
         )
+    quick_pick_badge = ""
+    if quick_pick_number is not None and 1 <= quick_pick_number <= 9:
+        quick_pick_badge = QUICK_PICK_BADGE_TEMPLATE.format(number=quick_pick_number)
     return (
-        f"<div style='font-size:15px; font-weight:600'>{primary}{ext_badge}</div>"
+        f"<div style='font-size:15px; font-weight:600'>{quick_pick_badge}{primary}{ext_badge}</div>"
         f"<div style='font-size:11px; color:#6B7280'>{secondary}</div>"
         f"{snippet_html}"
     )

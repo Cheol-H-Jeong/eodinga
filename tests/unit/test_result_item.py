@@ -74,8 +74,10 @@ def test_format_hit_html_renders_extension_badge() -> None:
             ext="pdf",
         ),
         "report",
+        quick_pick_number=2,
     )
 
+    assert "Alt+2" in rendered
     assert "font-weight:700" in rendered
     assert "background-color:#FDE68A" in rendered
     assert ">report</mark>.pdf" in rendered
@@ -129,3 +131,18 @@ def test_format_hit_html_prefers_precomputed_highlighted_path() -> None:
 
     assert "/workspace/<mark style='font-weight:700; background-color:#FDE68A; color:#111827'>reports</mark>" in rendered
     assert "path:ignored" not in rendered
+
+
+def test_format_hit_html_omits_quick_pick_badge_after_top_nine() -> None:
+    rendered = format_hit_html(
+        SearchHit(
+            path=Path("/workspace/reports/release-notes.txt"),
+            parent_path=Path("/workspace/reports"),
+            name="release-notes.txt",
+            ext="txt",
+        ),
+        "release",
+        quick_pick_number=10,
+    )
+
+    assert "Alt+10" not in rendered
