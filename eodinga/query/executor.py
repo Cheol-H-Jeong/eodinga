@@ -173,6 +173,39 @@ def _normalize_search_text(value: str, case_sensitive: bool) -> str:
     return normalized if case_sensitive else normalized.casefold()
 
 
+def _stable_path_key(record: FileRecord) -> tuple[str, int]:
+    record_id = record.id if record.id is not None else -1
+    return (str(record.path).casefold(), record_id)
+
+
+def _stable_same_name_records(records: Iterable[FileRecord]) -> list[FileRecord]:
+    ordered = list(records)
+    first_bucket_by_name: dict[str, int] = {}
+    for index, record in enumerate(ordered):
+        first_bucket_by_name.setdefault(record.name_lower, index)
+    return sorted(
+        ordered,
+        key=lambda record: (first_bucket_by_name[record.name_lower], *_stable_path_key(record)),
+    )
+
+
+def _stable_same_name_ids(
+    ids: Iterable[int],
+    records: Mapping[int, FileRecord],
+) -> list[int]:
+    ordered_ids = [file_id for file_id in ids if file_id in records]
+    first_bucket_by_name: dict[str, int] = {}
+    for index, file_id in enumerate(ordered_ids):
+        first_bucket_by_name.setdefault(records[file_id].name_lower, index)
+    return sorted(
+        ordered_ids,
+        key=lambda file_id: (
+            first_bucket_by_name[records[file_id].name_lower],
+            *_stable_path_key(records[file_id]),
+        ),
+    )
+
+
 def _fts_prefix_literal(value: str) -> str:
     escaped = value.replace('"', '""')
     return f'"{escaped}"*'
@@ -412,6 +445,7 @@ def _fetch_path_candidates_python_scan(
             )
             else 1,
             record.name if branch.case_sensitive else record.name_lower,
+            *_stable_path_key(record),
         ),
     )[:limit]
     ids = [record.id for record in ordered if record.id is not None]
@@ -635,7 +669,10 @@ def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> l
     if not positives:
         return []
     hits: list[int] = []
-    for file_id, record in records.items():
+    for record in _stable_same_name_records(records.values()):
+        file_id = record.id
+        if file_id is None:
+            continue
         check_name = _normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
         for term in positives:
             needle = _normalize_search_text(term, case_sensitive=branch.case_sensitive)
@@ -690,10 +727,10 @@ def _derive_name_path_hits(
     name_hits: list[int] = []
     path_hits: list[int] = []
     if not positive_terms:
-        ordered = sorted(records.values(), key=lambda item: item.name_lower)
+        ordered = sorted(records.values(), key=lambda item: (item.name_lower, *_stable_path_key(item)))
         ids = [record.id for record in ordered if record.id is not None]
         return ids, ids
-    for record in records.values():
+    for record in _stable_same_name_records(records.values()):
         if record.id is None:
             continue
         target_name = record.name
@@ -774,7 +811,7 @@ def _execute_branch(
             file_id: records[file_id] for file_id in candidate_ids if file_id in records
         }
     name_hits, path_hits = _derive_name_path_hits(filtered_records, branch)
-    content_hits = [file_id for file_id in content_ids if file_id in filtered_records]
+    content_hits = _stable_same_name_ids(content_ids, filtered_records)
     prefix_hits = _prefix_hits(filtered_records, branch)
     scores = rank_results(
         name_hits=name_hits,
@@ -814,7 +851,11 @@ def execute(
                 merged_snippets[file_id] = snippet
     ordered_ids = sorted(
         merged_scores,
-        key=lambda file_id: (-merged_scores[file_id], merged_records[file_id].name_lower, file_id),
+        key=lambda file_id: (
+            -merged_scores[file_id],
+            merged_records[file_id].name_lower,
+            *_stable_path_key(merged_records[file_id]),
+        ),
     )[:limit]
     hits = [
         SearchHit(

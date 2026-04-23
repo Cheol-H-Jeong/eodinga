@@ -368,6 +368,32 @@ def test_execute_path_filter_with_regex_like_short_unix_basename_literal(
     assert hits == ["/tmp/ms"]
 
 
+def test_execute_same_score_results_tie_break_by_path_not_file_id(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/zeta/report.txt", 512, now, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, "/workspace/alpha/report.txt", 512, now, "txt", body_text="alpha")
+    tmp_db.commit()
+
+    hits = [hit.file.path.as_posix() for hit in search(tmp_db, "report", limit=10).hits]
+
+    assert hits == ["/workspace/alpha/report.txt", "/workspace/zeta/report.txt"]
+
+
+def test_execute_python_scan_tie_break_by_path_not_file_id_for_korean_terms(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/zeta/회의록.txt", 512, now, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, "/workspace/alpha/회의록.txt", 512, now, "txt", body_text="alpha")
+    tmp_db.commit()
+
+    hits = [hit.file.path.as_posix() for hit in search(tmp_db, "회의록", limit=1).hits]
+
+    assert hits == ["/workspace/alpha/회의록.txt"]
+
+
 def test_execute_decomposed_korean_content_query_keeps_snippets(
     tmp_db: sqlite3.Connection,
 ) -> None:
