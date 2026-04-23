@@ -31,6 +31,32 @@ def _read_root_paths(db_path: Path) -> list[str]:
         conn.close()
 
 
+def _insert_file_row(conn: sqlite3.Connection, *, root_id: int, path: str, indexed_at: int = 1) -> None:
+    conn.execute(
+        """
+        INSERT INTO files (
+          root_id, path, parent_path, name, name_lower, ext, size, mtime, ctime,
+          is_dir, is_symlink, content_hash, indexed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            root_id,
+            path,
+            str(Path(path).parent),
+            Path(path).name,
+            Path(path).name.lower(),
+            Path(path).suffix.lstrip("."),
+            4,
+            1,
+            1,
+            0,
+            0,
+            None,
+            indexed_at,
+        ),
+    )
+
+
 def _make_recovery_snapshot(source: Path, snapshot: Path) -> None:
     shutil.copy2(source, snapshot)
     shutil.copy2(source.with_name(f"{source.name}-wal"), snapshot.with_name(f"{snapshot.name}-wal"))
@@ -759,6 +785,7 @@ def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         ("/rebuilt", "[]", "[]", 1),
     )
+    _insert_file_row(staged_conn, root_id=1, path="/rebuilt.txt")
     staged_conn.commit()
     staged_conn.close()
 
@@ -787,6 +814,7 @@ def test_recover_interrupted_build_cleans_partial_stage_artifacts(tmp_path: Path
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         ("/rebuilt", "[]", "[]", 1),
     )
+    _insert_file_row(staged_conn, root_id=1, path="/rebuilt.txt")
     staged_conn.commit()
     staged_conn.close()
 
@@ -823,6 +851,7 @@ def test_recover_interrupted_build_preserves_stage_when_swap_fails(
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         ("/rebuilt", "[]", "[]", 1),
     )
+    _insert_file_row(staged_conn, root_id=1, path="/rebuilt.txt")
     staged_conn.commit()
     staged_conn.close()
 
@@ -858,6 +887,42 @@ def test_recover_interrupted_build_rejects_uninitialized_stage(tmp_path: Path) -
     target_conn.close()
 
     staged.write_bytes(b"")
+
+    assert recover_interrupted_build(target) is False
+    assert _read_root_paths(target) == ["/live"]
+    assert not staged.exists()
+
+
+def test_recover_interrupted_build_rejects_stage_without_indexed_files(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.execute(
+        """
+        INSERT INTO files (
+          root_id, path, parent_path, name, name_lower, ext, size, mtime, ctime,
+          is_dir, is_symlink, content_hash, indexed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (1, "/live.txt", "/", "live.txt", "live.txt", "txt", 4, 1, 1, 0, 0, None, 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/interrupted", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
 
     assert recover_interrupted_build(target) is False
     assert _read_root_paths(target) == ["/live"]
@@ -902,6 +967,7 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         ("/rebuilt-startup", "[]", "[]", 1),
     )
+    _insert_file_row(staged_conn, root_id=1, path="/rebuilt-startup.txt")
     staged_conn.commit()
     staged_conn.close()
 
@@ -915,6 +981,49 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     assert not staged.exists()
     assert not staged.with_name(".index.db.next-wal").exists()
     assert not staged.with_name(".index.db.next-shm").exists()
+
+
+def test_open_index_discards_empty_interrupted_staged_build_and_keeps_live_index(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.execute(
+        """
+        INSERT INTO files (
+          root_id, path, parent_path, name, name_lower, ext, size, mtime, ctime,
+          is_dir, is_symlink, content_hash, indexed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (1, "/live.txt", "/", "live.txt", "live.txt", "txt", 4, 1, 1, 0, 0, None, 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/interrupted", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    reopened = open_index(target)
+    try:
+        rows = reopened.execute("SELECT path FROM files ORDER BY path").fetchall()
+        assert [str(row[0]) for row in rows] == ["/live.txt"]
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
 
 
 def test_open_index_resumes_interrupted_recovery_with_staged_wal(tmp_path: Path) -> None:

@@ -252,6 +252,15 @@ def _has_initialized_schema(path: Path) -> bool:
         conn.close()
 
 
+def _has_indexed_files(path: Path) -> bool:
+    conn = connect_database(path)
+    try:
+        row = conn.execute("SELECT EXISTS(SELECT 1 FROM files LIMIT 1)").fetchone()
+        return row is not None and bool(row[0])
+    finally:
+        conn.close()
+
+
 def recover_stale_wal(path: Path) -> bool:
     if not has_stale_wal(path):
         return False
@@ -321,6 +330,11 @@ def recover_interrupted_build(path: Path) -> bool:
             _cleanup_index_files(staged_path, durable=True)
             _cleanup_partial_copy_artifacts(staged_path)
             return False
+        if not _has_indexed_files(staged_path):
+            logger.warning("discarding interrupted staged build without indexed files {}", staged_path)
+            _cleanup_index_files(staged_path, durable=True)
+            _cleanup_partial_copy_artifacts(staged_path)
+            return False
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted staged build preparation for {}", path)
         _cleanup_index_files(staged_path, durable=True)
@@ -344,11 +358,13 @@ def open_index(path: Path) -> sqlite3.Connection:
     _cleanup_orphan_live_sidecars(path, durable=True)
     _cleanup_orphan_recovery_sidecars(path, durable=True)
     _cleanup_orphan_build_sidecars(path, durable=True)
-    recovery_staged = _staged_recovery_path(path).exists()
-    if recovery_staged and not recover_interrupted_recovery(path):
+    recovery_staged_path = _staged_recovery_path(path)
+    recovery_staged = recovery_staged_path.exists()
+    if recovery_staged and not recover_interrupted_recovery(path) and recovery_staged_path.exists():
         raise RuntimeError(f"failed to resume interrupted recovery for {path}")
-    build_staged = _staged_build_path(path).exists()
-    if build_staged and not recover_interrupted_build(path):
+    build_staged_path = _staged_build_path(path)
+    build_staged = build_staged_path.exists()
+    if build_staged and not recover_interrupted_build(path) and build_staged_path.exists():
         raise RuntimeError(f"failed to resume interrupted staged build for {path}")
     if has_stale_wal(path) and not recover_stale_wal(path):
         raise RuntimeError(f"failed to recover stale WAL for {path}")
