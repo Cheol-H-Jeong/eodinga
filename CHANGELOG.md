@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.378 - 2026-04-23
+
+- Hardened watcher backpressure handling so immediate move emissions and later ready events are re-queued instead of being silently lost when the consumer queue is full.
+- Added watcher regressions that prove queue pressure preserves event order across `moved` plus `deleted` delivery and across multi-event flush retries.
+- Delayed watcher flush-thread startup until after observer registration succeeds, avoiding a stray background thread when watch startup fails early.
+
 ## 0.1.375 - 2026-04-23
 
 - Added a persisted `launcher.frameless` preference so the popup can start with or without window chrome instead of forcing the frameless shell on every launch.
