@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.175 - 2026-04-23
+
+- Enriched `crash-<ts>.log` artifacts with stable runtime metadata including version, platform, current working directory, and argv so unhandled failures are easier to reproduce from one file.
+- Added index rebuild observability for completed runs, including end-to-end rebuild latency and per-batch sizing histograms alongside the existing file-indexed counter.
+- Instrumented watcher flush behavior with counters for flushes and flushed events plus histograms for batch size and per-event lag, making debounce and backlog behavior visible through `eodinga stats --json`.
+
 ## 0.1.174 - 2026-04-23
 
 - Expanded `README.md` with a clearer shipped feature matrix, more query examples, practical CLI workflows, and a completed FAQ covering local-only behavior, recovery, parser extras, and health checks.
