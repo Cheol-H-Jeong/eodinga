@@ -127,6 +127,24 @@ def test_compile_open_ended_date_ranges(
     assert isinstance(branch.where_params[param_index], int)
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "date:last-week..today",
+        "modified:yesterday..today",
+        "created:..last-month",
+        "date:this-month..",
+    ],
+)
+def test_compile_relative_date_aliases_work_inside_ranges(query: str) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+
+    assert "files." in branch.where_sql
+    assert branch.where_params
+    assert all(isinstance(value, int) for value in branch.where_params)
+
+
 def test_compile_datetime_literals_preserve_instant_granularity() -> None:
     compiled = compile_query(parse("modified:2026-01-03T09:15:30"))
     branch = compiled.branches[0]

@@ -471,6 +471,43 @@ def test_execute_open_ended_date_ranges(tmp_db: sqlite3.Connection) -> None:
     assert older_hits == ["jan-1.txt", "jan-2.txt"]
 
 
+def test_execute_relative_date_aliases_work_inside_ranges(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    frozen_now = datetime(2026, 4, 23, 0, 30, tzinfo=seoul)
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+
+    last_week_hit = int(datetime(2026, 4, 14, 12, 0, tzinfo=seoul).timestamp())
+    yesterday_hit = int(datetime(2026, 4, 22, 12, 0, tzinfo=seoul).timestamp())
+    today_hit = int(datetime(2026, 4, 23, 12, 0, tzinfo=seoul).timestamp())
+    last_month_hit = int(datetime(2026, 3, 15, 12, 0, tzinfo=seoul).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/last-week.txt", 512, last_week_hit, "txt", body_text="last week")
+    _insert_file(tmp_db, 2, "/workspace/yesterday.txt", 512, yesterday_hit, "txt", body_text="yesterday")
+    _insert_file(tmp_db, 3, "/workspace/today.txt", 512, today_hit, "txt", body_text="today")
+    _insert_file(tmp_db, 4, "/workspace/last-month.txt", 512, last_month_hit, "txt", body_text="last month")
+    tmp_db.commit()
+
+    between_hits = [
+        hit.file.name for hit in search(tmp_db, "date:last-week..today", limit=10).hits
+    ]
+    open_ended_hits = [
+        hit.file.name for hit in search(tmp_db, "date:..last-month", limit=10).hits
+    ]
+
+    assert between_hits == ["last-week.txt", "today.txt", "yesterday.txt"]
+    assert open_ended_hits == ["last-month.txt"]
+
+
 def test_execute_datetime_literal_and_range_queries(tmp_db: sqlite3.Connection) -> None:
     base = int(datetime(2026, 1, 3, 9, 15, 30, tzinfo=UTC).timestamp())
     _insert_file(tmp_db, 1, "/workspace/exact-second.txt", 512, base, "txt", body_text="exact")
