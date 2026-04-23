@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.901 - 2026-04-23
+
+- Added explicit `stats --json` summaries for watcher observer failures, command failure reasons, and file-log source and disable-reason breakdowns, so operators can inspect the high-signal state without decoding raw counter names.
+- Bounded recent snapshot payloads before they enter in-memory history, debug logs, and crash reports, preventing oversized values from turning observability artifacts into unbounded dumps.
+- Expanded observability regression coverage for the new summaries and payload truncation path, keeping the runtime evidence surface stable across failure and recovery scenarios.
+
 ## 0.1.874 - 2026-04-23
 
 - Added a README release-evidence matrix and safe asset-refresh guidance so docs-only and release-facing rounds can pick the smallest proof command without guessing.
