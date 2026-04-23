@@ -73,6 +73,16 @@ pytest -q tests/unit/test_docs_assets.py
 
 These commands are required when CLI help, visible Qt surfaces, or operator-facing docs change.
 
+## Docs-Only Acceptance Path
+
+When the round changes shipped docs without touching runtime code, keep the pass focused but still evidence-based:
+
+1. Run `pytest -q tests/unit/test_docs_assets.py`.
+2. Re-run `python scripts/generate_manpage.py` if the CLI parser or help text changed.
+3. Re-run `python scripts/render_docs_screenshots.py` if visible Qt copy or layout changed.
+4. Re-run the matching packaging dry-run when the docs describe installer or package artifacts.
+5. Refresh `docs/PERFORMANCE.md` only if you reran the perf command at the current HEAD and captured the emitted summary lines.
+
 ## Documentation Contract
 
 The README is part of the acceptance surface. Before tagging a release, confirm it still documents:
@@ -84,6 +94,16 @@ The README is part of the acceptance surface. Before tagging a release, confirm 
 - the generated CLI reference at `docs/man/eodinga.1` when the parser surface changes
 - the release-gate commands for Windows and Linux packaging dry runs
 - the operator runbook and config/data path locations
+
+## Handoff Evidence
+
+Before handing a release candidate to the orchestrator, keep these artifacts easy to inspect:
+
+- the final `pytest -q tests` / `ruff` / `pyright` / packaging dry-run results
+- the current `CHANGELOG.md` entry for the round
+- the exact `0.1.N` version visible in both `pyproject.toml` and `eodinga/__init__.py`
+- the local `git tag v0.1.N`
+- any refreshed perf command and summary lines when `docs/PERFORMANCE.md` changed
 
 ## Release Cut
 

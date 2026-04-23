@@ -102,8 +102,11 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "git tag v0.1.N" in acceptance
     assert "docs/man/eodinga.1" in acceptance
     assert "## Derived Docs Checks" in acceptance
+    assert "## Docs-Only Acceptance Path" in acceptance
+    assert "## Handoff Evidence" in acceptance
     assert "python scripts/render_docs_screenshots.py" in acceptance
     assert "One-command acceptance pass" in acceptance
+    assert "Refresh `docs/PERFORMANCE.md` only if you reran the perf command" in acceptance
 
     assert "## Runtime Flow" in architecture
     assert "## Data Flow Diagram" in architecture
