@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.242 - 2026-04-23
+
+- Hardened crash observability so same-second failures no longer overwrite prior `crash-*.log` files, unraisable exceptions now flow through the same crash-report path, and crash counters are visible in runtime stats.
+- Expanded `eodinga stats --json` with generation time, uptime, structured per-command status counts, and exit-code summaries so operators can inspect command health without reverse-engineering flat counter keys.
+
 ## 0.1.238 - 2026-04-23
 
 - Fixed inline quoted operator values so escaped quotes and backslashes decode consistently whether or not the phrase contains whitespace.
