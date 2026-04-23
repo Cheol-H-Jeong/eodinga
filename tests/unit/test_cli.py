@@ -209,6 +209,76 @@ def test_search_json_executes_regex_mode_query(cli_runner, tmp_path: Path) -> No
     ]
 
 
+def test_search_json_regex_mode_with_flags_matches_multiline_content(
+    cli_runner, tmp_path: Path
+) -> None:
+    db_path = tmp_path / "index.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        _insert_file(
+            conn,
+            1,
+            "/workspace/notes.txt",
+            1_024,
+            1_713_528_000,
+            "txt",
+            body_text="Launch plan\nchecklist ready",
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        r"regex:ims launch plan\s+^checklist",
+        "--json",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == ["notes.txt"]
+
+
+def test_search_json_regex_mode_keeps_path_matches_ahead_of_content_only_matches(
+    cli_runner, tmp_path: Path
+) -> None:
+    db_path = tmp_path / "index.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        _insert_file(conn, 1, "/workspace/report-7.txt", 512, 1_713_528_000, "txt")
+        _insert_file(
+            conn,
+            2,
+            "/workspace/notes.txt",
+            512,
+            1_713_527_940,
+            "txt",
+            body_text="report-22 shipped",
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        r"regex:i report-\d+",
+        "--json",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == [
+        "report-7.txt",
+        "notes.txt",
+    ]
+
+
 def test_search_json_honors_root_filter(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
