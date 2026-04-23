@@ -57,18 +57,18 @@ Supported overrides:
 
 ## Baseline
 
-Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed after the 0.1.69 writer no-parser fast-path round:
+Measured on 2026-04-23 in this repository's Linux dev environment with `.venv` dependencies installed at current `main` using `EODINGA_RUN_PERF=1 pytest -q tests/perf -s`:
 
 | Benchmark | Dataset | Result |
 | --- | --- | --- |
-| Cold start | 20,201 indexed entries | 6,059 files/sec |
-| Rebuild cold start | 20,201 indexed entries via `rebuild_index()` | 6,537 files/sec |
-| Bulk upsert | 50k synthetic records | 56,222 records/sec |
-| Name query latency | 2,000 queries / 50k files | p50 0.06 ms, p95 0.06 ms, p99 0.07 ms |
-| Content query latency | 500 queries / 5k docs | p50 0.60 ms, p95 0.63 ms, p99 0.67 ms |
-| Watch latency | 25 created files | p99 0.133 s |
+| Cold start | 20,201 indexed entries | 5,487 files/sec |
+| Rebuild cold start | 20,201 indexed entries via `rebuild_index()` | 5,361 files/sec |
+| Bulk upsert | 50k synthetic records | 54,811 records/sec |
+| Name query latency | 2,000 queries / 50k files | p50 0.10 ms, p95 0.11 ms, p99 0.12 ms |
+| Content query latency | 500 queries / 5k docs | p50 0.73 ms, p95 0.78 ms, p99 0.90 ms |
+| Watch latency | 25 created files | p99 0.132 s |
 
-These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. This round removes the guaranteed-empty content-upsert pass whenever `IndexWriter` is running without a parser callback, which trims metadata-only indexing and makes the staged rebuild benchmark reflect the actual `content_enabled=False` fast path instead of paying for a no-op parser loop.
+These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC's reference-box targets. The current baseline still leaves wide headroom under the query and watch thresholds while showing that cold-start throughput remains in the same practical 5k-6k files/sec range on this host.
 
 ## Interpreting Results
 
