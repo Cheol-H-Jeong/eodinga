@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.286 - 2026-04-23
+
+- Rendered the staged Debian `DEBIAN/control` metadata from the checked-in Debian control template, and expanded the dry-run audit so section, priority, and maintainer drift now fail validation instead of silently diverging.
+- Added `python packaging/build.py --target all-dry-run` as the single-shot packaging audit entry point for Windows, AppImage, and Debian checks, and updated the release/operator docs to use it where a one-command pass matters.
+- Tightened the Windows Inno Setup dry-run audit so installer identity and license-file regressions are caught before build time.
+
 ## 0.1.282 - 2026-04-23
 
 - Tightened the contributor and release guides around parallel worker worktrees, one-commit-at-a-time unit gates, and the final local-tag handoff flow so docs rounds remain reproducible under concurrent landing.
