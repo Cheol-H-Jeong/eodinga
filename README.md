@@ -134,6 +134,18 @@ Use the smallest path that matches the work you changed:
 | launcher or GUI text/layout | `pytest -q tests/unit/test_gui_app.py tests/unit/test_gui_launcher.py tests/unit/test_docs_assets.py` | `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
 | packaging docs or recipes | `python packaging/build.py --target windows-dry-run` | the matching Linux dry run plus workflow lint from `docs/ACCEPTANCE.md` |
 
+## Release Evidence Matrix
+
+Use this matrix when you need to prove a shipped surface still matches the repo:
+
+| Surface under review | First evidence | Why it is the right first check |
+| --- | --- | --- |
+| query and CLI behavior | `eodinga search 'query' --json` | exercises the shared parser, compiler, executor, and result normalization without UI noise |
+| launcher or GUI flow | `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` | confirms the Qt surface still starts cleanly in the documented offscreen mode |
+| docs assets | `pytest -q tests/unit/test_docs_assets.py` | catches drift between the checked-in man page, screenshot inventory, and required README sections |
+| packaging contract | `python packaging/build.py --target windows-dry-run` | writes the staged manifest review surface under `packaging/dist/` without producing a real installer |
+| full release candidate | one-command pass from `docs/ACCEPTANCE.md` | preserves the release order instead of mixing ad-hoc retries and partial evidence |
+
 ## CLI
 
 ```bash
@@ -261,6 +273,17 @@ eodinga index --rebuild
 | Confirm runtime health | `eodinga doctor && eodinga stats --json` |
 | Refresh shipped docs assets | `python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` |
 
+## Docs Asset Ownership
+
+Use this when deciding whether a docs-only round also needs a generated asset refresh:
+
+| Surface changed | Source of truth | Regenerate? |
+| --- | --- | --- |
+| command names, flags, argparse help | `eodinga.__main__._build_parser()` | `python scripts/generate_manpage.py` |
+| screenshots of GUI surfaces | `eodinga.gui.docs` widgets rendered offscreen | `python scripts/render_docs_screenshots.py` |
+| README, architecture, release, or contributor prose | checked-in markdown under repo root or `docs/` | no generated asset by default |
+| packaging artifact descriptions | `packaging/build.py --target ...-dry-run` output under `packaging/dist/` | rerun the matching dry run instead of editing generated manifests by hand |
+
 ## Architecture
 
 The runtime stack is intentionally small: read-only filesystem traversal, SQLite/FTS-backed indexing, a shared DSL compiler/executor, and thin CLI/GUI surfaces. The component map and data flow are documented in [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md).
@@ -333,6 +356,16 @@ Treat these as part of the shipped surface, not incidental repository files:
 | Hotkey or launcher looks wrong | `eodinga doctor` | inspect detected hotkey backend and then re-open `eodinga gui` for settings/state |
 | Packaging audit failed | `python packaging/build.py --target windows-dry-run` | re-run the matching Linux dry run and workflow lint from `docs/ACCEPTANCE.md` |
 | Docs asset drift after CLI or UI changes | `pytest -q tests/unit/test_docs_assets.py` | regenerate `docs/man/eodinga.1` or `docs/screenshots/*.png`, then rerun the docs-assets test |
+
+### Operator Recovery Order
+
+Use the least invasive path that matches the symptom:
+
+1. Confirm the active DB and counters with `eodinga stats --json`.
+2. Inspect environment and recovery status with `eodinga doctor`.
+3. Restart live updates with `eodinga watch` if the issue is freshness-only.
+4. Run `eodinga index --rebuild` only when the index itself needs to be recreated.
+5. Re-run the release gate from `docs/ACCEPTANCE.md` if the symptom appears only in packaged or release-candidate flows.
 
 ## Config and Data Paths
 
