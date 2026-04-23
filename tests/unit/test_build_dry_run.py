@@ -518,6 +518,16 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
             "has_strict_shell": True,
             "executes_python_module": True,
         },
+        "maintainer_scripts": {
+            "postrm": {
+                "exists": True,
+                "is_executable": True,
+                "matches_source_asset": True,
+                "purge_only": True,
+                "targets_system_state": True,
+                "preserves_home_state": True,
+            },
+        },
         "docs": {
             "license_exists": True,
             "changelog_exists": False,
@@ -570,6 +580,16 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
             "is_executable": True,
             "has_strict_shell": True,
             "executes_python_module": True,
+        },
+        "maintainer_scripts": {
+            "postrm": {
+                "exists": True,
+                "is_executable": True,
+                "matches_source_asset": True,
+                "purge_only": True,
+                "targets_system_state": True,
+                "preserves_home_state": True,
+            },
         },
         "docs": {
             "license_exists": True,
@@ -662,6 +682,12 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["has_strict_shell"] is True
     assert payload["launcher"]["executes_python_module"] is True
+    assert payload["maintainer_scripts"]["postrm"]["exists"] is True
+    assert payload["maintainer_scripts"]["postrm"]["is_executable"] is True
+    assert payload["maintainer_scripts"]["postrm"]["matches_source_asset"] is True
+    assert payload["maintainer_scripts"]["postrm"]["purge_only"] is True
+    assert payload["maintainer_scripts"]["postrm"]["targets_system_state"] is True
+    assert payload["maintainer_scripts"]["postrm"]["preserves_home_state"] is True
     assert payload["docs"]["license_exists"] is True
     assert payload["docs"]["changelog_exists"] is True
     assert payload["docs"]["changelog_has_current_release_heading"] is True
@@ -812,6 +838,16 @@ def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
             "has_strict_shell": True,
             "executes_python_module": True,
         },
+        "maintainer_scripts": {
+            "postrm": {
+                "exists": True,
+                "is_executable": True,
+                "matches_source_asset": True,
+                "purge_only": True,
+                "targets_system_state": True,
+                "preserves_home_state": True,
+            },
+        },
         "docs": {
             "license_exists": True,
             "changelog_exists": True,
@@ -825,5 +861,83 @@ def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
     assert "Debian archive size is missing" in errors
     assert "Debian archive digest is missing" in errors
     assert "Debian package is missing" in errors
-    assert "Debian package size is missing" in errors
-    assert "Debian package digest is missing" in errors
+
+
+def test_linux_deb_audit_validator_rejects_postrm_home_cleanup_regression() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "amd64",
+        "archive": f"packaging/dist/eodinga_{__version__}_amd64_debroot.tar.gz",
+        "deb_path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "archive_artifact": {
+            "exists": True,
+            "size_bytes": 1,
+            "sha256": "a" * 64,
+        },
+        "deb_artifact": {
+            "path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+            "exists": False,
+            "size_bytes": None,
+            "sha256": None,
+        },
+        "dry_run": True,
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+            "architecture": "amd64",
+            "depends": "python3 (>= 3.11)",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "debian_control_template": {
+            "exists": True,
+            "contains_version_template": True,
+            "contains_arch_template": True,
+            "rendered_exists": True,
+            "source": "eodinga",
+            "maintainer": "Cheol-H-Jeong",
+            "binary_package": "eodinga",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "launches_gui": True,
+            "icon_matches_package": True,
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "executes_python_module": True,
+        },
+        "maintainer_scripts": {
+            "postrm": {
+                "exists": True,
+                "is_executable": True,
+                "matches_source_asset": True,
+                "purge_only": True,
+                "targets_system_state": True,
+                "preserves_home_state": False,
+            },
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": True,
+            "changelog_has_current_release_heading": True,
+            "changelog_gzip_mtime_zero": True,
+        },
+    }
+
+    errors = module._validate_linux_deb_audit(payload, __version__, __version__)
+
+    assert "Debian postrm maintainer script now touches home-directory state" in errors

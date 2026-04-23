@@ -8,6 +8,7 @@ AUDIT_PATH="${DIST_DIR}/linux-deb-audit.json"
 DESKTOP_ENTRY="${ROOT_DIR}/packaging/linux/eodinga.desktop"
 ICON_ASSET="${ROOT_DIR}/packaging/linux/eodinga.svg"
 DEBIAN_CONTROL_TEMPLATE="${ROOT_DIR}/packaging/linux/debian/control"
+DEBIAN_POSTRM_TEMPLATE="${ROOT_DIR}/packaging/linux/debian/postrm"
 DEBIAN_CONTROL_RENDERED="${DIST_DIR}/debian-control"
 APP_VERSION_TOKEN="@@APP_VERSION@@"
 TARGET_ARCH_TOKEN="@@TARGET_ARCH@@"
@@ -66,6 +67,7 @@ chmod 0755 "${PACKAGE_DIR}/usr/bin/eodinga"
 install -m 0644 "${DESKTOP_ENTRY}" "${PACKAGE_DIR}/usr/share/applications/eodinga.desktop"
 install -m 0644 "${ICON_ASSET}" "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg"
 install -m 0644 "${ROOT_DIR}/LICENSE" "${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE"
+install -m 0755 "${DEBIAN_POSTRM_TEMPLATE}" "${PACKAGE_DIR}/DEBIAN/postrm"
 python3 - <<PY
 import gzip
 from pathlib import Path
@@ -106,6 +108,8 @@ launcher_path = Path("${PACKAGE_DIR}/usr/bin/eodinga")
 icon_path = Path("${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 license_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE")
 changelog_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
+postrm_path = Path("${PACKAGE_DIR}/DEBIAN/postrm")
+postrm_text = postrm_path.read_text(encoding="utf-8")
 debian_control_template_path = Path("${DEBIAN_CONTROL_TEMPLATE}")
 template_control_entries = {}
 for line in debian_control_template_path.read_text(encoding="utf-8").splitlines():
@@ -183,6 +187,22 @@ payload = {
         "is_executable": os.access(launcher_path, os.X_OK),
         "has_strict_shell": "set -euo pipefail" in launcher_path.read_text(encoding="utf-8"),
         "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
+    },
+    "maintainer_scripts": {
+        "postrm": {
+            "path": str(postrm_path),
+            "exists": postrm_path.exists(),
+            "is_executable": os.access(postrm_path, os.X_OK),
+            "matches_source_asset": postrm_text == Path("${DEBIAN_POSTRM_TEMPLATE}").read_text(encoding="utf-8"),
+            "purge_only": 'case "' in postrm_text
+            and "purge)" in postrm_text
+            and "remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)" in postrm_text,
+            "targets_system_state": "/var/lib/eodinga" in postrm_text and "/etc/eodinga" in postrm_text,
+            "preserves_home_state": all(
+                marker not in postrm_text
+                for marker in ("$HOME", "/home/", "/root/", "/root", "~/.config", "~/.local/share", "{userappdata}")
+            ),
+        },
     },
     "docs": {
         "license_path": str(license_path),

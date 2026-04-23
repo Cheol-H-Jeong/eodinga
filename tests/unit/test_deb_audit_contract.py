@@ -19,4 +19,7 @@ def test_linux_deb_dry_run_preserves_assets_and_reproducible_changelog() -> None
     assert payload["desktop_entry"]["startup_notify"] == "true"
     assert payload["icon"]["matches_source_asset"] is True
     assert payload["launcher"]["has_strict_shell"] is True
+    assert payload["maintainer_scripts"]["postrm"]["purge_only"] is True
+    assert payload["maintainer_scripts"]["postrm"]["targets_system_state"] is True
+    assert payload["maintainer_scripts"]["postrm"]["preserves_home_state"] is True
     assert payload["docs"]["changelog_gzip_mtime_zero"] is True

@@ -353,6 +353,8 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
     desktop_payload = payload.get("desktop_entry", {})
     icon_payload = payload.get("icon", {})
     launcher_payload = payload.get("launcher", {})
+    maintainer_scripts_payload = payload.get("maintainer_scripts", {})
+    postrm_payload = maintainer_scripts_payload.get("postrm", {})
     docs_payload = payload.get("docs", {})
     arch = payload.get("arch")
     if control_payload.get("package") != "eodinga":
@@ -412,6 +414,12 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (launcher_payload.get("is_executable"), "Debian launcher shim is not executable"),
         (launcher_payload.get("has_strict_shell"), "Debian launcher shim no longer uses strict shell flags"),
         (launcher_payload.get("executes_python_module"), "Debian launcher shim no longer executes the Python module"),
+        (postrm_payload.get("exists"), "Debian postrm maintainer script is missing"),
+        (postrm_payload.get("is_executable"), "Debian postrm maintainer script is not executable"),
+        (postrm_payload.get("matches_source_asset"), "Debian postrm maintainer script no longer matches the shipped recipe"),
+        (postrm_payload.get("purge_only"), "Debian postrm maintainer script no longer limits cleanup to purge"),
+        (postrm_payload.get("targets_system_state"), "Debian postrm maintainer script no longer targets the package system-state paths"),
+        (postrm_payload.get("preserves_home_state"), "Debian postrm maintainer script now touches home-directory state"),
         (docs_payload.get("license_exists"), "Debian package no longer ships the license"),
         (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),
         (docs_payload.get("changelog_has_current_release_heading"), "Debian package changelog no longer starts with the current release heading"),

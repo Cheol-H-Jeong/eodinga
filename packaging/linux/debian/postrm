@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+case "$1" in
+  purge)
+    rm -rf /var/lib/eodinga /etc/eodinga
+    ;;
+  remove|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+    ;;
+esac
+
+exit 0
