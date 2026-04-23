@@ -644,6 +644,21 @@ def test_execute_reduced_precision_iso_date_queries(tmp_db: sqlite3.Connection) 
     assert open_ended_hits == ["february.txt", "january.txt"]
 
 
+def test_execute_spaced_reduced_precision_date_ranges(tmp_db: sqlite3.Connection) -> None:
+    jan_hit = int(datetime(2026, 1, 15, 12, tzinfo=UTC).timestamp())
+    feb_hit = int(datetime(2026, 2, 20, 12, tzinfo=UTC).timestamp())
+    mar_hit = int(datetime(2026, 3, 5, 12, tzinfo=UTC).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/january.txt", 512, jan_hit, "txt", body_text="january note")
+    _insert_file(tmp_db, 2, "/workspace/february.txt", 512, feb_hit, "txt", body_text="february note")
+    _insert_file(tmp_db, 3, "/workspace/march.txt", 512, mar_hit, "txt", body_text="march note")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "date:2026-03 .. 2026-01", limit=10).hits]
+
+    assert set(hits) == {"march.txt", "february.txt", "january.txt"}
+
+
 def test_execute_datetime_query_accepts_lowercase_utc_suffix(tmp_db: sqlite3.Connection) -> None:
     base = int(datetime(2026, 1, 3, 9, 15, 30, tzinfo=UTC).timestamp())
     _insert_file(tmp_db, 1, "/workspace/exact-second.txt", 512, base, "txt", body_text="exact")
