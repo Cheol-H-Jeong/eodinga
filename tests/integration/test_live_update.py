@@ -232,6 +232,58 @@ def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: P
     assert beta_hits == [created]
 
 
+def test_live_cross_root_move_updates_global_and_root_scoped_search_eventually(
+    tmp_path: Path,
+) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    source = root_a / "shared-note.txt"
+    destination = root_b / "shared-note.txt"
+    source.write_text("cross root move integration\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        initial_hits = [hit.file.path for hit in search(conn, "cross root move integration", limit=5).hits]
+        source.rename(destination)
+
+        _wait_for_query_paths(
+            conn,
+            service,
+            writer,
+            "cross root move integration",
+            {destination},
+            deadline_seconds=1.5,
+        )
+        alpha_hits = [
+            hit.file.path
+            for hit in search(conn, "cross root move integration", limit=5, root=root_a).hits
+        ]
+        beta_hits = [
+            hit.file.path
+            for hit in search(conn, "cross root move integration", limit=5, root=root_b).hits
+        ]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_hits == [source]
+    assert alpha_hits == []
+    assert beta_hits == [destination]
+
+
 def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     db_path = tmp_path / "database" / "index.db"
