@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.235 - 2026-04-23
+## 0.1.238 - 2026-04-23
 
 - Fixed inline quoted operator values so escaped quotes and backslashes decode consistently whether or not the phrase contains whitespace.
 - Fixed `path:` regex parsing for patterns that include escaped `/`, including Korean path segments, so these queries compile and execute as regex instead of falling back to literal path text.
