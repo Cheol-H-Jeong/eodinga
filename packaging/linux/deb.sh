@@ -22,7 +22,18 @@ if match is None:
 print(match.group(1))
 PY
 )"
-ARCH="${TARGET_ARCH:-amd64}"
+RAW_ARCH="${TARGET_ARCH:-amd64}"
+ARCH="$(python3 - <<PY
+arch = "${RAW_ARCH}".strip()
+aliases = {
+    "amd64": "amd64",
+    "x86_64": "amd64",
+    "arm64": "arm64",
+    "aarch64": "arm64",
+}
+print(aliases.get(arch, arch))
+PY
+)"
 PACKAGE_DIR="${BUILD_ROOT}/eodinga_${VERSION}_${ARCH}"
 ARCHIVE_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}_debroot.tar.gz"
 DEB_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}.deb"
@@ -113,6 +124,7 @@ changelog_text = gzip.decompress(changelog_path.read_bytes()).decode("utf-8")
 payload = {
     "target": "linux-deb-dry-run" if ${DRY_RUN} else "linux-deb",
     "version": "${VERSION}",
+    "requested_arch": "${RAW_ARCH}",
     "arch": "${ARCH}",
     "package_dir": "${PACKAGE_DIR}",
     "control_path": str(control_path),
