@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.187 - 2026-04-23
+## 0.1.194 - 2026-04-23
 
 - Added a dedicated launcher suggestion-chip row that surfaces pinned queries, recent searches, and common filter macros directly beneath the search box, so the popup advertises reusable searches instead of only describing them in text.
 - Expanded launcher accessibility labels across the empty state, status/footer copy, and chip row, and split the popup shell into its own module so the keyboard-heavy panel stays under the repository module-size cap while keeping the same import surface for the rest of the GUI.
