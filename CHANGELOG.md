@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.556 - 2026-04-23
+
+- Hardened observability startup so a broken or unwritable file-log path falls back to stderr logging, records `log_sinks.file.failed`, and keeps `stats --json` usable instead of aborting early.
+- Counted bounded recent-snapshot churn with `snapshots_recorded` and `snapshots_dropped`, and exposed structured `snapshot_activity` plus `log_sinks` summaries in `stats --json` for easier operator inspection.
+- Recorded crash-log write latency as a histogram and documented the expanded stats surface in the README so postmortem and runtime diagnostics stay scriptable.
+
 ## 0.1.552 - 2026-04-23
 
 - Stabilized tied search-result ordering by breaking equal-name and equal-score ties with the indexed path instead of insertion-order-dependent file ids, so duplicate filenames across directories now sort deterministically.
