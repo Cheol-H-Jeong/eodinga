@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.441 - 2026-04-23
+
+- Hardened Loguru file-sink setup so an unwritable log target degrades to stderr-only mode with explicit failure counters instead of raising a secondary startup failure.
+- Expanded `stats --json` with log and crash inventory fields, including current log file presence and size, rotated-log count, crash-log count, and the newest crash artifact path and size.
+- Added observability regressions covering file-sink configuration failures, log/crash inventory helpers, and end-to-end CLI stats assertions against isolated runtime state.
+
 ## 0.1.431 - 2026-04-23
 
 - Tightened the top-level operator docs so the README now points reviewers directly at `packaging/dist/`, the local release handoff sequence, and the acceptance recovery path when the one-command gate fails.
