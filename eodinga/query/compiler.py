@@ -122,6 +122,10 @@ def _normalize_literal(value: str) -> str:
     return unicodedata.normalize("NFC", value)
 
 
+def _escape_like_pattern(value: str) -> str:
+    return value.replace("^", "^^").replace("%", "^%").replace("_", "^_")
+
+
 def _has_non_ascii(value: str) -> bool:
     return any(ord(char) > 127 for char in value)
 
@@ -336,8 +340,8 @@ def _compile_branch(
                 )
                 if not _has_non_ascii(normalized_value):
                     comparator = "NOT LIKE" if term.negated else "LIKE"
-                    where_parts.append(f"files.path {comparator} ?")
-                    where_params.append(f"%{normalized_value}%")
+                    where_parts.append(f"files.path {comparator} ? ESCAPE '^'")
+                    where_params.append(f"%{_escape_like_pattern(normalized_value)}%")
             continue
         if term.name == "ext":
             comparator = "!=" if term.negated else "="

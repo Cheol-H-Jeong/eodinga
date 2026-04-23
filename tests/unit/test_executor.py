@@ -813,6 +813,17 @@ def test_execute_inline_phrase_path_filter_decodes_backslashes(tmp_db: sqlite3.C
     assert hits == [r"C:\workspace\notes\alpha.txt"]
 
 
+def test_execute_path_filter_treats_like_wildcards_as_literals(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/100%_complete^notes.txt", 512, now, "txt")
+    _insert_file(tmp_db, 2, "/workspace/100xa_completebnotes.txt", 512, now - 60, "txt")
+    tmp_db.commit()
+
+    hits = [hit.file.path.as_posix() for hit in search(tmp_db, r"path:100%_complete^notes", limit=5).hits]
+
+    assert hits == ["/workspace/100%_complete^notes.txt"]
+
+
 def test_execute_unicode_python_path_scan_breaks_equal_name_ties_stably(
     tmp_db: sqlite3.Connection,
 ) -> None:

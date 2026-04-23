@@ -326,6 +326,14 @@ def test_compile_reuses_cached_queries() -> None:
     assert first is second
 
 
+def test_compile_path_filter_escapes_like_wildcards() -> None:
+    compiled = compile_query(parse(r"path:100%_complete^notes"))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == "files.path LIKE ? ESCAPE '^'"
+    assert branch.where_params == (r"%100^%^_complete^^notes%",)
+
+
 @pytest.mark.parametrize(
     "query",
     [
