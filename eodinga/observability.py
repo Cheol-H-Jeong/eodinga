@@ -11,9 +11,11 @@ from datetime import UTC, datetime
 from json import dumps as json_dumps
 from pathlib import Path
 from threading import Lock
-from typing import IO, Any, TypedDict
+from typing import IO, Any, cast, TypedDict
 
 from loguru import logger
+
+from eodinga.metrics_store import delete_metrics_state, load_metrics_state, save_metrics_state
 
 try:
     import resource
@@ -28,6 +30,7 @@ _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
 _PROCESS_STARTED_AT = datetime.now(UTC)
+_METRICS_LOADED = False
 
 
 @dataclass
@@ -49,12 +52,42 @@ class _HistogramState:
 
     def snapshot(self) -> dict[str, object]:
         return {
+            "bounds_ms": list(self.buckets_ms),
             "count": self.count,
             "sum_ms": round(self.sum_ms, 3),
-            "min_ms": round(self.min_ms, 3) if self.min_ms is not None else 0.0,
-            "max_ms": round(self.max_ms, 3) if self.max_ms is not None else 0.0,
+            "min_ms": round(self.min_ms, 3) if self.min_ms is not None else None,
+            "max_ms": round(self.max_ms, 3) if self.max_ms is not None else None,
             "buckets": dict(sorted(self.bucket_hits.items())),
         }
+
+    @classmethod
+    def from_snapshot(cls, snapshot: Mapping[str, object]) -> _HistogramState:
+        bounds = snapshot.get("bounds_ms")
+        buckets = snapshot.get("buckets")
+        if not isinstance(bounds, list) or not all(isinstance(item, (int, float)) for item in bounds):
+            raise ValueError("persisted histogram bounds are invalid")
+        if not isinstance(buckets, dict) or not all(
+            isinstance(label, str) and isinstance(count, int) for label, count in buckets.items()
+        ):
+            raise ValueError("persisted histogram buckets are invalid")
+        count = snapshot.get("count")
+        sum_ms = snapshot.get("sum_ms")
+        min_ms = snapshot.get("min_ms")
+        max_ms = snapshot.get("max_ms")
+        if not isinstance(count, int) or not isinstance(sum_ms, (int, float)):
+            raise ValueError("persisted histogram summary is invalid")
+        if min_ms is not None and not isinstance(min_ms, (int, float)):
+            raise ValueError("persisted histogram min is invalid")
+        if max_ms is not None and not isinstance(max_ms, (int, float)):
+            raise ValueError("persisted histogram max is invalid")
+        return cls(
+            buckets_ms=tuple(float(item) for item in bounds),
+            count=count,
+            sum_ms=float(sum_ms),
+            min_ms=None if min_ms is None else float(min_ms),
+            max_ms=None if max_ms is None else float(max_ms),
+            bucket_hits=dict(sorted(buckets.items())),
+        )
 
 
 class MetricsSnapshot(TypedDict):
@@ -133,6 +166,23 @@ def resolve_log_path(log_path: Path | None = None) -> Path | None:
     return default_log_path()
 
 
+def resolve_metrics_path(metrics_path: Path | None = None) -> Path | None:
+    if metrics_path is not None:
+        return metrics_path.expanduser()
+    if os.environ.get("EODINGA_DISABLE_METRICS_PERSISTENCE") == "1":
+        return None
+    override_path = os.environ.get("EODINGA_METRICS_PATH")
+    if override_path:
+        return Path(override_path).expanduser()
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return None
+    return default_state_dir() / "metrics.json"
+
+
+def metrics_persistence_enabled(metrics_path: Path | None = None) -> bool:
+    return resolve_metrics_path(metrics_path) is not None
+
+
 def resolve_crash_dir(crash_dir: Path | None = None) -> Path:
     if crash_dir is not None:
         return crash_dir.expanduser()
@@ -165,6 +215,7 @@ def resolve_log_compression() -> str | None:
 
 
 def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
+    _ensure_metrics_loaded()
     logger.remove()
     logger.add(sys.stderr, level=level.upper())
     increment_counter("logging_configurations")
@@ -193,8 +244,10 @@ def get_logger(name: str | None = None) -> Any:
 
 
 def increment_counter(name: str, value: int = 1, **fields: object) -> None:
+    _ensure_metrics_loaded()
     with _METRICS_LOCK:
         _COUNTERS[name] = _COUNTERS.get(name, 0) + value
+        _persist_metrics_unlocked()
     logger.bind(metric=name, **fields).debug("counter +{value}", value=value)
 
 
@@ -209,18 +262,21 @@ def record_histogram(
     buckets_ms: tuple[float, ...] = _DEFAULT_HISTOGRAM_BUCKETS_MS,
     **fields: object,
 ) -> None:
+    _ensure_metrics_loaded()
     with _METRICS_LOCK:
         state = _HISTOGRAMS.get(name)
         if state is None:
             state = _HistogramState(buckets_ms=buckets_ms)
             _HISTOGRAMS[name] = state
         state.observe(value_ms)
+        _persist_metrics_unlocked()
     logger.bind(metric=name, **fields).debug("histogram {value_ms:.3f}ms", value_ms=value_ms)
 
 
 def snapshot_metrics() -> MetricsSnapshot:
     from eodinga import __version__
 
+    _ensure_metrics_loaded()
     with _METRICS_LOCK:
         counters = dict(sorted(_COUNTERS.items()))
         histograms: dict[str, dict[str, object]] = {
@@ -242,13 +298,19 @@ def snapshot_metrics() -> MetricsSnapshot:
 
 
 def reset_metrics() -> None:
+    global _METRICS_LOADED
+    path = resolve_metrics_path()
     with _METRICS_LOCK:
         _COUNTERS.clear()
         _HISTOGRAMS.clear()
         _RECENT_SNAPSHOTS.clear()
+        _METRICS_LOADED = False
+    if path is not None:
+        delete_metrics_state(path)
 
 
 def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
+    _ensure_metrics_loaded()
     record: SnapshotRecord = {
         "name": name,
         "recorded_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
@@ -256,20 +318,24 @@ def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
     }
     with _METRICS_LOCK:
         _RECENT_SNAPSHOTS.append(record)
+        _persist_metrics_unlocked()
     logger.bind(metric=name, payload=record["payload"]).debug("snapshot recorded")
 
 
 def recent_snapshots() -> list[SnapshotRecord]:
+    _ensure_metrics_loaded()
     with _METRICS_LOCK:
         return list(_RECENT_SNAPSHOTS)
 
 
 def counter_value(name: str) -> int:
+    _ensure_metrics_loaded()
     with _METRICS_LOCK:
         return _COUNTERS.get(name, 0)
 
 
 def histogram_snapshot(name: str) -> dict[str, object]:
+    _ensure_metrics_loaded()
     with _METRICS_LOCK:
         state = _HISTOGRAMS.get(name)
         if state is None:
@@ -305,6 +371,8 @@ def write_crash_log(
         "executable": sys.executable,
         "argv": sys.argv[1:],
         "cwd": str(Path.cwd()),
+        "metrics_path": resolve_metrics_path(),
+        "metrics_persistence_enabled": metrics_persistence_enabled(),
         "file_logging_enabled": file_logging_enabled(),
         "log_path": resolve_log_path(),
         "log_rotation": resolve_log_rotation(),
@@ -423,6 +491,38 @@ def _parse_log_policy_value(raw: str) -> str | int:
     if value.isdigit():
         return int(value)
     return value
+
+
+def _ensure_metrics_loaded() -> None:
+    global _METRICS_LOADED
+    path = resolve_metrics_path()
+    with _METRICS_LOCK:
+        if _METRICS_LOADED:
+            return
+        _METRICS_LOADED = True
+        if path is None or not path.exists():
+            return
+        persisted = load_metrics_state(path)
+        _COUNTERS.update(persisted.counters)
+        _HISTOGRAMS.update(
+            {
+                name: _HistogramState.from_snapshot(snapshot)
+                for name, snapshot in persisted.histograms.items()
+            }
+        )
+        _RECENT_SNAPSHOTS.extend(cast(list[SnapshotRecord], persisted.recent_snapshots))
+
+
+def _persist_metrics_unlocked() -> None:
+    path = resolve_metrics_path()
+    if path is None:
+        return
+    save_metrics_state(
+        path,
+        counters=dict(sorted(_COUNTERS.items())),
+        histograms={name: state.snapshot() for name, state in sorted(_HISTOGRAMS.items())},
+        recent_snapshots=cast(list[dict[str, object]], list(_RECENT_SNAPSHOTS)),
+    )
 
 
 def _rss_bytes() -> int | None:

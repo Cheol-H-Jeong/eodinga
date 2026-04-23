@@ -19,12 +19,14 @@ from eodinga.observability import (
     file_logging_enabled,
     increment_counter,
     install_crash_handlers,
+    metrics_persistence_enabled,
     recent_snapshots,
     record_histogram,
     record_snapshot,
     resolve_crash_dir,
     resolve_log_compression,
     resolve_log_path,
+    resolve_metrics_path,
     resolve_log_retention,
     resolve_log_rotation,
     reset_metrics,
@@ -85,13 +87,23 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
 def test_log_and_crash_resolution_respect_runtime_overrides(tmp_path: Path, monkeypatch) -> None:
     log_path = tmp_path / "logs" / "custom.log"
     crash_dir = tmp_path / "crashes"
+    metrics_path = tmp_path / "metrics.json"
     monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
     monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
 
     assert resolve_log_path() == log_path
     assert resolve_crash_dir() == crash_dir
+    assert resolve_metrics_path() == metrics_path
+    assert metrics_persistence_enabled() is True
     assert file_logging_enabled() is True
+
+
+def test_metrics_persistence_can_be_disabled(monkeypatch) -> None:
+    monkeypatch.setenv("EODINGA_DISABLE_METRICS_PERSISTENCE", "1")
+    assert resolve_metrics_path() is None
+    assert metrics_persistence_enabled() is False
 
 
 def test_log_policy_resolution_respects_runtime_overrides(monkeypatch) -> None:

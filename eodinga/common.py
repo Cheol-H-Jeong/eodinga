@@ -147,6 +147,8 @@ class StatsSnapshot(BaseModel):
     recent_snapshots: list[dict[str, object]] = Field(default_factory=list)
     roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None
+    metrics_path: Path | None = None
+    metrics_persistence_enabled: bool = False
     log_path: Path | None = None
     log_rotation: str | int | None = None
     log_retention: str | int | None = None

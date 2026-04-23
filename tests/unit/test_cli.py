@@ -465,6 +465,36 @@ def test_index_requires_at_least_one_root(cli_runner, tmp_path: Path) -> None:
     assert "requires at least one root" in result.stderr
 
 
+def test_stats_json_persists_metrics_across_cli_processes(
+    cli_runner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db_path = tmp_path / "index.db"
+    metrics_path = tmp_path / "metrics.json"
+    _build_search_db(db_path)
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+
+    search_result = cli_runner("--db", str(db_path), "search", "duplicate", "--json")
+
+    assert search_result.returncode == 0
+    assert json.loads(search_result.stdout)["count"] == 2
+
+    stats_result = cli_runner("--db", str(db_path), "stats", "--json")
+
+    assert stats_result.returncode == 0
+    payload = json.loads(stats_result.stdout)
+    assert payload["queries_served"] == 1
+    assert payload["commands_started"] == 2
+    assert payload["commands_completed"] == 1
+    assert payload["logging_configurations"] == 2
+    assert payload["crash_handlers_installed"] == 2
+    assert payload["query_latency_histogram"]["count"] == 1
+    assert payload["query_result_count_histogram"]["count"] == 1
+    assert payload["metrics_path"] == str(metrics_path)
+    assert payload["metrics_persistence_enabled"] is True
+    assert payload["recent_snapshots"][0]["name"] == "command.search"
+    assert metrics_path.exists()
+
+
 def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
@@ -538,6 +568,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["counters"]["log_sinks.file.disabled"] == 2
     assert payload["counters"]["commands.search.completed"] == 1
     assert payload["counters"]["commands.stats.started"] == 1
+    assert payload["metrics_path"] is None
+    assert payload["metrics_persistence_enabled"] is False
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["query_result_count"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 1
