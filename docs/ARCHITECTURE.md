@@ -261,6 +261,23 @@ runtime code / CLI / UI changes
 - The release flow treats documentation, generated assets, and packaging manifests as part of the same shipped surface.
 - This is why docs-only rounds still run `tests/unit/test_docs_assets.py` and the matching dry-run or GUI smoke command instead of stopping at markdown edits.
 
+## Docs-Only Change Path
+
+```text
+docs edit
+    |
+    +--> docs-assets contract test
+    |
+    +--> regenerate man page or screenshots if the documented surface moved
+    |
+    +--> GUI smoke and matching packaging dry-run
+    |
+    +--> metadata commit + local tag
+```
+
+- A docs-only round still crosses runtime boundaries because screenshots, the generated man page, and packaging manifests are derived from the real codebase.
+- That is why a docs change can stay in the `docs` theme while still requiring evidence from Qt smoke or packaging dry-run paths.
+
 ## State Ownership
 
 | State | Owner | Why it lives there |
@@ -355,6 +372,23 @@ startup
 2. Inspect the emitted manifest or staged payload summary under `packaging/dist/`.
 3. Compare the staged docs payload with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 4. Cut the local tag only after the dry-run output and shipped docs agree.
+
+## Release Evidence Sequence
+
+```text
+docs/runtime change
+    |
+    +--> tests/unit/test_docs_assets.py
+    |
+    +--> GUI smoke or packaging dry-run evidence
+    |
+    +--> packaging/dist/ manifest review
+    |
+    +--> version bump + changelog + local tag
+```
+
+- The architecture of the release process mirrors the runtime split: docs contract first, derived/runtime evidence second, metadata last.
+- This keeps the local tag attached to a tree whose docs, generated assets, and staged packaging outputs have already been checked together.
 
 ## Platform Surface Summary
 

@@ -328,6 +328,30 @@ Treat these as part of the shipped surface, not incidental repository files:
 3. Bump `pyproject.toml` and `eodinga/__init__.py`, add the new `CHANGELOG.md` entry, and create the local `v0.1.N` tag.
 4. Hand off the clean branch plus local tag; rebasing, pushing, and GitHub release publication stay outside the worker round.
 
+## Docs-Only Release Pass
+
+When the round changes shipped docs but not runtime code, use one explicit validation pass instead of re-running the entire repository gate repeatedly:
+
+```bash
+source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run
+```
+
+If the round changes CLI help or visible Qt surfaces, refresh the derived assets first:
+
+```bash
+python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py
+```
+
+Treat that docs-only pass as release evidence, not a convenience check. The dry-run manifests under `packaging/dist/` and the offscreen GUI smoke run are how you prove the written docs still match the shipped artifacts.
+
+## Version Collision Recovery
+
+Parallel workers can consume the same candidate patch version. Before cutting the metadata commit:
+
+1. Refresh tags with `git fetch origin main --tags && git tag -l | sort -V | tail -5`.
+2. If `v0.1.N` now exists, retarget only `pyproject.toml`, `eodinga/__init__.py`, and the top `CHANGELOG.md` entry.
+3. Re-run `pytest -q tests/unit` and recreate the local tag on the new metadata commit only.
+
 ## Recovery and Troubleshooting
 
 - Startup automatically resumes interrupted staged rebuilds (`.index.db.next`), interrupted recovery swaps (`.index.db.recover`), and stale SQLite WAL replay before opening the live index.

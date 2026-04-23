@@ -146,6 +146,19 @@ Use this when the round is docs-only but still release-bearing:
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
 
+## Docs Evidence Bundle
+
+Collect the smallest reviewable evidence set that matches the docs you changed:
+
+| If the docs describe... | Required evidence |
+| --- | --- |
+| CLI surface or examples | `python scripts/generate_manpage.py` plus `pytest -q tests/unit/test_docs_assets.py` |
+| Visible GUI or launcher behavior | `python scripts/render_docs_screenshots.py`, `pytest -q tests/unit/test_docs_assets.py`, and `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
+| Packaged artifacts or release payloads | matching `python packaging/build.py --target ...-dry-run` command plus manifest review under `packaging/dist/` |
+| Pure prose or workflow guidance | `pytest -q tests/unit/test_docs_assets.py`, and the nearest matching dry run if the text names shipped artifacts |
+
+Prefer one explicit evidence bundle over ad-hoc retries. The handoff should show why the docs match the runtime, not just that Markdown changed.
+
 ## Metadata Commit Discipline
 
 - Keep the final metadata commit reviewable: version bump, changelog entry, and local tag cut only.
@@ -195,3 +208,10 @@ Do not rewrite earlier docs or feature commits just to retarget the patch number
 - Inspect `packaging/dist/` instead of trusting command exit status alone.
 - Confirm the staged docs payload still matches `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 - If the docs describe a packaged artifact, rerun the corresponding dry run before handoff.
+
+## Command Hygiene
+
+- Prefer single-shot commands that either finish cleanly or stop at the first real failure.
+- Avoid interactive prompts in contributor docs unless the workflow genuinely requires them.
+- When a command can emit benign noise during setup, suppress it so copy-paste runs stay readable.
+- If a docs-only round depends on a packaged artifact, document the exact dry-run command instead of sending the reader to guess between targets.

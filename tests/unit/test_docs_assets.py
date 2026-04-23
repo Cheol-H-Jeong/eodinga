@@ -54,6 +54,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Release Inputs" in readme
     assert "## Config and Data Paths" in readme
     assert "## Operator Checklist" in readme
+    assert "## Docs-Only Release Pass" in readme
+    assert "## Version Collision Recovery" in readme
     assert "## Recovery and Troubleshooting" in readme
     assert "### Quick Runbook" in readme
     assert "## Limitations" in readme
@@ -83,6 +85,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "docs only" in readme
     assert "packaging/dist/" in readme
     assert "Review the dry-run output before tagging." in readme
+    assert "Treat that docs-only pass as release evidence" in readme
+    assert "git fetch origin main --tags && git tag -l | sort -V | tail -5" in readme
     assert "### State Directory Summary" in readme
     assert "EODINGA_LOG_PATH" in readme
     assert "EODINGA_CRASH_DIR" in readme
@@ -128,11 +132,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Live Update Sequence" in architecture
     assert "## Documentation Asset Flow" in architecture
     assert "## Release Input Map" in architecture
+    assert "## Docs-Only Change Path" in architecture
     assert "## State Ownership" in architecture
     assert "## Failure Domains" in architecture
     assert "## Operator Debug Path" in architecture
     assert "## Packaging Surfaces" in architecture
     assert "## Packaging Review Path" in architecture
+    assert "## Release Evidence Sequence" in architecture
     assert "compressed changelog" in architecture
     assert "scripts/generate_manpage.py" in architecture
     assert "scripts/render_docs_screenshots.py" in architecture
@@ -155,15 +161,18 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "scripts/render_docs_screenshots.py" in contributing
     assert "## Docs Refresh Order" in contributing
     assert "## Docs Round Checklist" in contributing
+    assert "## Docs Evidence Bundle" in contributing
     assert "## Metadata Commit Discipline" in contributing
     assert "## Release Retarget Playbook" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
     assert "## Review Checklist" in contributing
     assert "## Packaging Review Checklist" in contributing
+    assert "## Command Hygiene" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
     assert "The final release commit for a round should carry the version bump" in contributing
     assert "Do not rewrite earlier docs or feature commits" in contributing
+    assert "Prefer one explicit evidence bundle over ad-hoc retries." in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl
@@ -211,8 +220,11 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Tag Decision Path" in release
     assert "## Worker Handoff Rules" in release
     assert "## Docs-Only Rounds" in release
+    assert "## Docs-Only Validation Pass" in release
+    assert "## Evidence Review Questions" in release
     assert "## Cut The Local Release" in release
     assert "## Collision And Retag Rules" in release
+    assert "## Tag Provenance" in release
     assert "## Retargeting Metadata After A Collision" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release

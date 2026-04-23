@@ -145,6 +145,25 @@ Use the same release discipline for docs-only changes when the shipped operator 
 4. Add a changelog entry that names the docs surface changed and why it matters.
 5. If you also ran the opt-in perf suite, only refresh `docs/PERFORMANCE.md` when the benchmark completed cleanly and the new table comes from that same commit.
 
+## Docs-Only Validation Pass
+
+When the round changes shipped docs but not runtime code, use one explicit pass that still exercises the docs-dependent release inputs:
+
+```bash
+source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run
+```
+
+If CLI help or visible GUI surfaces changed, regenerate the man page or screenshots before running that pass. Do not tag a docs-only round from stale derived assets.
+
+## Evidence Review Questions
+
+Before you cut the local tag, answer these against the actual outputs:
+
+1. Does `tests/unit/test_docs_assets.py` prove the new sections and links are part of the shipped docs contract?
+2. Does the offscreen GUI smoke path still match any screenshots or keyboard flows described in the docs?
+3. Do the dry-run manifests under `packaging/dist/` agree with the packaged artifacts the docs claim exist?
+4. If the round changed release instructions, can a reviewer follow the documented commands without inventing missing steps?
+
 ## Cut The Local Release
 
 1. Commit the release metadata changes.
@@ -178,6 +197,12 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - Never move or delete an existing local release tag just to reuse the version number.
 - If another worker landed the same candidate version first, fetch tags again, pick the next unused patch number, and update the release metadata commit instead of force-retagging.
 - If the final gate fails after the metadata commit, fix the issue in a new commit and recreate the local tag on the new tip only after the gate is green again.
+
+## Tag Provenance
+
+- The local release tag should always point at the metadata commit for the round, not the last feature/docs commit before versioning.
+- If you must retarget because of a version collision, recreate the local tag only after the updated metadata commit is green.
+- The orchestrator may rebase and publish later, but the worker handoff should already prove which exact commit the local tag was cut from.
 
 ## Retargeting Metadata After A Collision
 
