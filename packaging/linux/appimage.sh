@@ -95,6 +95,7 @@ payload = {
         "icon": desktop_entries.get("Icon"),
         "categories": desktop_entries.get("Categories"),
         "startup_notify": desktop_entries.get("StartupNotify"),
+        "matches_source_asset": desktop_path.read_text(encoding="utf-8") == Path("${ROOT_DIR}/packaging/linux/eodinga.desktop").read_text(encoding="utf-8"),
     },
     "recipe": {
         "path": str(recipe_path),
@@ -113,6 +114,7 @@ payload = {
         "diricon_path": str(diricon_path),
         "diricon_exists": diricon_path.exists(),
         "desktop_icon_matches_asset": desktop_entries.get("Icon") == icon_path.stem,
+        "matches_source_asset": icon_path.read_text(encoding="utf-8") == Path("${APPIMAGE_ICON}").read_text(encoding="utf-8"),
     },
     "apprun": {
         "path": str(apprun_path),
