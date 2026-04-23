@@ -240,6 +240,19 @@ def _term_ok(text: str, term_value: str, kind: str, case_sensitive: bool, negate
     return not matched if negated else matched
 
 
+@lru_cache(maxsize=256)
+def _compiled_regex(
+    pattern: str,
+    flags: str,
+    default_case_sensitive: bool,
+) -> re.Pattern[str]:
+    return re.compile(
+        pattern,
+        _make_flags(flags)
+        | (0 if default_case_sensitive or "i" in flags.lower() else re.IGNORECASE),
+    )
+
+
 def _regex_ok(
     text: str,
     pattern: str,
@@ -247,38 +260,27 @@ def _regex_ok(
     negated: bool,
     default_case_sensitive: bool,
 ) -> bool:
-    compiled = re.compile(
-        pattern,
-        _make_flags(flags)
-        | (0 if default_case_sensitive or "i" in flags.lower() else re.IGNORECASE),
-    )
+    compiled = _compiled_regex(pattern, flags, default_case_sensitive)
     matched = bool(compiled.search(text))
     return not matched if negated else matched
 
 
-def _plain_term_matches_record(
-    record: FileRecord,
-    content_text: str,
-    term_value: str,
-    kind: str,
-    case_sensitive: bool,
-) -> bool:
-    target_text = f"{record.name} {record.parent_path} {record.path}"
-    return _term_matches(target_text, term_value, kind=kind, case_sensitive=case_sensitive) or (
-        bool(content_text)
-        and _term_matches(content_text, term_value, kind=kind, case_sensitive=case_sensitive)
-    )
-
-
 def _filter_record(branch: CompiledBranch, record: FileRecord, content_text: str) -> bool:
+    target_text = f"{record.name} {record.parent_path} {record.path}"
     for term in branch.path_terms:
-        matched = _plain_term_matches_record(
-            record,
-            content_text,
+        matched = _term_matches(
+            target_text,
             term.value,
-            term.kind,
-            branch.case_sensitive,
+            kind=term.kind,
+            case_sensitive=branch.case_sensitive,
         )
+        if not matched and content_text:
+            matched = _term_matches(
+                content_text,
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
         if term.negated and matched:
             return False
         if not term.negated and not matched:
@@ -292,7 +294,6 @@ def _filter_record(branch: CompiledBranch, record: FileRecord, content_text: str
             term.negated,
         ):
             return False
-    target_text = f"{record.name} {record.parent_path} {record.path}"
     for term in branch.content_terms:
         if not _term_ok(
             content_text,
