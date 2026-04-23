@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.522 - 2026-04-23
+## 0.1.524 - 2026-04-23
 
 - Retained a bounded in-memory timeline of recent command snapshots and exposed it through `stats --json`, so operators can see the last successful index/search/stats/doctor/version activity without scraping debug logs.
 - Captured nonzero exits, interruptions, and top-level crashes as dedicated runtime snapshots, making failure paths visible in the same stats surface as successful commands.
