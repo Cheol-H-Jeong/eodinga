@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 from time import perf_counter, time
+from typing import Any, cast
 
 import eodinga.index.writer as writer_module
 from eodinga.content.base import ParsedContent
@@ -49,7 +50,7 @@ def test_writer_bulk_insert_and_incremental_apply_are_fast(tmp_db: Path, tmp_pat
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         (str(tmp_path), "[]", "[]", 1),
     )
-    writer = IndexWriter(conn)
+    writer = IndexWriter(cast(Any, conn))
     records = [_synthetic_record(index, tmp_path) for index in range(5000)]
 
     started = perf_counter()
@@ -99,7 +100,7 @@ def test_writer_upsert_records_batches_large_file_writes(tmp_db: Path, tmp_path:
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         (str(tmp_path), "[]", "[]", 1),
     )
-    writer = IndexWriter(conn)
+    writer = IndexWriter(cast(Any, conn))
     records = [
         _synthetic_record(index, tmp_path)
         for index in range(writer_module.RECORD_WRITE_BATCH_SIZE + 25)
@@ -134,7 +135,7 @@ def test_writer_upsert_content_batches_large_content_writes(tmp_db: Path, tmp_pa
         )
         for record in records
     }
-    writer = IndexWriter(conn, parser_callback=lambda path: parsed_by_path.get(path))
+    writer = IndexWriter(cast(Any, conn), parser_callback=lambda path: parsed_by_path.get(path))
 
     assert writer.bulk_upsert(records) == len(records)
 

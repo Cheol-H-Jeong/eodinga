@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.368 - 2026-04-23
+
+- Cached repeated Unicode normalization and regex compilation in the query executor’s scan fallback path, reducing repeated per-record work for regex-heavy and non-ASCII searches without changing result ordering.
+- Batched large SQLite `executemany()` writes in `IndexWriter`, so bulk file and parsed-content upserts no longer hand unbounded payloads to a single statement execution.
+- Added perf coverage for Unicode path-scan latency and parsed-content bulk-upsert throughput behind `EODINGA_RUN_PERF=1`, expanding the checked-in benchmark surface around the tuned paths.
+
 ## 0.1.365 - 2026-04-23
 
 - Cleaned leftover `.recover.partial*` and `.next.partial*` artifacts during interrupted-stage resume and startup open, so crash residue no longer survives into the next reopen path.
