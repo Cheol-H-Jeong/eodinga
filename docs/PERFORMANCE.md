@@ -15,6 +15,7 @@ Use a warm local virtualenv and run the perf tests on an otherwise idle machine 
 ```bash
 source .venv/bin/activate
 EODINGA_RUN_PERF=1 pytest -q tests/perf/test_cold_start.py -s
+EODINGA_RUN_PERF=1 pytest -q tests/perf/test_walk_throughput.py -s
 EODINGA_RUN_PERF=1 pytest -q tests/perf/test_bulk_upsert.py -s
 EODINGA_RUN_PERF=1 pytest -q tests/perf/test_query_latency.py -s
 EODINGA_RUN_PERF=1 pytest -q tests/perf/test_content_query.py -s
@@ -26,6 +27,7 @@ The individual commands are useful when you are changing one subsystem and want 
 The current perf suite covers the SPEC §6.3 scenarios with smaller local-dev datasets:
 
 - `tests/perf/test_cold_start.py`: walker + bulk index throughput on a real tmp tree.
+- `tests/perf/test_walk_throughput.py`: isolated walker throughput on a real tmp tree.
 - `tests/perf/test_cold_start.py::test_rebuild_cold_start_throughput`: staged rebuild throughput through the real `rebuild_index()` entry point.
 - `tests/perf/test_bulk_upsert.py`: isolated writer throughput for 50k synthetic records.
 - `tests/perf/test_query_latency.py`: name-only query latency against a 50k-file index.
@@ -49,6 +51,7 @@ pytest -q tests/perf -s
 Supported overrides:
 
 - `EODINGA_PERF_COLD_START_FILE_COUNT`, `EODINGA_PERF_COLD_START_MIN_FPS`
+- `EODINGA_PERF_WALK_FILE_COUNT`, `EODINGA_PERF_WALK_MIN_EPS`
 - `EODINGA_PERF_REBUILD_MIN_FPS`
 - `EODINGA_PERF_BULK_FILE_COUNT`, `EODINGA_PERF_BULK_MIN_RPS`
 - `EODINGA_PERF_QUERY_FILE_COUNT`, `EODINGA_PERF_QUERY_COUNT`, `EODINGA_PERF_QUERY_P95_MS`
@@ -62,6 +65,7 @@ Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv`
 | Benchmark | Dataset | Result |
 | --- | --- | --- |
 | Cold start | 20,201 indexed entries | 6,059 files/sec |
+| Walk throughput | 50,201 traversed entries | 5,806 entries/sec |
 | Rebuild cold start | 20,201 indexed entries via `rebuild_index()` | 6,537 files/sec |
 | Bulk upsert | 50k synthetic records | 56,222 records/sec |
 | Name query latency | 2,000 queries / 50k files | p50 0.06 ms, p95 0.06 ms, p99 0.07 ms |
@@ -73,6 +77,7 @@ These numbers are informational for v0.1, not release-blocking. The thresholds i
 ## Interpreting Results
 
 - `tests/perf/test_cold_start.py` exercises walker and bulk-upsert throughput. It is the best low-level proxy for first-index regressions.
+- `tests/perf/test_walk_throughput.py` isolates traversal cost when you need to separate directory walking from SQLite write throughput.
 - `tests/perf/test_cold_start.py::test_rebuild_cold_start_throughput` measures the actual staged rebuild path, including temp-index creation and atomic swap.
 - `tests/perf/test_bulk_upsert.py` isolates the writer path when you want to distinguish SQLite insert churn from walker traversal cost.
 - `tests/perf/test_query_latency.py` isolates name/path lookup cost without parser noise.
