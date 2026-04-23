@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sqlite3
 import unicodedata
 from datetime import UTC, datetime, timedelta
@@ -1326,6 +1327,28 @@ def test_executor_caches_content_text_sql_templates_by_chunk_size() -> None:
     cache_info = executor_module._content_texts_sql.cache_info()
     assert cache_info.hits >= 2
     assert cache_info.currsize == 2
+
+
+def test_executor_caches_compiled_regex_by_pattern_and_flags(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executor_module._compiled_regex.cache_clear()
+    compile_calls: list[tuple[str, int]] = []
+    original_compile = executor_module.re.compile
+
+    def counting_compile(pattern: str, flags: int = 0) -> re.Pattern[str]:
+        compile_calls.append((pattern, flags))
+        return original_compile(pattern, flags)
+
+    monkeypatch.setattr(executor_module.re, "compile", counting_compile)
+
+    assert executor_module._regex_ok("Report-101", r"report-\d+", "", False, False) is True
+    assert executor_module._regex_ok("Report-102", r"report-\d+", "", False, False) is True
+    assert executor_module._regex_ok("report-103", r"report-\d+", "i", False, False) is True
+
+    assert len(compile_calls) == 2
+    assert compile_calls[0][0] == r"report-\d+"
+    assert compile_calls[1][0] == r"report-\d+"
 
 
 def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:

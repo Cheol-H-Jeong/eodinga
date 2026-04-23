@@ -176,6 +176,15 @@ def _make_flags(flag_text: str) -> int:
     return flags
 
 
+@lru_cache(maxsize=256)
+def _compiled_regex(pattern: str, flags: str, default_case_sensitive: bool) -> re.Pattern[str]:
+    return re.compile(
+        pattern,
+        _make_flags(flags)
+        | (0 if default_case_sensitive or "i" in flags.lower() else re.IGNORECASE),
+    )
+
+
 def _record_order_key(record: FileRecord, *, case_sensitive: bool) -> tuple[str, str, int]:
     name = record.name if case_sensitive else record.name_lower
     file_id = -1 if record.id is None else record.id
@@ -234,11 +243,7 @@ def _regex_ok(
     negated: bool,
     default_case_sensitive: bool,
 ) -> bool:
-    compiled = re.compile(
-        pattern,
-        _make_flags(flags)
-        | (0 if default_case_sensitive or "i" in flags.lower() else re.IGNORECASE),
-    )
+    compiled = _compiled_regex(pattern, flags, default_case_sensitive)
     matched = bool(compiled.search(text))
     return not matched if negated else matched
 
