@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.225 - 2026-04-23
+## 0.1.226 - 2026-04-23
 
 - Added explicit accessibility names across launcher support surfaces, including status text, empty-state messaging, and preview metadata, so screen-reader coverage matches the rest of the GUI shell.
 - Strengthened launcher result-match rendering with a bolder, higher-contrast highlight treatment that keeps matched substrings easier to scan at a glance.
