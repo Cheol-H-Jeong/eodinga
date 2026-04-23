@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.701 - 2026-04-23
+
+- Preserved undelivered watcher events when a flush batch hits enqueue backpressure mid-drain, so the remainder of the batch and move-source suppression metadata survive retry instead of being silently dropped.
+- Hardened watcher startup cleanup so failed observer scheduling or startup tears down the transient flush thread and any partially started observer before returning the error.
+- Reset rebuild signal-stop state on enter and exit, preventing a reused stop guard from re-raising an old pending `SIGINT` or `SIGTERM` during later rebuild attempts.
+
 ## 0.1.585 - 2026-04-23
 
 - Tightened scoped-search root matching so wildcard characters in root paths no longer leak results from sibling roots, and Windows drive-letter case variants now keep exact-root records in scope.
