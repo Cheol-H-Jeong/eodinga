@@ -72,8 +72,9 @@ from pathlib import Path
 
 source = Path("${ROOT_DIR}/CHANGELOG.md")
 target = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
-with source.open("rb") as src, gzip.GzipFile(filename="", mode="wb", fileobj=target.open("wb"), mtime=0) as dst:
-    dst.write(src.read())
+with source.open("rb") as src, target.open("wb") as raw:
+    with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as dst:
+        dst.write(src.read())
 PY
 
 tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf "${ARCHIVE_PATH}" -C "${BUILD_ROOT}" "$(basename "${PACKAGE_DIR}")"
