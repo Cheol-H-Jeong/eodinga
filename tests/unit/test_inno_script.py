@@ -11,6 +11,8 @@ def test_inno_script_contains_required_fields() -> None:
     assert "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in script
     assert "LicenseFile=LICENSE" in script
     assert r"UninstallDisplayIcon={app}\@@GUI_EXE_NAME@@" in script
+    assert "ArchitecturesAllowed=x64compatible" in script
+    assert "ArchitecturesInstallIn64BitMode=x64compatible" in script
     assert 'Name: "english"' in script
     assert 'Name: "korean"' in script
     assert 'Name: "autostart"' in script

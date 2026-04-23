@@ -179,6 +179,14 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
                 f'Filename: "{{app}}\\\\{gui_exe_name}"; Description: "{{cm:LaunchProgram,eodinga}}"; Flags: nowait postinstall skipifsilent',
             ),
             "privileges_lowest": _inno_contains(rendered_text, "PrivilegesRequired=lowest"),
+            "architectures_allowed_x64compatible": _inno_contains(
+                rendered_text,
+                "ArchitecturesAllowed=x64compatible",
+            ),
+            "architectures_install_in_64bit_mode": _inno_contains(
+                rendered_text,
+                "ArchitecturesInstallIn64BitMode=x64compatible",
+            ),
             "disables_program_group_page": _inno_contains(rendered_text, "DisableProgramGroupPage=yes"),
             "disables_dir_page": _inno_contains(rendered_text, "DisableDirPage=yes"),
             "includes_korean_language": _inno_contains(rendered_text, 'Name: "korean"; MessagesFile: "compiler:Languages\\Korean.isl"'),
@@ -251,6 +259,8 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         "contains_postinstall_launch": "Rendered Inno postinstall launch action is missing",
         "contains_autostart_registry": "Inno autostart registry entry is missing",
         "rendered_autostart_registry_matches_gui_exe": "Rendered Inno autostart registry entry does not point at the GUI executable",
+        "architectures_allowed_x64compatible": "Inno installer is no longer locked to x64-compatible systems",
+        "architectures_install_in_64bit_mode": "Inno installer no longer installs in 64-bit mode on x64 systems",
         "contains_uninstall_purge_prompt": "Inno uninstall purge prompt is missing",
         "purge_prompt_is_opt_in": "Inno uninstall purge prompt is no longer opt-in",
         "purge_targets_local_and_roaming_user_state": "Inno uninstall purge no longer targets both local data and roaming config",

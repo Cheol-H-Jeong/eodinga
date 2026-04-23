@@ -87,6 +87,8 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     ]
     assert payload["inno_setup"]["rendered_source_entries_match_pyinstaller_dist"] is True
     assert payload["inno_setup"]["privileges_lowest"] is True
+    assert payload["inno_setup"]["architectures_allowed_x64compatible"] is True
+    assert payload["inno_setup"]["architectures_install_in_64bit_mode"] is True
     assert payload["inno_setup"]["disables_program_group_page"] is True
     assert payload["inno_setup"]["disables_dir_page"] is True
     assert payload["inno_setup"]["includes_korean_language"] is True
@@ -139,6 +141,18 @@ def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -
     errors = module._validate_windows_audit(payload)
 
     assert "Inno uninstall purge no longer targets both local data and roaming config" in errors
+
+
+def test_windows_audit_validator_rejects_missing_x64_installer_contract() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["inno_setup"]["architectures_allowed_x64compatible"] = False
+    payload["inno_setup"]["architectures_install_in_64bit_mode"] = False
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "Inno installer is no longer locked to x64-compatible systems" in errors
+    assert "Inno installer no longer installs in 64-bit mode on x64 systems" in errors
 
 
 def test_build_preflight_reports_missing_windows_tool(monkeypatch) -> None:
