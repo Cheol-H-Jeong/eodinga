@@ -935,3 +935,51 @@ def test_watcher_blocked_move_flush_preserves_retired_source_suppression(tmp_pat
 
     with pytest.raises(Empty):
         service.queue.get_nowait()
+
+
+def test_watcher_aborted_enqueue_records_snapshot_and_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service = WatchService(queue_maxsize=1)
+    warnings: list[str] = []
+    reset_metrics()
+
+    monkeypatch.setattr(
+        service._logger,
+        "warning",
+        lambda message, *args: warnings.append(message.format(*args)),
+    )
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "first.txt",
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service._flush_ready(force=True)
+    service._stop.set()
+
+    service.record(
+        WatchEvent(
+            event_type="modified",
+            path=tmp_path / "second.txt",
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    metrics = snapshot_metrics()
+    assert metrics["counters"]["watcher_enqueue_aborted"] == 1
+    assert recent_snapshots()[-1]["name"] == "watcher.enqueue_aborted"
+    assert recent_snapshots()[-1]["payload"] == {
+        "path": str(tmp_path / "second.txt"),
+        "event_type": "modified",
+        "root": str(tmp_path),
+        "stopped": True,
+    }
+    assert warnings[-1] == (
+        f"watch queue enqueue aborted during shutdown for {tmp_path / 'second.txt'}"
+    )

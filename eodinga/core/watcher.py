@@ -446,4 +446,14 @@ class WatchService:
                         "watch queue full; applying backpressure for {}", event.path
                     )
         increment_counter("watcher_enqueue_aborted", event_type=event.event_type)
+        record_snapshot(
+            "watcher.enqueue_aborted",
+            {
+                "path": str(event.path),
+                "event_type": event.event_type,
+                "root": str(event.root_path) if event.root_path is not None else None,
+                "stopped": self._stop.is_set(),
+            },
+        )
+        self._logger.warning("watch queue enqueue aborted during shutdown for {}", event.path)
         return False
