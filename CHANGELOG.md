@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.717 - 2026-04-23
+
+- Preserved full undelivered watcher flush batches when enqueue fails mid-flush, so shutdown or queue-abort paths no longer lose later ready events after backpressure kicks in.
+- Let `open_index()` continue after it cleans a truncated interrupted build or recovery stage, avoiding false startup failures on harmless empty `.{index}.next` and `.{index}.recover` leftovers.
+- Expanded rebuild signal handling to cover staged root insertion, so `SIGINT` and `SIGTERM` now preserve a committed resumable stage even when interruption lands before file walking starts.
+
 ## 0.1.714 - 2026-04-23
 
 - Clarified the README around surface selection, launcher keyboard flow, live-update expectations, and launcher-specific config so operators can pick the right entry point faster.
