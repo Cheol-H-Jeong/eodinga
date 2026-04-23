@@ -320,9 +320,11 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["archive_entries_sorted"] is True
     assert payload["archive_mtime_zero"] is True
     assert payload["archive_numeric_owner_zero"] is True
+    assert payload["desktop_entry"]["type"] == "Application"
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
+    assert payload["desktop_entry"]["terminal"] == "false"
     assert payload["desktop_entry"]["categories"] == "Utility;FileTools;"
     assert payload["desktop_entry"]["startup_notify"] == "true"
     assert payload["recipe"]["exists"] is True
@@ -365,6 +367,8 @@ def test_linux_deb_dry_run_renders_control_template() -> None:
     assert payload["control"]["version"] == __version__
     assert payload["control"]["architecture"] == "amd64"
     assert payload["control"]["depends"] == "python3 (>= 3.11)"
+    assert payload["desktop_entry"]["type"] == "Application"
+    assert payload["desktop_entry"]["terminal"] == "false"
     assert payload["debian_control_template"]["exists"] is True
     assert payload["debian_control_template"]["contains_version_template"] is True
     assert payload["debian_control_template"]["contains_arch_template"] is True
@@ -393,9 +397,11 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
             "description": "Instant lexical file search for Windows and Linux",
         },
         "desktop_entry": {
+            "type": "Application",
             "name": "eodinga",
             "launches_gui": True,
             "icon_matches_package": True,
+            "terminal": "false",
             "categories": "Utility;FileTools;",
             "startup_notify": "true",
         },
@@ -446,9 +452,11 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
             "description": "Instant lexical file search for Windows and Linux",
         },
         "desktop_entry": {
+            "type": "Application",
             "name": "eodinga",
             "launches_gui": True,
             "icon_matches_package": True,
+            "terminal": "false",
             "categories": "Utility;FileTools;",
             "startup_notify": "true",
         },
@@ -532,9 +540,11 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["debian_control_template"]["maintainer"] == "Cheol-H-Jeong"
     assert payload["debian_control_template"]["binary_package"] == "eodinga"
     assert payload["debian_control_template"]["description"] == "Instant lexical file search for Windows and Linux"
+    assert payload["desktop_entry"]["type"] == "Application"
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
+    assert payload["desktop_entry"]["terminal"] == "false"
     assert payload["desktop_entry"]["categories"] == "Utility;FileTools;"
     assert payload["desktop_entry"]["startup_notify"] == "true"
     assert payload["desktop_entry"]["launches_gui"] is True

@@ -287,6 +287,7 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (recipe_payload.get("references_icon_asset"), "AppImage recipe no longer references the icon asset"),
         (recipe_payload.get("launches_gui"), "AppImage recipe no longer launches the GUI target"),
         (payload.get("desktop_entry", {}).get("matches_source_asset"), "AppImage desktop entry no longer matches the shipped asset"),
+        (payload.get("desktop_entry", {}).get("type") == "Application", "AppImage desktop entry type drifted from Application"),
         (payload.get("desktop_entry", {}).get("name") == "eodinga", "AppImage desktop entry name drifted from eodinga"),
         (
             payload.get("desktop_entry", {}).get("exec") == "eodinga gui",
@@ -295,6 +296,10 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (
             payload.get("desktop_entry", {}).get("icon") == "eodinga",
             "AppImage desktop entry icon no longer matches the packaged asset",
+        ),
+        (
+            payload.get("desktop_entry", {}).get("terminal") == "false",
+            "AppImage desktop entry no longer disables terminal launch",
         ),
         (
             payload.get("desktop_entry", {}).get("categories") == "Utility;FileTools;",
@@ -376,9 +381,14 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
             "Debian control template description drifted from the staged package",
         ),
         (desktop_payload.get("matches_source_asset"), "Debian desktop entry no longer matches the shipped asset"),
+        (desktop_payload.get("type") == "Application", "Debian desktop entry type drifted from Application"),
         (desktop_payload.get("name") == "eodinga", "Debian desktop entry name drifted from eodinga"),
         (desktop_payload.get("launches_gui"), "Debian desktop entry no longer launches the GUI command"),
         (desktop_payload.get("icon_matches_package"), "Debian desktop entry icon no longer matches the packaged asset"),
+        (
+            desktop_payload.get("terminal") == "false",
+            "Debian desktop entry no longer disables terminal launch",
+        ),
         (
             desktop_payload.get("categories") == "Utility;FileTools;",
             "Debian desktop entry categories drifted from the shipped asset",
