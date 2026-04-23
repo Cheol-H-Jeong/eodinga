@@ -186,6 +186,13 @@ def _load_audit(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _write_release_dry_run_summary(payload: dict[str, Any]) -> Path:
+    DIST_DIR.mkdir(parents=True, exist_ok=True)
+    target = DIST_DIR / "release-dry-run-audit.json"
+    target.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return target
+
+
 def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     if not payload.get("version_matches_package"):
@@ -450,11 +457,44 @@ def _run_linux_deb() -> int:
     )
 
 
+def _run_release_dry_run() -> int:
+    target_runners = [
+        ("windows-dry-run", _run_windows_dry_run, DIST_DIR / "windows-dry-run-audit.json"),
+        ("linux-appimage-dry-run", _run_linux_appimage_dry_run, DIST_DIR / "linux-appimage-audit.json"),
+        ("linux-deb-dry-run", _run_linux_deb_dry_run, DIST_DIR / "linux-deb-audit.json"),
+    ]
+    results: list[dict[str, Any]] = []
+    release_ok = True
+    for target_name, runner, audit_path in target_runners:
+        exit_code = runner()
+        target_ok = exit_code == 0
+        release_ok = release_ok and target_ok
+        results.append(
+            {
+                "target": target_name,
+                "ok": target_ok,
+                "exit_code": exit_code,
+                "audit_path": str(audit_path),
+                "audit_exists": audit_path.exists(),
+            }
+        )
+    summary = {
+        "target": "release-dry-run",
+        "version": _read_project_version(),
+        "package_version": _read_package_version(),
+        "ok": release_ok,
+        "results": results,
+    }
+    _write_release_dry_run_summary(summary)
+    return 0 if release_ok else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--target",
         choices=(
+            "release-dry-run",
             "linux-appimage-dry-run",
             "linux-appimage",
             "linux-deb-dry-run",
@@ -465,6 +505,8 @@ def main(argv: list[str] | None = None) -> int:
         required=True,
     )
     args = parser.parse_args(argv)
+    if args.target == "release-dry-run":
+        return _run_release_dry_run()
     if args.target == "linux-appimage-dry-run":
         return _run_linux_appimage_dry_run()
     if args.target == "linux-appimage":

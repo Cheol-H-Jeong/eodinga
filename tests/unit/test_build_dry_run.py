@@ -556,3 +556,44 @@ def test_linux_deb_audit_validator_rejects_missing_strict_launcher_contract() ->
     errors = module._validate_linux_deb_audit(payload, __version__, __version__)
 
     assert "Debian launcher shim no longer enables strict shell mode" in errors
+
+
+def test_release_dry_run_runs_all_packaging_audits() -> None:
+    result = subprocess.run(
+        [sys.executable, "packaging/build.py", "--target", "release-dry-run"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    audit_path = Path("packaging/dist/release-dry-run-audit.json")
+    assert audit_path.exists()
+    payload = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert payload["target"] == "release-dry-run"
+    assert payload["version"] == __version__
+    assert payload["package_version"] == __version__
+    assert payload["ok"] is True
+    assert payload["results"] == [
+        {
+            "target": "windows-dry-run",
+            "ok": True,
+            "exit_code": 0,
+            "audit_path": str(Path("packaging/dist/windows-dry-run-audit.json").resolve()),
+            "audit_exists": True,
+        },
+        {
+            "target": "linux-appimage-dry-run",
+            "ok": True,
+            "exit_code": 0,
+            "audit_path": str(Path("packaging/dist/linux-appimage-audit.json").resolve()),
+            "audit_exists": True,
+        },
+        {
+            "target": "linux-deb-dry-run",
+            "ok": True,
+            "exit_code": 0,
+            "audit_path": str(Path("packaging/dist/linux-deb-audit.json").resolve()),
+            "audit_exists": True,
+        },
+    ]
