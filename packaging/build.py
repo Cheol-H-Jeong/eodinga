@@ -18,6 +18,8 @@ PYPROJECT = PROJECT_ROOT / "pyproject.toml"
 APPIMAGE_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "appimage.sh"
 DEB_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "deb.sh"
 APPIMAGE_DESKTOP = PROJECT_ROOT / "packaging" / "linux" / "eodinga.desktop"
+APPIMAGE_AUDIT = DIST_DIR / "linux-appimage-audit.json"
+DEB_AUDIT = DIST_DIR / "linux-deb-audit.json"
 INNO_VERSION_TOKEN = "@@APP_VERSION@@"
 INNO_GUI_DIST_TOKEN = "@@GUI_DIST_NAME@@"
 INNO_CLI_DIST_TOKEN = "@@CLI_DIST_NAME@@"
@@ -171,6 +173,108 @@ def _write_audit(payload: dict[str, Any]) -> Path:
     return target
 
 
+def _load_audit_payload(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise ValueError(f"expected packaging audit at {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"expected object payload in {path}")
+    return payload
+
+
+def _expect(condition: bool, message: str) -> None:
+    if not condition:
+        raise ValueError(message)
+
+
+def _validate_linux_appimage_audit(payload: dict[str, Any], *, version: str, package_version: str) -> None:
+    _expect(payload.get("target") in {"linux-appimage-dry-run", "linux-appimage"}, "unexpected AppImage audit target")
+    _expect(payload.get("version") == version, "AppImage audit version does not match pyproject")
+    _expect(payload.get("version") == package_version, "AppImage audit version does not match package")
+    _expect(Path(str(payload.get("appdir", ""))).exists(), "AppImage audit appdir is missing")
+    _expect(Path(str(payload.get("archive", ""))).exists(), "AppImage audit archive is missing")
+    desktop_entry = payload.get("desktop_entry", {})
+    _expect(desktop_entry.get("name") == "eodinga", "AppImage desktop name drifted")
+    _expect(desktop_entry.get("exec") == "eodinga gui", "AppImage desktop exec drifted")
+    _expect(desktop_entry.get("icon") == "eodinga", "AppImage desktop icon drifted")
+    _expect(desktop_entry.get("categories") == "Utility;FileTools;", "AppImage desktop categories drifted")
+    _expect(desktop_entry.get("startup_notify") == "true", "AppImage desktop startup notify drifted")
+    recipe = payload.get("recipe", {})
+    _expect(recipe.get("exists") is True, "AppImage recipe is missing")
+    _expect(recipe.get("references_desktop_entry") is True, "AppImage recipe no longer stages the desktop entry")
+    _expect(recipe.get("references_icon_asset") is True, "AppImage recipe no longer stages the icon asset")
+    _expect(recipe.get("launches_gui") is True, "AppImage recipe no longer launches the GUI")
+    icon = payload.get("icon", {})
+    _expect(icon.get("exists") is True, "AppImage icon is missing")
+    _expect(icon.get("diricon_exists") is True, "AppImage .DirIcon is missing")
+    _expect(icon.get("desktop_icon_matches_asset") is True, "AppImage desktop icon no longer matches the staged asset")
+    apprun = payload.get("apprun", {})
+    _expect(apprun.get("is_executable") is True, "AppImage AppRun is not executable")
+    _expect(apprun.get("launches_gui") is True, "AppImage AppRun no longer launches the GUI")
+    launcher = payload.get("launcher", {})
+    _expect(launcher.get("is_executable") is True, "AppImage launcher shim is not executable")
+    _expect(launcher.get("executes_python_module") is True, "AppImage launcher shim no longer executes the Python module")
+
+
+def _validate_linux_deb_audit(payload: dict[str, Any], *, version: str, package_version: str) -> None:
+    _expect(payload.get("target") in {"linux-deb-dry-run", "linux-deb"}, "unexpected Debian audit target")
+    _expect(payload.get("version") == version, "Debian audit version does not match pyproject")
+    _expect(payload.get("version") == package_version, "Debian audit version does not match package")
+    _expect(Path(str(payload.get("package_dir", ""))).exists(), "Debian package root is missing")
+    _expect(Path(str(payload.get("control_path", ""))).exists(), "Debian control file is missing")
+    _expect(Path(str(payload.get("archive", ""))).exists(), "Debian archive is missing")
+    if payload.get("target") == "linux-deb":
+        _expect(Path(str(payload.get("deb_path", ""))).exists(), "Debian package artifact is missing")
+    control = payload.get("control", {})
+    _expect(control.get("package") == "eodinga", "Debian package name drifted")
+    _expect(control.get("version") == version, "Debian control version drifted")
+    _expect(control.get("architecture") == payload.get("arch"), "Debian control architecture drifted")
+    _expect(control.get("depends") == "python3 (>= 3.11)", "Debian dependency drifted")
+    _expect(
+        control.get("description") == "Instant lexical file search for Windows and Linux",
+        "Debian description drifted",
+    )
+    desktop_entry = payload.get("desktop_entry", {})
+    _expect(desktop_entry.get("name") == "eodinga", "Debian desktop name drifted")
+    _expect(desktop_entry.get("exec") == "eodinga gui", "Debian desktop exec drifted")
+    _expect(desktop_entry.get("icon") == "eodinga", "Debian desktop icon drifted")
+    _expect(desktop_entry.get("categories") == "Utility;FileTools;", "Debian desktop categories drifted")
+    _expect(desktop_entry.get("startup_notify") == "true", "Debian desktop startup notify drifted")
+    icon = payload.get("icon", {})
+    _expect(icon.get("exists") is True, "Debian icon is missing")
+    _expect(icon.get("desktop_icon_matches_asset") is True, "Debian desktop icon no longer matches the staged asset")
+    launcher = payload.get("launcher", {})
+    _expect(launcher.get("is_executable") is True, "Debian launcher shim is not executable")
+    _expect(launcher.get("executes_python_module") is True, "Debian launcher shim no longer executes the Python module")
+    docs = payload.get("docs", {})
+    _expect(docs.get("license_exists") is True, "Debian license is missing")
+    _expect(docs.get("changelog_exists") is True, "Debian changelog is missing")
+
+
+def _run_linux_packaging_script(
+    script_path: Path,
+    *,
+    audit_path: Path,
+    version: str,
+    package_version: str,
+    dry_run_flag: str | None,
+    validator: Any,
+) -> int:
+    args = ["bash", str(script_path)]
+    if dry_run_flag is not None:
+        args.append(dry_run_flag)
+    result = subprocess.run(
+        args,
+        cwd=PROJECT_ROOT,
+        check=False,
+    )
+    if result.returncode != 0:
+        return result.returncode
+    payload = _load_audit_payload(audit_path)
+    validator(payload, version=version, package_version=package_version)
+    return 0
+
+
 def _run_windows_dry_run() -> int:
     version = _read_project_version()
     package_version = _read_package_version()
@@ -189,39 +293,55 @@ def _run_windows() -> int:
 
 
 def _run_linux_appimage_dry_run() -> int:
-    result = subprocess.run(
-        ["bash", str(APPIMAGE_SCRIPT), "--dry-run"],
-        cwd=PROJECT_ROOT,
-        check=False,
+    version = _read_project_version()
+    package_version = _read_package_version()
+    return _run_linux_packaging_script(
+        APPIMAGE_SCRIPT,
+        audit_path=APPIMAGE_AUDIT,
+        version=version,
+        package_version=package_version,
+        dry_run_flag="--dry-run",
+        validator=_validate_linux_appimage_audit,
     )
-    return result.returncode
 
 
 def _run_linux_appimage() -> int:
-    result = subprocess.run(
-        ["bash", str(APPIMAGE_SCRIPT)],
-        cwd=PROJECT_ROOT,
-        check=False,
+    version = _read_project_version()
+    package_version = _read_package_version()
+    return _run_linux_packaging_script(
+        APPIMAGE_SCRIPT,
+        audit_path=APPIMAGE_AUDIT,
+        version=version,
+        package_version=package_version,
+        dry_run_flag=None,
+        validator=_validate_linux_appimage_audit,
     )
-    return result.returncode
 
 
 def _run_linux_deb_dry_run() -> int:
-    result = subprocess.run(
-        ["bash", str(DEB_SCRIPT), "--dry-run"],
-        cwd=PROJECT_ROOT,
-        check=False,
+    version = _read_project_version()
+    package_version = _read_package_version()
+    return _run_linux_packaging_script(
+        DEB_SCRIPT,
+        audit_path=DEB_AUDIT,
+        version=version,
+        package_version=package_version,
+        dry_run_flag="--dry-run",
+        validator=_validate_linux_deb_audit,
     )
-    return result.returncode
 
 
 def _run_linux_deb() -> int:
-    result = subprocess.run(
-        ["bash", str(DEB_SCRIPT)],
-        cwd=PROJECT_ROOT,
-        check=False,
+    version = _read_project_version()
+    package_version = _read_package_version()
+    return _run_linux_packaging_script(
+        DEB_SCRIPT,
+        audit_path=DEB_AUDIT,
+        version=version,
+        package_version=package_version,
+        dry_run_flag=None,
+        validator=_validate_linux_deb_audit,
     )
-    return result.returncode
 
 
 def main(argv: list[str] | None = None) -> int:

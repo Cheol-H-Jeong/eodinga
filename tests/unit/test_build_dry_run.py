@@ -5,6 +5,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 from eodinga import __version__
 
@@ -201,3 +202,98 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert Path(payload["deb_path"]).exists()
     assert payload["icon"]["exists"] is True
     assert payload["docs"]["changelog_exists"] is True
+
+
+def test_linux_appimage_validator_rejects_version_drift() -> None:
+    namespace: dict[str, Any] = {"__file__": str(Path("packaging/build.py").resolve())}
+    exec(Path("packaging/build.py").read_text(encoding="utf-8"), namespace)
+    validate_linux_appimage_audit = namespace["_validate_linux_appimage_audit"]
+
+    payload = {
+        "target": "linux-appimage-dry-run",
+        "version": "0.0.0",
+        "appdir": ".",
+        "archive": "CHANGELOG.md",
+        "desktop_entry": {
+            "name": "eodinga",
+            "exec": "eodinga gui",
+            "icon": "eodinga",
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "recipe": {
+            "exists": True,
+            "references_desktop_entry": True,
+            "references_icon_asset": True,
+            "launches_gui": True,
+        },
+        "icon": {
+            "exists": True,
+            "diricon_exists": True,
+            "desktop_icon_matches_asset": True,
+        },
+        "apprun": {
+            "is_executable": True,
+            "launches_gui": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "executes_python_module": True,
+        },
+    }
+
+    try:
+        validate_linux_appimage_audit(payload, version=__version__, package_version=__version__)
+    except ValueError as exc:
+        assert "version" in str(exc)
+    else:
+        raise AssertionError("expected AppImage validator to reject version drift")
+
+
+def test_linux_deb_validator_requires_deb_artifact_for_build_target() -> None:
+    namespace: dict[str, Any] = {"__file__": str(Path("packaging/build.py").resolve())}
+    exec(Path("packaging/build.py").read_text(encoding="utf-8"), namespace)
+    validate_linux_deb_audit = namespace["_validate_linux_deb_audit"]
+
+    payload = {
+        "target": "linux-deb",
+        "version": __version__,
+        "arch": "amd64",
+        "package_dir": ".",
+        "control_path": "pyproject.toml",
+        "archive": "CHANGELOG.md",
+        "deb_path": "packaging/dist/missing.deb",
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+            "architecture": "amd64",
+            "depends": "python3 (>= 3.11)",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "name": "eodinga",
+            "exec": "eodinga gui",
+            "icon": "eodinga",
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "executes_python_module": True,
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": True,
+        },
+    }
+
+    try:
+        validate_linux_deb_audit(payload, version=__version__, package_version=__version__)
+    except ValueError as exc:
+        assert "artifact" in str(exc)
+    else:
+        raise AssertionError("expected Debian validator to require a built deb artifact")
