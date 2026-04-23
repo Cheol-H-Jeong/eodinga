@@ -86,6 +86,11 @@ class LauncherActionBar(QWidget):
         self.copy_path_button.setAccessibleName("Copy selected path")
         self.copy_name_button.setAccessibleName("Copy selected name")
         self.properties_button.setAccessibleName("Show selected properties")
+        self.open_button.setToolTip("Open the selected result (Enter)")
+        self.reveal_button.setToolTip("Reveal the selected result in its folder (Ctrl+Enter)")
+        self.copy_path_button.setToolTip("Copy the selected path (Alt+C)")
+        self.copy_name_button.setToolTip("Copy the selected file name (Alt+N)")
+        self.properties_button.setToolTip("Show properties for the selected result (Shift+Enter)")
 
         for button in (
             self.open_button,

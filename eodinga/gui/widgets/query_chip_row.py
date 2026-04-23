@@ -17,6 +17,7 @@ class QueryChipRow(QWidget):
         self._on_chip_clicked = on_chip_clicked
         self.setAccessibleName(accessible_name)
         self._accessible_label = accessible_name
+        self.setToolTip("Click a chip to reuse that query.")
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -26,6 +27,7 @@ class QueryChipRow(QWidget):
         self._label.setProperty("role", "secondary")
         self._label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self._label.setAccessibleName(f"{accessible_name} label")
+        self._label.setToolTip("Query chips reuse saved or active search filters.")
         layout.addWidget(self._label)
 
         self._chips_container = QWidget(self)
@@ -47,6 +49,7 @@ class QueryChipRow(QWidget):
         for query in queries:
             button = SecondaryButton(query, self._chips_container)
             button.setAccessibleName(f"{self._accessible_label} chip {query}")
+            button.setToolTip(f"Reuse query: {query}")
             button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             button.clicked.connect(lambda checked=False, value=query: self._on_chip_clicked(value))
             self._chips_layout.addWidget(button)

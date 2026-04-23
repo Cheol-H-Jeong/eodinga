@@ -779,7 +779,10 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
 
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
+    assert launcher.query_field.toolTip().startswith("Type a filename, path, or content query")
+    assert launcher.query_field.accessibleDescription() == "Search field for filenames, paths, content, and structured filters."
     assert launcher.active_filters_row.accessibleName() == "Active launcher filters"
+    assert launcher.active_filters_row.toolTip() == "Click a chip to reuse that query."
     assert launcher.active_filters_row.buttons == []
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
@@ -796,6 +799,22 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.action_bar.copy_path_button.accessibleName() == "Copy selected path"
     assert launcher.action_bar.copy_name_button.accessibleName() == "Copy selected name"
     assert launcher.action_bar.properties_button.accessibleName() == "Show selected properties"
+    assert launcher.action_bar.open_button.toolTip() == "Open the selected result (Enter)"
+    assert launcher.action_bar.reveal_button.toolTip() == "Reveal the selected result in its folder (Ctrl+Enter)"
+    assert launcher.action_bar.copy_path_button.toolTip() == "Copy the selected path (Alt+C)"
+    assert launcher.action_bar.copy_name_button.toolTip() == "Copy the selected file name (Alt+N)"
+    assert launcher.action_bar.properties_button.toolTip() == "Show properties for the selected result (Shift+Enter)"
     assert launcher.shortcut_label.accessibleName() == "Launcher shortcut guidance"
     assert launcher.status_label.accessibleName() == "Launcher result summary"
     assert launcher.status_chip.accessibleName() == "Status"
+
+
+def test_launcher_query_chip_tooltips_explain_reuse(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    assert launcher.pinned_queries_row.toolTip() == "Click a chip to reuse that query."
+    assert launcher.pinned_queries_row.buttons[0].toolTip() == "Reuse query: ext:pdf"
+    assert launcher.recent_queries_row.buttons[0].toolTip() == "Reuse query: budget"
