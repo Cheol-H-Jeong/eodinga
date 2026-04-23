@@ -376,6 +376,14 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     root_text = str(root)
     normalized = root_text.rstrip("/\\") or root_text
     variants = _root_variants(normalized)
+    if _looks_like_windows_root(normalized):
+        lowered_variants = tuple(dict.fromkeys(variant.lower() for variant in variants))
+        exact_clause = " OR ".join("lower(files.path) = ?" for _ in lowered_variants)
+        like_params = tuple(f"{_escape_like_pattern(variant)}/%" for variant in lowered_variants) + tuple(
+            f"{_escape_like_pattern(variant)}\\%" for variant in lowered_variants
+        )
+        like_clause = " OR ".join("lower(files.path) LIKE ? ESCAPE '^'" for _ in like_params)
+        return f"({exact_clause} OR {like_clause})", (*lowered_variants, *like_params)
     exact_params = variants
     like_params = tuple(f"{_escape_like_pattern(variant)}/%" for variant in variants) + tuple(
         f"{_escape_like_pattern(variant)}\\%" for variant in variants
@@ -417,6 +425,10 @@ def _root_variants(root_text: str) -> tuple[str, ...]:
             variants[f"{candidate[:drive_index]}{candidate[drive_index].lower()}{candidate[drive_index + 1 :]}"] = None
             variants[f"{candidate[:drive_index]}{candidate[drive_index].upper()}{candidate[drive_index + 1 :]}"] = None
     return tuple(variants)
+
+
+def _looks_like_windows_root(root_text: str) -> bool:
+    return bool(_windows_drive_index(root_text) is not None or root_text.startswith("\\\\"))
 
 
 def _strip_windows_extended_prefix(root_text: str) -> str:
