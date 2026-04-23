@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.711 - 2026-04-23
+
+- Clarified the README around surface selection, launcher keyboard flow, live-update expectations, and launcher-specific config so operators can pick the right entry point faster.
+- Added an architecture boundary map for indexed roots, runtime config, index writes, and watcher-to-query flow, making the read-only contract and live-update path easier to audit.
+- Tightened contributor, release, and perf docs so opt-in perf runs are reported as explicit evidence, with failing runs captured separately instead of silently refreshing the checked-in baseline.
+
 ## 0.1.707 - 2026-04-23
 
 - Added explicit `regex:` pattern handling to the query compiler, so `regex:/todo|fixme/i` and `regex:report-\d+` now behave as real path/name regex filters while `regex:true|false` still controls regex mode.
