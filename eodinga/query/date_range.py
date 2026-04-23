@@ -114,7 +114,10 @@ def parse_date_range(value: str) -> DateRange:
             return DateRange(start=_parse_iso_endpoint(left).start)
         left_range = parse_date_range(left)
         right_range = parse_date_range(right)
-        if (right_range.start or 0) < (left_range.start or 0):
-            left_range, right_range = right_range, left_range
-        return DateRange(start=left_range.start, end=right_range.end)
+        starts = [value for value in (left_range.start, right_range.start) if value is not None]
+        ends = [value for value in (left_range.end, right_range.end) if value is not None]
+        return DateRange(
+            start=min(starts) if starts else None,
+            end=max(ends) if ends else None,
+        )
     return _parse_iso_endpoint(stripped)

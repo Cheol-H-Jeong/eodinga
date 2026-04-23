@@ -189,6 +189,24 @@ def test_compile_datetime_ranges_preserve_exact_endpoints() -> None:
     assert end - start == 31
 
 
+def test_compile_reversed_mixed_date_and_datetime_range_matches_forward_bounds() -> None:
+    forward = compile_query(parse("modified:2026-01-03..2026-01-03T09:15:30"))
+    reversed_query = compile_query(parse("modified:2026-01-03T09:15:30..2026-01-03"))
+
+    assert forward.branches[0].where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert reversed_query.branches[0].where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert reversed_query.branches[0].where_params == forward.branches[0].where_params
+
+
+def test_compile_reversed_datetime_range_matches_forward_bounds() -> None:
+    forward = compile_query(parse("modified:2026-01-03T09:15:30..2026-01-03T09:16:00"))
+    reversed_query = compile_query(parse("modified:2026-01-03T09:16:00..2026-01-03T09:15:30"))
+
+    assert forward.branches[0].where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert reversed_query.branches[0].where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert reversed_query.branches[0].where_params == forward.branches[0].where_params
+
+
 def test_compile_size_range_normalizes_bounds() -> None:
     compiled = compile_query(parse("size:500K..100"))
     branch = compiled.branches[0]

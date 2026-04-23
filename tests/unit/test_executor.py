@@ -710,6 +710,60 @@ def test_execute_datetime_query_accepts_lowercase_utc_suffix(tmp_db: sqlite3.Con
     assert hits == ["exact-second.txt"]
 
 
+def test_execute_reversed_mixed_date_and_datetime_range_matches_forward_query(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    day_start = int(datetime(2026, 1, 3, 0, 0, tzinfo=UTC).timestamp())
+    exact_second = int(datetime(2026, 1, 3, 9, 15, 30, tzinfo=UTC).timestamp())
+    day_end = int(datetime(2026, 1, 4, 0, 0, tzinfo=UTC).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/day-start.txt", 512, day_start, "txt", body_text="day start")
+    _insert_file(tmp_db, 2, "/workspace/exact-second.txt", 512, exact_second, "txt", body_text="exact")
+    _insert_file(tmp_db, 3, "/workspace/day-end.txt", 512, day_end - 1, "txt", body_text="day end")
+    tmp_db.commit()
+
+    forward_hits = [
+        hit.file.name
+        for hit in search(tmp_db, "modified:2026-01-03..2026-01-03T09:15:30+00:00", limit=10).hits
+    ]
+    reversed_hits = [
+        hit.file.name
+        for hit in search(tmp_db, "modified:2026-01-03T09:15:30+00:00..2026-01-03", limit=10).hits
+    ]
+
+    assert forward_hits == ["day-start.txt", "exact-second.txt"]
+    assert reversed_hits == forward_hits
+
+
+def test_execute_reversed_datetime_range_matches_forward_query(tmp_db: sqlite3.Connection) -> None:
+    exact_second = int(datetime(2026, 1, 3, 9, 15, 30, tzinfo=UTC).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/first.txt", 512, exact_second, "txt", body_text="first")
+    _insert_file(tmp_db, 2, "/workspace/second.txt", 512, exact_second + 15, "txt", body_text="second")
+    _insert_file(tmp_db, 3, "/workspace/third.txt", 512, exact_second + 30, "txt", body_text="third")
+    tmp_db.commit()
+
+    forward_hits = [
+        hit.file.name
+        for hit in search(
+            tmp_db,
+            "modified:2026-01-03T09:15:30+00:00..2026-01-03T09:16:00+00:00",
+            limit=10,
+        ).hits
+    ]
+    reversed_hits = [
+        hit.file.name
+        for hit in search(
+            tmp_db,
+            "modified:2026-01-03T09:16:00+00:00..2026-01-03T09:15:30+00:00",
+            limit=10,
+        ).hits
+    ]
+
+    assert forward_hits == ["first.txt", "second.txt", "third.txt"]
+    assert reversed_hits == forward_hits
+
+
 def test_execute_decomposed_korean_path_filter_matches_nfc_paths(
     tmp_db: sqlite3.Connection,
 ) -> None:
