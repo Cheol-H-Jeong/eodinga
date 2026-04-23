@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.862 - 2026-04-23
+
+- Hardened the offline source audit so it now catches `subprocess` network launches passed via `args=` and absolute executable paths like `/usr/bin/curl` or `wget.exe`.
+- Tightened the read-only filesystem safety check to treat `os.fdopen` without a proven read-only literal mode as write-capable, closing another future regression path in `fs.py`.
+- Isolated the Windows packaging audit unit test from ambient `dist/` state so release-target validation stays deterministic even when local build artifacts already exist.
+
 ## 0.1.855 - 2026-04-23
 
 - Avoided redundant stylesheet reapplication on the shared Qt application instance, eliminating the test-mode launcher relaunch crash path seen under the offscreen backend.
