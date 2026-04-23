@@ -178,6 +178,50 @@ IndexWriter.apply_events()
 next query sees updated results
 ```
 
+## Hot Restart Sequence
+
+```text
+process exits cleanly
+    |
+    v
+restart / reopen GUI or CLI
+    |
+    +--> open_index()
+            |
+            +--> resume staged recovery if needed
+            +--> reopen existing SQLite + FTS files
+            +--> reattach watcher for configured roots
+            |
+            v
+first query reuses persisted index without a full rewalk
+```
+
+## Multi-Root Watch Behavior
+
+- Root membership stays explicit in the `files` table, so one root can be rebuilt, watched, or filtered without invalidating sibling roots.
+- The watcher coalesces events per path but still preserves the originating root context before handing batches to `IndexWriter`.
+- Root-scoped queries compile additional predicates instead of opening a separate database, which keeps global and per-root searches consistent.
+- Hot-restart flows reopen the same persisted index and then resume live updates root by root; a deleted file in one root should disappear without disturbing matches from another.
+
+## Multi-Root Live Update Sequence
+
+```text
+event from root A
+    |
+    v
+WatchService batch tagged with root A
+    |
+    v
+IndexWriter.apply_events()
+    |
+    +--> update/remove rows whose root == A
+    +--> leave sibling-root rows unchanged
+    |
+    v
+global search reflects change
+root:B search remains stable
+```
+
 ## Recovery Decision Tree
 
 ```text
