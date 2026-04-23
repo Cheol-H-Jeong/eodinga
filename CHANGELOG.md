@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.711 - 2026-04-23
+## 0.1.714 - 2026-04-23
 
 - Clarified the README around surface selection, launcher keyboard flow, live-update expectations, and launcher-specific config so operators can pick the right entry point faster.
 - Added an architecture boundary map for indexed roots, runtime config, index writes, and watcher-to-query flow, making the read-only contract and live-update path easier to audit.
