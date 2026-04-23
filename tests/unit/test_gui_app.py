@@ -16,6 +16,26 @@ from eodinga.gui.tabs import AboutTab, IndexTab, RootsTab, SearchTab, SettingsTa
 from eodinga.index.schema import apply_schema
 
 
+class _HotkeyServiceSpy:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+        self.callback = None
+
+    def register(self, combo: str, callback) -> None:
+        self.calls.append(("register", combo))
+        self.callback = callback
+
+    def unregister(self) -> None:
+        self.calls.append(("unregister", ""))
+        self.callback = None
+
+    def start(self) -> None:
+        self.calls.append(("start", ""))
+
+    def stop(self) -> None:
+        self.calls.append(("stop", ""))
+
+
 def test_app_window_has_expected_tabs_and_launcher(qapp) -> None:
     _, window, launcher = cast(tuple[object, EodingaWindow, LauncherWindow], launch_gui(test_mode=True))
     window.show()
@@ -43,6 +63,7 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.search_tab.accessibleName() == "Search tab"
     assert window.settings_tab.accessibleName() == "Settings tab"
     assert window.settings_tab.system_theme_checkbox.accessibleName() == "Use system theme"
+    assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
     assert window.about_tab.accessibleName() == "About tab"
 
@@ -167,6 +188,71 @@ def test_tray_activation_toggles_launcher_visibility(qapp) -> None:
     window.tray_indicator._handle_activation(QSystemTrayIcon.ActivationReason.Trigger)
     qapp.processEvents()
     assert not window.launcher_window.isVisible()
+
+
+def test_tray_quit_action_calls_application_quit(monkeypatch, qapp) -> None:
+    called: list[str] = []
+    monkeypatch.setattr("eodinga.gui.app.QSystemTrayIcon.isSystemTrayAvailable", staticmethod(lambda: True))
+    monkeypatch.setattr(qapp, "quit", lambda: called.append("quit"))
+
+    window = EodingaWindow()
+
+    window.tray_indicator.quit_action.trigger()
+
+    assert called == ["quit"]
+
+
+def test_window_registers_hotkey_and_toggles_launcher_from_callback(qapp) -> None:
+    hotkey_service = _HotkeyServiceSpy()
+    config = AppConfig()
+    window = EodingaWindow(config=config, hotkey_service=hotkey_service)
+
+    assert hotkey_service.calls == [
+        ("stop", ""),
+        ("unregister", ""),
+        ("register", "ctrl+shift+space"),
+        ("start", ""),
+    ]
+    assert hotkey_service.callback is not None
+    assert not window.launcher_window.isVisible()
+
+    hotkey_service.callback()
+    qapp.processEvents()
+    assert window.launcher_window.isVisible()
+
+    hotkey_service.callback()
+    qapp.processEvents()
+    assert not window.launcher_window.isVisible()
+
+    window.close()
+    qapp.processEvents()
+    assert hotkey_service.calls[-1] == ("stop", "")
+
+
+def test_settings_tab_rebinds_hotkey_without_restart(
+    monkeypatch,
+    qapp,
+    temp_config_path: Path,
+) -> None:
+    hotkey_service = _HotkeyServiceSpy()
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path, hotkey_service=hotkey_service)
+    monkeypatch.setattr(
+        "eodinga.gui.tabs.settings.QInputDialog.getText",
+        lambda *args, **kwargs: ("ctrl+alt+k", True),
+    )
+
+    window.settings_tab.remap_hotkey_button.click()
+    qapp.processEvents()
+
+    assert hotkey_service.calls[-4:] == [
+        ("stop", ""),
+        ("unregister", ""),
+        ("register", "ctrl+alt+k"),
+        ("start", ""),
+    ]
+    assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+alt+k"
+    assert load(temp_config_path).launcher.hotkey == "ctrl+alt+k"
 
 
 class _ActionSpy:

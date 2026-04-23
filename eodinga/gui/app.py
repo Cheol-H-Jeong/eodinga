@@ -5,11 +5,12 @@ import sys
 from typing import Literal, Protocol, cast, overload
 
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QStyle, QSystemTrayIcon, QTabWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QMessageBox, QStyle, QSystemTrayIcon, QTabWidget, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
-from eodinga.config import AppConfig
+from eodinga.config import AppConfig, default_path
 from eodinga.gui.actions import DesktopActions
+from eodinga.gui.hotkey_controller import HotkeyServiceLike, LauncherHotkeyController
 from eodinga.gui.launcher import LauncherState, LauncherWindow, SearchFn, format_indexing_status
 from eodinga.gui.launcher import LauncherPanel
 from eodinga.gui.tabs import AboutTab, IndexTab, RootsTab, SearchTab, SettingsTab
@@ -45,11 +46,15 @@ class TrayIndicatorController:
         show_launcher = QAction("Show launcher", menu)
         show_launcher.triggered.connect(self.show_launcher)
         menu.addAction(show_launcher)
+        quit_action = QAction("Quit", menu)
+        quit_action.triggered.connect(self._app.quit)
+        menu.addAction(quit_action)
         tray.setContextMenu(menu)
         tray.setToolTip(self.tooltip)
         tray.activated.connect(self._handle_activation)
         tray.show()
         self._tray = tray
+        self.quit_action = quit_action
 
     @property
     def visible(self) -> bool:
@@ -95,17 +100,20 @@ class EodingaWindow(QMainWindow):
         desktop_actions: _DesktopActionsLike | None = None,
         config: AppConfig | None = None,
         config_path=None,
+        hotkey_service: HotkeyServiceLike | None = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("eodinga")
         self.resize(960, 640)
+        resolved_config = config or AppConfig()
+        resolved_config_path = config_path or default_path()
         self.launcher_state = LauncherState(self)
         self.launcher_window = LauncherWindow(
             search_fn=search_fn,
             state=self.launcher_state,
-            config=config,
-            config_path=config_path,
+            config=resolved_config,
+            config_path=resolved_config_path,
         )
 
         container = QWidget(self)
@@ -133,6 +141,16 @@ class EodingaWindow(QMainWindow):
         self._connect_launcher_actions(self.launcher_window)
         self._connect_launcher_actions(self.search_tab.launcher_panel)
         self.tray_indicator = TrayIndicatorController(app, self.launcher_window, self)
+        self._hotkey_controller = LauncherHotkeyController(
+            self.launcher_window,
+            resolved_config.launcher.hotkey,
+            hotkey_service=hotkey_service,
+            parent=self,
+        )
+        self._config = resolved_config
+        self._config_path = resolved_config_path
+        self.settings_tab.set_hotkey_combo(self._hotkey_controller.combo)
+        self.settings_tab.hotkey_change_requested.connect(self._change_hotkey)
         self.launcher_state.indexing_status_changed.connect(self.index_tab.set_indexing_status)
         self.launcher_state.indexing_status_changed.connect(self.tray_indicator.set_indexing_status)
         self.set_indexing_status(IndexingStatus())
@@ -145,6 +163,21 @@ class EodingaWindow(QMainWindow):
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self.launcher_state.set_indexing_status(status)
+
+    def closeEvent(self, event) -> None:
+        self._hotkey_controller.stop()
+        super().closeEvent(event)
+
+    def _change_hotkey(self, combo: str) -> None:
+        try:
+            self._hotkey_controller.rebind(combo)
+        except Exception as error:
+            QMessageBox.warning(self, "Hotkey update failed", str(error))
+            self.settings_tab.set_hotkey_combo(self._hotkey_controller.combo)
+            return
+        self._config.launcher = self._config.launcher.model_copy(update={"hotkey": self._hotkey_controller.combo})
+        self._config.save(self._config_path)
+        self.settings_tab.set_hotkey_combo(self._hotkey_controller.combo)
 
 
 def build_index_search_fn(db_path) -> SearchFn:
