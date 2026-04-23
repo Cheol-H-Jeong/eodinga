@@ -10,59 +10,59 @@ def test_highlight_text_marks_all_case_insensitive_matches() -> None:
     rendered = highlight_text("Report report REPORT.txt", "report")
 
     assert rendered.count("<mark>") == 3
-    assert "<mark>Report</mark>" in rendered
-    assert "<mark>report</mark>" in rendered
-    assert "<mark>REPORT</mark>" in rendered
+    assert "<mark><strong>Report</strong></mark>" in rendered
+    assert "<mark><strong>report</strong></mark>" in rendered
+    assert "<mark><strong>REPORT</strong></mark>" in rendered
 
 
 def test_highlight_text_ignores_dsl_filters_and_marks_free_text_terms() -> None:
     rendered = highlight_text("release notes 2026.pdf", 'release ext:pdf date:this-week -"draft"')
 
     assert rendered.count("<mark>") == 1
-    assert "<mark>release</mark>" in rendered
+    assert "<mark><strong>release</strong></mark>" in rendered
     assert "date:this-week" not in rendered
 
 
 def test_highlight_text_marks_quoted_phrases() -> None:
     rendered = highlight_text("quarterly release notes.txt", '"release notes" ext:txt')
 
-    assert "<mark>release notes</mark>" in rendered
+    assert "<mark><strong>release notes</strong></mark>" in rendered
 
 
 def test_highlight_text_marks_escaped_quoted_phrases() -> None:
     rendered = highlight_text('release "candidate" notes.txt', r'"release \"candidate\""')
 
-    assert "<mark>release &quot;candidate&quot;</mark>" in rendered
+    assert "<mark><strong>release &quot;candidate&quot;</strong></mark>" in rendered
 
 
 def test_highlight_text_ignores_negated_terms() -> None:
     rendered = highlight_text("draft release notes.txt", 'release -"draft"')
 
-    assert "<mark>release</mark>" in rendered
-    assert "<mark>draft</mark>" not in rendered
+    assert "<mark><strong>release</strong></mark>" in rendered
+    assert "<mark><strong>draft</strong></mark>" not in rendered
 
 
 def test_highlight_text_supports_path_and_extension_filters_by_target() -> None:
     rendered_path = highlight_text("/tmp/reports/quarterly.pdf", "path:reports ext:pdf", target="path")
     rendered_ext = highlight_text("pdf", "path:reports ext:pdf", target="ext")
 
-    assert "/tmp/<mark>reports</mark>/quarterly.pdf" in rendered_path
-    assert "<mark>pdf</mark>" in rendered_ext
+    assert "/tmp/<mark><strong>reports</strong></mark>/quarterly.pdf" in rendered_path
+    assert "<mark><strong>pdf</strong></mark>" in rendered_ext
 
 
 def test_highlight_text_supports_regex_and_content_filters() -> None:
     rendered_name = highlight_text("release-notes.txt", "/release[- ]notes/i", target="name")
     rendered_snippet = highlight_text("release notes are attached", 'content:"release notes"', target="snippet")
 
-    assert "<mark>release-notes</mark>.txt" in rendered_name
-    assert "<mark>release notes</mark>" in rendered_snippet
+    assert "<mark><strong>release-notes</strong></mark>.txt" in rendered_name
+    assert "<mark><strong>release notes</strong></mark>" in rendered_snippet
 
 
 def test_highlight_text_respects_case_true_for_literals() -> None:
     rendered = highlight_text("Report report", "case:true Report", target="name")
 
-    assert "<mark>Report</mark>" in rendered
-    assert "<mark>report</mark>" not in rendered
+    assert "<mark><strong>Report</strong></mark>" in rendered
+    assert "<mark><strong>report</strong></mark>" not in rendered
 
 
 def test_format_hit_html_renders_extension_badge() -> None:
@@ -80,7 +80,7 @@ def test_format_hit_html_renders_extension_badge() -> None:
     assert "Alt+2" in rendered
     assert "font-weight:700" in rendered
     assert "background-color:#FDE68A" in rendered
-    assert ">report</mark>.pdf" in rendered
+    assert "><strong>report</strong></mark>.pdf" in rendered
     assert ">pdf</span>" in rendered
     assert ">report.pdf</div><div" not in rendered
     assert ">/tmp</div>" in rendered
@@ -98,7 +98,7 @@ def test_format_hit_html_renders_highlighted_snippet() -> None:
         'content:"release notes"',
     )
 
-    assert ">release notes</mark>" in rendered
+    assert "><strong>release notes</strong></mark>" in rendered
     assert "the " in rendered
 
 
@@ -113,7 +113,7 @@ def test_format_hit_html_shows_parent_path_line_for_path_filters() -> None:
         "path:reports",
     )
 
-    assert "/workspace/<mark style='font-weight:700; background-color:#FDE68A; color:#111827'>reports</mark>" in rendered
+    assert "/workspace/<mark style='font-weight:700; background-color:#FDE68A; color:#111827'><strong>reports</strong></mark>" in rendered
     assert "release-notes.txt</div><div" not in rendered
 
 
@@ -161,5 +161,5 @@ def test_format_preview_html_highlights_path_and_snippet_matches() -> None:
     )
 
     assert title == "release-notes.txt"
-    assert "workspace/<mark style='font-weight:700; background-color:#FDE68A; color:#111827'>reports</mark>" in path_html
-    assert ">release notes</mark>" in snippet_html
+    assert "workspace/<mark style='font-weight:700; background-color:#FDE68A; color:#111827'><strong>reports</strong></mark>" in path_html
+    assert "><strong>release notes</strong></mark>" in snippet_html

@@ -24,6 +24,7 @@ from eodinga.query.dsl import (
 
 HTML_MARGIN = 8
 MARK_OPEN = "<mark style='font-weight:700; background-color:#FDE68A; color:#111827'>"
+MARK_CLOSE = "</mark>"
 _TARGET_ALL = frozenset({"name", "path", "snippet"})
 QUICK_PICK_BADGE_TEMPLATE = (
     "<span style='display:inline-block; margin-right:8px; padding:1px 6px; "
@@ -199,7 +200,7 @@ def highlight_text(text: str, query: str, *, target: str = "name") -> str:
         if start < cursor:
             continue
         parts.append(escape(text[cursor:start]))
-        parts.append(f"<mark>{escape(text[start:end])}</mark>")
+        parts.append(f"<mark><strong>{escape(text[start:end])}</strong></mark>")
         cursor = end
     parts.append(escape(text[cursor:]))
     return "".join(parts)
@@ -218,13 +219,13 @@ def _highlight_fts_snippet(snippet: str) -> str:
             parts.append(escape(snippet[cursor:]))
             break
         parts.append(escape(snippet[cursor:start]))
-        parts.append(f"{MARK_OPEN}{escape(snippet[start + 1:end])}</mark>")
+        parts.append(f"{MARK_OPEN}<strong>{escape(snippet[start + 1:end])}</strong>{MARK_CLOSE}")
         cursor = end + 1
     return "".join(parts)
 
 
 def _style_marks(html: str) -> str:
-    return html.replace("<mark>", MARK_OPEN)
+    return html.replace("<mark>", MARK_OPEN).replace("</mark>", MARK_CLOSE)
 
 
 def format_hit_html(hit: SearchHit, query: str, *, quick_pick_number: int | None = None) -> str:

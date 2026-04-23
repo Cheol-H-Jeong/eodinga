@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
+from eodinga.gui.launcher_query_summary import summarize_active_filters
 from eodinga.gui.widgets import (
     ActiveFilterRow,
     EmptyState,
@@ -131,6 +132,7 @@ class LauncherPanel(QWidget):
 
         self.query_field.textChanged.connect(self._schedule_query)
         self.query_field.textChanged.connect(self.active_filter_row.set_query)
+        self.query_field.textChanged.connect(self._update_query_field_filters)
         self.query_field.textChanged.connect(self.preview_pane.set_query)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
         self.query_field.installEventFilter(self)
@@ -177,6 +179,7 @@ class LauncherPanel(QWidget):
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
         self.active_filter_row.set_query(self.query_field.text())
+        self._update_query_field_filters(self.query_field.text())
         self._refresh_preview()
 
     def set_search_fn(self, search_fn: SearchFn) -> None:
@@ -344,6 +347,9 @@ class LauncherPanel(QWidget):
         else:
             hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
+
+    def _update_query_field_filters(self, query: str) -> None:
+        self.query_field.set_filter_summary(summarize_active_filters(query, limit=None))
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()

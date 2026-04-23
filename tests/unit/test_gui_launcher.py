@@ -598,7 +598,7 @@ def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
     assert launcher.preview_pane.title_label.text() == "alpha.txt"
     assert "/tmp/alpha.txt" in launcher.preview_pane.path_label.text()
     assert "Alpha release " in launcher.preview_pane.snippet_label.text()
-    assert ">notes</mark>" in launcher.preview_pane.snippet_label.text()
+    assert "><strong>notes</strong></mark>" in launcher.preview_pane.snippet_label.text()
     assert launcher.action_bar.open_button.isEnabled()
 
     launcher._handle_hovered_index(launcher.model.index(1, 0))
@@ -645,6 +645,53 @@ def test_launcher_active_filter_row_shows_overflow_count_for_many_filters(qapp) 
 
     assert "+1 more" in launcher.active_filter_row.chips_label.text()
     assert launcher.active_filter_row.accessibleDescription() == "Showing 5 of 6 active launcher filters."
+
+
+def test_launcher_query_field_shows_inline_filter_summary(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText("report ext:pdf date:this-week content:\"release notes\"")
+    _wait(10)
+
+    assert launcher.query_field._filter_summary_label.isVisible()
+    assert "ext:pdf" in launcher.query_field._filter_summary_label.text()
+    assert "date:this-week" in launcher.query_field._filter_summary_label.text()
+    assert "+1" in launcher.query_field._filter_summary_label.text()
+    assert "Active filters: ext:pdf, date:this-week, content:\"release notes\"." in launcher.query_field.accessibleDescription()
+
+
+def test_launcher_query_field_clears_inline_filter_summary_for_plain_terms(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText("ext:pdf report")
+    _wait(10)
+    assert launcher.query_field._filter_summary_label.isVisible()
+
+    launcher.query_field.setText("report notes")
+    _wait(10)
+
+    assert not launcher.query_field._filter_summary_label.isVisible()
+    assert launcher.query_field.accessibleDescription() == "Type a filename, path, or content term to search the index."
+
+
+def test_launcher_filter_surfaces_expose_accessible_context(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText("ext:pdf date:this-week")
+    _wait(10)
+
+    assert launcher.active_filter_row.accessibleName() == "Active launcher filters"
+    assert launcher.active_filter_row.title_label.accessibleName() == "Active filter heading"
+    assert launcher.active_filter_row.title_label.accessibleDescription() == "2 active launcher filters are visible below."
+    assert launcher.active_filter_row.chips_label.accessibleName() == "Active filter chips"
+    assert launcher.query_field._filter_summary_label.accessibleName() == "Inline active filters"
+    assert (
+        launcher.query_field._filter_summary_label.accessibleDescription()
+        == "Summarized active filters shown inside the launcher search field."
+    )
 
 
 def test_launcher_hovered_result_becomes_action_target(qapp) -> None:

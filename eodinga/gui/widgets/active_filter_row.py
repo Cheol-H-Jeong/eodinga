@@ -47,6 +47,7 @@ class ActiveFilterRow(QWidget):
         self.setVisible(bool(filters))
         if not filters:
             self.chips_label.clear()
+            self.title_label.setAccessibleDescription("No active launcher filters are currently visible.")
             self.setAccessibleDescription("No active launcher filters.")
             return
         visible_filters = filters[: self._VISIBLE_FILTER_LIMIT]
@@ -55,6 +56,7 @@ class ActiveFilterRow(QWidget):
         if hidden_count > 0:
             html += f"<span style='{_OVERFLOW_STYLE}'>+{hidden_count} more</span>"
         self.chips_label.setText(html)
+        self.title_label.setAccessibleDescription(f"{len(filters)} active launcher filters are visible below.")
         self.setAccessibleDescription(f"Showing {len(visible_filters)} of {len(filters)} active launcher filters.")
 
 
