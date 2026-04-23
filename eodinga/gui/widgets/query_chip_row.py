@@ -74,3 +74,31 @@ class QueryChipRow(QWidget):
     @property
     def buttons(self) -> list[SecondaryButton]:
         return list(self._buttons)
+
+    def focus_first_button(self) -> bool:
+        if not self._buttons:
+            return False
+        self._buttons[0].setFocus()
+        return True
+
+    def focus_last_button(self) -> bool:
+        if not self._buttons:
+            return False
+        self._buttons[-1].setFocus()
+        return True
+
+    def next_button(self, button: SecondaryButton) -> SecondaryButton | None:
+        try:
+            index = self._buttons.index(button)
+        except ValueError:
+            return None
+        next_index = index + 1
+        return self._buttons[next_index] if next_index < len(self._buttons) else None
+
+    def previous_button(self, button: SecondaryButton) -> SecondaryButton | None:
+        try:
+            index = self._buttons.index(button)
+        except ValueError:
+            return None
+        previous_index = index - 1
+        return self._buttons[previous_index] if previous_index >= 0 else None
