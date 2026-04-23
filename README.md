@@ -227,6 +227,7 @@ eodinga index --rebuild
 | Search docs with regex | `eodinga search 'regex:/todo|fixme/i path:docs' --json` |
 | Confirm runtime health | `eodinga doctor && eodinga stats --json` |
 | Refresh shipped docs assets | `python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` |
+| Run the local release gate | `source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)" && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run && yamllint .github/workflows/release-windows.yml && yamllint .github/workflows/release-linux.yml` |
 
 ## Architecture
 
@@ -260,16 +261,18 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 
 ## Package Artifacts
 
-- Windows release builds emit a PyInstaller bundle plus an Inno Setup installer audit under `packaging/dist/`.
-- Linux AppImage dry runs render `packaging/linux/appimage-builder.yml` from the current package version before building.
-- Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, and compressed changelog into the package root.
-- The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
+| Artifact | Produced by | What it verifies |
+| --- | --- | --- |
+| Windows installer audit | `python packaging/build.py --target windows-dry-run` | PyInstaller handoff, Inno Setup metadata, and per-user install inputs under `packaging/dist/`. |
+| Linux AppImage audit | `python packaging/build.py --target linux-appimage-dry-run` | Rendered `packaging/linux/appimage-builder.yml` and the Linux desktop payload expected by the AppImage recipe. |
+| Linux `.deb` audit | `python packaging/build.py --target linux-deb-dry-run` | Launcher shim, desktop entry, SVG icon, license, and compressed changelog staged into the Debian package root. |
+| Shipped docs bundle | checked-in release inputs | `README.md`, `docs/ACCEPTANCE.md`, `docs/ARCHITECTURE.md`, `docs/PERFORMANCE.md`, `docs/RELEASE.md`, and `docs/man/eodinga.1`. |
 
 ## Recovery and Troubleshooting
 
 - Startup automatically resumes interrupted staged rebuilds (`.index.db.next`), interrupted recovery swaps (`.index.db.recover`), and stale SQLite WAL replay before opening the live index.
-- If results look stale, run `eodinga doctor`, then `eodinga stats` to confirm the active database path before rebuilding.
-- A one-shot recovery path is `eodinga index --rebuild`; live updates still require `eodinga watch` or the packaged background service flow.
+- If results look stale, confirm the active database first, then decide between live-update repair and a staged rebuild.
+- `eodinga index --rebuild` is the one-shot recovery path; continuous freshness still requires `eodinga watch` or the packaged GUI/launcher flow that keeps the watcher active.
 - Documentation and screenshots are part of the shipped contract; refresh the gallery with `python scripts/render_docs_screenshots.py` after visible UI changes.
 
 ### Quick Runbook
@@ -282,12 +285,22 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 | Hotkey or launcher looks wrong | `eodinga doctor` | inspect detected hotkey backend and then re-open `eodinga gui` for settings/state |
 | Packaging audit failed | `python packaging/build.py --target windows-dry-run` | re-run the matching Linux dry run and workflow lint from `docs/ACCEPTANCE.md` |
 
+Recovery order:
+- `eodinga stats --json` when you need to confirm which database the current surface is reading.
+- `eodinga doctor` when you suspect path, dependency, parser, or hotkey-backend drift.
+- `eodinga watch` when the index is healthy but live updates are missing.
+- `eodinga index --rebuild` when startup recovery failed or the active index clearly needs a full staged refresh.
+
 ## Config and Data Paths
 
-- Linux config defaults to `~/.config/eodinga/config.toml` and the index database to `~/.local/share/eodinga/index.db`.
-- Windows uses `%APPDATA%\\eodinga\\config.toml` for config and `%LOCALAPPDATA%\\eodinga\\index.db` for the database.
+| Platform | Config path | Database path | Notes |
+| --- | --- | --- | --- |
+| Linux | `~/.config/eodinga/config.toml` | `~/.local/share/eodinga/index.db` | Default XDG-style split between config and mutable index state. |
+| Windows | `%APPDATA%\\eodinga\\config.toml` | `%LOCALAPPDATA%\\eodinga\\index.db` | Matches the per-user installer and uninstaller behavior. |
+
 - Override either location with `--config` or `--db` when running CLI commands.
 - Runtime writes stay inside those config/database areas; indexed roots are treated as read-only inputs.
+- Packaged uninstall preserves local state unless the user explicitly chooses a purge path.
 
 ## Diagnostics
 
@@ -312,6 +325,11 @@ eodinga search 'date:this-week ext:md' --limit 10
 ```
 
 If those are clean but the packaged app still looks wrong, continue with the release-gate commands in `docs/ACCEPTANCE.md`.
+
+Escalate to the full gate when:
+- a packaging dry run diverges from the local editable install,
+- docs assets or screenshots no longer match the current UI or CLI surface,
+- release metadata changed and you need the full handoff-grade signal.
 
 ## Docs Map
 
