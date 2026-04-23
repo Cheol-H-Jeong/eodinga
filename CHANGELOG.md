@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.248 - 2026-04-23
+
+- Expanded live watcher integration coverage so real tmp-dir renames must update path queries within 500 ms, both for single-root indexing and for root-scoped multi-root searches.
+- Added hot-restart rename regressions proving reopened indexes still apply watcher move events without a rebuild and keep sibling-root results isolated.
+- Added real watched modify regressions so in-place content edits must replace stale search hits within 500 ms while preserving unaffected results in other roots.
+
 ## 0.1.242 - 2026-04-23
 
 - Hardened crash observability so same-second failures no longer overwrite prior `crash-*.log` files, unraisable exceptions now flow through the same crash-report path, and crash counters are visible in runtime stats.
