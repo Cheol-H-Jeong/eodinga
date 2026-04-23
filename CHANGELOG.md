@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.906 - 2026-04-23
+
+- Persisted launcher recent-query history into `config.toml`, so both the popup launcher and embedded search surface restore the same recall stack after restart instead of starting empty each session.
+- Added `Alt+P` to pin or unpin the current launcher query directly from either search surface, with shared-state updates and config persistence so pinned chips can be managed without hand-editing config.
+- Closed the detached popup launcher with the main window and cancelled pending launcher debounce timers on close, preventing late query callbacks from firing against deleted shared state during shutdown.
+
 ## 0.1.901 - 2026-04-23
 
 - Made the Linux AppImage packaging script emit and audit a versioned `.AppImage` payload on non-dry-run builds instead of stopping at the staged AppDir tarball.
