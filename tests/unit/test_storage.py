@@ -148,6 +148,30 @@ def test_cleanup_index_files_fsyncs_parent_directory_when_durable(
     assert not path.with_name("index.db-shm").exists()
 
 
+def test_cleanup_index_files_tolerates_concurrent_unlink_races(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    path.write_bytes(b"sqlite")
+    path.with_name("index.db-wal").write_bytes(b"wal")
+    path.with_name("index.db-shm").write_bytes(b"shm")
+    original_unlink = Path.unlink
+
+    def flaky_unlink(target: Path, *args: object, **kwargs: object) -> None:
+        if target.name in {"index.db", "index.db-wal", "index.db-shm"}:
+            if target.exists():
+                original_unlink(target, *args, **kwargs)
+            raise FileNotFoundError(target)
+        original_unlink(target, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+
+    assert storage_module._cleanup_index_files(path) is True
+    assert not path.exists()
+    assert not path.with_name("index.db-wal").exists()
+    assert not path.with_name("index.db-shm").exists()
+
+
 def test_copy_index_with_sidecars_fsyncs_promoted_sidecars(tmp_path: Path, monkeypatch) -> None:
     source = tmp_path / "source.db"
     target = tmp_path / ".index.db.recover"
