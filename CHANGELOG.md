@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.570 - 2026-04-23
+
+- Restricted the Windows Inno Setup installer to x64-compatible hosts and pinned the packaging audit to enforce 64-bit install mode in both the script and rendered dry-run manifest.
+- Expanded the AppImage dry-run audit to verify rendered `app_info` metadata, version-token substitution, and included desktop/icon assets so recipe drift is caught before Linux release builds.
+- Normalized Linux packaging architecture aliases so common runner inputs like `amd64` and `x86_64` now collapse to stable AppImage and Debian artifact names across packaging jobs.
+
 ## 0.1.562 - 2026-04-23
 
 - Expanded the top-level README with a validation-path matrix, release-input map, and docs-asset drift runbook entry so operators can pick the right verification path faster.
