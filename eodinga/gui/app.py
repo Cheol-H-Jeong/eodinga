@@ -33,6 +33,7 @@ class TrayIndicatorController:
         self._launcher_window = launcher_window
         self._main_window = main_window
         self._tray: QSystemTrayIcon | None = None
+        self._hotkey_combo = ""
         self.tooltip = format_indexing_status(IndexingStatus())
         self.status_text = self.tooltip
         self.icon_state = "idle"
@@ -101,7 +102,17 @@ class TrayIndicatorController:
 
     def _sync_launcher_action_text(self, visible: bool) -> None:
         if hasattr(self, "toggle_launcher_action"):
-            self.toggle_launcher_action.setText("Hide launcher" if visible else "Show launcher")
+            self.toggle_launcher_action.setText(self._launcher_action_text(visible))
+
+    def set_hotkey_combo(self, combo: str) -> None:
+        self._hotkey_combo = combo
+        self._sync_launcher_action_text(self._launcher_window.isVisible())
+
+    def _launcher_action_text(self, visible: bool) -> str:
+        verb = "Hide launcher" if visible else "Show launcher"
+        if not self._hotkey_combo:
+            return verb
+        return f"{verb} ({self._hotkey_combo})"
 
     def _handle_activation(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason in {
@@ -174,6 +185,7 @@ class EodingaWindow(QMainWindow):
             hotkey_service=hotkey_service,
             parent=self,
         )
+        self.tray_indicator.set_hotkey_combo(self._hotkey_controller.combo)
         self._config = resolved_config
         self._config_path = resolved_config_path
         self.settings_tab.set_hotkey_combo(self._hotkey_controller.combo)
@@ -210,6 +222,7 @@ class EodingaWindow(QMainWindow):
         self._config.launcher = self._config.launcher.model_copy(update={"hotkey": self._hotkey_controller.combo})
         self._config.save(self._config_path)
         self.settings_tab.set_hotkey_combo(self._hotkey_controller.combo)
+        self.tray_indicator.set_hotkey_combo(self._hotkey_controller.combo)
 
     def _change_always_on_top(self, enabled: bool) -> None:
         self.launcher_window.set_always_on_top(enabled)
