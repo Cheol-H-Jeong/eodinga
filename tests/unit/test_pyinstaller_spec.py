@@ -4,11 +4,16 @@ from pathlib import Path
 from typing import cast
 
 
-def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
+def _load_spec_namespace() -> dict[str, object]:
     namespace: dict[str, object] = {}
     spec_path = Path("packaging/pyinstaller.spec")
     namespace["__file__"] = str(spec_path.resolve())
     exec(spec_path.read_text(encoding="utf-8"), namespace)
+    return namespace
+
+
+def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
+    namespace = _load_spec_namespace()
     hiddenimports = cast(list[str], namespace["HIDDEN_IMPORTS"])
     discovered_runtime_modules = cast(list[str], namespace["DISCOVERED_RUNTIME_MODULES"])
     discovered_hiddenimports = cast(list[str], namespace["DISCOVERED_HIDDEN_IMPORTS"])
@@ -43,10 +48,7 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
 
 
 def test_pyinstaller_spec_exposes_expected_windows_dist_names() -> None:
-    namespace: dict[str, object] = {}
-    spec_path = Path("packaging/pyinstaller.spec")
-    namespace["__file__"] = str(spec_path.resolve())
-    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    namespace = _load_spec_namespace()
 
     assert namespace["CLI_DIST_NAME"] == "eodinga-cli"
     assert namespace["GUI_DIST_NAME"] == "eodinga-gui"
@@ -55,10 +57,7 @@ def test_pyinstaller_spec_exposes_expected_windows_dist_names() -> None:
 
 
 def test_pyinstaller_runtime_modules_map_to_real_sources() -> None:
-    namespace: dict[str, object] = {}
-    spec_path = Path("packaging/pyinstaller.spec")
-    namespace["__file__"] = str(spec_path.resolve())
-    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    namespace = _load_spec_namespace()
     runtime_modules = cast(list[str], namespace["RUNTIME_MODULES"])
     discovered_runtime_modules = cast(list[str], namespace["DISCOVERED_RUNTIME_MODULES"])
 
@@ -69,3 +68,28 @@ def test_pyinstaller_runtime_modules_map_to_real_sources() -> None:
     for module_name in discovered_runtime_modules:
         module_path = Path(*module_name.split("."))
         assert module_path.with_suffix(".py").exists() or (module_path / "__init__.py").exists(), module_name
+
+
+def test_pyinstaller_hidden_import_discovery_supports_importlib_aliases(tmp_path: Path) -> None:
+    namespace = _load_spec_namespace()
+    source_root = tmp_path / "pkg"
+    source_root.mkdir()
+    (source_root / "dynamic.py").write_text(
+        "\n".join(
+            [
+                "import importlib as importer",
+                "from importlib import import_module as load_module",
+                "",
+                "importer.import_module('alpha.mod')",
+                "load_module('beta.mod')",
+                "__import__('gamma.mod')",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    discover_hidden_imports = cast(object, namespace["_discover_hidden_imports"])
+    assert callable(discover_hidden_imports)
+    discovered = discover_hidden_imports(source_root)
+
+    assert discovered == ["alpha.mod", "beta.mod", "gamma.mod"]
