@@ -58,6 +58,8 @@ def default_state_dir() -> Path:
         if local_appdata:
             return Path(local_appdata) / "eodinga"
         return Path.home() / "AppData" / "Local" / "eodinga"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "eodinga"
     xdg_state = os.environ.get("XDG_STATE_HOME")
     if xdg_state:
         return Path(xdg_state) / "eodinga"
@@ -65,6 +67,8 @@ def default_state_dir() -> Path:
 
 
 def default_logs_dir() -> Path:
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Logs" / "eodinga"
     return default_state_dir() / "logs"
 
 
@@ -73,6 +77,8 @@ def default_log_path() -> Path:
 
 
 def default_crash_dir() -> Path:
+    if sys.platform == "darwin":
+        return default_logs_dir() / "crashes"
     return default_state_dir() / "crashes"
 
 
