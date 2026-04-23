@@ -239,6 +239,27 @@ def test_path_only_filter_queries_do_not_probe_indexed_content(
     assert result.hits
 
 
+def test_path_filter_with_bare_term_still_loads_content_texts(
+    populated_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[tuple[int, ...]] = []
+    original_fetch_content_texts = executor_module._fetch_content_texts
+
+    def recording_fetch_content_texts(
+        conn: sqlite3.Connection, ids: object
+    ) -> dict[int, str]:
+        id_tuple = tuple(sorted(dict.fromkeys(ids)))  # type: ignore[arg-type]
+        calls.append(id_tuple)
+        return original_fetch_content_texts(conn, id_tuple)
+
+    monkeypatch.setattr(executor_module, "_fetch_content_texts", recording_fetch_content_texts)
+
+    result = search(populated_db, "path:projects launch", limit=5)
+
+    assert result.hits
+    assert calls
+
+
 def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     local_now = datetime.now().astimezone()
     today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())

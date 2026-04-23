@@ -820,6 +820,8 @@ def _needs_record_filter(branch: CompiledBranch) -> bool:
 
 
 def _needs_content_text_filter(branch: CompiledBranch) -> bool:
+    if (branch.path_filters or branch.path_regex_terms) and branch.path_terms:
+        return True
     return bool(
         branch.content_terms
         or branch.content_regex_terms
