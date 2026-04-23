@@ -140,6 +140,24 @@ raw query string
 - Search is read-only against the index: CLI, launcher, and embedded search tab all call the same compiler and executor stack.
 - Packaging keeps the app local-first: no network services, no daemon dependency outside the local watchdog flow, and no writes outside config/database state.
 
+## Diagnostics And Observability Flow
+
+```text
+runtime action
+    |
+    +--> observability counters / histograms
+    |         |
+    |         +--> eodinga stats --json
+    |
+    +--> crash handler on unhandled exception
+              |
+              +--> crash-<ts>.log in the platform log directory
+```
+
+- `eodinga stats --json` merges persisted index snapshot data with in-memory counters and histograms so one command reports both storage state and runtime behavior.
+- `eodinga doctor` stays outside the hot path; it validates dependencies, writable paths, readable roots, hotkey backend availability, and recovery prerequisites without mutating indexed roots.
+- Crash logs are written only on unhandled exceptions and include command context so release and support workflows have a stable artifact to inspect after failure.
+
 ## Live Update Sequence
 
 ```text

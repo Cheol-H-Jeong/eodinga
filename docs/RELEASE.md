@@ -8,6 +8,7 @@ This document expands the short checklist in [ACCEPTANCE.md](/home/cheol/project
 2. Choose the next unused patch version as `0.1.N`.
 3. Bump both `pyproject.toml` and `eodinga/__init__.py` to that version.
 4. Keep that version bump isolated to the release metadata commit for the round.
+5. Verify that no local tag already uses `v0.1.N` before committing the bump.
 
 ## Refresh Release Notes
 
@@ -38,6 +39,8 @@ Recommended order:
 2. `pytest -q tests` once the candidate release branch is assembled.
 3. `ruff`, `pyright`, GUI smoke, packaging dry-runs, and workflow lint after the full test pass.
 
+For docs-only rounds, keep the same gate. Documentation, screenshots, packaging manifests, and workflow files are part of the shipped release contract even when runtime code is unchanged.
+
 ## Verify Shipped Docs
 
 Before tagging, confirm:
@@ -46,6 +49,8 @@ Before tagging, confirm:
 - `docs/ARCHITECTURE.md` still matches the index lifecycle and packaging surfaces.
 - `docs/PERFORMANCE.md` numbers come from a rerun at the documented HEAD.
 - Screenshot assets under `docs/screenshots/` still match the current UI, or have been refreshed with `python scripts/render_docs_screenshots.py`.
+- `docs/ACCEPTANCE.md` and this file still match the actual gate commands used in the repository.
+- `CHANGELOG.md` summarizes only landed behavior from the current round.
 
 ## Cut The Local Release
 
@@ -61,6 +66,8 @@ git commit -m "chore(release): bump to v0.1.N"
 git tag v0.1.N
 ```
 
+If the round produced multiple logical commits, keep them intact. The release commit should stay on top of that history rather than replacing it.
+
 ## Handoff Checklist
 
 - Working tree clean except for intended release artifacts.
@@ -68,3 +75,4 @@ git tag v0.1.N
 - Full repository gate green before final handoff.
 - `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py` all agree on `0.1.N`.
 - The local tag points at the final commit for the round, not an earlier docs or feature commit.
+- `git status --short` is empty after the tag is created.

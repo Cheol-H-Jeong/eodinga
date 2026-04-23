@@ -31,6 +31,8 @@ pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summ
 
 After the focused slice is green, run the broader acceptance gate before release handoff.
 
+If you are working in a parallel improvement worktree, keep release metadata out of intermediate commits and add the `CHANGELOG.md` / version bump only in the final release handoff commit for the round.
+
 ## Quality Gates
 
 Default repository gate:
@@ -74,6 +76,7 @@ yamllint .github/workflows/release-linux.yml
 - GUI/launcher changes: `pytest -q tests/unit/test_gui_app.py tests/unit/test_gui_launcher.py tests/unit/test_docs_assets.py`
 - Index/storage/watcher changes: `pytest -q tests/unit/test_storage.py tests/unit/test_writer.py tests/unit/test_watcher.py`
 - Packaging changes: `pytest -q tests/unit/test_build.py tests/unit/test_build_dry_run.py tests/unit/test_inno_script.py tests/unit/test_pyinstaller_spec.py`
+- Docs-only changes: `pytest -q tests/unit` plus any command shown in the docs that you edited and can verify locally
 
 ## Commit and Release Notes
 
@@ -82,3 +85,12 @@ yamllint .github/workflows/release-linux.yml
 - Patch releases use `0.1.N`; bump `pyproject.toml` and `eodinga/__init__.py` together.
 - Local tags are created during the release-cut handoff flow documented in [RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md).
 - If a change cannot stay inside one theme or one logical commit, stop and split it before proceeding.
+
+## Review Checklist
+
+Before handing a round off:
+
+- confirm the README still matches the current CLI, launcher shortcuts, and packaging surfaces
+- rerender screenshots after visible UI changes
+- keep each commit small enough that `git show --stat` explains the intent without extra archaeology
+- note any cross-theme unblockers explicitly in the commit history instead of quietly expanding scope
