@@ -511,6 +511,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_sinks_stderr_configured"] == 2
     assert payload["log_sinks_file_configured"] == 0
     assert payload["log_sinks_file_disabled"] == 2
+    assert payload["log_sink_file_sources"] == {}
+    assert payload["log_sink_file_disable_reasons"] == {"disabled_pytest": 2}
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["query_result_count_histogram"]["count"] == 1
     assert payload["command_latency_histogram"]["count"] == 1
@@ -659,6 +661,8 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["log_sinks_stderr_configured"] == 3
     assert payload["log_sinks_file_configured"] == 0
     assert payload["log_sinks_file_disabled"] == 3
+    assert payload["log_sink_file_sources"] == {}
+    assert payload["log_sink_file_disable_reasons"] == {"disabled_pytest": 3}
     assert payload["commands_started"] == 3
     assert payload["commands_completed"] == 2
     assert payload["commands_failed"] == 0
@@ -1005,3 +1009,32 @@ def test_stats_json_exposes_watcher_observer_failure_metrics(
     assert payload["watcher_observer_failure_stages"] == {"schedule": 1}
     assert payload["watcher_observer_cleanup_failure_stages"] == {"join": 1, "stop": 1}
     assert payload["watcher_observer_startup_cleanup_failure_stages"] == {}
+
+
+def test_stats_json_structures_log_sink_resolution_summaries(
+    tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db_path = tmp_path / "index.db"
+    log_path = tmp_path / "logs" / "eodinga.log"
+    _build_search_db(db_path)
+    reset_metrics()
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.delenv("EODINGA_DISABLE_FILE_LOGGING", raising=False)
+
+    version_exit = main(["--db", str(db_path), "version"])
+    capsys.readouterr()
+    assert version_exit == 0
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["log_sinks_stderr_configured"] == 2
+    assert payload["log_sinks_file_configured"] == 2
+    assert payload["log_sinks_file_disabled"] == 0
+    assert payload["log_sink_file_sources"] == {"env_override": 2}
+    assert payload["log_sink_file_disable_reasons"] == {}
+    assert payload["log_path"] == str(log_path)
+    assert payload["log_path_source"] == "env_override"
+    assert payload["log_path_disabled_reason"] is None
