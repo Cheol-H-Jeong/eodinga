@@ -112,7 +112,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Live Update Sequence" in architecture
     assert "## Documentation Asset Flow" in architecture
     assert "## State Ownership" in architecture
+    assert "## Platform State Paths" in architecture
     assert "## Failure Domains" in architecture
+    assert "## Transaction And Queue Boundaries" in architecture
     assert "## Operator Debug Path" in architecture
     assert "## Packaging Surfaces" in architecture
     assert "compressed changelog" in architecture

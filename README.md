@@ -260,10 +260,12 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 
 ## Package Artifacts
 
-- Windows release builds emit a PyInstaller bundle plus an Inno Setup installer audit under `packaging/dist/`.
-- Linux AppImage dry runs render `packaging/linux/appimage-builder.yml` from the current package version before building.
-- Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, and compressed changelog into the package root.
-- The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
+| Artifact | Produced by | What to confirm |
+| --- | --- | --- |
+| Windows installer audit | `python packaging/build.py --target windows-dry-run` | PyInstaller payload exists, Inno script resolves the current version, and uninstall leaves local state intact unless purge is chosen. |
+| Linux AppImage dry run | `python packaging/build.py --target linux-appimage-dry-run` | `appimage-builder.yml` is rendered from the checked-in version and staged desktop/icon assets match the repo copies. |
+| Linux `.deb` dry run | `python packaging/build.py --target linux-deb-dry-run` | launcher shim, desktop entry, SVG icon, license, and compressed changelog are staged into the package root. |
+| Shipped docs set | checked-in tree + docs asset tests | `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` still describe the same install and operator surface the packages ship. |
 
 ## Recovery and Troubleshooting
 
@@ -281,13 +283,19 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 | Startup mentions recovery | `eodinga doctor` | check that the live DB path is writable and recovery sidecars are gone after startup |
 | Hotkey or launcher looks wrong | `eodinga doctor` | inspect detected hotkey backend and then re-open `eodinga gui` for settings/state |
 | Packaging audit failed | `python packaging/build.py --target windows-dry-run` | re-run the matching Linux dry run and workflow lint from `docs/ACCEPTANCE.md` |
+| CLI and launcher disagree | `eodinga stats --json` | confirm both surfaces point at the same DB path and root set before assuming ranking drift |
 
 ## Config and Data Paths
 
-- Linux config defaults to `~/.config/eodinga/config.toml` and the index database to `~/.local/share/eodinga/index.db`.
-- Windows uses `%APPDATA%\\eodinga\\config.toml` for config and `%LOCALAPPDATA%\\eodinga\\index.db` for the database.
-- Override either location with `--config` or `--db` when running CLI commands.
-- Runtime writes stay inside those config/database areas; indexed roots are treated as read-only inputs.
+| Surface | Linux default | Windows default | Override |
+| --- | --- | --- | --- |
+| Config file | `~/.config/eodinga/config.toml` | `%APPDATA%\\eodinga\\config.toml` | `--config PATH` |
+| Index database | `~/.local/share/eodinga/index.db` | `%LOCALAPPDATA%\\eodinga\\index.db` | `--db PATH` |
+| Rotating log file | platform app-state path resolved at runtime | platform app-state path resolved at runtime | `EODINGA_LOG_PATH` |
+| Crash reports | platform app-state path resolved at runtime | platform app-state path resolved at runtime | `EODINGA_CRASH_DIR` |
+
+- Runtime writes stay inside those config/database/log areas; indexed roots are treated as read-only inputs.
+- `eodinga stats --json` shows the active DB path, log path, crash directory, and whether file logging is enabled for the current process.
 
 ## Diagnostics
 
@@ -347,6 +355,14 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 ### Which commands are most useful for a quick health check?
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
+
+### When should I run `watch` versus `index --rebuild`?
+
+Use `eodinga watch` when the index is already correct and you want live filesystem changes to stay query-visible. Use `eodinga index --rebuild` when the database path changed, startup recovery could not converge, or you want a one-shot rebuild without leaving a watcher process running.
+
+### Can I keep multiple indexes or test against a scratch database?
+
+Yes. Pass `--db PATH` to `index`, `search`, `stats`, `gui`, or `doctor` to point a single invocation at an alternate SQLite file. This is the fastest way to compare packaged and local-dev behavior without mutating your default index.
 
 ### Which files are skipped by default?
 

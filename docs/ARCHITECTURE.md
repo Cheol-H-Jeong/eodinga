@@ -210,6 +210,17 @@ runtime surface changes
 | Runtime settings | config file under platform app dirs | Keeps user-visible launcher/gui behavior outside the index. |
 | Derived docs assets | `docs/man/` and `docs/screenshots/` | Versioned release inputs audited by tests instead of ad-hoc notes. |
 
+## Platform State Paths
+
+| State | Linux default | Windows default | Override or probe |
+| --- | --- | --- | --- |
+| Config | `~/.config/eodinga/config.toml` | `%APPDATA%\\eodinga\\config.toml` | `--config` or `eodinga doctor` |
+| Index database | `~/.local/share/eodinga/index.db` | `%LOCALAPPDATA%\\eodinga\\index.db` | `--db` or `eodinga stats --json` |
+| Rotating log file | platform app-state path | platform app-state path | `EODINGA_LOG_PATH` or `eodinga stats --json` |
+| Crash directory | platform app-state path | platform app-state path | `EODINGA_CRASH_DIR` or `eodinga stats --json` |
+
+This split matters operationally: user roots remain read-only inputs, while every mutable runtime artifact stays under config, database, log, or crash-report ownership.
+
 ## Operational Model
 
 - Cold start is walker-driven: discover roots, write metadata in bulk, then parse supported documents for content rows.
@@ -223,6 +234,13 @@ runtime surface changes
 - Writer and storage failures are handled at the database boundary so startup recovery can reason about `.next`, `.recover`, and stale WAL artifacts explicitly.
 - Query fallback failures must not mutate state; they only affect one search invocation and are observable through `eodinga stats --json` and runtime logs.
 - Docs or packaging drift is treated as a release-input failure, caught by `tests/unit/test_docs_assets.py` and the packaging dry-run audits before a tag is cut.
+
+## Transaction And Queue Boundaries
+
+- `WatchService` is allowed to batch and debounce bursts, but writer commits remain explicit transaction boundaries; a query either sees the pre-commit index state or the post-commit state.
+- Staged rebuilds and stale-WAL recovery never mutate user roots; they only create or promote snapshot files next to the managed index path.
+- CLI, GUI, and launcher surfaces all read through the same SQLite snapshot, so cross-surface disagreement should first be debugged as a DB-path or root-selection problem rather than as separate ranking engines.
+- Crash artifacts and rotating logs are side channels for diagnosis only; they do not participate in query correctness or package payload assembly.
 
 ## Live Update Sequence
 
