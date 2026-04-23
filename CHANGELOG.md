@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.919 - 2026-04-24
+
+- Restored the full undelivered watcher flush tail when queue backpressure interrupts a batch, preventing later ready events from disappearing after the first blocked enqueue.
+- Made index and sidecar cleanup unlink operations race-safe with `missing_ok=True`, so crash recovery and startup cleanup do not fail if another process removes the files between existence checks and deletion.
+
 ## 0.1.911 - 2026-04-24
 
 - Normalized list-form subprocess command matching in the no-network source audit, so absolute-path invocations like `['/usr/bin/curl', ...]` and `wget.exe` tuples are rejected the same way as bare command names.
