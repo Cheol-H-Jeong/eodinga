@@ -623,6 +623,36 @@ def test_execute_relative_date_queries_use_local_day_boundaries(
     assert yesterday_hits == ["local-yesterday.txt"]
 
 
+def test_execute_relative_date_queries_do_not_reuse_stale_cached_bounds(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+
+    class _FrozenDateTime(datetime):
+        current = datetime(2026, 4, 23, 0, 30, tzinfo=seoul)
+
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return cls.current.replace(tzinfo=None)
+            return cls.current.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+
+    day_one_hit = int(datetime(2026, 4, 23, 12, 0, tzinfo=seoul).timestamp())
+    day_two_hit = int(datetime(2026, 4, 24, 12, 0, tzinfo=seoul).timestamp())
+    _insert_file(tmp_db, 1, "/workspace/day-one.txt", 512, day_one_hit, "txt", body_text="day one")
+    _insert_file(tmp_db, 2, "/workspace/day-two.txt", 512, day_two_hit, "txt", body_text="day two")
+    tmp_db.commit()
+
+    first_hits = [hit.file.name for hit in search(tmp_db, "date:today", limit=10).hits]
+    _FrozenDateTime.current = datetime(2026, 4, 24, 0, 30, tzinfo=seoul)
+    second_hits = [hit.file.name for hit in search(tmp_db, "date:today", limit=10).hits]
+
+    assert first_hits == ["day-one.txt"]
+    assert second_hits == ["day-two.txt"]
+
+
 def test_execute_reversed_date_range_query(tmp_db: sqlite3.Connection) -> None:
     jan_1 = int(datetime(2026, 1, 1, 12, tzinfo=UTC).timestamp())
     jan_2 = int(datetime(2026, 1, 2, 12, tzinfo=UTC).timestamp())

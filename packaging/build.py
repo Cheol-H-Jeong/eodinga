@@ -112,6 +112,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     cli_dist_path = PROJECT_ROOT / "dist" / cli_dist_name
     gui_exe_path = gui_dist_path / gui_exe_name
     cli_exe_path = cli_dist_path / cli_exe_name
+    installer_path = DIST_DIR / "windows" / f"{output_base_filename}.exe"
     return {
         "target": "windows-dry-run",
         "version": version,
@@ -161,6 +162,8 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "contains_app_version_template": INNO_VERSION_TOKEN in inno_text,
             "rendered_path": str(rendered_path),
             "output_base_filename": output_base_filename,
+            "installer_path": str(installer_path),
+            "installer_exists": installer_path.exists(),
             "rendered_source_entries": _source_entries(rendered_text),
             "rendered_source_entries_match_pyinstaller_dist": _source_entries(rendered_text) == rendered_source_entries,
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
@@ -251,6 +254,8 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
             errors.append("Windows build is missing the staged GUI executable")
         if not exe_exists.get("cli"):
             errors.append("Windows build is missing the staged CLI executable")
+        if not payload.get("inno_setup", {}).get("installer_exists"):
+            errors.append("Windows build is missing the rendered installer payload")
     inno_payload = payload.get("inno_setup", {})
     required_flags = {
         "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
