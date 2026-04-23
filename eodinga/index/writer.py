@@ -53,6 +53,21 @@ def _materialize_records(records: Iterable[FileRecord]) -> Sequence[FileRecord]:
     return tuple(records)
 
 
+def _dedupe_records(records: Sequence[FileRecord]) -> Sequence[FileRecord]:
+    if len(records) < 2:
+        return records
+    deduped: dict[str, FileRecord] = {}
+    ordered_paths: list[str] = []
+    for record in records:
+        path_text = str(record.path)
+        if path_text not in deduped:
+            ordered_paths.append(path_text)
+        deduped[path_text] = record
+    if len(deduped) == len(records):
+        return records
+    return tuple(deduped[path_text] for path_text in ordered_paths)
+
+
 @lru_cache(maxsize=16)
 def _select_deleted_content_rowids_sql(chunk_size: int) -> str:
     placeholders = ", ".join("?" for _ in range(chunk_size))
@@ -102,10 +117,11 @@ class IndexWriter:
         buffered = _materialize_records(records)
         if not buffered:
             return 0
+        write_records = _dedupe_records(buffered)
         with temporary_pragmas(self._conn, _WRITE_PRAGMAS):
             with self._transaction():
-                self._upsert_records(buffered)
-                self._upsert_content(buffered)
+                self._upsert_records(write_records)
+                self._upsert_content(write_records)
         return len(buffered)
 
     def apply_events(self, events: Sequence[WatchEvent], record_loader: RecordLoader) -> int:
@@ -132,8 +148,9 @@ class IndexWriter:
                 if retired_paths:
                     self._delete_paths(retired_paths, content_deletes)
                 if pending_records:
-                    self._upsert_records(pending_records)
-                    self._upsert_content(pending_records)
+                    write_records = _dedupe_records(pending_records)
+                    self._upsert_records(write_records)
+                    self._upsert_content(write_records)
                 if content_deletes:
                     self._delete_content_rows(content_deletes)
         return processed
