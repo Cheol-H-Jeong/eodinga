@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.562 - 2026-04-23
+
+- Expanded the top-level README with a validation-path matrix, release-input map, and docs-asset drift runbook entry so operators can pick the right verification path faster.
+- Tightened release and contributor docs around parallel-worker version collisions, single-shot metadata cuts, and keeping the final metadata commit isolated and easy to retarget.
+- Clarified perf documentation so the checked-in benchmark table is treated as an explicit recorded baseline sample, not an implied claim about every newer `HEAD`.
+
 ## 0.1.557 - 2026-04-23
 
 - Cached the executor's dynamic `content_map.file_id IN (...)` SQL templates by chunk size, reducing repeated statement construction during content backfill and record-filter scans.
