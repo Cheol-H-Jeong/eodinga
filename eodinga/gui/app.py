@@ -127,7 +127,11 @@ class EodingaWindow(QMainWindow):
         resolved_config = config or AppConfig()
         resolved_config_path = config_path or default_path()
         launcher_config = resolved_config.launcher
-        self.launcher_state = LauncherState(self, pinned_queries=launcher_config.pinned_queries)
+        self.launcher_state = LauncherState(
+            self,
+            pinned_queries=launcher_config.pinned_queries,
+            recent_queries=launcher_config.recent_queries,
+        )
         self.launcher_window = LauncherWindow(
             search_fn=search_fn,
             max_results=launcher_config.max_results,
@@ -182,6 +186,8 @@ class EodingaWindow(QMainWindow):
         self.settings_tab.hotkey_change_requested.connect(self._change_hotkey)
         self.settings_tab.frameless_changed.connect(self._change_frameless)
         self.settings_tab.always_on_top_changed.connect(self._change_always_on_top)
+        self.launcher_state.recent_queries_changed.connect(self._store_recent_queries)
+        self.launcher_state.pinned_queries_changed.connect(self._store_pinned_queries)
         self.launcher_state.indexing_status_changed.connect(self.index_tab.set_indexing_status)
         self.launcher_state.indexing_status_changed.connect(self.tray_indicator.set_indexing_status)
         self.set_indexing_status(IndexingStatus())
@@ -210,6 +216,14 @@ class EodingaWindow(QMainWindow):
         self._config.launcher = self._config.launcher.model_copy(update={"hotkey": self._hotkey_controller.combo})
         self._config.save(self._config_path)
         self.settings_tab.set_hotkey_combo(self._hotkey_controller.combo)
+
+    def _store_recent_queries(self, queries: list[str]) -> None:
+        self._config.launcher = self._config.launcher.model_copy(update={"recent_queries": queries})
+        self._config.save(self._config_path)
+
+    def _store_pinned_queries(self, queries: list[str]) -> None:
+        self._config.launcher = self._config.launcher.model_copy(update={"pinned_queries": queries})
+        self._config.save(self._config_path)
 
     def _change_always_on_top(self, enabled: bool) -> None:
         self.launcher_window.set_always_on_top(enabled)

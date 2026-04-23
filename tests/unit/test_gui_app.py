@@ -114,6 +114,30 @@ def test_launcher_state_is_shared_between_popup_and_search_tab(qapp) -> None:
     assert "release" in window.search_tab.launcher_panel.empty_state.body_label.text()
 
 
+def test_launcher_recent_queries_persist_and_restore_from_config(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    launcher = window.launcher_window
+    launcher.show()
+
+    launcher.query_field.setText("release notes")
+    QTest.qWait(40)
+    launcher.query_field.setText("budget")
+    QTest.qWait(40)
+
+    stored = load(temp_config_path)
+    assert stored.launcher.recent_queries == ["budget", "release notes"]
+
+    restored_window = EodingaWindow(config=stored, config_path=temp_config_path)
+    restored_window.launcher_window.show()
+    qapp.processEvents()
+
+    assert [button.text() for button in restored_window.launcher_window.recent_queries_row.buttons] == [
+        "budget",
+        "release notes",
+    ]
+
+
 def test_launchers_respect_configured_limit_and_debounce(qapp) -> None:
     calls: list[tuple[str, int]] = []
 

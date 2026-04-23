@@ -52,9 +52,14 @@ class LauncherState(QObject):
     pinned_queries_changed = Signal(list)
     indexing_status_changed = Signal(object)
 
-    def __init__(self, parent: QObject | None = None, pinned_queries: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        parent: QObject | None = None,
+        pinned_queries: list[str] | None = None,
+        recent_queries: list[str] | None = None,
+    ) -> None:
         super().__init__(parent)
-        self._recent_queries: deque[str] = deque(maxlen=5)
+        self._recent_queries: deque[str] = deque(self._normalize_queries(recent_queries or [])[:5], maxlen=5)
         self._pinned_queries = self._normalize_queries(pinned_queries or [])
         self._indexing_status = IndexingStatus()
 
