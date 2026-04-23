@@ -698,6 +698,36 @@ def test_execute_open_ended_date_ranges(tmp_db: sqlite3.Connection) -> None:
     assert older_hits == ["jan-1.txt", "jan-2.txt"]
 
 
+def test_execute_open_ended_relative_date_ranges(
+    tmp_db: sqlite3.Connection,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz: object | None = None) -> datetime:
+            current = cls(2026, 4, 23, 9, 30, tzinfo=seoul)
+            return current if tz is None else current.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+
+    jan_1 = int(datetime(2026, 4, 21, 12, tzinfo=seoul).timestamp())
+    jan_2 = int(datetime(2026, 4, 22, 12, tzinfo=seoul).timestamp())
+    jan_3 = int(datetime(2026, 4, 23, 12, tzinfo=seoul).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/two-days-ago.txt", 512, jan_1, "txt", body_text="older")
+    _insert_file(tmp_db, 2, "/workspace/yesterday.txt", 512, jan_2, "txt", body_text="yesterday")
+    _insert_file(tmp_db, 3, "/workspace/today.txt", 512, jan_3, "txt", body_text="today")
+    tmp_db.commit()
+
+    from_today = [hit.file.name for hit in search(tmp_db, "date:today..", limit=10).hits]
+    through_yesterday = [hit.file.name for hit in search(tmp_db, "date:..yesterday", limit=10).hits]
+
+    assert from_today == ["today.txt"]
+    assert through_yesterday == ["two-days-ago.txt", "yesterday.txt"]
+
+
 def test_execute_spaced_date_and_size_ranges(tmp_db: sqlite3.Connection) -> None:
     jan_1 = int(datetime(2026, 1, 1, 12, tzinfo=UTC).timestamp())
     jan_2 = int(datetime(2026, 1, 2, 12, tzinfo=UTC).timestamp())
