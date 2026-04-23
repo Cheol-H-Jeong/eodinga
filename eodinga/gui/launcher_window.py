@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt, Signal
+from PySide6.QtCore import QRect, QTimer, Qt, Signal
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
 
 from eodinga.config import AppConfig
@@ -52,8 +53,7 @@ class LauncherWindow(LauncherPanel):
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
         if not self._geometry_restored and self._config is not None:
-            if self._config.launcher.window_x is not None and self._config.launcher.window_y is not None:
-                self.move(self._config.launcher.window_x, self._config.launcher.window_y)
+            self.setGeometry(self._initial_geometry())
             self._geometry_restored = True
         self.query_field.setFocus()
         self.query_field.selectAll()
@@ -119,3 +119,44 @@ class LauncherWindow(LauncherPanel):
             return
         self._config.launcher = self._config.launcher.model_copy(update=geometry)
         self._config.save(self._config_path)
+
+    def _initial_geometry(self) -> QRect:
+        assert self._config is not None
+        width = self.width()
+        height = self.height()
+        launcher_config = self._config.launcher
+        if launcher_config.window_x is not None and launcher_config.window_y is not None:
+            geometry = QRect(
+                launcher_config.window_x,
+                launcher_config.window_y,
+                launcher_config.window_width,
+                launcher_config.window_height,
+            )
+        else:
+            geometry = QRect(0, 0, width, height)
+        return self._fit_geometry_to_available(geometry)
+
+    def _fit_geometry_to_available(self, geometry: QRect) -> QRect:
+        available = self._available_geometry()
+        if available is None:
+            return geometry
+        width = min(max(geometry.width(), 240), available.width())
+        height = min(max(geometry.height(), 160), available.height())
+        launcher_config = self._config.launcher if self._config is not None else None
+        if launcher_config is not None and launcher_config.window_x is None and launcher_config.window_y is None:
+            x = available.x() + max(0, (available.width() - width) // 2)
+            y = available.y() + max(0, (available.height() - height) // 2)
+            return QRect(x, y, width, height)
+        max_x = available.x() + max(0, available.width() - width)
+        max_y = available.y() + max(0, available.height() - height)
+        x = min(max(geometry.x(), available.x()), max_x)
+        y = min(max(geometry.y(), available.y()), max_y)
+        return QRect(x, y, width, height)
+
+    def _available_geometry(self) -> QRect | None:
+        screen = self.screen()
+        if screen is None:
+            screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            return None
+        return screen.availableGeometry()
