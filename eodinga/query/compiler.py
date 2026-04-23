@@ -19,6 +19,7 @@ from eodinga.query.dsl import (
     WordNode,
 )
 from eodinga.query.date_range import parse_date_range
+from eodinga.query.mode_validation import contains_group_mode_toggle
 from eodinga.query.ranker import RankingWeights
 
 
@@ -103,6 +104,8 @@ def _to_nnf(node: AstNode, negated: bool = False) -> AstNode:
     if isinstance(node, (WordNode, PhraseNode, RegexNode, OperatorNode)):
         return _negate_term(node) if negated else node
     if isinstance(node, NotNode):
+        if contains_group_mode_toggle(node.clause, _try_parse_bool):
+            raise QuerySyntaxError("grouped negation cannot wrap case: or regex: boolean toggles", 0)
         return _to_nnf(node.clause, not negated)
     if isinstance(node, AndNode):
         clauses = tuple(_to_nnf(child, negated) for child in node.clauses)
@@ -127,9 +130,7 @@ def _escape_like_pattern(value: str) -> str:
 
 
 def _escaped_like_sql(expr: str) -> str:
-    return (
-        f"REPLACE(REPLACE(REPLACE({expr}, '^', '^^'), '%', '^%'), '_', '^_')"
-    )
+    return f"REPLACE(REPLACE(REPLACE({expr}, '^', '^^'), '%', '^%'), '_', '^_')"
 
 
 def _has_non_ascii(value: str) -> bool:

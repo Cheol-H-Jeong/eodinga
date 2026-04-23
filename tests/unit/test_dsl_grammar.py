@@ -32,6 +32,10 @@ def _is_regex_safe_literal(value: str) -> bool:
     return True
 
 
+def _is_group_negation_safe(query: str) -> bool:
+    return not re.search(r"(^|[ (|])(?:case|regex):(true|false|1|0|yes|no|on|off)(?=$|[ )|])", query)
+
+
 @pytest.mark.parametrize(
     ("query", "expected_type"),
     [
@@ -164,6 +168,12 @@ def test_parse_empty_phrase_errors(query: str) -> None:
 def test_parse_regex_flags_must_be_supported_and_unique(query: str) -> None:
     with pytest.raises(QuerySyntaxError, match="regex flag"):
         parse(query)
+
+
+@pytest.mark.parametrize("query", ["-(case:true Foo)", "-(regex:true foo)", "-(case:false Foo | bar)"])
+def test_grouped_negation_rejects_boolean_mode_toggles(query: str) -> None:
+    with pytest.raises(QuerySyntaxError, match="grouped negation"):
+        compile_query(parse(query))
 
 
 def test_parse_phrase_with_dangling_escape_errors() -> None:
@@ -415,7 +425,7 @@ ATOMS = st.one_of(
             st.characters(blacklist_characters='"', blacklist_categories=("Cs",)),
             min_size=1,
             max_size=12,
-        ),
+        ).filter(lambda value: value.strip()),
     ),
     OPERATOR_ATOMS,
 )
@@ -497,7 +507,7 @@ PHRASE_TEXT = st.text(
     alphabet=st.characters(blacklist_characters='"', blacklist_categories=("Cs",)),
     min_size=1,
     max_size=24,
-)
+).filter(lambda value: value.strip())
 
 
 @given(PHRASE_TEXT)
@@ -584,7 +594,7 @@ NEGATABLE_ATOMS = st.one_of(
             st.characters(blacklist_characters='"', blacklist_categories=("Cs",)),
             min_size=1,
             max_size=12,
-        ).filter(_is_regex_safe_literal),
+        ).filter(lambda value: value.strip() and _is_regex_safe_literal(value)),
     ),
     OPERATOR_ATOMS,
 )
@@ -595,7 +605,7 @@ NEGATABLE_VALID_QUERY_STRATEGY = st.recursive(
         st.builds(lambda items: " ".join(items), st.lists(children, min_size=2, max_size=3)),
         st.builds(lambda items: " | ".join(items), st.lists(children, min_size=2, max_size=3)),
         st.builds(lambda child: f"({child})", children),
-        st.builds(lambda child: f"-({child})", children),
+        st.builds(lambda child: f"-({child})", children.filter(_is_group_negation_safe)),
     ),
     max_leaves=10,
 )
