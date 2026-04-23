@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.577 - 2026-04-23
+
+- Hardened index-file cleanup against raced `unlink()` outcomes so startup recovery and sidecar scrubbing treat already-disappeared artifacts as successful cleanup instead of aborting on a stale existence check.
+- Kept rebuild signal trapping active through the final staged-index publish, ensuring a late `SIGINT` or `SIGTERM` during the swap path still surfaces as `KeyboardInterrupt` without dropping the finished index update on the floor.
+- Added unit coverage for concurrent cleanup races and publish-time stop signals to pin both shutdown and recovery behavior.
+
 ## 0.1.570 - 2026-04-23
 
 - Added visible `Alt+1` through `Alt+9` quick-pick badges to the first nine launcher results so keyboard shortcuts are discoverable directly in the result list.

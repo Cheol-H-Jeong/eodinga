@@ -750,12 +750,12 @@ def test_cleanup_sidecars_tolerates_concurrent_unlink(tmp_path: Path, monkeypatc
     original_unlink = Path.unlink
     unlinked: set[Path] = set()
 
-    def flaky_unlink(self: Path, *args: object, **kwargs: object) -> None:
+    def flaky_unlink(self: Path, missing_ok: bool = False) -> None:
         if self == wal_path and self not in unlinked:
             unlinked.add(self)
-            original_unlink(self, *args, **kwargs)
+            original_unlink(self, missing_ok=missing_ok)
             raise FileNotFoundError(self)
-        original_unlink(self, *args, **kwargs)
+        original_unlink(self, missing_ok=missing_ok)
 
     monkeypatch.setattr(Path, "unlink", flaky_unlink)
 
@@ -771,12 +771,12 @@ def test_cleanup_index_files_tolerates_concurrent_unlink(tmp_path: Path, monkeyp
     original_unlink = Path.unlink
     unlinked: set[Path] = set()
 
-    def flaky_unlink(self: Path, *args: object, **kwargs: object) -> None:
+    def flaky_unlink(self: Path, missing_ok: bool = False) -> None:
         if self == path and self not in unlinked:
             unlinked.add(self)
-            original_unlink(self, *args, **kwargs)
+            original_unlink(self, missing_ok=missing_ok)
             raise FileNotFoundError(self)
-        original_unlink(self, *args, **kwargs)
+        original_unlink(self, missing_ok=missing_ok)
 
     monkeypatch.setattr(Path, "unlink", flaky_unlink)
 
