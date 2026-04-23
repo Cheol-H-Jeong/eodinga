@@ -38,6 +38,7 @@ class QueryChipRow(QWidget):
         self._chips_layout = chips_layout
         self._buttons: list[SecondaryButton] = []
         self.setVisible(False)
+        self._refresh_accessibility([])
 
     def set_queries(self, queries: list[str]) -> None:
         while self._buttons:
@@ -55,6 +56,20 @@ class QueryChipRow(QWidget):
             self._buttons.append(button)
 
         self.setVisible(bool(queries))
+        self._refresh_accessibility(queries)
+
+    def _refresh_accessibility(self, queries: list[str]) -> None:
+        if not queries:
+            self.setAccessibleDescription(f"No {self._label_text.lower()} launcher queries are available.")
+            self._chips_container.setAccessibleDescription("No launcher query chips are available.")
+            return
+        summary = ", ".join(queries)
+        self.setAccessibleDescription(
+            f"{len(queries)} {self._label_text.lower()} launcher queries are available: {summary}."
+        )
+        self._chips_container.setAccessibleDescription(
+            f"Launcher query chips for {summary}. Press Tab to focus a chip and Enter or Space to apply it."
+        )
 
     @property
     def buttons(self) -> list[SecondaryButton]:
