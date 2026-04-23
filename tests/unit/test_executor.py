@@ -1272,6 +1272,38 @@ def test_search_root_scope_matches_windows_paths_with_drive_letter_case_differen
     assert hits == [Path(r"C:\workspace\reports\alpha.txt")]
 
 
+def test_search_root_scope_matches_windows_long_path_entries(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        r"\\?\C:\workspace\reports\alpha.txt",
+        1024,
+        now,
+        "txt",
+        body_text="alpha",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        r"\\?\D:\workspace\reports\alpha.txt",
+        1024,
+        now - 60,
+        "txt",
+        body_text="alpha other drive",
+    )
+    tmp_db.commit()
+
+    hits = [
+        hit.file.path
+        for hit in search(tmp_db, "alpha", limit=10, root=Path(r"C:\workspace\reports")).hits
+    ]
+
+    assert hits == [Path(r"\\?\C:\workspace\reports\alpha.txt")]
+
+
 def test_plain_query_can_fall_back_to_content_matches(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/projects/alpha.txt", 1024, now, "txt", body_text="launch checklist")

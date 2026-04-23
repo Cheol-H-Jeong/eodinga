@@ -38,6 +38,16 @@ def scope_path_variants(path_text: str) -> tuple[str, ...]:
             add_variant(normalized[0].upper() + variant[1:])
             add_variant(normalized[0].lower() + variant[1:])
 
+    backslash_variant = normalized.replace("/", "\\")
+    if len(backslash_variant) >= 3 and backslash_variant[1] == ":" and backslash_variant[0].isalpha():
+        drive_prefixed = "\\\\?\\" + backslash_variant
+        add_variant(drive_prefixed)
+        add_variant(drive_prefixed.replace("\\", "/"))
+    elif backslash_variant.startswith("\\\\"):
+        unc_prefixed = "\\\\?\\UNC\\" + backslash_variant.lstrip("\\")
+        add_variant(unc_prefixed)
+        add_variant(unc_prefixed.replace("\\", "/"))
+
     return tuple(variants)
 
 
