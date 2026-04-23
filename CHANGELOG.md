@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.956 - 2026-04-24
+
+- Added future-facing relative date aliases to the query engine, including `next-day`, `next-week`, `next-month`, and `next-year`, while also accepting `day`, `this-day`, and `previous-day` spellings for the current and previous day windows.
+- Documented the expanded date-macro surface in the README and DSL cheatsheet so query users can discover the new calendar-window aliases without reading implementation code.
+- Added compiler, executor, grammar, and docs-asset coverage to keep the new relative-date aliases stable across cached compilation, execution, and generated documentation checks.
+
 ## 0.1.951 - 2026-04-24
 
 - Expanded query date parsing so `date:2026`, `date:2026-02`, and matching `modified:`/`created:` forms resolve to full ISO year and month spans instead of requiring day-level literals.
