@@ -434,8 +434,18 @@ def _fetch_path_candidates_python_scan(
         file_id: record
         for file_id, record in records.items()
         if all(
-            _text_matches(record.name, term.value, branch.case_sensitive)
-            or _text_matches(str(record.path), term.value, branch.case_sensitive)
+            _term_matches(
+                record.name,
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
+            or _term_matches(
+                str(record.path),
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
             for term in positive_terms
         )
     }
@@ -660,7 +670,12 @@ def _scan_auto_content_candidates(
         for file_id, record in batch.items():
             content_text = content_texts.get(file_id, "")
             if not all(
-                _text_matches(content_text, term.value, branch.case_sensitive)
+                _term_matches(
+                    content_text,
+                    term.value,
+                    kind=term.kind,
+                    case_sensitive=branch.case_sensitive,
+                )
                 for term in positive_terms
             ):
                 continue
@@ -740,12 +755,22 @@ def _derive_name_path_hits(
         target_name = record.name
         target_path = str(record.path)
         if any(
-            _text_matches(target_name, term.value, branch.case_sensitive)
+            _term_matches(
+                target_name,
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
             for term in positive_terms
         ):
             name_hits.append(record.id)
         if any(
-            _text_matches(target_path, term.value, branch.case_sensitive)
+            _term_matches(
+                target_path,
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
             for term in positive_terms
         ):
             path_hits.append(record.id)

@@ -605,6 +605,46 @@ def test_execute_decomposed_korean_phrase_query_matches_across_punctuation_in_co
     assert hits == ["spring-notes.txt"]
 
 
+def test_execute_decomposed_korean_phrase_query_matches_path_via_python_scan(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    decomposed_name = unicodedata.normalize("NFD", "회의록-봄.txt")
+    _insert_file(
+        tmp_db,
+        1,
+        f"/workspace/korean/{decomposed_name}",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="spring note",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, '"회의록 봄"', limit=5).hits]
+
+    assert hits == [decomposed_name]
+
+
+def test_execute_decomposed_korean_phrase_query_matches_auto_content_via_scan(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    body_text = unicodedata.normalize("NFD", "회의록-봄 승인")
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/korean/spring-summary.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text=body_text,
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, '"회의록 봄"', limit=5).hits]
+
+    assert hits == ["spring-summary.txt"]
+
+
 def test_execute_duplicate_and_negated_size_queries(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     duplicate_hash = b"same-content"
