@@ -327,6 +327,13 @@ def test_compile_reuses_cached_queries() -> None:
     assert first is second
 
 
+def test_compile_skips_cache_for_relative_date_queries() -> None:
+    first = compile("date:today")
+    second = compile("date:today")
+
+    assert first is not second
+
+
 def test_compile_path_filter_escapes_like_wildcards() -> None:
     compiled = compile_query(parse(r"path:100%_complete^notes"))
     branch = compiled.branches[0]
