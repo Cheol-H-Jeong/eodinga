@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.142 - 2026-04-23
+## 0.1.147 - 2026-04-23
 
 - Restored launcher config compatibility for persisted `pinned_queries`, which stops CLI and GUI startup paths from crashing on existing user configs while keeping the strict schema intact.
 - Optimized the filesystem walker to carry `os.scandir()` metadata forward, avoiding an extra `lstat()` for discovered children, and added an opt-in perf regression that pins minimum `walk_batched` throughput behind `EODINGA_RUN_PERF=1`.
