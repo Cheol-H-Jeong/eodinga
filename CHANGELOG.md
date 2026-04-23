@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.537 - 2026-04-23
+
+- Preserved phrase semantics in the query executor's path scan fallback, so bare phrase searches still match decomposed Korean filenames and punctuation-delimited path segments when FTS cannot carry the query.
+- Preserved phrase semantics in the auto-content scan fallback, so bare phrase searches still match decomposed Korean content across punctuation boundaries even when the engine has to rescue the query outside FTS.
+
 ## 0.1.525 - 2026-04-23
 
 - Counted successful parser runs alongside existing skip and error paths, so `stats --json` now reports fuller per-parser activity instead of only failures.
