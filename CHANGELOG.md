@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.401 - 2026-04-23
+
+- Reduced query fallback overhead by scanning unicode/path fallback candidates with lightweight ID-first batches and hydrating full records only for matches.
+- Chunked content-text lookups behind cached SQL shapes so large record-filter passes reuse prepared statement forms instead of rebuilding oversized `IN (...)` queries.
+- Added a gated unicode fallback perf benchmark for decomposed Korean filenames so `EODINGA_RUN_PERF=1` now measures the slow-path query budget directly.
+
 ## 0.1.385 - 2026-04-23
 
 - Fixed slash-delimited query parsing so top-level regex literals and spaced operator regex values now close correctly when the pattern ends with an even run of backslashes before the delimiter.
