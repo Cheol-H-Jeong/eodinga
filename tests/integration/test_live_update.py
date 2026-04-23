@@ -354,6 +354,64 @@ def test_live_cross_root_move_updates_global_and_root_scoped_queries(tmp_path: P
     assert all_hits == [destination]
 
 
+def test_live_cross_root_move_updates_path_filters_and_root_scope(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    moved = root_a / "draft-note.txt"
+    moved.write_text("cross root path visibility\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        destination = root_b / "published-note.txt"
+        moved.rename(destination)
+
+        appeared_elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "cross root path visibility",
+            destination,
+            deadline_seconds=0.5,
+        )
+        removed_elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "cross root path visibility",
+            moved,
+            deadline_seconds=0.5,
+        )
+        source_path_hits = [hit.file.path for hit in search(conn, "path:draft-note", limit=5).hits]
+        destination_path_hits = [
+            hit.file.path for hit in search(conn, "path:published-note", limit=5).hits
+        ]
+        alpha_hits = [hit.file.path for hit in search(conn, "path:published-note", limit=5, root=root_a).hits]
+        beta_hits = [hit.file.path for hit in search(conn, "path:published-note", limit=5, root=root_b).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert appeared_elapsed <= 0.5
+    assert removed_elapsed <= 0.5
+    assert source_path_hits == []
+    assert destination_path_hits == [destination]
+    assert alpha_hits == []
+    assert beta_hits == [destination]
+
+
 def test_live_delete_removed_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
@@ -409,6 +467,66 @@ def test_live_delete_removed_with_multi_root_watchers_and_root_scope(tmp_path: P
     assert elapsed <= 0.5
     assert alpha_hits == [survivor]
     assert beta_hits == []
+
+
+def test_live_multi_root_delete_then_recreate_same_path_replaces_root_scoped_hits(
+    tmp_path: Path,
+) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    survivor = root_a / "alpha-stable.txt"
+    target = root_b / "beta-recreate.txt"
+    survivor.write_text("alpha scoped survivor\n", encoding="utf-8")
+    target.write_text("before beta recreate marker\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        initial_beta_hits = [
+            hit.file.path
+            for hit in search(conn, "before beta recreate marker", limit=5, root=root_b).hits
+        ]
+        target.unlink()
+        target.write_text("after beta recreate marker\n", encoding="utf-8")
+
+        elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "after beta recreate marker",
+            target,
+            deadline_seconds=0.5,
+        )
+        stale_beta_hits = [
+            hit.file.path
+            for hit in search(conn, "before beta recreate marker", limit=5, root=root_b).hits
+        ]
+        current_beta_hits = [
+            hit.file.path
+            for hit in search(conn, "after beta recreate marker", limit=5, root=root_b).hits
+        ]
+        alpha_hits = [hit.file.path for hit in search(conn, "alpha scoped survivor", limit=5, root=root_a).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_beta_hits == [target]
+    assert elapsed <= 0.5
+    assert stale_beta_hits == []
+    assert current_beta_hits == [target]
+    assert alpha_hits == [survivor]
 
 
 def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Path) -> None:
