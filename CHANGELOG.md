@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.853 - 2026-04-23
+## 0.1.861 - 2026-04-23
 
 - Clamped restored launcher popup origins back into the visible screen when saved coordinates drift left or above the active display, without changing the existing restore behavior for still-visible right-edge positions.
 - Added launcher result context menus for open, reveal, copy path, copy name, and properties, and exposed the same menu from the keyboard via the `Menu` key and `Shift+F10`.
