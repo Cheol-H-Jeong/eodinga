@@ -278,6 +278,35 @@ def test_walk_batched_indexes_symlinked_root_using_alias_paths(tmp_path: Path) -
     assert record_by_path[alias].is_dir is True
 
 
+def test_walk_batched_resolves_symlinked_root_once_before_descending(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = tmp_path / "real"
+    real.mkdir()
+    (real / "docs").mkdir()
+    (real / "docs" / "guide.txt").write_text("guide", encoding="utf-8")
+    alias = tmp_path / "alias"
+    alias.symlink_to(real, target_is_directory=True)
+
+    resolve_calls: list[Path] = []
+    original_resolve_safe = walker_module.resolve_safe
+
+    def counting_resolve(path: Path) -> Path:
+        resolve_calls.append(path)
+        return original_resolve_safe(path)
+
+    monkeypatch.setattr(walker_module, "resolve_safe", counting_resolve)
+
+    rules = PathRules(root=alias, include=(str(alias), f"{alias}/**"), exclude=())
+    records = [record for batch in walk_batched(alias, rules) for record in batch]
+    paths = {record.path for record in records}
+
+    assert alias in paths
+    assert alias / "docs" in paths
+    assert alias / "docs" / "guide.txt" in paths
+    assert resolve_calls.count(alias) == 1
+
+
 def test_walk_batched_marks_symlinked_directories_as_directories(tmp_path: Path) -> None:
     root = tmp_path / "tree"
     real = root / "real"

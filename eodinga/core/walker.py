@@ -45,15 +45,10 @@ def _to_record(root_id: int, path: Path, stat_result: stat_result, indexed_at: i
     )
 
 
-def _should_descend(path: Path, root: Path, stat_result: stat_result) -> bool:
-    if S_ISDIR(stat_result.st_mode) and not S_ISLNK(stat_result.st_mode):
+def _should_descend(path: Path, root: Path, stat_result: stat_result, *, is_dir: bool) -> bool:
+    if is_dir and not S_ISLNK(stat_result.st_mode):
         return True
-    if path != root or not S_ISLNK(stat_result.st_mode):
-        return False
-    try:
-        return resolve_safe(path).is_dir()
-    except OSError:
-        return False
+    return path == root and S_ISLNK(stat_result.st_mode) and is_dir
 
 
 def _queue_target(target: Path | ScanEntry, *, needs_resolve: bool) -> WalkTarget:
@@ -82,19 +77,23 @@ def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[lis
             continue
         if not should_index(current_path, rules):
             continue
-        batch.append(
-            _to_record(
-                root_id=root_id,
-                path=current_path,
-                stat_result=current_stat,
-                indexed_at=indexed_at,
-            )
+        record = _to_record(
+            root_id=root_id,
+            path=current_path,
+            stat_result=current_stat,
+            indexed_at=indexed_at,
         )
+        batch.append(record)
         if len(batch) >= BATCH_SIZE:
             yield batch
             batch = []
             indexed_at = int(time())
-        if not _should_descend(current_path, root, current_stat):
+        if not _should_descend(
+            current_path,
+            root,
+            current_stat,
+            is_dir=record.is_dir,
+        ):
             continue
         inode_key = (current_stat.st_dev, current_stat.st_ino)
         if inode_key in visited_dirs:
