@@ -212,6 +212,7 @@ def test_report_crash_writes_log_and_stderr(tmp_path: Path, monkeypatch, capsys)
     crash_path = report_crash(RuntimeError("boom"), context="reported crash")
 
     captured = capsys.readouterr()
+    assert crash_path is not None
     assert str(crash_path) in captured.err
     assert "reported crash" in crash_path.read_text(encoding="utf-8")
     counters = cast(dict[str, int], snapshot_metrics()["counters"])

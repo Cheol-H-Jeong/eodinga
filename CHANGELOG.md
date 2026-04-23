@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.525 - 2026-04-23
+
+- Counted successful parser runs alongside existing skip and error paths, so `stats --json` now reports fuller per-parser activity instead of only failures.
+- Exposed lightweight runtime process metrics in observability snapshots, crash logs, and `stats --json`, including thread count, best-effort RSS bytes, and open file descriptor count.
+- Hardened crash reporting so a failed `crash-*.log` write records `crash_log_write_failures`, preserves crash-type counters, and still emits a usable stderr diagnostic instead of cascading into a second unhandled failure.
+
 ## 0.1.524 - 2026-04-23
 
 - Retained a bounded in-memory timeline of recent command snapshots and exposed it through `stats --json`, so operators can see the last successful index/search/stats/doctor/version activity without scraping debug logs.
