@@ -8,6 +8,7 @@ import pytest
 
 import eodinga.core.walker as walker_module
 from eodinga.common import PathRules
+from eodinga.core.fs import ScandirEntry
 from eodinga.core.walker import walk_batched
 
 
@@ -59,8 +60,39 @@ def test_walk_batched_reuses_discovery_stat_result(
 
     assert {record.path for record in records} == {root, nested, sample}
     assert stat_calls.count(root) == 1
-    assert stat_calls.count(nested) == 1
-    assert stat_calls.count(sample) == 1
+    assert nested not in stat_calls
+    assert sample not in stat_calls
+
+
+def test_walk_batched_falls_back_to_stat_when_scandir_entry_lacks_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "tree"
+    child = root / "child.txt"
+    root.mkdir()
+    child.write_text("sample", encoding="utf-8")
+
+    stat_calls: list[Path] = []
+    original_stat_safe = walker_module.stat_safe
+    original_scandir_safe = walker_module.scandir_safe
+
+    def counting_stat(path: Path) -> os.stat_result:
+        stat_calls.append(path)
+        return original_stat_safe(path)
+
+    def scandir_without_stat(path: Path) -> list[ScandirEntry]:
+        entries = list(original_scandir_safe(path))
+        return [ScandirEntry(path=entry.path, stat_result=None) for entry in entries]
+
+    monkeypatch.setattr(walker_module, "stat_safe", counting_stat)
+    monkeypatch.setattr(walker_module, "scandir_safe", scandir_without_stat)
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+
+    assert {record.path for record in records} == {root, child}
+    assert stat_calls.count(root) == 1
+    assert stat_calls.count(child) == 1
 
 
 def test_walk_batched_uses_fs_wrapper_to_detect_symlinked_directories(
