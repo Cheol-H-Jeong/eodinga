@@ -360,18 +360,54 @@ def _prefix_like_param(value: str) -> str:
 
 
 def _root_variants(root_text: str) -> tuple[str, ...]:
-    candidates = (
-        root_text,
-        root_text.replace("\\", "/"),
-        root_text.replace("/", "\\"),
-    )
+    plain_root = _strip_windows_extended_prefix(root_text)
+    candidates = {
+        plain_root,
+        plain_root.replace("\\", "/"),
+        plain_root.replace("/", "\\"),
+    }
+    extended_root = _windows_extended_root(plain_root)
+    if extended_root is not None:
+        candidates.update(
+            {
+                extended_root,
+                extended_root.replace("\\", "/"),
+                extended_root.replace("/", "\\"),
+            }
+        )
     variants: dict[str, None] = {}
     for candidate in candidates:
         variants[candidate] = None
-        if len(candidate) >= 2 and candidate[1] == ":" and candidate[0].isalpha():
-            variants[f"{candidate[0].lower()}{candidate[1:]}"] = None
-            variants[f"{candidate[0].upper()}{candidate[1:]}"] = None
+        drive_index = _windows_drive_index(candidate)
+        if drive_index is not None:
+            variants[f"{candidate[:drive_index]}{candidate[drive_index].lower()}{candidate[drive_index + 1 :]}"] = None
+            variants[f"{candidate[:drive_index]}{candidate[drive_index].upper()}{candidate[drive_index + 1 :]}"] = None
     return tuple(variants)
+
+
+def _strip_windows_extended_prefix(root_text: str) -> str:
+    if len(root_text) >= 6 and root_text.startswith("\\\\?\\") and root_text[4].isalpha() and root_text[5] == ":":
+        return root_text[4:]
+    if root_text.startswith("\\\\?\\UNC\\"):
+        return f"\\\\{root_text[8:]}"
+    return root_text
+
+
+def _windows_extended_root(root_text: str) -> str | None:
+    windows_root = root_text.replace("/", "\\")
+    if len(windows_root) >= 3 and windows_root[1] == ":" and windows_root[0].isalpha():
+        return f"\\\\?\\{windows_root}"
+    if windows_root.startswith("\\\\") and not windows_root.startswith("\\\\?\\"):
+        return f"\\\\?\\UNC\\{windows_root[2:]}"
+    return None
+
+
+def _windows_drive_index(root_text: str) -> int | None:
+    if len(root_text) >= 2 and root_text[1] == ":" and root_text[0].isalpha():
+        return 0
+    if len(root_text) >= 7 and root_text.startswith("\\\\?\\") and root_text[5] == ":" and root_text[4].isalpha():
+        return 4
+    return None
 
 
 def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:
