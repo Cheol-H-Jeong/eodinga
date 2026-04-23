@@ -413,6 +413,13 @@ def test_watcher_flush_metrics_increment(tmp_path: Path) -> None:
     assert counters["watcher_events_flushed"] == 1
     assert histograms["watch_flush_batch_size"]["count"] == 1
     assert histograms["watch_event_lag_ms"]["count"] == 1
+    snapshot = recent_snapshots()[-1]
+    assert snapshot["name"] == "watcher.flush"
+    assert snapshot["payload"] == {
+        "batch_size": 1,
+        "forced": True,
+        "event_types": {"modified": 1},
+    }
 
 
 def test_watcher_backpressure_metrics_increment(tmp_path: Path) -> None:
@@ -457,6 +464,13 @@ def test_watcher_backpressure_metrics_increment(tmp_path: Path) -> None:
     histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
     assert counters["watcher_queue_full"] == 1
     assert histograms["watcher_queue_backpressure_ms"]["count"] == 1
+    snapshots = recent_snapshots()
+    assert snapshots[1]["name"] == "watcher.backpressure"
+    assert snapshots[1]["payload"] == {
+        "event_type": "created",
+        "path": str(tmp_path / "second.txt"),
+        "queue_maxsize": 1,
+    }
 
 
 def test_watcher_stop_counts_discarded_pending_and_queued_events(tmp_path: Path) -> None:
@@ -485,6 +499,35 @@ def test_watcher_stop_counts_discarded_pending_and_queued_events(tmp_path: Path)
 
     counters = cast(dict[str, int], snapshot_metrics()["counters"])
     assert counters["watcher_events_discarded_on_stop"] == 2
+    snapshot = recent_snapshots()[-1]
+    assert snapshot["name"] == "watcher.stop_discarded"
+    assert snapshot["payload"] == {"discarded": 2, "pending": 1, "queued": 1}
+
+
+def test_watcher_enqueue_abort_records_snapshot_when_stopped(tmp_path: Path) -> None:
+    service = WatchService()
+    reset_metrics()
+    service._stop.set()
+
+    enqueued = service._enqueue_event(
+        WatchEvent(
+            event_type="deleted",
+            path=tmp_path / "stopped.txt",
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert enqueued is False
+    assert counters["watcher_enqueue_aborted"] == 1
+    snapshot = recent_snapshots()[-1]
+    assert snapshot["name"] == "watcher.enqueue_aborted"
+    assert snapshot["payload"] == {
+        "event_type": "deleted",
+        "path": str(tmp_path / "stopped.txt"),
+        "queue_maxsize": service.queue.maxsize,
+    }
 
 
 def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:

@@ -384,9 +384,19 @@ class WatchService:
             increment_counter("watcher_flushes")
             increment_counter("watcher_events_flushed", len(delivered))
             record_histogram("watch_flush_batch_size", float(len(delivered)))
+            event_types: dict[str, int] = {}
             for event in delivered:
+                event_types[event.event_type] = event_types.get(event.event_type, 0) + 1
                 lag_ms = max((now - event.happened_at) * 1000, 0.0)
                 record_histogram("watch_event_lag_ms", lag_ms, event_type=event.event_type)
+            record_snapshot(
+                "watcher.flush",
+                {
+                    "batch_size": len(delivered),
+                    "forced": force,
+                    "event_types": dict(sorted(event_types.items())),
+                },
+            )
 
     def _restore_flushed_event(self, event: WatchEvent, retired_sources: set[Path], *, now: float) -> None:
         with self._lock:
@@ -463,6 +473,14 @@ class WatchService:
         discarded = pending_discarded + queued_discarded
         if discarded:
             increment_counter("watcher_events_discarded_on_stop", discarded)
+            record_snapshot(
+                "watcher.stop_discarded",
+                {
+                    "discarded": discarded,
+                    "pending": pending_discarded,
+                    "queued": queued_discarded,
+                },
+            )
 
     def _enqueue_event(self, event: WatchEvent) -> bool:
         blocked_at: float | None = None
@@ -480,8 +498,24 @@ class WatchService:
                 if blocked_at is None:
                     blocked_at = monotonic()
                     increment_counter("watcher_queue_full", event_type=event.event_type)
+                    record_snapshot(
+                        "watcher.backpressure",
+                        {
+                            "event_type": event.event_type,
+                            "path": str(event.path),
+                            "queue_maxsize": self.queue.maxsize,
+                        },
+                    )
                     self._logger.warning(
                         "watch queue full; applying backpressure for {}", event.path
                     )
         increment_counter("watcher_enqueue_aborted", event_type=event.event_type)
+        record_snapshot(
+            "watcher.enqueue_aborted",
+            {
+                "event_type": event.event_type,
+                "path": str(event.path),
+                "queue_maxsize": self.queue.maxsize,
+            },
+        )
         return False
