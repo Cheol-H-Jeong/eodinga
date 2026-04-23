@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.505 - 2026-04-23
+
+- Made launcher popup restore screen-aware, centering first-run placement inside the active screen and clamping saved geometry back into bounds when an old monitor layout would otherwise reopen it off-screen.
+- Routed tray and global-hotkey launcher presentation through a shared popup `present()` path so hidden windows are refit to the current screen before being raised, focused, and selected.
+
 ## 0.1.503 - 2026-04-23
 
 - Hardened the AppImage dry-run and build audits so staged Linux releases now fail on desktop-entry drift, missing strict-shell launchers, or launcher shims that stop returning to the project root before invoking `python -m eodinga`.
