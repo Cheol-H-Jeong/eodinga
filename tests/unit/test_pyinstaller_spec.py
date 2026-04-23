@@ -138,3 +138,32 @@ def test_pyinstaller_spec_discovers_importlib_resource_package_data(tmp_path: Pa
 
     assert discovered == [(str((package_dir / "sample.json").resolve()), "eodinga/assets")]
 
+
+def test_pyinstaller_spec_discovers_importlib_resources_attribute_package_data(tmp_path: Path) -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_package_data = cast(Callable[[Path], list[tuple[str, str]]], namespace["_discover_package_data"])
+
+    source_root = tmp_path / "eodinga"
+    package_dir = source_root / "assets"
+    package_dir.mkdir(parents=True)
+    (source_root / "__init__.py").write_text("", encoding="utf-8")
+    (package_dir / "__init__.py").write_text("", encoding="utf-8")
+    (package_dir / "sample.json").write_text('{"ok": true}', encoding="utf-8")
+    (source_root / "consumer.py").write_text(
+        "\n".join(
+            [
+                "import importlib.resources",
+                "",
+                'importlib.resources.files("eodinga.assets").joinpath("sample.json").read_text(encoding="utf-8")',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    namespace["PROJECT_ROOT"] = tmp_path
+
+    discovered = discover_package_data(source_root)
+
+    assert discovered == [(str((package_dir / "sample.json").resolve()), "eodinga/assets")]

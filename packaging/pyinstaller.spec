@@ -167,7 +167,15 @@ def _files_call_matches(node: ast.AST, aliases: set[str], module_aliases: set[st
     if node.attr != "files":
         return False
     base = node.value
-    return isinstance(base, ast.Name) and base.id in module_aliases
+    if isinstance(base, ast.Name):
+        return base.id in module_aliases
+    if not isinstance(base, ast.Attribute):
+        return False
+    return (
+        isinstance(base.value, ast.Name)
+        and base.value.id == "importlib"
+        and base.attr in module_aliases
+    )
 
 
 def _discover_resource_packages(source_root: Path) -> list[str]:
@@ -176,7 +184,7 @@ def _discover_resource_packages(source_root: Path) -> list[str]:
         module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
         files_aliases = {"files"}
         resources_module_aliases = {"resources"}
-        importlib_resources_module_aliases = {"importlib.resources"}
+        importlib_resources_module_aliases = {"resources"}
         for node in ast.walk(module):
             if isinstance(node, ast.Import):
                 for alias in node.names:
