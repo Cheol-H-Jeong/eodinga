@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.179 - 2026-04-23
+
+- Cached compiled include/exclude `PathSpec` rules and the expanded denylist so repeated `should_index()` checks stop rebuilding matcher state while walking large trees.
+- Reworked the filesystem walker to keep `os.scandir()` child metadata as queued `(path, lstat)` pairs, avoiding an immediate second stat pass for every discovered entry.
+- Consolidated executor SQL-shape caches around a 128-entry template LRU and added cached placeholder SQL for content-text fetches so repeated query scans reuse SQLite prepared statements more effectively.
+
 ## 0.1.174 - 2026-04-23
 
 - Expanded `README.md` with a clearer shipped feature matrix, more query examples, practical CLI workflows, and a completed FAQ covering local-only behavior, recovery, parser extras, and health checks.
