@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.303 - 2026-04-23
+
+- Fixed sibling multi-root watcher coverage so a file moved from one watched root into another now clears the source-side hit instead of leaving a ghost row behind.
+- Added live-update integration coverage for cross-root moves, proving the destination becomes queryable within 500 ms and root-scoped searches follow the file to its new root.
+- Expanded hot-restart integration coverage so reopened and resumed staged-build indexes keep cross-root move results root-scoped after watcher recovery.
+
 ## 0.1.302 - 2026-04-23
 
 - Normalized query fallback phrase matching so quoted phrases still match across separators such as newlines and punctuation in path and content scans.
