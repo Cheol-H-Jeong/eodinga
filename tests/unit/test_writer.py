@@ -57,6 +57,50 @@ def test_writer_bulk_insert_and_incremental_apply_are_fast(tmp_db: Path, tmp_pat
     assert incr_elapsed < 0.05
 
 
+def test_writer_bulk_upsert_uses_fast_write_pragmas(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    conn.commit()
+    writer = IndexWriter(conn)
+    records = [_synthetic_record(index, tmp_path) for index in range(2)]
+
+    assert conn.execute("PRAGMA synchronous;").fetchone() == (2,)
+    assert writer.bulk_upsert(records) == 2
+    assert conn.execute("PRAGMA synchronous;").fetchone() == (2,)
+
+
+def test_writer_apply_events_uses_fast_write_pragmas(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    conn.commit()
+    writer = IndexWriter(conn)
+    path = tmp_path / "live.txt"
+    path.write_text("live", encoding="utf-8")
+
+    seen_states: list[int] = []
+
+    def recording_loader(candidate: Path) -> FileRecord | None:
+        synchronous = conn.execute("PRAGMA synchronous;").fetchone()
+        assert synchronous is not None
+        seen_states.append(int(synchronous[0]))
+        return make_record(candidate)
+
+    processed = writer.apply_events(
+        [WatchEvent(event_type="created", path=path)],
+        record_loader=recording_loader,
+    )
+
+    assert processed == 1
+    assert seen_states == [1]
+    assert conn.execute("PRAGMA synchronous;").fetchone() == (2,)
+
+
 def test_writer_caches_chunk_shaped_sql_templates() -> None:
     writer_module._delete_files_sql.cache_clear()
     writer_module._delete_content_rows_sql.cache_clear()

@@ -333,6 +333,25 @@ def test_temporary_pragmas_restores_values_after_error(tmp_path: Path) -> None:
         conn.close()
 
 
+def test_temporary_pragmas_is_noop_inside_active_transaction(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    conn = connect_database(path)
+    try:
+        baseline = conn.execute("PRAGMA synchronous;").fetchone()
+        assert baseline is not None
+        conn.execute("BEGIN")
+        with temporary_pragmas(conn, {"synchronous": "NORMAL", "cache_size": -2048}):
+            synchronous = conn.execute("PRAGMA synchronous;").fetchone()
+            cache_size = conn.execute("PRAGMA cache_size;").fetchone()
+            assert synchronous is not None
+            assert cache_size is not None
+            assert int(synchronous[0]) == int(baseline[0])
+            assert int(cache_size[0]) == -64000
+        conn.rollback()
+    finally:
+        conn.close()
+
+
 def test_recover_stale_wal_returns_false_when_nonempty_sidecar_survives(
     tmp_path: Path, monkeypatch
 ) -> None:

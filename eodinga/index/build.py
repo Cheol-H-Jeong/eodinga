@@ -12,11 +12,17 @@ from eodinga.common import PathRules
 from eodinga.config import RootConfig
 from eodinga.content.registry import parse
 from eodinga.core.walker import walk_batched
-from eodinga.index.storage import _cleanup_index_files, atomic_replace_index, connect_database
+from eodinga.index.storage import (
+    _cleanup_index_files,
+    atomic_replace_index,
+    connect_database,
+    temporary_pragmas,
+)
 from eodinga.index.writer import IndexWriter
 from eodinga.observability import increment_counter, record_histogram
 
 DEFAULT_MAX_BODY_CHARS = 4096
+_BULK_WRITE_PRAGMAS = {"synchronous": "NORMAL", "cache_size": -128000}
 
 
 class RebuildResult(NamedTuple):
@@ -129,28 +135,29 @@ def rebuild_index(
     try:
         writer = IndexWriter(conn, parser_callback=parser_callback)
         _insert_roots(conn, effective_roots)
-        with _SignalStop() as stop:
-            for root_id, root in enumerate(effective_roots, start=1):
+        with temporary_pragmas(conn, _BULK_WRITE_PRAGMAS):
+            with _SignalStop() as stop:
+                for root_id, root in enumerate(effective_roots, start=1):
+                    stop.raise_if_requested()
+                    rules = PathRules(
+                        root=root.path,
+                        include=tuple(root.include),
+                        exclude=tuple(root.exclude),
+                    )
+                    for batch in walk_batched(root.path, rules, root_id=root_id):
+                        stop.raise_if_requested()
+                        indexed = writer.bulk_upsert(batch)
+                        if batch:
+                            record_histogram(
+                                "index_batch_size",
+                                float(len(batch)),
+                                root=str(root.path),
+                            )
+                        files_indexed += indexed
+                        if indexed:
+                            increment_counter("files_indexed", indexed, root=str(root.path))
+                        stop.raise_if_requested()
                 stop.raise_if_requested()
-                rules = PathRules(
-                    root=root.path,
-                    include=tuple(root.include),
-                    exclude=tuple(root.exclude),
-                )
-                for batch in walk_batched(root.path, rules, root_id=root_id):
-                    stop.raise_if_requested()
-                    indexed = writer.bulk_upsert(batch)
-                    if batch:
-                        record_histogram(
-                            "index_batch_size",
-                            float(len(batch)),
-                            root=str(root.path),
-                        )
-                    files_indexed += indexed
-                    if indexed:
-                        increment_counter("files_indexed", indexed, root=str(root.path))
-                    stop.raise_if_requested()
-            stop.raise_if_requested()
     except KeyboardInterrupt:
         conn.close()
         raise

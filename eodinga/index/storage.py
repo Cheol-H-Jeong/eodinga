@@ -49,6 +49,9 @@ def temporary_pragmas(
     conn: sqlite3.Connection,
     overrides: Mapping[str, str | int],
 ) -> Iterator[None]:
+    if conn.in_transaction or not overrides:
+        yield
+        return
     previous: dict[str, str] = {}
     for name, value in overrides.items():
         previous[name] = _read_pragma(conn, name)
