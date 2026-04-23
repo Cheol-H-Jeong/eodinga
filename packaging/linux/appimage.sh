@@ -103,6 +103,8 @@ payload = {
         "rendered_path": str(rendered_recipe_path),
         "rendered_exists": rendered_recipe_path.exists(),
         "rendered_version_matches_package": f"version: ${VERSION}" in rendered_recipe_text,
+        "rendered_unresolved_tokens": [token for token in ["${APPIMAGE_VERSION_TOKEN}"] if token in rendered_recipe_text],
+        "rendered_has_no_template_tokens": "${APPIMAGE_VERSION_TOKEN}" not in rendered_recipe_text,
         "references_desktop_entry": "packaging/linux/eodinga.desktop" in recipe_text,
         "references_icon_asset": "packaging/linux/eodinga.svg" in recipe_text,
         "launches_gui": "exec_args: gui" in recipe_text,

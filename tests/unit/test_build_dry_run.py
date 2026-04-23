@@ -77,6 +77,8 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
         'dist\\\\eodinga-cli\\\\*',
     ]
     assert payload["inno_setup"]["rendered_source_entries_match_pyinstaller_dist"] is True
+    assert payload["inno_setup"]["rendered_unresolved_tokens"] == []
+    assert payload["inno_setup"]["rendered_has_no_template_tokens"] is True
     assert payload["inno_setup"]["privileges_lowest"] is True
     assert payload["inno_setup"]["disables_program_group_page"] is True
     assert payload["inno_setup"]["disables_dir_page"] is True
@@ -116,6 +118,17 @@ def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -
     errors = module._validate_windows_audit(payload)
 
     assert "Inno uninstall purge path no longer preserves roaming config by default" in errors
+
+
+def test_windows_audit_validator_rejects_unresolved_render_tokens() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["inno_setup"]["rendered_unresolved_tokens"] = ["@@GUI_EXE_NAME@@"]
+    payload["inno_setup"]["rendered_has_no_template_tokens"] = False
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "Rendered Inno script still contains unresolved template tokens" in errors
 
 
 def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
@@ -249,6 +262,8 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert Path(payload["recipe"]["rendered_path"]).exists()
     assert payload["recipe"]["rendered_exists"] is True
     assert payload["recipe"]["rendered_version_matches_package"] is True
+    assert payload["recipe"]["rendered_unresolved_tokens"] == []
+    assert payload["recipe"]["rendered_has_no_template_tokens"] is True
     assert payload["recipe"]["references_desktop_entry"] is True
     assert payload["recipe"]["references_icon_asset"] is True
     assert payload["recipe"]["launches_gui"] is True
@@ -369,6 +384,41 @@ def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
     assert payload["dry_run"] is False
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
+
+
+def test_linux_appimage_audit_validator_rejects_unresolved_render_tokens() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "archive": f"packaging/dist/eodinga-{__version__}-linux-appdir.tar.gz",
+        "recipe": {
+            "exists": True,
+            "contains_version_template": True,
+            "rendered_exists": True,
+            "rendered_version_matches_package": True,
+            "rendered_has_no_template_tokens": False,
+            "references_desktop_entry": True,
+            "references_icon_asset": True,
+            "launches_gui": True,
+        },
+        "icon": {
+            "exists": True,
+            "diricon_exists": True,
+            "desktop_icon_matches_asset": True,
+        },
+        "apprun": {
+            "is_executable": True,
+            "launches_gui": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "executes_python_module": True,
+        },
+    }
+
+    errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
+
+    assert "Rendered AppImage recipe still contains unresolved template tokens" in errors
 
 
 def test_linux_deb_dry_run_stages_recipe() -> None:

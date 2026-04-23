@@ -24,6 +24,7 @@ INNO_GUI_DIST_TOKEN = "@@GUI_DIST_NAME@@"
 INNO_CLI_DIST_TOKEN = "@@CLI_DIST_NAME@@"
 INNO_GUI_EXE_TOKEN = "@@GUI_EXE_NAME@@"
 _INNO_APP_ID_PATTERN = re.compile(r"^\{\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$")
+_TEMPLATE_TOKEN_PATTERN = re.compile(r"@@[A-Z0-9_]+@@")
 
 
 def _read_project_version() -> str:
@@ -73,6 +74,10 @@ def _macro_value(text: str, macro_name: str) -> str | None:
     if match is None:
         return None
     return match.group(1)
+
+
+def _unresolved_template_tokens(text: str) -> list[str]:
+    return sorted(set(_TEMPLATE_TOKEN_PATTERN.findall(text)))
 
 
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
@@ -136,6 +141,8 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "output_base_filename": output_base_filename,
             "rendered_source_entries": _source_entries(rendered_text),
             "rendered_source_entries_match_pyinstaller_dist": _source_entries(rendered_text) == rendered_source_entries,
+            "rendered_unresolved_tokens": _unresolved_template_tokens(rendered_text),
+            "rendered_has_no_template_tokens": not _unresolved_template_tokens(rendered_text),
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
             "contains_user_install_dir": _inno_contains(rendered_text, r"DefaultDirName={userappdata}\eodinga"),
             "contains_rendered_uninstall_display_icon": _inno_contains(
@@ -202,6 +209,7 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         "app_version_uses_template": "Inno AppVersion macro no longer uses the template token",
         "source_entries_match_pyinstaller_dist": "Inno source entries drifted from PyInstaller dist names",
         "rendered_source_entries_match_pyinstaller_dist": "Rendered Inno source entries drifted from PyInstaller dist names",
+        "rendered_has_no_template_tokens": "Rendered Inno script still contains unresolved template tokens",
         "contains_rendered_uninstall_display_icon": "Rendered Inno uninstall icon does not point at the GUI executable",
         "contains_start_menu_shortcut": "Rendered Inno start menu shortcut is missing",
         "contains_postinstall_launch": "Rendered Inno postinstall launch action is missing",
@@ -236,6 +244,7 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (recipe_payload.get("contains_version_template"), "AppImage recipe no longer uses the version template"),
         (recipe_payload.get("rendered_exists"), "Rendered AppImage recipe is missing"),
         (recipe_payload.get("rendered_version_matches_package"), "Rendered AppImage recipe version does not match the package version"),
+        (recipe_payload.get("rendered_has_no_template_tokens"), "Rendered AppImage recipe still contains unresolved template tokens"),
         (recipe_payload.get("references_desktop_entry"), "AppImage recipe no longer references the desktop entry"),
         (recipe_payload.get("references_icon_asset"), "AppImage recipe no longer references the icon asset"),
         (recipe_payload.get("launches_gui"), "AppImage recipe no longer launches the GUI target"),
