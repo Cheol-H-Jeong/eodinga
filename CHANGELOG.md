@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.147 - 2026-04-23
+
+- Fixed the Windows installer purge flow so opting into uninstall cleanup now removes both `%APPDATA%\\eodinga` and `%LOCALAPPDATA%\\eodinga`, matching the app's actual config and index locations instead of leaving roaming state behind.
+- Hardened the Windows packaging audit to verify both uninstall purge paths explicitly, keeping the Inno template, rendered installer script, and dry-run validation aligned.
+- Expanded PyInstaller hidden-import discovery so packaging now catches literal dynamic imports reached through aliased `importlib.import_module(...)` calls and `__import__(...)`, with unit coverage pinning those AST cases.
+
 ## 0.1.142 - 2026-04-23
 
 - Expanded the Windows PyInstaller spec so packaging now auto-discovers real `eodinga.*` module imports from the source tree, including relative imports, instead of relying only on a hand-maintained runtime list.
