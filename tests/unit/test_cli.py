@@ -16,7 +16,7 @@ from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga.index.schema import apply_schema
-from eodinga.observability import reset_metrics, snapshot_metrics
+from eodinga.observability import increment_counter, reset_metrics, snapshot_metrics
 
 
 def _insert_file(
@@ -523,6 +523,9 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["crash_types"] == {}
     assert payload["parser_activity"] == {}
     assert payload["watcher_event_types"] == {}
+    assert payload["watcher_failures"] == {}
+    assert payload["log_file_sources"] == {}
+    assert payload["log_file_disabled_reasons"] == {"disabled_pytest": 2}
     assert len(payload["recent_snapshots"]) == 1
     assert payload["recent_snapshots"][0]["name"] == "command.search"
     assert payload["recent_snapshots"][0]["payload"]["query"] == "duplicate"
@@ -667,6 +670,9 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["parser_activity"]["broken"]["errors"] == 1
     assert payload["parser_activity"]["text"]["parsed"] >= 2
     assert payload["watcher_event_types"] == {"created": 1, "modified": 1}
+    assert payload["watcher_failures"] == {}
+    assert payload["log_file_sources"] == {}
+    assert payload["log_file_disabled_reasons"] == {"disabled_pytest": 3}
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_path_source"] is None
     assert payload["log_path_disabled_reason"] == "disabled_pytest"
@@ -716,6 +722,38 @@ def test_stats_json_structures_parser_success_and_skip_counts(tmp_path: Path, ca
     assert payload["parser_activity"]["tracked"] == {"parsed": 1, "skipped_too_large": 1}
     assert payload["counters"]["parsers.tracked.parsed"] == 1
     assert payload["counters"]["parsers.tracked.skipped_too_large"] == 1
+
+
+def test_stats_json_summarizes_watcher_failures_and_file_log_sources(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(tmp_path / "logs" / "eodinga.log"))
+    reset_metrics()
+    increment_counter("watcher_observer_failures")
+    increment_counter("watcher_observer_failures.start")
+    increment_counter("watcher_observer_cleanup_failures")
+    increment_counter("watcher_observer_cleanup_failures.join")
+    increment_counter("watcher_observer_startup_cleanup_failures")
+    increment_counter("watcher_observer_startup_cleanup_failures.stop")
+    increment_counter("watcher_startup_rollbacks")
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["log_file_sources"] == {"env_override": 1}
+    assert payload["log_file_disabled_reasons"] == {}
+    assert payload["watcher_failures"] == {
+        "cleanup_failures": {"join": 1},
+        "observer_failures": {"start": 1},
+        "startup": {"rollbacks": 1},
+        "startup_cleanup_failures": {"stop": 1},
+    }
 
 
 def test_stats_json_exposes_zero_result_query_metrics(tmp_path: Path, capsys) -> None:

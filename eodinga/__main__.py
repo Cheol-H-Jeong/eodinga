@@ -246,6 +246,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         crash_types=_crash_type_summary(counters),
         parser_activity=_parser_activity_summary(counters),
         watcher_event_types=_watcher_event_type_summary(counters),
+        watcher_failures=_watcher_failure_summary(counters),
+        log_file_sources=_log_file_source_summary(counters),
+        log_file_disabled_reasons=_log_file_disabled_reason_summary(counters),
         counters=counters,
         histograms=metrics["histograms"],
         recent_snapshots=[dict(entry) for entry in recent_snapshots()],
@@ -414,6 +417,42 @@ def _watcher_event_type_summary(counters: dict[str, int]) -> dict[str, int]:
         if name.startswith(prefix)
     }
     return dict(sorted(event_types.items()))
+
+
+def _watcher_failure_summary(counters: dict[str, int]) -> dict[str, dict[str, int]]:
+    groups = {
+        "observer_failures": "watcher_observer_failures.",
+        "cleanup_failures": "watcher_observer_cleanup_failures.",
+        "startup_cleanup_failures": "watcher_observer_startup_cleanup_failures.",
+    }
+    summary: dict[str, dict[str, int]] = {}
+    for group_name, prefix in groups.items():
+        statuses = {
+            name[len(prefix) :]: value
+            for name, value in counters.items()
+            if name.startswith(prefix)
+        }
+        if statuses:
+            summary[group_name] = dict(sorted(statuses.items()))
+    if "watcher_startup_rollbacks" in counters:
+        summary["startup"] = {"rollbacks": counters["watcher_startup_rollbacks"]}
+    return dict(sorted((name, dict(sorted(values.items()))) for name, values in summary.items()))
+
+
+def _log_file_source_summary(counters: dict[str, int]) -> dict[str, int]:
+    prefix = "log_sinks.file.source."
+    sources = {
+        name[len(prefix) :]: value for name, value in counters.items() if name.startswith(prefix)
+    }
+    return dict(sorted(sources.items()))
+
+
+def _log_file_disabled_reason_summary(counters: dict[str, int]) -> dict[str, int]:
+    prefix = "log_sinks.file.disabled."
+    reasons = {
+        name[len(prefix) :]: value for name, value in counters.items() if name.startswith(prefix)
+    }
+    return dict(sorted(reasons.items()))
 
 
 def main(argv: list[str] | None = None) -> int:
