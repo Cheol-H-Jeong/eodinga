@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.214 - 2026-04-23
+## 0.1.215 - 2026-04-23
 
 - Fixed slash-delimited regex parsing so top-level and spaced operator regex literals now terminate correctly when the closing `/` follows an even-length backslash run, matching the existing inline-regex behavior.
 - Normalized scoped Windows search roots across drive-letter case and `\\?\` device-path aliases, so `search(..., root=...)` now matches the same indexed tree regardless of separator style or long-path spelling.
