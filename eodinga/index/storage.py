@@ -6,12 +6,14 @@ import shutil
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
+from typing import NamedTuple
 
 from eodinga.index.migrations import migrate
 from eodinga.index.schema import PRAGMAS, current_schema_version
 from eodinga.observability import get_logger
 
 SQLITE_CACHED_STATEMENTS = 128
+_ACTIVE_PRAGMA_OVERRIDES: dict[int, dict[str, str]] = {}
 _PRAGMA_VALUE_ALIASES: dict[str, dict[str, str]] = {
     "synchronous": {
         "OFF": "0",
@@ -20,6 +22,12 @@ _PRAGMA_VALUE_ALIASES: dict[str, dict[str, str]] = {
         "EXTRA": "3",
     }
 }
+
+
+class _PragmaRestore(NamedTuple):
+    name: str
+    value: str
+    was_active: bool
 
 
 def _read_pragma(conn: sqlite3.Connection, name: str) -> str:
@@ -69,19 +77,36 @@ def temporary_pragmas(
     if conn.in_transaction or not overrides:
         yield
         return
-    previous: dict[str, str] = {}
+    connection_id = id(conn)
+    active = _ACTIVE_PRAGMA_OVERRIDES.setdefault(connection_id, {})
+    restore: list[_PragmaRestore] = []
     for name, value in overrides.items():
-        current_value = _read_pragma(conn, name)
         requested_value = str(value)
+        active_value = active.get(name)
+        if active_value is not None:
+            if _pragma_matches(name, active_value, requested_value):
+                continue
+            restore.append(_PragmaRestore(name=name, value=active_value, was_active=True))
+            conn.execute(f"PRAGMA {name}={value};")
+            active[name] = requested_value
+            continue
+        current_value = _read_pragma(conn, name)
         if _pragma_matches(name, current_value, requested_value):
             continue
-        previous[name] = current_value
+        restore.append(_PragmaRestore(name=name, value=current_value, was_active=False))
         conn.execute(f"PRAGMA {name}={value};")
+        active[name] = requested_value
     try:
         yield
     finally:
-        for name, value in previous.items():
-            conn.execute(f"PRAGMA {name}={value};")
+        for entry in reversed(restore):
+            conn.execute(f"PRAGMA {entry.name}={entry.value};")
+            if entry.was_active:
+                active[entry.name] = entry.value
+            else:
+                active.pop(entry.name, None)
+        if not active:
+            _ACTIVE_PRAGMA_OVERRIDES.pop(connection_id, None)
 
 
 def _checkpoint_wal(path: Path) -> None:

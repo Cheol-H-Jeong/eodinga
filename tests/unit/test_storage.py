@@ -386,6 +386,53 @@ def test_temporary_pragmas_skips_redundant_overrides(tmp_path: Path) -> None:
     assert pragma_sets == ["PRAGMA synchronous;", "PRAGMA cache_size;"]
 
 
+def test_temporary_pragmas_skips_redundant_nested_overrides(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    conn = connect_database(path)
+    statements: list[str] = []
+    try:
+        conn.set_trace_callback(statements.append)
+        with temporary_pragmas(conn, {"synchronous": "NORMAL", "cache_size": -128000}):
+            with temporary_pragmas(conn, {"synchronous": "NORMAL", "cache_size": -128000}):
+                pass
+    finally:
+        conn.set_trace_callback(None)
+        conn.close()
+
+    pragma_sets = [statement for statement in statements if statement.startswith("PRAGMA ")]
+    assert pragma_sets == [
+        "PRAGMA synchronous;",
+        "PRAGMA synchronous=NORMAL;",
+        "PRAGMA cache_size;",
+        "PRAGMA cache_size=-128000;",
+        "PRAGMA cache_size=-64000;",
+        "PRAGMA synchronous=2;",
+    ]
+
+
+def test_temporary_pragmas_restores_outer_override_after_nested_override(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    conn = connect_database(path)
+    try:
+        with temporary_pragmas(conn, {"synchronous": "NORMAL"}):
+            outer = conn.execute("PRAGMA synchronous;").fetchone()
+            assert outer is not None
+            assert int(outer[0]) == 1
+            with temporary_pragmas(conn, {"synchronous": "FULL"}):
+                inner = conn.execute("PRAGMA synchronous;").fetchone()
+                assert inner is not None
+                assert int(inner[0]) == 2
+            restored_outer = conn.execute("PRAGMA synchronous;").fetchone()
+            assert restored_outer is not None
+            assert int(restored_outer[0]) == 1
+
+        final = conn.execute("PRAGMA synchronous;").fetchone()
+        assert final is not None
+        assert int(final[0]) == 2
+    finally:
+        conn.close()
+
+
 def test_recover_stale_wal_returns_false_when_nonempty_sidecar_survives(
     tmp_path: Path, monkeypatch
 ) -> None:
