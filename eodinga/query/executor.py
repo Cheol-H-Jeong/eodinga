@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict
 from eodinga.common import FileRecord
 from eodinga.observability import increment_counter, record_histogram
 from eodinga.query.compiler import CompiledBranch, CompiledQuery
-from eodinga.query.matching import MatchKind, normalize_search_text, text_matches
+from eodinga.query.matching import MatchKind, text_matches, text_startswith
 from eodinga.query.ranker import rank_results
 
 
@@ -420,8 +420,11 @@ def _fetch_path_candidates_python_scan(
         key=lambda record: (
             0
             if any(
-                normalize_search_text(record.name, case_sensitive=branch.case_sensitive).startswith(
-                    normalize_search_text(term.value, case_sensitive=branch.case_sensitive)
+                text_startswith(
+                    record.name,
+                    term.value,
+                    branch.case_sensitive,
+                    kind=term.kind,
                 )
                 for term in positive_terms
             )
@@ -655,10 +658,13 @@ def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> l
         return []
     hits: list[int] = []
     for file_id, record in records.items():
-        check_name = normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
         for term in positives:
-            needle = normalize_search_text(term.value, case_sensitive=branch.case_sensitive)
-            if check_name.startswith(needle):
+            if text_startswith(
+                record.name,
+                term.value,
+                branch.case_sensitive,
+                kind=term.kind,
+            ):
                 hits.append(file_id)
                 break
     return hits

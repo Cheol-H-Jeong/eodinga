@@ -373,6 +373,34 @@ def test_execute_phrase_query_matches_hyphenated_path_tokens(tmp_db: sqlite3.Con
     assert hits == ["release-candidate-notes.txt"]
 
 
+def test_execute_phrase_query_boosts_separator_normalized_prefix_hits(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/a-notes-release-candidate.txt",
+        512,
+        1_713_527_940,
+        "txt",
+        body_text="launch prep",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/release-candidate-notes.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="launch prep",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, '"release candidate"', limit=5).hits]
+
+    assert hits[:2] == ["release-candidate-notes.txt", "a-notes-release-candidate.txt"]
+
+
 def test_execute_phrase_content_query_matches_separator_boundaries(tmp_db: sqlite3.Connection) -> None:
     _insert_file(
         tmp_db,
