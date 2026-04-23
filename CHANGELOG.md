@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.372 - 2026-04-23
+
+- Added a persisted `launcher.frameless` preference so the popup can start with or without window chrome instead of forcing the frameless shell on every launch.
+- Exposed a live Settings toggle for frameless launcher mode and kept the popup geometry stable while changing frameless and always-on-top window flags at runtime.
+- Expanded launcher regressions to cover the new config field, runtime frameless toggle, and geometry preservation across visible window-flag changes.
+
 ## 0.1.369 - 2026-04-23
 
 - Expanded live-update integration coverage to prove in-place content rewrites and cross-root moves both converge in search within the 500ms watcher budget, including root-scoped query visibility.
