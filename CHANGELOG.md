@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.368 - 2026-04-23
+## 0.1.370 - 2026-04-23
 
 - Fixed slash-delimited regex parsing so a closing `/` after an even run of backslashes is treated as the real delimiter instead of leaving the pattern unterminated.
 - Fixed normalized phrase fallback scans so decomposed Korean content still matches quoted phrase queries across separators such as newlines when FTS misses the normalized form.
