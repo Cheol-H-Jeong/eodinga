@@ -11,17 +11,7 @@ DEBIAN_CONTROL_TEMPLATE="${ROOT_DIR}/packaging/linux/debian/control"
 DEBIAN_CONTROL_RENDERED="${DIST_DIR}/debian-control"
 APP_VERSION_TOKEN="@@APP_VERSION@@"
 TARGET_ARCH_TOKEN="@@TARGET_ARCH@@"
-VERSION="$(python3 - <<'PY'
-import pathlib
-import re
-
-text = pathlib.Path("eodinga/__init__.py").read_text(encoding="utf-8")
-match = re.search(r'^__version__\s*=\s*"([^"]+)"', text, re.MULTILINE)
-if match is None:
-    raise SystemExit("missing __version__")
-print(match.group(1))
-PY
-)"
+VERSION="$(python3 "${ROOT_DIR}/packaging/build.py" --print-release-version)"
 ARCH="${TARGET_ARCH:-amd64}"
 PACKAGE_DIR="${BUILD_ROOT}/eodinga_${VERSION}_${ARCH}"
 ARCHIVE_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}_debroot.tar.gz"

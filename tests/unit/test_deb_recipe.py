@@ -22,3 +22,9 @@ def test_deb_recipe_tracks_desktop_icon_and_docs_assets() -> None:
     assert "Architecture: @@TARGET_ARCH@@" in control
     assert "Depends: python3 (>= 3.11)" in control
     assert "Description: Instant lexical file search for Windows and Linux" in control
+
+
+def test_deb_recipe_uses_shared_release_version_command() -> None:
+    script = Path("packaging/linux/deb.sh").read_text(encoding="utf-8")
+
+    assert 'python3 "${ROOT_DIR}/packaging/build.py" --print-release-version' in script

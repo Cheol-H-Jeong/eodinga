@@ -22,3 +22,9 @@ def test_appimage_icon_asset_matches_desktop_name() -> None:
     assert "Icon=eodinga" in desktop
     assert "<svg" in icon
     assert "<title" in icon
+
+
+def test_appimage_recipe_uses_shared_release_version_command() -> None:
+    script = Path("packaging/linux/appimage.sh").read_text(encoding="utf-8")
+
+    assert 'python3 "${ROOT_DIR}/packaging/build.py" --print-release-version' in script

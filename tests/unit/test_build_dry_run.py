@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from eodinga import __version__
 
 
@@ -96,6 +98,27 @@ def test_windows_audit_validator_rejects_version_mismatch() -> None:
     errors = module._validate_windows_audit(payload)
 
     assert "project and package versions do not match" in errors
+
+
+def test_read_release_version_rejects_version_mismatch(monkeypatch) -> None:
+    module = _load_build_module()
+    monkeypatch.setattr(module, "_read_project_version", lambda: "0.1.136")
+    monkeypatch.setattr(module, "_read_package_version", lambda: "0.1.135")
+
+    with pytest.raises(ValueError, match="project and package versions do not match"):
+        module._read_release_version()
+
+
+def test_print_release_version_matches_package_version() -> None:
+    result = subprocess.run(
+        [sys.executable, "packaging/build.py", "--print-release-version"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.strip() == __version__
 
 
 def test_windows_audit_validator_rejects_missing_source_hidden_import_contract() -> None:

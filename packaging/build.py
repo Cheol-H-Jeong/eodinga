@@ -43,6 +43,17 @@ def _read_package_version() -> str:
     return match.group("version")
 
 
+def _read_release_version() -> str:
+    project_version = _read_project_version()
+    package_version = _read_package_version()
+    if project_version != package_version:
+        raise ValueError(
+            "project and package versions do not match: "
+            f"pyproject.toml={project_version}, eodinga/__init__.py={package_version}"
+        )
+    return project_version
+
+
 def _load_windows_spec_namespace() -> dict[str, Any]:
     spec_namespace: dict[str, Any] = {"__file__": str(WINDOWS_SPEC)}
     exec(WINDOWS_SPEC.read_text(encoding="utf-8"), spec_namespace)
@@ -345,8 +356,8 @@ def _preflight_required_commands(target: str, commands: list[str]) -> int:
 
 
 def _run_windows_dry_run() -> int:
-    version = _read_project_version()
-    package_version = _read_package_version()
+    version = _read_release_version()
+    package_version = version
     payload = _audit_windows_inputs(version, package_version)
     _write_audit(payload)
     return _report_validation_errors("windows-dry-run", _validate_windows_audit(payload))
@@ -356,8 +367,8 @@ def _run_windows() -> int:
     preflight = _preflight_required_commands("windows", ["pyinstaller", "iscc"])
     if preflight != 0:
         return preflight
-    version = _read_project_version()
-    package_version = _read_package_version()
+    version = _read_release_version()
+    package_version = version
     payload = _audit_windows_inputs(version, package_version)
     payload["platform_tools"] = ["pyinstaller", "iscc"]
     _write_audit(payload)
@@ -447,6 +458,11 @@ def _run_linux_deb() -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "--print-release-version",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
         "--target",
         choices=(
             "linux-appimage-dry-run",
@@ -456,9 +472,14 @@ def main(argv: list[str] | None = None) -> int:
             "windows-dry-run",
             "windows",
         ),
-        required=True,
+        required=False,
     )
     args = parser.parse_args(argv)
+    if args.print_release_version:
+        print(_read_release_version())
+        return 0
+    if args.target is None:
+        parser.error("--target is required unless --print-release-version is set")
     if args.target == "linux-appimage-dry-run":
         return _run_linux_appimage_dry_run()
     if args.target == "linux-appimage":
