@@ -19,7 +19,7 @@ from eodinga.index.storage import (
     temporary_pragmas,
 )
 from eodinga.index.writer import IndexWriter
-from eodinga.observability import increment_counter, record_histogram
+from eodinga.observability import increment_counter, record_histogram, record_snapshot
 
 DEFAULT_MAX_BODY_CHARS = 4096
 _BULK_WRITE_PRAGMAS = {"synchronous": "NORMAL", "cache_size": -128000}
@@ -144,6 +144,8 @@ def rebuild_index(
                         include=tuple(root.include),
                         exclude=tuple(root.exclude),
                     )
+                    root_started = perf_counter()
+                    root_files_indexed = 0
                     for batch in walk_batched(root.path, rules, root_id=root_id):
                         stop.raise_if_requested()
                         indexed = writer.bulk_upsert(batch)
@@ -154,9 +156,27 @@ def rebuild_index(
                                 root=str(root.path),
                             )
                         files_indexed += indexed
+                        root_files_indexed += indexed
                         if indexed:
                             increment_counter("files_indexed", indexed, root=str(root.path))
                         stop.raise_if_requested()
+                    root_elapsed_ms = (perf_counter() - root_started) * 1000
+                    increment_counter("index_roots_indexed", root=str(root.path))
+                    record_histogram(
+                        "index_root_latency_ms",
+                        root_elapsed_ms,
+                        root=str(root.path),
+                        content_enabled=content_enabled,
+                    )
+                    record_snapshot(
+                        "index.root",
+                        {
+                            "root": str(root.path),
+                            "files_indexed": root_files_indexed,
+                            "elapsed_ms": round(root_elapsed_ms, 3),
+                            "content_enabled": content_enabled,
+                        },
+                    )
                 stop.raise_if_requested()
     except KeyboardInterrupt:
         conn.close()

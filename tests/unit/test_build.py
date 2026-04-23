@@ -11,7 +11,7 @@ import eodinga.index.build as build_module
 from eodinga.config import RootConfig
 from eodinga.index.build import rebuild_index
 from eodinga.index.schema import apply_schema
-from eodinga.observability import reset_metrics, snapshot_metrics
+from eodinga.observability import recent_snapshots, reset_metrics, snapshot_metrics
 
 
 def test_rebuild_index_failure_keeps_existing_target_database(
@@ -93,10 +93,41 @@ def test_rebuild_index_records_runtime_metrics(tmp_path: Path) -> None:
     metrics = snapshot_metrics()
     batch_histogram = cast(dict[str, object], metrics["histograms"]["index_batch_size"])
     assert result.files_indexed == 3
+    assert result.roots_indexed == 1
     assert metrics["counters"]["index_rebuilds_completed"] == 1
+    assert metrics["counters"]["index_roots_indexed"] == 1
     assert metrics["counters"]["files_indexed"] == 3
+    assert metrics["histograms"]["index_root_latency_ms"]["count"] == 1
     assert metrics["histograms"]["index_rebuild_latency_ms"]["count"] == 1
     assert cast(int, batch_histogram["count"]) >= 1
+    assert recent_snapshots()[-1]["name"] == "index.root"
+
+
+def test_rebuild_index_records_per_root_metrics_for_multi_root_runs(tmp_path: Path) -> None:
+    alpha_root = tmp_path / "alpha"
+    beta_root = tmp_path / "beta"
+    alpha_root.mkdir()
+    beta_root.mkdir()
+    (alpha_root / "one.txt").write_text("alpha\n", encoding="utf-8")
+    (beta_root / "two.txt").write_text("beta\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    reset_metrics()
+
+    result = rebuild_index(
+        db_path,
+        [RootConfig(path=alpha_root), RootConfig(path=beta_root)],
+        content_enabled=False,
+    )
+
+    metrics = snapshot_metrics()
+    snapshots = recent_snapshots()
+    assert result.roots_indexed == 2
+    assert metrics["counters"]["index_roots_indexed"] == 2
+    assert metrics["histograms"]["index_root_latency_ms"]["count"] == 2
+    assert [entry["payload"]["root"] for entry in snapshots[-2:]] == [
+        str(alpha_root),
+        str(beta_root),
+    ]
 
 
 def test_rebuild_index_calls_bulk_upsert_without_outer_transaction(

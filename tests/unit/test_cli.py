@@ -500,6 +500,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["watcher_enqueue_aborted"] == 0
     assert payload["watcher_queue_high_watermark"] == 0
     assert payload["watcher_pending_high_watermark"] == 0
+    assert payload["index_roots_indexed"] == 0
     assert payload["index_rebuilds_completed"] == 0
     assert payload["commands_started"] == 2
     assert payload["commands_completed"] == 1
@@ -517,6 +518,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["watch_flush_batch_histogram"] == {}
     assert payload["watch_event_lag_histogram"] == {}
     assert payload["watcher_queue_backpressure_histogram"] == {}
+    assert payload["index_root_latency_histogram"] == {}
     assert payload["index_rebuild_latency_histogram"] == {}
     assert payload["index_batch_size_histogram"] == {}
     assert payload["commands"]["search"]["completed"] == 1
@@ -666,6 +668,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["crash_logs_written"] == 0
     assert payload["crash_log_write_failures"] == 0
     assert payload["crash_handlers_installed"] == 3
+    assert payload["index_roots_indexed"] == 1
     assert payload["index_rebuilds_completed"] == 1
     assert payload["queries_zero_results"] == 0
     assert payload["queries_truncated"] == 1
@@ -691,9 +694,11 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["watch_flush_batch_histogram"]["count"] == 2
     assert payload["watch_event_lag_histogram"]["count"] == 2
     assert payload["watcher_queue_backpressure_histogram"]["count"] == 1
+    assert payload["index_root_latency_histogram"]["count"] == 1
     assert payload["index_rebuild_latency_histogram"]["count"] == 1
     assert payload["index_batch_size_histogram"]["count"] >= 1
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
+        "index.root",
         "command.index",
         "watcher.backpressure",
         "command.search",
