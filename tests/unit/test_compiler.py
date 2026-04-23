@@ -84,6 +84,19 @@ def test_compile_date_alias_uses_mtime_range() -> None:
     assert len(branch.where_params) == 2
 
 
+@pytest.mark.parametrize("query", ["date:last-week", "date:last-month"])
+def test_compile_additional_relative_date_aliases_use_mtime_range(query: str) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+    start, end = branch.where_params
+
+    assert branch.where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert len(branch.where_params) == 2
+    assert isinstance(start, int)
+    assert isinstance(end, int)
+    assert start < end
+
+
 def test_compile_reversed_date_range_normalizes_bounds() -> None:
     compiled = compile_query(parse("date:2026-01-03..2026-01-01"))
     branch = compiled.branches[0]
@@ -102,6 +115,22 @@ def test_compile_duplicate_filter_shape() -> None:
     assert "files.content_hash IS NOT NULL" in branch.where_sql
     assert "duplicates.content_hash = files.content_hash" in branch.where_sql
     assert "NOT (files.is_symlink = 1)" in branch.where_sql
+
+
+def test_compile_size_range_builds_inclusive_bounds() -> None:
+    compiled = compile_query(parse("size:100..500K"))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == "files.is_dir = 0 AND files.size >= ? AND files.size <= ?"
+    assert branch.where_params == (100, 500 * 1024)
+
+
+def test_compile_empty_filter_checks_files_and_directories() -> None:
+    compiled = compile_query(parse("is:empty"))
+    branch = compiled.branches[0]
+
+    assert "files.size = 0" in branch.where_sql
+    assert "children.parent_path = files.path" in branch.where_sql
 
 
 def test_compile_non_ascii_path_filter_uses_python_normalized_scan() -> None:
@@ -147,6 +176,7 @@ def test_compile_reuses_cached_queries() -> None:
         "/[a-/",
         "regex:true [a-",
         "size:>tenM report",
+        "size:100..bogus report",
         "date:2026-01-01..bogus report",
         "is:folder report",
     ],

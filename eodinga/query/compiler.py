@@ -4,7 +4,7 @@ import re
 import unicodedata
 from datetime import date, datetime, time, timedelta
 from itertools import product
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -154,8 +154,19 @@ def _validate_regex_pattern(pattern: str, flags: str = "") -> None:
         raise QuerySyntaxError(f"invalid regex: {error}", 0) from error
 
 
-def _size_to_bytes(value: str) -> tuple[str, int]:
+def _size_to_bytes(value: str) -> tuple[str, int | tuple[int, int]]:
     text = value.strip()
+    if ".." in text:
+        left, right = text.split("..", 1)
+        if not left or not right:
+            raise QuerySyntaxError(f"invalid size literal: {value}", 0)
+        _, start = _size_to_bytes(f"={left}")
+        _, end = _size_to_bytes(f"={right}")
+        if not isinstance(start, int) or not isinstance(end, int):
+            raise QuerySyntaxError(f"invalid size literal: {value}", 0)
+        if end < start:
+            start, end = end, start
+        return "..", (start, end)
     comparator = "="
     for prefix in (">=", "<=", ">", "<", "="):
         if text.startswith(prefix):
@@ -180,6 +191,14 @@ def _day_bounds(day: date) -> tuple[int, int]:
     return int(start.timestamp()), int(end.timestamp())
 
 
+def _month_start(day: date) -> date:
+    return day.replace(day=1)
+
+
+def _next_month_start(day: date) -> date:
+    return (day.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+
 def _date_to_range(value: str) -> tuple[int, int]:
     today = datetime.now().astimezone().date()
     if value == "today":
@@ -189,10 +208,17 @@ def _date_to_range(value: str) -> tuple[int, int]:
     if value == "this-week":
         start = today - timedelta(days=today.weekday())
         return _day_bounds(start)[0], _day_bounds(start + timedelta(days=7))[0]
+    if value == "last-week":
+        start = today - timedelta(days=today.weekday() + 7)
+        return _day_bounds(start)[0], _day_bounds(start + timedelta(days=7))[0]
     if value == "this-month":
-        start = today.replace(day=1)
-        next_month = (start.replace(day=28) + timedelta(days=4)).replace(day=1)
+        start = _month_start(today)
+        next_month = _next_month_start(start)
         return _day_bounds(start)[0], _day_bounds(next_month)[0]
+    if value == "last-month":
+        this_month = _month_start(today)
+        start = _month_start(this_month - timedelta(days=1))
+        return _day_bounds(start)[0], _day_bounds(this_month)[0]
     if ".." in value:
         left, right = value.split("..", 1)
         try:
@@ -312,12 +338,19 @@ def _compile_branch(
             where_params.extend([start, end])
             continue
         if term.name == "size":
-            comparator, size_bytes = _size_to_bytes(term.value)
-            if term.negated:
-                where_parts.append(f"NOT (files.size {comparator} ?)")
+            comparator, size_value = _size_to_bytes(term.value)
+            if comparator == "..":
+                start, end = cast(tuple[int, int], size_value)
+                if not isinstance(start, int) or not isinstance(end, int):
+                    raise QuerySyntaxError(f"invalid size literal: {term.value}", 0)
+                clause = "files.is_dir = 0 AND files.size >= ? AND files.size <= ?"
+                where_params.extend([start, end])
             else:
-                where_parts.append(f"files.size {comparator} ?")
-            where_params.append(size_bytes)
+                if not isinstance(size_value, int):
+                    raise QuerySyntaxError(f"invalid size literal: {term.value}", 0)
+                clause = f"files.is_dir = 0 AND files.size {comparator} ?"
+                where_params.append(size_value)
+            where_parts.append(f"NOT ({clause})" if term.negated else clause)
             continue
         if term.name == "is":
             normalized = term.value.lower()
@@ -327,6 +360,12 @@ def _compile_branch(
                 clause = "files.is_dir = 0"
             elif normalized == "symlink":
                 clause = "files.is_symlink = 1"
+            elif normalized == "empty":
+                clause = (
+                    "((files.is_dir = 0 AND files.size = 0) OR "
+                    "(files.is_dir = 1 AND NOT EXISTS ("
+                    "SELECT 1 FROM files AS children WHERE children.parent_path = files.path)))"
+                )
             elif normalized == "duplicate":
                 clause = _duplicate_clause(term.negated)
                 where_parts.append(clause)

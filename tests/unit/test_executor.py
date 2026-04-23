@@ -180,6 +180,28 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     assert "old.txt" not in this_month_hits
 
 
+def test_execute_last_week_and_last_month_queries(tmp_db: sqlite3.Connection) -> None:
+    local_now = datetime.now().astimezone()
+    today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    this_week_start = today_start - local_now.weekday() * 86_400
+    last_week_start = this_week_start - 7 * 86_400
+    this_month_start = int(
+        local_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp()
+    )
+    last_month_start = int((local_now.replace(day=1) - timedelta(days=1)).replace(day=1).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/last-week.txt", 512, last_week_start + 60, "txt")
+    _insert_file(tmp_db, 2, "/workspace/this-week.txt", 512, this_week_start + 60, "txt")
+    _insert_file(tmp_db, 3, "/workspace/last-month.txt", 512, last_month_start + 60, "txt")
+    _insert_file(tmp_db, 4, "/workspace/this-month.txt", 512, this_month_start + 60, "txt")
+    tmp_db.commit()
+
+    assert [hit.file.name for hit in search(tmp_db, "date:last-week", limit=10).hits] == ["last-week.txt"]
+    assert [hit.file.name for hit in search(tmp_db, "date:last-month", limit=10).hits] == [
+        "last-month.txt"
+    ]
+
+
 def test_execute_negated_case_true_restores_case_insensitive_matching(
     tmp_db: sqlite3.Connection,
 ) -> None:
@@ -452,6 +474,36 @@ def test_execute_metadata_only_query_reports_uncapped_total_estimate(
         "archive-0005.txt",
     ]
     assert result.total_estimate == total_files
+
+
+def test_execute_size_range_filter_is_inclusive(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/tiny.txt", 99, now, "txt")
+    _insert_file(tmp_db, 2, "/workspace/lower.txt", 100, now - 60, "txt")
+    _insert_file(tmp_db, 3, "/workspace/mid.txt", 320 * 1024, now - 120, "txt")
+    _insert_file(tmp_db, 4, "/workspace/upper.txt", 500 * 1024, now - 180, "txt")
+    _insert_file(tmp_db, 5, "/workspace/oversize.txt", 501 * 1024, now - 240, "txt")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "size:100..500K", limit=10).hits]
+
+    assert hits == ["lower.txt", "mid.txt", "upper.txt"]
+
+
+def test_execute_empty_filter_matches_zero_byte_files_and_empty_directories(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/empty.txt", 0, now, "txt")
+    _insert_file(tmp_db, 2, "/workspace/full.txt", 32, now - 60, "txt")
+    _insert_file(tmp_db, 3, "/workspace/empty-dir", 0, now - 120, "", is_dir=1)
+    _insert_file(tmp_db, 4, "/workspace/full-dir", 0, now - 180, "", is_dir=1)
+    _insert_file(tmp_db, 5, "/workspace/full-dir/child.txt", 8, now - 240, "txt")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "is:empty", limit=10).hits]
+
+    assert hits == ["empty-dir", "empty.txt"]
 
 
 def test_execute_metadata_only_or_query_reports_union_total_estimate(

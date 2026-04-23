@@ -26,12 +26,17 @@ def _build_fixture_tree(root: Path) -> None:
         "docs/launch-plan.md": "# Launch Plan\nAlpha launch checklist for spring release.\n",
         "docs/invoice-budget.txt": "Invoice budget for the alpha launch.\n",
         "archive/retro-notes.txt": "Archive retrospective notes from last quarter.\n",
+        "archive/last-week-review.txt": "Weekly review from the previous sprint.\n",
+        "archive/last-month-plan.txt": "Monthly planning notes from the previous month.\n",
         "src/hot_restart.py": "def reopen_index():\n    return 'restart ready'\n",
         "src/watch_coalesce.py": "EVENT_NAME = 'coalesce'\n",
         "korean/회의록-봄.txt": "봄 프로젝트 회의록과 실행 항목.\n",
         "korean/영수증-정산.txt": "정산 영수증과 비용 내역.\n",
         "reports/today-alpha-copy.txt": "alpha duplicate launch note\n",
         "reports/today-alpha-clone.txt": "alpha duplicate launch note\n",
+        "reports/empty.txt": "",
+        "reports/empty-dir/.keep": "",
+        "reports/window.txt": "windowed size sample\n",
         "archive/yesterday-beta.txt": "beta archive note\n",
     }
     for relative_path, body in files.items():
@@ -42,13 +47,19 @@ def _build_fixture_tree(root: Path) -> None:
         root / "reports" / "today-alpha-copy.txt",
         root / "reports" / "today-alpha-clone.txt",
         root / "archive" / "yesterday-beta.txt",
+        root / "reports" / "window.txt",
     ]
-    sizes = [12 * 1024 * 1024, 11 * 1024 * 1024, 9 * 1024 * 1024]
-    mtimes = [today.timestamp(), today.timestamp() + 60, yesterday.timestamp()]
+    sizes = [12 * 1024 * 1024, 11 * 1024 * 1024, 9 * 1024 * 1024, 320 * 1024]
+    mtimes = [today.timestamp(), today.timestamp() + 60, yesterday.timestamp(), today.timestamp() + 120]
     for path, size, mtime in zip(large_paths, sizes, mtimes, strict=True):
         with path.open("ab") as handle:
             handle.truncate(size)
         os.utime(path, (mtime, mtime))
+    last_week = today - timedelta(days=today.weekday() + 7)
+    last_month = (today.replace(day=1) - timedelta(days=1)).replace(day=12)
+    os.utime(root / "archive" / "last-week-review.txt", (last_week.timestamp(), last_week.timestamp()))
+    os.utime(root / "archive" / "last-month-plan.txt", (last_month.timestamp(), last_month.timestamp()))
+    (root / "reports" / "empty-dir" / ".keep").unlink()
 
 
 def _index_tree(root: Path, db_path: Path) -> None:
@@ -86,6 +97,10 @@ def _index_tree(root: Path, db_path: Path) -> None:
         ("invoice budget", "invoice-budget.txt"),
         ("date:today size:>10M is:duplicate -path:archive", "today-alpha-copy.txt"),
         ("date:yesterday -is:duplicate", "yesterday-beta.txt"),
+        ("date:last-week", "last-week-review.txt"),
+        ("date:last-month", "last-month-plan.txt"),
+        ("size:100..500K", "window.txt"),
+        ("is:empty", "empty.txt"),
     ],
 )
 def test_e2e_index_search_returns_expected_file_in_top_three(
