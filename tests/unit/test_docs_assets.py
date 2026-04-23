@@ -231,10 +231,12 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Run The Gate" in release
     assert "## Failure Priority" in release
     assert "## Artifact Review Worksheet" in release
+    assert "## Artifact Inspection Commands" in release
     assert "## Docs Asset Drift Fix Path" in release
     assert "## Artifact Inventory" in release
     assert "## Verify Shipped Docs" in release
     assert "## Packaging Audit Checklist" in release
+    assert "## Release Notes Template" in release
     assert "## Tag Decision Path" in release
     assert "## Worker Handoff Rules" in release
     assert "## Docs-Only Rounds" in release
@@ -249,6 +251,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "python scripts/generate_manpage.py" in release
     assert "git tag -l \"v0.1.N\"" in release
     assert "Collision check example" in release
+    assert "find packaging/dist -maxdepth 2 -type f | sort" in release
+    assert "Start each bullet with the user-visible or operator-visible effect." in release
     assert "Do not push tags or release branches from a worker worktree." in release
     assert "packaging/dist/" in release
     assert "Single-shot metadata cut" in release

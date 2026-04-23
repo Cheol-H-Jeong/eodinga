@@ -119,6 +119,28 @@ Use this review table after each matching dry run:
 
 Treat `packaging/dist/` as the review surface. A green dry run without a reviewed manifest is not a completed release check.
 
+## Artifact Inspection Commands
+
+Use one direct inspection command per artifact family instead of opening the whole tree and guessing:
+
+```bash
+find packaging/dist -maxdepth 2 -type f | sort
+```
+
+```bash
+sed -n '1,200p' packaging/dist/windows-dry-run-manifest.json
+```
+
+```bash
+sed -n '1,200p' packaging/dist/linux-appimage-dry-run-manifest.json
+```
+
+```bash
+sed -n '1,200p' packaging/dist/linux-deb-dry-run-manifest.json
+```
+
+If the exact filename changes, list the directory first and inspect the current manifest rather than relying on stale shell history.
+
 ## Artifact Review Worksheet
 
 Use these prompts against the actual files under `packaging/dist/` before cutting the local tag:
@@ -129,6 +151,22 @@ Use these prompts against the actual files under `packaging/dist/` before cuttin
 | screenshots | do the rendered PNGs still show the visible text, keyboard hints, and surfaces described in `README.md`? |
 | Windows dry run | does the staged payload list the docs and launcher/runtime files the release docs claim exist? |
 | Linux AppImage / `.deb` dry runs | do artifact names, packaged docs, and compressed changelog outputs match the release notes and README wording? |
+
+## Release Notes Template
+
+Keep the changelog wording short and evidence-backed:
+
+1. Start each bullet with the user-visible or operator-visible effect.
+2. Name the subsystem only when it helps the reviewer map the change to evidence.
+3. If the round is docs-only, say which guide changed and what workflow it clarifies.
+4. Avoid speculative language such as "prepares for" or "enables future".
+
+Example shape:
+
+```text
+- Clarified the docs-only release pass so contributors rerun the matching dry run and inspect `packaging/dist/` before tagging.
+- Added a contributor handoff packet checklist, reducing ambiguity about which commands and generated assets were actually reviewed.
+```
 
 ## Tag Decision Path
 
@@ -212,7 +250,7 @@ If `git tag -l "v0.1.N"` already returns a result, stop and pick the next unused
 Collision check example:
 
 ```bash
-if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
+git fetch origin main --tags && git tag -l "v0.1.*" | sort -V | tail -5
 ```
 
 ## Collision And Retag Rules
