@@ -16,6 +16,8 @@ from eodinga.observability import (
     configure_logging,
     default_crash_dir,
     default_log_path,
+    describe_crash_inventory,
+    describe_log_inventory,
     file_logging_enabled,
     increment_counter,
     install_crash_handlers,
@@ -105,6 +107,55 @@ def test_log_resolution_returns_none_when_file_logging_disabled(monkeypatch) -> 
     assert counters["log_sinks.stderr.configured"] == 1
     assert counters["log_sinks.file.disabled"] == 1
     assert "log_sinks.file.configured" not in counters
+
+
+def test_configure_logging_tracks_file_sink_failures(tmp_path: Path, monkeypatch) -> None:
+    log_path = tmp_path / "logs" / "app.log"
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    reset_metrics()
+
+    def _boom(*_args, **_kwargs) -> None:
+        raise OSError("read only")
+
+    monkeypatch.setattr(Path, "mkdir", _boom)
+
+    configure_logging("INFO", log_path=log_path)
+
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["logging_configurations"] == 1
+    assert counters["log_sinks.stderr.configured"] == 1
+    assert counters["logging_configuration_failures"] == 1
+    assert counters["log_sinks.file.failed"] == 1
+    assert "log_sinks.file.configured" not in counters
+
+
+def test_describe_log_inventory_reports_current_file_and_rotations(tmp_path: Path) -> None:
+    log_path = tmp_path / "logs" / "eodinga.log"
+    log_path.parent.mkdir(parents=True)
+    log_path.write_text("primary", encoding="utf-8")
+    (log_path.parent / "eodinga.log.2026-04-23").write_text("rotated", encoding="utf-8")
+    (log_path.parent / "eodinga.log.gz").write_text("compressed", encoding="utf-8")
+
+    inventory = describe_log_inventory(log_path)
+
+    assert inventory["path"] == str(log_path)
+    assert inventory["exists"] is True
+    assert inventory["size_bytes"] == len("primary")
+    assert inventory["rotated_count"] == 2
+
+
+def test_describe_crash_inventory_reports_latest_crash_log(tmp_path: Path) -> None:
+    older = tmp_path / "crash-20260423T010000.000000Z.log"
+    latest = tmp_path / "crash-20260423T020000.000000Z.log"
+    older.write_text("older", encoding="utf-8")
+    latest.write_text("latest-data", encoding="utf-8")
+
+    inventory = describe_crash_inventory(tmp_path)
+
+    assert inventory["crash_dir"] == str(tmp_path)
+    assert inventory["crash_log_count"] == 2
+    assert inventory["latest_crash_log"] == str(latest)
+    assert inventory["latest_crash_log_size_bytes"] == len("latest-data")
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:

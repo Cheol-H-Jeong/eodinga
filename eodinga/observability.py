@@ -30,6 +30,20 @@ class MetricsSnapshot(TypedDict):
     uptime_ms: float
 
 
+class LogInventory(TypedDict):
+    path: str | None
+    exists: bool
+    size_bytes: int
+    rotated_count: int
+
+
+class CrashInventory(TypedDict):
+    crash_dir: str
+    crash_log_count: int
+    latest_crash_log: str | None
+    latest_crash_log_size_bytes: int
+
+
 @dataclass
 class _HistogramState:
     buckets_ms: tuple[float, ...]
@@ -151,18 +165,27 @@ def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None
     if target is None:
         increment_counter("log_sinks.file.disabled")
         return
-    target.parent.mkdir(parents=True, exist_ok=True)
-    logger.add(
-        target,
-        rotation=resolve_log_rotation(),
-        retention=resolve_log_retention(),
-        compression=resolve_log_compression(),
-        encoding="utf-8",
-        delay=True,
-        backtrace=False,
-        diagnose=False,
-        level=level.upper(),
-    )
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        logger.add(
+            target,
+            rotation=resolve_log_rotation(),
+            retention=resolve_log_retention(),
+            compression=resolve_log_compression(),
+            encoding="utf-8",
+            delay=True,
+            backtrace=False,
+            diagnose=False,
+            level=level.upper(),
+        )
+    except Exception as error:
+        increment_counter("logging_configuration_failures")
+        increment_counter("log_sinks.file.failed")
+        logger.bind(log_path=str(target), error=repr(error)).warning(
+            "failed to configure file log sink {}; using stderr only",
+            target,
+        )
+        return
     increment_counter("log_sinks.file.configured")
 
 
@@ -232,6 +255,53 @@ def histogram_snapshot(name: str) -> dict[str, object]:
         if state is None:
             return {}
         return state.snapshot()
+
+
+def describe_log_inventory(log_path: Path | None = None) -> LogInventory:
+    target = resolve_log_path(log_path)
+    if target is None:
+        return {
+            "path": None,
+            "exists": False,
+            "size_bytes": 0,
+            "rotated_count": 0,
+        }
+    resolved = target.expanduser()
+    stat_result = _safe_stat(resolved)
+    return {
+        "path": str(resolved),
+        "exists": stat_result is not None,
+        "size_bytes": 0 if stat_result is None else stat_result.st_size,
+        "rotated_count": _count_rotated_logs(resolved),
+    }
+
+
+def describe_crash_inventory(crash_dir: Path | None = None) -> CrashInventory:
+    target_dir = resolve_crash_dir(crash_dir)
+    latest_path: Path | None = None
+    latest_mtime_ns = -1
+    crash_log_count = 0
+    latest_size_bytes = 0
+    if target_dir.exists():
+        for path in target_dir.glob("crash-*.log"):
+            stat_result = _safe_stat(path)
+            if stat_result is None:
+                continue
+            crash_log_count += 1
+            if stat_result.st_mtime_ns > latest_mtime_ns or (
+                stat_result.st_mtime_ns == latest_mtime_ns
+                and latest_path is not None
+                and path.name > latest_path.name
+            ):
+                latest_path = path
+                latest_mtime_ns = stat_result.st_mtime_ns
+                latest_size_bytes = stat_result.st_size
+    return {
+        "crash_dir": str(target_dir),
+        "crash_log_count": crash_log_count,
+        "latest_crash_log": None if latest_path is None else str(latest_path),
+        "latest_crash_log_size_bytes": latest_size_bytes,
+    }
 
 
 def write_crash_log(
@@ -365,3 +435,32 @@ def _parse_log_policy_value(raw: str) -> str | int:
     if value.isdigit():
         return int(value)
     return value
+
+
+def _safe_stat(path: Path) -> os.stat_result | None:
+    try:
+        return path.stat()
+    except OSError:
+        return None
+
+
+def _count_rotated_logs(path: Path) -> int:
+    try:
+        candidates = path.parent.glob(f"{path.name}*")
+    except OSError:
+        return 0
+    count = 0
+    for candidate in candidates:
+        if candidate == path:
+            continue
+        if not _is_log_sibling(candidate, path.name):
+            continue
+        if _safe_stat(candidate) is None:
+            continue
+        count += 1
+    return count
+
+
+def _is_log_sibling(path: Path, base_name: str) -> bool:
+    name = path.name
+    return name == base_name or name.startswith(f"{base_name}.")
