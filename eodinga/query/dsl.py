@@ -217,17 +217,14 @@ class _Parser:
         start = self.index
         if self._peek() != "/":
             raise QuerySyntaxError("expected regex", start)
-        self.index += 1
-        pattern_start = self.index
-        while True:
-            char = self._peek()
-            if char is None:
-                raise QuerySyntaxError("unterminated regex", start)
-            if char == "/" and self.source[self.index - 1] != "\\":
-                break
-            self.index += 1
-        pattern = self.source[pattern_start:self.index]
-        self.index += 1
+        remainder = self.source[self.index :]
+        pattern_start = self.index + 1
+        delimiters = self._regex_delimiters(remainder)
+        if len(delimiters) < 2 or remainder.endswith("\\"):
+            raise QuerySyntaxError("unterminated regex", start)
+        closing_index = self.index + delimiters[1]
+        pattern = self.source[self.index + 1 : closing_index]
+        self.index = closing_index + 1
         flags_start = self.index
         while (char := self._peek()) is not None and char.isalpha():
             self.index += 1
