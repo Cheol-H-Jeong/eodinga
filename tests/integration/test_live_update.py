@@ -159,6 +159,50 @@ def test_live_rename_updates_search_visibility_within_500ms(tmp_path: Path) -> N
     assert source_hits == []
 
 
+def test_live_modify_replaces_searchable_content_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    target = root / "draft.txt"
+    target.write_text("before refresh token\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        target.write_text("after refresh token\n", encoding="utf-8")
+
+        hit_elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "after refresh",
+            target,
+            deadline_seconds=0.5,
+        )
+        miss_elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "before refresh",
+            target,
+            deadline_seconds=0.5,
+        )
+        refreshed_hits = [hit.file.path for hit in search(conn, "after refresh", limit=5).hits]
+        stale_hits = [hit.file.path for hit in search(conn, "before refresh", limit=5).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert hit_elapsed <= 0.5
+    assert miss_elapsed <= 0.5
+    assert refreshed_hits == [target]
+    assert stale_hits == []
+
+
 def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
