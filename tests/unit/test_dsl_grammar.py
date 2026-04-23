@@ -134,6 +134,8 @@ def test_parse_inline_phrase_without_whitespace_decodes_escapes(
     [
         ("size:> 10M", ">10M"),
         ("size:<= 512KiB", "<=512KiB"),
+        ("size:> 10 M", ">10M"),
+        ("size:100 K", "100K"),
     ],
 )
 def test_parse_size_operator_allows_separated_comparator_value(
@@ -300,6 +302,10 @@ def test_parse_slash_prefixed_path_regex_with_escaped_slash(
         ("date: 2026-01-01..2026-01-03", "date", "2026-01-01..2026-01-03", "word"),
         ("date:2026-01-01 .. 2026-01-03", "date", "2026-01-01..2026-01-03", "word"),
         ("size:100 .. 500K", "size", "100..500K", "word"),
+        ("size:100 .. 500 K", "size", "100..500K", "word"),
+        ("size:100 K .. 500 M", "size", "100K..500M", "word"),
+        ("size:.. 500 K", "size", "..500K", "word"),
+        ("size:100 K ..", "size", "100K..", "word"),
         ("date:.. 2026-01-03", "date", "..2026-01-03", "word"),
         ("date:2026-01-02 ..", "date", "2026-01-02..", "word"),
     ],

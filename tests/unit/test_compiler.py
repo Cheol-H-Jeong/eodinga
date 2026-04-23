@@ -221,6 +221,8 @@ def test_compile_open_ended_size_ranges(
     [
         ("size:>1.5MB", "files.size > ?", int(1.5 * 1024**2)),
         ("size:<=512KiB", "files.size <= ?", 512 * 1024),
+        ("size:> 1.5 MB", "files.size > ?", int(1.5 * 1024**2)),
+        ("size:<= 512 KiB", "files.size <= ?", 512 * 1024),
     ],
 )
 def test_compile_size_aliases_accept_common_binary_suffixes(
@@ -233,6 +235,26 @@ def test_compile_size_aliases_accept_common_binary_suffixes(
 
     assert branch.where_sql == expected_sql
     assert branch.where_params == (expected_param,)
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_sql", "expected_params"),
+    [
+        ("size:100 K .. 500 M", "files.size >= ? AND files.size <= ?", (100 * 1024, 500 * 1024**2)),
+        ("size:.. 500 K", "files.size <= ?", (500 * 1024,)),
+        ("size:100 K ..", "files.size >= ?", (100 * 1024,)),
+    ],
+)
+def test_compile_size_ranges_accept_whitespace_separated_units(
+    query: str,
+    expected_sql: str,
+    expected_params: tuple[int, ...],
+) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == expected_sql
+    assert branch.where_params == expected_params
 
 
 def test_compile_duplicate_filter_shape() -> None:

@@ -18,6 +18,23 @@ OP_NAMES = {
 }
 
 _RANGE_OP_NAMES = {"date", "modified", "created", "size"}
+_SIZE_UNIT_ALIASES = {
+    "b",
+    "byte",
+    "bytes",
+    "k",
+    "kb",
+    "kib",
+    "m",
+    "mb",
+    "mib",
+    "g",
+    "gb",
+    "gib",
+    "t",
+    "tb",
+    "tib",
+}
 
 
 class QueryNode(BaseModel):
@@ -161,6 +178,7 @@ class _Parser:
             if value_kind == "word":
                 value = self._maybe_extend_range_value(name, value)
                 value = self._maybe_extend_operator_value(name, value)
+                value = self._maybe_extend_size_value(name, value)
             return OperatorNode(
                 name=name,
                 value=value,
@@ -189,6 +207,7 @@ class _Parser:
             raise QuerySyntaxError("expected operator value", self.index)
         value = self._maybe_extend_range_value(name, value)
         value = self._maybe_extend_operator_value(name, value)
+        value = self._maybe_extend_size_value(name, value)
         return OperatorNode(name=name, value=value, value_kind="word", negated=negated)
 
     def _parse_phrase(self) -> PhraseNode:
@@ -344,6 +363,52 @@ class _Parser:
             self.index = checkpoint
             return value
         return f"{value}{suffix}"
+
+    def _maybe_extend_size_value(self, name: str, value: str) -> str:
+        if name != "size":
+            return value
+        value = self._maybe_extend_size_unit(value)
+        value = self._maybe_extend_range_value(name, value)
+        return self._maybe_extend_size_unit(value)
+
+    def _maybe_extend_size_unit(self, value: str) -> str:
+        if not self._size_value_needs_unit(value):
+            return value
+        checkpoint = self.index
+        self._skip_ws()
+        char = self._peek()
+        if char is None or char in {"|", ")"}:
+            self.index = checkpoint
+            return value
+        suffix = self._read_token()
+        if not suffix or not self._is_size_unit_token(suffix):
+            self.index = checkpoint
+            return value
+        return f"{value}{suffix}"
+
+    def _size_value_needs_unit(self, value: str) -> bool:
+        if ".." in value:
+            _, right = value.split("..", 1)
+            return bool(right) and self._size_bound_needs_unit(right)
+        return self._size_bound_needs_unit(value)
+
+    def _size_bound_needs_unit(self, value: str) -> bool:
+        stripped = value.strip()
+        for prefix in (">=", "<=", ">", "<", "="):
+            if stripped.startswith(prefix):
+                stripped = stripped[len(prefix) :]
+                break
+        if not stripped:
+            return False
+        number_end = 0
+        while number_end < len(stripped) and (stripped[number_end].isdigit() or stripped[number_end] == "."):
+            number_end += 1
+        if number_end == 0 or stripped[:number_end].count(".") > 1:
+            return False
+        return stripped[number_end:] == ""
+
+    def _is_size_unit_token(self, value: str) -> bool:
+        return value.isalpha() and value.casefold() in _SIZE_UNIT_ALIASES
 
     def _peek(self, *, offset: int = 0) -> str | None:
         index = self.index + offset

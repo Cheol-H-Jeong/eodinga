@@ -1029,6 +1029,25 @@ def test_execute_size_alias_queries(tmp_db: sqlite3.Connection) -> None:
     assert kib_hits == ["half-meg.txt"]
 
 
+def test_execute_size_queries_accept_whitespace_separated_units_and_ranges(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/tiny.txt", 900, now, "txt", body_text="tiny")
+    _insert_file(tmp_db, 2, "/workspace/hundred-k.txt", 100 * 1024, now - 60, "txt", body_text="100k")
+    _insert_file(tmp_db, 3, "/workspace/one-meg.txt", 1024**2, now - 120, "txt", body_text="1m")
+    _insert_file(tmp_db, 4, "/workspace/huge.txt", 700 * 1024**2, now - 180, "txt", body_text="700m")
+    tmp_db.commit()
+
+    spaced_hits = [hit.file.name for hit in search(tmp_db, "size:> 100 K", limit=10).hits]
+    ranged_hits = [hit.file.name for hit in search(tmp_db, "size:100 K .. 500 M", limit=10).hits]
+    upper_bounded_hits = [hit.file.name for hit in search(tmp_db, "size:.. 500 K", limit=10).hits]
+
+    assert spaced_hits == ["huge.txt", "one-meg.txt"]
+    assert ranged_hits == ["hundred-k.txt", "one-meg.txt"]
+    assert upper_bounded_hits == ["hundred-k.txt", "tiny.txt"]
+
+
 def test_execute_metadata_only_query_reports_uncapped_total_estimate(
     tmp_db: sqlite3.Connection,
 ) -> None:
