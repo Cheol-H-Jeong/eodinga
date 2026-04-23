@@ -1114,6 +1114,48 @@ def test_execute_regex_true_query(tmp_db: sqlite3.Connection) -> None:
     assert hits == ["report-011.py"]
 
 
+def test_execute_content_regex_flags_cover_dotall_multiline_and_case(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/release-notes.txt",
+        1024,
+        now,
+        "txt",
+        body_text="Alpha line\nbeta section\nomega trailer",
+    )
+    _insert_file(tmp_db, 2, "/workspace/misc.txt", 1024, now - 60, "txt", body_text="standalone note")
+    tmp_db.commit()
+
+    dotall_hits = [hit.file.name for hit in search(tmp_db, r"content:/Alpha.*omega/s", limit=10).hits]
+    multiline_hits = [hit.file.name for hit in search(tmp_db, r"content:/^beta section$/m", limit=10).hits]
+    case_hits = [hit.file.name for hit in search(tmp_db, r"content:/alpha line/", limit=10).hits]
+    strict_case_hits = [
+        hit.file.name for hit in search(tmp_db, r"case:true content:/alpha line/", limit=10).hits
+    ]
+
+    assert dotall_hits == ["release-notes.txt"]
+    assert multiline_hits == ["release-notes.txt"]
+    assert case_hits == ["release-notes.txt"]
+    assert strict_case_hits == []
+
+
+def test_execute_regex_compilation_cache_reuses_same_pattern(tmp_db: sqlite3.Connection) -> None:
+    executor_module._compiled_regex.cache_clear()
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/report-011.txt", 1024, now, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, "/workspace/report-012.txt", 1024, now - 60, "txt", body_text="beta")
+    tmp_db.commit()
+
+    first = search(tmp_db, r"/report-[0-9]+/", limit=10)
+    second = search(tmp_db, r"/report-[0-9]+/", limit=10)
+
+    assert first.hits
+    assert second.hits
+    assert executor_module._compiled_regex.cache_info().hits >= 1
+
+
 def test_execute_regex_only_query_scans_beyond_initial_window(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     for index in range(1, 1501):
