@@ -15,6 +15,7 @@ from eodinga.gui.widgets import (
     EmptyState,
     LauncherActionBar,
     LauncherPreviewPane,
+    LauncherResultMenu,
     QueryChipRow,
     ResultItemDelegate,
     SearchField,
@@ -75,6 +76,7 @@ class LauncherPanel(QWidget):
         self.result_list.setUniformItemSizes(False)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
         self.result_list.setMouseTracking(True)
+        self.result_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.status_chip = StatusChip("Idle", self)
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
@@ -91,6 +93,7 @@ class LauncherPanel(QWidget):
         self.result_list.setModel(self.model)
         self.result_list.selectionModel().currentChanged.connect(self._sync_preview_to_current_index)
         self.result_list.entered.connect(self._handle_hovered_index)
+        self.result_list.customContextMenuRequested.connect(self._show_result_context_menu)
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -459,6 +462,27 @@ class LauncherPanel(QWidget):
 
     def _refresh_preview(self) -> None:
         self._sync_preview_to_index(self.result_list.currentIndex())
+
+    def _show_result_context_menu(self, position) -> None:
+        index = self.result_list.indexAt(position)
+        if index.isValid():
+            self._set_selection(index.row())
+        menu = self._create_result_context_menu()
+        if menu is None:
+            return
+        menu.exec(self.result_list.viewport().mapToGlobal(position))
+
+    def _create_result_context_menu(self) -> LauncherResultMenu | None:
+        if self._current_hit() is None:
+            return None
+        return LauncherResultMenu(
+            on_open=self.activate_current_result,
+            on_reveal=self.emit_open_containing_folder,
+            on_copy_path=self.emit_copy_path,
+            on_copy_name=self.emit_copy_name,
+            on_properties=self.emit_show_properties,
+            parent=self.result_list,
+        )
 
     def _navigate_recent_queries(self, direction: int) -> None:
         if not self._recent_queries:
