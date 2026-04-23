@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.984 - 2026-04-24
+## 0.1.985 - 2026-04-24
 
 - Added launcher result-list context actions so right-clicking a hit now follows the clicked row and exposes open, reveal, copy-path, copy-name, and properties flows without leaving the keyboard-first surface.
 - Surfaced live launcher hotkey backend status in Settings, making it clear whether remaps apply immediately or are only being saved for a future session when the backend is unavailable.
