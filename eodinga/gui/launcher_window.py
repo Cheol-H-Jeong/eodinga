@@ -34,7 +34,7 @@ class LauncherWindow(LauncherPanel):
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
         self.setWindowFlag(Qt.WindowType.Tool, True)
         always_on_top = self._config.launcher.always_on_top if self._config is not None else False
-        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, always_on_top)
+        self.apply_always_on_top(always_on_top)
         width = self._config.launcher.window_width if self._config is not None else 640
         height = self._config.launcher.window_height if self._config is not None else 480
         self.resize(width, height)
@@ -70,6 +70,16 @@ class LauncherWindow(LauncherPanel):
     def closeEvent(self, event: QCloseEvent) -> None:
         self._persist_geometry()
         super().closeEvent(event)
+
+    def apply_always_on_top(self, enabled: bool) -> None:
+        was_visible = self.isVisible()
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, enabled)
+        if self._config is not None:
+            self._config.launcher = self._config.launcher.model_copy(update={"always_on_top": enabled})
+        if was_visible:
+            self.show()
+            self.raise_()
+            self.activateWindow()
 
     def _schedule_geometry_persist(self) -> None:
         if self._config is None or self._config_path is None or not self._geometry_restored or not self.isVisible():
