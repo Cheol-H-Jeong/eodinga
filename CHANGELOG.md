@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.359 - 2026-04-23
+
+- Added aggregate packaging audits so `python packaging/build.py --target linux-dry-run` now validates both Linux dry-run artifact paths together, and `--target release-dry-run` rolls Linux plus Windows packaging checks into one local release gate.
+- Stopped duplicating Debian control metadata in shell by deriving the staged package name, section, priority, maintainer, and description from the checked-in Debian control template before building or auditing `.deb` artifacts.
+- Expanded packaging regressions to pin the aggregate dry-run manifests and the Debian template-to-staged-control contract, reducing release drift across concurrent packaging rounds.
+
 ## 0.1.353 - 2026-04-23
 
 - Expanded the README with an install matrix, a fuller feature inventory, task-focused command recipes, and a packaged-artifacts summary so the shipped operator contract is easier to audit from one page.
