@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+from time import time
 
 import pytest
 
 import eodinga.index.build as build_module
+from eodinga.common import FileRecord
 from eodinga.config import RootConfig
 from eodinga.index.build import rebuild_index
 from eodinga.index.schema import apply_schema
+from eodinga.index.writer import IndexWriter
 
 
 def test_rebuild_index_failure_keeps_existing_target_database(
@@ -76,3 +79,62 @@ def test_rebuild_index_failure_keeps_existing_target_database(
     assert not staged_path.exists()
     assert not staged_path.with_name(".index.db.next-wal").exists()
 
+
+def test_rebuild_index_keeps_bulk_upserts_inside_one_outer_transaction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    db_path = tmp_path / "index.db"
+    now = int(time())
+    records = [
+        FileRecord(
+            root_id=1,
+            path=root / "one.txt",
+            parent_path=root,
+            name="one.txt",
+            name_lower="one.txt",
+            ext="txt",
+            size=1,
+            mtime=now,
+            ctime=now,
+            is_dir=False,
+            is_symlink=False,
+            indexed_at=now,
+        ),
+        FileRecord(
+            root_id=1,
+            path=root / "two.txt",
+            parent_path=root,
+            name="two.txt",
+            name_lower="two.txt",
+            ext="txt",
+            size=2,
+            mtime=now,
+            ctime=now,
+            is_dir=False,
+            is_symlink=False,
+            indexed_at=now,
+        ),
+    ]
+    transaction_states: list[tuple[bool, bool]] = []
+
+    class TrackingWriter(IndexWriter):
+        def bulk_upsert(self, batch):
+            before = self._conn.in_transaction
+            inserted = super().bulk_upsert(batch)
+            transaction_states.append((before, self._conn.in_transaction))
+            return inserted
+
+    def fake_walk_batched(_root_path: Path, _rules, root_id: int = 0):
+        assert root_id == 1
+        yield [records[0]]
+        yield [records[1]]
+
+    monkeypatch.setattr(build_module, "IndexWriter", TrackingWriter)
+    monkeypatch.setattr(build_module, "walk_batched", fake_walk_batched)
+
+    result = rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    assert result.files_indexed == 2
+    assert transaction_states == [(True, True), (True, True)]
