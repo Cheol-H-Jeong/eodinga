@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from PySide6.QtCore import QEvent, QPoint, QTimer, Qt
 from PySide6.QtGui import QCloseEvent, QHideEvent, QMouseEvent, QMoveEvent, QResizeEvent, QShowEvent
@@ -110,19 +111,19 @@ class LauncherWindow(LauncherPanel):
         if self._config is not None and not self._config.launcher.frameless:
             return False
         if event.type() == QEvent.Type.MouseButtonPress:
-            mouse_event = QMouseEvent(event)
+            mouse_event = cast(QMouseEvent, event)
             if mouse_event.button() != Qt.MouseButton.LeftButton:
                 return False
             self._drag_offset = mouse_event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             return True
         if event.type() == QEvent.Type.MouseMove and self._drag_offset is not None:
-            mouse_event = QMouseEvent(event)
+            mouse_event = cast(QMouseEvent, event)
             if not mouse_event.buttons() & Qt.MouseButton.LeftButton:
                 return False
             self.move(mouse_event.globalPosition().toPoint() - self._drag_offset)
             return True
         if event.type() == QEvent.Type.MouseButtonRelease and self._drag_offset is not None:
-            mouse_event = QMouseEvent(event)
+            mouse_event = cast(QMouseEvent, event)
             if mouse_event.button() == Qt.MouseButton.LeftButton:
                 self._drag_offset = None
                 return True

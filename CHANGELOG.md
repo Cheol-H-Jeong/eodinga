@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.226 - 2026-04-23
+
+- Exposed launcher window behavior in Settings, so the popup can now toggle always-on-top mode live and persist the choice back to config without restarting the app.
+- Made popup chrome configurable with a persisted `launcher.frameless` option, allowing the launcher to switch between frameless and standard window decorations at runtime.
+- Added drag-to-move support from the preview pane while frameless mode is enabled, making the borderless popup repositionable without falling back to saved geometry edits.
+
 ## 0.1.222 - 2026-04-23
 
 - Turned `packaging/linux/appimage-builder.yml` into a versioned template and made the AppImage dry-run audit verify the rendered recipe matches the package version instead of drifting behind `latest`.
