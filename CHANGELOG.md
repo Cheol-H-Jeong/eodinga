@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.744 - 2026-04-23
+## 0.1.745 - 2026-04-23
 
 - Expanded the README with single-shot startup, validation, and search recipe tables so operators can choose the smallest command path for desktop, CLI, docs, and release checks.
 - Added architecture maps for command ownership, state transitions, and symptom-to-subsystem routing, making it easier to trace stale results or recovery behavior back to the module that owns it.
