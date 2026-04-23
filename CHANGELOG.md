@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.904 - 2026-04-23
+
+- Added recursive live-update integration coverage for nested file creation and deletion, proving real watchdog observers keep search results current for files added under newly created subdirectories.
+- Extended hot-restart integration coverage so reopened indexes are verified against the same nested live-update flows, including multi-root root-scoped visibility after restart.
+- Added multi-root rebuild and reopen coverage for nested files, confirming trimmed-root rebuilds still preserve the correct surviving nested results after reopening the index.
+
 ## 0.1.901 - 2026-04-23
 
 - Made the Linux AppImage packaging script emit and audit a versioned `.AppImage` payload on non-dry-run builds instead of stopping at the staged AppDir tarball.
