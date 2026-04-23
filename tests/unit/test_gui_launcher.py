@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtCore import Qt
@@ -771,6 +772,10 @@ def test_launcher_result_markup_surfaces_top_nine_quick_pick_badges(qapp) -> Non
     launcher.query_field.setText("item")
     _wait(60)
 
-    assert "Alt+1" in launcher.model.data(launcher.model.index(0, 0))
-    assert "Alt+9" in launcher.model.data(launcher.model.index(8, 0))
-    assert "Alt+10" not in launcher.model.data(launcher.model.index(9, 0))
+    first_html = cast(str, launcher.model.data(launcher.model.index(0, 0)))
+    ninth_html = cast(str, launcher.model.data(launcher.model.index(8, 0)))
+    tenth_html = cast(str, launcher.model.data(launcher.model.index(9, 0)))
+
+    assert "Alt+1" in first_html
+    assert "Alt+9" in ninth_html
+    assert "Alt+10" not in tenth_html
