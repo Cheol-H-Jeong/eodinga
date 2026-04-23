@@ -65,20 +65,76 @@ REQUIRED_HIDDEN_IMPORTS = [
 ]
 
 
+def _string_literal(node: ast.expr | None) -> str | None:
+    if not isinstance(node, ast.Constant):
+        return None
+    if not isinstance(node.value, str):
+        return None
+    return node.value
+
+
+def _collect_import_aliases(module: ast.AST) -> tuple[set[str], set[str], set[str]]:
+    importlib_aliases = {"importlib"}
+    import_module_aliases = {"import_module"}
+    builtin_import_aliases = {"__import__"}
+    for node in ast.walk(module):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name == "importlib":
+                    importlib_aliases.add(alias.asname or alias.name)
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if node.module == "importlib":
+            for alias in node.names:
+                if alias.name == "import_module":
+                    import_module_aliases.add(alias.asname or alias.name)
+        if node.module == "builtins":
+            for alias in node.names:
+                if alias.name == "__import__":
+                    builtin_import_aliases.add(alias.asname or alias.name)
+    return importlib_aliases, import_module_aliases, builtin_import_aliases
+
+
+def _dynamic_import_name(
+    node: ast.Call,
+    *,
+    importlib_aliases: set[str],
+    import_module_aliases: set[str],
+    builtin_import_aliases: set[str],
+) -> str | None:
+    function = node.func
+    if isinstance(function, ast.Name):
+        if function.id in import_module_aliases | builtin_import_aliases:
+            return _string_literal(node.args[0] if node.args else None)
+        return None
+    if not isinstance(function, ast.Attribute):
+        return None
+    if function.attr != "import_module":
+        return None
+    if not isinstance(function.value, ast.Name):
+        return None
+    if function.value.id not in importlib_aliases:
+        return None
+    return _string_literal(node.args[0] if node.args else None)
+
+
 def _discover_hidden_imports(source_root: Path) -> list[str]:
     discovered: set[str] = set()
     for source_path in source_root.rglob("*.py"):
         module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+        importlib_aliases, import_module_aliases, builtin_import_aliases = _collect_import_aliases(module)
         for node in ast.walk(module):
             if not isinstance(node, ast.Call):
                 continue
-            if not isinstance(node.func, ast.Name) or node.func.id != "import_module":
+            import_name = _dynamic_import_name(
+                node,
+                importlib_aliases=importlib_aliases,
+                import_module_aliases=import_module_aliases,
+                builtin_import_aliases=builtin_import_aliases,
+            )
+            if import_name is None:
                 continue
-            if not node.args or not isinstance(node.args[0], ast.Constant):
-                continue
-            if not isinstance(node.args[0].value, str):
-                continue
-            discovered.add(node.args[0].value)
+            discovered.add(import_name)
     return sorted(discovered)
 
 

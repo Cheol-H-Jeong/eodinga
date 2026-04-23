@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import textwrap
 from pathlib import Path
+from typing import Callable
 from typing import cast
 
 
@@ -59,3 +61,34 @@ def test_pyinstaller_runtime_modules_map_to_real_sources() -> None:
     for module_name in runtime_modules:
         module_path = Path(*module_name.split(".")).with_suffix(".py")
         assert module_path.exists(), module_name
+
+
+def test_pyinstaller_discovers_dynamic_import_aliases(tmp_path: Path) -> None:
+    source_root = tmp_path / "src"
+    source_root.mkdir()
+    (source_root / "dynamic_aliases.py").write_text(
+        textwrap.dedent(
+            """
+            import importlib as loader
+            from builtins import __import__ as builtin_loader
+            from importlib import import_module as load_module
+
+            loader.import_module("pkg.alpha")
+            load_module("pkg.beta")
+            builtin_loader("pkg.gamma")
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_hidden_imports = cast(Callable[[Path], list[str]], namespace["_discover_hidden_imports"])
+
+    assert discover_hidden_imports(source_root) == [
+        "pkg.alpha",
+        "pkg.beta",
+        "pkg.gamma",
+    ]
