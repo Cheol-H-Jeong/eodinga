@@ -254,6 +254,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         log_path=log_target.path,
         log_path_source=log_target.source,
         log_path_disabled_reason=log_target.disabled_reason,
+        log_sink_sources=_log_sink_source_summary(counters),
+        log_sink_disabled_reasons=_log_sink_disabled_reason_summary(counters),
         log_rotation=resolve_log_rotation(),
         log_retention=resolve_log_retention(),
         log_compression=resolve_log_compression(),
@@ -414,6 +416,22 @@ def _watcher_event_type_summary(counters: dict[str, int]) -> dict[str, int]:
         if name.startswith(prefix)
     }
     return dict(sorted(event_types.items()))
+
+
+def _log_sink_source_summary(counters: dict[str, int]) -> dict[str, int]:
+    prefix = "log_sinks.file.source."
+    sources = {
+        name[len(prefix) :]: value for name, value in counters.items() if name.startswith(prefix)
+    }
+    return dict(sorted(sources.items()))
+
+
+def _log_sink_disabled_reason_summary(counters: dict[str, int]) -> dict[str, int]:
+    prefix = "log_sinks.file.disabled."
+    reasons = {
+        name[len(prefix) :]: value for name, value in counters.items() if name.startswith(prefix)
+    }
+    return dict(sorted(reasons.items()))
 
 
 def main(argv: list[str] | None = None) -> int:

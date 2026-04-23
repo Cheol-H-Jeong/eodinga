@@ -529,6 +529,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_path"] is None
     assert payload["log_path_source"] is None
     assert payload["log_path_disabled_reason"] == "disabled_pytest"
+    assert payload["log_sink_sources"] == {}
+    assert payload["log_sink_disabled_reasons"] == {"disabled_pytest": 2}
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
@@ -669,6 +671,8 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_path_source"] is None
     assert payload["log_path_disabled_reason"] == "disabled_pytest"
+    assert payload["log_sink_sources"] == {}
+    assert payload["log_sink_disabled_reasons"] == {"disabled_pytest": 3}
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
@@ -874,6 +878,30 @@ def test_stats_json_exposes_crash_log_write_failures(tmp_path: Path, capsys, mon
     assert payload["crash_log_write_failures"] == 1
     assert payload["crash_types"] == {"RuntimeError": 1}
     assert payload["recent_snapshots"][1]["payload"]["crash_path"] is None
+
+
+def test_stats_json_summarizes_log_sink_sources(tmp_path: Path, capsys, monkeypatch) -> None:
+    db_path = tmp_path / "index.db"
+    log_path = tmp_path / "logs" / "custom.log"
+    _build_search_db(db_path)
+    reset_metrics()
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    version_exit = main(["--db", str(db_path), "version"])
+    version_output = capsys.readouterr()
+    assert version_exit == 0
+    assert version_output.out.strip() == __version__
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["log_path"] == str(log_path)
+    assert payload["log_path_source"] == "env_override"
+    assert payload["log_path_disabled_reason"] is None
+    assert payload["log_sink_sources"] == {"env_override": 2}
+    assert payload["log_sink_disabled_reasons"] == {}
 
 
 def test_stats_json_structures_interrupted_command_counts(
