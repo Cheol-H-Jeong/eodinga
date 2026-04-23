@@ -217,6 +217,19 @@ runtime code / CLI / UI changes
 - The release flow treats documentation, generated assets, and packaging manifests as part of the same shipped surface.
 - This is why docs-only rounds still run `tests/unit/test_docs_assets.py` and the matching dry-run or GUI smoke command instead of stopping at markdown edits.
 
+## Platform Path Map
+
+| Concern | Linux default | Windows default | Owner |
+| --- | --- | --- | --- |
+| Config file | `~/.config/eodinga/config.toml` | `%APPDATA%\\eodinga\\config.toml` | `eodinga.config.default_path()` |
+| Index database | `~/.local/share/eodinga/index.db` | `%LOCALAPPDATA%\\eodinga\\index.db` | `eodinga.config.default_db_path()` |
+| Rotating log file | `~/.local/state/eodinga/logs/eodinga.log` | `%LOCALAPPDATA%\\eodinga\\logs\\eodinga.log` | `eodinga.observability.resolve_log_path()` |
+| Crash logs | `~/.local/state/eodinga/crashes/` | `%LOCALAPPDATA%\\eodinga\\crashes\\` | `eodinga.observability.resolve_crash_dir()` |
+
+- `--config` and `--db` override the config and index paths for a single invocation without changing the default directories.
+- `EODINGA_LOG_PATH` and `EODINGA_CRASH_DIR` override the observability paths when an operator needs logs or crash artifacts elsewhere.
+- Runtime writes stay inside these config, database, and observability paths; indexed roots remain read-only inputs throughout the stack.
+
 ## State Ownership
 
 | State | Owner | Why it lives there |
@@ -225,6 +238,7 @@ runtime code / CLI / UI changes
 | Lexical path lookup | `paths_fts` | Fast candidate generation for filename and path matches. |
 | Parsed document text | `content_fts` + `content_map` | Stable full-text rows for content phrases and parser-backed search. |
 | Runtime settings | config file under platform app dirs | Keeps user-visible launcher/gui behavior outside the index. |
+| Runtime logs and crash artifacts | state/log directories under the platform app dirs | Keeps diagnostics local to the app without mutating indexed content roots. |
 | Derived docs assets | `docs/man/` and `docs/screenshots/` | Versioned release inputs audited by tests instead of ad-hoc notes. |
 
 ## Operational Model
@@ -259,6 +273,27 @@ IndexWriter.apply_events()
     v
 next query sees updated results
 ```
+
+## Launcher Interaction Sequence
+
+```text
+global hotkey / GUI launcher button
+    |
+    v
+LauncherWindow opens with shared LauncherState
+    |
+    +--> query field accepts text or recent/pinned chip click
+    |
+    +--> executor returns ranked hits from the current index
+    |
+    +--> selection change updates preview pane + action bar target
+    |
+    +--> Enter / Ctrl+Enter / Shift+Enter / Alt+1..9 dispatch desktop actions
+```
+
+- `LauncherState` keeps recent queries, pinned queries, and indexing status shared between the popup launcher and the embedded launcher panel in the main window.
+- The preview pane is read-only: it mirrors the currently selected or hovered hit, but it does not issue its own search requests.
+- Keyboard actions stay above the search engine boundary; they only choose which already-ranked hit to open, reveal, copy, or inspect.
 
 ## Recovery Decision Tree
 
