@@ -33,9 +33,15 @@ class LauncherHotkeyController(QObject):
         self._launcher_window = launcher_window
         self._service = hotkey_service if hotkey_service is not None else self._build_service()
         self._combo = combo
+        self._bound = False
         self.toggle_requested.connect(self.toggle_launcher)
         if self._service is not None and combo:
-            self._apply_combo(combo)
+            try:
+                self._apply_combo(combo)
+            except Exception as error:
+                self._service.stop()
+                self._service.unregister()
+                get_logger().warning("launcher hotkey binding failed for {}: {}", combo, error)
 
     @property
     def combo(self) -> str:
@@ -47,16 +53,24 @@ class LauncherHotkeyController(QObject):
 
     def rebind(self, combo: str) -> None:
         normalized = combo.strip()
-        if not normalized or normalized == self._combo:
+        if not normalized or (normalized == self._combo and self._bound):
             return
         previous = self._combo
+        was_bound = self._bound
         if self._service is None:
             self._combo = normalized
+            self._bound = False
             return
         try:
             self._apply_combo(normalized)
         except Exception:
-            self._apply_combo(previous)
+            if was_bound:
+                self._apply_combo(previous)
+            else:
+                self._service.stop()
+                self._service.unregister()
+                self._combo = previous
+                self._bound = False
             raise
 
     def stop(self) -> None:
@@ -88,4 +102,5 @@ class LauncherHotkeyController(QObject):
         self._service.register(combo, self.toggle_requested.emit)
         self._service.start()
         self._combo = combo
+        self._bound = True
         get_logger().debug("launcher hotkey bound to {}", combo)

@@ -37,6 +37,18 @@ class _HotkeyServiceSpy:
         self.calls.append(("stop", ""))
 
 
+class _FailingHotkeyServiceSpy(_HotkeyServiceSpy):
+    def __init__(self, failing_combos: set[str]) -> None:
+        super().__init__()
+        self.failing_combos = failing_combos
+
+    def register(self, combo: str, callback) -> None:
+        self.calls.append(("register", combo))
+        if combo in self.failing_combos:
+            raise ValueError(f"unsupported hotkey key: {combo}")
+        self.callback = callback
+
+
 def test_app_window_has_expected_tabs_and_launcher(qapp) -> None:
     _, window, launcher = cast(tuple[object, EodingaWindow, LauncherWindow], launch_gui(test_mode=True))
     window.show()
@@ -370,6 +382,50 @@ def test_settings_tab_rebinds_hotkey_without_restart(
     ]
     assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+alt+k"
     assert load(temp_config_path).launcher.hotkey == "ctrl+alt+k"
+
+
+def test_window_survives_invalid_configured_hotkey(qapp) -> None:
+    hotkey_service = _FailingHotkeyServiceSpy({"ctrl+shift+bad"})
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"hotkey": "ctrl+shift+bad"})
+
+    window = EodingaWindow(config=config, hotkey_service=hotkey_service)
+
+    assert not window.launcher_window.isVisible()
+    assert hotkey_service.calls == [
+        ("stop", ""),
+        ("unregister", ""),
+        ("register", "ctrl+shift+bad"),
+        ("stop", ""),
+        ("unregister", ""),
+    ]
+    assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+shift+bad"
+
+
+def test_settings_tab_failed_hotkey_rebind_restores_previous_binding(monkeypatch, qapp, temp_config_path: Path) -> None:
+    hotkey_service = _FailingHotkeyServiceSpy({"ctrl+alt+bad"})
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path, hotkey_service=hotkey_service)
+    monkeypatch.setattr(
+        "eodinga.gui.tabs.settings.QInputDialog.getText",
+        lambda *args, **kwargs: ("ctrl+alt+bad", True),
+    )
+    monkeypatch.setattr("eodinga.gui.app.QMessageBox.warning", lambda *args, **kwargs: None)
+
+    window.settings_tab.remap_hotkey_button.click()
+    qapp.processEvents()
+
+    assert hotkey_service.calls[-7:] == [
+        ("stop", ""),
+        ("unregister", ""),
+        ("register", "ctrl+alt+bad"),
+        ("stop", ""),
+        ("unregister", ""),
+        ("register", "ctrl+shift+space"),
+        ("start", ""),
+    ]
+    assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+shift+space"
+    assert load(temp_config_path).launcher.hotkey == "ctrl+shift+space"
 
 
 def test_settings_tab_toggles_always_on_top_without_restart(qapp, temp_config_path: Path) -> None:
