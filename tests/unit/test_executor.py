@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from eodinga.index.schema import apply_schema
 from eodinga.query import executor as executor_module
 from eodinga.query import search
 
@@ -121,6 +122,68 @@ def test_execute_queries(populated_db: sqlite3.Connection, query: str, expected_
     result = search(populated_db, query, limit=20)
     assert result.hits
     assert result.hits[0].file.name == expected_first
+
+
+def test_execute_reuses_prepared_statements_for_repeat_queries(tmp_path: Path) -> None:
+    class TrackingConnection(sqlite3.Connection):
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__(*args, **kwargs)
+            self.cursor_calls = 0
+
+        def cursor(self, *args, **kwargs) -> sqlite3.Cursor:
+            self.cursor_calls += 1
+            return super().cursor(*args, **kwargs)
+
+    conn = sqlite3.connect(tmp_path / "prepared-cache.db", factory=TrackingConnection)
+    conn.row_factory = sqlite3.Row
+    apply_schema(conn)
+    conn.execute(
+        "INSERT INTO roots(id, path, include, exclude, added_at) VALUES (?, ?, ?, ?, ?)",
+        (1, "/workspace", "[]", "[]", 1),
+    )
+    _insert_file(conn, 1, "/workspace/reports/alpha.txt", 512, 1_713_528_000, "txt", body_text="alpha")
+    conn.commit()
+
+    executor_module._clear_prepared_statement_cache(conn)
+    try:
+        first = search(conn, "alpha", limit=10)
+        first_cursor_calls = conn.cursor_calls
+
+        second = search(conn, "alpha", limit=10)
+
+        assert first.hits[0].file.name == "alpha.txt"
+        assert second.hits[0].file.name == "alpha.txt"
+        assert conn.cursor_calls == first_cursor_calls
+    finally:
+        executor_module._clear_prepared_statement_cache(conn)
+        conn.close()
+
+
+def test_execute_prepared_statement_cache_evicts_oldest_sql(tmp_path: Path) -> None:
+    class TrackingConnection(sqlite3.Connection):
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__(*args, **kwargs)
+            self.cursor_calls = 0
+
+        def cursor(self, *args, **kwargs) -> sqlite3.Cursor:
+            self.cursor_calls += 1
+            return super().cursor(*args, **kwargs)
+
+    conn = sqlite3.connect(tmp_path / "prepared-eviction.db", factory=TrackingConnection)
+    try:
+        executor_module._clear_prepared_statement_cache(conn)
+        for index in range(executor_module._PREPARED_STATEMENT_CACHE_SIZE + 2):
+            row = executor_module._fetchone_prepared(conn, f"SELECT {index} AS value")
+            assert row == (index,)
+
+        baseline_cursor_calls = conn.cursor_calls
+        row = executor_module._fetchone_prepared(conn, "SELECT 0 AS value")
+
+        assert row == (0,)
+        assert conn.cursor_calls == baseline_cursor_calls + 1
+    finally:
+        executor_module._clear_prepared_statement_cache(conn)
+        conn.close()
 
 
 def test_node_modules_are_deboosted(populated_db: sqlite3.Connection) -> None:

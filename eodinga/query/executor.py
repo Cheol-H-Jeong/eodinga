@@ -4,6 +4,7 @@ import re
 import sqlite3
 import time
 import unicodedata
+from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from pathlib import Path
@@ -39,6 +40,68 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+_PREPARED_STATEMENT_CACHE_SIZE = 128
+_PREPARED_STATEMENTS_BY_CONNECTION: dict[int, tuple[sqlite3.Connection, OrderedDict[str, sqlite3.Cursor]]] = {}
+
+
+def _prepared_statements(conn: sqlite3.Connection) -> OrderedDict[str, sqlite3.Cursor]:
+    cached = _PREPARED_STATEMENTS_BY_CONNECTION.get(id(conn))
+    if cached is not None and cached[0] is conn:
+        return cached[1]
+    statements: OrderedDict[str, sqlite3.Cursor] = OrderedDict()
+    _PREPARED_STATEMENTS_BY_CONNECTION[id(conn)] = (conn, statements)
+    return statements
+
+
+def _clear_prepared_statement_cache(conn: sqlite3.Connection | None = None) -> None:
+    if conn is None:
+        for _, statements in _PREPARED_STATEMENTS_BY_CONNECTION.values():
+            for cursor in statements.values():
+                cursor.close()
+        _PREPARED_STATEMENTS_BY_CONNECTION.clear()
+        return
+    cached = _PREPARED_STATEMENTS_BY_CONNECTION.pop(id(conn), None)
+    if cached is None or cached[0] is not conn:
+        return
+    for cursor in cached[1].values():
+        cursor.close()
+
+
+def _execute_prepared(
+    conn: sqlite3.Connection,
+    sql: str,
+    parameters: tuple[object, ...] | Mapping[str, object] = (),
+) -> sqlite3.Cursor:
+    statements = _prepared_statements(conn)
+    cursor = statements.pop(sql, None)
+    if cursor is None:
+        cursor = conn.cursor()
+        if len(statements) >= _PREPARED_STATEMENT_CACHE_SIZE:
+            _, expired = statements.popitem(last=False)
+            expired.close()
+    try:
+        cursor.execute(sql, parameters)
+    except sqlite3.ProgrammingError:
+        cursor = conn.cursor()
+        cursor.execute(sql, parameters)
+    statements[sql] = cursor
+    return cursor
+
+
+def _fetchall_prepared(
+    conn: sqlite3.Connection,
+    sql: str,
+    parameters: tuple[object, ...] | Mapping[str, object] = (),
+) -> list[sqlite3.Row]:
+    return _execute_prepared(conn, sql, parameters).fetchall()
+
+
+def _fetchone_prepared(
+    conn: sqlite3.Connection,
+    sql: str,
+    parameters: tuple[object, ...] | Mapping[str, object] = (),
+) -> sqlite3.Row | None:
+    return _execute_prepared(conn, sql, parameters).fetchone()
 
 
 @lru_cache(maxsize=256)
@@ -324,7 +387,7 @@ def _fetch_record_batch(
     offset: int,
 ) -> dict[int, FileRecord]:
     sql = _record_batch_sql(bool(where_sql)).format(where_sql=where_sql)
-    rows = conn.execute(sql, (*where_params, limit, offset)).fetchall()
+    rows = _fetchall_prepared(conn, sql, (*where_params, limit, offset))
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
@@ -423,7 +486,7 @@ def _fetch_path_candidates_fts(
         where_sql=branch.where_sql,
     )
     params.append(f"{prefix_term}%")
-    rows = conn.execute(sql, (*params, limit)).fetchall()
+    rows = _fetchall_prepared(conn, sql, (*params, limit))
     records = {row["id"]: _row_to_record(row) for row in rows}
     return [row["id"] for row in rows], records
 
@@ -449,7 +512,7 @@ def _fetch_path_candidates_scan(
         branch.case_sensitive,
     ).format(where_sql=branch.where_sql)
     params.append(f"{prefix_term}%")
-    rows = conn.execute(sql, (*params, limit)).fetchall()
+    rows = _fetchall_prepared(conn, sql, (*params, limit))
     records = {row["id"]: _row_to_record(row) for row in rows}
     return [row["id"] for row in rows], records
 
@@ -500,7 +563,7 @@ def _fetch_content_candidates(
         content_match_sql=branch.content_match_sql,
         where_sql=branch.where_sql,
     )
-    rows = conn.execute(sql, (*params, limit)).fetchall()
+    rows = _fetchall_prepared(conn, sql, (*params, limit))
     records = {row["id"]: _row_to_record(row) for row in rows}
     snippets = {row["id"]: row["snippet"] for row in rows}
     ids = [row["id"] for row in rows]
@@ -529,7 +592,7 @@ def _fetch_auto_content_candidates(
     if branch.where_sql:
         params.extend(branch.where_params)
     sql = _auto_content_candidates_sql(bool(branch.where_sql)).format(where_sql=branch.where_sql)
-    rows = conn.execute(sql, (*params, limit)).fetchall()
+    rows = _fetchall_prepared(conn, sql, (*params, limit))
     records = {row["id"]: _row_to_record(row) for row in rows}
     snippets = {row["id"]: row["snippet"] for row in rows}
     ids = [row["id"] for row in rows]
@@ -569,7 +632,7 @@ def _has_indexed_content(conn: sqlite3.Connection) -> bool:
     cached = _CONTENT_PRESENCE_BY_CONNECTION.get(id(conn))
     if cached is not None and cached.total_changes == conn.total_changes:
         return cached.has_indexed_content
-    has_indexed_content = conn.execute("SELECT 1 FROM content_map LIMIT 1").fetchone() is not None
+    has_indexed_content = _fetchone_prepared(conn, "SELECT 1 FROM content_map LIMIT 1") is not None
     _CONTENT_PRESENCE_BY_CONNECTION[id(conn)] = _ContentPresenceCache(
         total_changes=conn.total_changes,
         has_indexed_content=has_indexed_content,
@@ -581,7 +644,7 @@ def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[i
     id_list = tuple(dict.fromkeys(ids))
     if not id_list:
         return {}
-    rows = conn.execute(_content_texts_sql(len(id_list)), id_list).fetchall()
+    rows = _fetchall_prepared(conn, _content_texts_sql(len(id_list)), id_list)
     return {
         row["file_id"]: " ".join(
             part for part in (row["title"], row["head_text"], row["body_text"]) if part
@@ -606,7 +669,7 @@ def _fetch_content_backfill_batch(
     if branch.where_sql:
         params.extend(branch.where_params)
     sql = _content_backfill_sql(bool(branch.where_sql)).format(where_sql=branch.where_sql)
-    rows = conn.execute(sql, (*params, limit, offset)).fetchall()
+    rows = _fetchall_prepared(conn, sql, (*params, limit, offset))
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
@@ -739,10 +802,11 @@ def _metadata_only_total_estimate(
             params.extend(branch.where_params)
         selects.append(select_sql)
     union_sql = " UNION ".join(selects)
-    row = conn.execute(
+    row = _fetchone_prepared(
+        conn,
         f"SELECT COUNT(*) FROM ({union_sql} LIMIT {int(cap)}) AS metadata_matches",
         tuple(params),
-    ).fetchone()
+    )
     return int(row[0]) if row is not None else 0
 
 
