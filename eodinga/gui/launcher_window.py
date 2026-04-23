@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTimer, Qt, Signal
 from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
 
 from eodinga.config import AppConfig
@@ -11,6 +11,8 @@ from eodinga.gui.launcher import LauncherPanel, LauncherState, SearchFn
 
 
 class LauncherWindow(LauncherPanel):
+    visibility_changed = Signal(bool)
+
     def __init__(
         self,
         search_fn: SearchFn | None = None,
@@ -54,6 +56,7 @@ class LauncherWindow(LauncherPanel):
             self._geometry_restored = True
         self.query_field.setFocus()
         self.query_field.selectAll()
+        self.visibility_changed.emit(True)
 
     def moveEvent(self, event: QMoveEvent) -> None:
         super().moveEvent(event)
@@ -79,6 +82,7 @@ class LauncherWindow(LauncherPanel):
     def hideEvent(self, event: QHideEvent) -> None:
         self._persist_geometry()
         super().hideEvent(event)
+        self.visibility_changed.emit(False)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self._persist_geometry()

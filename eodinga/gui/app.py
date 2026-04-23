@@ -28,34 +28,39 @@ class _DesktopActionsLike(Protocol):
 
 
 class TrayIndicatorController:
-    def __init__(self, app: QApplication, launcher_window: LauncherWindow, parent: QWidget) -> None:
+    def __init__(self, app: QApplication, launcher_window: LauncherWindow, main_window: QMainWindow, parent: QWidget) -> None:
         self._app = app
         self._launcher_window = launcher_window
+        self._main_window = main_window
         self._tray: QSystemTrayIcon | None = None
         self.tooltip = format_indexing_status(IndexingStatus())
         self.status_text = self.tooltip
         self.icon_state = "idle"
+        self._status_action = QAction(self.status_text, parent)
+        self._status_action.setEnabled(False)
+        self.open_app_action = QAction("Open eodinga", parent)
+        self.open_app_action.triggered.connect(self.show_main_window)
+        self.toggle_launcher_action = QAction("", parent)
+        self.toggle_launcher_action.triggered.connect(self.toggle_launcher)
+        self.quit_action = QAction("Quit", parent)
+        self.quit_action.triggered.connect(self._app.quit)
+        self._launcher_window.visibility_changed.connect(self._sync_launcher_action_text)
+        self._sync_launcher_action_text(self._launcher_window.isVisible())
         if not QSystemTrayIcon.isSystemTrayAvailable():
             return
         icon = self._icon_for_state(self.icon_state)
         tray = QSystemTrayIcon(icon, parent)
         menu = QMenu(parent)
-        self._status_action = QAction(self.status_text, menu)
-        self._status_action.setEnabled(False)
         menu.addAction(self._status_action)
         menu.addSeparator()
-        show_launcher = QAction("Show launcher", menu)
-        show_launcher.triggered.connect(self.show_launcher)
-        menu.addAction(show_launcher)
-        quit_action = QAction("Quit", menu)
-        quit_action.triggered.connect(self._app.quit)
-        menu.addAction(quit_action)
+        menu.addAction(self.open_app_action)
+        menu.addAction(self.toggle_launcher_action)
+        menu.addAction(self.quit_action)
         tray.setContextMenu(menu)
         tray.setToolTip(self.tooltip)
         tray.activated.connect(self._handle_activation)
         tray.show()
         self._tray = tray
-        self.quit_action = quit_action
 
     @property
     def visible(self) -> bool:
@@ -76,6 +81,11 @@ class TrayIndicatorController:
             self._tray.setIcon(self._icon_for_state(self.icon_state))
             self._tray.setToolTip(self.tooltip)
 
+    def show_main_window(self) -> None:
+        self._main_window.show()
+        self._main_window.raise_()
+        self._main_window.activateWindow()
+
     def show_launcher(self) -> None:
         self._launcher_window.show()
         self._launcher_window.raise_()
@@ -83,15 +93,22 @@ class TrayIndicatorController:
         self._launcher_window.query_field.setFocus()
         self._launcher_window.query_field.selectAll()
 
+    def toggle_launcher(self) -> None:
+        if self._launcher_window.isVisible():
+            self._launcher_window.hide()
+            return
+        self.show_launcher()
+
+    def _sync_launcher_action_text(self, visible: bool) -> None:
+        if hasattr(self, "toggle_launcher_action"):
+            self.toggle_launcher_action.setText("Hide launcher" if visible else "Show launcher")
+
     def _handle_activation(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason in {
             QSystemTrayIcon.ActivationReason.Trigger,
             QSystemTrayIcon.ActivationReason.DoubleClick,
         }:
-            if self._launcher_window.isVisible():
-                self._launcher_window.hide()
-                return
-            self.show_launcher()
+            self.toggle_launcher()
 
 
 class EodingaWindow(QMainWindow):
@@ -150,7 +167,7 @@ class EodingaWindow(QMainWindow):
         self.desktop_actions = desktop_actions or DesktopActions(app)
         self._connect_launcher_actions(self.launcher_window)
         self._connect_launcher_actions(self.search_tab.launcher_panel)
-        self.tray_indicator = TrayIndicatorController(app, self.launcher_window, self)
+        self.tray_indicator = TrayIndicatorController(app, self.launcher_window, self, self)
         self._hotkey_controller = LauncherHotkeyController(
             self.launcher_window,
             resolved_config.launcher.hotkey,
