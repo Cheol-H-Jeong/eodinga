@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 from time import perf_counter, time
 
@@ -76,6 +77,35 @@ def test_writer_caches_chunk_shaped_sql_templates() -> None:
     assert writer_module._delete_content_rows_sql.cache_info().hits >= 1
     assert writer_module._select_deleted_content_rowids_sql.cache_info().hits >= 1
     assert writer_module._select_existing_content_rows_sql.cache_info().hits >= 1
+
+
+def test_writer_bulk_upsert_uses_temporary_bulk_write_mode(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    records = [_synthetic_record(index, tmp_path) for index in range(2)]
+    writer = IndexWriter(conn)
+    calls: list[tuple[str, int]] = []
+
+    @contextmanager
+    def fake_bulk_mode(connection: sqlite3.Connection):
+        calls.append(("enter", id(connection)))
+        try:
+            yield
+        finally:
+            calls.append(("exit", id(connection)))
+
+    original_bulk_mode = writer_module.temporary_bulk_write_mode
+    writer_module.temporary_bulk_write_mode = fake_bulk_mode
+    try:
+        assert writer.bulk_upsert(records) == 2
+    finally:
+        writer_module.temporary_bulk_write_mode = original_bulk_mode
+        conn.close()
+
+    assert calls == [("enter", id(writer._conn)), ("exit", id(writer._conn))]
 
 
 def test_writer_without_parser_skips_content_queries(tmp_db: Path, tmp_path: Path) -> None:

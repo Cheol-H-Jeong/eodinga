@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import sqlite3
 import shutil
+from contextlib import contextmanager
+from collections.abc import Iterator
 from pathlib import Path
 
 from eodinga.index.migrations import migrate
@@ -10,6 +12,8 @@ from eodinga.index.schema import PRAGMAS, current_schema_version
 from eodinga.observability import get_logger
 
 SQLITE_CACHED_STATEMENTS = 128
+DEFAULT_SYNCHRONOUS_MODE = "FULL"
+BULK_SYNCHRONOUS_MODE = "NORMAL"
 
 
 def _sidecar(path: Path, suffix: str) -> Path:
@@ -23,7 +27,24 @@ def configure_connection(
         conn.row_factory = row_factory
     for pragma in PRAGMAS:
         conn.execute(pragma)
+    set_synchronous_mode(conn, DEFAULT_SYNCHRONOUS_MODE)
     return conn
+
+
+def set_synchronous_mode(conn: sqlite3.Connection, mode: str) -> None:
+    conn.execute(f"PRAGMA synchronous={mode};")
+
+
+@contextmanager
+def temporary_bulk_write_mode(conn: sqlite3.Connection) -> Iterator[None]:
+    if conn.in_transaction:
+        yield
+        return
+    set_synchronous_mode(conn, BULK_SYNCHRONOUS_MODE)
+    try:
+        yield
+    finally:
+        set_synchronous_mode(conn, DEFAULT_SYNCHRONOUS_MODE)
 
 
 def connect_database(
@@ -307,4 +328,6 @@ __all__ = [
     "recover_interrupted_build",
     "recover_interrupted_recovery",
     "recover_stale_wal",
+    "set_synchronous_mode",
+    "temporary_bulk_write_mode",
 ]

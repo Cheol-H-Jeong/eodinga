@@ -10,6 +10,7 @@ from typing import NamedTuple, TypeVar
 
 from eodinga.common import FileRecord, ParsedContent, WatchEvent
 from eodinga.index.schema import apply_schema, current_schema_version
+from eodinga.index.storage import temporary_bulk_write_mode
 
 ParserCallback = Callable[[Path], ParsedContent | None]
 RecordLoader = Callable[[Path], FileRecord | None]
@@ -100,9 +101,10 @@ class IndexWriter:
         buffered = _materialize_records(records)
         if not buffered:
             return 0
-        with self._transaction():
-            self._upsert_records(buffered)
-            self._upsert_content(buffered)
+        with temporary_bulk_write_mode(self._conn):
+            with self._transaction():
+                self._upsert_records(buffered)
+                self._upsert_content(buffered)
         return len(buffered)
 
     def apply_events(self, events: Sequence[WatchEvent], record_loader: RecordLoader) -> int:

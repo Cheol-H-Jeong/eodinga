@@ -10,6 +10,8 @@ import pytest
 import eodinga.index.storage as storage_module
 from eodinga.index.schema import apply_schema
 from eodinga.index.storage import (
+    BULK_SYNCHRONOUS_MODE,
+    DEFAULT_SYNCHRONOUS_MODE,
     SQLITE_CACHED_STATEMENTS,
     atomic_replace_index,
     connect_database,
@@ -18,6 +20,7 @@ from eodinga.index.storage import (
     recover_interrupted_build,
     recover_interrupted_recovery,
     recover_stale_wal,
+    temporary_bulk_write_mode,
 )
 
 
@@ -257,6 +260,9 @@ def test_connect_database_applies_row_factory_and_pragmas(tmp_path: Path) -> Non
         cache_size = conn.execute("PRAGMA cache_size;").fetchone()
         assert cache_size is not None
         assert int(cache_size[0]) == -64000
+        synchronous = conn.execute("PRAGMA synchronous;").fetchone()
+        assert synchronous is not None
+        assert int(synchronous[0]) == 2
     finally:
         conn.close()
 
@@ -288,6 +294,50 @@ def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, m
         assert seen["database"] == path
         assert seen["cached_statements"] == SQLITE_CACHED_STATEMENTS
     finally:
+        conn.close()
+
+
+def test_temporary_bulk_write_mode_restores_full_synchronous(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+
+    conn = connect_database(path)
+    try:
+        before = conn.execute("PRAGMA synchronous;").fetchone()
+        assert before is not None
+        assert int(before[0]) == 2
+
+        with temporary_bulk_write_mode(conn):
+            during = conn.execute("PRAGMA synchronous;").fetchone()
+            assert during is not None
+            assert int(during[0]) == 1
+
+        after = conn.execute("PRAGMA synchronous;").fetchone()
+        assert after is not None
+        assert int(after[0]) == 2
+        assert DEFAULT_SYNCHRONOUS_MODE == "FULL"
+        assert BULK_SYNCHRONOUS_MODE == "NORMAL"
+    finally:
+        conn.close()
+
+
+def test_temporary_bulk_write_mode_is_noop_inside_active_transaction(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+
+    conn = connect_database(path)
+    try:
+        conn.execute("BEGIN")
+        before = conn.execute("PRAGMA synchronous;").fetchone()
+        assert before is not None
+
+        with temporary_bulk_write_mode(conn):
+            during = conn.execute("PRAGMA synchronous;").fetchone()
+            assert during == before
+
+        after = conn.execute("PRAGMA synchronous;").fetchone()
+        assert after == before
+    finally:
+        if conn.in_transaction:
+            conn.rollback()
         conn.close()
 
 
