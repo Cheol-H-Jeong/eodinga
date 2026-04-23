@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.507 - 2026-04-23
+
+- Expanded the shipped query docs with a task-oriented playbook, operator matrix, regex flag reference, and clearer grouping and negation examples so users can reach precise searches with fewer trial commands.
+- Tightened the architecture, contributing, and release guides around shared search-surface ownership, dry-run review, docs-only evidence packs, and parallel-worker handoff hygiene so doc-bearing releases stay easier to audit.
+
 ## 0.1.503 - 2026-04-23
 
 - Hardened the AppImage dry-run and build audits so staged Linux releases now fail on desktop-entry drift, missing strict-shell launchers, or launcher shims that stop returning to the project root before invoking `python -m eodinga`.
