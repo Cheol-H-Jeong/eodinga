@@ -8,8 +8,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from eodinga.query import executor as executor_module
 from eodinga.query import search
+from eodinga.query import sql_cache as sql_cache_module
 
 
 def _insert_file(
@@ -559,31 +559,49 @@ def test_execute_decomposed_korean_path_filter_matches_nfc_paths(
 
 
 def test_execute_reuses_cached_sql_shapes_for_name_queries(populated_db: sqlite3.Connection) -> None:
-    executor_module._path_candidates_fts_sql.cache_clear()
-    executor_module._path_candidates_scan_sql.cache_clear()
-    executor_module._record_batch_sql.cache_clear()
+    sql_cache_module.path_candidates_fts_sql.cache_clear()
+    sql_cache_module.path_candidates_scan_sql.cache_clear()
+    sql_cache_module.record_batch_sql.cache_clear()
 
     first = search(populated_db, "doc-001", limit=5)
     second = search(populated_db, "doc-002", limit=5)
 
     assert first.hits
     assert second.hits
-    assert executor_module._path_candidates_fts_sql.cache_info().hits >= 1
+    assert sql_cache_module.path_candidates_fts_sql.cache_info().hits >= 1
+    assert sql_cache_module.path_candidates_fts_sql.cache_info().maxsize == 128
 
 
 def test_execute_reuses_cached_sql_shapes_for_content_queries(
     populated_db: sqlite3.Connection,
 ) -> None:
-    executor_module._content_candidates_sql.cache_clear()
-    executor_module._auto_content_candidates_sql.cache_clear()
-    executor_module._content_backfill_sql.cache_clear()
+    sql_cache_module.content_candidates_sql.cache_clear()
+    sql_cache_module.auto_content_candidates_sql.cache_clear()
+    sql_cache_module.content_backfill_sql.cache_clear()
 
     first = search(populated_db, "content:launch", limit=5)
     second = search(populated_db, 'content:"alpha project 20"', limit=5)
 
     assert first.hits
     assert second.hits
-    assert executor_module._content_candidates_sql.cache_info().hits >= 1
+    assert sql_cache_module.content_candidates_sql.cache_info().hits >= 1
+    assert sql_cache_module.content_candidates_sql.cache_info().maxsize == 128
+
+
+def test_execute_reuses_cached_sql_for_content_text_batches(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    sql_cache_module.fetch_content_texts_sql.cache_clear()
+    _insert_file(tmp_db, 1, "/workspace/doc-1.txt", 512, 1_713_528_000, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, "/workspace/doc-2.txt", 512, 1_713_528_001, "txt", body_text="alpha")
+    tmp_db.commit()
+
+    first = search(tmp_db, "alpha -missing", limit=5)
+    second = search(tmp_db, "alpha -missing", limit=5)
+
+    assert first.hits
+    assert second.hits
+    assert sql_cache_module.fetch_content_texts_sql.cache_info().hits >= 1
 
 
 def test_execute_path_filter_with_short_unix_basename_literal(tmp_db: sqlite3.Connection) -> None:

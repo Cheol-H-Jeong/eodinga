@@ -5,7 +5,6 @@ import sqlite3
 import time
 import unicodedata
 from collections.abc import Iterable, Mapping
-from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
 
@@ -15,6 +14,23 @@ from eodinga.common import FileRecord
 from eodinga.observability import increment_counter, record_histogram
 from eodinga.query.compiler import CompiledBranch, CompiledQuery
 from eodinga.query.ranker import rank_results
+from eodinga.query.sql_cache import (
+    auto_content_candidates_sql,
+    content_backfill_sql,
+    content_candidates_sql,
+    fetch_content_texts_sql,
+    path_candidates_fts_sql,
+    path_candidates_scan_sql,
+    record_batch_sql,
+)
+
+
+class _ContentPresenceCache(NamedTuple):
+    total_changes: int
+    has_indexed_content: bool
+
+
+_CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
 
 
 class SearchHit(BaseModel):
@@ -31,116 +47,6 @@ class QueryResult(BaseModel):
     hits: list[SearchHit]
     total_estimate: int
     elapsed_ms: float
-
-
-class _ContentPresenceCache(NamedTuple):
-    total_changes: int
-    has_indexed_content: bool
-
-
-_CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
-
-
-@lru_cache(maxsize=256)
-def _record_batch_sql(has_where: bool) -> str:
-    sql = "SELECT files.* FROM files"
-    if has_where:
-        sql += " WHERE {where_sql}"
-    sql += " ORDER BY files.name_lower ASC LIMIT ? OFFSET ?"
-    return sql
-
-
-@lru_cache(maxsize=256)
-def _path_candidates_fts_sql(
-    has_path_match_sql: bool,
-    has_where_sql: bool,
-    case_sensitive: bool,
-) -> str:
-    sql = """
-        SELECT files.*
-        FROM paths_fts
-        JOIN files ON files.id = paths_fts.rowid
-    """
-    filters: list[str] = []
-    if has_path_match_sql:
-        filters.append("{path_match_sql}")
-    if has_where_sql:
-        filters.append("{where_sql}")
-    if filters:
-        sql += " WHERE " + " AND ".join(filters)
-    order_expr = "files.name" if case_sensitive else "files.name_lower"
-    prefix_expr = "files.name LIKE ?" if case_sensitive else "files.name_lower LIKE ?"
-    sql += (
-        f" ORDER BY CASE WHEN {prefix_expr} THEN 0 ELSE 1 END,"
-        f" bm25(paths_fts, 8.0, 2.0, 1.0) ASC, {order_expr} ASC LIMIT ?"
-    )
-    return sql
-
-
-@lru_cache(maxsize=256)
-def _path_candidates_scan_sql(
-    positive_term_count: int,
-    has_where_sql: bool,
-    case_sensitive: bool,
-) -> str:
-    sql = "SELECT files.* FROM files"
-    filters: list[str] = []
-    for _ in range(positive_term_count):
-        if case_sensitive:
-            filters.append("(instr(files.name, ?) > 0 OR instr(files.path, ?) > 0)")
-        else:
-            filters.append("(instr(lower(files.name), ?) > 0 OR instr(lower(files.path), ?) > 0)")
-    if has_where_sql:
-        filters.append("{where_sql}")
-    if filters:
-        sql += " WHERE " + " AND ".join(filters)
-    order_expr = "files.name" if case_sensitive else "files.name_lower"
-    prefix_expr = "files.name LIKE ?" if case_sensitive else "files.name_lower LIKE ?"
-    sql += f" ORDER BY CASE WHEN {prefix_expr} THEN 0 ELSE 1 END, {order_expr} ASC LIMIT ?"
-    return sql
-
-
-@lru_cache(maxsize=256)
-def _content_candidates_sql(has_where_sql: bool) -> str:
-    sql = """
-        SELECT files.*, snippet(content_fts, 2, '[', ']', '...', 12) AS snippet
-        FROM content_fts
-        JOIN content_map ON content_map.fts_rowid = content_fts.rowid
-        JOIN files ON files.id = content_map.file_id
-        WHERE {content_match_sql}
-    """
-    if has_where_sql:
-        sql += " AND {where_sql}"
-    sql += " ORDER BY bm25(content_fts, 3.0, 1.5, 1.0) ASC LIMIT ?"
-    return sql
-
-
-@lru_cache(maxsize=256)
-def _auto_content_candidates_sql(has_where_sql: bool) -> str:
-    sql = """
-        SELECT files.*, snippet(content_fts, 2, '[', ']', '...', 12) AS snippet
-        FROM content_fts
-        JOIN content_map ON content_map.fts_rowid = content_fts.rowid
-        JOIN files ON files.id = content_map.file_id
-        WHERE content_fts MATCH ?
-    """
-    if has_where_sql:
-        sql += " AND {where_sql}"
-    sql += " ORDER BY bm25(content_fts, 3.0, 1.5, 1.0) ASC LIMIT ?"
-    return sql
-
-
-@lru_cache(maxsize=256)
-def _content_backfill_sql(has_where_sql: bool) -> str:
-    sql = """
-        SELECT files.*
-        FROM files
-        JOIN content_map ON content_map.file_id = files.id
-    """
-    if has_where_sql:
-        sql += " WHERE {where_sql}"
-    sql += " ORDER BY files.name_lower ASC LIMIT ? OFFSET ?"
-    return sql
 
 
 def _row_to_record(row: Mapping[str, object]) -> FileRecord:
@@ -303,7 +209,7 @@ def _fetch_record_batch(
     limit: int,
     offset: int,
 ) -> dict[int, FileRecord]:
-    sql = _record_batch_sql(bool(where_sql)).format(where_sql=where_sql)
+    sql = record_batch_sql(where_sql)
     rows = conn.execute(sql, (*where_params, limit, offset)).fetchall()
     return {row["id"]: _row_to_record(row) for row in rows}
 
@@ -383,13 +289,10 @@ def _fetch_path_candidates_fts(
     prefix_term = positive_terms[0].value if positive_terms else ""
     if branch.where_sql:
         params.extend(branch.where_params)
-    sql = _path_candidates_fts_sql(
-        bool(branch.path_match_sql),
-        bool(branch.where_sql),
-        branch.case_sensitive,
-    ).format(
-        path_match_sql=branch.path_match_sql or "",
-        where_sql=branch.where_sql,
+    sql = path_candidates_fts_sql(
+        branch.path_match_sql or "",
+        branch.where_sql,
+        case_sensitive=branch.case_sensitive,
     )
     params.append(f"{prefix_term}%")
     rows = conn.execute(sql, (*params, limit)).fetchall()
@@ -412,11 +315,11 @@ def _fetch_path_candidates_scan(
         params.extend([value, value])
     if branch.where_sql:
         params.extend(branch.where_params)
-    sql = _path_candidates_scan_sql(
+    sql = path_candidates_scan_sql(
         len(positive_terms),
-        bool(branch.where_sql),
-        branch.case_sensitive,
-    ).format(where_sql=branch.where_sql)
+        branch.where_sql,
+        case_sensitive=branch.case_sensitive,
+    )
     params.append(f"{prefix_term}%")
     rows = conn.execute(sql, (*params, limit)).fetchall()
     records = {row["id"]: _row_to_record(row) for row in rows}
@@ -467,10 +370,7 @@ def _fetch_content_candidates(
     params: list[object] = list(branch.content_match_params)
     if branch.where_sql:
         params.extend(branch.where_params)
-    sql = _content_candidates_sql(bool(branch.where_sql)).format(
-        content_match_sql=branch.content_match_sql,
-        where_sql=branch.where_sql,
-    )
+    sql = content_candidates_sql(branch.content_match_sql, branch.where_sql)
     rows = conn.execute(sql, (*params, limit)).fetchall()
     records = {row["id"]: _row_to_record(row) for row in rows}
     snippets = {row["id"]: row["snippet"] for row in rows}
@@ -499,7 +399,7 @@ def _fetch_auto_content_candidates(
     params: list[object] = [query]
     if branch.where_sql:
         params.extend(branch.where_params)
-    sql = _auto_content_candidates_sql(bool(branch.where_sql)).format(where_sql=branch.where_sql)
+    sql = auto_content_candidates_sql(branch.where_sql)
     rows = conn.execute(sql, (*params, limit)).fetchall()
     records = {row["id"]: _row_to_record(row) for row in rows}
     snippets = {row["id"]: row["snippet"] for row in rows}
@@ -552,13 +452,7 @@ def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[i
     id_list = tuple(dict.fromkeys(ids))
     if not id_list:
         return {}
-    placeholders = ", ".join("?" for _ in id_list)
-    sql = f"""
-        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
-        FROM content_map
-        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
-        WHERE content_map.file_id IN ({placeholders})
-    """
+    sql = fetch_content_texts_sql(len(id_list))
     rows = conn.execute(sql, id_list).fetchall()
     return {
         row["file_id"]: " ".join(
@@ -583,7 +477,7 @@ def _fetch_content_backfill_batch(
     params: list[object] = []
     if branch.where_sql:
         params.extend(branch.where_params)
-    sql = _content_backfill_sql(bool(branch.where_sql)).format(where_sql=branch.where_sql)
+    sql = content_backfill_sql(branch.where_sql)
     rows = conn.execute(sql, (*params, limit, offset)).fetchall()
     return {row["id"]: _row_to_record(row) for row in rows}
 
