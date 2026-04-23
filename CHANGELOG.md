@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.986 - 2026-04-24
+## 0.1.1103 - 2026-04-24
 
 - Added a launcher result context menu that exposes the same open, reveal, copy, and properties actions already available from shortcuts and the action bar, while keeping the main launcher module within the repo size budget by extracting menu/text helpers.
 - Persisted launcher recent-query history in config so both the popup launcher and embedded search panel restore the same query chips after restart.
