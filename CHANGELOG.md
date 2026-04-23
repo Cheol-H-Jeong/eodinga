@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.279 - 2026-04-23
+
+- Replaced the Unicode path-query fallback's fixed 100k-row scan window with paged iteration, so decomposed-Hangul filename lookups now keep finding late-batch matches without forcing one giant candidate pull.
+- Cached the chunk-shaped `content_map` to `content_fts` text lookup SQL in the query executor, reducing repeated placeholder construction during record-filter and content-backfill scans.
+- Added a dedicated Unicode filename perf regression behind `EODINGA_RUN_PERF=1` to keep the Korean/decomposed query path covered by the performance suite.
+
 ## 0.1.277 - 2026-04-23
 
 - Reused `os.scandir()` metadata during tree walks so discovered children no longer pay an extra `lstat()` before indexing, while preserving the existing fallback path for entries whose metadata cannot be read during directory enumeration.
