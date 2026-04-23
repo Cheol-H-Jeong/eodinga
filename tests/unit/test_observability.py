@@ -160,7 +160,9 @@ def test_write_crash_log_records_resolved_log_state(tmp_path: Path, monkeypatch)
 def test_write_crash_log_records_runtime_metrics(tmp_path: Path) -> None:
     reset_metrics()
     increment_counter("queries_served", 2)
+    increment_counter("watcher_events", event_type="created")
     record_histogram("query_latency_ms", 12.5)
+    record_histogram("command_latency_ms", 9.5, command="search")
 
     try:
         raise RuntimeError("metrics boom")
@@ -168,8 +170,11 @@ def test_write_crash_log_records_runtime_metrics(tmp_path: Path) -> None:
         crash_path = write_crash_log(error, crash_dir=tmp_path)
 
     contents = crash_path.read_text(encoding="utf-8")
-    assert 'metrics_counters={"queries_served": 2}' in contents
+    assert '"queries_served": 2' in contents
+    assert '"watcher_events": 1' in contents
     assert '"query_latency_ms"' in contents
+    assert 'metrics_counter_series={"watcher_events": [{"labels": {"event_type": "created"}, "value": 1}]}' in contents
+    assert '"command_latency_ms": [{"buckets": {"<= 10ms": 1}, "count": 1, "labels": {"command": "search"}' in contents
     assert "metrics_generated_at=" in contents
 
 

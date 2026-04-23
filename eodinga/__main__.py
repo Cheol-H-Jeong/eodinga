@@ -174,6 +174,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         index_snapshot = read_index_stats(conn)
     metrics = snapshot_metrics()
     counters = metrics["counters"]
+    counter_series = metrics["counter_series"]
+    histogram_series = metrics["histogram_series"]
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
         uptime_ms=float(metrics["uptime_ms"]),
@@ -205,6 +207,25 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         exit_codes=_exit_code_summary(counters),
         counters=counters,
         histograms=metrics["histograms"],
+        counter_series=counter_series,
+        histogram_series=histogram_series,
+        files_indexed_by_root=_counter_series_totals(counter_series.get("files_indexed", []), "root"),
+        parser_errors_by_parser=_counter_series_totals(
+            counter_series.get("parser_errors", []),
+            "parser",
+        ),
+        watcher_events_by_type=_counter_series_totals(
+            counter_series.get("watcher_events", []),
+            "event_type",
+        ),
+        command_latency_by_command=_histogram_series_totals(
+            histogram_series.get("command_latency_ms", []),
+            "command",
+        ),
+        watch_event_lag_by_type=_histogram_series_totals(
+            histogram_series.get("watch_event_lag_ms", []),
+            "event_type",
+        ),
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
         log_path=resolve_log_path(),
@@ -291,6 +312,75 @@ def _exit_code_summary(counters: dict[str, int]) -> dict[str, int]:
         name[len(prefix) :]: value for name, value in counters.items() if name.startswith(prefix)
     }
     return dict(sorted(exit_codes.items(), key=lambda item: int(item[0])))
+
+
+def _counter_series_totals(series: list[dict[str, object]], label: str) -> dict[str, int]:
+    totals: dict[str, int] = {}
+    for entry in series:
+        labels = entry.get("labels")
+        if not isinstance(labels, dict):
+            continue
+        label_value = labels.get(label)
+        if label_value is None:
+            continue
+        totals[str(label_value)] = totals.get(str(label_value), 0) + _coerce_int(entry.get("value"))
+    return dict(sorted(totals.items()))
+
+
+def _histogram_series_totals(
+    series: list[dict[str, object]],
+    label: str,
+) -> dict[str, dict[str, object]]:
+    grouped: dict[str, list[dict[str, object]]] = {}
+    for entry in series:
+        labels = entry.get("labels")
+        if not isinstance(labels, dict):
+            continue
+        label_value = labels.get(label)
+        if label_value is None:
+            continue
+        grouped.setdefault(str(label_value), []).append(entry)
+    return {
+        name: _merge_histogram_snapshots(entries) for name, entries in sorted(grouped.items())
+    }
+
+
+def _merge_histogram_snapshots(entries: list[dict[str, object]]) -> dict[str, object]:
+    count = 0
+    sum_ms = 0.0
+    min_ms: float | None = None
+    max_ms: float | None = None
+    buckets: dict[str, int] = {}
+    for entry in entries:
+        count += _coerce_int(entry.get("count"))
+        sum_ms += _coerce_float(entry.get("sum_ms"))
+        entry_min = _coerce_float(entry.get("min_ms")) if "min_ms" in entry else None
+        entry_max = _coerce_float(entry.get("max_ms")) if "max_ms" in entry else None
+        if entry_min is not None:
+            min_ms = entry_min if min_ms is None else min(min_ms, entry_min)
+        if entry_max is not None:
+            max_ms = entry_max if max_ms is None else max(max_ms, entry_max)
+        raw_buckets = entry.get("buckets")
+        if isinstance(raw_buckets, dict):
+            for bucket_label, bucket_count in raw_buckets.items():
+                buckets[str(bucket_label)] = buckets.get(str(bucket_label), 0) + _coerce_int(
+                    bucket_count
+                )
+    return {
+        "count": count,
+        "sum_ms": round(sum_ms, 3),
+        "min_ms": round(min_ms, 3) if min_ms is not None else 0.0,
+        "max_ms": round(max_ms, 3) if max_ms is not None else 0.0,
+        "buckets": dict(sorted(buckets.items())),
+    }
+
+
+def _coerce_int(value: object) -> int:
+    return int(value) if isinstance(value, (str, int, float, bool)) else 0
+
+
+def _coerce_float(value: object) -> float:
+    return float(value) if isinstance(value, (str, int, float, bool)) else 0.0
 
 
 def main(argv: list[str] | None = None) -> int:

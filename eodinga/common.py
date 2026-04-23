@@ -125,6 +125,13 @@ class StatsSnapshot(BaseModel):
     exit_codes: dict[str, int] = Field(default_factory=dict)
     counters: dict[str, int] = Field(default_factory=dict)
     histograms: dict[str, dict[str, object]] = Field(default_factory=dict)
+    counter_series: dict[str, list[dict[str, object]]] = Field(default_factory=dict)
+    histogram_series: dict[str, list[dict[str, object]]] = Field(default_factory=dict)
+    files_indexed_by_root: dict[str, int] = Field(default_factory=dict)
+    parser_errors_by_parser: dict[str, int] = Field(default_factory=dict)
+    watcher_events_by_type: dict[str, int] = Field(default_factory=dict)
+    command_latency_by_command: dict[str, dict[str, object]] = Field(default_factory=dict)
+    watch_event_lag_by_type: dict[str, dict[str, object]] = Field(default_factory=dict)
     roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None
     log_path: Path | None = None

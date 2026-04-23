@@ -509,6 +509,11 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["commands"]["search"]["started"] == 1
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 1
+    assert payload["files_indexed_by_root"] == {}
+    assert payload["parser_errors_by_parser"] == {}
+    assert payload["watcher_events_by_type"] == {}
+    assert payload["command_latency_by_command"]["search"]["count"] == 1
+    assert payload["watch_event_lag_by_type"] == {}
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
     assert payload["log_rotation"] == "5 MB"
@@ -524,6 +529,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["counters"]["commands.stats.started"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 1
+    assert payload["histogram_series"]["command_latency_ms"][0]["labels"] == {"command": "search"}
 
 
 def test_stats_json_exposes_end_to_end_runtime_metrics(
@@ -635,6 +641,16 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["watch_flush_batch_histogram"]["count"] == 2
     assert payload["watch_event_lag_histogram"]["count"] == 2
     assert payload["watcher_queue_backpressure_histogram"]["count"] == 1
+    assert payload["files_indexed_by_root"] == {str(docs): indexed_files}
+    assert payload["parser_errors_by_parser"] == {"broken": 1}
+    assert payload["watcher_events_by_type"] == {"created": 1, "modified": 1}
+    assert payload["command_latency_by_command"]["index"]["count"] == 1
+    assert payload["command_latency_by_command"]["search"]["count"] == 1
+    assert payload["watch_event_lag_by_type"]["created"]["count"] == 1
+    assert payload["watch_event_lag_by_type"]["modified"]["count"] == 1
+    assert payload["counter_series"]["files_indexed"] == [
+        {"labels": {"root": str(docs)}, "value": indexed_files}
+    ]
 
 
 def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path: Path) -> None:
