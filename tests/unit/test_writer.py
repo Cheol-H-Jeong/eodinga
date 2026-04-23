@@ -260,6 +260,41 @@ def test_writer_apply_events_batches_deleted_path_cleanup(tmp_db: Path, tmp_path
     assert conn.execute("SELECT COUNT(*) FROM content_fts").fetchone() == (1,)
 
 
+def test_writer_apply_events_uses_larger_delete_batches(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    records = [_synthetic_record(index, tmp_path) for index in range(600)]
+    writer = IndexWriter(conn)
+    assert writer.bulk_upsert(records) == 600
+
+    statements: list[str] = []
+    conn.set_trace_callback(statements.append)
+    try:
+        processed = writer.apply_events(
+            [WatchEvent(event_type="deleted", path=record.path) for record in records],
+            record_loader=lambda _path: None,
+        )
+    finally:
+        conn.set_trace_callback(None)
+
+    assert processed == 600
+    delete_selects = {
+        statement.strip()
+        for statement in statements
+        if "SELECT content_map.fts_rowid" in statement and "WHERE files.path IN" in statement
+    }
+    delete_statements = {
+        statement.strip()
+        for statement in statements
+        if statement.startswith("DELETE FROM files WHERE path IN")
+    }
+    assert len(delete_selects) == 1
+    assert len(delete_statements) == 1
+
+
 def test_writer_apply_events_batches_moved_source_cleanup(tmp_db: Path, tmp_path: Path) -> None:
     conn = sqlite3.connect(tmp_db)
     conn.execute(
@@ -302,6 +337,43 @@ def test_writer_apply_events_batches_moved_source_cleanup(tmp_db: Path, tmp_path
         row[0] for row in conn.execute("SELECT path FROM files ORDER BY path").fetchall()
     }
     assert remaining_paths == {str(path) for path in moved_paths}
+
+
+def test_writer_bulk_upsert_uses_larger_existing_content_lookup_batches(
+    tmp_db: Path, tmp_path: Path
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    records = [_synthetic_record(index, tmp_path) for index in range(600)]
+
+    def parsed_for(path: Path) -> ParsedContent:
+        return ParsedContent(
+            title=path.name,
+            head_text=f"head {path.name}",
+            body_text=f"body {path.name}",
+            content_sha=f"sha-{path.name}".encode(),
+        )
+
+    writer = IndexWriter(conn, parser_callback=parsed_for)
+    assert writer.bulk_upsert(records) == 600
+
+    statements: list[str] = []
+    conn.set_trace_callback(statements.append)
+    try:
+        assert writer.bulk_upsert(records) == 600
+    finally:
+        conn.set_trace_callback(None)
+
+    existing_content_queries = [
+        statement
+        for statement in statements
+        if "SELECT files.path, files.id, content_map.fts_rowid, content_map.content_sha" in statement
+        and "WHERE files.path IN" in statement
+    ]
+    assert len(existing_content_queries) == 1
 
 
 def test_writer_bulk_upsert_reuses_existing_content_rowids(tmp_db: Path, tmp_path: Path) -> None:

@@ -16,6 +16,9 @@ ParserCallback = Callable[[Path], ParsedContent | None]
 RecordLoader = Callable[[Path], FileRecord | None]
 T = TypeVar("T")
 _WRITE_PRAGMAS = {"synchronous": "NORMAL", "cache_size": -128000}
+_DELETE_PATH_CHUNK_SIZE = 2_048
+_CONTENT_LOOKUP_CHUNK_SIZE = 2_048
+_CONTENT_DELETE_CHUNK_SIZE = 2_048
 
 
 class ExistingContentRow(NamedTuple):
@@ -187,7 +190,7 @@ class IndexWriter:
         if not unique_paths:
             return 0
         deleted = 0
-        for chunk in _chunked(unique_paths):
+        for chunk in _chunked(unique_paths, size=_DELETE_PATH_CHUNK_SIZE):
             rows = self._conn.execute(
                 _select_deleted_content_rowids_sql(len(chunk)),
                 tuple(chunk),
@@ -288,7 +291,7 @@ class IndexWriter:
 
     def _select_existing_content_rows(self, paths: Sequence[str]) -> dict[str, ExistingContentRow]:
         results: dict[str, ExistingContentRow] = {}
-        for chunk in _chunked(paths):
+        for chunk in _chunked(paths, size=_CONTENT_LOOKUP_CHUNK_SIZE):
             rows = self._conn.execute(
                 _select_existing_content_rows_sql(len(chunk)),
                 tuple(chunk),
@@ -311,7 +314,7 @@ class IndexWriter:
         return next_rowid
 
     def _delete_content_rows(self, rowids: Sequence[int]) -> None:
-        for chunk in _chunked(tuple(dict.fromkeys(rowids))):
+        for chunk in _chunked(tuple(dict.fromkeys(rowids)), size=_CONTENT_DELETE_CHUNK_SIZE):
             self._conn.execute(
                 _delete_content_rows_sql(len(chunk)),
                 tuple(chunk),
