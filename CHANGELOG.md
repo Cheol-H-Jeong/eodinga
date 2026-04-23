@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.373 - 2026-04-23
+## 0.1.374 - 2026-04-23
 
 - Added first-class launcher query pinning with a visible `Pin`/`Unpin` control, `Alt+P`, and config-backed persistence so pinned filters stay shared between the popup and embedded launcher surfaces.
 - Added contextual filter suggestion chips under the launcher query field, letting users append common DSL filters like `ext:pdf`, `date:this-week`, and `size:>10M` with one click instead of retyping them.
