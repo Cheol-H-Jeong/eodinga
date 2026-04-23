@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from os import fsdecode
 from pathlib import Path
-from queue import Empty, Queue
+from queue import Empty, Full, Queue
 from threading import Event, Lock, Thread
 from time import monotonic
 from typing import Protocol
@@ -16,6 +16,7 @@ from eodinga.observability import increment_counter
 
 _DEBOUNCE_SECONDS = 0.1
 _FLUSH_LIMIT = 500
+_QUEUE_PUT_TIMEOUT_SECONDS = 0.05
 
 
 def _event_type_for(event: FileSystemEvent) -> str:
@@ -100,8 +101,8 @@ class _Handler(FileSystemEventHandler):
 
 
 class WatchService:
-    def __init__(self) -> None:
-        self.queue: Queue[WatchEvent] = Queue()
+    def __init__(self, *, queue_maxsize: int = 0) -> None:
+        self.queue: Queue[WatchEvent] = Queue(maxsize=max(int(queue_maxsize), 0))
         self._pending: dict[Path, WatchEvent] = {}
         self._retired_sources: dict[Path, set[Path]] = {}
         self._flushed_retired_sources: set[Path] = set()
@@ -160,7 +161,7 @@ class WatchService:
                 and existing.event_type == "moved"
                 and event.event_type == "deleted"
             ):
-                self.queue.put(existing)
+                self._enqueue(existing)
                 self._pending[event.path] = event
                 self._timestamps[event.path] = monotonic()
                 return
@@ -272,7 +273,16 @@ class WatchService:
                         self._flushed_retired_sources.update(retired_sources)
                     if event.event_type in {"created", "modified", "deleted"}:
                         self._flushed_retired_sources.discard(event.path)
-                    self.queue.put(event)
+                    self._enqueue(event)
+
+    def _enqueue(self, event: WatchEvent) -> bool:
+        while True:
+            try:
+                self.queue.put(event, timeout=_QUEUE_PUT_TIMEOUT_SECONDS)
+                return True
+            except Full:
+                if self._stop.is_set():
+                    return False
 
     def _reset_state(self) -> None:
         with self._lock:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from queue import Empty
+from threading import Thread
 from time import monotonic, sleep
 
 import pytest
@@ -647,3 +648,62 @@ def test_watcher_start_ignores_duplicate_root_registration(
 
     assert started == [tmp_path]
     assert stopped == [tmp_path]
+
+
+def test_watcher_flush_waits_for_queue_space_instead_of_dropping(tmp_path: Path) -> None:
+    service = WatchService(queue_maxsize=1)
+    blocker = WatchEvent(
+        event_type="created",
+        path=tmp_path / "blocker.txt",
+        root_path=tmp_path,
+        happened_at=0.0,
+    )
+    delayed = WatchEvent(
+        event_type="created",
+        path=tmp_path / "delayed.txt",
+        root_path=tmp_path,
+        happened_at=1.0,
+    )
+    service.queue.put(blocker)
+    service.record(delayed)
+
+    flush_thread = Thread(target=lambda: service._flush_ready(force=True), daemon=True)
+    flush_thread.start()
+    sleep(0.1)
+
+    assert flush_thread.is_alive()
+    assert service.queue.get_nowait() == blocker
+
+    flush_thread.join(timeout=0.5)
+    assert not flush_thread.is_alive()
+    assert service.queue.get_nowait() == delayed
+
+
+def test_watcher_stop_unblocks_blocked_queue_flush(tmp_path: Path) -> None:
+    service = WatchService(queue_maxsize=1)
+    blocker = WatchEvent(
+        event_type="created",
+        path=tmp_path / "blocker.txt",
+        root_path=tmp_path,
+        happened_at=0.0,
+    )
+    delayed = WatchEvent(
+        event_type="created",
+        path=tmp_path / "delayed.txt",
+        root_path=tmp_path,
+        happened_at=1.0,
+    )
+    service.queue.put(blocker)
+    service.record(delayed)
+
+    flush_thread = Thread(target=lambda: service._flush_ready(force=True), daemon=True)
+    flush_thread.start()
+    sleep(0.1)
+
+    assert flush_thread.is_alive()
+
+    service.stop()
+
+    flush_thread.join(timeout=0.5)
+    assert not flush_thread.is_alive()
+    assert service.queue.empty()
