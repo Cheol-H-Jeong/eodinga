@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.235 - 2026-04-23
+## 0.1.239 - 2026-04-23
 
 - Added query pinning directly to the launcher with a visible `Pin`/`Unpin` toggle, `Ctrl+P` shortcut, shared-state sync between popup and embedded launchers, and persisted pinned queries in config.
 - Wired the Settings launcher checkbox so `always_on_top` applies to the popup immediately and saves without requiring a restart.
