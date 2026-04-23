@@ -19,7 +19,10 @@ from eodinga.observability import (
     file_logging_enabled,
     install_crash_handlers,
     resolve_crash_dir,
+    resolve_log_compression,
     resolve_log_path,
+    resolve_log_retention,
+    resolve_log_rotation,
     reset_metrics,
     report_crash,
     snapshot_metrics,
@@ -68,6 +71,16 @@ def test_log_and_crash_resolution_respect_runtime_overrides(tmp_path: Path, monk
     assert resolve_log_path() == log_path
     assert resolve_crash_dir() == crash_dir
     assert file_logging_enabled() is True
+
+
+def test_log_policy_resolution_respects_runtime_overrides(monkeypatch) -> None:
+    monkeypatch.setenv("EODINGA_LOG_ROTATION", "12 MB")
+    monkeypatch.setenv("EODINGA_LOG_RETENTION", "7")
+    monkeypatch.setenv("EODINGA_LOG_COMPRESSION", "zip")
+
+    assert resolve_log_rotation() == "12 MB"
+    assert resolve_log_retention() == 7
+    assert resolve_log_compression() == "zip"
 
 
 def test_log_resolution_returns_none_when_file_logging_disabled(monkeypatch) -> None:

@@ -15,6 +15,8 @@ from typing import IO, Any, TypedDict
 from loguru import logger
 
 _DEFAULT_HISTOGRAM_BUCKETS_MS = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0)
+_DEFAULT_LOG_ROTATION: str | int = "5 MB"
+_DEFAULT_LOG_RETENTION: str | int = 5
 _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
@@ -118,6 +120,28 @@ def resolve_crash_dir(crash_dir: Path | None = None) -> Path:
     return default_crash_dir()
 
 
+def resolve_log_rotation() -> str | int:
+    override = os.environ.get("EODINGA_LOG_ROTATION")
+    if not override:
+        return _DEFAULT_LOG_ROTATION
+    return _parse_log_policy_value(override)
+
+
+def resolve_log_retention() -> str | int:
+    override = os.environ.get("EODINGA_LOG_RETENTION")
+    if not override:
+        return _DEFAULT_LOG_RETENTION
+    return _parse_log_policy_value(override)
+
+
+def resolve_log_compression() -> str | None:
+    override = os.environ.get("EODINGA_LOG_COMPRESSION")
+    if override is None:
+        return None
+    compression = override.strip()
+    return compression or None
+
+
 def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
     logger.remove()
     logger.add(sys.stderr, level=level.upper())
@@ -125,7 +149,17 @@ def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None
     if target is None:
         return
     target.parent.mkdir(parents=True, exist_ok=True)
-    logger.add(target, rotation="5 MB", retention=5, level=level.upper())
+    logger.add(
+        target,
+        rotation=resolve_log_rotation(),
+        retention=resolve_log_retention(),
+        compression=resolve_log_compression(),
+        encoding="utf-8",
+        delay=True,
+        backtrace=False,
+        diagnose=False,
+        level=level.upper(),
+    )
 
 
 def get_logger(name: str | None = None) -> Any:
@@ -305,3 +339,10 @@ def _format_detail_value(value: object) -> str:
     if isinstance(value, (str, int, float, bool)) or value is None:
         return str(value)
     return json_dumps(value, sort_keys=True)
+
+
+def _parse_log_policy_value(raw: str) -> str | int:
+    value = raw.strip()
+    if value.isdigit():
+        return int(value)
+    return value
