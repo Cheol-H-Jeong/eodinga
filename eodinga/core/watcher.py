@@ -157,6 +157,7 @@ class WatchService:
         self._flush_thread = None
         self._observers: dict[Path, _ManagedObserver] = {}
         self._logger = get_logger("core.watcher")
+        self._queue_backpressure_active = False
 
     def start(self, root: Path) -> None:
         root = _normalize_root(root)
@@ -453,6 +454,7 @@ class WatchService:
             self._retired_sources.clear()
             self._flushed_retired_sources.clear()
             self._timestamps.clear()
+            self._queue_backpressure_active = False
         queued_discarded = 0
         while True:
             try:
@@ -469,6 +471,7 @@ class WatchService:
         while not self._stop.is_set():
             try:
                 self.queue.put(event, timeout=_QUEUE_PUT_TIMEOUT_SECONDS)
+                self._clear_queue_backpressure()
                 if blocked_at is not None:
                     record_histogram(
                         "watcher_queue_backpressure_ms",
@@ -480,8 +483,21 @@ class WatchService:
                 if blocked_at is None:
                     blocked_at = monotonic()
                     increment_counter("watcher_queue_full", event_type=event.event_type)
-                    self._logger.warning(
-                        "watch queue full; applying backpressure for {}", event.path
-                    )
+                    if self._activate_queue_backpressure():
+                        self._logger.warning(
+                            "watch queue full; applying backpressure for {}", event.path
+                        )
+        self._clear_queue_backpressure()
         increment_counter("watcher_enqueue_aborted", event_type=event.event_type)
         return False
+
+    def _activate_queue_backpressure(self) -> bool:
+        with self._lock:
+            if self._queue_backpressure_active:
+                return False
+            self._queue_backpressure_active = True
+            return True
+
+    def _clear_queue_backpressure(self) -> None:
+        with self._lock:
+            self._queue_backpressure_active = False

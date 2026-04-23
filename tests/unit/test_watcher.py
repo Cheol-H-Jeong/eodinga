@@ -977,3 +977,98 @@ def test_watcher_blocked_move_flush_preserves_retired_source_suppression(tmp_pat
 
     with pytest.raises(Empty):
         service.queue.get_nowait()
+
+
+def test_watcher_queue_backpressure_warns_once_until_queue_recovers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service = WatchService(queue_maxsize=1)
+    warnings: list[str] = []
+
+    def record_warning(message: str, *args: object) -> None:
+        warnings.append(message.format(*args))
+
+    monkeypatch.setattr(service._logger, "warning", record_warning)
+
+    blocker = WatchEvent(
+        event_type="created",
+        path=tmp_path / "blocker.txt",
+        root_path=tmp_path,
+        happened_at=1.0,
+    )
+    second = WatchEvent(
+        event_type="created",
+        path=tmp_path / "second.txt",
+        root_path=tmp_path,
+        happened_at=2.0,
+    )
+    third = WatchEvent(
+        event_type="created",
+        path=tmp_path / "third.txt",
+        root_path=tmp_path,
+        happened_at=3.0,
+    )
+    fourth = WatchEvent(
+        event_type="created",
+        path=tmp_path / "fourth.txt",
+        root_path=tmp_path,
+        happened_at=4.0,
+    )
+
+    assert service._enqueue_event(blocker) is True
+
+    second_done = False
+    third_done = False
+
+    def enqueue_second() -> None:
+        nonlocal second_done
+        second_done = service._enqueue_event(second)
+
+    def enqueue_third() -> None:
+        nonlocal third_done
+        third_done = service._enqueue_event(third)
+
+    second_thread = Thread(target=enqueue_second, daemon=True)
+    third_thread = Thread(target=enqueue_third, daemon=True)
+    second_thread.start()
+    sleep(0.05)
+    third_thread.start()
+    sleep(0.1)
+
+    assert second_done is False
+    assert third_done is False
+    assert warnings == ["watch queue full; applying backpressure for {}".format(second.path)]
+
+    assert service.queue.get_nowait() == blocker
+    next_event = service.queue.get(timeout=1)
+    assert next_event.path in {second.path, third.path}
+
+    second_thread.join(timeout=1)
+    third_thread.join(timeout=1)
+    assert third_done is True
+    assert second_done is True
+
+    remaining_event = service.queue.get(timeout=1)
+    assert {next_event.path, remaining_event.path} == {second.path, third.path}
+
+    assert service._enqueue_event(blocker) is True
+    fourth_done = False
+
+    def enqueue_fourth() -> None:
+        nonlocal fourth_done
+        fourth_done = service._enqueue_event(fourth)
+
+    fourth_thread = Thread(target=enqueue_fourth, daemon=True)
+    fourth_thread.start()
+    sleep(0.1)
+
+    assert fourth_done is False
+    assert warnings == [
+        "watch queue full; applying backpressure for {}".format(second.path),
+        "watch queue full; applying backpressure for {}".format(fourth.path),
+    ]
+
+    assert service.queue.get_nowait() == blocker
+    fourth_thread.join(timeout=1)
+    assert fourth_done is True
+    assert service.queue.get_nowait() == fourth
