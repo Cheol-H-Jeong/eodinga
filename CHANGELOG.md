@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.264 - 2026-04-23
+## 0.1.268 - 2026-04-23
 
 - Reduced walker syscall churn by carrying `os.scandir()` metadata forward into `walk_batched()`, so discovered children no longer pay an extra `lstat()` before they are indexed.
 - Added an opt-in `tests/perf/test_walk_throughput.py` benchmark plus `EODINGA_PERF_WALK_*` knobs, separating traversal regressions from SQLite bulk-write regressions.
