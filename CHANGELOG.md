@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.211 - 2026-04-23
+## 0.1.216 - 2026-04-23
 
 - Clarified `README.md` as an operator-facing contract with a tighter at-a-glance summary, reference map, and FAQ coverage for local-only behavior, packaging, uninstall, and generated CLI docs.
 - Deepened `docs/ARCHITECTURE.md`, `docs/CONTRIBUTING.md`, and `docs/RELEASE.md` around the real documentation lifecycle, including derived-asset refresh order and a one-command local release pass.
