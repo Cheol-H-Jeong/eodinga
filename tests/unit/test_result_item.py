@@ -10,6 +10,7 @@ def test_highlight_text_marks_all_case_insensitive_matches() -> None:
     rendered = highlight_text("Report report REPORT.txt", "report")
 
     assert rendered.count("<mark>") == 3
+    assert "font-weight:700" in rendered
     assert "<mark>Report</mark>" in rendered
     assert "<mark>report</mark>" in rendered
     assert "<mark>REPORT</mark>" in rendered
@@ -46,7 +47,9 @@ def test_highlight_text_supports_path_and_extension_filters_by_target() -> None:
     rendered_path = highlight_text("/tmp/reports/quarterly.pdf", "path:reports ext:pdf", target="path")
     rendered_ext = highlight_text("pdf", "path:reports ext:pdf", target="ext")
 
-    assert "/tmp/<mark>reports</mark>/quarterly.pdf" in rendered_path
+    assert rendered_path.startswith("/tmp/")
+    assert "<mark>reports</mark>" in rendered_path
+    assert rendered_path.endswith("/quarterly.pdf")
     assert "<mark>pdf</mark>" in rendered_ext
 
 
@@ -54,7 +57,8 @@ def test_highlight_text_supports_regex_and_content_filters() -> None:
     rendered_name = highlight_text("release-notes.txt", "/release[- ]notes/i", target="name")
     rendered_snippet = highlight_text("release notes are attached", 'content:"release notes"', target="snippet")
 
-    assert "<mark>release-notes</mark>.txt" in rendered_name
+    assert "<mark>release-notes</mark>" in rendered_name
+    assert rendered_name.endswith(".txt")
     assert "<mark>release notes</mark>" in rendered_snippet
 
 
@@ -76,10 +80,42 @@ def test_format_hit_html_renders_extension_badge() -> None:
         "report",
     )
 
-    assert "<mark>report</mark>.pdf" in rendered
+    assert "<mark>report</mark>" in rendered
+    assert ".pdf" in rendered
     assert ">pdf</span>" in rendered
     assert ">report.pdf</div><div" not in rendered
     assert ">/tmp</div>" in rendered
+
+
+def test_format_hit_html_renders_quick_pick_badge_for_top_nine_results() -> None:
+    rendered = format_hit_html(
+        SearchHit(
+            path=Path("/tmp/report.pdf"),
+            parent_path=Path("/tmp"),
+            name="report.pdf",
+            ext="pdf",
+        ),
+        "report",
+        rank=2,
+    )
+
+    assert ">Alt+3</span>" in rendered
+    assert rendered.index("Alt+3") < rendered.index("report")
+
+
+def test_format_hit_html_omits_quick_pick_badge_after_ninth_result() -> None:
+    rendered = format_hit_html(
+        SearchHit(
+            path=Path("/tmp/report.pdf"),
+            parent_path=Path("/tmp"),
+            name="report.pdf",
+            ext="pdf",
+        ),
+        "report",
+        rank=9,
+    )
+
+    assert "Alt+10" not in rendered
 
 
 def test_format_hit_html_renders_highlighted_snippet() -> None:
@@ -109,7 +145,8 @@ def test_format_hit_html_shows_parent_path_line_for_path_filters() -> None:
         "path:reports",
     )
 
-    assert "/workspace/<mark>reports</mark>" in rendered
+    assert "/workspace/" in rendered
+    assert "<mark>reports</mark>" in rendered
     assert "release-notes.txt</div><div" not in rendered
 
 

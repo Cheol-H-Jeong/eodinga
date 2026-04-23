@@ -24,6 +24,14 @@ from eodinga.query.dsl import (
 
 HTML_MARGIN = 8
 _TARGET_ALL = frozenset({"name", "path", "snippet"})
+HIGHLIGHT_STYLE = (
+    "display:inline-block; background:#D1FAE5; color:#065F46; font-weight:700; "
+    "padding:0 1px; border-radius:4px"
+)
+QUICK_PICK_STYLE = (
+    "display:inline-block; margin-right:8px; padding:1px 6px; border-radius:999px; "
+    "font-size:10px; font-weight:700; letter-spacing:0.04em; color:#0F766E; background:#CCFBF1"
+)
 
 
 @dataclass(frozen=True)
@@ -191,7 +199,7 @@ def highlight_text(text: str, query: str, *, target: str = "name") -> str:
         if start < cursor:
             continue
         parts.append(escape(text[cursor:start]))
-        parts.append(f"<mark>{escape(text[start:end])}</mark>")
+        parts.append(f"<span style='{HIGHLIGHT_STYLE}'><mark>{escape(text[start:end])}</mark></span>")
         cursor = end
     parts.append(escape(text[cursor:]))
     return "".join(parts)
@@ -210,12 +218,12 @@ def _highlight_fts_snippet(snippet: str) -> str:
             parts.append(escape(snippet[cursor:]))
             break
         parts.append(escape(snippet[cursor:start]))
-        parts.append(f"<mark>{escape(snippet[start + 1:end])}</mark>")
+        parts.append(f"<span style='{HIGHLIGHT_STYLE}'><mark>{escape(snippet[start + 1:end])}</mark></span>")
         cursor = end + 1
     return "".join(parts)
 
 
-def format_hit_html(hit: SearchHit, query: str) -> str:
+def format_hit_html(hit: SearchHit, query: str, *, rank: int | None = None) -> str:
     primary = hit.highlighted_name or highlight_text(hit.name, query, target="name")
     secondary = hit.highlighted_path or highlight_text(str(hit.parent_path), query, target="path")
     snippet_html = ""
@@ -236,8 +244,11 @@ def format_hit_html(hit: SearchHit, query: str) -> str:
             f"{ext_html}"
             "</span>"
         )
+    quick_pick_badge = ""
+    if rank is not None and 0 <= rank < 9:
+        quick_pick_badge = f"<span style='{QUICK_PICK_STYLE}'>Alt+{rank + 1}</span>"
     return (
-        f"<div style='font-size:15px; font-weight:600'>{primary}{ext_badge}</div>"
+        f"<div style='font-size:15px; font-weight:600'>{quick_pick_badge}{primary}{ext_badge}</div>"
         f"<div style='font-size:11px; color:#6B7280'>{secondary}</div>"
         f"{snippet_html}"
     )
