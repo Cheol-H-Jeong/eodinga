@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.911 - 2026-04-23
+## 0.1.912 - 2026-04-23
 
 - Stopped caching compiled `date:`, `modified:`, and `created:` queries when they depend on relative keywords like `today`, `tomorrow`, or `last-week`, so repeated searches keep using the current local-time window instead of stale bounds.
 - Expanded quoted phrase matching across camel-case and alpha-numeric boundaries, so searches like `"launch checklist"` and `"report 2026 summary"` now match `LaunchChecklist` and `report2026-summary`.
