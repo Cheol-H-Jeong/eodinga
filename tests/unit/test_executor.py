@@ -1604,6 +1604,37 @@ def test_executor_caches_content_text_sql_templates_by_chunk_size() -> None:
     assert cache_info.currsize == 2
 
 
+def test_executor_fetch_content_texts_chunks_large_id_sets(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = 1_713_528_000
+    for index in range(1, 261):
+        _insert_file(
+            tmp_db,
+            index,
+            f"/workspace/projects/report-{index:03d}.txt",
+            1024,
+            now - index,
+            "txt",
+            body_text=f"body {index}",
+        )
+    tmp_db.commit()
+
+    requested_chunk_sizes: list[int] = []
+    original_sql = executor_module._content_texts_sql
+
+    def recording_sql(chunk_size: int) -> str:
+        requested_chunk_sizes.append(chunk_size)
+        return original_sql(chunk_size)
+
+    monkeypatch.setattr(executor_module, "_content_texts_sql", recording_sql)
+
+    texts = executor_module._fetch_content_texts(tmp_db, range(1, 261))
+
+    assert len(texts) == 260
+    assert requested_chunk_sizes == [128, 128, 4]
+
+
 def test_executor_caches_compiled_regex_by_pattern_and_flags() -> None:
     executor_module._compile_regex.cache_clear()
 
