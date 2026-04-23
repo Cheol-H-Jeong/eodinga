@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.354 - 2026-04-23
+## 0.1.355 - 2026-04-23
 
 - Expanded `README.md` with a role-based guide map, single-command validation recipes, and an explicit docs-refresh FAQ so operators can choose the right validation path without reconstructing command order.
 - Deepened `docs/ARCHITECTURE.md` with recovery artifact mapping, watcher update flow, shared surface call flow, and packaging/docs build diagrams that connect runtime symptoms to the correct subsystem faster.
