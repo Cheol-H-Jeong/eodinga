@@ -62,14 +62,23 @@ class _Handler(FileSystemEventHandler):
             src_in_root = _is_within_root(src_path, self._root)
             dest_in_root = _is_within_root(dest_path, self._root)
             if src_in_root and dest_in_root:
-                normalized = WatchEvent(
-                    event_type="moved",
-                    path=dest_path,
-                    src_path=src_path,
-                    is_dir=event.is_directory,
-                    root_path=self._root,
-                    happened_at=monotonic(),
-                )
+                if src_path == dest_path:
+                    normalized = WatchEvent(
+                        event_type="modified",
+                        path=dest_path,
+                        is_dir=event.is_directory,
+                        root_path=self._root,
+                        happened_at=monotonic(),
+                    )
+                else:
+                    normalized = WatchEvent(
+                        event_type="moved",
+                        path=dest_path,
+                        src_path=src_path,
+                        is_dir=event.is_directory,
+                        root_path=self._root,
+                        happened_at=monotonic(),
+                    )
             elif src_in_root:
                 normalized = WatchEvent(
                     event_type="deleted",

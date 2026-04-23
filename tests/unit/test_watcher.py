@@ -66,6 +66,22 @@ def test_watcher_handler_preserves_move_within_root(tmp_path: Path) -> None:
     assert event.root_path == root
 
 
+def test_watcher_handler_normalizes_same_path_move_to_modify(tmp_path: Path) -> None:
+    service = WatchService()
+    root = tmp_path / "watched"
+    target = root / "draft.txt"
+    handler = _Handler(service, root)
+
+    handler.on_any_event(FileMovedEvent(str(target), str(target)))
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "modified"
+    assert event.path == target
+    assert event.src_path is None
+    assert event.root_path == root
+
+
 def test_watcher_coalesces_events_within_500ms(tmp_path: Path) -> None:
     service = WatchService()
     service.start(tmp_path)
