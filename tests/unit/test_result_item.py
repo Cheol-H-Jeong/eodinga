@@ -76,7 +76,9 @@ def test_format_hit_html_renders_extension_badge() -> None:
         "report",
     )
 
-    assert "<mark>report</mark>.pdf" in rendered
+    assert "font-weight:700" in rendered
+    assert "background-color:#FDE68A" in rendered
+    assert ">report</mark>.pdf" in rendered
     assert ">pdf</span>" in rendered
     assert ">report.pdf</div><div" not in rendered
     assert ">/tmp</div>" in rendered
@@ -94,7 +96,7 @@ def test_format_hit_html_renders_highlighted_snippet() -> None:
         'content:"release notes"',
     )
 
-    assert "<mark>release notes</mark>" in rendered
+    assert ">release notes</mark>" in rendered
     assert "the " in rendered
 
 
@@ -109,7 +111,7 @@ def test_format_hit_html_shows_parent_path_line_for_path_filters() -> None:
         "path:reports",
     )
 
-    assert "/workspace/<mark>reports</mark>" in rendered
+    assert "/workspace/<mark style='font-weight:700; background-color:#FDE68A; color:#111827'>reports</mark>" in rendered
     assert "release-notes.txt</div><div" not in rendered
 
 
@@ -125,5 +127,5 @@ def test_format_hit_html_prefers_precomputed_highlighted_path() -> None:
         "path:ignored",
     )
 
-    assert "/workspace/<mark>reports</mark>" in rendered
+    assert "/workspace/<mark style='font-weight:700; background-color:#FDE68A; color:#111827'>reports</mark>" in rendered
     assert "path:ignored" not in rendered

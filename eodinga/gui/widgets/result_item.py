@@ -23,6 +23,7 @@ from eodinga.query.dsl import (
 )
 
 HTML_MARGIN = 8
+MARK_OPEN = "<mark style='font-weight:700; background-color:#FDE68A; color:#111827'>"
 _TARGET_ALL = frozenset({"name", "path", "snippet"})
 
 
@@ -210,14 +211,18 @@ def _highlight_fts_snippet(snippet: str) -> str:
             parts.append(escape(snippet[cursor:]))
             break
         parts.append(escape(snippet[cursor:start]))
-        parts.append(f"<mark>{escape(snippet[start + 1:end])}</mark>")
+        parts.append(f"{MARK_OPEN}{escape(snippet[start + 1:end])}</mark>")
         cursor = end + 1
     return "".join(parts)
 
 
+def _style_marks(html: str) -> str:
+    return html.replace("<mark>", MARK_OPEN)
+
+
 def format_hit_html(hit: SearchHit, query: str) -> str:
-    primary = hit.highlighted_name or highlight_text(hit.name, query, target="name")
-    secondary = hit.highlighted_path or highlight_text(str(hit.parent_path), query, target="path")
+    primary = _style_marks(hit.highlighted_name or highlight_text(hit.name, query, target="name"))
+    secondary = _style_marks(hit.highlighted_path or highlight_text(str(hit.parent_path), query, target="path"))
     snippet_html = ""
     if hit.snippet:
         rendered_snippet = (
@@ -225,10 +230,10 @@ def format_hit_html(hit: SearchHit, query: str) -> str:
             if "[" in hit.snippet and "]" in hit.snippet
             else highlight_text(hit.snippet, query, target="snippet")
         )
-        snippet_html = f"<div style='font-size:11px; color:#374151; margin-top:4px'>{rendered_snippet}</div>"
+        snippet_html = f"<div style='font-size:11px; color:#374151; margin-top:4px'>{_style_marks(rendered_snippet)}</div>"
     ext_badge = ""
     if hit.ext:
-        ext_html = highlight_text(hit.ext, query, target="ext")
+        ext_html = _style_marks(highlight_text(hit.ext, query, target="ext"))
         ext_badge = (
             "<span style='display:inline-block; margin-left:8px; padding:1px 6px; "
             "border-radius:999px; font-size:10px; font-weight:700; letter-spacing:0.08em; "
