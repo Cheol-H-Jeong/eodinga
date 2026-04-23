@@ -223,7 +223,7 @@ class _Parser:
             char = self._peek()
             if char is None:
                 raise QuerySyntaxError("unterminated regex", start)
-            if char == "/" and self.source[self.index - 1] != "\\":
+            if char == "/" and not self._is_escaped(self.index):
                 break
             self.index += 1
         pattern = self.source[pattern_start:self.index]
@@ -300,6 +300,14 @@ class _Parser:
         if index >= self.length:
             return None
         return self.source[index]
+
+    def _is_escaped(self, index: int) -> bool:
+        backslashes = 0
+        cursor = index - 1
+        while cursor >= 0 and self.source[cursor] == "\\":
+            backslashes += 1
+            cursor -= 1
+        return backslashes % 2 == 1
 
     def _skip_ws(self) -> bool:
         start = self.index
