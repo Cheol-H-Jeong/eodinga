@@ -42,6 +42,7 @@ from pathlib import Path
 
 template_path = Path("${DEBIAN_CONTROL_TEMPLATE}")
 rendered_path = Path("${DEBIAN_CONTROL_RENDERED}")
+control_path = Path("${PACKAGE_DIR}/DEBIAN/control")
 template_text = template_path.read_text(encoding="utf-8")
 rendered = template_text.replace("${APP_VERSION_TOKEN}", "${VERSION}")
 rendered = rendered.replace("${TARGET_ARCH_TOKEN}", "${ARCH}")
@@ -52,8 +53,10 @@ binary_paragraph = next(
 )
 if binary_paragraph is None:
     raise SystemExit("missing binary package stanza in Debian control template")
+rendered_path.parent.mkdir(parents=True, exist_ok=True)
+control_path.parent.mkdir(parents=True, exist_ok=True)
 rendered_path.write_text(binary_paragraph + "\n", encoding="utf-8")
-Path("${PACKAGE_DIR}/DEBIAN/control").write_text(binary_paragraph + "\n", encoding="utf-8")
+control_path.write_text(binary_paragraph + "\n", encoding="utf-8")
 PY
 
 cat > "${PACKAGE_DIR}/usr/bin/eodinga" <<'EOF'
