@@ -415,6 +415,32 @@ def test_execute_date_ranges_accept_relative_keywords(
     assert hits == ["today.txt", "yesterday.txt"]
 
 
+def test_execute_iso_year_literals_match_full_calendar_year(tmp_db: sqlite3.Connection) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/in-year.txt",
+        512,
+        int(datetime(2026, 7, 1, 12, 0, tzinfo=UTC).timestamp()),
+        "txt",
+        body_text="inside 2026",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/out-year.txt",
+        512,
+        int(datetime(2025, 12, 31, 12, 0, tzinfo=UTC).timestamp()),
+        "txt",
+        body_text="outside 2026",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "date:2026", limit=10).hits]
+
+    assert hits == ["in-year.txt"]
+
+
 def test_execute_negated_case_true_restores_case_insensitive_matching(
     tmp_db: sqlite3.Connection,
 ) -> None:
