@@ -268,7 +268,7 @@ class WatchService:
 
     def _flush_ready(self, force: bool) -> None:
         now = monotonic()
-        flushed: list[WatchEvent] = []
+        flushed: list[tuple[WatchEvent, set[Path]]] = []
         with self._lock:
             ready_paths = [
                 path
@@ -280,26 +280,37 @@ class WatchService:
                 retired_sources = self._retired_sources.pop(path, set())
                 self._timestamps.pop(path, None)
                 if event is not None:
-                    if event.event_type == "moved" and event.src_path is not None:
-                        retired_sources = {event.src_path, *retired_sources}
-                    if retired_sources:
-                        self._flushed_retired_sources.update(retired_sources)
-                    if event.event_type in {"created", "modified", "deleted"}:
-                        self._flushed_retired_sources.discard(event.path)
-                    flushed.append(event)
-        delivered: list[WatchEvent] = []
-        for event in flushed:
+                    flushed.append((event, retired_sources))
+        delivered: list[tuple[WatchEvent, set[Path]]] = []
+        for index, (event, retired_sources) in enumerate(flushed):
             if not self._enqueue_event(event):
                 with self._lock:
                     self._pending[event.path] = event
                     self._timestamps[event.path] = now
+                    if retired_sources:
+                        self._retired_sources[event.path] = retired_sources
+                    for deferred_event, deferred_retired_sources in flushed[index + 1 :]:
+                        self._pending[deferred_event.path] = deferred_event
+                        self._timestamps[deferred_event.path] = now
+                        if deferred_retired_sources:
+                            self._retired_sources[deferred_event.path] = deferred_retired_sources
                 break
-            delivered.append(event)
+            delivered.append((event, retired_sources))
+        if delivered:
+            with self._lock:
+                for event, retired_sources in delivered:
+                    published_sources = retired_sources
+                    if event.event_type == "moved" and event.src_path is not None:
+                        published_sources = {event.src_path, *retired_sources}
+                    if published_sources:
+                        self._flushed_retired_sources.update(published_sources)
+                    if event.event_type in {"created", "modified", "deleted"}:
+                        self._flushed_retired_sources.discard(event.path)
         if delivered:
             increment_counter("watcher_flushes")
             increment_counter("watcher_events_flushed", len(delivered))
             record_histogram("watch_flush_batch_size", float(len(delivered)))
-            for event in delivered:
+            for event, _retired_sources in delivered:
                 lag_ms = max((now - event.happened_at) * 1000, 0.0)
                 record_histogram("watch_event_lag_ms", lag_ms, event_type=event.event_type)
 
