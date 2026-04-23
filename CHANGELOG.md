@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.708 - 2026-04-23
+## 0.1.712 - 2026-04-23
 
 - Preserved directory `created`, `deleted`, and `moved` watch events long enough for incremental indexing to repair entire subtrees instead of leaving renamed or removed folder contents stale in the live index.
 - Taught incremental writes to delete and repopulate whole directory subtrees from the root-specific include/exclude rules already stored in the index, so nested file paths follow live directory moves and removals instead of requiring a full rebuild.
