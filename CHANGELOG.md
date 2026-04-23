@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.110 - 2026-04-23
+
+- Fixed standalone regex parsing so patterns whose closing `/` is preceded by an even-length backslash run now parse correctly instead of failing as `unterminated regex`.
+- Fixed Windows root scoping so exact root-path matches use case-insensitive comparison for Windows-style paths, which keeps the indexed root directory visible even when the queried root casing differs.
+
 ## 0.1.104 - 2026-04-23
 
 - Added a multi-root integration regression that rebuilds one index from two configured roots, proves both roots are persisted, and pins `search(..., root=...)` scoping against cross-root result leakage.
