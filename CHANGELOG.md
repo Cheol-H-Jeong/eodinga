@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.879 - 2026-04-23
+## 0.1.904 - 2026-04-23
 
 - Fixed phrase path-candidate scans to keep paging past the first batch, so cross-separator phrase queries no longer miss later records in large indexes.
 - Accepted spaced relative date macros such as `date:this week` and `date:last month`, normalizing them onto the existing relative-date query behavior.
