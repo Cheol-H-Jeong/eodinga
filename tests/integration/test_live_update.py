@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from queue import Empty
 from time import monotonic
+from typing import Callable
 
 from eodinga.config import RootConfig
 from eodinga.content.registry import parse
@@ -14,6 +15,29 @@ from eodinga.query import search
 from tests.conftest import make_record
 
 
+def _wait_for_indexed_state(
+    conn,
+    service: WatchService,
+    writer: IndexWriter,
+    deadline_seconds: float,
+    predicate: Callable[[], bool],
+    failure_message: str,
+) -> float:
+    started = monotonic()
+    deadline = started + deadline_seconds
+    while monotonic() < deadline:
+        try:
+            event = service.queue.get(timeout=0.05)
+        except Empty:
+            if predicate():
+                return monotonic() - started
+            continue
+        writer.apply_events([event], record_loader=make_record)
+        if predicate():
+            return monotonic() - started
+    raise AssertionError(failure_message)
+
+
 def _wait_for_query_hit(
     conn,
     service: WatchService,
@@ -22,18 +46,14 @@ def _wait_for_query_hit(
     expected_path: Path,
     deadline_seconds: float,
 ) -> float:
-    started = monotonic()
-    deadline = started + deadline_seconds
-    while monotonic() < deadline:
-        try:
-            event = service.queue.get(timeout=0.05)
-        except Empty:
-            continue
-        writer.apply_events([event], record_loader=make_record)
-        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
-        if expected_path in hits:
-            return monotonic() - started
-    raise AssertionError(f"{expected_path} did not become query-visible within {deadline_seconds:.3f}s")
+    return _wait_for_indexed_state(
+        conn,
+        service,
+        writer,
+        deadline_seconds,
+        lambda: expected_path in [hit.file.path for hit in search(conn, query, limit=5).hits],
+        f"{expected_path} did not become query-visible within {deadline_seconds:.3f}s",
+    )
 
 
 def _wait_for_query_miss(
@@ -44,18 +64,14 @@ def _wait_for_query_miss(
     missing_path: Path,
     deadline_seconds: float,
 ) -> float:
-    started = monotonic()
-    deadline = started + deadline_seconds
-    while monotonic() < deadline:
-        try:
-            event = service.queue.get(timeout=0.05)
-        except Empty:
-            continue
-        writer.apply_events([event], record_loader=make_record)
-        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
-        if missing_path not in hits:
-            return monotonic() - started
-    raise AssertionError(f"{missing_path} remained query-visible after {deadline_seconds:.3f}s")
+    return _wait_for_indexed_state(
+        conn,
+        service,
+        writer,
+        deadline_seconds,
+        lambda: missing_path not in [hit.file.path for hit in search(conn, query, limit=5).hits],
+        f"{missing_path} remained query-visible after {deadline_seconds:.3f}s",
+    )
 
 
 def test_live_update_visible_to_search_within_500ms(tmp_path: Path) -> None:

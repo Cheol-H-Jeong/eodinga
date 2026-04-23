@@ -280,6 +280,48 @@ def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) 
     assert remaining_hits == {survivor}
 
 
+def test_hot_restart_persists_live_create_across_reopen(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    existing = root / "existing.txt"
+    existing.write_text("baseline restart coverage\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        created = root / "persisted-create.txt"
+        created.write_text("persisted live create after reopen\n", encoding="utf-8")
+        elapsed = _wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "persisted live create after reopen",
+            created,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        reopened.close()
+
+    reopened_again = open_index(db_path)
+    try:
+        persisted_hits = [
+            hit.file.path for hit in search(reopened_again, "persisted live create after reopen", limit=3).hits
+        ]
+        baseline_hits = [hit.file.path for hit in search(reopened_again, "baseline restart coverage", limit=3).hits]
+    finally:
+        reopened_again.close()
+
+    assert elapsed <= 0.5
+    assert persisted_hits == [created]
+    assert baseline_hits == [existing]
+
+
 def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updates(
     tmp_path: Path,
 ) -> None:
