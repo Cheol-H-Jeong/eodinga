@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.846 - 2026-04-23
+
+- Tightened the Windows packaging release audit so `python packaging/build.py --target windows` now fails on non-Windows hosts even if stale placeholder `dist/` trees are present, keeping the release contract aligned with the actual Windows workflow.
+- Added integration coverage for restarting a real watchdog observer on the same root and still surfacing a new file to search within 500ms after the restart.
+- Added a trimmed multi-root hot-restart regression test proving that reopening an index after one root is removed still preserves the surviving scope and accepts live updates without leaking hits from the dropped root.
+
 ## 0.1.841 - 2026-04-23
 
 - Hardened the read-only filesystem guard so malformed or ambiguous modes now fail fast through `open_readonly`, instead of relying on lower-level `pathlib` mode parsing.
