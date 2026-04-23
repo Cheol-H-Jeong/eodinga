@@ -4,6 +4,8 @@ import sqlite3
 from pathlib import Path
 from time import perf_counter, time
 
+import pytest
+
 import eodinga.index.writer as writer_module
 from eodinga.content.base import ParsedContent
 from eodinga.common import FileRecord, WatchEvent
@@ -536,3 +538,80 @@ def test_writer_apply_events_respects_active_transaction_rollback(tmp_db: Path, 
 
     rows = conn.execute("SELECT path FROM files ORDER BY path").fetchall()
     assert rows == [(str(source.path),)]
+
+
+def test_writer_upsert_records_chunks_large_batches(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    writer = IndexWriter(sqlite3.connect(":memory:"))
+    records = [_synthetic_record(index, tmp_path) for index in range(5)]
+    batch_sizes: list[int] = []
+
+    class _RecordingConnection:
+        def executemany(self, _sql: str, params) -> None:
+            batch = tuple(params)
+            batch_sizes.append(len(batch))
+
+    monkeypatch.setattr(writer_module, "WRITE_BATCH_SIZE", 2)
+    writer._conn = _RecordingConnection()  # type: ignore[assignment]
+
+    writer._upsert_records(records)
+
+    assert batch_sizes == [2, 2, 1]
+
+
+def test_writer_upsert_content_chunks_large_batches(tmp_db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    records = [_synthetic_record(index, tmp_path) for index in range(5)]
+    parsed_by_path = {
+        record.path: ParsedContent(
+            title=record.name,
+            head_text=f"head {record.name}",
+            body_text=f"body {record.name}",
+            content_sha=f"sha-{record.name}".encode(),
+        )
+        for record in records
+    }
+    writer = IndexWriter(conn, parser_callback=lambda path: parsed_by_path.get(path))
+    assert writer.bulk_upsert(records) == 5
+
+    updated_by_path = {
+        record.path: ParsedContent(
+            title=record.name,
+            head_text=f"new head {record.name}",
+            body_text=f"new body {record.name}",
+            content_sha=f"new-sha-{record.name}".encode(),
+        )
+        for record in records
+    }
+    writer = IndexWriter(conn, parser_callback=lambda path: updated_by_path.get(path))
+    batch_sizes: list[int] = []
+
+    class _RecordingConnection:
+        def __init__(self, delegate: sqlite3.Connection) -> None:
+            self._delegate = delegate
+
+        @property
+        def in_transaction(self) -> bool:
+            return self._delegate.in_transaction
+
+        def execute(self, sql: str, params=()):
+            return self._delegate.execute(sql, params)
+
+        def executemany(self, sql: str, params):
+            batch = tuple(params)
+            if (
+                "INSERT INTO content_fts" in sql
+                or "INSERT INTO content_map" in sql
+                or "UPDATE files SET content_hash" in sql
+            ):
+                batch_sizes.append(len(batch))
+            return self._delegate.executemany(sql, batch)
+
+    monkeypatch.setattr(writer_module, "WRITE_BATCH_SIZE", 2)
+    writer._conn = _RecordingConnection(conn)  # type: ignore[assignment]
+
+    assert writer.bulk_upsert(records) == 5
+    assert batch_sizes == [2, 2, 1, 2, 2, 1, 2, 2, 1]

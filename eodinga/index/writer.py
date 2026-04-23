@@ -16,6 +16,7 @@ RecordLoader = Callable[[Path], FileRecord | None]
 T = TypeVar("T")
 IDLE_SYNCHRONOUS_MODE = "FULL"
 BULK_SYNCHRONOUS_MODE = "NORMAL"
+WRITE_BATCH_SIZE = 1000
 
 
 class ExistingContentRow(NamedTuple):
@@ -158,28 +159,29 @@ class IndexWriter:
         self._conn.execute(f"RELEASE SAVEPOINT {savepoint_name}")
 
     def _upsert_records(self, records: Sequence[FileRecord]) -> None:
-        self._conn.executemany(
-            """
-            INSERT INTO files(
-              root_id, path, parent_path, name, name_lower, ext, size, mtime, ctime,
-              is_dir, is_symlink, content_hash, indexed_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(path) DO UPDATE SET
-              root_id=excluded.root_id,
-              parent_path=excluded.parent_path,
-              name=excluded.name,
-              name_lower=excluded.name_lower,
-              ext=excluded.ext,
-              size=excluded.size,
-              mtime=excluded.mtime,
-              ctime=excluded.ctime,
-              is_dir=excluded.is_dir,
-              is_symlink=excluded.is_symlink,
-              content_hash=COALESCE(excluded.content_hash, files.content_hash),
-              indexed_at=excluded.indexed_at
-            """,
-            (_record_tuple(record) for record in records),
-        )
+        for chunk in _chunked(records, WRITE_BATCH_SIZE):
+            self._conn.executemany(
+                """
+                INSERT INTO files(
+                  root_id, path, parent_path, name, name_lower, ext, size, mtime, ctime,
+                  is_dir, is_symlink, content_hash, indexed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(path) DO UPDATE SET
+                  root_id=excluded.root_id,
+                  parent_path=excluded.parent_path,
+                  name=excluded.name,
+                  name_lower=excluded.name_lower,
+                  ext=excluded.ext,
+                  size=excluded.size,
+                  mtime=excluded.mtime,
+                  ctime=excluded.ctime,
+                  is_dir=excluded.is_dir,
+                  is_symlink=excluded.is_symlink,
+                  content_hash=COALESCE(excluded.content_hash, files.content_hash),
+                  indexed_at=excluded.indexed_at
+                """,
+                (_record_tuple(record) for record in chunk),
+            )
 
     def _delete_path(self, path: Path, content_deletes: list[int]) -> int:
         return self._delete_paths((path,), content_deletes)
@@ -266,26 +268,29 @@ class IndexWriter:
             hash_rows.append((parsed_sha, file_id))
 
         if content_rows:
-            self._conn.executemany(
-                "INSERT INTO content_fts(rowid, title, head_text, body_text) VALUES (?, ?, ?, ?)",
-                content_rows,
-            )
-            self._conn.executemany(
-                """
-                INSERT INTO content_map(file_id, fts_rowid, parser, parsed_at, content_sha)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(file_id) DO UPDATE SET
-                  fts_rowid=excluded.fts_rowid,
-                  parser=excluded.parser,
-                  parsed_at=excluded.parsed_at,
-                  content_sha=excluded.content_sha
-                """,
-                mapping_rows,
-            )
-            self._conn.executemany(
-                "UPDATE files SET content_hash = ? WHERE id = ?",
-                hash_rows,
-            )
+            for chunk in _chunked(content_rows, WRITE_BATCH_SIZE):
+                self._conn.executemany(
+                    "INSERT INTO content_fts(rowid, title, head_text, body_text) VALUES (?, ?, ?, ?)",
+                    chunk,
+                )
+            for chunk in _chunked(mapping_rows, WRITE_BATCH_SIZE):
+                self._conn.executemany(
+                    """
+                    INSERT INTO content_map(file_id, fts_rowid, parser, parsed_at, content_sha)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(file_id) DO UPDATE SET
+                      fts_rowid=excluded.fts_rowid,
+                      parser=excluded.parser,
+                      parsed_at=excluded.parsed_at,
+                      content_sha=excluded.content_sha
+                    """,
+                    chunk,
+                )
+            for chunk in _chunked(hash_rows, WRITE_BATCH_SIZE):
+                self._conn.executemany(
+                    "UPDATE files SET content_hash = ? WHERE id = ?",
+                    chunk,
+                )
             self._next_content_rowid_cache = next_rowid
 
     def _select_existing_content_rows(self, paths: Sequence[str]) -> dict[str, ExistingContentRow]:
