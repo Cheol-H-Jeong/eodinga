@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.116 - 2026-04-23
+
+- Expanded the PyInstaller hidden-import audit to discover real `eodinga` package imports from the source tree, reducing drift between the spec's manual list and the modules the app actually loads.
+- Tightened `packaging/build.py --target windows-dry-run` so it now fails on version mismatches or unresolved Inno template tokens while still writing a machine-readable audit for CI triage.
+- Added Windows installer regressions that pin the opt-in `%LOCALAPPDATA%` purge boundary and prove the packaged uninstall flow does not target roaming config state by default.
+
 ## 0.1.115 - 2026-04-23
 
 - Expanded the shipped README with an explicit feature inventory, a compact DSL cheatsheet, generated-screenshot provenance, and direct links to contributor and release workflows so the top-level product contract is easier to audit.
