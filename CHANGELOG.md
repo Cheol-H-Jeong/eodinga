@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.150 - 2026-04-23
+
+- Fixed the default observability paths on macOS so rotating logs now land under `~/Library/Logs/eodinga` and crash reports follow the same platform-native log root instead of falling back to Linux-style state directories.
+- Expanded `eodinga stats --json` to emit the full in-memory metrics registry, exposing all runtime counters and histograms alongside the existing summary fields and persisted index snapshot.
+- Added an end-to-end observability regression that runs indexing, parser failure handling, watcher ingress, and search in one process, then proves the resulting counters and query-latency histogram are visible through the CLI stats surface.
+
 ## 0.1.149 - 2026-04-23
 
 - Expanded the Windows PyInstaller packaging spec so hidden imports now include third-party modules discovered directly from real `import` and `from ... import ...` usage across the `eodinga/` source tree, reducing dependence on a hand-maintained list.
