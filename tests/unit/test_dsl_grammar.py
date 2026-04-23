@@ -401,7 +401,7 @@ def test_negated_operator_query_fuzz_parses_and_compiles(query: str) -> None:
             st.just("regex"),
             st.booleans(),
             st.from_regex(r"[A-Za-z0-9._+-]{1,12}", fullmatch=True).filter(
-                lambda value: value != "-" and _is_valid_regex_pattern(value)
+                lambda value: value != "-" and not value.startswith("-") and _is_valid_regex_pattern(value)
             ),
         ),
     )

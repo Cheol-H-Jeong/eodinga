@@ -5,6 +5,7 @@
 - Split the launcher state and result-model helpers into a dedicated module, bringing the main launcher widget back under the repository's module-size guard without changing its runtime behavior.
 - Expanded launcher keyboard flow so `Home`, `End`, `PgUp`, and `PgDn` can jump directly from the query field into results, and `Ctrl+A` now reliably returns focus to the query with the current text selected.
 - Added explicit accessible names for the main tab surface and the remaining tab-level controls, extending the existing offscreen launcher accessibility work across the rest of the GUI.
+- Tightened a boolean-operator fuzz strategy so generated regex literals no longer start with `-`, preventing the grammar test from accidentally emitting negation syntax instead of the intended literal term.
 
 ## 0.1.120 - 2026-04-23
 
