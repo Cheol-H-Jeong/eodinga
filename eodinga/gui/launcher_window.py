@@ -45,6 +45,11 @@ class LauncherWindow(LauncherPanel):
 
     def keyPressEvent(self, event) -> None:
         if event.key() == Qt.Key.Key_Escape:
+            if self.query_field.text():
+                self.query_field.clear()
+                self.query_field.setFocus()
+                event.accept()
+                return
             self.hide()
             event.accept()
             return

@@ -748,6 +748,47 @@ def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     assert "Alt+1 through Alt+9" in launcher.empty_state.body_label.text()
 
 
+def test_launcher_escape_clears_query_before_hiding_window(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(10)
+    assert launcher.isVisible()
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Escape)
+
+    assert launcher.isVisible()
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.text() == ""
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Escape)
+
+    assert not launcher.isVisible()
+
+
+def test_launcher_escape_clears_query_even_when_results_have_focus(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/release.txt"), parent_path=Path("/tmp"), name="release.txt")][:limit],
+            total=1,
+            elapsed_ms=1.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(60)
+    launcher.result_list.setFocus()
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Escape)
+
+    assert launcher.isVisible()
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.text() == ""
+
+
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     launcher = LauncherWindow()
     launcher.show()
