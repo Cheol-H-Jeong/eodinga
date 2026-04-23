@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.173 - 2026-04-23
+
+- Added a public live-update shutdown helper that drains flushed watcher events before teardown, so callers can persist in-flight filesystem changes without waiting for the normal debounce window.
+- Added hot-restart integration coverage for queued create and delete events, proving a graceful shutdown preserves search correctness after reopen without a full rewalk.
+- Extended the same restart-drain contract to multi-root indexes, pinning that secondary-root updates remain visible after reopen and still respect `search(..., root=...)` scoping.
+
 ## 0.1.163 - 2026-04-23
 
 - Added open-ended ISO date windows to `date:`, `modified:`, and `created:`, so queries like `date:2026-04-01..` and `created:..2026-04-23` now compile directly into one-sided timestamp predicates.
