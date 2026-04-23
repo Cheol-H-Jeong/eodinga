@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from eodinga.common import IndexingStatus, SearchHit
+
 
 def build_empty_state_content(
     *,
@@ -57,3 +59,34 @@ def build_result_list_accessible_description(
     if current_name is not None and current_row is not None:
         description = f"{description} Selected {current_row} of {count}: {current_name}."
     return f"{description} Use Up and Down to move between results, Enter to open, and Alt+1 through Alt+9 for quick picks."
+
+
+def build_status_footer(
+    *,
+    query: str,
+    indexing_status: IndexingStatus,
+    total_results: int,
+    elapsed_ms: float,
+) -> tuple[str, str]:
+    if not query:
+        if indexing_status.phase == "indexing":
+            total = str(indexing_status.total_files) if indexing_status.total_files > 0 else "?"
+            parts = [f"{indexing_status.processed_files}/{total} files"]
+            if indexing_status.total_files > 0:
+                percent = round((indexing_status.processed_files / indexing_status.total_files) * 100)
+                parts.append(f"{percent}% indexed")
+            else:
+                parts.append("indexing")
+            return ("Indexing", " · ".join(parts))
+        return ("Idle", "0 results · 0.0 ms")
+    status = "Ready" if total_results > 0 else "No results"
+    return (status, f"{total_results} results · {elapsed_ms:.1f} ms")
+
+
+def find_restore_selection_row(items: list[SearchHit], previous_hit: SearchHit | None) -> int | None:
+    if previous_hit is None:
+        return None
+    for row, item in enumerate(items):
+        if item.path == previous_hit.path:
+            return row
+    return None

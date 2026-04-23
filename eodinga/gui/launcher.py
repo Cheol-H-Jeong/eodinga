@@ -8,13 +8,9 @@ from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
-from eodinga.gui.launcher_copy import (
-    build_empty_state_content,
-    build_result_list_accessible_description,
-    build_shortcut_hint,
-)
+from eodinga.gui.launcher_copy import build_empty_state_content, build_result_list_accessible_description, build_status_footer, build_shortcut_hint, find_restore_selection_row
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
-from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
+from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_status
 from eodinga.gui.widgets import (
     ActiveFilterRow,
     EmptyState,
@@ -303,20 +299,14 @@ class LauncherPanel(QWidget):
         get_logger().debug("launcher query '{}' returned {}", query, self._latest_result.total)
 
     def _refresh_status_footer(self) -> None:
-        query = self.query_field.text().strip()
-        if not query:
-            if self._indexing_status.phase == "indexing":
-                self.status_chip.setText("Indexing")
-                self.status_label.setText(format_indexing_footer(self._indexing_status))
-            else:
-                self.status_chip.setText("Idle")
-                self.status_label.setText("0 results · 0.0 ms")
-            return
-        self.status_label.setText(f"{self._latest_result.total} results · {self._latest_result.elapsed_ms:.1f} ms")
-        if self._latest_result.total > 0:
-            self.status_chip.setText("Ready")
-        else:
-            self.status_chip.setText("No results")
+        chip_text, label_text = build_status_footer(
+            query=self.query_field.text().strip(),
+            indexing_status=self._indexing_status,
+            total_results=self._latest_result.total,
+            elapsed_ms=self._latest_result.elapsed_ms,
+        )
+        self.status_chip.setText(chip_text)
+        self.status_label.setText(label_text)
 
     def _refresh_empty_state(self) -> None:
         has_results = self.model.rowCount() > 0
@@ -429,11 +419,10 @@ class LauncherPanel(QWidget):
     def _restore_selection(self, previous_hit: SearchHit | None) -> None:
         if self.model.rowCount() == 0:
             return
-        if previous_hit is not None:
-            for row, item in enumerate(self._latest_result.items):
-                if item.path == previous_hit.path:
-                    self._set_selection(row)
-                    return
+        restore_row = find_restore_selection_row(self._latest_result.items, previous_hit)
+        if restore_row is not None:
+            self._set_selection(restore_row)
+            return
         self._set_selection(0)
 
     def _set_selection(self, row: int) -> None:
@@ -441,8 +430,7 @@ class LauncherPanel(QWidget):
         self.result_list.scrollTo(self.result_list.currentIndex())
         self._refresh_result_list_accessibility()
 
-    def _sync_preview_to_current_index(self, current: QModelIndex, previous: QModelIndex) -> None:
-        del previous
+    def _sync_preview_to_current_index(self, current: QModelIndex, _previous: QModelIndex) -> None:
         self._sync_preview_to_index(current)
 
     def _handle_hovered_index(self, index: QModelIndex) -> None:
