@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.352 - 2026-04-23
+## 0.1.358 - 2026-04-23
 
 - Tightened the source safety audits so aliased network imports, direct shell-outs through `os.system`, and string-form `curl` or `wget` subprocess calls are all caught before they can land in the tree.
 - Hardened atomic index promotion by quarantining stale target `-wal` and `-shm` files before the main database swap, while restoring them automatically if the swap itself fails.
