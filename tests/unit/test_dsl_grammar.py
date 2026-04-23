@@ -85,6 +85,32 @@ def test_parse_operator_regex_value() -> None:
 
 
 @pytest.mark.parametrize(
+    ("query", "expected_name"),
+    [
+        (r"/foo\\\\/i", None),
+        (r"path: /foo\\\\/i", "path"),
+        (r"content: /foo\\\\/i", "content"),
+    ],
+)
+def test_parse_regex_with_even_trailing_backslashes_before_delimiter(
+    query: str,
+    expected_name: str | None,
+) -> None:
+    node = parse(query)
+
+    if expected_name is None:
+        assert isinstance(node, RegexNode)
+        assert node.pattern == r"foo\\\\"
+        assert node.flags == "i"
+        return
+    assert isinstance(node, OperatorNode)
+    assert node.name == expected_name
+    assert node.value_kind == "regex"
+    assert node.value == r"foo\\\\"
+    assert node.regex_flags == "i"
+
+
+@pytest.mark.parametrize(
     ("query", "expected_name", "expected_value"),
     [
         ('"release \\"candidate\\""', None, 'release "candidate"'),
