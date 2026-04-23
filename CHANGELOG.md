@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.237 - 2026-04-23
+## 0.1.242 - 2026-04-23
 
 - Bundled the checked-in `eodinga/` package into both Linux AppImage and Debian build roots so packaged launchers no longer depend on the repository checkout being present beside the artifact.
 - Tightened Linux packaging audits to fail if the staged source bundle or launcher-to-bundled-source wiring disappears from either packaging path.
