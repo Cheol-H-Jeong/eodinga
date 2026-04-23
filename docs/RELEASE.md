@@ -49,6 +49,8 @@ Recommended order:
 2. `pytest -q tests` once the candidate release branch is assembled.
 3. `ruff`, `pyright`, GUI smoke, packaging dry-runs, and workflow lint after the full test pass.
 
+The Linux release workflow installs `appimage-builder` before calling `python packaging/build.py --target linux-appimage`, so the non-dry-run AppImage path is expected to emit a versioned `.AppImage` artifact instead of only staging an `AppDir`.
+
 ## Artifact Inventory
 
 Before tagging, know which release inputs this repository expects to exist:

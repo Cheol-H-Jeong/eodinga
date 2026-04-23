@@ -261,7 +261,7 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 ## Package Artifacts
 
 - Windows release builds emit a PyInstaller bundle plus an Inno Setup installer audit under `packaging/dist/`.
-- Linux AppImage dry runs render `packaging/linux/appimage-builder.yml` from the current package version before building.
+- Linux AppImage dry runs render `packaging/linux/appimage-builder.yml` from the current package version, and release builds emit a versioned `.AppImage` under `packaging/dist/`.
 - Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, and compressed changelog into the package root.
 - The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
 
