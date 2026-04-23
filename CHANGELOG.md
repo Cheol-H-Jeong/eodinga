@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.849 - 2026-04-23
+
+- Extended the launcher's keyboard-only flow so `Tab` now reaches the action bar, `Shift+Tab` returns to results, and left/right/home/end navigation works across action buttons without a mouse.
+- Added direct query pinning inside both launcher surfaces with a dedicated button, `Ctrl+P` shortcut, shared-state updates, and config persistence so pinned searches survive app restarts.
+- Made launcher pin guidance state-aware, flipping shortcut and empty-state copy between pin and unpin instructions based on the current query instead of showing one generic hint.
+
 ## 0.1.841 - 2026-04-23
 
 - Hardened the read-only filesystem guard so malformed or ambiguous modes now fail fast through `open_readonly`, instead of relying on lower-level `pathlib` mode parsing.

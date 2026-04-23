@@ -84,8 +84,12 @@ def test_launcher_keyboard_flow_supports_arrow_navigation_and_tab_return(qapp) -
     assert revealed == ["beta.txt"]
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_Tab)
+    assert launcher.action_bar.open_button.hasFocus()
+    assert "Left/Right move between actions" in launcher.shortcut_label.text()
+
+    QTest.keyClick(launcher.action_bar.open_button, Qt.Key.Key_Tab)
     assert launcher.query_field.hasFocus()
-    assert "Tab moves to results" in launcher.shortcut_label.text()
+    assert "Tab moves to results, then actions" in launcher.shortcut_label.text()
 
 
 def test_launcher_tab_moves_focus_into_results_without_mouse(qapp) -> None:
