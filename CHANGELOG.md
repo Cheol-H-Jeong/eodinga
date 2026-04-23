@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.588 - 2026-04-23
+
+- Blocked false-positive Windows release audits from passing purely because stale `dist/` artifacts already existed, so the non-dry-run packaging target now stays red until a real audited release build attests its outputs.
+- Marked staged rebuild databases as `building` until the crawl fully completes, then flips them to `ready` just before publish so startup can distinguish resumable completed builds from interrupted partial ones.
+- Discarded abandoned unready `.index.db.next` stages during startup and diagnostics instead of swapping them into place, preserving the last good live index after interrupted rebuilds and pinning the behavior with new unit coverage.
+
 ## 0.1.574 - 2026-04-23
 
 - Hardened the no-network safety scan so aliased imports and `from parent import child` forms like `from urllib import request` or `from socket import create_connection` can no longer bypass the repository-wide source check.
