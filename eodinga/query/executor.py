@@ -347,15 +347,44 @@ def _escape_like_pattern(value: str) -> str:
     return value.replace("^", "^^").replace("%", "^%").replace("_", "^_")
 
 
+def _strip_windows_extended_prefix(path: str) -> str:
+    if path.startswith("\\\\?\\UNC\\"):
+        return f"\\\\{path.removeprefix('\\\\?\\UNC\\')}"
+    if path.startswith("//?/UNC/"):
+        return f"//{path.removeprefix('//?/UNC/')}"
+    if path.startswith("\\\\?\\") or path.startswith("//?/"):
+        return path[4:]
+    return path
+
+
+def _with_windows_extended_prefix(path: str) -> tuple[str, ...]:
+    if len(path) >= 2 and path[1] == ":" and path[0].isalpha():
+        return (f"\\\\?\\{path}",)
+    if path.startswith("\\\\") and not path.startswith("\\\\?\\"):
+        return (f"\\\\?\\UNC\\{path[2:]}",)
+    if path.startswith("//") and not path.startswith("//?/"):
+        return (f"//?/UNC/{path[2:]}",)
+    return ()
+
+
 def _root_variants(root_text: str) -> tuple[str, ...]:
-    candidates = (
-        root_text,
-        root_text.replace("\\", "/"),
-        root_text.replace("/", "\\"),
-    )
     variants: dict[str, None] = {}
-    for candidate in candidates:
-        variants[candidate] = None
+    for base in dict.fromkeys(
+        (
+            root_text,
+            _strip_windows_extended_prefix(root_text),
+        )
+    ):
+        candidates = (
+            base,
+            base.replace("\\", "/"),
+            base.replace("/", "\\"),
+        )
+        for candidate in candidates:
+            variants[candidate] = None
+            for prefixed in _with_windows_extended_prefix(candidate):
+                variants[prefixed] = None
+    for candidate in tuple(variants):
         if len(candidate) >= 2 and candidate[1] == ":" and candidate[0].isalpha():
             variants[f"{candidate[0].lower()}{candidate[1:]}"] = None
             variants[f"{candidate[0].upper()}{candidate[1:]}"] = None
