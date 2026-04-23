@@ -58,8 +58,10 @@ class LauncherPanel(QWidget):
         self.status_chip = StatusChip("Idle", self)
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
+        self.shortcut_label.setAccessibleName("Launcher shortcut hints")
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
+        self.status_label.setAccessibleName("Launcher status summary")
         self.empty_state = EmptyState("Type to search", "Recent queries and indexing progress will appear here.", self)
 
         self.model = ResultListModel(self)
