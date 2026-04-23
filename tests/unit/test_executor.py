@@ -207,6 +207,38 @@ def test_path_regex_queries_do_not_load_content_texts(
     assert result.hits
 
 
+def test_metadata_only_queries_do_not_probe_indexed_content(
+    populated_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        executor_module,
+        "_has_indexed_content",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("metadata-only queries should not probe indexed content")
+        ),
+    )
+
+    result = search(populated_db, "ext:txt", limit=5)
+
+    assert result.hits
+
+
+def test_path_only_filter_queries_do_not_probe_indexed_content(
+    populated_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        executor_module,
+        "_has_indexed_content",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("path-only filters should not probe indexed content")
+        ),
+    )
+
+    result = search(populated_db, "path:projects", limit=5)
+
+    assert result.hits
+
+
 def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     local_now = datetime.now().astimezone()
     today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())

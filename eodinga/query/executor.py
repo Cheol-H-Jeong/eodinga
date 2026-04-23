@@ -831,6 +831,12 @@ def _is_metadata_only_branch(branch: CompiledBranch) -> bool:
     return not branch.path_match_sql and not branch.content_required and not _needs_record_filter(branch)
 
 
+def _branch_may_use_indexed_content(branch: CompiledBranch) -> bool:
+    if branch.content_required or branch.content_match_sql:
+        return True
+    return any(not term.negated for term in branch.path_terms)
+
+
 def _metadata_only_total_estimate(
     conn: sqlite3.Connection,
     branches: tuple[CompiledBranch, ...],
@@ -986,8 +992,12 @@ def execute(
     merged_records: dict[int, FileRecord] = {}
     merged_scores: dict[int, float] = {}
     merged_snippets: dict[int, str | None] = {}
-    has_indexed_content = _has_indexed_content(conn)
     scoped_branches = tuple(_scoped_branch(branch, root) for branch in compiled.branches)
+    has_indexed_content = (
+        _has_indexed_content(conn)
+        if any(_branch_may_use_indexed_content(branch) for branch in scoped_branches)
+        else False
+    )
     for scoped_branch in scoped_branches:
         branch_records, branch_scores, branch_snippets = _execute_branch(
             conn,
