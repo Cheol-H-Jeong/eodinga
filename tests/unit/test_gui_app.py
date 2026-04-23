@@ -237,6 +237,27 @@ def test_launcher_restore_clamps_saved_geometry_to_available_screen(qapp, temp_c
     qapp.processEvents()
 
 
+def test_launcher_without_saved_position_centers_on_available_screen(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"window_width": 500, "window_height": 320})
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+    launcher._available_geometry = lambda: QRect(100, 50, 1000, 700)  # type: ignore[method-assign]
+
+    launcher.show()
+    qapp.processEvents()
+
+    assert 500 <= launcher.width() <= 1000
+    assert 320 <= launcher.height() <= 700
+    assert launcher.pos().x() == 100 + (1000 - launcher.width()) // 2
+    assert launcher.pos().y() == 50 + (700 - launcher.height()) // 2
+
+    window.close()
+    qapp.processEvents()
+
+
 def test_launcher_respects_always_on_top_config(qapp, temp_config_path: Path) -> None:
     config = AppConfig()
     config.launcher = config.launcher.model_copy(update={"always_on_top": False})

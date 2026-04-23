@@ -107,6 +107,7 @@ class LauncherWindow(LauncherPanel):
             return
         launcher = self._config.launcher
         if launcher.window_x is None or launcher.window_y is None:
+            self.setGeometry(self._centered_geometry(self.width(), self.height()))
             return
         self.setGeometry(
             self._clamp_geometry(
@@ -137,6 +138,13 @@ class LauncherWindow(LauncherPanel):
         x = min(max(geometry.x(), available.x()), max_x)
         y = min(max(geometry.y(), available.y()), max_y)
         return QRect(x, y, width, height)
+
+    def _centered_geometry(self, width: int, height: int) -> QRect:
+        available = self._available_geometry()
+        clamped = self._clamp_geometry(QRect(available.x(), available.y(), width, height))
+        x = available.x() + max((available.width() - clamped.width()) // 2, 0)
+        y = available.y() + max((available.height() - clamped.height()) // 2, 0)
+        return QRect(x, y, clamped.width(), clamped.height())
 
     def _persist_geometry(self) -> None:
         if self._config is None or self._config_path is None or not self._geometry_restored:
