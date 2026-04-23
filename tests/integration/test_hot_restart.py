@@ -222,6 +222,78 @@ def test_hot_restart_reopen_multi_root_keeps_queries_and_accepts_live_updates(tm
     assert reopened_beta_hits == {existing_b}
 
 
+def test_hot_restart_reopen_multi_root_rename_stays_root_scoped(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    alpha = root_a / "alpha-existing.txt"
+    beta_source = root_b / "beta-draft.txt"
+    beta_destination = root_b / "beta-renamed.txt"
+    alpha.write_text("persisted reopen alpha rename\n", encoding="utf-8")
+    beta_source.write_text("persisted reopen beta rename\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    first_conn = open_index(db_path)
+    try:
+        initial_alpha_hits = {
+            hit.file.path for hit in search(first_conn, "path:alpha-existing", limit=5, root=root_a).hits
+        }
+        initial_beta_hits = {
+            hit.file.path for hit in search(first_conn, "path:beta-draft", limit=5, root=root_b).hits
+        }
+    finally:
+        first_conn.close()
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        beta_source.rename(beta_destination)
+        hit_elapsed = _wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "path:beta-renamed",
+            beta_destination,
+            deadline_seconds=0.5,
+        )
+        miss_elapsed = _wait_for_query_miss(
+            reopened,
+            service,
+            writer,
+            "path:beta-draft",
+            beta_source,
+            deadline_seconds=0.5,
+        )
+        alpha_hits = {
+            hit.file.path
+            for hit in search(reopened, "path:alpha-existing", limit=5, root=root_a).hits
+        }
+        beta_hits = {
+            hit.file.path
+            for hit in search(reopened, "path:beta-renamed", limit=5, root=root_b).hits
+        }
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_alpha_hits == {alpha}
+    assert initial_beta_hits == {beta_source}
+    assert hit_elapsed <= 0.5
+    assert miss_elapsed <= 0.5
+    assert alpha_hits == {alpha}
+    assert beta_hits == {beta_destination}
+
+
 def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"

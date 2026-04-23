@@ -367,3 +367,50 @@ def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Pat
 
     assert initial_hits == [existing]
     assert reopened_hits == [existing]
+
+
+def test_hot_restart_reopen_rename_updates_path_search_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    source = root / "reopen-draft.txt"
+    destination = root / "reopen-renamed.txt"
+    source.write_text("restart rename coverage\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    first_conn = open_index(db_path)
+    try:
+        initial_hits = [hit.file.path for hit in search(first_conn, "path:reopen-draft", limit=3).hits]
+    finally:
+        first_conn.close()
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        source.rename(destination)
+        hit_elapsed = _wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "path:reopen-renamed",
+            destination,
+            deadline_seconds=0.5,
+        )
+        miss_elapsed = _wait_for_query_miss(
+            reopened,
+            service,
+            writer,
+            "path:reopen-draft",
+            source,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == [source]
+    assert hit_elapsed <= 0.5
+    assert miss_elapsed <= 0.5
