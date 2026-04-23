@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -352,6 +353,23 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (isinstance(archive_artifact.get("size_bytes"), int) and archive_artifact.get("size_bytes", 0) > 0, "AppImage archive size is missing"),
         (bool(archive_artifact.get("sha256")), "AppImage archive digest is missing"),
     ]
+    if not payload.get("dry_run"):
+        appimage_artifact = payload.get("appimage_artifact", {})
+        expected_appimage_name = f"eodinga-{package_version}-linux-{arch}.AppImage"
+        if Path(str(appimage_artifact.get("path"))).name != expected_appimage_name:
+            errors.append("AppImage payload filename does not match the package version and arch")
+        required_flags.extend(
+            [
+                (appimage_artifact.get("exists"), "AppImage payload is missing"),
+                (
+                    isinstance(appimage_artifact.get("size_bytes"), int)
+                    and appimage_artifact.get("size_bytes", 0) > 0,
+                    "AppImage payload size is missing",
+                ),
+                (bool(appimage_artifact.get("sha256")), "AppImage payload digest is missing"),
+                (appimage_artifact.get("is_executable"), "AppImage payload is not executable"),
+            ]
+        )
     for ok, message in required_flags:
         if not ok:
             errors.append(message)
@@ -484,8 +502,15 @@ def _report_validation_errors(target: str, errors: list[str]) -> int:
     return 1
 
 
+def _command_exists(command: str) -> bool:
+    if any(separator in command for separator in ("/", "\\")):
+        path = Path(command).expanduser()
+        return path.exists() and os.access(path, os.X_OK)
+    return shutil.which(command) is not None
+
+
 def _missing_required_commands(commands: list[str]) -> list[str]:
-    return sorted(command for command in commands if shutil.which(command) is None)
+    return sorted(command for command in commands if not _command_exists(command))
 
 
 def _preflight_required_commands(target: str, commands: list[str]) -> int:
@@ -496,6 +521,10 @@ def _preflight_required_commands(target: str, commands: list[str]) -> int:
         target,
         [f"required build command is missing from PATH: {command}" for command in missing],
     )
+
+
+def _linux_appimage_tool() -> str:
+    return os.environ.get("APPIMAGE_TOOL", "appimagetool")
 
 
 def _run_windows_dry_run() -> int:
@@ -540,7 +569,7 @@ def _run_linux_appimage_dry_run() -> int:
 
 
 def _run_linux_appimage() -> int:
-    preflight = _preflight_required_commands("linux-appimage", ["bash", "python3", "tar"])
+    preflight = _preflight_required_commands("linux-appimage", ["bash", "python3", "tar", _linux_appimage_tool()])
     if preflight != 0:
         return preflight
     result = subprocess.run(

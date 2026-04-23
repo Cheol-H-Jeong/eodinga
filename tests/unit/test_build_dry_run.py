@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import json
 import importlib.util
+import json
+import os
 import re
 import subprocess
 import sys
@@ -17,6 +18,19 @@ def _load_build_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _fake_appimagetool(tmp_path: Path) -> Path:
+    tool_path = tmp_path / "appimagetool"
+    tool_path.write_text(
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        "printf 'fake appimage for %s\\n' \"$1\" > \"$2\"\n"
+        "chmod +x \"$2\"\n",
+        encoding="utf-8",
+    )
+    tool_path.chmod(0o755)
+    return tool_path
 
 
 def test_build_dry_run_returns_zero_and_writes_audit() -> None:
@@ -765,12 +779,16 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
     assert "Debian package filename does not match the package version and arch" in errors
 
 
-def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
+def test_linux_appimage_build_target_writes_non_dry_run_audit(tmp_path: Path) -> None:
+    tool_path = _fake_appimagetool(tmp_path)
+    env = os.environ.copy()
+    env["APPIMAGE_TOOL"] = str(tool_path)
     result = subprocess.run(
         [sys.executable, "packaging/build.py", "--target", "linux-appimage"],
         capture_output=True,
         text=True,
         check=False,
+        env=env,
     )
     assert result.returncode == 0, result.stdout + result.stderr
 
@@ -783,6 +801,13 @@ def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
     assert Path(payload["archive"]).name == f"eodinga-{__version__}-linux-{payload['arch']}-appdir.tar.gz"
+    assert payload["appimage_path"].endswith(f"-linux-{payload['arch']}.AppImage")
+    assert payload["appimage_artifact"]["path"] == payload["appimage_path"]
+    assert payload["appimage_artifact"]["exists"] is True
+    assert payload["appimage_artifact"]["size_bytes"] > 0
+    assert len(payload["appimage_artifact"]["sha256"]) == 64
+    assert payload["appimage_artifact"]["is_executable"] is True
+    assert payload["appimage_artifact"]["build_tool"] == str(tool_path)
 
 
 def test_linux_deb_dry_run_stages_recipe() -> None:
@@ -951,6 +976,83 @@ def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadat
 
     assert "AppImage archive size is missing" in errors
     assert "AppImage archive digest is missing" in errors
+
+
+def test_linux_appimage_audit_validator_rejects_missing_appimage_payload_metadata() -> None:
+    module = _load_build_module()
+    payload = {
+        "target": "linux-appimage",
+        "dry_run": False,
+        "version": __version__,
+        "arch": "x86_64",
+        "archive": f"packaging/dist/eodinga-{__version__}-linux-x86_64-appdir.tar.gz",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "archive_artifact": {
+            "exists": True,
+            "size_bytes": 1,
+            "sha256": "a" * 64,
+        },
+        "appimage_artifact": {
+            "path": f"packaging/dist/eodinga-{__version__}-linux-x86_64.AppImage",
+            "exists": True,
+            "size_bytes": 0,
+            "sha256": "",
+            "is_executable": False,
+        },
+        "recipe": {
+            "exists": True,
+            "contains_version_template": True,
+            "rendered_exists": True,
+            "rendered_version_matches_package": True,
+            "references_desktop_entry": True,
+            "references_icon_asset": True,
+            "launches_gui": True,
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "exec": "eodinga gui",
+            "icon": "eodinga",
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "diricon_exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "runtime_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "package_init_exists": True,
+            "module_entry_exists": True,
+            "i18n_en_exists": True,
+        },
+        "apprun": {
+            "is_executable": True,
+            "launches_gui": True,
+            "has_strict_shell": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "uses_bundled_runtime": True,
+            "executes_python_module": True,
+            "help_exit_code": 0,
+            "help_mentions_search_command": True,
+            "version_exit_code": 0,
+            "version_matches_package": True,
+        },
+    }
+
+    errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
+
+    assert "AppImage payload size is missing" in errors
+    assert "AppImage payload digest is missing" in errors
+    assert "AppImage payload is not executable" in errors
 
 
 def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
