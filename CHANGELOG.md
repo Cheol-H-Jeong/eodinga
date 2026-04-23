@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.289 - 2026-04-23
+
+- Normalized query fallback phrase matching so quoted phrases still match across separators such as newlines and punctuation in path and content scans.
+- Accepted lowercase `z` as a UTC suffix in datetime filters, keeping ISO timestamp queries compatible with common shell and API output.
+- Expanded the DSL cheatsheet so the documented query surface now includes `last-week`, `last-month`, and the full `is:` operator family including `empty`.
+
 ## 0.1.287 - 2026-04-23
 
 - Expanded the tray controller so it now exposes explicit `Open eodinga`, `Show launcher`, and `Hide launcher` actions while keeping the launcher toggle text synchronized with the popup window state.
