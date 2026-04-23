@@ -152,6 +152,8 @@ class StatsSnapshot(BaseModel):
     log_retention: str | int | None = None
     log_compression: str | None = None
     crash_dir: Path | None = None
+    metrics_path: Path | None = None
+    metrics_persistence_enabled: bool = True
     file_logging_enabled: bool = True
 
 

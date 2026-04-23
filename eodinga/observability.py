@@ -23,6 +23,7 @@ except ImportError:  # pragma: no cover - unavailable on Windows
 _DEFAULT_HISTOGRAM_BUCKETS_MS = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0)
 _DEFAULT_LOG_ROTATION: str | int = "5 MB"
 _DEFAULT_LOG_RETENTION: str | int = 5
+_DEFAULT_METRICS_FILENAME = "metrics.json"
 _RECENT_SNAPSHOT_LIMIT = 20
 _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
@@ -142,6 +143,17 @@ def resolve_crash_dir(crash_dir: Path | None = None) -> Path:
     return default_crash_dir()
 
 
+def resolve_metrics_path(metrics_path: Path | None = None) -> Path | None:
+    if metrics_path is not None:
+        return metrics_path.expanduser()
+    override_path = os.environ.get("EODINGA_METRICS_PATH")
+    if override_path:
+        return Path(override_path).expanduser()
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return None
+    return default_state_dir() / _DEFAULT_METRICS_FILENAME
+
+
 def resolve_log_rotation() -> str | int:
     override = os.environ.get("EODINGA_LOG_ROTATION")
     if not override:
@@ -241,6 +253,16 @@ def snapshot_metrics() -> MetricsSnapshot:
     }
 
 
+def current_metrics_state() -> dict[str, object]:
+    metrics = snapshot_metrics()
+    return {
+        "generated_at": metrics["generated_at"],
+        "counters": metrics["counters"],
+        "histograms": metrics["histograms"],
+        "recent_snapshots": [dict(entry) for entry in recent_snapshots()],
+    }
+
+
 def reset_metrics() -> None:
     with _METRICS_LOCK:
         _COUNTERS.clear()
@@ -311,6 +333,8 @@ def write_crash_log(
         "log_retention": resolve_log_retention(),
         "log_compression": resolve_log_compression(),
         "crash_dir": target_dir,
+        "metrics_path": resolve_metrics_path(),
+        "metrics_persistence_enabled": resolve_metrics_path() is not None,
         "metrics_generated_at": metrics["generated_at"],
         "metrics_counters": metrics["counters"],
         "metrics_histograms": metrics["histograms"],

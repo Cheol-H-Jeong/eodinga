@@ -14,6 +14,7 @@ from eodinga.core.watcher import WatchService
 from eodinga import __version__
 from eodinga.observability import (
     configure_logging,
+    current_metrics_state,
     default_crash_dir,
     default_log_path,
     file_logging_enabled,
@@ -23,6 +24,7 @@ from eodinga.observability import (
     record_histogram,
     record_snapshot,
     resolve_crash_dir,
+    resolve_metrics_path,
     resolve_log_compression,
     resolve_log_path,
     resolve_log_retention,
@@ -85,12 +87,15 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
 def test_log_and_crash_resolution_respect_runtime_overrides(tmp_path: Path, monkeypatch) -> None:
     log_path = tmp_path / "logs" / "custom.log"
     crash_dir = tmp_path / "crashes"
+    metrics_path = tmp_path / "metrics" / "runtime.json"
     monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
     monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
 
     assert resolve_log_path() == log_path
     assert resolve_crash_dir() == crash_dir
+    assert resolve_metrics_path() == metrics_path
     assert file_logging_enabled() is True
 
 
@@ -187,6 +192,20 @@ def test_write_crash_log_records_runtime_metrics(tmp_path: Path) -> None:
     assert '"query_latency_ms"' in contents
     assert "metrics_generated_at=" in contents
     assert 'recent_snapshots=[{"name": "command.search"' in contents
+
+
+def test_write_crash_log_records_metrics_store_state(tmp_path: Path, monkeypatch) -> None:
+    metrics_path = tmp_path / "state" / "metrics.json"
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+
+    try:
+        raise RuntimeError("metrics store boom")
+    except RuntimeError as error:
+        crash_path = write_crash_log(error, crash_dir=tmp_path)
+
+    contents = crash_path.read_text(encoding="utf-8")
+    assert f"metrics_path={metrics_path}" in contents
+    assert "metrics_persistence_enabled=True" in contents
 
 
 def test_write_crash_log_uses_unique_path_when_timestamp_collides(tmp_path: Path) -> None:
@@ -458,3 +477,16 @@ def test_record_snapshot_keeps_recent_entries_bounded() -> None:
     assert len(snapshots) == 20
     assert snapshots[0]["payload"]["index"] == 5
     assert snapshots[-1]["payload"]["index"] == 24
+
+
+def test_current_metrics_state_includes_recent_snapshots() -> None:
+    reset_metrics()
+    increment_counter("queries_served")
+    record_histogram("query_latency_ms", 7.5)
+    record_snapshot("command.search", {"query": "alpha"})
+
+    payload = current_metrics_state()
+
+    assert payload["counters"] == {"queries_served": 1}
+    assert payload["histograms"]["query_latency_ms"]["count"] == 1
+    assert payload["recent_snapshots"][0]["name"] == "command.search"

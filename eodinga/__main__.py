@@ -17,17 +17,20 @@ from eodinga.doctor import run_diagnostics
 from eodinga.index.build import rebuild_index
 from eodinga.index.reader import stats as read_index_stats
 from eodinga.index.storage import open_index
+from eodinga.metrics_state import PersistedMetricsState
+from eodinga.metrics_state import current_metrics_state as build_metrics_state
+from eodinga.metrics_state import load_metrics_state, merge_metrics_states, write_metrics_state
 from eodinga.observability import (
     configure_logging,
-    counter_value,
+    current_metrics_state,
     file_logging_enabled,
-    histogram_snapshot,
+    get_logger,
     increment_counter,
     install_crash_handlers,
     record_snapshot,
     record_histogram,
-    recent_snapshots,
     resolve_crash_dir,
+    resolve_metrics_path,
     resolve_log_path,
     snapshot_metrics,
     report_crash,
@@ -196,7 +199,11 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     with closing(open_index(db_path)) as conn:
         index_snapshot = read_index_stats(conn)
     metrics = snapshot_metrics()
-    counters = metrics["counters"]
+    metrics_path = resolve_metrics_path()
+    persisted_metrics = _load_persisted_metrics(metrics_path)
+    merged_metrics = merge_metrics_states(persisted_metrics, _runtime_metrics_state())
+    counters = merged_metrics["counters"]
+    histograms = merged_metrics["histograms"]
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
         process_started_at=metrics["process_started_at"],
@@ -208,46 +215,46 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         uptime_ms=float(metrics["uptime_ms"]),
         files_indexed=index_snapshot.file_count,
         documents_indexed=index_snapshot.content_count,
-        queries_served=counter_value("queries_served"),
-        queries_zero_results=counter_value("queries_zero_results"),
-        queries_truncated=counter_value("queries_truncated"),
-        parser_errors=counter_value("parser_errors"),
-        watcher_events=counter_value("watcher_events"),
-        watcher_flushes=counter_value("watcher_flushes"),
-        watcher_events_flushed=counter_value("watcher_events_flushed"),
-        watcher_queue_full=counter_value("watcher_queue_full"),
-        watcher_enqueue_aborted=counter_value("watcher_enqueue_aborted"),
-        watcher_observers_started=counter_value("watcher_observers_started"),
-        watcher_observers_stopped=counter_value("watcher_observers_stopped"),
-        index_rebuilds_completed=counter_value("index_rebuilds_completed"),
-        commands_started=counter_value("commands_started"),
-        commands_completed=counter_value("commands_completed"),
-        commands_failed=counter_value("commands_failed"),
-        commands_interrupted=counter_value("commands_interrupted"),
-        crashes_reported=counter_value("crashes_reported"),
-        crash_logs_written=counter_value("crash_logs_written"),
-        crash_log_write_failures=counter_value("crash_log_write_failures"),
-        crash_handlers_installed=counter_value("crash_handlers_installed"),
-        logging_configurations=counter_value("logging_configurations"),
-        log_sinks_stderr_configured=counter_value("log_sinks.stderr.configured"),
-        log_sinks_file_configured=counter_value("log_sinks.file.configured"),
-        log_sinks_file_disabled=counter_value("log_sinks.file.disabled"),
-        query_latency_histogram=histogram_snapshot("query_latency_ms"),
-        query_result_count_histogram=histogram_snapshot("query_result_count"),
-        command_latency_histogram=histogram_snapshot("command_latency_ms"),
-        watch_flush_batch_histogram=histogram_snapshot("watch_flush_batch_size"),
-        watch_event_lag_histogram=histogram_snapshot("watch_event_lag_ms"),
-        watcher_queue_backpressure_histogram=histogram_snapshot("watcher_queue_backpressure_ms"),
-        index_rebuild_latency_histogram=histogram_snapshot("index_rebuild_latency_ms"),
-        index_batch_size_histogram=histogram_snapshot("index_batch_size"),
+        queries_served=_counter_value(counters, "queries_served"),
+        queries_zero_results=_counter_value(counters, "queries_zero_results"),
+        queries_truncated=_counter_value(counters, "queries_truncated"),
+        parser_errors=_counter_value(counters, "parser_errors"),
+        watcher_events=_counter_value(counters, "watcher_events"),
+        watcher_flushes=_counter_value(counters, "watcher_flushes"),
+        watcher_events_flushed=_counter_value(counters, "watcher_events_flushed"),
+        watcher_queue_full=_counter_value(counters, "watcher_queue_full"),
+        watcher_enqueue_aborted=_counter_value(counters, "watcher_enqueue_aborted"),
+        watcher_observers_started=_counter_value(counters, "watcher_observers_started"),
+        watcher_observers_stopped=_counter_value(counters, "watcher_observers_stopped"),
+        index_rebuilds_completed=_counter_value(counters, "index_rebuilds_completed"),
+        commands_started=_counter_value(counters, "commands_started"),
+        commands_completed=_counter_value(counters, "commands_completed"),
+        commands_failed=_counter_value(counters, "commands_failed"),
+        commands_interrupted=_counter_value(counters, "commands_interrupted"),
+        crashes_reported=_counter_value(counters, "crashes_reported"),
+        crash_logs_written=_counter_value(counters, "crash_logs_written"),
+        crash_log_write_failures=_counter_value(counters, "crash_log_write_failures"),
+        crash_handlers_installed=_counter_value(counters, "crash_handlers_installed"),
+        logging_configurations=_counter_value(counters, "logging_configurations"),
+        log_sinks_stderr_configured=_counter_value(counters, "log_sinks.stderr.configured"),
+        log_sinks_file_configured=_counter_value(counters, "log_sinks.file.configured"),
+        log_sinks_file_disabled=_counter_value(counters, "log_sinks.file.disabled"),
+        query_latency_histogram=histograms.get("query_latency_ms", {}),
+        query_result_count_histogram=histograms.get("query_result_count", {}),
+        command_latency_histogram=histograms.get("command_latency_ms", {}),
+        watch_flush_batch_histogram=histograms.get("watch_flush_batch_size", {}),
+        watch_event_lag_histogram=histograms.get("watch_event_lag_ms", {}),
+        watcher_queue_backpressure_histogram=histograms.get("watcher_queue_backpressure_ms", {}),
+        index_rebuild_latency_histogram=histograms.get("index_rebuild_latency_ms", {}),
+        index_batch_size_histogram=histograms.get("index_batch_size", {}),
         commands=_command_summary(counters),
         exit_codes=_exit_code_summary(counters),
         crash_types=_crash_type_summary(counters),
         parser_activity=_parser_activity_summary(counters),
         watcher_event_types=_watcher_event_type_summary(counters),
         counters=counters,
-        histograms=metrics["histograms"],
-        recent_snapshots=[dict(entry) for entry in recent_snapshots()],
+        histograms=histograms,
+        recent_snapshots=merged_metrics["recent_snapshots"],
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
         log_path=resolve_log_path(),
@@ -255,6 +262,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         log_retention=resolve_log_retention(),
         log_compression=resolve_log_compression(),
         crash_dir=resolve_crash_dir(),
+        metrics_path=metrics_path,
+        metrics_persistence_enabled=metrics_path is not None,
         file_logging_enabled=file_logging_enabled(),
     ).model_dump(mode="json")
     record_snapshot(
@@ -413,13 +422,51 @@ def _watcher_event_type_summary(counters: dict[str, int]) -> dict[str, int]:
     return dict(sorted(event_types.items()))
 
 
+def _counter_value(counters: dict[str, int], name: str) -> int:
+    return counters.get(name, 0)
+
+
+def _persist_runtime_metrics() -> None:
+    metrics_path = resolve_metrics_path()
+    if metrics_path is None:
+        return
+    merged = merge_metrics_states(_load_persisted_metrics(metrics_path), _runtime_metrics_state())
+    try:
+        write_metrics_state(metrics_path, merged)
+    except Exception as error:
+        get_logger("observability").warning("failed to write metrics state {}: {}", metrics_path, error)
+
+
+def _load_persisted_metrics(metrics_path: Path | None) -> PersistedMetricsState | None:
+    try:
+        return load_metrics_state(metrics_path)
+    except Exception as error:
+        if metrics_path is not None:
+            get_logger("observability").warning(
+                "failed to load metrics state {}: {}",
+                metrics_path,
+                error,
+            )
+        return None
+
+
+def _runtime_metrics_state() -> PersistedMetricsState:
+    runtime_metrics = current_metrics_state()
+    return build_metrics_state(
+        generated_at=str(runtime_metrics["generated_at"]),
+        counters=runtime_metrics["counters"],
+        histograms=runtime_metrics["histograms"],
+        recent_snapshots=runtime_metrics["recent_snapshots"],
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     configure_logging(args.log_level)
     install_crash_handlers()
     try:
-        return _run_command(args)
+        exit_code = _run_command(args)
     except KeyboardInterrupt:
         raise
     except Exception as error:
@@ -438,7 +485,9 @@ def main(argv: list[str] | None = None) -> int:
                 "crash_path": str(crash_path) if crash_path is not None else None,
             },
         )
-        return 1
+        exit_code = 1
+    _persist_runtime_metrics()
+    return exit_code
 
 
 if __name__ == "__main__":

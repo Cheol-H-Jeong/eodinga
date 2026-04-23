@@ -543,6 +543,58 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["histograms"]["command_latency_ms"]["count"] == 1
 
 
+def test_stats_json_merges_persisted_metrics_across_cli_processes(
+    cli_runner,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db_path = tmp_path / "index.db"
+    metrics_path = tmp_path / "state" / "metrics.json"
+    _build_search_db(db_path)
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+
+    search_result = cli_runner("--db", str(db_path), "search", "duplicate", "--json")
+    assert search_result.returncode == 0
+    assert json.loads(search_result.stdout)["count"] == 2
+    assert metrics_path.exists()
+
+    stats_result = cli_runner("--db", str(db_path), "stats", "--json")
+    assert stats_result.returncode == 0
+    payload = json.loads(stats_result.stdout)
+    assert payload["queries_served"] == 1
+    assert payload["commands_started"] == 2
+    assert payload["commands_completed"] == 1
+    assert payload["logging_configurations"] == 2
+    assert payload["crash_handlers_installed"] == 2
+    assert payload["query_latency_histogram"]["count"] == 1
+    assert payload["query_result_count_histogram"]["count"] == 1
+    assert payload["command_latency_histogram"]["count"] == 1
+    assert payload["recent_snapshots"][0]["name"] == "command.search"
+    assert payload["metrics_path"] == str(metrics_path)
+    assert payload["metrics_persistence_enabled"] is True
+
+
+def test_stats_json_ignores_invalid_persisted_metrics_state(
+    cli_runner,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db_path = tmp_path / "index.db"
+    metrics_path = tmp_path / "state" / "metrics.json"
+    _build_search_db(db_path)
+    metrics_path.parent.mkdir(parents=True)
+    metrics_path.write_text("{not-json", encoding="utf-8")
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+
+    stats_result = cli_runner("--db", str(db_path), "stats", "--json")
+    assert stats_result.returncode == 0
+    payload = json.loads(stats_result.stdout)
+    assert payload["queries_served"] == 0
+    assert payload["commands_started"] == 1
+    assert payload["metrics_path"] == str(metrics_path)
+    assert payload["metrics_persistence_enabled"] is True
+
+
 def test_stats_json_exposes_end_to_end_runtime_metrics(
     tmp_path: Path,
     capsys,
