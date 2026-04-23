@@ -544,8 +544,11 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert stats_exit == 0
     payload = json.loads(stats_output.out)
     assert payload["counters"]["files_indexed"] == indexed_files
+    assert payload["counters"]["parser_attempts"] == indexed_files
     assert payload["counters"]["parser_errors"] == 1
+    assert payload["counters"]["parser_successes"] == indexed_files - 1
     assert payload["counters"]["parsers.broken.error"] == 1
+    assert payload["counters"]["parsers.broken.attempted"] == 1
     assert payload["counters"]["queries_served"] == 1
     assert payload["counters"]["watcher_events"] == 1
     assert payload["counters"]["logging_configurations"] == 3
@@ -563,6 +566,8 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
+    assert payload["histograms"]["parser_latency_ms"]["count"] == indexed_files
+    assert payload["histograms"]["parser_input_bytes"]["count"] == indexed_files
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
 

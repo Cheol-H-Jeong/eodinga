@@ -9,6 +9,7 @@ from typing import Any, cast
 
 from eodinga.common import WatchEvent
 from eodinga.content.base import ParserSpec
+from eodinga.content.base import ParsedContent
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga import __version__
@@ -250,9 +251,51 @@ def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path:
 
     parse(broken, max_body_chars=128)
 
-    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
+    histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
+    assert counters["parser_attempts"] == 1
     assert counters["parser_errors"] == 1
     assert counters["parsers.broken.error"] == 1
+    assert counters["parsers.broken.attempted"] == 1
+    assert histograms["parser_latency_ms"]["count"] == 1
+    assert histograms["parser_input_bytes"]["count"] == 1
+
+
+def test_parser_success_and_skip_metrics_increment(monkeypatch, tmp_path: Path) -> None:
+    parsed_path = tmp_path / "parsed.txt"
+    parsed_path.write_text("hello", encoding="utf-8")
+    oversized_path = tmp_path / "oversized.txt"
+    oversized_path.write_text("this file is too large", encoding="utf-8")
+    spec = ParserSpec(
+        name="textual",
+        parse=lambda _path, _max_chars: ParsedContent(
+            title="parsed",
+            head_text="",
+            body_text="parsed body",
+            content_sha=b"parsed",
+        ),
+        extensions=frozenset({"txt"}),
+        max_bytes=8,
+    )
+    reset_metrics()
+    monkeypatch.setattr("eodinga.content.registry.get_spec_for", lambda _path: spec)
+
+    parsed = parse(parsed_path, max_body_chars=128)
+    skipped = parse(oversized_path, max_body_chars=128)
+
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
+    histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
+    assert parsed.body_text == "parsed body"
+    assert skipped.body_text == ""
+    assert counters["parser_attempts"] == 2
+    assert counters["parser_successes"] == 1
+    assert counters["parsers.textual.attempted"] == 2
+    assert counters["parsers.textual.success"] == 1
+    assert counters["parsers.textual.skipped_too_large"] == 1
+    assert histograms["parser_latency_ms"]["count"] == 2
+    assert histograms["parser_input_bytes"]["count"] == 2
 
 
 def test_watcher_event_counter_increments() -> None:
