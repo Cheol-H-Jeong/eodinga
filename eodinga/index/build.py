@@ -6,7 +6,7 @@ import threading
 from contextlib import AbstractContextManager
 from pathlib import Path
 from time import perf_counter
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from eodinga.common import PathRules
 from eodinga.config import RootConfig
@@ -29,7 +29,7 @@ class _SignalStop(AbstractContextManager["_SignalStop"]):
     def __init__(self) -> None:
         self._requested = False
         self._received_signal: signal.Signals | None = None
-        self._handlers: dict[signal.Signals, signal.Handlers] = {}
+        self._handlers: dict[signal.Signals, Any] = {}
         self._active = False
 
     def __enter__(self) -> _SignalStop:
