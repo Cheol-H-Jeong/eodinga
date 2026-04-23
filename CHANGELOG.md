@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.275 - 2026-04-23
+
+- Added a dedicated runtime Debian control template for the `dpkg-deb` path, so staged `.deb` metadata now renders from one packaging source instead of drifting from duplicated literals in `deb.sh`.
+- Tightened Debian packaging audits to verify the runtime control template keeps its package, maintainer, dependency, description, and token-substitution contract aligned with the staged package.
+- Hardened the Windows Inno dry-run audit so unresolved template placeholders and a missing `LicenseFile` input now fail before installer compilation.
+
 ## 0.1.267 - 2026-04-23
 
 - Added clickable pinned and recent query chips to both launcher surfaces, so shared launcher history is now directly reusable without retyping or relying only on keyboard recall.
