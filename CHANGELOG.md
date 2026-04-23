@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.415 - 2026-04-23
+
+- Clamped persisted launcher popup geometry to the active screen before restore, so saved positions and sizes recover cleanly after monitor-layout changes instead of reopening partially or fully off-screen.
+- Hardened launcher hotkey binding so an invalid configured combo no longer blocks the GUI from starting, and failed runtime rebinds roll back to the previous working accelerator.
+- Aligned launcher hover behavior with the active result selection, keeping the preview pane and action bar pointed at the same hit the user is inspecting.
+
 ## 0.1.410 - 2026-04-23
 
 - Expanded `stats --json` so the typed payload now exposes watcher flush/backpressure metrics and logging sink counters directly, without forcing operators to decode raw counter keys.
