@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.232 - 2026-04-23
+## 0.1.237 - 2026-04-23
 
 - Derived the staged Debian `control` metadata from `packaging/linux/debian/control` and tightened the audit so section, priority, and maintainer drift now fails the packaging build instead of slipping through silently.
 - Derived PyInstaller data files from `tool.setuptools.package-data` in `pyproject.toml`, keeping bundle assets aligned with the declared package metadata instead of a hardcoded locale list.
