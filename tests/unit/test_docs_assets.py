@@ -55,6 +55,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Config and Data Paths" in readme
     assert "## Operator Checklist" in readme
     assert "## Docs-Only Release Pass" in readme
+    assert "## Evidence Bundle Shortcuts" in readme
     assert "## Version Collision Recovery" in readme
     assert "## Recovery and Troubleshooting" in readme
     assert "### Quick Runbook" in readme
@@ -86,12 +87,16 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "packaging/dist/" in readme
     assert "Review the dry-run output before tagging." in readme
     assert "Treat that docs-only pass as release evidence" in readme
+    assert "Use the smallest single-shot bundle that matches the surface you changed:" in readme
+    assert "packaging or release payload docs" in readme
     assert "git fetch origin main --tags && git tag -l | sort -V | tail -5" in readme
     assert "### State Directory Summary" in readme
     assert "EODINGA_LOG_PATH" in readme
     assert "EODINGA_CRASH_DIR" in readme
     assert "Docs asset drift after CLI or UI changes" in readme
     assert "What should I inspect before cutting a docs-only release?" in readme
+    assert "## Theme-Sized Validation" in readme
+    assert "Pick the narrowest green slice before escalating to the full repository gate:" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance
@@ -152,6 +157,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
     assert "## Quality Gates" in contributing
+    assert "## Theme Command Bundles" in contributing
     assert "## Scope Guardrails" in contributing
     assert "## Documentation Expectations" in contributing
     assert "## Derived Asset Matrix" in contributing
@@ -164,6 +170,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Docs Refresh Order" in contributing
     assert "## Docs Round Checklist" in contributing
     assert "## Docs Evidence Bundle" in contributing
+    assert "## Derived Asset Trigger Guide" in contributing
     assert "## Metadata Commit Discipline" in contributing
     assert "## Release Retarget Playbook" in contributing
     assert "## Test Selection Guide" in contributing
@@ -175,6 +182,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "The final release commit for a round should carry the version bump" in contributing
     assert "Do not rewrite earlier docs or feature commits" in contributing
     assert "Prefer one explicit evidence bundle over ad-hoc retries." in contributing
+    assert "Escalate to `pytest -q tests`, `ruff`, and `pyright` only after the theme-sized bundle is already green." in contributing
+    assert "This avoids stale generated assets without turning every docs round into unnecessary screenshot or man-page churn." in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl

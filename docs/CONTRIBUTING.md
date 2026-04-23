@@ -51,6 +51,20 @@ pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summ
 
 After the focused slice is green, run the broader acceptance gate before release handoff.
 
+## Theme Command Bundles
+
+Start with the bundle that matches the theme instead of defaulting to the full repository gate:
+
+| Theme | Single-shot command |
+| --- | --- |
+| `docs` | `source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py` |
+| `packaging` | `source .venv/bin/activate && pytest -q tests/unit/test_build.py tests/unit/test_build_dry_run.py tests/unit/test_inno_script.py tests/unit/test_pyinstaller_spec.py && python packaging/build.py --target release-dry-run` |
+| `query` / `correctness` | `source .venv/bin/activate && pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py` |
+| `launcher` / `ux` | `source .venv/bin/activate && pytest -q tests/unit/test_gui_launcher.py tests/unit/test_gui_app.py tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
+| `integration` / `reliability` | `source .venv/bin/activate && pytest -q tests/unit/test_storage.py tests/unit/test_writer.py tests/unit/test_watcher.py` |
+
+Escalate to `pytest -q tests`, `ruff`, and `pyright` only after the theme-sized bundle is already green.
+
 ## Quality Gates
 
 Default repository gate:
@@ -158,6 +172,19 @@ Collect the smallest reviewable evidence set that matches the docs you changed:
 | Pure prose or workflow guidance | `pytest -q tests/unit/test_docs_assets.py`, and the nearest matching dry run if the text names shipped artifacts |
 
 Prefer one explicit evidence bundle over ad-hoc retries. The handoff should show why the docs match the runtime, not just that Markdown changed.
+
+## Derived Asset Trigger Guide
+
+Use this quick map before regenerating assets:
+
+| Change you made | Regenerate now? |
+| --- | --- |
+| README or deeper guide wording only | no; run `pytest -q tests/unit/test_docs_assets.py` |
+| CLI parser, help text, or subcommand list | yes; rerun `python scripts/generate_manpage.py` |
+| visible Qt text, layout, screenshots, or launcher keyboard flow docs | yes; rerun `python scripts/render_docs_screenshots.py` |
+| packaging payload or release workflow prose | no asset by default, but rerun the matching dry run and inspect `packaging/dist/` |
+
+This avoids stale generated assets without turning every docs round into unnecessary screenshot or man-page churn.
 
 ## Metadata Commit Discipline
 

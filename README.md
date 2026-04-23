@@ -344,6 +344,19 @@ python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py 
 
 Treat that docs-only pass as release evidence, not a convenience check. The dry-run manifests under `packaging/dist/` and the offscreen GUI smoke run are how you prove the written docs still match the shipped artifacts.
 
+## Evidence Bundle Shortcuts
+
+Use the smallest single-shot bundle that matches the surface you changed:
+
+| Surface changed | Evidence bundle |
+| --- | --- |
+| docs prose only | `source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py` |
+| CLI help or command examples | `source .venv/bin/activate && python scripts/generate_manpage.py && pytest -q tests/unit/test_docs_assets.py` |
+| visible GUI or launcher behavior | `source .venv/bin/activate && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
+| packaging or release payload docs | `source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run` |
+
+Prefer these bundles over ad-hoc retries. They keep the docs evidence tied to the exact runtime or packaging surface the prose claims exists.
+
 ## Version Collision Recovery
 
 Parallel workers can consume the same candidate patch version. Before cutting the metadata commit:
@@ -419,6 +432,20 @@ eodinga search 'date:this-week ext:md' --limit 10
 ```
 
 If those are clean but the packaged app still looks wrong, continue with the release-gate commands in `docs/ACCEPTANCE.md`.
+
+## Theme-Sized Validation
+
+Pick the narrowest green slice before escalating to the full repository gate:
+
+| Theme | First validation command |
+| --- | --- |
+| `docs` | `pytest -q tests/unit/test_docs_assets.py` |
+| `packaging` | `pytest -q tests/unit/test_build.py tests/unit/test_build_dry_run.py tests/unit/test_inno_script.py tests/unit/test_pyinstaller_spec.py` |
+| `query` or `correctness` | `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py` |
+| `launcher` or `ux` | `pytest -q tests/unit/test_gui_launcher.py tests/unit/test_gui_app.py tests/unit/test_docs_assets.py` |
+| `integration` or `reliability` | `pytest -q tests/unit/test_storage.py tests/unit/test_writer.py tests/unit/test_watcher.py` |
+
+This keeps worker rounds reviewable: prove the local surface first, then expand to the acceptance pass only after the scoped slice is green.
 
 ## Docs Map
 
