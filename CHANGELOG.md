@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.373 - 2026-04-23
+## 0.1.375 - 2026-04-23
 
 - Added a persisted `launcher.frameless` preference so the popup can start with or without window chrome instead of forcing the frameless shell on every launch.
 - Exposed a live Settings toggle for frameless launcher mode and kept the popup geometry stable while changing frameless and always-on-top window flags at runtime.
