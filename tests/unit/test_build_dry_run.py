@@ -581,6 +581,8 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["archive_artifact"]["exists"] is True
     assert payload["archive_artifact"]["size_bytes"] > 0
     assert len(payload["archive_artifact"]["sha256"]) == 64
+    assert payload["archive_artifact"]["gzip_mtime_zero"] is True
+    assert payload["archive_artifact"]["gzip_filename_empty"] is True
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
@@ -928,6 +930,8 @@ def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadat
             "exists": True,
             "size_bytes": 0,
             "sha256": "",
+            "gzip_mtime_zero": False,
+            "gzip_filename_empty": False,
         },
         "recipe": {
             "exists": True,
@@ -976,6 +980,8 @@ def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadat
 
     assert "AppImage archive size is missing" in errors
     assert "AppImage archive digest is missing" in errors
+    assert "AppImage archive gzip header timestamp is no longer reproducible" in errors
+    assert "AppImage archive gzip header now leaks the source filename" in errors
 
 
 def test_linux_appimage_audit_validator_rejects_missing_appimage_payload_metadata() -> None:

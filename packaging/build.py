@@ -352,6 +352,8 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (archive_artifact.get("exists"), "AppImage archive is missing"),
         (isinstance(archive_artifact.get("size_bytes"), int) and archive_artifact.get("size_bytes", 0) > 0, "AppImage archive size is missing"),
         (bool(archive_artifact.get("sha256")), "AppImage archive digest is missing"),
+        (archive_artifact.get("gzip_mtime_zero"), "AppImage archive gzip header timestamp is no longer reproducible"),
+        (archive_artifact.get("gzip_filename_empty"), "AppImage archive gzip header now leaks the source filename"),
     ]
     if not payload.get("dry_run"):
         appimage_artifact = payload.get("appimage_artifact", {})

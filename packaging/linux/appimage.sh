@@ -67,7 +67,20 @@ exec python3 -Im eodinga "$@"
 EOF
 chmod +x "${APPDIR}/AppRun" "${APPDIR}/usr/bin/eodinga"
 
-tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf "${ARCHIVE_PATH}" -C "${DIST_DIR}" "$(basename "${APPDIR}")"
+TAR_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-${ARCH}-appdir.tar"
+rm -f "${TAR_PATH}"
+tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf "${TAR_PATH}" -C "${DIST_DIR}" "$(basename "${APPDIR}")"
+python3 - <<PY
+import gzip
+from pathlib import Path
+
+archive_path = Path("${ARCHIVE_PATH}")
+tar_path = Path("${TAR_PATH}")
+with archive_path.open("wb") as raw:
+    with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as gz:
+        gz.write(tar_path.read_bytes())
+PY
+rm -f "${TAR_PATH}"
 python3 - <<PY
 import json
 import os
@@ -136,6 +149,8 @@ payload = {
         "exists": archive_path.exists(),
         "size_bytes": archive_path.stat().st_size if archive_path.exists() else None,
         "sha256": hashlib.sha256(archive_path.read_bytes()).hexdigest() if archive_path.exists() else None,
+        "gzip_mtime_zero": archive_path.read_bytes()[4:8] == b"\x00\x00\x00\x00" if archive_path.exists() else False,
+        "gzip_filename_empty": not bool(archive_path.read_bytes()[3] & 0x08) if archive_path.exists() else False,
     },
     "appimage_artifact": {
         "path": "${APPIMAGE_PATH}",

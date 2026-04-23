@@ -29,6 +29,8 @@ def test_linux_appimage_dry_run_preserves_source_assets() -> None:
     assert payload["appimage_artifact"]["path"] == payload["appimage_path"]
     assert payload["appimage_artifact"]["exists"] is False
     assert payload["appimage_artifact"]["build_tool"] == "appimagetool"
+    assert payload["archive_artifact"]["gzip_mtime_zero"] is True
+    assert payload["archive_artifact"]["gzip_filename_empty"] is True
 
 
 def test_linux_appimage_build_writes_appimage_artifact(tmp_path: Path) -> None:
