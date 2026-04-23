@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.561 - 2026-04-23
+## 0.1.566 - 2026-04-23
 
 - Added multi-root restart coverage for resumed staged builds that intentionally remove a root, proving `open_index()` publishes the staged database without reviving dropped-root content or root-scope results.
 - Added reopen coverage for ordinary multi-root rebuilds that shrink to one root, pinning that removed-root queries stay empty after a close-and-reopen cycle instead of only within the same process.
