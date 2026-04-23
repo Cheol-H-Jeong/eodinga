@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.974 - 2026-04-24
+## 0.1.982 - 2026-04-24
 
 - Added launcher-side pin and unpin controls for the current query, including shared popup/search-tab state, config persistence, and keyboard coverage for the new workflow.
 - Kept the launcher resize contract intact while adding the new control by refactoring the launcher interaction helpers, hardening debounce timing, and preserving the existing geometry persistence behavior.
