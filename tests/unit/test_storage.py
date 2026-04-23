@@ -11,8 +11,10 @@ from eodinga.index.schema import apply_schema
 from eodinga.index.storage import (
     SQLITE_CACHED_STATEMENTS,
     atomic_replace_index,
+    clear_build_complete_marker,
     connect_database,
     has_stale_wal,
+    mark_build_complete,
     open_index,
     recover_interrupted_build,
     recover_interrupted_recovery,
@@ -400,9 +402,39 @@ def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path
     staged_conn.commit()
     staged_conn.close()
 
+    mark_build_complete(target)
     assert recover_interrupted_build(target) is True
     assert _read_root_paths(target) == ["/rebuilt"]
     assert not staged.exists()
+    assert not staged.with_name(".index.db.next.ready").exists()
+
+
+def test_recover_interrupted_build_discards_incomplete_staged_database(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/old", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/partial", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    assert recover_interrupted_build(target) is False
+    assert _read_root_paths(target) == ["/old"]
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.next-ready").exists()
 
 
 def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
@@ -427,6 +459,7 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     staged_conn.commit()
     staged_conn.close()
 
+    mark_build_complete(target)
     reopened = open_index(target)
     try:
         rows = reopened.execute("SELECT path FROM roots ORDER BY path").fetchall()
@@ -437,6 +470,40 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     assert not staged.exists()
     assert not staged.with_name(".index.db.next-wal").exists()
     assert not staged.with_name(".index.db.next-shm").exists()
+    assert not staged.with_name(".index.db.next.ready").exists()
+
+
+def test_open_index_discards_incomplete_staged_build_before_open(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/old", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/partial", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    reopened = open_index(target)
+    try:
+        rows = reopened.execute("SELECT path FROM roots ORDER BY path").fetchall()
+        assert [str(row[0]) for row in rows] == ["/old"]
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.next.ready").exists()
 
 
 def test_open_index_resumes_interrupted_recovery_with_staged_wal(tmp_path: Path) -> None:
@@ -512,3 +579,14 @@ def test_open_index_cleans_orphaned_build_sidecars_before_open(tmp_path: Path) -
     assert not staged.exists()
     assert not staged.with_name(".index.db.next-wal").exists()
     assert not staged.with_name(".index.db.next-shm").exists()
+
+
+def test_build_marker_round_trip(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+
+    mark_build_complete(path)
+    marker = tmp_path / ".index.db.next.ready"
+    assert marker.read_text(encoding="utf-8") == "complete\n"
+
+    clear_build_complete_marker(path)
+    assert not marker.exists()

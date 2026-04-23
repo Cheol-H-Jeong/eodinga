@@ -89,6 +89,11 @@ def _staged_build_path(path: Path) -> Path:
     return path.with_name(f".{path.name}.next")
 
 
+def _staged_build_marker_path(path: Path) -> Path:
+    staged_path = _staged_build_path(path)
+    return staged_path.with_name(f"{staged_path.name}.ready")
+
+
 def _cleanup_orphan_recovery_sidecars(path: Path) -> bool:
     staged_path = _staged_recovery_path(path)
     if staged_path.exists():
@@ -104,6 +109,7 @@ def _cleanup_orphan_recovery_sidecars(path: Path) -> bool:
 
 def _cleanup_orphan_build_sidecars(path: Path) -> bool:
     staged_path = _staged_build_path(path)
+    marker_path = _staged_build_marker_path(path)
     if staged_path.exists():
         return False
     cleaned = False
@@ -112,7 +118,29 @@ def _cleanup_orphan_build_sidecars(path: Path) -> bool:
         if orphan.exists():
             orphan.unlink()
             cleaned = True
+    if marker_path.exists():
+        marker_path.unlink()
+        cleaned = True
     return cleaned
+
+
+def mark_build_complete(path: Path) -> None:
+    marker_path = _staged_build_marker_path(path)
+    marker_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = marker_path.with_name(f".{marker_path.name}.tmp")
+    temp_path.write_text("complete\n", encoding="utf-8")
+    _fsync_file(temp_path)
+    os.replace(temp_path, marker_path)
+    _fsync_file(marker_path)
+    _fsync_directory(marker_path.parent)
+
+
+def clear_build_complete_marker(path: Path) -> None:
+    marker_path = _staged_build_marker_path(path)
+    if not marker_path.exists():
+        return
+    marker_path.unlink()
+    _fsync_directory(marker_path.parent)
 
 
 def _copy_index_with_sidecars(source_path: Path, target_path: Path) -> None:
@@ -182,6 +210,10 @@ def recover_interrupted_build(path: Path) -> bool:
     staged_path = _staged_build_path(path)
     if not staged_path.exists():
         return False
+    if not _staged_build_marker_path(path).exists():
+        get_logger("index.storage").warning("discarding incomplete staged build for {}", path)
+        _cleanup_index_files(staged_path)
+        return False
     logger = get_logger("index.storage")
     logger.warning("resuming interrupted staged build for {}", path)
     try:
@@ -193,6 +225,7 @@ def recover_interrupted_build(path: Path) -> bool:
         return False
     finally:
         _cleanup_index_files(staged_path)
+        clear_build_complete_marker(path)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
 
@@ -228,7 +261,9 @@ __all__ = [
     "atomic_replace_index",
     "configure_connection",
     "connect_database",
+    "clear_build_complete_marker",
     "has_stale_wal",
+    "mark_build_complete",
     "open_index",
     "recover_interrupted_build",
     "recover_interrupted_recovery",

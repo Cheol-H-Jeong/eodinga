@@ -8,7 +8,13 @@ from eodinga.common import PathRules
 from eodinga.config import RootConfig
 from eodinga.content.registry import parse
 from eodinga.core.walker import walk_batched
-from eodinga.index.storage import _cleanup_index_files, atomic_replace_index, connect_database
+from eodinga.index.storage import (
+    _cleanup_index_files,
+    atomic_replace_index,
+    clear_build_complete_marker,
+    connect_database,
+    mark_build_complete,
+)
 from eodinga.index.writer import IndexWriter
 from eodinga.observability import increment_counter
 
@@ -43,6 +49,7 @@ def rebuild_index(
     target_path = db_path.expanduser()
     target_path.parent.mkdir(parents=True, exist_ok=True)
     staged_path = _staged_build_path(target_path)
+    clear_build_complete_marker(target_path)
     _cleanup_index_files(staged_path)
 
     conn = connect_database(staged_path)
@@ -80,14 +87,18 @@ def rebuild_index(
                         increment_counter("files_indexed", indexed, root=str(root.path))
     except Exception:
         conn.close()
+        clear_build_complete_marker(target_path)
         _cleanup_index_files(staged_path)
         raise
     conn.close()
     try:
+        mark_build_complete(target_path)
         atomic_replace_index(staged_path, target_path)
     except Exception:
+        clear_build_complete_marker(target_path)
         _cleanup_index_files(staged_path)
         raise
+    clear_build_complete_marker(target_path)
     return RebuildResult(
         db_path=target_path,
         files_indexed=files_indexed,
