@@ -121,8 +121,8 @@ class _Parser:
     def _parse_term(self) -> AstNode:
         self._skip_ws()
         negated = False
-        if self._peek() == "-":
-            negated = True
+        while self._peek() == "-":
+            negated = not negated
             self.index += 1
             self._skip_ws()
         char = self._peek()

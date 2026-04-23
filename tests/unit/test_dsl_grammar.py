@@ -77,6 +77,39 @@ def test_parse_negated_group() -> None:
     assert isinstance(node.clause, OrNode)
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_type", "expected_negated", "expected_value"),
+    [
+        ("--alpha", WordNode, False, "alpha"),
+        ('- -"alpha"', PhraseNode, False, "alpha"),
+        ("- -/alpha/", RegexNode, False, "alpha"),
+        ("- -content:alpha", OperatorNode, False, "alpha"),
+        ("---alpha", WordNode, True, "alpha"),
+    ],
+)
+def test_parse_repeated_negation_toggles_atomic_terms(
+    query: str,
+    expected_type: type[object],
+    expected_negated: bool,
+    expected_value: str,
+) -> None:
+    node = parse(query)
+
+    assert isinstance(node, expected_type)
+    assert node.negated is expected_negated  # type: ignore[attr-defined]
+    if isinstance(node, RegexNode):
+        assert node.pattern == expected_value
+    else:
+        assert node.value == expected_value  # type: ignore[attr-defined]
+
+
+def test_parse_repeated_negation_toggles_group_nodes() -> None:
+    node = parse("- -(alpha | beta)")
+
+    assert isinstance(node, OrNode)
+    assert len(node.clauses) == 2
+
+
 def test_parse_operator_regex_value() -> None:
     node = parse("content:/todo|fixme/i")
     assert isinstance(node, OperatorNode)
