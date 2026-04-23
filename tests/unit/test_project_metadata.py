@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from eodinga import __version__
+
 
 def _load_metadata_module():
     spec = importlib.util.spec_from_file_location("project_metadata", Path("packaging/project_metadata.py"))
@@ -23,7 +25,7 @@ def test_project_metadata_matches_pyproject_contract() -> None:
 
     assert payload == {
         "name": "eodinga",
-        "version": "0.1.174",
+        "version": __version__,
         "description": "Everything-class instant file search for Windows and Linux",
         "publisher": "Cheol-H-Jeong",
         "requires_python": ">=3.11",
@@ -41,7 +43,7 @@ def test_project_metadata_shell_format_exports_safe_assignments() -> None:
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert "PROJECT_NAME=eodinga" in result.stdout
-    assert "PROJECT_VERSION=0.1.174" in result.stdout
+    assert f"PROJECT_VERSION={__version__}" in result.stdout
     assert "PROJECT_DESCRIPTION='Everything-class instant file search for Windows and Linux'" in result.stdout
 
 

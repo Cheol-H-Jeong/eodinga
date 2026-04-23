@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.175 - 2026-04-23
+
+- Added a shared `packaging/project_metadata.py` helper so Debian control data and packaging audits now read the same name, version, description, publisher, and Python requirement from `pyproject.toml` instead of drifting across hardcoded strings.
+- Rendered the AppImage recipe through package-version and app-name templates during dry runs, and hardened the audit so `packaging/build.py` now proves the rendered recipe matches the current release metadata before packaging passes.
+- Added `python packaging/build.py --target release-dry-run`, which runs the Windows, AppImage, and Debian dry-run audits as one packaging matrix and records a summary manifest under `packaging/dist/`.
+
 ## 0.1.174 - 2026-04-23
 
 - Expanded `README.md` with a clearer shipped feature matrix, more query examples, practical CLI workflows, and a completed FAQ covering local-only behavior, recovery, parser extras, and health checks.
