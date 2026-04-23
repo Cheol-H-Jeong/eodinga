@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.237 - 2026-04-23
+
+- Bundled the checked-in `eodinga/` package into both Linux AppImage and Debian build roots so packaged launchers no longer depend on the repository checkout being present beside the artifact.
+- Tightened Linux packaging audits to fail if the staged source bundle or launcher-to-bundled-source wiring disappears from either packaging path.
+- Replaced the hand-maintained PyInstaller package-data list with source-tree discovery for non-Python assets under `eodinga/`, keeping future shipped assets in sync with the bundle automatically.
+
 ## 0.1.233 - 2026-04-23
 
 - Expanded `README.md` with a surface matrix, a compact operator checklist, and a troubleshooting runbook so the top-level contract points operators to the right CLI and packaging checks faster.
