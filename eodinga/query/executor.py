@@ -143,6 +143,17 @@ def _content_backfill_sql(has_where_sql: bool) -> str:
     return sql
 
 
+@lru_cache(maxsize=256)
+def _content_texts_sql(chunk_size: int) -> str:
+    placeholders = ", ".join("?" for _ in range(chunk_size))
+    return f"""
+        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
+        FROM content_map
+        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
+        WHERE content_map.file_id IN ({placeholders})
+    """
+
+
 def _row_to_record(row: Mapping[str, object]) -> FileRecord:
     payload = {key: row[key] for key in row.keys()}  # type: ignore[arg-type]
     payload["is_dir"] = bool(payload["is_dir"])
@@ -511,13 +522,7 @@ def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[i
     id_list = tuple(dict.fromkeys(ids))
     if not id_list:
         return {}
-    placeholders = ", ".join("?" for _ in id_list)
-    sql = f"""
-        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
-        FROM content_map
-        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
-        WHERE content_map.file_id IN ({placeholders})
-    """
+    sql = _content_texts_sql(len(id_list))
     rows = conn.execute(sql, id_list).fetchall()
     return {
         row["file_id"]: " ".join(
