@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.217 - 2026-04-23
+
+- Restored standard text-editing behavior in the launcher query field so `Home` and `End` move the caret inside the search box instead of stealing focus into the result list, while `PgUp` and `PgDn` still jump through results quickly.
+- Expanded launcher accessibility metadata across the empty state, preview pane, status labels, and search field so assistive technologies can identify the full popup surface instead of only the top-level controls.
+- Added shortcut-aware action-button tooltips for open, reveal, copy path, copy name, and properties so the launcher exposes its keyboard verbs directly in the UI.
+
 ## 0.1.216 - 2026-04-23
 
 - Clarified `README.md` as an operator-facing contract with a tighter at-a-glance summary, reference map, and FAQ coverage for local-only behavior, packaging, uninstall, and generated CLI docs.
