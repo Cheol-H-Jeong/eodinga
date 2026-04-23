@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.416 - 2026-04-23
+## 0.1.417 - 2026-04-23
 
 - Hardened `WatchService.start()` so failed observer scheduling or startup tears down the temporary observer/flush thread instead of leaving background watcher state running after a partial boot.
 - Preserved moved-file source suppression metadata when a flush is re-queued under queue backpressure, preventing follow-up deletes for the old path from leaking through as duplicate events.
