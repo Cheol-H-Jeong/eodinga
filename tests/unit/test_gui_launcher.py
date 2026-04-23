@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
-from eodinga.gui.launcher import LauncherState
+from eodinga.gui.launcher import LauncherState, extract_active_filter_chips
 from eodinga.gui.launcher_window import LauncherWindow
 
 
@@ -684,6 +684,7 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
 
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
+    assert launcher.active_filters_row.accessibleName() == "Active launcher filters"
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"
@@ -702,3 +703,25 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.shortcut_label.accessibleName() == "Launcher shortcut guidance"
     assert launcher.status_label.accessibleName() == "Launcher result summary"
     assert launcher.status_chip.accessibleName() == "Status"
+
+
+def test_extract_active_filter_chips_formats_operator_terms() -> None:
+    chips = extract_active_filter_chips('report ext:pdf content:"release notes" -size:>10M path:/quarterly/i')
+
+    assert chips == ["ext:pdf", 'content:"release notes"', "-size:>10M", "path:/quarterly/i"]
+
+
+def test_launcher_shows_active_filter_chips_for_query(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText('release ext:pdf date:this-week content:"notes"')
+    _wait(60)
+
+    assert launcher.active_filters_row.isVisible()
+    assert [button.text() for button in launcher.active_filters_row.buttons] == [
+        "ext:pdf",
+        "date:this-week",
+        'content:"notes"',
+    ]
+    assert launcher.active_filters_row.buttons[0].accessibleName() == "Active filter ext:pdf"

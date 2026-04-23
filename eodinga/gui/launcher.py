@@ -20,8 +20,56 @@ from eodinga.gui.widgets import (
     StatusChip,
 )
 from eodinga.observability import get_logger
+from eodinga.query.dsl import AndNode, AstNode, NotNode, OperatorNode, OrNode, QuerySyntaxError, parse
 
 SearchFn = Callable[[str, int], QueryResult]
+
+_FILTER_OPERATOR_NAMES = frozenset({"date", "ext", "path", "size", "modified", "created", "is", "content", "case", "regex"})
+
+
+def _quote_filter_value(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def _format_filter_chip(node: OperatorNode) -> str:
+    prefix = "-" if node.negated else ""
+    if node.value_kind == "phrase":
+        value = _quote_filter_value(node.value)
+    elif node.value_kind == "regex":
+        value = f"/{node.value}/{node.regex_flags}"
+    else:
+        value = node.value
+    return f"{prefix}{node.name}:{value}"
+
+
+def _collect_filter_chips(node: AstNode, *, negated: bool = False) -> list[str]:
+    if isinstance(node, OperatorNode) and node.name in _FILTER_OPERATOR_NAMES:
+        formatted = node.model_copy(update={"negated": negated or node.negated})
+        return [_format_filter_chip(formatted)]
+    if isinstance(node, NotNode):
+        return _collect_filter_chips(node.clause, negated=not negated)
+    if isinstance(node, (AndNode, OrNode)):
+        chips: list[str] = []
+        for clause in node.clauses:
+            chips.extend(_collect_filter_chips(clause, negated=negated))
+        return chips
+    return []
+
+
+def extract_active_filter_chips(query: str) -> list[str]:
+    normalized = query.strip()
+    if not normalized:
+        return []
+    try:
+        ast = parse(normalized)
+    except QuerySyntaxError:
+        return []
+    chips: list[str] = []
+    for chip in _collect_filter_chips(ast):
+        if chip not in chips:
+            chips.append(chip)
+    return chips
 
 
 class LauncherPanel(QWidget):
@@ -55,6 +103,13 @@ class LauncherPanel(QWidget):
 
         self.query_field = SearchField(parent=self)
         self.query_field.setAccessibleName("Launcher search field")
+        self.active_filters_row = QueryChipRow(
+            "Filters",
+            accessible_name="Active launcher filters",
+            on_chip_clicked=self._focus_query_field,
+            chip_accessible_name_prefix="Active filter",
+            parent=self,
+        )
         self.pinned_queries_row = QueryChipRow(
             "Pinned",
             accessible_name="Pinned launcher queries",
@@ -99,6 +154,7 @@ class LauncherPanel(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
+        layout.addWidget(self.active_filters_row)
         layout.addWidget(self.pinned_queries_row)
         layout.addWidget(self.recent_queries_row)
 
@@ -209,6 +265,9 @@ class LauncherPanel(QWidget):
         self.query_field.setFocus()
         self.query_field.selectAll()
 
+    def _focus_query_field(self, _: str) -> None:
+        self.query_field.setFocus()
+
     def select_query_text(self) -> None:
         self.focus_query_field()
 
@@ -265,6 +324,7 @@ class LauncherPanel(QWidget):
         if not self._applying_history_query:
             self._history_index = None
             self._history_draft = ""
+        self._refresh_active_filters()
         self._debounce_timer.start()
 
     def _flush_pending_query(self) -> None:
@@ -325,6 +385,9 @@ class LauncherPanel(QWidget):
             )
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
+
+    def _refresh_active_filters(self) -> None:
+        self.active_filters_row.set_queries(extract_active_filter_chips(self.query_field.text())[:5])
 
     def _refresh_shortcut_hint(self) -> None:
         has_results = self.model.rowCount() > 0
