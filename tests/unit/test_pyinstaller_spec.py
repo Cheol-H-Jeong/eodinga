@@ -24,6 +24,7 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     assert "pypdf" in hiddenimports
     assert "eodinga.gui.app" in hiddenimports
     assert "eodinga.content.registry" in hiddenimports
+    assert "eodinga.launcher.hotkey_linux" in hiddenimports
     assert "eodinga.launcher.hotkey_win" in hiddenimports
     assert "eodinga.gui.hotkey_controller" in discovered_runtime_modules
     assert "eodinga.gui.widgets" in discovered_runtime_modules
@@ -32,13 +33,15 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
         "Xlib.X",
         "Xlib.XK",
         "Xlib.display",
+        "eodinga.launcher.hotkey_linux",
+        "eodinga.launcher.hotkey_win",
         "pynput.keyboard",
     ]
     assert set(required_hiddenimports).issubset(set(hiddenimports))
     assert set(runtime_modules).issubset(set(hiddenimports))
     assert set(discovered_runtime_modules).issubset(set(hiddenimports))
     assert set(discovered_hiddenimports).issubset(set(hiddenimports))
-    assert {"eodinga.launcher.hotkey_linux", "eodinga.launcher.hotkey_win"} <= set(runtime_modules)
+    assert {"eodinga.launcher.hotkey_linux", "eodinga.launcher.hotkey_win"} <= set(discovered_hiddenimports)
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
     assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas
 
@@ -101,3 +104,37 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
     discovered = discover_hidden_imports(source_root)
 
     assert discovered == ["package.alpha", "package.beta", "package.gamma"]
+
+
+def test_pyinstaller_spec_discovers_hidden_imports_from_local_helper_returns(tmp_path: Path) -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_hidden_imports = cast(Callable[[Path], list[str]], namespace["_discover_hidden_imports"])
+
+    source_root = tmp_path / "eodinga"
+    source_root.mkdir()
+    (source_root / "__init__.py").write_text("", encoding="utf-8")
+    module_path = source_root / "helper_imports.py"
+    module_path.write_text(
+        "\n".join(
+            [
+                "from importlib import import_module",
+                "",
+                "def choose_backend(platform_name: str) -> str:",
+                '    if platform_name.startswith("linux"):',
+                '        return "eodinga.launcher.hotkey_linux"',
+                '    return "eodinga.launcher.hotkey_win"',
+                "",
+                'backend_name = choose_backend("linux")',
+                "import_module(backend_name)",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    discovered = discover_hidden_imports(source_root)
+
+    assert discovered == ["eodinga.launcher.hotkey_linux", "eodinga.launcher.hotkey_win"]

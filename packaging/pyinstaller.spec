@@ -37,8 +37,6 @@ RUNTIME_MODULES = [
     "eodinga.gui.widgets.search_field",
     "eodinga.gui.widgets.status_chip",
     "eodinga.launcher.hotkey",
-    "eodinga.launcher.hotkey_linux",
-    "eodinga.launcher.hotkey_win",
 ]
 
 REQUIRED_HIDDEN_IMPORTS = [
@@ -124,6 +122,8 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
     discovered: set[str] = set()
     for source_path in source_root.rglob("*.py"):
         module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+        function_return_strings = _collect_function_return_strings(module)
+        assigned_strings = _collect_assigned_strings(module, function_return_strings)
         import_module_aliases = {"import_module"}
         importlib_module_aliases = {"importlib"}
         for node in ast.walk(module):
@@ -149,12 +149,76 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
                     continue
             else:
                 continue
-            if not node.args or not isinstance(node.args[0], ast.Constant):
+            if not node.args:
                 continue
-            if not isinstance(node.args[0].value, str):
-                continue
-            discovered.add(node.args[0].value)
+            discovered.update(
+                _resolve_string_expression(
+                    node.args[0],
+                    assigned_strings,
+                    function_return_strings,
+                )
+            )
     return sorted(discovered)
+
+
+def _collect_function_return_strings(module: ast.AST) -> dict[str, set[str]]:
+    function_returns: dict[str, set[str]] = {}
+    for node in module.body if isinstance(module, ast.Module) else []:
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        returns: set[str] = set()
+        for child in ast.walk(node):
+            if not isinstance(child, ast.Return) or child.value is None:
+                continue
+            returns.update(_resolve_string_expression(child.value, {}, function_returns))
+        if returns:
+            function_returns[node.name] = returns
+    return function_returns
+
+
+def _collect_assigned_strings(
+    module: ast.AST,
+    function_return_strings: dict[str, set[str]],
+) -> dict[str, set[str]]:
+    assigned: dict[str, set[str]] = {}
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Assign):
+            continue
+        resolved = _resolve_string_expression(node.value, assigned, function_return_strings)
+        if not resolved:
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                assigned[target.id] = set(resolved)
+    return assigned
+
+
+def _resolve_string_expression(
+    node: ast.AST,
+    assigned_strings: dict[str, set[str]],
+    function_return_strings: dict[str, set[str]],
+    seen_names: set[str] | None = None,
+) -> set[str]:
+    if seen_names is None:
+        seen_names = set()
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return {node.value}
+    if isinstance(node, ast.Name):
+        if node.id in seen_names:
+            return set()
+        return set(
+            assigned_strings.get(
+                node.id,
+                set(),
+            )
+        )
+    if isinstance(node, ast.IfExp):
+        return _resolve_string_expression(node.body, assigned_strings, function_return_strings, seen_names) | (
+            _resolve_string_expression(node.orelse, assigned_strings, function_return_strings, seen_names)
+        )
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+        return set(function_return_strings.get(node.func.id, set()))
+    return set()
 
 
 def _is_stdlib_module(module_name: str) -> bool:
