@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.217 - 2026-04-23
+## 0.1.222 - 2026-04-23
 
 - Turned `packaging/linux/appimage-builder.yml` into a versioned template and made the AppImage dry-run audit verify the rendered recipe matches the package version instead of drifting behind `latest`.
 - Tightened Debian packaging audits so the staged package must keep its desktop launcher, icon wiring, and compressed changelog aligned with the checked-in Debian control metadata and current release heading.
