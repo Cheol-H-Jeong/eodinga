@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.195 - 2026-04-23
+## 0.1.200 - 2026-04-23
 
 - Added a live launcher preview pane that follows both keyboard selection and hover, so the popup and embedded search surface now expose the selected path and indexed snippet without opening the file first.
 - Added result-list context menus for the existing launcher actions, making open, reveal, copy-path, copy-name, and properties available directly from the list surface instead of only through keyboard shortcuts.
