@@ -18,6 +18,7 @@ from eodinga.observability import (
     default_crash_dir,
     default_log_path,
     file_logging_enabled,
+    increment_counter,
     install_crash_handlers,
     resolve_crash_dir,
     resolve_log_compression,
@@ -149,6 +150,23 @@ def test_write_crash_log_records_resolved_log_state(tmp_path: Path, monkeypatch)
 
     contents = crash_path.read_text(encoding="utf-8")
     assert f"log_path={log_path}" in contents
+
+
+def test_write_crash_log_embeds_runtime_metrics_snapshot(tmp_path: Path) -> None:
+    reset_metrics()
+    increment_counter("queries_served")
+    increment_counter("watcher_events", 2)
+
+    try:
+        raise RuntimeError("metrics snapshot")
+    except RuntimeError as error:
+        crash_path = write_crash_log(error, crash_dir=tmp_path)
+
+    contents = crash_path.read_text(encoding="utf-8")
+    assert "metrics_generated_at=" in contents
+    assert "metrics_uptime_ms=" in contents
+    assert 'metrics_counters={"queries_served": 1, "watcher_events": 2}' in contents
+    assert "metrics_histograms={}" in contents
 
 
 def test_write_crash_log_uses_unique_path_when_timestamp_collides(tmp_path: Path) -> None:

@@ -262,6 +262,11 @@ def write_crash_log(
         "log_path": resolve_log_path(),
         "crash_dir": target_dir,
     }
+    metrics = snapshot_metrics()
+    metadata["metrics_generated_at"] = metrics["generated_at"]
+    metadata["metrics_uptime_ms"] = metrics["uptime_ms"]
+    metadata["metrics_counters"] = metrics["counters"]
+    metadata["metrics_histograms"] = metrics["histograms"]
     if details:
         metadata.update(details)
     lines = [
