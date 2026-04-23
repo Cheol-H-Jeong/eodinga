@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import warnings
 
 import pytest
 from hypothesis import given
@@ -26,7 +27,9 @@ def _escape_phrase(value: str) -> str:
 
 def _is_regex_safe_literal(value: str) -> bool:
     try:
-        re.compile(value)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", FutureWarning)
+            re.compile(value)
     except re.error:
         return False
     return True
@@ -533,6 +536,56 @@ def test_regex_escape_round_trip_fuzz(value: str, flags: str) -> None:
     assert node.value_kind == "regex"
     assert node.value == escaped
     assert node.regex_flags == flags
+
+
+@given(
+    REGEX_BODY_TEXT.filter(_is_regex_safe_literal),
+    st.sampled_from(["", "i", "m", "s", "im", "is", "ms", "ims"]),
+)
+def test_top_level_regex_escape_round_trip_fuzz(value: str, flags: str) -> None:
+    escaped = _escape_regex_literal(value)
+    node = parse(f"/{escaped}/{flags}")
+
+    assert isinstance(node, RegexNode)
+    assert node.pattern == escaped
+    assert node.flags == flags
+
+    branch = compile_query(node).branches[0]
+
+    assert len(branch.path_regex_terms) == 1
+    assert branch.path_regex_terms[0].pattern == escaped
+    assert branch.path_regex_terms[0].flags == flags
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_pattern", "expected_flags"),
+    [
+        (r"/회의\/록\/초안/ms", r"회의\/록\/초안", "ms"),
+        (r"/release\/candidate\/v[0-9]+/i", r"release\/candidate\/v[0-9]+", "i"),
+    ],
+)
+def test_top_level_regex_with_escaped_slashes_compiles(
+    query: str,
+    expected_pattern: str,
+    expected_flags: str,
+) -> None:
+    node = parse(query)
+
+    assert isinstance(node, RegexNode)
+    assert node.pattern == expected_pattern
+    assert node.flags == expected_flags
+
+    branch = compile_query(node).branches[0]
+
+    assert len(branch.path_regex_terms) == 1
+    assert branch.path_regex_terms[0].pattern == expected_pattern
+    assert branch.path_regex_terms[0].flags == expected_flags
+
+
+@pytest.mark.parametrize("query", ["/회의록\\", "content:/회의록\\", "path:/문서\\/회의록\\"])
+def test_parse_regex_with_dangling_escape_before_closing_delimiter_errors(query: str) -> None:
+    with pytest.raises(QuerySyntaxError, match="unterminated regex"):
+        parse(query)
 
 
 NEGATABLE_OPERATOR_ATOMS = st.one_of(
