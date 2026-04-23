@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.851 - 2026-04-23
+## 0.1.855 - 2026-04-23
 
 - Avoided redundant stylesheet reapplication on the shared Qt application instance, eliminating the test-mode launcher relaunch crash path seen under the offscreen backend.
 - Added accessible text and tooltip summaries for launcher results, plus live result-list and preview-pane descriptions so keyboard and screen-reader users get the selected hit in plain language.
