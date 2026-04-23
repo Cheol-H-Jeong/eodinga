@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.278 - 2026-04-23
+
+- Made file-log sinks operationally tunable through resolved rotation, retention, and compression settings, and surfaced those exact values in `eodinga stats --json` so operators can confirm the active sink policy without reading environment state.
+- Added rebuild lifecycle telemetry for started, completed, failed, and interrupted runs plus indexed-root and file-count metrics, giving staged index rebuilds a fuller health trail in runtime stats.
+- Added query result-volume observability with empty/non-empty counters and a result-count histogram, and promoted the most useful histogram snapshots into top-level `stats --json` fields for faster inspection.
+
 ## 0.1.272 - 2026-04-23
 
 - Made staged index rebuilds stop cleanly on `SIGINT` and `SIGTERM` batch boundaries, preserving the `.next` snapshot for later resume instead of discarding already committed work mid-rebuild.
