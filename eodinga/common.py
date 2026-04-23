@@ -105,6 +105,7 @@ class StatsSnapshot(BaseModel):
     commands_started: int = 0
     commands_completed: int = 0
     commands_failed: int = 0
+    commands_interrupted: int = 0
     crashes_reported: int = 0
     crash_logs_written: int = 0
     query_latency_histogram: dict[str, object] = Field(default_factory=dict)

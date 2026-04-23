@@ -182,6 +182,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         commands_started=counter_value("commands_started"),
         commands_completed=counter_value("commands_completed"),
         commands_failed=counter_value("commands_failed"),
+        commands_interrupted=counter_value("commands_interrupted"),
         crashes_reported=counter_value("crashes_reported"),
         crash_logs_written=counter_value("crash_logs_written"),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
@@ -234,6 +235,10 @@ def _run_command(args: argparse.Namespace) -> int:
     exit_code: int | None = None
     try:
         exit_code = int(args.handler(args))
+    except KeyboardInterrupt:
+        exit_code = 130
+        increment_counter("commands_interrupted", command=command)
+        increment_counter(f"commands.{command}.interrupted")
     except Exception:
         exit_code = 1
         increment_counter("commands_failed", command=command)
@@ -257,7 +262,7 @@ def _command_summary(counters: dict[str, int]) -> dict[str, dict[str, int]]:
         if not name.startswith(prefix) or name.startswith("commands.exit_code."):
             continue
         command_name, _, status = name[len(prefix) :].rpartition(".")
-        if not command_name or status not in {"started", "completed", "failed"}:
+        if not command_name or status not in {"started", "completed", "failed", "interrupted"}:
             continue
         commands.setdefault(command_name, {})[status] = value
     return dict(sorted((name, dict(sorted(statuses.items()))) for name, statuses in commands.items()))

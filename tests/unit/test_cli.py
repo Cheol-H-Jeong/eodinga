@@ -579,6 +579,32 @@ def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path
     assert metrics["histograms"]["command_latency_ms"]["count"] == 1
 
 
+def test_interrupted_command_returns_130_without_crash_metrics(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    def _interrupt(_args) -> int:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("eodinga.__main__._cmd_version", _interrupt)
+
+    exit_code = main(["--db", str(db_path), "version"])
+
+    metrics = snapshot_metrics()
+    assert exit_code == 130
+    assert metrics["counters"]["commands_started"] == 1
+    assert metrics["counters"]["commands.version.started"] == 1
+    assert metrics["counters"]["commands_interrupted"] == 1
+    assert metrics["counters"]["commands.version.interrupted"] == 1
+    assert "commands_failed" not in metrics["counters"]
+    assert "crashes_reported" not in metrics["counters"]
+    assert metrics["counters"]["commands.exit_code.130"] == 1
+    assert metrics["histograms"]["command_latency_ms"]["count"] == 1
+
+
 def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Path, capsys, monkeypatch) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
@@ -600,3 +626,29 @@ def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Pat
     assert payload["commands"]["version"]["failed"] == 1
     assert payload["commands"]["version"]["started"] == 1
     assert payload["exit_codes"]["1"] == 1
+
+
+def test_stats_json_structures_interrupted_command_counts(
+    tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    def _interrupt(_args) -> int:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("eodinga.__main__._cmd_version", _interrupt)
+
+    exit_code = main(["--db", str(db_path), "version"])
+    assert exit_code == 130
+    capsys.readouterr()
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["commands_interrupted"] == 1
+    assert payload["commands"]["version"]["interrupted"] == 1
+    assert payload["commands"]["version"]["started"] == 1
+    assert payload["exit_codes"]["130"] == 1
