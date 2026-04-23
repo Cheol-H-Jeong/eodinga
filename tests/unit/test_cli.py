@@ -482,6 +482,9 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     generated_at = datetime.fromisoformat(payload["generated_at"].replace("Z", "+00:00"))
     assert generated_at.tzinfo is not None
     assert payload["uptime_ms"] >= 0
+    assert payload["thread_count"] >= 1
+    assert payload["rss_bytes"] is None or payload["rss_bytes"] > 0
+    assert payload["open_fd_count"] is None or payload["open_fd_count"] >= 0
     assert payload["files_indexed"] == 3
     assert payload["documents_indexed"] == 3
     assert payload["queries_served"] == 1
@@ -631,6 +634,9 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["watcher_enqueue_aborted"] == 0
     assert payload["process_started_at"].endswith("Z")
     assert payload["pid"] > 0
+    assert payload["thread_count"] >= 1
+    assert payload["rss_bytes"] is None or payload["rss_bytes"] > 0
+    assert payload["open_fd_count"] is None or payload["open_fd_count"] >= 0
     assert payload["version"] == __version__
     assert payload["counters"]["logging_configurations"] == 3
     assert payload["counters"]["log_sinks.stderr.configured"] == 3

@@ -15,6 +15,11 @@ from typing import IO, Any, TypedDict
 
 from loguru import logger
 
+try:
+    import resource
+except ImportError:  # pragma: no cover - unavailable on Windows
+    resource = None
+
 _DEFAULT_HISTOGRAM_BUCKETS_MS = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0)
 _DEFAULT_LOG_ROTATION: str | int = "5 MB"
 _DEFAULT_LOG_RETENTION: str | int = 5
@@ -56,8 +61,11 @@ class MetricsSnapshot(TypedDict):
     counters: dict[str, int]
     histograms: dict[str, dict[str, object]]
     generated_at: str
+    open_fd_count: int | None
     process_started_at: str
     pid: int
+    rss_bytes: int | None
+    thread_count: int
     version: str
     uptime_ms: float
 
@@ -223,8 +231,11 @@ def snapshot_metrics() -> MetricsSnapshot:
         "counters": counters,
         "histograms": histograms,
         "generated_at": now.isoformat().replace("+00:00", "Z"),
+        "open_fd_count": _open_fd_count(),
         "process_started_at": _PROCESS_STARTED_AT.isoformat().replace("+00:00", "Z"),
         "pid": os.getpid(),
+        "rss_bytes": _rss_bytes(),
+        "thread_count": threading.active_count(),
         "version": __version__,
         "uptime_ms": round((now - _PROCESS_STARTED_AT).total_seconds() * 1000, 3),
     }
@@ -284,6 +295,9 @@ def write_crash_log(
         "process_started_at": metrics["process_started_at"],
         "uptime_ms": metrics["uptime_ms"],
         "pid": metrics["pid"],
+        "thread_count": metrics["thread_count"],
+        "rss_bytes": metrics["rss_bytes"],
+        "open_fd_count": metrics["open_fd_count"],
         "version": metrics["version"],
         "platform": sys.platform,
         "python": sys.version.split()[0],
@@ -399,3 +413,24 @@ def _parse_log_policy_value(raw: str) -> str | int:
     if value.isdigit():
         return int(value)
     return value
+
+
+def _rss_bytes() -> int | None:
+    if resource is None:
+        return None
+    usage = resource.getrusage(resource.RUSAGE_SELF)
+    rss = int(usage.ru_maxrss)
+    if rss <= 0:
+        return None
+    if sys.platform == "darwin":
+        return rss
+    return rss * 1024
+
+
+def _open_fd_count() -> int | None:
+    for candidate in ("/proc/self/fd", "/dev/fd"):
+        try:
+            return len(os.listdir(candidate))
+        except OSError:
+            continue
+    return None

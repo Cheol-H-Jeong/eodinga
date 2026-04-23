@@ -98,6 +98,9 @@ class StatsSnapshot(BaseModel):
     generated_at: str | None = None
     process_started_at: str | None = None
     pid: int = 0
+    thread_count: int = 0
+    rss_bytes: int | None = None
+    open_fd_count: int | None = None
     version: str = ""
     uptime_ms: float = 0.0
     files_indexed: int = 0

@@ -131,6 +131,9 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert "process_started_at=" in contents
     assert "uptime_ms=" in contents
     assert "pid=" in contents
+    assert "thread_count=" in contents
+    assert "rss_bytes=" in contents
+    assert "open_fd_count=" in contents
     assert f"version={__version__}" in contents
     assert f"platform={sys.platform}" in contents
     assert f"thread={threading.current_thread().name}" in contents
@@ -416,6 +419,9 @@ def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:
     assert metrics["generated_at"].endswith("Z")
     assert metrics["process_started_at"].endswith("Z")
     assert metrics["pid"] > 0
+    assert metrics["thread_count"] >= 1
+    assert metrics["rss_bytes"] is None or metrics["rss_bytes"] > 0
+    assert metrics["open_fd_count"] is None or metrics["open_fd_count"] >= 0
     assert metrics["version"] == __version__
     assert metrics["uptime_ms"] >= 0
 
