@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.449 - 2026-04-23
+## 0.1.450 - 2026-04-23
 
 - Made `eodinga stats --json` read-only when the index database is missing or unreadable, returning explicit `db_exists` and `db_error` fields instead of creating or mutating local state during inspection.
 - Exposed process identity in the stats payload and reused the same runtime snapshot in crash logs, so `stats --json` and `crash-*.log` now agree on pid, version, executable, cwd, argv, and process start time.
