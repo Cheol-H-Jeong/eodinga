@@ -1,12 +1,24 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from eodinga import __version__
+
+
+def _load_build_module():
+    spec = importlib.util.spec_from_file_location("packaging_build", Path("packaging/build.py"))
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_build_dry_run_returns_zero_and_writes_audit() -> None:
@@ -23,6 +35,7 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["target"] == "windows-dry-run"
     assert payload["version"] == __version__
     assert payload["version_matches_package"] is True
+    assert payload["errors"] == []
     assert payload["pyinstaller_spec"]["exists"] is True
     assert payload["pyinstaller_spec"]["dist_names"] == {
         "cli": "eodinga-cli",
@@ -48,6 +61,14 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["app_id_is_guid_macro"] is True
     assert payload["inno_setup"]["app_version_macro"] == "@@APP_VERSION@@"
     assert payload["inno_setup"]["app_version_uses_template"] is True
+    assert payload["inno_setup"]["template_tokens"] == [
+        "@@APP_VERSION@@",
+        "@@CLI_DIST_NAME@@",
+        "@@GUI_DIST_NAME@@",
+        "@@GUI_EXE_NAME@@",
+    ]
+    assert payload["inno_setup"]["rendered_tokens"] == []
+    assert payload["inno_setup"]["rendered_tokens_resolved"] is True
     assert payload["inno_setup"]["contains_versioned_output_macro"] is True
     assert payload["inno_setup"]["contains_user_install_dir"] is True
     assert payload["inno_setup"]["contains_rendered_uninstall_display_icon"] is True
@@ -90,6 +111,56 @@ def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
     hotkey_module = Path("eodinga/launcher/hotkey_linux.py").read_text(encoding="utf-8")
     expected_modules = set(re.findall(r'import_module\\("([^"]+)"\\)', hotkey_module))
     assert expected_modules <= hidden_imports
+
+
+def test_windows_dry_run_fails_when_project_version_mismatches_package(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_build_module()
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_path.write_text('[project]\nversion = "0.1.999"\n', encoding="utf-8")
+    package_init = tmp_path / "__init__.py"
+    package_init.write_text('__version__ = "0.1.998"\n', encoding="utf-8")
+    inno_script = tmp_path / "eodinga.iss"
+    inno_script.write_text(Path("packaging/windows/eodinga.iss").read_text(encoding="utf-8"), encoding="utf-8")
+    dist_dir = tmp_path / "dist"
+
+    monkeypatch.setattr(module, "PYPROJECT", pyproject_path)
+    monkeypatch.setattr(module, "PACKAGE_INIT", package_init)
+    monkeypatch.setattr(module, "INNO_SCRIPT", inno_script)
+    monkeypatch.setattr(module, "DIST_DIR", dist_dir)
+
+    assert module._run_windows_dry_run() == 1
+    payload = json.loads((dist_dir / "windows-dry-run-audit.json").read_text(encoding="utf-8"))
+    assert payload["errors"] == ["version mismatch: pyproject=0.1.999 package=0.1.998"]
+
+
+def test_windows_dry_run_fails_when_rendered_inno_script_has_unresolved_tokens(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_build_module()
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_path.write_text(f'[project]\nversion = "{__version__}"\n', encoding="utf-8")
+    package_init = tmp_path / "__init__.py"
+    package_init.write_text(f'__version__ = "{__version__}"\n', encoding="utf-8")
+    inno_script = tmp_path / "eodinga.iss"
+    inno_script.write_text(
+        Path("packaging/windows/eodinga.iss").read_text(encoding="utf-8")
+        + '\nAppComments="@@UNHANDLED_TOKEN@@"\n',
+        encoding="utf-8",
+    )
+    dist_dir = tmp_path / "dist"
+
+    monkeypatch.setattr(module, "PYPROJECT", pyproject_path)
+    monkeypatch.setattr(module, "PACKAGE_INIT", package_init)
+    monkeypatch.setattr(module, "INNO_SCRIPT", inno_script)
+    monkeypatch.setattr(module, "DIST_DIR", dist_dir)
+
+    assert module._run_windows_dry_run() == 1
+    payload = json.loads((dist_dir / "windows-dry-run-audit.json").read_text(encoding="utf-8"))
+    assert payload["errors"] == [
+        "rendered Inno script contains unresolved tokens: @@UNHANDLED_TOKEN@@"
+    ]
 
 
 def test_linux_appimage_dry_run_stages_recipe() -> None:
