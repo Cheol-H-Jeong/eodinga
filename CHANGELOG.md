@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.353 - 2026-04-23
+
+- Expanded the README with an install matrix, a fuller feature inventory, task-focused command recipes, and a packaged-artifacts summary so the shipped operator contract is easier to audit from one page.
+- Added a one-command acceptance pass plus deeper architecture, contributor, and release guidance around search fallback boundaries, derived docs assets, release inputs, and retag collision handling.
+- Tightened the docs asset regression so the new README and workflow sections stay pinned as part of the shipped release surface.
+
 ## 0.1.302 - 2026-04-23
 
 - Normalized query fallback phrase matching so quoted phrases still match across separators such as newlines and punctuation in path and content scans.
