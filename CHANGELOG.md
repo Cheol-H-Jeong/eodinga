@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.151 - 2026-04-23
+
+- Expanded live-update integration coverage so editing an already indexed file through a real watched directory must replace its searchable content within 500 ms, not just add or remove rows.
+- Added an end-to-end hot-restart regression for interrupted `.next` staged builds, proving startup resumes the staged database swap, replays WAL sidecars, and restores queryability without a rebuild.
+- Added a subprocess CLI roundtrip regression that indexes multiple roots, reopens the on-disk index for search and scoped re-search, and confirms `stats --json` reports the persisted roots on later process starts.
+
 ## 0.1.149 - 2026-04-23
 
 - Expanded the Windows PyInstaller packaging spec so hidden imports now include third-party modules discovered directly from real `import` and `from ... import ...` usage across the `eodinga/` source tree, reducing dependence on a hand-maintained list.
