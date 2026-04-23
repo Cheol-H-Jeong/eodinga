@@ -34,6 +34,7 @@ from eodinga.observability import (
     resolve_log_rotation,
 )
 from eodinga.query import QuerySyntaxError, search as run_search
+from eodinga.watch import watch_index
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -50,6 +51,7 @@ def _build_parser() -> argparse.ArgumentParser:
     index_parser.set_defaults(handler=_cmd_index)
 
     watch_parser = subparsers.add_parser("watch")
+    watch_parser.add_argument("--root", type=Path, action="append")
     watch_parser.set_defaults(handler=_cmd_watch)
 
     search_parser = subparsers.add_parser("search")
@@ -87,8 +89,10 @@ def _emit(payload: Any, as_json: bool = False) -> int:
     if as_json:
         sys.stdout.write(json.dumps(payload, default=_json_default))
         sys.stdout.write("\n")
+        sys.stdout.flush()
         return 0
     sys.stdout.write(f"{payload}\n")
+    sys.stdout.flush()
     return 0
 
 
@@ -133,8 +137,20 @@ def _cmd_index(args: argparse.Namespace) -> int:
 
 
 def _cmd_watch(args: argparse.Namespace) -> int:
-    payload = {"command": "watch", "db": str(args.db) if args.db else None}
-    return _emit(payload, as_json=True)
+    config = _resolve_config(args)
+    roots = _resolve_index_roots(args, config)
+    if not roots:
+        sys.stderr.write("watch requires at least one root\n")
+        return 2
+    db_path = args.db or config.index.db_path
+    payload = {
+        "command": "watch",
+        "db": str(db_path),
+        "roots": [str(root.path.expanduser()) for root in roots],
+    }
+    with closing(open_index(db_path)) as conn:
+        watch_index(conn, roots, on_ready=lambda: _emit(payload, as_json=True))
+    return 0
 
 
 def _cmd_search(args: argparse.Namespace) -> int:
