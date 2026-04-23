@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.802 - 2026-04-23
+## 0.1.803 - 2026-04-23
 
 - Recorded preflight audit payloads even when packaging targets fail before execution, so missing `iscc`, `dpkg-deb`, or `yamllint` now leave a reviewable manifest under `packaging/dist/` instead of only returning a non-zero exit code.
 - Hardened rendered packaging audits to reject unresolved `@@...@@` template tokens in staged Inno, AppImage, and Debian metadata before those artifacts can be treated as valid release inputs.
