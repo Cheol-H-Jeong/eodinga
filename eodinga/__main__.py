@@ -7,7 +7,7 @@ import re
 import sys
 from contextlib import closing
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from eodinga import __version__
 from eodinga.common import SearchResult, StatsSnapshot
@@ -20,6 +20,7 @@ from eodinga.observability import (
     configure_logging,
     counter_value,
     histogram_snapshot,
+    snapshot_metrics,
     write_crash_log,
 )
 from eodinga.query import QuerySyntaxError, search as run_search
@@ -161,6 +162,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     db_path = args.db or config.index.db_path
     with closing(open_index(db_path)) as conn:
         index_snapshot = read_index_stats(conn)
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
+    histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
     snapshot = StatsSnapshot(
         files_indexed=index_snapshot.file_count,
         documents_indexed=index_snapshot.content_count,
@@ -168,6 +172,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         parser_errors=counter_value("parser_errors"),
         watcher_events=counter_value("watcher_events"),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
+        counters=counters,
+        histograms=histograms,
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
     ).model_dump(mode="json")
