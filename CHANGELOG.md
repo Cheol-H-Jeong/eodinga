@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.129 - 2026-04-23
+## 0.1.130 - 2026-04-23
 
 - Expanded integration coverage so one live `WatchService` can monitor multiple configured roots while `search(..., root=...)` still isolates newly indexed results to the correct root.
 - Added an end-to-end live-delete regression that starts from a rebuilt on-disk index, removes a file from a real watched directory, and requires the stale hit to disappear from search within 500 ms.
