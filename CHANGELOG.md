@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.446 - 2026-04-23
+## 0.1.447 - 2026-04-23
 
 - Broadened the PyInstaller hidden-import scan so packaging now captures keyword-based `import_module(name=...)` and `__import__(name=...)` call sites instead of only positional forms.
 - Hardened Linux package audits to fail if the staged AppImage or Debian launcher shims lose their bash shebang or strict-shell mode, protecting the release pipeline from brittle wrapper regressions.
