@@ -118,6 +118,20 @@ def _fts_literal(value: str, kind: Literal["word", "phrase"]) -> str:
     return f'"{escaped}"'
 
 
+def _fts_prefix_literal(value: str) -> str:
+    escaped = value.replace('"', '""')
+    return f'"{escaped}"*'
+
+
+def _fts_candidate_literals(term: CompiledTextTerm) -> tuple[str, ...]:
+    if term.kind != "phrase":
+        return (_fts_literal(term.value, term.kind),)
+    tokens = tuple(token for token in re.split(r"\s+", term.value) if token)
+    if len(tokens) < 2:
+        return (_fts_literal(term.value, term.kind),)
+    return tuple(_fts_prefix_literal(token) for token in tokens)
+
+
 def _normalize_literal(value: str) -> str:
     return unicodedata.normalize("NFC", value)
 
@@ -397,8 +411,12 @@ def _compile_branch(
     positive_content_terms = tuple(term for term in content_terms if not term.negated)
     path_match_sql = "paths_fts MATCH ?" if positive_path_terms else None
     content_match_sql = "content_fts MATCH ?" if positive_content_terms else None
-    path_query = " ".join(_fts_literal(term.value, term.kind) for term in positive_path_terms)
-    content_query = " ".join(_fts_literal(term.value, term.kind) for term in positive_content_terms)
+    path_query = " ".join(
+        literal for term in positive_path_terms for literal in _fts_candidate_literals(term)
+    )
+    content_query = " ".join(
+        literal for term in positive_content_terms for literal in _fts_candidate_literals(term)
+    )
     return CompiledBranch(
         path_match_sql=path_match_sql,
         path_match_params=((path_query,) if path_query else ()),

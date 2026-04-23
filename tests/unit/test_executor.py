@@ -951,6 +951,44 @@ def test_execute_regex_only_query_scans_beyond_initial_window(tmp_db: sqlite3.Co
     assert hits == ["needle-1500.txt"]
 
 
+def test_execute_phrase_query_matches_across_punctuation_boundaries(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/release-notes.md",
+        1024,
+        now,
+        "md",
+        body_text="hello-world rollout summary",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/release_notes.txt",
+        1024,
+        now - 60,
+        "txt",
+        body_text="misc",
+    )
+    _insert_file(
+        tmp_db,
+        3,
+        "/workspace/unrelated.txt",
+        1024,
+        now - 120,
+        "txt",
+        body_text="hello world",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, '"release notes" content:"hello world"', limit=10).hits]
+
+    assert hits == ["release-notes.md"]
+
+
 def test_execute_negated_group_query(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/alpha-plan.txt", 1024, now, "txt", body_text="alpha")
