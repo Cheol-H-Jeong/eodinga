@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.810 - 2026-04-23
+
+- Avoided redundant Qt palette and stylesheet reapplication for the same `QApplication`, which removes the flaky GUI crash path hit during repeated launcher test setup.
+- Added keyboard-only navigation for pinned and recent launcher query chips, including `Tab`, `Shift+Tab`, arrow, `Home`, `End`, and chip-to-results transitions.
+- Refined launcher empty-state and shortcut guidance so chip-focused, idle, and no-result states expose clearer instructions and matching accessibility descriptions.
+
 ## 0.1.806 - 2026-04-23
 
 - Preserved watcher move-source suppression across queue backpressure, so a delayed `moved` flush no longer leaks a false follow-up `deleted` event for the retired source path.
