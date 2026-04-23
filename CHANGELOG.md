@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.371 - 2026-04-23
+## 0.1.377 - 2026-04-23
 
 - Clamped restored launcher popup geometry to the available screen bounds, preventing the frameless window from reopening off-screen or at an unusable oversized size after monitor/layout changes.
 - Added direct `Alt+O`, `Alt+R`, and `Alt+P` launcher shortcuts for open, reveal, and properties so the result action surface is fully reachable without leaving the keyboard.
