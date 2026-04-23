@@ -82,6 +82,26 @@ def _normalize_root(root: RootConfig) -> RootConfig:
     return root.model_copy(update={"path": root.path.expanduser()})
 
 
+def _insert_roots(conn, roots: list[RootConfig]) -> None:
+    rows = [
+        (
+            root_id,
+            str(root.path),
+            json.dumps(root.include),
+            json.dumps(root.exclude),
+        )
+        for root_id, root in enumerate(roots, start=1)
+    ]
+    with conn:
+        conn.executemany(
+            """
+            INSERT INTO roots(id, path, include, exclude, added_at)
+            VALUES (?, ?, ?, ?, strftime('%s', 'now'))
+            """,
+            rows,
+        )
+
+
 def rebuild_index(
     db_path: Path,
     roots: list[RootConfig],
@@ -108,22 +128,10 @@ def rebuild_index(
     )
     try:
         writer = IndexWriter(conn, parser_callback=parser_callback)
+        _insert_roots(conn, effective_roots)
         with _SignalStop() as stop:
             for root_id, root in enumerate(effective_roots, start=1):
                 stop.raise_if_requested()
-                with conn:
-                    conn.execute(
-                        """
-                        INSERT INTO roots(id, path, include, exclude, added_at)
-                        VALUES (?, ?, ?, ?, strftime('%s', 'now'))
-                        """,
-                        (
-                            root_id,
-                            str(root.path),
-                            json.dumps(root.include),
-                            json.dumps(root.exclude),
-                        ),
-                    )
                 rules = PathRules(
                     root=root.path,
                     include=tuple(root.include),
@@ -131,14 +139,13 @@ def rebuild_index(
                 )
                 for batch in walk_batched(root.path, rules, root_id=root_id):
                     stop.raise_if_requested()
-                    with conn:
-                        indexed = writer.bulk_upsert(batch)
-                        if batch:
-                            record_histogram(
-                                "index_batch_size",
-                                float(len(batch)),
-                                root=str(root.path),
-                            )
+                    indexed = writer.bulk_upsert(batch)
+                    if batch:
+                        record_histogram(
+                            "index_batch_size",
+                            float(len(batch)),
+                            root=str(root.path),
+                        )
                     files_indexed += indexed
                     if indexed:
                         increment_counter("files_indexed", indexed, root=str(root.path))
