@@ -87,6 +87,10 @@ def default_crash_dir() -> Path:
     return default_state_dir() / "crashes"
 
 
+def current_timestamp() -> str:
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+
+
 def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
     logger.remove()
     logger.add(sys.stderr, level=level.upper())
@@ -103,7 +107,16 @@ def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None
             effective_log_path = default_log_path()
     target = effective_log_path.expanduser()
     target.parent.mkdir(parents=True, exist_ok=True)
-    logger.add(target, rotation="5 MB", retention=5, level=level.upper())
+    logger.add(
+        target,
+        rotation="5 MB",
+        retention=5,
+        enqueue=True,
+        backtrace=True,
+        diagnose=False,
+        format="{time:YYYY-MM-DDTHH:mm:ss.SSS!UTC}Z | {level} | {extra[component]} | {message}",
+        level=level.upper(),
+    )
 
 
 def get_logger(name: str | None = None) -> Any:
@@ -177,12 +190,15 @@ def write_crash_log(
     override_dir = os.environ.get("EODINGA_CRASH_DIR")
     target_dir = (crash_dir or (Path(override_dir) if override_dir else default_crash_dir())).expanduser()
     target_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = current_timestamp()
     crash_path = target_dir / f"crash-{timestamp}.log"
+    if crash_path.exists():
+        crash_path = target_dir / f"crash-{timestamp}-{os.getpid()}.log"
     lines = [
         f"{context}\n",
         f"timestamp={timestamp}\n",
         f"pid={os.getpid()}\n",
+        f"platform={sys.platform}\n",
         f"{type(error).__name__}: {error}\n",
         "\n",
         *traceback.format_exception(type(error), error, error.__traceback__),

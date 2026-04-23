@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import cast
+
+from loguru import logger
 
 from eodinga.common import WatchEvent
 from eodinga.content.base import ParserSpec
@@ -12,6 +15,7 @@ from eodinga.observability import (
     configure_logging,
     default_crash_dir,
     default_log_path,
+    get_logger,
     reset_metrics,
     snapshot_metrics,
     write_crash_log,
@@ -41,6 +45,19 @@ def test_configure_logging_respects_explicit_file_target(tmp_path: Path) -> None
     assert log_path.parent.exists()
 
 
+def test_configure_logging_writes_component_rich_records(tmp_path: Path) -> None:
+    log_path = tmp_path / "logs" / "app.log"
+    configure_logging("INFO", log_path=log_path)
+
+    get_logger("unit-test").info("hello observability")
+    logger.complete()
+
+    contents = log_path.read_text(encoding="utf-8")
+    assert "INFO" in contents
+    assert "unit-test" in contents
+    assert "hello observability" in contents
+
+
 def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> None:
     log_path = tmp_path / "custom" / "override.log"
     monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
@@ -60,6 +77,7 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert "Traceback" in contents
     assert "timestamp=" in contents
     assert "pid=" in contents
+    assert "platform=" in contents
 
 
 def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
@@ -70,6 +88,17 @@ def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
         crash_path = write_crash_log(error, context="env override")
     assert crash_path.parent == tmp_path
     assert "env override" in crash_path.read_text(encoding="utf-8")
+
+
+def test_write_crash_log_avoids_timestamp_collisions(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr("eodinga.observability.current_timestamp", lambda: "20260423T120000Z")
+
+    first = write_crash_log(RuntimeError("first"), crash_dir=tmp_path)
+    second = write_crash_log(RuntimeError("second"), crash_dir=tmp_path)
+
+    assert first.name == "crash-20260423T120000Z.log"
+    assert second.name == f"crash-20260423T120000Z-{os.getpid()}.log"
+    assert "RuntimeError: second" in second.read_text(encoding="utf-8")
 
 
 def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path: Path) -> None:
