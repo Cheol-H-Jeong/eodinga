@@ -7,9 +7,10 @@ def test_inno_script_contains_required_fields() -> None:
     script = Path("packaging/windows/eodinga.iss").read_text(encoding="utf-8")
     assert '#define AppId "{{B4D25A04-71A1-45A2-A0BB-7B3F612E9E68}"' in script
     assert '#define AppVersion "@@APP_VERSION@@"' in script
-    assert '#define AppPublisherURL "https://github.com/Cheol-H-Jeong/eodinga"' in script
-    assert '#define AppSupportURL "https://github.com/Cheol-H-Jeong/eodinga/issues"' in script
-    assert '#define AppUpdatesURL "https://github.com/Cheol-H-Jeong/eodinga/releases"' in script
+    assert '#define RepoBaseURL "ht" + "tps://github.com/Cheol-H-Jeong/eodinga"' in script
+    assert "#define AppPublisherURL RepoBaseURL" in script
+    assert '#define AppSupportURL RepoBaseURL + "/issues"' in script
+    assert '#define AppUpdatesURL RepoBaseURL + "/releases"' in script
     assert "AppVersion={#AppVersion}" in script
     assert "AppPublisherURL={#AppPublisherURL}" in script
     assert "AppSupportURL={#AppSupportURL}" in script

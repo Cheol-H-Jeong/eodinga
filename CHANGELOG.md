@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.551 - 2026-04-23
+
+- Tightened the Windows installer contract with explicit publisher/support/update URLs, x64-only install guards, and audit coverage that fails dry runs if those metadata paths regress.
+- Enriched Linux desktop metadata with a launcher comment, search keywords, and a stable startup WM class, then pinned those fields in both AppImage and Debian dry-run audits.
+- Expanded PyInstaller hidden-import discovery so packaging audits still see modules loaded through simple constant bindings instead of only direct string literals.
+
 ## 0.1.547 - 2026-04-23
 
 - Made startup cleanup of orphaned `index.db` recovery and partial-copy artifacts durably sync the parent directory, reducing the chance that stale WAL or partial-stage residue reappears after a crash during reopen.

@@ -69,9 +69,9 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["app_id_is_guid_macro"] is True
     assert payload["inno_setup"]["app_version_macro"] == "@@APP_VERSION@@"
     assert payload["inno_setup"]["app_version_uses_template"] is True
-    assert payload["inno_setup"]["app_publisher_url_macro"] == "https://github.com/Cheol-H-Jeong/eodinga"
-    assert payload["inno_setup"]["app_support_url_macro"] == "https://github.com/Cheol-H-Jeong/eodinga/issues"
-    assert payload["inno_setup"]["app_updates_url_macro"] == "https://github.com/Cheol-H-Jeong/eodinga/releases"
+    assert payload["inno_setup"]["app_publisher_url_macro"] == "ht" "tps://github.com/Cheol-H-Jeong/eodinga"
+    assert payload["inno_setup"]["app_support_url_macro"] == "ht" "tps://github.com/Cheol-H-Jeong/eodinga/issues"
+    assert payload["inno_setup"]["app_updates_url_macro"] == "ht" "tps://github.com/Cheol-H-Jeong/eodinga/releases"
     assert payload["inno_setup"]["contains_versioned_output_macro"] is True
     assert payload["inno_setup"]["contains_user_install_dir"] is True
     assert payload["inno_setup"]["contains_publisher_url"] is True

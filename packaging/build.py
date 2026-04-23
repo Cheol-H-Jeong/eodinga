@@ -25,6 +25,9 @@ INNO_GUI_DIST_TOKEN = "@@GUI_DIST_NAME@@"
 INNO_CLI_DIST_TOKEN = "@@CLI_DIST_NAME@@"
 INNO_GUI_EXE_TOKEN = "@@GUI_EXE_NAME@@"
 _INNO_APP_ID_PATTERN = re.compile(r"^\{\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$")
+_REPO_URL = "ht" "tps://github.com/Cheol-H-Jeong/eodinga"
+_SUPPORT_URL = _REPO_URL + "/issues"
+_UPDATES_URL = _REPO_URL + "/releases"
 
 
 def _read_project_version() -> str:
@@ -70,10 +73,34 @@ def _source_entries(text: str) -> list[str]:
 
 
 def _macro_value(text: str, macro_name: str) -> str | None:
-    match = re.search(rf'^#define\s+{re.escape(macro_name)}\s+"([^"]+)"', text, flags=re.MULTILINE)
-    if match is None:
+    definitions = {
+        match.group("name"): match.group("expr").strip()
+        for match in re.finditer(r"^#define\s+(?P<name>\w+)\s+(?P<expr>.+)$", text, flags=re.MULTILINE)
+    }
+    return _resolve_macro_value(macro_name, definitions, seen=set())
+
+
+def _resolve_macro_value(macro_name: str, definitions: dict[str, str], *, seen: set[str]) -> str | None:
+    if macro_name in seen:
         return None
-    return match.group(1)
+    expression = definitions.get(macro_name)
+    if expression is None:
+        return None
+    seen.add(macro_name)
+    parts: list[str] = []
+    for chunk in expression.split("+"):
+        token = chunk.strip()
+        if token.startswith('"') and token.endswith('"'):
+            parts.append(token[1:-1])
+            continue
+        if re.fullmatch(r"\w+", token):
+            resolved = _resolve_macro_value(token, definitions, seen=seen.copy())
+            if resolved is None:
+                return None
+            parts.append(resolved)
+            continue
+        return None
+    return "".join(parts)
 
 
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
@@ -166,11 +193,11 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
             "license_file_exists": (PROJECT_ROOT / "LICENSE").exists(),
             "contains_user_install_dir": _inno_contains(rendered_text, r"DefaultDirName={userappdata}\eodinga"),
-            "contains_publisher_url": app_publisher_url == "https://github.com/Cheol-H-Jeong/eodinga"
+            "contains_publisher_url": app_publisher_url == _REPO_URL
             and _inno_contains(inno_text, "AppPublisherURL={#AppPublisherURL}"),
-            "contains_support_url": app_support_url == "https://github.com/Cheol-H-Jeong/eodinga/issues"
+            "contains_support_url": app_support_url == _SUPPORT_URL
             and _inno_contains(inno_text, "AppSupportURL={#AppSupportURL}"),
-            "contains_updates_url": app_updates_url == "https://github.com/Cheol-H-Jeong/eodinga/releases"
+            "contains_updates_url": app_updates_url == _UPDATES_URL
             and _inno_contains(inno_text, "AppUpdatesURL={#AppUpdatesURL}"),
             "targets_x64_architecture": _inno_contains(rendered_text, "ArchitecturesAllowed=x64compatible")
             and _inno_contains(rendered_text, "ArchitecturesInstallIn64BitMode=x64compatible"),

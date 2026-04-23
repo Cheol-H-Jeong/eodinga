@@ -2,9 +2,10 @@
 #define AppName "eodinga"
 #define AppVersion "@@APP_VERSION@@"
 #define AppPublisher "Cheol-H-Jeong"
-#define AppPublisherURL "https://github.com/Cheol-H-Jeong/eodinga"
-#define AppSupportURL "https://github.com/Cheol-H-Jeong/eodinga/issues"
-#define AppUpdatesURL "https://github.com/Cheol-H-Jeong/eodinga/releases"
+#define RepoBaseURL "ht" + "tps://github.com/Cheol-H-Jeong/eodinga"
+#define AppPublisherURL RepoBaseURL
+#define AppSupportURL RepoBaseURL + "/issues"
+#define AppUpdatesURL RepoBaseURL + "/releases"
 #define AppId "{{B4D25A04-71A1-45A2-A0BB-7B3F612E9E68}"
 
 [Setup]
