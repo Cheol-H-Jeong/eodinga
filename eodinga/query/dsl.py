@@ -168,7 +168,8 @@ class _Parser:
                 regex_flags=regex_flags,
                 negated=negated,
             )
-        self._skip_ws()
+        value_start = self.index
+        had_leading_ws = self._skip_ws()
         char = self._peek()
         if char is None:
             raise QuerySyntaxError("expected operator value", self.index)
@@ -176,12 +177,26 @@ class _Parser:
             phrase = self._parse_phrase()
             return OperatorNode(name=name, value=phrase.value, value_kind="phrase", negated=negated)
         if char == "/":
-            regex = self._parse_regex()
+            if had_leading_ws:
+                regex_value = self._read_spaced_regex_value()
+            else:
+                self.index = value_start
+                regex = self._parse_regex()
+                return OperatorNode(
+                    name=name,
+                    value=regex.pattern,
+                    value_kind="regex",
+                    regex_flags=regex.flags,
+                    negated=negated,
+                )
+            value, value_kind, regex_flags = self._decode_inline_value(name, regex_value)
+            if value_kind != "regex":
+                raise QuerySyntaxError("unterminated regex", self.index - len(regex_value))
             return OperatorNode(
                 name=name,
-                value=regex.pattern,
+                value=value,
                 value_kind="regex",
-                regex_flags=regex.flags,
+                regex_flags=regex_flags,
                 negated=negated,
             )
         value = self._read_token()
@@ -260,6 +275,7 @@ class _Parser:
                 name == "path"
                 and value.startswith("/")
                 and (len(delimiters) < 3 or not suffix)
+                and "\\" not in pattern
                 and not self._has_escaped_regex_slash(pattern)
             ):
                 return value, "word", ""
@@ -299,6 +315,33 @@ class _Parser:
                 break
             self.index += 1
         return self.source[start:self.index]
+
+    def _read_spaced_regex_value(self) -> str:
+        start = self.index
+        slash_positions: list[int] = []
+        backslashes = 0
+        while (char := self._peek()) is not None:
+            if char == "\\":
+                backslashes += 1
+                self.index += 1
+                continue
+            if char == "/" and backslashes % 2 == 0:
+                slash_positions.append(self.index)
+            backslashes = 0
+            if char == "|":
+                if self._regex_value_can_end(start, slash_positions, self.index):
+                    break
+            elif char == ")" and self._regex_value_can_end(start, slash_positions, self.index):
+                break
+            elif char.isspace():
+                break
+            self.index += 1
+        return self.source[start:self.index]
+
+    def _regex_value_can_end(self, start: int, slash_positions: list[int], end: int) -> bool:
+        if len(slash_positions) < 2:
+            return False
+        return self.source[slash_positions[-1] + 1 : end].isalpha()
 
     def _maybe_extend_range_value(self, name: str, value: str) -> str:
         if name not in _RANGE_OP_NAMES:

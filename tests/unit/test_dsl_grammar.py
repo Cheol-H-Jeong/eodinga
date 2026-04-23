@@ -203,6 +203,29 @@ def test_parse_slash_prefixed_path_regex_with_valid_flags() -> None:
     assert node.regex_flags == "i"
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_name", "expected_pattern", "expected_flags"),
+    [
+        (r"path: /tmp/log/i", "path", "tmp/log", "i"),
+        (r"content: /회의\/록/[0-9]+/i", "content", r"회의\/록/[0-9]+", "i"),
+        (r"regex: /회의\/록/[0-9]+/im", "regex", r"회의\/록/[0-9]+", "im"),
+    ],
+)
+def test_parse_spaced_operator_regex_values_match_inline_forms(
+    query: str,
+    expected_name: str,
+    expected_pattern: str,
+    expected_flags: str,
+) -> None:
+    node = parse(query)
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == expected_name
+    assert node.value == expected_pattern
+    assert node.value_kind == "regex"
+    assert node.regex_flags == expected_flags
+
+
 def test_parse_content_regex_with_escaped_slash_and_korean_text() -> None:
     node = parse(r"content:/회의록\/초안/ms")
 
