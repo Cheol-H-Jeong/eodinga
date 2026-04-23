@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.966 - 2026-04-24
+## 0.1.970 - 2026-04-24
 
 - Hardened the Windows release audit so the non-dry-run packaging target now fails on non-Windows hosts instead of going green from whatever stale staged artifacts happen to be present locally.
 - Expanded the no-network safety audit to catch wrapper forms such as `env curl ...`, `bash -lc 'curl ...'`, and equivalent exec-style vectors that previously could evade the subprocess scanner.
