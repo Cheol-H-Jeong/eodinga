@@ -50,19 +50,28 @@ def load_specs() -> tuple[ParserSpec, ...]:
     return tuple(specs)
 
 
-def get_spec_for(path: Path) -> ParserSpec | None:
-    suffix = path.suffix.lower().lstrip(".")
-    if not suffix:
-        return None
+def _get_spec_for_suffix(suffix: str) -> ParserSpec | None:
     for spec in load_specs():
         if suffix in spec.extensions:
             return spec
     return None
 
 
+def get_spec_for(path: Path) -> ParserSpec | None:
+    suffix = path.suffix.lower().lstrip(".")
+    if not suffix:
+        return None
+    return _get_spec_for_suffix(suffix)
+
+
 def parse(path: Path, max_body_chars: int) -> ParsedContent:
+    suffix = path.suffix.lower().lstrip(".")
+    if not suffix:
+        increment_counter("parsers.no_extension")
+        return empty_content(path)
     spec = get_spec_for(path)
     if spec is None:
+        increment_counter("parsers.unsupported_extension", extension=suffix)
         return empty_content(path)
     try:
         if file_size(path) > spec.max_bytes:

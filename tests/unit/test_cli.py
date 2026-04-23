@@ -521,6 +521,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["exit_codes"]["0"] == 1
     assert payload["crash_types"] == {}
     assert payload["parser_activity"] == {}
+    assert payload["parser_resolution"] == {}
     assert payload["watcher_event_types"] == {}
     assert len(payload["recent_snapshots"]) == 1
     assert payload["recent_snapshots"][0]["name"] == "command.search"
@@ -666,6 +667,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["exit_codes"]["0"] == 2
     assert payload["crash_types"] == {}
     assert payload["parser_activity"]["broken"]["errors"] == 1
+    assert payload["parser_resolution"] == {}
     assert payload["parser_activity"]["text"]["parsed"] >= 2
     assert payload["watcher_event_types"] == {"created": 1, "modified": 1}
     assert payload["log_rotation"] == "5 MB"
@@ -717,6 +719,7 @@ def test_stats_json_structures_parser_success_and_skip_counts(tmp_path: Path, ca
     assert stats_exit == 0
     payload = json.loads(stats_output.out)
     assert payload["parser_activity"]["tracked"] == {"parsed": 1, "skipped_too_large": 1}
+    assert payload["parser_resolution"] == {}
     assert payload["counters"]["parsers.tracked.parsed"] == 1
     assert payload["counters"]["parsers.tracked.skipped_too_large"] == 1
 
@@ -743,6 +746,7 @@ def test_stats_json_exposes_zero_result_query_metrics(tmp_path: Path, capsys) ->
     assert payload["counters"]["queries_zero_results"] == 1
     assert "queries_truncated" not in payload["counters"]
     assert payload["parser_activity"] == {}
+    assert payload["parser_resolution"] == {}
     assert payload["watcher_event_types"] == {}
 
 
@@ -924,6 +928,25 @@ def test_stats_json_summarizes_watcher_failure_stages(tmp_path: Path, capsys) ->
     assert payload["watcher_startup_rollbacks"] == 1
     assert payload["watcher_failure_stages"] == {"schedule": 1}
     assert payload["watcher_cleanup_failure_stages"] == {"join": 1, "stop": 1}
+
+
+def test_stats_json_summarizes_parser_resolution_counters(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+    increment_counter("parsers.no_extension")
+    increment_counter("parsers.unsupported_extension")
+    increment_counter("parsers.entrypoint_load_error")
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["parser_resolution"] == {
+        "entrypoint_load_error": 1,
+        "no_extension": 1,
+        "unsupported_extension": 1,
+    }
 
 
 def test_stats_json_structures_interrupted_command_counts(

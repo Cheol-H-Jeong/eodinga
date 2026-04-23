@@ -144,6 +144,7 @@ class StatsSnapshot(BaseModel):
     exit_codes: dict[str, int] = Field(default_factory=dict)
     crash_types: dict[str, int] = Field(default_factory=dict)
     parser_activity: dict[str, dict[str, int]] = Field(default_factory=dict)
+    parser_resolution: dict[str, int] = Field(default_factory=dict)
     watcher_event_types: dict[str, int] = Field(default_factory=dict)
     watcher_failure_stages: dict[str, int] = Field(default_factory=dict)
     watcher_cleanup_failure_stages: dict[str, int] = Field(default_factory=dict)

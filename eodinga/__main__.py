@@ -248,6 +248,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         exit_codes=_exit_code_summary(counters),
         crash_types=_crash_type_summary(counters),
         parser_activity=_parser_activity_summary(counters),
+        parser_resolution=_parser_resolution_summary(counters),
         watcher_event_types=_watcher_event_type_summary(counters),
         watcher_failure_stages=_watcher_failure_stage_summary(counters),
         watcher_cleanup_failure_stages=_watcher_cleanup_failure_stage_summary(counters),
@@ -411,6 +412,14 @@ def _parser_activity_summary(counters: dict[str, int]) -> dict[str, dict[str, in
     return dict(
         sorted((name, dict(sorted(statuses.items()))) for name, statuses in parser_activity.items())
     )
+
+
+def _parser_resolution_summary(counters: dict[str, int]) -> dict[str, int]:
+    keys = ("entrypoint_load_error", "no_extension", "unsupported_extension")
+    parser_resolution = {
+        key: counters[f"parsers.{key}"] for key in keys if f"parsers.{key}" in counters
+    }
+    return dict(sorted(parser_resolution.items()))
 
 
 def _watcher_event_type_summary(counters: dict[str, int]) -> dict[str, int]:

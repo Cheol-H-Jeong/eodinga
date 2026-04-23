@@ -345,6 +345,28 @@ def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path:
     assert counters["parsers.broken.error"] == 1
 
 
+def test_parse_without_extension_increments_resolution_counter(tmp_path: Path) -> None:
+    plain = tmp_path / "README"
+    plain.write_text("plain text", encoding="utf-8")
+    reset_metrics()
+
+    parse(plain, max_body_chars=128)
+
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["parsers.no_extension"] == 1
+
+
+def test_parse_with_unsupported_extension_increments_resolution_counter(tmp_path: Path) -> None:
+    unknown = tmp_path / "archive.xyzzy"
+    unknown.write_text("mystery", encoding="utf-8")
+    reset_metrics()
+
+    parse(unknown, max_body_chars=128)
+
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["parsers.unsupported_extension"] == 1
+
+
 def test_parser_success_counter_increments_for_successful_parse(monkeypatch, tmp_path: Path) -> None:
     document = tmp_path / "ok.txt"
     document.write_text("hello parser", encoding="utf-8")
