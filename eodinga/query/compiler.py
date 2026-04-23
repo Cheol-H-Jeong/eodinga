@@ -204,6 +204,10 @@ def _duplicate_clause(negated: bool) -> str:
     return f"NOT ({clause})" if negated else clause
 
 
+def _normalize_extension(value: str) -> str:
+    return value.strip().lower().removeprefix(".")
+
+
 def _empty_clause(negated: bool) -> str:
     clause = (
         "("
@@ -301,7 +305,7 @@ def _compile_branch(
         if term.name == "ext":
             comparator = "!=" if term.negated else "="
             where_parts.append(f"files.ext {comparator} ?")
-            where_params.append(term.value.lower())
+            where_params.append(_normalize_extension(term.value))
             continue
         if term.name in {"date", "modified", "created"}:
             range_bounds = parse_date_range(term.value)
