@@ -78,6 +78,23 @@ def test_writer_caches_chunk_shaped_sql_templates() -> None:
     assert writer_module._select_existing_content_rows_sql.cache_info().hits >= 1
 
 
+def test_writer_in_clause_chunk_size_uses_connection_variable_limit() -> None:
+    class FakeConnection:
+        def getlimit(self, category: int) -> int:
+            assert category == sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER
+            return 64
+
+    assert writer_module._in_clause_chunk_size(FakeConnection()) == 56
+
+
+def test_writer_in_clause_chunk_size_falls_back_when_getlimit_fails() -> None:
+    class FakeConnection:
+        def getlimit(self, _category: int) -> int:
+            raise OverflowError("unsupported")
+
+    assert writer_module._in_clause_chunk_size(FakeConnection()) == 991
+
+
 def test_writer_without_parser_skips_content_queries(tmp_db: Path, tmp_path: Path) -> None:
     conn = sqlite3.connect(tmp_db)
     conn.execute(

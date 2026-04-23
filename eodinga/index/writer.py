@@ -14,6 +14,9 @@ from eodinga.index.schema import apply_schema, current_schema_version
 ParserCallback = Callable[[Path], ParsedContent | None]
 RecordLoader = Callable[[Path], FileRecord | None]
 T = TypeVar("T")
+DEFAULT_SQLITE_VARIABLE_LIMIT = 999
+SQLITE_VARIABLE_HEADROOM = 8
+MAX_IN_CLAUSE_CHUNK_SIZE = 2000
 
 
 class ExistingContentRow(NamedTuple):
@@ -40,7 +43,7 @@ def _record_tuple(record: FileRecord) -> tuple[object, ...]:
     )
 
 
-def _chunked(values: Sequence[T], size: int = 500) -> Iterable[Sequence[T]]:
+def _chunked(values: Sequence[T], size: int) -> Iterable[Sequence[T]]:
     for start in range(0, len(values), size):
         yield values[start : start + size]
 
@@ -49,6 +52,21 @@ def _materialize_records(records: Iterable[FileRecord]) -> Sequence[FileRecord]:
     if isinstance(records, (list, tuple)):
         return records
     return tuple(records)
+
+
+def _sqlite_variable_limit(conn: sqlite3.Connection) -> int:
+    getlimit = getattr(conn, "getlimit", None)
+    if getlimit is None:
+        return DEFAULT_SQLITE_VARIABLE_LIMIT
+    try:
+        return max(1, int(getlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER)))
+    except (AttributeError, OverflowError, TypeError, ValueError):
+        return DEFAULT_SQLITE_VARIABLE_LIMIT
+
+
+def _in_clause_chunk_size(conn: sqlite3.Connection) -> int:
+    limit = _sqlite_variable_limit(conn) - SQLITE_VARIABLE_HEADROOM
+    return max(1, min(limit, MAX_IN_CLAUSE_CHUNK_SIZE))
 
 
 @lru_cache(maxsize=16)
@@ -183,7 +201,8 @@ class IndexWriter:
         if not unique_paths:
             return 0
         deleted = 0
-        for chunk in _chunked(unique_paths):
+        chunk_size = _in_clause_chunk_size(self._conn)
+        for chunk in _chunked(unique_paths, chunk_size):
             rows = self._conn.execute(
                 _select_deleted_content_rowids_sql(len(chunk)),
                 tuple(chunk),
@@ -284,7 +303,8 @@ class IndexWriter:
 
     def _select_existing_content_rows(self, paths: Sequence[str]) -> dict[str, ExistingContentRow]:
         results: dict[str, ExistingContentRow] = {}
-        for chunk in _chunked(paths):
+        chunk_size = _in_clause_chunk_size(self._conn)
+        for chunk in _chunked(paths, chunk_size):
             rows = self._conn.execute(
                 _select_existing_content_rows_sql(len(chunk)),
                 tuple(chunk),
@@ -307,7 +327,8 @@ class IndexWriter:
         return next_rowid
 
     def _delete_content_rows(self, rowids: Sequence[int]) -> None:
-        for chunk in _chunked(tuple(dict.fromkeys(rowids))):
+        chunk_size = _in_clause_chunk_size(self._conn)
+        for chunk in _chunked(tuple(dict.fromkeys(rowids)), chunk_size):
             self._conn.execute(
                 _delete_content_rows_sql(len(chunk)),
                 tuple(chunk),

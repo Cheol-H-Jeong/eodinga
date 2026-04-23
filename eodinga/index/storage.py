@@ -9,7 +9,7 @@ from eodinga.index.migrations import migrate
 from eodinga.index.schema import PRAGMAS, current_schema_version
 from eodinga.observability import get_logger
 
-SQLITE_CACHED_STATEMENTS = 128
+SQLITE_CACHED_STATEMENTS = 512
 
 
 def _sidecar(path: Path, suffix: str) -> Path:
