@@ -378,6 +378,31 @@ def test_recover_stale_wal_does_not_publish_partial_stage_on_copy_failure(
     assert not partial.with_name(".index.db.recover.partial-shm").exists()
 
 
+def test_recover_stale_wal_cleans_orphaned_partial_stage_before_retry(tmp_path: Path) -> None:
+    source = tmp_path / "source.db"
+    path = tmp_path / "index.db"
+    conn = sqlite3.connect(source)
+    apply_schema(conn)
+    conn.execute("PRAGMA wal_autocheckpoint=0;")
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/recovered", "[]", "[]", 1),
+    )
+    conn.commit()
+    _make_recovery_snapshot(source, path)
+    conn.close()
+
+    partial = tmp_path / ".index.db.recover.partial"
+    partial.write_bytes(b"orphaned")
+    partial.with_name(".index.db.recover.partial-wal").write_bytes(b"orphaned")
+    partial.with_name(".index.db.recover.partial-shm").write_bytes(b"orphaned")
+
+    assert recover_stale_wal(path) is True
+    assert not partial.exists()
+    assert not partial.with_name(".index.db.recover.partial-wal").exists()
+    assert not partial.with_name(".index.db.recover.partial-shm").exists()
+
+
 def test_open_index_raises_when_stale_wal_recovery_fails(tmp_path: Path, monkeypatch) -> None:
     path = tmp_path / "index.db"
     conn = sqlite3.connect(path)
