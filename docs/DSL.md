@@ -54,7 +54,8 @@ regex:/launch|ship/i path:docs
 - `date:`, `modified:`, and `created:` accept `today`, `yesterday`, `this-week`, `this-month`, a single ISO date, open-ended ISO ranges, full ISO ranges, and exact ISO datetimes.
 - `size:` comparisons use binary suffixes, so `10M` means `10 * 1024 * 1024` bytes.
 - `is:duplicate` matches entries that share a content hash with at least one other indexed file.
-- `is:file`, `is:dir`, `is:symlink`, and `is:empty` are also available for structural filtering.
+- `is:file` matches regular files only, `is:dir` matches non-symlink directories only, and `is:symlink` remains available when you want the link entries themselves.
+- `is:empty` matches zero-byte files and directories with no indexed descendants.
 - `regex:true` only changes how plain terms are interpreted; explicit `/pattern/flags` literals still work without it.
 - Negation applies to the next term or the entire parenthesized group.
 

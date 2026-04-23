@@ -77,7 +77,7 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 
 ## Feature Inventory
 
-- Query language: plain terms, phrases, grouped OR branches, negation, regex literals, date macros, size ranges, and structural filters such as `is:file` or `is:duplicate`.
+- Query language: plain terms, phrases, grouped OR branches, negation, regex literals, date macros, size ranges, and structural filters such as regular-file `is:file`, directory `is:dir`, or `is:duplicate`.
 - Search ranking: shared lexical ranking across CLI, GUI, and launcher with filename/path/content blending plus stable tie handling.
 - Content extraction: optional parser-backed indexing for Office documents, PDF, EPUB, HTML, HWP, and common text/source formats.
 - Runtime freshness: staged rebuilds for cold start plus watchdog-backed incremental updates for steady-state changes.
@@ -154,6 +154,7 @@ eodinga doctor
 - `date:yesterday is:duplicate` : relative date plus duplicate detection
 - `is:empty -is:dir` : empty files only
 - `created:2026-04-23` : creation-time filter
+- `is:file -is:empty` : non-empty regular files only
 - `regex:true report-\\d+` : treat plain terms as regex
 - `regex:/todo|fixme/i` : regex search
 - `ext:py | ext:rs` : OR
@@ -175,6 +176,7 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Match one instant | `modified:2026-04-23T09:15:30+00:00` |
 | Find size ranges | `size:100K..500K` |
 | Find empty files only | `is:empty -is:dir` |
+| Find regular files only | `is:file` |
 | Find duplicates | `is:duplicate` |
 | Find the previous calendar month | `date:last-month ext:pdf` |
 | Exclude noisy trees | `-path:node_modules` |
