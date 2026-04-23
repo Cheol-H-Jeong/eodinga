@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.537 - 2026-04-23
+## 0.1.538 - 2026-04-23
 
 - Clamped restored launcher popup geometry back onto the available screen, so saved window positions from old monitor layouts no longer reopen off-screen or oversize the popup past the current desktop bounds.
 - Centered the launcher on first show when no saved position exists, using the live widget size rather than the raw configured size so the popup lands predictably even when Qt expands it to satisfy layout minimums.
