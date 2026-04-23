@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.987 - 2026-04-24
+## 0.1.988 - 2026-04-24
 
 - Added an `Alt+P` launcher shortcut to pin and unpin the current query, and surfaced that workflow through the empty state and keyboard guidance so saved searches are easier to discover without leaving the keyboard.
 - Persisted pinned queries through the shared launcher state, so the popup launcher and embedded search tab stay synchronized and saved pins survive config reloads.
