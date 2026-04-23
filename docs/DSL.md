@@ -10,7 +10,7 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 | extension | Restrict by file extension | `ext:pdf invoice` |
 | path filter | Restrict to a path substring | `path:projects release` |
 | content filter | Require parsed document text | `content:"launch checklist"` |
-| size filter | Compare byte size with `B/K/M/G/T` suffixes | `size:>10M` |
+| size filter | Compare byte size with `B/K/M/G/T` suffixes or one-sided ranges | `size:>10M` |
 | date filter | Relative or ISO date windows | `date:this-week` |
 | timestamp alias | Target modified or created timestamps directly | `modified:today`, `created:2026-04-23` |
 | type filter | File, dir, symlink, or duplicate | `is:duplicate` |
@@ -36,6 +36,7 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 ```text
 ext:pdf content:"release notes"
 size:>10M date:this-month
+size:..500K -path:archive
 modified:today created:2026-04-23
 date:2026-04-01.. modified:..2026-04-23
 modified:2026-04-23T09:15:30+00:00
@@ -50,7 +51,7 @@ regex:/launch|ship/i path:docs
 - Path/name terms are case-insensitive unless `case:true` is set.
 - Content operators only match indexed document text; unsupported files fall back to filename/path search.
 - `date:`, `modified:`, and `created:` accept `today`, `yesterday`, `this-week`, `this-month`, a single ISO date, open-ended ISO ranges, full ISO ranges, and exact ISO datetimes.
-- `size:` comparisons use binary suffixes, so `10M` means `10 * 1024 * 1024` bytes.
+- `size:` comparisons use binary suffixes, so `10M` means `10 * 1024 * 1024` bytes; bounded and open-ended ranges such as `100K..500K`, `100K..`, and `..500K` are supported.
 - `is:duplicate` matches entries that share a content hash with at least one other indexed file.
 - `regex:true` only changes how plain terms are interpreted; explicit `/pattern/flags` literals still work without it.
 - Negation applies to the next term or the entire parenthesized group.

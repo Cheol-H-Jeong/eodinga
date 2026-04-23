@@ -109,6 +109,7 @@ eodinga doctor
 - `path:projects content:"design review"` : path and content filters
 - `size:>10M modified:today` : size and date filters
 - `size:100K..500K date:last-month` : bounded range plus date macro
+- `size:..500K -path:archive` : open-ended size range
 - `date:2026-04-01.. modified:..2026-04-23` : open-ended ISO ranges
 - `modified:2026-04-23T09:15:30+00:00` : exact ISO datetime filter
 - `date:yesterday is:duplicate` : relative date plus duplicate detection
@@ -134,6 +135,7 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Stop at an ISO date | `created:..2026-04-23` |
 | Match one instant | `modified:2026-04-23T09:15:30+00:00` |
 | Find size ranges | `size:100K..500K` |
+| Set only a maximum size | `size:..500K` |
 | Find empty files only | `is:empty -is:dir` |
 | Find duplicates | `is:duplicate` |
 | Find the previous calendar month | `date:last-month ext:pdf` |
