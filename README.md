@@ -183,6 +183,8 @@ eodinga doctor
 - `-(invoice | receipt) ext:pdf` : group negation
 - `(invoice | receipt) ext:pdf` : grouping
 
+Equivalent alias spellings are accepted, but launcher filter chips and cached query shapes normalize them to canonical forms such as `date:last-month`, `is:dir`, `case:true`, `regex:true`, and sorted regex flags like `/todo|fixme/im`.
+
 Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md).
 
 ## DSL Cheatsheet

@@ -60,6 +60,7 @@ regex:/launch|ship/i path:docs
 - `is:empty` matches zero-byte files and directories with no indexed descendants.
 - `regex:true` only changes how plain terms are interpreted; explicit `/pattern/flags` literals still work without it.
 - `regex:/pattern/flags` is an explicit alias for a path/name regex term when you want the query to read like an operator list.
+- Alias spellings such as `date:previous_month`, `is:folder`, `regex:on`, and `/todo|fixme/mi` are accepted, but UI summaries and compile-cache keys normalize them to `date:last-month`, `is:dir`, `regex:true`, and `/todo|fixme/im`.
 - Negation applies to the next term or the entire parenthesized group.
 
 ## Practical Limits
