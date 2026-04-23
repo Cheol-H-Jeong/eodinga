@@ -10,6 +10,7 @@ import pytest
 
 from eodinga.query import executor as executor_module
 from eodinga.query import search
+from eodinga.query.sql_cache import CONTENT_TEXT_BATCH_SIZE
 
 
 def _insert_file(
@@ -177,6 +178,44 @@ def test_content_snippet_is_present(populated_db: sqlite3.Connection) -> None:
     result = search(populated_db, "content:launch", limit=5)
     assert result.hits[0].snippet is not None
     assert "launch" in result.hits[0].snippet.lower()
+
+
+def test_fetch_content_texts_uses_bounded_statement_sizes(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    total = CONTENT_TEXT_BATCH_SIZE * 2 + 5
+    for index in range(1, total + 1):
+        _insert_file(
+            tmp_db,
+            index,
+            f"/workspace/content/doc-{index:03d}.txt",
+            256,
+            now + index,
+            "txt",
+            body_text=f"payload {index}",
+        )
+    tmp_db.commit()
+
+    chunk_sizes: list[int] = []
+    original_render = executor_module.render_content_texts_sql
+
+    def tracking_render(chunk_size: int) -> str:
+        chunk_sizes.append(chunk_size)
+        return original_render(chunk_size)
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(executor_module, "render_content_texts_sql", tracking_render)
+    try:
+        texts = executor_module._fetch_content_texts(tmp_db, range(1, total + 1))
+    finally:
+        monkeypatch.undo()
+
+    assert len(texts) == total
+    assert max(chunk_sizes) == CONTENT_TEXT_BATCH_SIZE
+    assert chunk_sizes == [
+        CONTENT_TEXT_BATCH_SIZE,
+        CONTENT_TEXT_BATCH_SIZE,
+        5,
+    ]
 
 
 def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
@@ -605,31 +644,31 @@ def test_execute_decomposed_korean_path_filter_matches_nfc_paths(
 
 
 def test_execute_reuses_cached_sql_shapes_for_name_queries(populated_db: sqlite3.Connection) -> None:
-    executor_module._path_candidates_fts_sql.cache_clear()
-    executor_module._path_candidates_scan_sql.cache_clear()
-    executor_module._record_batch_sql.cache_clear()
+    executor_module.render_path_candidates_fts_sql.cache_clear()
+    executor_module.render_path_candidates_scan_sql.cache_clear()
+    executor_module.render_record_batch_sql.cache_clear()
 
     first = search(populated_db, "doc-001", limit=5)
     second = search(populated_db, "doc-002", limit=5)
 
     assert first.hits
     assert second.hits
-    assert executor_module._path_candidates_fts_sql.cache_info().hits >= 1
+    assert executor_module.render_path_candidates_fts_sql.cache_info().hits >= 1
 
 
 def test_execute_reuses_cached_sql_shapes_for_content_queries(
     populated_db: sqlite3.Connection,
 ) -> None:
-    executor_module._content_candidates_sql.cache_clear()
-    executor_module._auto_content_candidates_sql.cache_clear()
-    executor_module._content_backfill_sql.cache_clear()
+    executor_module.render_content_candidates_sql.cache_clear()
+    executor_module.render_auto_content_candidates_sql.cache_clear()
+    executor_module.render_content_backfill_sql.cache_clear()
 
     first = search(populated_db, "content:launch", limit=5)
     second = search(populated_db, 'content:"alpha project 20"', limit=5)
 
     assert first.hits
     assert second.hits
-    assert executor_module._content_candidates_sql.cache_info().hits >= 1
+    assert executor_module.render_content_candidates_sql.cache_info().hits >= 1
 
 
 def test_execute_path_filter_with_short_unix_basename_literal(tmp_db: sqlite3.Connection) -> None:
@@ -1316,14 +1355,14 @@ def test_plain_query_can_fall_back_to_content_matches(tmp_db: sqlite3.Connection
 
 
 def test_executor_caches_content_text_sql_templates_by_chunk_size() -> None:
-    executor_module._content_texts_sql.cache_clear()
+    executor_module.render_content_texts_sql.cache_clear()
 
-    executor_module._content_texts_sql(2)
-    executor_module._content_texts_sql(2)
-    executor_module._content_texts_sql(3)
-    executor_module._content_texts_sql(3)
+    executor_module.render_content_texts_sql(2)
+    executor_module.render_content_texts_sql(2)
+    executor_module.render_content_texts_sql(3)
+    executor_module.render_content_texts_sql(3)
 
-    cache_info = executor_module._content_texts_sql.cache_info()
+    cache_info = executor_module.render_content_texts_sql.cache_info()
     assert cache_info.hits >= 2
     assert cache_info.currsize == 2
 
