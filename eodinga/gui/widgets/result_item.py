@@ -175,6 +175,10 @@ def _spans_for_rule(text: str, rule: _HighlightRule) -> list[tuple[int, int]]:
     return [span for span in spans if span[0] != span[1]]
 
 
+def _render_mark(text: str) -> str:
+    return f"<mark><strong>{escape(text)}</strong></mark>"
+
+
 def highlight_text(text: str, query: str, *, target: str = "name") -> str:
     rules = tuple(rule for rule in _highlight_rules(query) if target in rule.targets)
     if not rules:
@@ -191,7 +195,7 @@ def highlight_text(text: str, query: str, *, target: str = "name") -> str:
         if start < cursor:
             continue
         parts.append(escape(text[cursor:start]))
-        parts.append(f"<mark>{escape(text[start:end])}</mark>")
+        parts.append(_render_mark(text[start:end]))
         cursor = end
     parts.append(escape(text[cursor:]))
     return "".join(parts)
@@ -210,7 +214,7 @@ def _highlight_fts_snippet(snippet: str) -> str:
             parts.append(escape(snippet[cursor:]))
             break
         parts.append(escape(snippet[cursor:start]))
-        parts.append(f"<mark>{escape(snippet[start + 1:end])}</mark>")
+        parts.append(_render_mark(snippet[start + 1:end]))
         cursor = end + 1
     return "".join(parts)
 
