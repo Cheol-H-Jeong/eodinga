@@ -393,6 +393,35 @@ def test_search_reports_invalid_semantic_query_cleanly(
     assert expected_message in result.stderr
 
 
+def test_invalid_search_query_increments_query_error_metrics(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    search_exit = main(["--db", str(db_path), "search", "content:", "--json"])
+    search_output = capsys.readouterr()
+    assert search_exit == 2
+    assert "expected operator value" in search_output.err
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["query_errors"] == 1
+    assert payload["query_error_types"] == {"QuerySyntaxError": 1}
+    assert payload["queries_served"] == 0
+    assert payload["commands_failed"] == 1
+    assert payload["counters"]["query_errors"] == 1
+    assert payload["counters"]["query_errors.QuerySyntaxError"] == 1
+    assert payload["counters"]["commands.search.failed"] == 1
+    assert [entry["name"] for entry in payload["recent_snapshots"]] == [
+        "command.search.error",
+        "command.failure",
+    ]
+    assert payload["recent_snapshots"][0]["payload"]["error_type"] == "QuerySyntaxError"
+    assert payload["recent_snapshots"][1]["payload"]["command"] == "search"
+
+
 def test_search_accepts_is_aliases(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
@@ -488,6 +517,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["files_indexed"] == 3
     assert payload["documents_indexed"] == 3
     assert payload["queries_served"] == 1
+    assert payload["query_errors"] == 0
     assert payload["queries_zero_results"] == 0
     assert payload["queries_truncated"] == 0
     assert payload["parser_errors"] == 0
@@ -523,6 +553,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 1
     assert payload["crash_types"] == {}
+    assert payload["query_error_types"] == {}
     assert payload["parser_activity"] == {}
     assert payload["watcher_event_types"] == {}
     assert len(payload["recent_snapshots"]) == 1
@@ -625,6 +656,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["histograms"]["parser_latency_ms"]["count"] >= 2
     assert payload["histograms"]["parser_failure_latency_ms"]["count"] == 1
     assert payload["counters"]["queries_served"] == 1
+    assert "query_errors" not in payload["counters"]
     assert "queries_zero_results" not in payload["counters"]
     assert payload["counters"]["queries_truncated"] == 1
     assert payload["counters"]["watcher_events"] == 2
@@ -667,6 +699,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 2
     assert payload["crash_types"] == {}
+    assert payload["query_error_types"] == {}
     assert payload["parser_activity"]["broken"]["errors"] == 1
     assert payload["parser_activity"]["text"]["parsed"] >= 2
     assert payload["watcher_event_types"] == {"created": 1, "modified": 1}
@@ -936,7 +969,11 @@ def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> 
     assert payload["commands"]["search"]["failed"] == 1
     assert payload["commands"]["search"]["started"] == 1
     assert payload["exit_codes"]["2"] == 1
-    assert len(payload["recent_snapshots"]) == 1
-    assert payload["recent_snapshots"][0]["name"] == "command.failure"
-    assert payload["recent_snapshots"][0]["payload"]["command"] == "search"
-    assert payload["recent_snapshots"][0]["payload"]["reason"] == "nonzero_exit"
+    assert [entry["name"] for entry in payload["recent_snapshots"]] == [
+        "command.search.error",
+        "command.failure",
+    ]
+    assert payload["recent_snapshots"][0]["payload"]["query"] == "date:invalid"
+    assert payload["recent_snapshots"][0]["payload"]["error_type"] == "QuerySyntaxError"
+    assert payload["recent_snapshots"][1]["payload"]["command"] == "search"
+    assert payload["recent_snapshots"][1]["payload"]["reason"] == "nonzero_exit"
