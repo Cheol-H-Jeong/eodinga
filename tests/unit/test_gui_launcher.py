@@ -314,6 +314,44 @@ def test_launcher_shows_clickable_pinned_and_recent_query_chips(qapp) -> None:
     assert [button.text() for button in launcher.recent_queries_row.buttons] == ["budget", "release notes"]
 
 
+def test_launcher_surfaces_active_filter_chips_from_query(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(items=[], total=0, elapsed_ms=1.0)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText('report ext:pdf date:"this week" -path:/tmp/archive/')
+    _wait(60)
+
+    assert launcher.active_filters_row.isVisible()
+    assert [button.text() for button in launcher.active_filters_row.buttons] == [
+        "ext:pdf",
+        'date:"this week"',
+        "-path:/tmp/archive/",
+    ]
+    assert "Active filters: ext:pdf, date:\"this week\", -path:/tmp/archive/." in launcher.empty_state.body_label.text()
+
+
+def test_launcher_active_filter_chip_click_replaces_query(qapp) -> None:
+    calls: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        calls.append(query)
+        return QueryResult(items=[], total=0, elapsed_ms=1.0)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("release ext:pdf size:>10M")
+    _wait(60)
+
+    launcher.active_filters_row.buttons[1].click()
+
+    assert launcher.query_field.text() == "size:>10M"
+    assert calls[-1] == "size:>10M"
+
+
 def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
     calls: list[str] = []
     state = LauncherState(pinned_queries=["ext:pdf"])
@@ -713,6 +751,8 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
 
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
+    assert launcher.active_filters_row.accessibleName() == "Active launcher filters"
+    assert launcher.active_filters_row.buttons == []
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"

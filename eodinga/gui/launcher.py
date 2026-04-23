@@ -20,8 +20,53 @@ from eodinga.gui.widgets import (
     StatusChip,
 )
 from eodinga.observability import get_logger
+from eodinga.query.dsl import AndNode, AstNode, NotNode, OperatorNode, OrNode, PhraseNode, RegexNode, WordNode, parse
 
 SearchFn = Callable[[str, int], QueryResult]
+
+
+def _format_filter_chip(node: OperatorNode) -> str:
+    prefix = "-" if node.negated else ""
+    if node.value_kind == "phrase":
+        value = f'"{node.value}"'
+    elif node.value_kind == "regex":
+        value = f"/{node.value}/{node.regex_flags}"
+    else:
+        value = node.value
+    return f"{prefix}{node.name}:{value}"
+
+
+def _collect_filter_chips(node: AstNode) -> list[str]:
+    if isinstance(node, OperatorNode):
+        return [_format_filter_chip(node)]
+    if isinstance(node, NotNode):
+        if isinstance(node.clause, OperatorNode):
+            operator = node.clause.model_copy(update={"negated": True})
+            return [_format_filter_chip(operator)]
+        return []
+    if isinstance(node, (AndNode, OrNode)):
+        chips: list[str] = []
+        for clause in node.clauses:
+            chips.extend(_collect_filter_chips(clause))
+        return chips
+    if isinstance(node, (PhraseNode, RegexNode, WordNode)):
+        return []
+    return []
+
+
+def active_filter_chips(query: str) -> list[str]:
+    normalized = query.strip()
+    if not normalized:
+        return []
+    try:
+        parsed = parse(normalized)
+    except Exception:
+        return []
+    chips: list[str] = []
+    for chip in _collect_filter_chips(parsed):
+        if chip not in chips:
+            chips.append(chip)
+    return chips
 
 
 class LauncherPanel(QWidget):
@@ -55,6 +100,12 @@ class LauncherPanel(QWidget):
 
         self.query_field = SearchField(parent=self)
         self.query_field.setAccessibleName("Launcher search field")
+        self.active_filters_row = QueryChipRow(
+            "Filters",
+            accessible_name="Active launcher filters",
+            on_chip_clicked=self._apply_query_chip,
+            parent=self,
+        )
         self.pinned_queries_row = QueryChipRow(
             "Pinned",
             accessible_name="Pinned launcher queries",
@@ -99,6 +150,7 @@ class LauncherPanel(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
+        layout.addWidget(self.active_filters_row)
         layout.addWidget(self.pinned_queries_row)
         layout.addWidget(self.recent_queries_row)
 
@@ -281,6 +333,7 @@ class LauncherPanel(QWidget):
             self._state.remember_query(query)
         self._skip_remember_query = False
         self.model.set_items(self._latest_result.items, query)
+        self.active_filters_row.set_queries(active_filter_chips(query)[:5])
         self._refresh_status_footer()
         self._restore_selection(previous_hit)
         self._refresh_empty_state()
@@ -308,6 +361,7 @@ class LauncherPanel(QWidget):
     def _refresh_empty_state(self) -> None:
         has_results = self.model.rowCount() > 0
         query = self.query_field.text().strip()
+        active_filters = active_filter_chips(query)
         details = format_indexing_status(self._indexing_status)
         if not query:
             recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
@@ -318,9 +372,13 @@ class LauncherPanel(QWidget):
                 details,
             )
         else:
+            filter_hint = ""
+            if active_filters:
+                filter_hint = f" Active filters: {', '.join(active_filters[:3])}."
             self.empty_state.set_content(
                 f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Tab to jump back to the filter or Esc to hide the launcher.",
+                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M."
+                f"{filter_hint} Press Tab to jump back to the filter or Esc to hide the launcher.",
                 details,
             )
         self.empty_state.setVisible(not has_results)
