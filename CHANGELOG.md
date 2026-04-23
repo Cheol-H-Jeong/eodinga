@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.809 - 2026-04-23
+
+- Added a scoped SQLite pragma override helper so performance-sensitive write paths can raise cache budgets or relax sync policy temporarily without leaking connection state afterward.
+- Moved steady-state SQLite connections back to `synchronous=FULL`, while staged rebuilds and writer-managed batch writes temporarily switch to faster bulk-write pragmas when SQLite allows it.
+- Added an opt-in content-aware bulk-upsert benchmark and documented the new `EODINGA_PERF_CONTENT_BULK_*` knobs so parser-enabled indexing throughput is tracked separately from metadata-only inserts.
+
 ## 0.1.806 - 2026-04-23
 
 - Preserved watcher move-source suppression across queue backpressure, so a delayed `moved` flush no longer leaks a false follow-up `deleted` event for the retired source path.
