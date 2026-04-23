@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.819 - 2026-04-23
+## 0.1.825 - 2026-04-23
 
 - Declared a stable AppImage recipe output name and target architecture, and moved the launcher shim into the recipe so non-dry-run builds package the same entrypoint contract audited in dry runs.
 - Updated the Linux AppImage build target to invoke `appimage-builder` for real bundle builds, while still emitting the reproducible AppDir tarball and audit manifest used for review.
