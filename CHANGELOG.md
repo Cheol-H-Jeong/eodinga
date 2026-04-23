@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.265 - 2026-04-23
+## 0.1.269 - 2026-04-23
 
 - Tightened `README.md` with install-profile guidance and a task-to-surface routing table so operators can choose the right install extras, runtime surface, and docs validation entry point faster.
 - Deepened `docs/ARCHITECTURE.md` around on-disk runtime state and failure-surface mapping, clarifying where config, staged recovery files, logs, and crash reports live and which command should be run first for each class of issue.
