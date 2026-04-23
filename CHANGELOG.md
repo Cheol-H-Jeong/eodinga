@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.129 - 2026-04-23
+
+- Added `last-week` and `last-month` query macros so relative date filtering can target the previous calendar week and month without requiring manual ISO ranges.
+- Added inclusive `size:min..max` filtering with normalized reversed bounds, so queries such as `size:100K..500K` and `-size:500K..100K` compile and execute predictably.
+- Refreshed the README and DSL cheatsheet examples to document the new relative-date and size-range query forms.
+
 ## 0.1.125 - 2026-04-23
 
 - Split the launcher state and result-model helpers into a dedicated module, bringing the main launcher widget back under the repository's module-size guard without changing its runtime behavior.
