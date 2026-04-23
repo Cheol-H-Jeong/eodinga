@@ -203,7 +203,7 @@ def test_tray_indicator_pause_action_tracks_indexing_phase(qapp) -> None:
     assert not window.tray_indicator.pause_resume_action.isEnabled()
 
 
-def test_tray_indicator_emits_pause_and_resume_requests(qapp) -> None:
+def test_tray_indicator_emits_pause_and_resume_signals(qapp) -> None:
     paused: list[str] = []
     resumed: list[str] = []
     window = EodingaWindow()
