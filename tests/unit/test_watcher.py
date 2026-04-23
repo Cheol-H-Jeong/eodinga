@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from queue import Empty
+from threading import Event, Thread
 from time import monotonic, sleep
 
 import pytest
@@ -647,3 +648,69 @@ def test_watcher_start_ignores_duplicate_root_registration(
 
     assert started == [tmp_path]
     assert stopped == [tmp_path]
+
+
+def test_watcher_flush_waits_for_queue_capacity(tmp_path: Path) -> None:
+    service = WatchService(queue_maxsize=1)
+    first = WatchEvent(
+        event_type="created",
+        path=tmp_path / "first.txt",
+        root_path=tmp_path,
+        happened_at=1.0,
+    )
+    second = WatchEvent(
+        event_type="created",
+        path=tmp_path / "second.txt",
+        root_path=tmp_path,
+        happened_at=2.0,
+    )
+
+    service.queue.put(first)
+    service.record(second)
+
+    flushed = Event()
+
+    def flush() -> None:
+        service._flush_ready(force=True)
+        flushed.set()
+
+    worker = Thread(target=flush, daemon=True)
+    worker.start()
+    sleep(0.1)
+
+    assert flushed.is_set() is False
+    assert service.queue.get_nowait() == first
+
+    worker.join(timeout=0.5)
+    assert flushed.is_set() is True
+    assert service.queue.get_nowait() == second
+
+
+def test_watcher_stop_unblocks_full_queue_flush(tmp_path: Path) -> None:
+    service = WatchService(queue_maxsize=1)
+    first = WatchEvent(
+        event_type="created",
+        path=tmp_path / "first.txt",
+        root_path=tmp_path,
+        happened_at=1.0,
+    )
+    second = WatchEvent(
+        event_type="created",
+        path=tmp_path / "second.txt",
+        root_path=tmp_path,
+        happened_at=2.0,
+    )
+
+    service.queue.put(first)
+    service.record(second)
+
+    worker = Thread(target=lambda: service._flush_ready(force=True), daemon=True)
+    worker.start()
+    sleep(0.1)
+
+    service.stop()
+    worker.join(timeout=0.5)
+
+    assert worker.is_alive() is False
+    with pytest.raises(Empty):
+        service.queue.get_nowait()

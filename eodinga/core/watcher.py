@@ -3,19 +3,22 @@ from __future__ import annotations
 from collections.abc import Callable
 from os import fsdecode
 from pathlib import Path
-from queue import Empty, Queue
+from queue import Empty, Full, Queue
 from threading import Event, Lock, Thread
-from time import monotonic
+from time import monotonic, sleep
 from typing import Protocol
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from eodinga.common import WatchEvent
-from eodinga.observability import increment_counter
+from eodinga.observability import get_logger, increment_counter
 
 _DEBOUNCE_SECONDS = 0.1
 _FLUSH_LIMIT = 500
+_DEFAULT_QUEUE_MAXSIZE = 4096
+_QUEUE_PUT_TIMEOUT_SECONDS = 0.05
+_QUEUE_FULL_WARNING_INTERVAL_SECONDS = 0.25
 
 
 def _event_type_for(event: FileSystemEvent) -> str:
@@ -100,8 +103,8 @@ class _Handler(FileSystemEventHandler):
 
 
 class WatchService:
-    def __init__(self) -> None:
-        self.queue: Queue[WatchEvent] = Queue()
+    def __init__(self, *, queue_maxsize: int = _DEFAULT_QUEUE_MAXSIZE) -> None:
+        self.queue: Queue[WatchEvent] = Queue(maxsize=max(queue_maxsize, 0))
         self._pending: dict[Path, WatchEvent] = {}
         self._retired_sources: dict[Path, set[Path]] = {}
         self._flushed_retired_sources: set[Path] = set()
@@ -110,6 +113,8 @@ class WatchService:
         self._stop = Event()
         self._flush_thread = None
         self._observers: dict[Path, _ManagedObserver] = {}
+        self._logger = get_logger("core.watcher")
+        self._last_queue_full_warning_at = 0.0
 
     def start(self, root: Path) -> None:
         if root in self._observers:
@@ -272,7 +277,30 @@ class WatchService:
                         self._flushed_retired_sources.update(retired_sources)
                     if event.event_type in {"created", "modified", "deleted"}:
                         self._flushed_retired_sources.discard(event.path)
-                    self.queue.put(event)
+                    self._put_event(event)
+
+    def _put_event(self, event: WatchEvent) -> None:
+        while True:
+            try:
+                self.queue.put(event, timeout=_QUEUE_PUT_TIMEOUT_SECONDS)
+                return
+            except Full:
+                if self._stop.is_set():
+                    self._logger.warning(
+                        "watcher queue still full during shutdown; dropping {} for {}",
+                        event.event_type,
+                        event.path,
+                    )
+                    return
+                now = monotonic()
+                if (now - self._last_queue_full_warning_at) >= _QUEUE_FULL_WARNING_INTERVAL_SECONDS:
+                    self._last_queue_full_warning_at = now
+                    self._logger.warning(
+                        "watcher queue full; waiting for consumer to drain events (size={}, pending={})",
+                        self.queue.maxsize,
+                        len(self._pending),
+                    )
+                sleep(0)
 
     def _reset_state(self) -> None:
         with self._lock:
