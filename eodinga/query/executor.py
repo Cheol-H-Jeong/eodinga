@@ -412,6 +412,8 @@ def _fetch_path_candidates_python_scan(
             )
             else 1,
             record.name if branch.case_sensitive else record.name_lower,
+            str(record.path),
+            -1 if record.id is None else record.id,
         ),
     )[:limit]
     ids = [record.id for record in ordered if record.id is not None]

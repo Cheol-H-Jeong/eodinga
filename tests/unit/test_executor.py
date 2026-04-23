@@ -514,6 +514,20 @@ def test_execute_inline_phrase_path_filter_decodes_backslashes(tmp_db: sqlite3.C
     assert hits == [r"C:\workspace\notes\alpha.txt"]
 
 
+def test_execute_unicode_python_path_scan_breaks_equal_name_ties_stably(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/회의록/alpha/report.txt", 512, now, "txt")
+    _insert_file(tmp_db, 2, "/workspace/회의록/beta/report.txt", 512, now, "txt")
+    _insert_file(tmp_db, 3, "/workspace/회의록/gamma/report.txt", 512, now, "txt")
+    tmp_db.commit()
+
+    hits = search(tmp_db, "회의록 report", limit=10).hits
+
+    assert [hit.file.id for hit in hits] == [1, 2, 3]
+
+
 def test_execute_decomposed_korean_content_query_keeps_snippets(
     tmp_db: sqlite3.Connection,
 ) -> None:
