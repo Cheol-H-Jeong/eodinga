@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.537 - 2026-04-23
+## 0.1.541 - 2026-04-23
 
 - Preserved phrase semantics in the query executor's path scan fallback, so bare phrase searches still match decomposed Korean filenames and punctuation-delimited path segments when FTS cannot carry the query.
 - Preserved phrase semantics in the auto-content scan fallback, so bare phrase searches still match decomposed Korean content across punctuation boundaries even when the engine has to rescue the query outside FTS.
