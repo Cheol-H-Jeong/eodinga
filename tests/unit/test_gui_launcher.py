@@ -131,9 +131,10 @@ def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) ->
     assert launcher.result_list.hasFocus()
     assert launcher.result_list.currentIndex().row() == 0
     assert "Ctrl+Enter reveals" in launcher.shortcut_label.text()
+    assert "Home/End jumps" in launcher.shortcut_label.text()
     assert "Up/Down wraps" in launcher.shortcut_label.text()
     assert "PgUp/PgDn jumps" in launcher.shortcut_label.text()
-    assert "Ctrl+L returns to filter" in launcher.shortcut_label.text()
+    assert "Ctrl+A or Ctrl+L returns to filter" in launcher.shortcut_label.text()
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_End)
     assert launcher.result_list.currentIndex().row() == 2
@@ -340,11 +341,14 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "No recent queries yet" in launcher.empty_state.body_label.text()
     assert "Alt+Up" in launcher.empty_state.body_label.text()
     assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
+    assert "Ctrl+A" in launcher.empty_state.body_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
     assert "(20%)" in launcher.empty_state.details_label.text()
     assert launcher.status_chip.text() == "Indexing"
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
-    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Alt+Up recalls recent queries."
+    assert launcher.shortcut_label.text() == (
+        "Type a filename, path, or content term. Ctrl+A selects the full filter. Alt+Up recalls recent queries."
+    )
 
     launcher.query_field.setText("missing")
     _wait(60)
@@ -352,9 +356,11 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.status_chip.text() == "No results"
     assert launcher.empty_state.title_label.text() == 'No results for "missing"'
     assert "date:this-week" in launcher.empty_state.body_label.text()
-    assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
+    assert "Ctrl+A to replace the filter" in launcher.empty_state.body_label.text()
+    assert "Alt+Up to recall a recent query" in launcher.empty_state.body_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
     assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
+    assert "Ctrl+A selects the full filter" in launcher.shortcut_label.text()
     assert "Alt+Up recalls recent queries" in launcher.shortcut_label.text()
 
 
