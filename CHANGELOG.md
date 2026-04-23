@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.154 - 2026-04-23
+## 0.1.159 - 2026-04-23
 
 - Expanded `eodinga stats --json` so it now emits the full in-process counter and histogram snapshots alongside the existing summary fields, making ad hoc diagnostics less dependent on debug logging.
 - Instrumented watcher flush behavior with dedicated counters for forced flushes, backpressure-triggered flushes, and the number of debounced events that were actually enqueued after coalescing.
