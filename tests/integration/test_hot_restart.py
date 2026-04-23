@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from queue import Empty
-from time import monotonic
 
 from eodinga.config import RootConfig
 from eodinga.common import PathRules
@@ -14,51 +12,7 @@ from eodinga.index.storage import has_stale_wal, open_index
 from eodinga.index.writer import IndexWriter
 from eodinga.core.walker import walk_batched
 from eodinga.query import search
-from tests.conftest import make_record
-
-
-def _wait_for_query_hit(
-    conn,
-    service: WatchService,
-    writer: IndexWriter,
-    query: str,
-    expected_path: Path,
-    deadline_seconds: float,
-) -> float:
-    started = monotonic()
-    deadline = started + deadline_seconds
-    while monotonic() < deadline:
-        try:
-            event = service.queue.get(timeout=0.05)
-        except Empty:
-            continue
-        writer.apply_events([event], record_loader=make_record)
-        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
-        if expected_path in hits:
-            return monotonic() - started
-    raise AssertionError(f"{expected_path} did not become query-visible within {deadline_seconds:.3f}s")
-
-
-def _wait_for_query_miss(
-    conn,
-    service: WatchService,
-    writer: IndexWriter,
-    query: str,
-    missing_path: Path,
-    deadline_seconds: float,
-) -> float:
-    started = monotonic()
-    deadline = started + deadline_seconds
-    while monotonic() < deadline:
-        try:
-            event = service.queue.get(timeout=0.05)
-        except Empty:
-            continue
-        writer.apply_events([event], record_loader=make_record)
-        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
-        if missing_path not in hits:
-            return monotonic() - started
-    raise AssertionError(f"{missing_path} remained query-visible after {deadline_seconds:.3f}s")
+from tests.integration._helpers import root_aware_record_loader, wait_for_applied_event
 
 
 def test_hot_restart_recovers_stale_wal_and_preserves_queries(tmp_path: Path) -> None:
@@ -193,18 +147,19 @@ def test_hot_restart_reopen_multi_root_keeps_queries_and_accepts_live_updates(tm
     service = WatchService()
     try:
         writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        record_loader = root_aware_record_loader(reopened)
         service.start(root_a)
         service.start(root_b)
 
         created = root_b / "after-reopen-beta.txt"
         created.write_text("post reopen beta update\n", encoding="utf-8")
-        elapsed = _wait_for_query_hit(
-            reopened,
+        elapsed = wait_for_applied_event(
             service,
             writer,
-            "post reopen beta update",
-            created,
+            record_loader=record_loader,
             deadline_seconds=0.5,
+            predicate=lambda: created
+            in {hit.file.path for hit in search(reopened, "post reopen beta update", limit=5).hits},
         )
         reopened_hits = {hit.file.path for hit in search(reopened, "persisted multi root", limit=5).hits}
         reopened_beta_hits = {
@@ -248,17 +203,18 @@ def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) 
     service = WatchService()
     try:
         writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        record_loader = root_aware_record_loader(reopened)
         service.start(root_a)
         service.start(root_b)
 
         target.unlink()
-        elapsed = _wait_for_query_miss(
-            reopened,
+        elapsed = wait_for_applied_event(
             service,
             writer,
-            "persisted reopen alpha delete",
-            target,
+            record_loader=record_loader,
             deadline_seconds=0.5,
+            predicate=lambda: target
+            not in {hit.file.path for hit in search(reopened, "persisted reopen alpha delete", limit=5).hits},
         )
         alpha_hits = {
             hit.file.path
@@ -300,17 +256,18 @@ def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updat
     try:
         initial_hits = [hit.file.path for hit in search(reopened, "staged build recovery", limit=3).hits]
         writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        record_loader = root_aware_record_loader(reopened)
         service.start(root)
 
         created = root / "after-build-resume.txt"
         created.write_text("live update after staged resume\n", encoding="utf-8")
-        elapsed = _wait_for_query_hit(
-            reopened,
+        elapsed = wait_for_applied_event(
             service,
             writer,
-            "live update after staged resume",
-            created,
+            record_loader=record_loader,
             deadline_seconds=0.5,
+            predicate=lambda: created
+            in {hit.file.path for hit in search(reopened, "live update after staged resume", limit=5).hits},
         )
     finally:
         service.stop()
