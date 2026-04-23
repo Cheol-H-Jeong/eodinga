@@ -268,10 +268,16 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
         "control": {
             "package": "eodinga",
             "version": __version__,
+            "section": "utils",
+            "priority": "optional",
+            "maintainer": "Cheol-H-Jeong",
         },
         "debian_control_template": {
             "exists": True,
             "source": "eodinga",
+            "section": "utils",
+            "priority": "optional",
+            "maintainer": "Cheol-H-Jeong",
             "binary_package": "eodinga",
             "description": "Instant lexical file search for Windows and Linux",
         },
@@ -309,10 +315,16 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
         "control": {
             "package": "eodinga",
             "version": __version__,
+            "section": "utils",
+            "priority": "optional",
+            "maintainer": "Cheol-H-Jeong",
         },
         "debian_control_template": {
             "exists": True,
             "source": "eodinga",
+            "section": "utils",
+            "priority": "optional",
+            "maintainer": "Cheol-H-Jeong",
             "binary_package": "eodinga",
             "description": "Instant lexical file search for Windows and Linux",
         },
@@ -380,7 +392,10 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["control"] == {
         "package": "eodinga",
         "version": __version__,
+        "section": "utils",
+        "priority": "optional",
         "architecture": "amd64",
+        "maintainer": "Cheol-H-Jeong",
         "depends": "python3 (>= 3.11)",
         "description": "Instant lexical file search for Windows and Linux",
     }
@@ -388,6 +403,8 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
         "path": str(Path("packaging/linux/debian/control").resolve()),
         "exists": True,
         "source": "eodinga",
+        "section": "utils",
+        "priority": "optional",
         "maintainer": "Cheol-H-Jeong",
         "binary_package": "eodinga",
         "description": "Instant lexical file search for Windows and Linux",
