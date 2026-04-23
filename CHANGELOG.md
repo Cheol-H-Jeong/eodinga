@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.401 - 2026-04-23
+
+- Expanded the README with a one-command validation pass, a package-artifact matrix, an extra troubleshooting runbook entry for docs-asset drift, and clearer FAQ coverage around `index`, `watch`, and on-disk writes.
+- Deepened `docs/ARCHITECTURE.md` with the watcher-to-query incremental update path, explicit transaction boundaries, a packaging audit sequence, and a release-input boundary that explains why docs assets and the compressed changelog block tags.
+- Tightened `docs/CONTRIBUTING.md` and `docs/RELEASE.md` around docs ownership, focused docs-only validation, the release-input matrix, and version-retargeting rules when other workers land tags concurrently.
+
 ## 0.1.385 - 2026-04-23
 
 - Fixed slash-delimited query parsing so top-level regex literals and spaced operator regex values now close correctly when the pattern ends with an even run of backslashes before the delimiter.
