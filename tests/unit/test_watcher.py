@@ -66,6 +66,31 @@ def test_watcher_handler_preserves_move_within_root(tmp_path: Path) -> None:
     assert event.root_path == root
 
 
+def test_watcher_move_between_watched_roots_emits_delete_and_create(tmp_path: Path) -> None:
+    service = WatchService()
+    left_root = tmp_path / "left"
+    right_root = tmp_path / "right"
+    source = left_root / "draft.txt"
+    destination = right_root / "draft.txt"
+
+    _Handler(service, left_root).on_any_event(FileMovedEvent(str(source), str(destination)))
+    _Handler(service, right_root).on_any_event(FileMovedEvent(str(source), str(destination)))
+    service._flush_ready(force=True)
+
+    left_event = service.queue.get_nowait()
+    right_event = service.queue.get_nowait()
+
+    assert left_event.event_type == "deleted"
+    assert left_event.path == source
+    assert left_event.root_path == left_root
+    assert left_event.src_path is None
+
+    assert right_event.event_type == "created"
+    assert right_event.path == destination
+    assert right_event.root_path == right_root
+    assert right_event.src_path is None
+
+
 def test_watcher_handler_normalizes_same_path_move_to_modify(tmp_path: Path) -> None:
     service = WatchService()
     root = tmp_path / "watched"
