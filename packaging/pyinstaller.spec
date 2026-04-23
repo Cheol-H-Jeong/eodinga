@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import importlib.util
 import sys
+import tomllib
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -191,9 +192,26 @@ def _discover_source_hidden_imports(source_root: Path) -> list[str]:
     return sorted(discovered)
 
 
+def _discover_package_datas(project_root: Path, pyproject_path: Path, package_name: str) -> list[tuple[str, str]]:
+    payload = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+    package_data = payload.get("tool", {}).get("setuptools", {}).get("package-data", {})
+    patterns = package_data.get(package_name, [])
+    package_root = project_root / package_name
+    discovered: set[tuple[str, str]] = set()
+    for pattern in patterns:
+        for match in package_root.glob(pattern):
+            if not match.is_file():
+                continue
+            relative_parent = match.parent.relative_to(package_root)
+            target_dir = package_name if relative_parent == Path(".") else f"{package_name}/{relative_parent}"
+            discovered.add((str(match.resolve()), target_dir))
+    return sorted(discovered)
+
+
 DISCOVERED_RUNTIME_MODULES = _discover_runtime_modules(SOURCE_ROOT)
 DISCOVERED_HIDDEN_IMPORTS = _discover_hidden_imports(SOURCE_ROOT)
 DISCOVERED_SOURCE_HIDDEN_IMPORTS = _discover_source_hidden_imports(SOURCE_ROOT)
+DISCOVERED_PACKAGE_DATAS = _discover_package_datas(PROJECT_ROOT, PROJECT_ROOT / "pyproject.toml", "eodinga")
 
 HIDDEN_IMPORTS = sorted(
     {
@@ -205,11 +223,12 @@ HIDDEN_IMPORTS = sorted(
     }
 )
 
-DATAS = [
-    (str(I18N_DIR / "en.json"), "eodinga/i18n"),
-    (str(I18N_DIR / "ko.json"), "eodinga/i18n"),
-    (str(PROJECT_ROOT / "LICENSE"), "."),
-]
+DATAS = sorted(
+    {
+        *DISCOVERED_PACKAGE_DATAS,
+        (str(PROJECT_ROOT / "LICENSE"), "."),
+    }
+)
 
 SPEC_AUDIT = {
     "cli_entry": str(ENTRY_CLI),

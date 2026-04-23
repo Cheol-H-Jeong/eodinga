@@ -13,6 +13,7 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     hiddenimports = cast(list[str], namespace["HIDDEN_IMPORTS"])
     discovered_runtime_modules = cast(list[str], namespace["DISCOVERED_RUNTIME_MODULES"])
     discovered_hiddenimports = cast(list[str], namespace["DISCOVERED_HIDDEN_IMPORTS"])
+    discovered_package_datas = cast(list[tuple[str, str]], namespace["DISCOVERED_PACKAGE_DATAS"])
     required_hiddenimports = cast(list[str], namespace["REQUIRED_HIDDEN_IMPORTS"])
     runtime_modules = cast(list[str], namespace["RUNTIME_MODULES"])
     datas = cast(list[tuple[str, str]], namespace["DATAS"])
@@ -38,6 +39,7 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     assert set(runtime_modules).issubset(set(hiddenimports))
     assert set(discovered_runtime_modules).issubset(set(hiddenimports))
     assert set(discovered_hiddenimports).issubset(set(hiddenimports))
+    assert set(discovered_package_datas).issubset(set(datas))
     assert {"eodinga.launcher.hotkey_linux", "eodinga.launcher.hotkey_win"} <= set(runtime_modules)
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
     assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas
@@ -101,3 +103,37 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
     discovered = discover_hidden_imports(source_root)
 
     assert discovered == ["package.alpha", "package.beta", "package.gamma"]
+
+
+def test_pyinstaller_spec_discovers_package_datas_from_pyproject(tmp_path: Path) -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_package_datas = cast(
+        Callable[[Path, Path, str], list[tuple[str, str]]],
+        namespace["_discover_package_datas"],
+    )
+
+    project_root = tmp_path / "project"
+    package_root = project_root / "demo"
+    locale_dir = package_root / "i18n"
+    locale_dir.mkdir(parents=True)
+    (locale_dir / "en.json").write_text("{}", encoding="utf-8")
+    (locale_dir / "ko.json").write_text("{}", encoding="utf-8")
+    (project_root / "pyproject.toml").write_text(
+        "\n".join(
+            [
+                "[tool.setuptools.package-data]",
+                'demo = ["i18n/*.json"]',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    discovered = discover_package_datas(project_root, project_root / "pyproject.toml", "demo")
+
+    assert discovered == [
+        (str((locale_dir / "en.json").resolve()), "demo/i18n"),
+        (str((locale_dir / "ko.json").resolve()), "demo/i18n"),
+    ]
