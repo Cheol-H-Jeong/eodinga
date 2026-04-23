@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.829 - 2026-04-23
+
+- Cached compiled regex filters inside the query executor, so repeated regex searches stop recompiling the same pattern for every candidate record.
+- Cached regex validation during query compilation, reducing repeated compile-time regex checks for identical `regex:`, `path:/.../`, and `content:/.../` patterns.
+- Added executor and compiler coverage that locks in regex `i`, `s`, and `m` behavior and proves the new caches are exercised across repeated searches.
+
 ## 0.1.822 - 2026-04-23
 
 - Hardened watcher lifecycle recovery so failed observer startup now rolls back the flush thread cleanly, and shutdown continues best-effort observer teardown even if one observer raises.
