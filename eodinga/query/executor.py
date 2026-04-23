@@ -39,6 +39,7 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+_WINDOWS_DRIVE_ROOT_RE = re.compile(r"^(\\\\\?\\)?([A-Za-z]):")
 
 
 @lru_cache(maxsize=256)
@@ -272,17 +273,7 @@ def _fetch_record_batch(
 def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
-    root_text = str(root)
-    normalized = root_text.rstrip("/\\") or root_text
-    variants = tuple(
-        dict.fromkeys(
-            (
-                normalized,
-                normalized.replace("\\", "/"),
-                normalized.replace("/", "\\"),
-            )
-        )
-    )
+    variants = _root_scope_variants(str(root))
     exact_params = variants
     like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
         f"{variant}\\%" for variant in variants
@@ -290,6 +281,45 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
     like_clause = " OR ".join("files.path LIKE ?" for _ in like_params)
     return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
+
+
+def _root_scope_variants(root_text: str) -> tuple[str, ...]:
+    normalized = root_text.rstrip("/\\") or root_text
+    variants: dict[str, None] = {}
+    queue = [normalized]
+
+    while queue:
+        candidate = queue.pop(0)
+        if candidate in variants:
+            continue
+        variants[candidate] = None
+
+        slash_variants = {
+            candidate,
+            candidate.replace("\\", "/"),
+            candidate.replace("/", "\\"),
+        }
+        for slash_variant in slash_variants:
+            if slash_variant not in variants:
+                queue.append(slash_variant)
+
+        match = _WINDOWS_DRIVE_ROOT_RE.match(candidate)
+        if match is None:
+            continue
+
+        prefix, drive = match.groups()
+        suffix = candidate[match.end() :]
+        for drive_variant in (drive.upper(), drive.lower()):
+            unprefixed = f"{drive_variant}:{suffix}"
+            prefixed = f"\\\\?\\{drive_variant}:{suffix}"
+            if prefix:
+                queue.append(prefixed)
+                queue.append(unprefixed)
+            else:
+                queue.append(unprefixed)
+                queue.append(prefixed)
+
+    return tuple(variants)
 
 
 def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:
