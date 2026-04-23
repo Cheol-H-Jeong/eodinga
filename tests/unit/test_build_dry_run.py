@@ -238,6 +238,16 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
             "is_executable": True,
             "executes_python_module": True,
         },
+        "checksums": {
+            "exists": True,
+            "entries": [
+                "usr/bin/eodinga",
+                "usr/share/applications/eodinga.desktop",
+                "usr/share/icons/hicolor/scalable/apps/eodinga.svg",
+                "usr/share/doc/eodinga/LICENSE",
+                "usr/share/doc/eodinga/changelog.gz",
+            ],
+        },
         "docs": {
             "license_exists": True,
             "changelog_exists": False,
@@ -304,6 +314,14 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["icon"]["desktop_icon_matches_asset"] is True
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["executes_python_module"] is True
+    assert payload["checksums"]["exists"] is True
+    assert set(payload["checksums"]["entries"]) >= {
+        "usr/bin/eodinga",
+        "usr/share/applications/eodinga.desktop",
+        "usr/share/icons/hicolor/scalable/apps/eodinga.svg",
+        "usr/share/doc/eodinga/LICENSE",
+        "usr/share/doc/eodinga/changelog.gz",
+    }
     assert payload["docs"]["license_exists"] is True
     assert payload["docs"]["changelog_exists"] is True
 

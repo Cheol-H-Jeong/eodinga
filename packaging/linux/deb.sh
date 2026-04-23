@@ -62,6 +62,7 @@ target = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
 with source.open("rb") as src, gzip.GzipFile(filename="", mode="wb", fileobj=target.open("wb"), mtime=0) as dst:
     dst.write(src.read())
 PY
+(cd "${PACKAGE_DIR}" && find usr -type f -print0 | sort -z | xargs -0 md5sum > "${PACKAGE_DIR}/DEBIAN/md5sums")
 
 tar -czf "${ARCHIVE_PATH}" -C "${BUILD_ROOT}" "$(basename "${PACKAGE_DIR}")"
 python3 - <<PY
@@ -89,6 +90,12 @@ launcher_path = Path("${PACKAGE_DIR}/usr/bin/eodinga")
 icon_path = Path("${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 license_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE")
 changelog_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
+md5sums_path = Path("${PACKAGE_DIR}/DEBIAN/md5sums")
+md5sums_entries = [
+    line.rsplit("  ", 1)[-1]
+    for line in md5sums_path.read_text(encoding="utf-8").splitlines()
+    if line
+]
 payload = {
     "target": "linux-deb-dry-run" if ${DRY_RUN} else "linux-deb",
     "version": "${VERSION}",
@@ -125,6 +132,11 @@ payload = {
         "path": str(launcher_path),
         "is_executable": os.access(launcher_path, os.X_OK),
         "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
+    },
+    "checksums": {
+        "path": str(md5sums_path),
+        "exists": md5sums_path.exists(),
+        "entries": md5sums_entries,
     },
     "docs": {
         "license_path": str(license_path),

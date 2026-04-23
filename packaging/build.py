@@ -247,6 +247,7 @@ def _validate_linux_deb_audit(payload: dict[str, Any], package_version: str) -> 
     desktop_payload = payload.get("desktop_entry", {})
     icon_payload = payload.get("icon", {})
     launcher_payload = payload.get("launcher", {})
+    checksum_payload = payload.get("checksums", {})
     docs_payload = payload.get("docs", {})
     if control_payload.get("package") != "eodinga":
         errors.append("Debian control package name drifted from eodinga")
@@ -274,12 +275,23 @@ def _validate_linux_deb_audit(payload: dict[str, Any], package_version: str) -> 
         (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),
         (launcher_payload.get("is_executable"), "Debian launcher shim is not executable"),
         (launcher_payload.get("executes_python_module"), "Debian launcher shim no longer executes the Python module"),
+        (checksum_payload.get("exists"), "Debian package no longer ships DEBIAN/md5sums"),
         (docs_payload.get("license_exists"), "Debian package no longer ships the license"),
         (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),
     ]
     for ok, message in required_flags:
         if not ok:
             errors.append(message)
+    checksum_entries = set(checksum_payload.get("entries", []))
+    expected_checksum_entries = {
+        "usr/bin/eodinga",
+        "usr/share/applications/eodinga.desktop",
+        "usr/share/icons/hicolor/scalable/apps/eodinga.svg",
+        "usr/share/doc/eodinga/LICENSE",
+        "usr/share/doc/eodinga/changelog.gz",
+    }
+    if not expected_checksum_entries.issubset(checksum_entries):
+        errors.append("Debian md5sums no longer cover the launcher, desktop entry, icon, and docs")
     return errors
 
 
