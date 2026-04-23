@@ -83,8 +83,14 @@ def test_launcher_keyboard_flow_supports_arrow_navigation_and_tab_return(qapp) -
     assert revealed == ["beta.txt"]
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_Tab)
+    assert launcher.action_bar.open_button.hasFocus()
+
+    QTest.keyClick(launcher.action_bar.open_button, Qt.Key.Key_Backtab, Qt.KeyboardModifier.ShiftModifier)
+    assert launcher.result_list.hasFocus()
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Backtab, Qt.KeyboardModifier.ShiftModifier)
     assert launcher.query_field.hasFocus()
-    assert "Tab moves to results" in launcher.shortcut_label.text()
+    assert "Tab moves through results and actions" in launcher.shortcut_label.text()
 
 
 def test_launcher_tab_moves_focus_into_results_without_mouse(qapp) -> None:
@@ -134,6 +140,7 @@ def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) ->
     assert "Ctrl+Enter reveals" in launcher.shortcut_label.text()
     assert "Up/Down wraps" in launcher.shortcut_label.text()
     assert "Home/End and PgUp/PgDn jump" in launcher.shortcut_label.text()
+    assert "Tab reaches actions" in launcher.shortcut_label.text()
     assert "Ctrl+A or Ctrl+L returns to filter" in launcher.shortcut_label.text()
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_End)

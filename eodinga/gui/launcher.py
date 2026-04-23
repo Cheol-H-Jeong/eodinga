@@ -165,6 +165,13 @@ class LauncherPanel(QWidget):
         self.action_bar.copy_path_button.clicked.connect(self.emit_copy_path)
         self.action_bar.copy_name_button.clicked.connect(self.emit_copy_name)
         self.action_bar.properties_button.clicked.connect(self.emit_show_properties)
+        QWidget.setTabOrder(self.query_field, self.result_list)
+        QWidget.setTabOrder(self.result_list, self.action_bar.open_button)
+        QWidget.setTabOrder(self.action_bar.open_button, self.action_bar.reveal_button)
+        QWidget.setTabOrder(self.action_bar.reveal_button, self.action_bar.copy_path_button)
+        QWidget.setTabOrder(self.action_bar.copy_path_button, self.action_bar.copy_name_button)
+        QWidget.setTabOrder(self.action_bar.copy_name_button, self.action_bar.properties_button)
+        QWidget.setTabOrder(self.action_bar.properties_button, self.query_field)
         self._quick_pick_shortcuts: list[QShortcut] = []
         for index in range(9):
             shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
@@ -355,9 +362,9 @@ class LauncherPanel(QWidget):
             else:
                 hint = "Type a filename, path, or content term. Alt+Up recalls recent queries. Ctrl+D pins the current query."
         elif self.result_list.hasFocus():
-            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Ctrl+D pins the current query. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
+            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Ctrl+D pins the current query. Tab reaches actions. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
         else:
-            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Ctrl+D pins the current query. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
+            hint = "Tab moves through results and actions. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Ctrl+D pins the current query. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
 
     def _current_hit(self) -> SearchHit | None:
@@ -410,7 +417,10 @@ class LauncherPanel(QWidget):
         if event.key() == Qt.Key.Key_D and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             self.toggle_current_query_pin()
             return True
-        if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
+        if event.key() == Qt.Key.Key_Tab:
+            self.action_bar.open_button.setFocus()
+            return True
+        if event.key() == Qt.Key.Key_Backtab:
             self.query_field.setFocus()
             return True
         if event.key() == Qt.Key.Key_Down:
