@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.550 - 2026-04-23
+
+- Stabilized tied search-result ordering by breaking equal-name and equal-score ties with the indexed path instead of insertion-order-dependent file ids, so duplicate filenames across directories now sort deterministically.
+- Added executor regressions for duplicate-name ordering and boolean query truth tables, pinning both metadata-only and scored query behavior against future ranking/compiler changes.
+
 ## 0.1.547 - 2026-04-23
 
 - Made startup cleanup of orphaned `index.db` recovery and partial-copy artifacts durably sync the parent directory, reducing the chance that stale WAL or partial-stage residue reappears after a crash during reopen.
