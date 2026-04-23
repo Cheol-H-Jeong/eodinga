@@ -318,6 +318,14 @@ def test_parse_operator_values_with_spacing_and_phrases(
     assert node.value_kind == expected_kind
 
 
+def test_parse_date_operator_with_spaced_relative_macro() -> None:
+    node = parse("date:this week")
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "date"
+    assert node.value == "this-week"
+
+
 def test_parse_inline_or_without_surrounding_spaces() -> None:
     node = parse("ext:pdf|ext:txt")
 

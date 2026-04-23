@@ -18,6 +18,8 @@ OP_NAMES = {
 }
 
 _RANGE_OP_NAMES = {"date", "modified", "created", "size"}
+_SPACED_DATE_PREFIXES = {"this", "last", "prev", "previous"}
+_SPACED_DATE_UNITS = {"week", "month", "year"}
 
 
 class QueryNode(BaseModel):
@@ -331,6 +333,8 @@ class _Parser:
         return f"{value}..{suffix}"
 
     def _maybe_extend_operator_value(self, name: str, value: str) -> str:
+        if name in {"date", "modified", "created"}:
+            return self._maybe_extend_spaced_date_value(value)
         if name != "size" or value not in {">", ">=", "<", "<=", "="}:
             return value
         checkpoint = self.index
@@ -344,6 +348,23 @@ class _Parser:
             self.index = checkpoint
             return value
         return f"{value}{suffix}"
+
+    def _maybe_extend_spaced_date_value(self, value: str) -> str:
+        normalized = value.casefold().replace("_", "-")
+        if normalized not in _SPACED_DATE_PREFIXES:
+            return value
+        checkpoint = self.index
+        self._skip_ws()
+        char = self._peek()
+        if char is None or char in {"|", ")"}:
+            self.index = checkpoint
+            return value
+        suffix = self._read_token()
+        normalized_suffix = suffix.casefold().replace("_", "-")
+        if normalized_suffix not in _SPACED_DATE_UNITS:
+            self.index = checkpoint
+            return value
+        return f"{value}-{normalized_suffix}"
 
     def _peek(self, *, offset: int = 0) -> str | None:
         index = self.index + offset

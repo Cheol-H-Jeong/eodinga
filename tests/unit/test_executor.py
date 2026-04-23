@@ -684,6 +684,31 @@ def test_execute_relative_date_queries_use_local_day_boundaries(
     assert yesterday_hits == ["local-yesterday.txt"]
 
 
+def test_execute_spaced_relative_date_macros(tmp_db: sqlite3.Connection) -> None:
+    local_now = datetime.now().astimezone()
+    today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    this_week_start = today_start - local_now.weekday() * 86_400
+    last_month = int((local_now.replace(day=1) - timedelta(days=1)).replace(hour=12).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/week.txt", 512, this_week_start + 120, "txt", body_text="week note")
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/last-month.txt",
+        512,
+        last_month,
+        "txt",
+        body_text="last month note",
+    )
+    tmp_db.commit()
+
+    this_week_hits = [hit.file.name for hit in search(tmp_db, "date:this week", limit=10).hits]
+    last_month_hits = [hit.file.name for hit in search(tmp_db, "date:last month", limit=10).hits]
+
+    assert "week.txt" in this_week_hits
+    assert last_month_hits == ["last-month.txt"]
+
+
 def test_execute_reversed_date_range_query(tmp_db: sqlite3.Connection) -> None:
     jan_1 = int(datetime(2026, 1, 1, 12, tzinfo=UTC).timestamp())
     jan_2 = int(datetime(2026, 1, 2, 12, tzinfo=UTC).timestamp())
