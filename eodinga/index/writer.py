@@ -73,6 +73,7 @@ class IndexWriter:
         deleted_paths: list[Path] = []
         retired_paths: list[Path] = []
         pending_records: list[FileRecord] = []
+        root_ids_by_path = self._root_ids_for_watch_paths(events)
         with self._conn:
             for event in events:
                 if event.event_type == "deleted":
@@ -83,6 +84,13 @@ class IndexWriter:
                 record = record_loader(event.path)
                 if record is None:
                     continue
+                root_id = (
+                    root_ids_by_path.get(event.root_path)
+                    if event.root_path is not None
+                    else None
+                )
+                if root_id is not None and record.root_id != root_id:
+                    record = record.model_copy(update={"root_id": root_id})
                 pending_records.append(record)
                 processed += 1
             if deleted_paths:
@@ -261,3 +269,27 @@ class IndexWriter:
                 f"DELETE FROM content_fts WHERE rowid IN ({placeholders})",
                 tuple(chunk),
             )
+
+    def _root_ids_for_watch_paths(self, events: Sequence[WatchEvent]) -> dict[Path, int]:
+        root_paths = tuple(
+            dict.fromkeys(event.root_path for event in events if event.root_path is not None)
+        )
+        if not root_paths:
+            return {}
+        root_ids_by_text = self._root_ids_by_text(root_paths)
+        return {root_path: root_ids_by_text[str(root_path)] for root_path in root_paths if str(root_path) in root_ids_by_text}
+
+    def _root_ids_by_text(self, root_paths: Sequence[Path]) -> dict[str, int]:
+        root_texts = tuple(dict.fromkeys(str(path) for path in root_paths))
+        if not root_texts:
+            return {}
+        results: dict[str, int] = {}
+        for chunk in _chunked(root_texts):
+            placeholders = ", ".join("?" for _ in chunk)
+            rows = self._conn.execute(
+                f"SELECT id, path FROM roots WHERE path IN ({placeholders})",
+                tuple(chunk),
+            ).fetchall()
+            for row in rows:
+                results[str(row[1])] = int(row[0])
+        return results
