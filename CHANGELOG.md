@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.934 - 2026-04-24
+
+- Tightened the Windows release-target audit so it can no longer pass on stale local `dist/` directories; the non-dry-run path now explicitly requires fresh staged build artifacts from the current run.
+- Expanded observability metrics with histogram averages plus crash-log byte and write-latency tracking, making crash reporting costs visible in both raw counters and `stats --json`.
+- Added `recent_snapshot_counts` and `recent_snapshot_latest_at` to `stats --json`, so recent command/crash activity can be summarized quickly without manually scanning the full snapshot list.
+
 ## 0.1.932 - 2026-04-24
 
 - Added contributor guidance for orchestrated module-worker rounds, including strict scope handling and a compact docs review packet for handoff evidence.
