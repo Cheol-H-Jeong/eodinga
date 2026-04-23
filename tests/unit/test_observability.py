@@ -4,10 +4,14 @@ import sys
 from pathlib import Path
 from typing import cast
 
+import eodinga.content.registry as registry
 from eodinga.common import WatchEvent
+from eodinga.config import RootConfig
 from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
+from eodinga.index.build import rebuild_index
+from eodinga.index.storage import open_index
 from eodinga.observability import (
     configure_logging,
     default_crash_dir,
@@ -16,6 +20,7 @@ from eodinga.observability import (
     snapshot_metrics,
     write_crash_log,
 )
+from eodinga.query import search
 
 
 def test_default_log_and_crash_paths_follow_platform_state_dirs(monkeypatch) -> None:
@@ -101,3 +106,48 @@ def test_watcher_event_counter_increments() -> None:
 
     counters = cast(dict[str, int], snapshot_metrics()["counters"])
     assert counters["watcher_events"] == 1
+
+
+def test_metrics_increment_end_to_end_across_runtime_flows(
+    monkeypatch, tmp_path: Path
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "report.txt").write_text("alpha report body", encoding="utf-8")
+    broken = root / "broken.boom"
+    broken.write_text("bad", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    broken_spec = ParserSpec(
+        name="broken",
+        parse=lambda _path, _max_chars: (_ for _ in ()).throw(ValueError("parse failed")),
+        extensions=frozenset({"boom"}),
+        max_bytes=1024,
+    )
+    original_get_spec_for = registry.get_spec_for
+
+    def patched_get_spec_for(path: Path) -> ParserSpec | None:
+        if path.suffix == ".boom":
+            return broken_spec
+        return original_get_spec_for(path)
+
+    reset_metrics()
+    monkeypatch.setattr("eodinga.content.registry.get_spec_for", patched_get_spec_for)
+
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    with open_index(db_path) as conn:
+        result = search(conn, "report")
+    assert result.total_estimate >= 1
+
+    service = WatchService()
+    service.record(WatchEvent(event_type="created", path=root / "live.txt"))
+
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
+    histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
+    assert counters["files_indexed"] == 3
+    assert counters["parser_errors"] == 1
+    assert counters["queries_served"] == 1
+    assert counters["watcher_events"] == 1
+    assert counters["parsers.broken.error"] == 1
+    assert histograms["query_latency_ms"]["count"] == 1
