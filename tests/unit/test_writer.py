@@ -106,6 +106,27 @@ def test_writer_apply_events_uses_fast_write_pragmas(tmp_db: Path, tmp_path: Pat
     assert conn.execute("PRAGMA cache_size;").fetchone() == (-2000,)
 
 
+def test_writer_bulk_upsert_can_reuse_ambient_fast_write_pragmas(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    conn.commit()
+    writer = IndexWriter(conn)
+    records = [_synthetic_record(index, tmp_path) for index in range(2)]
+
+    with writer_module.temporary_pragmas(conn, {"synchronous": "NORMAL", "cache_size": -128000}):
+        seen = conn.execute("PRAGMA synchronous;").fetchone()
+        assert seen == (1,)
+        assert writer.bulk_upsert(records, use_fast_pragmas=False) == 2
+        assert conn.execute("PRAGMA synchronous;").fetchone() == (1,)
+        assert conn.execute("PRAGMA cache_size;").fetchone() == (-128000,)
+
+    assert conn.execute("PRAGMA synchronous;").fetchone() == (2,)
+    assert conn.execute("PRAGMA cache_size;").fetchone() == (-2000,)
+
+
 def test_writer_caches_chunk_shaped_sql_templates() -> None:
     writer_module._delete_files_sql.cache_clear()
     writer_module._delete_content_rows_sql.cache_clear()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Callable, Iterable, Iterator, Sequence
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from functools import lru_cache
 from pathlib import Path
 from time import time
@@ -98,23 +98,35 @@ class IndexWriter:
         if current_schema_version(self._conn) == 0:
             apply_schema(self._conn)
 
-    def bulk_upsert(self, records: Iterable[FileRecord]) -> int:
+    def bulk_upsert(self, records: Iterable[FileRecord], *, use_fast_pragmas: bool = True) -> int:
         buffered = _materialize_records(records)
         if not buffered:
             return 0
-        with temporary_pragmas(self._conn, _WRITE_PRAGMAS):
+        pragma_scope = (
+            temporary_pragmas(self._conn, _WRITE_PRAGMAS) if use_fast_pragmas else nullcontext()
+        )
+        with pragma_scope:
             with self._transaction():
                 self._upsert_records(buffered)
                 self._upsert_content(buffered)
         return len(buffered)
 
-    def apply_events(self, events: Sequence[WatchEvent], record_loader: RecordLoader) -> int:
+    def apply_events(
+        self,
+        events: Sequence[WatchEvent],
+        record_loader: RecordLoader,
+        *,
+        use_fast_pragmas: bool = True,
+    ) -> int:
         processed = 0
         content_deletes: list[int] = []
         deleted_paths: list[Path] = []
         retired_paths: list[Path] = []
         pending_records: list[FileRecord] = []
-        with temporary_pragmas(self._conn, _WRITE_PRAGMAS):
+        pragma_scope = (
+            temporary_pragmas(self._conn, _WRITE_PRAGMAS) if use_fast_pragmas else nullcontext()
+        )
+        with pragma_scope:
             with self._transaction():
                 for event in events:
                     if event.event_type == "deleted":

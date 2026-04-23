@@ -133,9 +133,9 @@ def test_rebuild_index_calls_bulk_upsert_without_outer_transaction(
     transaction_states: list[bool] = []
     original_bulk_upsert = build_module.IndexWriter.bulk_upsert
 
-    def recording_bulk_upsert(self, records):  # type: ignore[no-untyped-def]
+    def recording_bulk_upsert(self, records, *, use_fast_pragmas=True):  # type: ignore[no-untyped-def]
         transaction_states.append(self._conn.in_transaction)
-        return original_bulk_upsert(self, records)
+        return original_bulk_upsert(self, records, use_fast_pragmas=use_fast_pragmas)
 
     monkeypatch.setattr(build_module.IndexWriter, "bulk_upsert", recording_bulk_upsert)
 
@@ -156,14 +156,14 @@ def test_rebuild_index_uses_fast_bulk_write_pragmas(
     cache_sizes: list[int] = []
     original_bulk_upsert = build_module.IndexWriter.bulk_upsert
 
-    def recording_bulk_upsert(self, records):  # type: ignore[no-untyped-def]
+    def recording_bulk_upsert(self, records, *, use_fast_pragmas=True):  # type: ignore[no-untyped-def]
         synchronous = self._conn.execute("PRAGMA synchronous;").fetchone()
         cache_size = self._conn.execute("PRAGMA cache_size;").fetchone()
         assert synchronous is not None
         assert cache_size is not None
         synchronous_states.append(int(synchronous[0]))
         cache_sizes.append(int(cache_size[0]))
-        return original_bulk_upsert(self, records)
+        return original_bulk_upsert(self, records, use_fast_pragmas=use_fast_pragmas)
 
     monkeypatch.setattr(build_module.IndexWriter, "bulk_upsert", recording_bulk_upsert)
 
@@ -172,6 +172,28 @@ def test_rebuild_index_uses_fast_bulk_write_pragmas(
     assert result.files_indexed == 2
     assert synchronous_states == [1]
     assert cache_sizes == [-128000]
+
+
+def test_rebuild_index_reuses_outer_fast_write_pragmas(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    fast_write_flags: list[bool] = []
+    original_bulk_upsert = build_module.IndexWriter.bulk_upsert
+
+    def recording_bulk_upsert(self, records, *, use_fast_pragmas=True):  # type: ignore[no-untyped-def]
+        fast_write_flags.append(use_fast_pragmas)
+        return original_bulk_upsert(self, records, use_fast_pragmas=use_fast_pragmas)
+
+    monkeypatch.setattr(build_module.IndexWriter, "bulk_upsert", recording_bulk_upsert)
+
+    result = rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    assert result.files_indexed == 2
+    assert fast_write_flags == [False]
 
 
 def test_rebuild_index_interrupt_preserves_staged_database_for_resume(

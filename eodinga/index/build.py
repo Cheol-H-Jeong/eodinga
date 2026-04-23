@@ -146,7 +146,7 @@ def rebuild_index(
                     )
                     for batch in walk_batched(root.path, rules, root_id=root_id):
                         stop.raise_if_requested()
-                        indexed = writer.bulk_upsert(batch)
+                        indexed = writer.bulk_upsert(batch, use_fast_pragmas=False)
                         if batch:
                             record_histogram(
                                 "index_batch_size",
