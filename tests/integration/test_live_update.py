@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from queue import Empty
-from time import monotonic
 
 from eodinga.config import RootConfig
 from eodinga.content.registry import parse
@@ -11,51 +9,7 @@ from eodinga.index import open_index
 from eodinga.index.build import rebuild_index
 from eodinga.index.writer import IndexWriter
 from eodinga.query import search
-from tests.conftest import make_record
-
-
-def _wait_for_query_hit(
-    conn,
-    service: WatchService,
-    writer: IndexWriter,
-    query: str,
-    expected_path: Path,
-    deadline_seconds: float,
-) -> float:
-    started = monotonic()
-    deadline = started + deadline_seconds
-    while monotonic() < deadline:
-        try:
-            event = service.queue.get(timeout=0.05)
-        except Empty:
-            continue
-        writer.apply_events([event], record_loader=make_record)
-        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
-        if expected_path in hits:
-            return monotonic() - started
-    raise AssertionError(f"{expected_path} did not become query-visible within {deadline_seconds:.3f}s")
-
-
-def _wait_for_query_miss(
-    conn,
-    service: WatchService,
-    writer: IndexWriter,
-    query: str,
-    missing_path: Path,
-    deadline_seconds: float,
-) -> float:
-    started = monotonic()
-    deadline = started + deadline_seconds
-    while monotonic() < deadline:
-        try:
-            event = service.queue.get(timeout=0.05)
-        except Empty:
-            continue
-        writer.apply_events([event], record_loader=make_record)
-        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
-        if missing_path not in hits:
-            return monotonic() - started
-    raise AssertionError(f"{missing_path} remained query-visible after {deadline_seconds:.3f}s")
+from tests.integration.helpers import wait_for_query_hit, wait_for_query_miss
 
 
 def test_live_update_visible_to_search_within_500ms(tmp_path: Path) -> None:
@@ -73,7 +27,7 @@ def test_live_update_visible_to_search_within_500ms(tmp_path: Path) -> None:
         created = root / "live-update.txt"
         created.write_text("live update integration coverage\n", encoding="utf-8")
 
-        elapsed = _wait_for_query_hit(
+        elapsed = wait_for_query_hit(
             conn,
             service,
             writer,
@@ -105,7 +59,7 @@ def test_live_delete_removed_from_search_within_500ms(tmp_path: Path) -> None:
         initial_hits = [hit.file.path for hit in search(conn, "delete integration coverage", limit=5).hits]
         target.unlink()
 
-        elapsed = _wait_for_query_miss(
+        elapsed = wait_for_query_miss(
             conn,
             service,
             writer,
@@ -138,7 +92,7 @@ def test_live_modify_replaces_query_visibility_within_500ms(tmp_path: Path) -> N
         initial_hits = [hit.file.path for hit in search(conn, "before live rewrite", limit=5).hits]
         target.write_text("after live rewrite marker\n", encoding="utf-8")
 
-        elapsed = _wait_for_query_hit(
+        elapsed = wait_for_query_hit(
             conn,
             service,
             writer,
@@ -180,7 +134,7 @@ def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: P
         created = root_b / "beta-live-update.txt"
         created.write_text("beta scoped integration visibility\n", encoding="utf-8")
 
-        elapsed = _wait_for_query_hit(
+        elapsed = wait_for_query_hit(
             conn,
             service,
             writer,
@@ -232,7 +186,7 @@ def test_live_cross_root_move_updates_global_and_root_scoped_queries(tmp_path: P
         destination = root_b / moved.name
         moved.rename(destination)
 
-        appeared_elapsed = _wait_for_query_hit(
+        appeared_elapsed = wait_for_query_hit(
             conn,
             service,
             writer,
@@ -240,7 +194,7 @@ def test_live_cross_root_move_updates_global_and_root_scoped_queries(tmp_path: P
             destination,
             deadline_seconds=0.5,
         )
-        removed_elapsed = _wait_for_query_miss(
+        removed_elapsed = wait_for_query_miss(
             conn,
             service,
             writer,
@@ -297,7 +251,7 @@ def test_live_delete_removed_with_multi_root_watchers_and_root_scope(tmp_path: P
         ]
         target.unlink()
 
-        elapsed = _wait_for_query_miss(
+        elapsed = wait_for_query_miss(
             conn,
             service,
             writer,
@@ -346,7 +300,7 @@ def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Pat
 
         created = root / "after-reopen.txt"
         created.write_text("post reopen live update\n", encoding="utf-8")
-        _wait_for_query_hit(
+        wait_for_query_hit(
             reopened,
             service,
             writer,
