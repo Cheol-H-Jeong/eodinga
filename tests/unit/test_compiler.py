@@ -113,6 +113,8 @@ def test_compile_reversed_date_range_normalizes_bounds() -> None:
     [
         ("date:2026-01-03..", "files.mtime >= ?", 0),
         ("created:..2026-01-03", "files.ctime < ?", 0),
+        ("size:100..", "files.size >= ?", 0),
+        ("size:..500K", "files.size <= ?", 0),
     ],
 )
 def test_compile_open_ended_date_ranges(
@@ -125,6 +127,14 @@ def test_compile_open_ended_date_ranges(
 
     assert branch.where_sql == expected_sql
     assert isinstance(branch.where_params[param_index], int)
+
+
+def test_compile_spaced_size_comparator() -> None:
+    compiled = compile_query(parse("size: > 10M"))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == "files.size > ?"
+    assert branch.where_params == (10 * 1024 * 1024,)
 
 
 def test_compile_datetime_literals_preserve_instant_granularity() -> None:
