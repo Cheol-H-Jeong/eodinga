@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.248 - 2026-04-23
+## 0.1.251 - 2026-04-23
 
 - Expanded live watcher integration coverage so real tmp-dir renames must update path queries within 500 ms, both for single-root indexing and for root-scoped multi-root searches.
 - Added hot-restart rename regressions proving reopened indexes still apply watcher move events without a rebuild and keep sibling-root results isolated.
