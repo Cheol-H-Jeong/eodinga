@@ -128,6 +128,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Scope Guardrails" in contributing
     assert "## Documentation Expectations" in contributing
     assert "## Derived Asset Matrix" in contributing
+    assert "## Docs Review Checklist" in contributing
     assert "## Parallel Worktrees" in contributing
     assert "Required start gate for worker rounds" in contributing
     assert "## Theme-Sized Test Guide" in contributing
@@ -135,6 +136,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "scripts/generate_manpage.py" in contributing
     assert "scripts/render_docs_screenshots.py" in contributing
     assert "## Docs Refresh Order" in contributing
+    assert "If a docs statement cannot be checked against code" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
@@ -174,7 +176,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
     assert "## Verify Shipped Docs" in release
+    assert "## Derived Artifact Ownership" in release
     assert "## Worker Handoff Rules" in release
+    assert "## Failure Handling During The Gate" in release
     assert "## Docs-Only Rounds" in release
     assert "## Cut The Local Release" in release
     assert "## Handoff Checklist" in release
@@ -183,6 +187,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "git tag -l \"v0.1.N\"" in release
     assert "Collision check example" in release
     assert "Do not push tags or release branches from a worker worktree." in release
+    assert "Do not leave derived assets or operator docs for a later cleanup commit" in release
 
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage

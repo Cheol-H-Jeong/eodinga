@@ -105,6 +105,16 @@ pytest -q tests/unit
 | README or guide wording only | `pytest -q tests/unit/test_docs_assets.py` |
 | Packaging or release docs | the matching `packaging/build.py --target ...-dry-run` command plus `pytest -q tests/unit/test_docs_assets.py` |
 
+## Docs Review Checklist
+
+Before merging a docs-heavy round, verify:
+
+1. The shortest user-facing contract lives in `README.md`, not only in deeper guides.
+2. Any troubleshooting step named in README also exists in the matching deeper doc (`ARCHITECTURE`, `RELEASE`, or `CONTRIBUTING`).
+3. Any command copied into docs runs non-interactively and in a sensible order.
+4. Packaging claims are backed by the matching `packaging/build.py --target ...-dry-run` path.
+5. New headings that define shipped behavior are pinned in `tests/unit/test_docs_assets.py`.
+
 ## Theme-Sized Test Guide
 
 Use the smallest green slice that proves the change:
@@ -126,6 +136,8 @@ When a change affects the shipped contract, refresh docs in this order:
 3. Regenerate derived assets such as screenshots or `docs/man/eodinga.1`.
 4. Re-run `pytest -q tests/unit/test_docs_assets.py` before the broader gate.
 5. Re-run any matching packaging dry run if the docs now describe packaging behavior or artifacts differently.
+
+If a docs statement cannot be checked against code, tests, packaging dry runs, or generated assets, remove or soften it until it can.
 
 ## Test Selection Guide
 

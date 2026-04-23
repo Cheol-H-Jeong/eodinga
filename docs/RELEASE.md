@@ -69,6 +69,19 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Derived Artifact Ownership
+
+Use this matrix to decide what must move together in the same round:
+
+| Surface changed | Required checked-in artifact | Validation command |
+| --- | --- | --- |
+| CLI parser or help text | `docs/man/eodinga.1` | `python scripts/generate_manpage.py && pytest -q tests/unit/test_docs_assets.py` |
+| GUI copy or layout shown in docs | `docs/screenshots/*.png` | `python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` |
+| Packaging contract or installer behavior | `README.md`, `docs/RELEASE.md`, optionally `CHANGELOG.md` | matching `python packaging/build.py --target ...-dry-run` |
+| Release or handoff process | `docs/RELEASE.md`, `docs/CONTRIBUTING.md` | `pytest -q tests/unit/test_docs_assets.py` |
+
+Do not leave derived assets or operator docs for a later cleanup commit when the shipped behavior already changed in the current round.
+
 ## Worker Handoff Rules
 
 1. Keep feature or docs commits separate from the final metadata commit.
@@ -76,6 +89,16 @@ Treat docs assets as versioned release inputs: do not cut a tag when the checked
 3. Create the local tag after that final commit.
 4. Do not push tags or release branches from a worker worktree.
 5. Hand the orchestrator a clean branch plus the final local tag to rebase and publish.
+
+## Failure Handling During The Gate
+
+When the release pass fails:
+
+1. Stop at the first failing command instead of collecting unrelated noise.
+2. Fix the narrowest cause and rerun the smallest proving slice first.
+3. Re-run the full release pass only after the focused slice is green again.
+4. If the failure is a tag/version collision, pick the next unused patch number before editing release metadata.
+5. If the failure is docs drift, regenerate or correct the checked-in artifact in the same round rather than noting it for later.
 
 ## Docs-Only Rounds
 
