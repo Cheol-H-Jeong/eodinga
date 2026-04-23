@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from eodinga.common import SearchHit
 from eodinga.gui.design import SPACE_4, SPACE_8, SPACE_16
+from eodinga.gui.launcher_file_preview import filesystem_preview_snippet
 from eodinga.gui.widgets.button import SecondaryButton
 from eodinga.gui.widgets.result_item import format_preview_html
 
@@ -54,7 +55,11 @@ class LauncherPreviewPane(QWidget):
 
     def set_hit(self, hit: SearchHit | None) -> None:
         self._current_hit = hit
-        title, path_text, snippet = format_preview_html(hit, self._query)
+        resolved_hit = hit
+        preview_snippet = filesystem_preview_snippet(hit) if hit is not None else None
+        if hit is not None and preview_snippet is not None:
+            resolved_hit = hit.model_copy(update={"snippet": preview_snippet})
+        title, path_text, snippet = format_preview_html(resolved_hit, self._query)
         self.title_label.setText(title)
         self.path_label.setText(path_text)
         self.snippet_label.setText(snippet)
