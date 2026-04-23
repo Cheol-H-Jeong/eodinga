@@ -99,6 +99,20 @@ Use this short checklist before replacing the baseline table:
 4. Record every non-default `EODINGA_PERF_*` override next to the benchmark output.
 5. Update the document only after a repeat run lands in the same range.
 
+## Capture Template
+
+When you refresh the baseline, record the result in this shape before editing the table:
+
+```text
+command:
+summary line:
+env overrides:
+cache state:
+notes:
+```
+
+Keeping the raw capture in this small template makes later doc reviews much easier than reconstructing the run from prose after the fact.
+
 ## Interpreting Results
 
 - `tests/perf/test_cold_start.py` exercises walker and bulk-upsert throughput. It is the best low-level proxy for first-index regressions.
@@ -136,3 +150,4 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 - Perf results are informational for `0.1.x`; they do not replace the default acceptance gate.
 - A perf-table refresh belongs in the same round only when the benchmark was rerun at the current HEAD and the documented numbers come from that run.
 - If a code or docs round did not rerun the benchmark, leave the baseline table alone and avoid pretending the old numbers describe the new tip exactly.
+- If only one benchmark changed, update only the affected row and say so in the changelog instead of restating the entire table as if every number was freshly revalidated.

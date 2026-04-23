@@ -51,6 +51,17 @@ pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summ
 
 After the focused slice is green, run the broader acceptance gate before release handoff.
 
+## Evidence Before Escalation
+
+Before widening the scope of a fix or docs change, capture the smallest artifact that proves the problem:
+
+- query or ranking issue: `eodinga search 'query' --json`
+- launcher or GUI mismatch: refreshed screenshot asset or offscreen smoke output
+- packaging drift: the matching manifest or staged payload summary under `packaging/dist/`
+- release-doc drift: the checked-in `docs/man/eodinga.1` or failing `tests/unit/test_docs_assets.py` assertion
+
+This keeps contributor reports anchored to repository evidence instead of memory or UI impressions.
+
 ## Quality Gates
 
 Default repository gate:
@@ -137,6 +148,17 @@ Use this when the round is docs-only but still release-bearing:
 4. Re-run `pytest -q tests/unit/test_docs_assets.py`.
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
+
+## Handoff Evidence Bundle
+
+Before handing a round to the orchestrator or reviewer, make sure you can point at:
+
+1. the exact command used for the final unit slice
+2. the exact command used for the full gate
+3. any generated doc asset or dry-run manifest that changed
+4. the final local tag version chosen from the latest visible tags
+
+If one of those is missing, the round is harder to rebase and harder to audit than it needs to be.
 
 ## Test Selection Guide
 

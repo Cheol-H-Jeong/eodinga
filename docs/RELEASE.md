@@ -81,6 +81,17 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Release Evidence Bundle
+
+Before cutting the metadata commit, have these artifacts ready for review:
+
+1. the full acceptance command output or equivalent successful rerun evidence
+2. the `packaging/dist/` manifests for any dry-run targets touched by the round
+3. regenerated `docs/man/eodinga.1` or screenshots if the CLI/UI contract changed
+4. the exact `git tag -l | sort -V | tail -3` result used to choose the next patch version
+
+That bundle is what lets the orchestrator rebase and publish without re-deriving your reasoning from scratch.
+
 ## Tag Decision Path
 
 ```text
@@ -155,3 +166,4 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - The local tag points at the final commit for the round, not an earlier docs or feature commit.
 - The final release commit remains reviewable on its own and does not hide unrelated feature edits.
 - `packaging/dist/` has been reviewed for the dry-run targets touched by the round.
+- Any docs-only or packaging-only claims in the changelog point to the actual refreshed guide, asset, or manifest touched in the same round.
