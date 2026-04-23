@@ -4,7 +4,7 @@ from pathlib import Path
 import sqlite3
 from typing import cast
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRect, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QSystemTrayIcon
 
@@ -142,8 +142,13 @@ def test_tray_indicator_can_show_launcher_without_tray_backend(qapp) -> None:
     assert window.launcher_window.isVisible()
 
 
-def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_path: Path) -> None:
+def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_path: Path, monkeypatch) -> None:
     config = AppConfig()
+    monkeypatch.setattr(
+        LauncherWindow,
+        "_available_geometry",
+        lambda self: QRect(0, 0, 1600, 1200),
+    )
     _, window, launcher = cast(
         tuple[object, EodingaWindow, LauncherWindow],
         launch_gui(test_mode=True, config=config, config_path=temp_config_path),
@@ -177,6 +182,46 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     assert restored_launcher.pos().y() == 96
 
     restored_window.close()
+    qapp.processEvents()
+
+
+def test_launcher_restores_geometry_inside_available_screen(qapp, temp_config_path: Path, monkeypatch) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(
+        update={
+            "window_x": -400,
+            "window_y": 999,
+            "window_width": 900,
+            "window_height": 700,
+        }
+    )
+    monkeypatch.setattr(
+        LauncherWindow,
+        "_available_geometry",
+        lambda self: QRect(100, 50, 760, 540),
+    )
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher.show()
+    qapp.processEvents()
+    launcher.hide()
+    qapp.processEvents()
+
+    assert launcher.width() <= 760
+    assert launcher.height() <= 540
+    assert launcher.pos().x() == 100
+    assert launcher.pos().y() == 50
+
+    stored = load(temp_config_path)
+    assert stored.launcher.window_x == 100
+    assert stored.launcher.window_y == 50
+    assert stored.launcher.window_width == launcher.width()
+    assert stored.launcher.window_height == launcher.height()
+
+    window.close()
     qapp.processEvents()
 
 

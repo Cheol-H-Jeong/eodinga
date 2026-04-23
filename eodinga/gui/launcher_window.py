@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QRect, QTimer, Qt
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
 
 from eodinga.config import AppConfig
@@ -61,8 +62,7 @@ class LauncherWindow(LauncherPanel):
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
         if not self._geometry_restored and self._config is not None:
-            if self._config.launcher.window_x is not None and self._config.launcher.window_y is not None:
-                self.move(self._config.launcher.window_x, self._config.launcher.window_y)
+            self._restore_geometry()
             self._geometry_restored = True
         self.query_field.setFocus()
         self.query_field.selectAll()
@@ -87,6 +87,25 @@ class LauncherWindow(LauncherPanel):
         if self._config is None or self._config_path is None or not self._geometry_restored or not self.isVisible():
             return
         self._geometry_save_timer.start()
+
+    def _restore_geometry(self) -> None:
+        available = self._available_geometry()
+        width = min(max(self.width(), 1), max(available.width(), 1))
+        height = min(max(self.height(), 1), max(available.height(), 1))
+        self.resize(width, height)
+        if self._config.launcher.window_x is None or self._config.launcher.window_y is None:
+            return
+        max_x = available.x() + max(available.width() - width, 0)
+        max_y = available.y() + max(available.height() - height, 0)
+        clamped_x = min(max(self._config.launcher.window_x, available.x()), max_x)
+        clamped_y = min(max(self._config.launcher.window_y, available.y()), max_y)
+        self.move(clamped_x, clamped_y)
+
+    def _available_geometry(self) -> QRect:
+        screen = self.screen() or QGuiApplication.screenAt(self.frameGeometry().center()) or QGuiApplication.primaryScreen()
+        if screen is None:
+            return QRect(0, 0, max(self.width(), 1), max(self.height(), 1))
+        return screen.availableGeometry()
 
     def _persist_geometry(self) -> None:
         if self._config is None or self._config_path is None or not self._geometry_restored:
