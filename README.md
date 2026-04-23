@@ -437,6 +437,19 @@ Contributor workflow lives in [docs/CONTRIBUTING.md](/home/cheol/projects/eoding
 
 Release-specific steps live in [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md), with [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md) as the short gate checklist.
 
+## Release Evidence Bundles
+
+Use the smallest evidence set that matches the surface you changed:
+
+| If you changed... | Minimum evidence bundle |
+| --- | --- |
+| README or deeper guide prose only | `pytest -q tests/unit/test_docs_assets.py` |
+| CLI flags, help text, or command examples tied to argparse | `python scripts/generate_manpage.py && pytest -q tests/unit/test_docs_assets.py` |
+| Visible GUI or launcher docs | `python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
+| Packaging or shipped-artifact docs | matching `python packaging/build.py --target ...-dry-run` plus manifest review under `packaging/dist/` |
+
+That keeps docs-only work factual: prove the changed contract directly instead of rerunning unrelated checks first.
+
 ## FAQ
 
 ### Does `eodinga` send file contents anywhere?
@@ -474,6 +487,10 @@ Use `packaging/dist/`. Each packaging dry run writes its audit manifests or stag
 ### What should I inspect before cutting a docs-only release?
 
 Check `tests/unit/test_docs_assets.py`, the matching GUI smoke or packaging dry run for the surface you documented, and the rendered payload under `packaging/dist/` when the docs describe packaged artifacts.
+
+### Why does a docs-only round still run GUI smoke or packaging dry runs?
+
+Because the shipped docs include generated screenshots, a generated man page, and packaged docs payloads. Markdown can drift from those derived assets even when runtime code is unchanged.
 
 ### Which files are skipped by default?
 
