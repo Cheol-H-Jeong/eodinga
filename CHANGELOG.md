@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.388 - 2026-04-23
+## 0.1.401 - 2026-04-23
 
 - Hardened the AppImage dry-run audit so staged desktop and icon payloads must remain byte-for-byte aligned with the shipped Linux assets instead of only existing in the AppDir.
 - Hardened the Debian dry-run audit so the staged desktop/icon payloads must stay aligned with the checked-in assets and the packaged changelog gzip header remains reproducible.
