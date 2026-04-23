@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.903 - 2026-04-23
+## 0.1.906 - 2026-04-23
 
 - Ignored created, modified, and deleted watcher events that fall outside the registered root, preventing stray symlink or mount-adjacent paths from leaking into the live update queue.
 - Aligned spaced operator regex parsing with inline operator regex parsing, so queries like `content: /회의\/록/[0-9]+/i` and `path: /tmp/log/i` now decode consistently.
