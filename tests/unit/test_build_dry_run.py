@@ -155,6 +155,15 @@ def test_build_preflight_reports_missing_windows_tool(monkeypatch) -> None:
     result = module._run_windows()
 
     assert result == 1
+    payload = json.loads(Path("packaging/dist/windows-audit.json").read_text(encoding="utf-8"))
+    assert payload["target"] == "windows"
+    assert payload["phase"] == "preflight"
+    assert payload["success"] is False
+    assert payload["missing_commands"] == ["iscc"]
+    assert payload["command_checks"] == [
+        {"command": "pyinstaller", "path": "/usr/bin/pyinstaller", "available": True},
+        {"command": "iscc", "path": None, "available": False},
+    ]
 
 
 def test_windows_build_target_relabels_audit_and_requires_built_artifacts(monkeypatch) -> None:
@@ -185,6 +194,17 @@ def test_build_preflight_reports_missing_linux_deb_tool(monkeypatch) -> None:
     result = module._run_linux_deb()
 
     assert result == 1
+    payload = json.loads(Path("packaging/dist/linux-deb-audit.json").read_text(encoding="utf-8"))
+    assert payload["target"] == "linux-deb"
+    assert payload["phase"] == "preflight"
+    assert payload["success"] is False
+    assert payload["missing_commands"] == ["dpkg-deb"]
+    assert payload["command_checks"] == [
+        {"command": "bash", "path": "/usr/bin/bash", "available": True},
+        {"command": "dpkg-deb", "path": None, "available": False},
+        {"command": "python3", "path": "/usr/bin/python3", "available": True},
+        {"command": "tar", "path": "/usr/bin/tar", "available": True},
+    ]
 
 
 def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
@@ -327,6 +347,14 @@ def test_workflows_lint_preflight_reports_missing_yamllint(monkeypatch) -> None:
     result = module._run_workflows_lint()
 
     assert result == 1
+    payload = json.loads(Path("packaging/dist/workflows-lint-audit.json").read_text(encoding="utf-8"))
+    assert payload["target"] == "workflows-lint"
+    assert payload["phase"] == "preflight"
+    assert payload["success"] is False
+    assert payload["missing_commands"] == ["yamllint"]
+    assert payload["command_checks"] == [
+        {"command": "yamllint", "path": None, "available": False},
+    ]
 
 
 def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> None:

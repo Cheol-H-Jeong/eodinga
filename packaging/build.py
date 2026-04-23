@@ -223,6 +223,17 @@ def _audit_status(path: Path, result: int) -> dict[str, Any]:
     }
 
 
+def _command_checks(commands: list[str]) -> list[dict[str, Any]]:
+    return [
+        {
+            "command": command,
+            "path": shutil.which(command),
+            "available": shutil.which(command) is not None,
+        }
+        for command in commands
+    ]
+
+
 def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     if not payload.get("version_matches_package"):
@@ -457,6 +468,14 @@ def _missing_required_commands(commands: list[str]) -> list[str]:
 
 def _preflight_required_commands(target: str, commands: list[str]) -> int:
     missing = _missing_required_commands(commands)
+    payload = {
+        "target": target,
+        "phase": "preflight",
+        "success": not missing,
+        "command_checks": _command_checks(commands),
+        "missing_commands": missing,
+    }
+    _write_audit(payload)
     if not missing:
         return 0
     return _report_validation_errors(
