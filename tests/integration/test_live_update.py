@@ -4,6 +4,8 @@ from pathlib import Path
 from queue import Empty
 from time import monotonic
 
+import pytest
+
 from eodinga.config import RootConfig
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
@@ -321,6 +323,51 @@ def test_live_move_between_watched_roots_rehomes_query_hit_and_root_scope(tmp_pa
     assert hits == {destination}
     assert alpha_hits == set()
     assert beta_hits == {destination}
+
+
+def test_live_update_service_restart_clears_queue_and_keeps_delete_flow(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    target = root / "restart-cycle.txt"
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        target.write_text("watch service restart coverage\n", encoding="utf-8")
+        create_elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "watch service restart coverage",
+            target,
+            deadline_seconds=0.5,
+        )
+
+        service.stop()
+        with pytest.raises(Empty):
+            service.queue.get_nowait()
+
+        service.start(root)
+        target.unlink()
+        delete_elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "watch service restart coverage",
+            target,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    assert create_elapsed <= 0.5
+    assert delete_elapsed <= 0.5
 
 
 def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Path) -> None:
