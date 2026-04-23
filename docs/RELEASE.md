@@ -81,6 +81,16 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Metadata Commit Scope
+
+The final metadata commit for a round should usually contain only:
+
+- `CHANGELOG.md`
+- `pyproject.toml`
+- `eodinga/__init__.py`
+
+Keep feature, docs, or packaging edits in earlier commits so rebases and release-review diffs stay small. The only normal exception is a same-round generated docs asset refresh that must land with the documented behavior.
+
 ## Tag Decision Path
 
 ```text
@@ -108,6 +118,15 @@ round changes assembled
 3. Create the local tag after that final commit.
 4. Do not push tags or release branches from a worker worktree.
 5. Hand the orchestrator a clean branch plus the final local tag to rebase and publish.
+
+## Version Collision Playbook
+
+1. Fetch tags again before the metadata cut if the round ran for a while.
+2. Re-check `git tag -l | sort -V | tail -3`.
+3. If the chosen `v0.1.N` now exists, bump to the next unused patch version in the metadata commit.
+4. Re-run the gate on the new versioned tip, then create the replacement local tag.
+
+Do not rewrite earlier feature or docs commits just to reshuffle version metadata; keep the collision fix isolated to the final release step.
 
 ## Docs-Only Rounds
 
@@ -155,3 +174,4 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - The local tag points at the final commit for the round, not an earlier docs or feature commit.
 - The final release commit remains reviewable on its own and does not hide unrelated feature edits.
 - `packaging/dist/` has been reviewed for the dry-run targets touched by the round.
+- The handoff note names the new patch version and local tag explicitly so the orchestrator does not need to infer them from history.
