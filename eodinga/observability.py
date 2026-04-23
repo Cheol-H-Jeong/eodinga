@@ -16,6 +16,7 @@ from loguru import logger
 
 _DEFAULT_HISTOGRAM_BUCKETS_MS = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0)
 _METRICS_LOCK = Lock()
+_LOGGING_STATE_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
 _PROCESS_STARTED_AT = datetime.now(UTC)
@@ -26,6 +27,33 @@ class MetricsSnapshot(TypedDict):
     histograms: dict[str, dict[str, object]]
     generated_at: str
     uptime_ms: float
+
+
+class LoggingStateSnapshot(TypedDict):
+    level: str
+    stderr_enabled: bool
+    file_logging_requested: bool
+    file_sink_active: bool
+    file_path: str | None
+    rotation: str | None
+    retention: int | None
+    compression: str | None
+    enqueue: bool
+    error: str | None
+
+
+_LOGGING_STATE: LoggingStateSnapshot = {
+    "level": "INFO",
+    "stderr_enabled": True,
+    "file_logging_requested": False,
+    "file_sink_active": False,
+    "file_path": None,
+    "rotation": None,
+    "retention": None,
+    "compression": None,
+    "enqueue": False,
+    "error": None,
+}
 
 
 @dataclass
@@ -146,13 +174,45 @@ def resolve_crash_dir(crash_dir: Path | None = None) -> Path:
 
 
 def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
+    normalized_level = level.upper()
     logger.remove()
-    logger.add(sys.stderr, level=level.upper())
+    logger.add(sys.stderr, level=normalized_level, backtrace=False, diagnose=False)
     target = resolve_log_path(log_path)
+    logging_state: LoggingStateSnapshot = {
+        "level": normalized_level,
+        "stderr_enabled": True,
+        "file_logging_requested": target is not None,
+        "file_sink_active": False,
+        "file_path": str(target) if target is not None else None,
+        "rotation": "5 MB" if target is not None else None,
+        "retention": 5 if target is not None else None,
+        "compression": "gz" if target is not None else None,
+        "enqueue": target is not None,
+        "error": None,
+    }
     if target is None:
+        _set_logging_state(logging_state)
         return
     target.parent.mkdir(parents=True, exist_ok=True)
-    logger.add(target, rotation="5 MB", retention=5, level=level.upper())
+    try:
+        logger.add(
+            target,
+            rotation="5 MB",
+            retention=5,
+            compression="gz",
+            enqueue=True,
+            encoding="utf-8",
+            level=normalized_level,
+            backtrace=False,
+            diagnose=False,
+        )
+    except Exception as error:
+        logging_state["error"] = str(error)
+        increment_counter("log_sink_failures")
+        sys.stderr.write(f"file logging disabled: {error}\n")
+    else:
+        logging_state["file_sink_active"] = True
+    _set_logging_state(logging_state)
 
 
 def get_logger(name: str | None = None) -> Any:
@@ -198,6 +258,11 @@ def snapshot_metrics() -> MetricsSnapshot:
         "generated_at": now.isoformat().replace("+00:00", "Z"),
         "uptime_ms": round((now - _PROCESS_STARTED_AT).total_seconds() * 1000, 3),
     }
+
+
+def snapshot_logging_state() -> LoggingStateSnapshot:
+    with _LOGGING_STATE_LOCK:
+        return LoggingStateSnapshot(**_LOGGING_STATE)
 
 
 def reset_metrics() -> None:
@@ -332,3 +397,8 @@ def _format_detail_value(value: object) -> str:
     if isinstance(value, (str, int, float, bool)) or value is None:
         return str(value)
     return json_dumps(value, sort_keys=True)
+
+
+def _set_logging_state(state: LoggingStateSnapshot) -> None:
+    with _LOGGING_STATE_LOCK:
+        _LOGGING_STATE.update(state)

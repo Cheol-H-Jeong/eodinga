@@ -8,7 +8,7 @@ import sys
 from contextlib import closing
 from pathlib import Path
 from time import monotonic
-from typing import Any
+from typing import Any, cast
 
 from eodinga import __version__
 from eodinga.common import SearchResult, StatsSnapshot
@@ -27,6 +27,7 @@ from eodinga.observability import (
     record_histogram,
     resolve_crash_dir,
     resolve_log_path,
+    snapshot_logging_state,
     snapshot_metrics,
     report_crash,
 )
@@ -196,6 +197,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         log_path=resolve_log_path(),
         crash_dir=resolve_crash_dir(),
         file_logging_enabled=file_logging_enabled(),
+        logging=cast(dict[str, object], snapshot_logging_state()),
     ).model_dump(mode="json")
     return _emit(snapshot, as_json=bool(args.json))
 

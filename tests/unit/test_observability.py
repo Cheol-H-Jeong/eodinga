@@ -7,12 +7,15 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
+from loguru import logger
+
 from eodinga.common import WatchEvent
 from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga import __version__
 from eodinga.observability import (
+    counter_value,
     configure_logging,
     default_crash_dir,
     default_log_path,
@@ -23,6 +26,7 @@ from eodinga.observability import (
     resolve_log_path,
     reset_metrics,
     report_crash,
+    snapshot_logging_state,
     snapshot_metrics,
     write_crash_log,
 )
@@ -49,6 +53,12 @@ def test_configure_logging_respects_explicit_file_target(tmp_path: Path) -> None
     log_path = tmp_path / "logs" / "app.log"
     configure_logging("DEBUG", log_path=log_path)
     assert log_path.parent.exists()
+    state = snapshot_logging_state()
+    assert state["level"] == "DEBUG"
+    assert state["file_sink_active"] is True
+    assert state["file_path"] == str(log_path)
+    assert state["compression"] == "gz"
+    assert state["enqueue"] is True
 
 
 def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> None:
@@ -57,6 +67,29 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     configure_logging("INFO")
     assert log_path.parent.exists()
+    assert snapshot_logging_state()["file_path"] == str(log_path)
+
+
+def test_configure_logging_records_sink_failure(monkeypatch, capsys) -> None:
+    original_add = logger.add
+
+    def _raising_add(sink, *args, **kwargs):
+        if isinstance(sink, Path):
+            raise PermissionError("denied")
+        return original_add(sink, *args, **kwargs)
+
+    reset_metrics()
+    monkeypatch.setattr("eodinga.observability.logger.add", _raising_add)
+
+    configure_logging("INFO", log_path=Path("/tmp/blocked/eodinga.log"))
+
+    state = snapshot_logging_state()
+    captured = capsys.readouterr()
+    assert state["file_sink_active"] is False
+    assert state["file_logging_requested"] is True
+    assert state["error"] == "denied"
+    assert counter_value("log_sink_failures") == 1
+    assert "file logging disabled: denied" in captured.err
 
 
 def test_log_and_crash_resolution_respect_runtime_overrides(tmp_path: Path, monkeypatch) -> None:

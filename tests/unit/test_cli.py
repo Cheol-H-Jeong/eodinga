@@ -490,6 +490,9 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
     assert payload["crash_dir"]
+    assert payload["logging"]["level"] == "INFO"
+    assert payload["logging"]["file_logging_requested"] is False
+    assert payload["logging"]["file_sink_active"] is False
     assert payload["counters"]["queries_served"] == 1
     assert payload["counters"]["commands_started"] == 2
     assert payload["counters"]["commands.search.completed"] == 1
@@ -553,6 +556,8 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["commands"]["search"]["completed"] == 1
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 2
+    assert payload["logging"]["stderr_enabled"] is True
+    assert payload["logging"]["file_path"] is None
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
 

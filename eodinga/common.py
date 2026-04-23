@@ -119,6 +119,7 @@ class StatsSnapshot(BaseModel):
     log_path: Path | None = None
     crash_dir: Path | None = None
     file_logging_enabled: bool = True
+    logging: dict[str, object] = Field(default_factory=dict)
 
 
 __all__ = [
