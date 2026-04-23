@@ -5,6 +5,7 @@ import json
 import os
 import re
 import sys
+from collections.abc import Set as AbstractSet
 from contextlib import closing
 from pathlib import Path
 from time import monotonic
@@ -308,7 +309,7 @@ def _exit_code_summary(counters: dict[str, int]) -> dict[str, int]:
 def _counter_subset(
     counters: dict[str, int],
     *,
-    exact: set[str] = frozenset(),
+    exact: AbstractSet[str] = frozenset(),
     prefixes: tuple[str, ...] = (),
 ) -> dict[str, int]:
     subset = {name: counters.get(name, 0) for name in sorted(exact)}
