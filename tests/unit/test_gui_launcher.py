@@ -429,10 +429,12 @@ def test_launcher_ctrl_p_toggles_pinned_query(qapp) -> None:
 
     QTest.keyClick(launcher.query_field, Qt.Key.Key_P, Qt.KeyboardModifier.ControlModifier)
     assert state.pinned_queries == ["budget"]
-    assert "Ctrl+P pins the current query" in launcher.shortcut_label.text()
+    assert "Ctrl+P unpins the current query" in launcher.shortcut_label.text()
+    assert "Ctrl+P to unpin the current query" in launcher.empty_state.body_label.text()
 
     QTest.keyClick(launcher.query_field, Qt.Key.Key_P, Qt.KeyboardModifier.ControlModifier)
     assert state.pinned_queries == []
+    assert "Ctrl+P pins the current query" in launcher.shortcut_label.text()
 
 
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:

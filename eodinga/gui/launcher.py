@@ -212,6 +212,7 @@ class LauncherPanel(QWidget):
         self._pinned_queries = queries
         self.pinned_queries_row.set_queries(queries[:5])
         self._refresh_empty_state()
+        self._refresh_shortcut_hint()
         self._sync_pin_query_button()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
@@ -364,7 +365,7 @@ class LauncherPanel(QWidget):
         else:
             self.empty_state.set_content(
                 f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Ctrl+P to pin the current query, Tab to jump back to the filter, or Esc to hide the launcher.",
+                f"Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press {self._pin_shortcut_phrase()}, Tab to jump back to the filter, or Esc to hide the launcher.",
                 details,
             )
         self.empty_state.setVisible(not has_results)
@@ -374,15 +375,15 @@ class LauncherPanel(QWidget):
         has_results = self.model.rowCount() > 0
         if not has_results:
             if self.query_field.text().strip():
-                hint = "Refine with ext:, date:, size:, or content: filters. Ctrl+P pins the current query. Alt+Up recalls recent queries."
+                hint = f"Refine with ext:, date:, size:, or content: filters. {self._pin_shortcut_sentence()} Alt+Up recalls recent queries."
             else:
                 hint = "Type a filename, path, or content term. Ctrl+P pins the current query. Alt+Up recalls recent queries."
         elif any(button.hasFocus() for button in self._action_buttons):
             hint = "Enter or Space runs the focused action. Left/Right move between actions. Tab returns to the filter. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks keep working."
         elif self.result_list.hasFocus():
-            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Ctrl+P pins the current query. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
+            hint = f"Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. {self._pin_shortcut_sentence()} Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
         else:
-            hint = "Tab moves to results, then actions. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Ctrl+P pins the current query. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
+            hint = f"Tab moves to results, then actions. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. {self._pin_shortcut_sentence()} Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
 
     def _current_hit(self) -> SearchHit | None:
@@ -572,6 +573,18 @@ class LauncherPanel(QWidget):
             return
         action = "Remove" if is_pinned else "Save"
         self.pin_query_button.setAccessibleDescription(f"{action} the current launcher query for quick access.")
+
+    def _pin_shortcut_phrase(self) -> str:
+        query = self.query_field.text().strip()
+        if query and query in self._pinned_queries:
+            return "Ctrl+P to unpin the current query"
+        return "Ctrl+P to pin the current query"
+
+    def _pin_shortcut_sentence(self) -> str:
+        query = self.query_field.text().strip()
+        if query and query in self._pinned_queries:
+            return "Ctrl+P unpins the current query."
+        return "Ctrl+P pins the current query."
 
     def _navigate_recent_queries(self, direction: int) -> None:
         if not self._recent_queries:
