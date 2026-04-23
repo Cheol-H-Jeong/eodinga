@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.229 - 2026-04-23
+## 0.1.234 - 2026-04-23
 
 - Restored compatibility with persisted `launcher.frameless` config so existing local installs no longer crash on startup while the launcher window keeps honoring that flag.
 - Added an end-to-end watchdog regression that modifies indexed file content in place and proves search refreshes to the new body within the existing live-update budget.
