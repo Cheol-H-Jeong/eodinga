@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.817 - 2026-04-23
+## 0.1.819 - 2026-04-23
 
 - Persisted launcher recent queries in config, so both the popup launcher and embedded search panel restore the last few searches after a restart instead of starting from an empty history every time.
 - Expanded launcher accessibility metadata with richer descriptions for the result list, empty state, shortcut guidance, active filters, and pinned/recent query chips, making the existing keyboard surface easier to navigate with assistive tooling.
