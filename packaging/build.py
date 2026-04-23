@@ -244,6 +244,7 @@ def _validate_linux_deb_audit(payload: dict[str, Any], package_version: str) -> 
     if payload.get("version") != package_version:
         errors.append("Debian audit version does not match the package version")
     control_payload = payload.get("control", {})
+    desktop_payload = payload.get("desktop_entry", {})
     icon_payload = payload.get("icon", {})
     launcher_payload = payload.get("launcher", {})
     docs_payload = payload.get("docs", {})
@@ -251,7 +252,24 @@ def _validate_linux_deb_audit(payload: dict[str, Any], package_version: str) -> 
         errors.append("Debian control package name drifted from eodinga")
     if control_payload.get("version") != package_version:
         errors.append("Debian control version does not match the package version")
+    if control_payload.get("section") != "utils":
+        errors.append("Debian control section drifted from utils")
+    if control_payload.get("priority") != "optional":
+        errors.append("Debian control priority drifted from optional")
+    if control_payload.get("architecture") != payload.get("arch"):
+        errors.append("Debian control architecture does not match the build target")
+    if control_payload.get("maintainer") != "Cheol-H-Jeong":
+        errors.append("Debian control maintainer drifted from Cheol-H-Jeong")
+    if control_payload.get("depends") != "python3 (>= 3.11)":
+        errors.append("Debian control dependency drifted from python3 (>= 3.11)")
+    if control_payload.get("description") != "Instant lexical file search for Windows and Linux":
+        errors.append("Debian control description drifted from the packaged product summary")
     required_flags = [
+        (desktop_payload.get("name") == "eodinga", "Debian desktop entry name drifted from eodinga"),
+        (desktop_payload.get("exec") == "eodinga gui", "Debian desktop entry no longer launches the GUI"),
+        (desktop_payload.get("icon") == "eodinga", "Debian desktop entry icon drifted from the shipped asset"),
+        (desktop_payload.get("categories") == "Utility;FileTools;", "Debian desktop entry categories drifted from Utility;FileTools;"),
+        (desktop_payload.get("startup_notify") == "true", "Debian desktop entry startup notification contract drifted"),
         (icon_payload.get("exists"), "Debian icon asset is missing from the package tree"),
         (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),
         (launcher_payload.get("is_executable"), "Debian launcher shim is not executable"),

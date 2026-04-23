@@ -101,7 +101,10 @@ payload = {
     "control": {
         "package": control_entries.get("Package"),
         "version": control_entries.get("Version"),
+        "section": control_entries.get("Section"),
+        "priority": control_entries.get("Priority"),
         "architecture": control_entries.get("Architecture"),
+        "maintainer": control_entries.get("Maintainer"),
         "depends": control_entries.get("Depends"),
         "description": control_entries.get("Description"),
     },

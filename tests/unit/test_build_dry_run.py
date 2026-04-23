@@ -215,6 +215,20 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
         "control": {
             "package": "eodinga",
             "version": __version__,
+            "section": "utils",
+            "priority": "optional",
+            "architecture": "amd64",
+            "maintainer": "Cheol-H-Jeong",
+            "depends": "python3 (>= 3.11)",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "arch": "amd64",
+        "desktop_entry": {
+            "name": "eodinga",
+            "exec": "eodinga gui",
+            "icon": "eodinga",
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
         },
         "icon": {
             "exists": True,
@@ -274,7 +288,10 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["control"] == {
         "package": "eodinga",
         "version": __version__,
+        "section": "utils",
+        "priority": "optional",
         "architecture": "amd64",
+        "maintainer": "Cheol-H-Jeong",
         "depends": "python3 (>= 3.11)",
         "description": "Instant lexical file search for Windows and Linux",
     }
