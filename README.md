@@ -207,10 +207,36 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 - `Enter` opens the top result
 - `Ctrl+Enter` opens the containing folder
 - `Shift+Enter` shows file properties
+- `Alt+1` through `Alt+9` open the first nine hits directly
+- `Alt+C` copies the selected result path
+- `Alt+N` copies the selected result name
 - `Alt+Up` / `Alt+Down` recalls recent queries
 - `Up` / `Down` wraps through the result list once focus is in the list
 - `PgUp` / `PgDn` jumps through longer result sets
-- `Ctrl+L` returns focus to the filter field
+- `Home` / `End` jump to the first or last visible hit
+- `Ctrl+A` or `Ctrl+L` returns focus to the filter field
+
+## Launcher Workflow
+
+The launcher is built for a keyboard-first loop instead of a separate search mode:
+
+- Start typing to query against the same local index used by `eodinga search` and the main GUI.
+- Use the pinned-query chips for saved filters such as `ext:pdf` or `date:this-week`, or recall recent queries with `Alt+Up` / `Alt+Down`.
+- Use `Tab` or the arrow keys to move into the result list, where `Home`, `End`, `PgUp`, and `PgDn` jump across longer lists without losing the current query.
+- Use the right-side preview pane to confirm the selected filename, full path, and snippet before opening or revealing the file.
+- Use the action keys directly from the launcher: `Enter` to open, `Ctrl+Enter` to reveal, `Shift+Enter` for properties, `Alt+C` to copy the path, `Alt+N` to copy the display name, and `Alt+1` through `Alt+9` for direct quick-picks.
+
+## Launcher Keyboard Map
+
+| Goal | Shortcut |
+| --- | --- |
+| Open the launcher | `Ctrl+Shift+Space` |
+| Reuse a recent query | `Alt+Up` / `Alt+Down` |
+| Focus the filter again | `Ctrl+A` or `Ctrl+L` |
+| Jump through results | `Home`, `End`, `PgUp`, `PgDn` |
+| Open or reveal | `Enter`, `Ctrl+Enter`, `Shift+Enter` |
+| Copy path or name | `Alt+C`, `Alt+N` |
+| Open top hits directly | `Alt+1` through `Alt+9` |
 
 ## Common Workflows
 
