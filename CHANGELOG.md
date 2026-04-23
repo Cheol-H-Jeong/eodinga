@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.914 - 2026-04-24
+
+- Hardened SQLite index swaps and startup recovery on platforms that do not support directory-handle `fsync`, so release builds stay durable without failing outright on Windows-style filesystems.
+- Scrubbed orphaned staged build and recovery artifacts before direct rebuild and stale-WAL recovery entrypoints run, preventing interrupted prior attempts from contaminating the next recovery or rebuild cycle.
+
 ## 0.1.908 - 2026-04-23
 
 - Skipped redundant SQLite PRAGMA rewrites when a connection is already in the requested fast-write state, trimming per-batch rebuild overhead without changing steady-state durability defaults.
