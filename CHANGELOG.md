@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.508 - 2026-04-23
+
+- Tightened structural query filters so `is:file` now matches regular files only and `is:dir` now matches non-symlink directories only, leaving `is:symlink` as the explicit way to query link entries.
+- Added compiler and executor regressions that pin the new structural-filter semantics, preventing symlink records from silently leaking into file-only or directory-only result sets.
+- Clarified the README and DSL cheatsheet so the documented query contract matches the stricter `is:` behavior.
+
 ## 0.1.504 - 2026-04-23
 
 - Expanded `stats --json` with rebuild completion, rebuild latency, and batch-size summaries so operators can inspect indexing throughput without decoding raw metric keys.
