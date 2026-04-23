@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.446 - 2026-04-23
+
+- Capped the query executor's SQL-shape LRU caches at an explicit 128 entries so prepared-statement memory use stays bounded without sacrificing cache reuse across repeated searches.
+- Reused one `indexed_at` timestamp per emitted walker batch instead of calling the clock for every discovered path, trimming per-record traversal overhead on large scans.
+- Defaulted SQLite connections back to `FULL` synchronous durability while temporarily dropping to `NORMAL` only for idle bulk-upsert windows, restoring the durable mode immediately after each batch.
+
 ## 0.1.442 - 2026-04-23
 
 - Added a dedicated `.[packaging]` extra for Windows release tooling and wired the Windows release workflow to install it explicitly instead of relying on ambient build dependencies.
