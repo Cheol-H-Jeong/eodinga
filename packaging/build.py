@@ -226,6 +226,7 @@ def _audit_status(path: Path, result: int) -> dict[str, Any]:
         "path": str(path),
         "exists": path.exists(),
         "result": result,
+        "success": result == 0,
     }
 
 
@@ -654,16 +655,19 @@ def _run_release_dry_run() -> int:
         ("linux-deb-dry-run", DIST_DIR / "linux-deb-audit.json", _run_linux_deb_dry_run()),
         ("workflows-lint", DIST_DIR / "workflows-lint-audit.json", _run_workflows_lint()),
     ]
+    result_payload = {
+        target: _audit_status(path, result)
+        for target, path, result in results
+    }
     summary = {
         "target": "release-dry-run",
         "version": _read_project_version(),
         "package_version": _read_package_version(),
-        "results": {
-            target: _audit_status(path, result)
-            for target, path, result in results
-        },
+        "results": result_payload,
+        "passed_targets": [target for target, payload in result_payload.items() if payload["success"]],
+        "failed_targets": [target for target, payload in result_payload.items() if not payload["success"]],
     }
-    summary["all_passed"] = all(result == 0 for _, _, result in results)
+    summary["all_passed"] = not summary["failed_targets"]
     RELEASE_DRY_RUN_AUDIT.parent.mkdir(parents=True, exist_ok=True)
     RELEASE_DRY_RUN_AUDIT.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return 0 if summary["all_passed"] else 1

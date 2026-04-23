@@ -291,28 +291,57 @@ def test_release_dry_run_runs_all_packaging_audits() -> None:
     assert payload["version"] == __version__
     assert payload["package_version"] == __version__
     assert payload["all_passed"] is True
+    assert payload["passed_targets"] == [
+        "windows-dry-run",
+        "linux-appimage-dry-run",
+        "linux-deb-dry-run",
+        "workflows-lint",
+    ]
+    assert payload["failed_targets"] == []
     assert payload["results"] == {
         "windows-dry-run": {
             "path": str(Path("packaging/dist/windows-dry-run-audit.json").resolve()),
             "exists": True,
             "result": 0,
+            "success": True,
         },
         "linux-appimage-dry-run": {
             "path": str(Path("packaging/dist/linux-appimage-audit.json").resolve()),
             "exists": True,
             "result": 0,
+            "success": True,
         },
         "linux-deb-dry-run": {
             "path": str(Path("packaging/dist/linux-deb-audit.json").resolve()),
             "exists": True,
             "result": 0,
+            "success": True,
         },
         "workflows-lint": {
             "path": str(Path("packaging/dist/workflows-lint-audit.json").resolve()),
             "exists": True,
             "result": 0,
+            "success": True,
         },
     }
+
+
+def test_release_dry_run_reports_failed_targets(monkeypatch) -> None:
+    module = _load_build_module()
+    monkeypatch.setattr(module, "_run_windows_dry_run", lambda: 0)
+    monkeypatch.setattr(module, "_run_linux_appimage_dry_run", lambda: 1)
+    monkeypatch.setattr(module, "_run_linux_deb_dry_run", lambda: 0)
+    monkeypatch.setattr(module, "_run_workflows_lint", lambda: 1)
+
+    result = module._run_release_dry_run()
+
+    assert result == 1
+    payload = json.loads(Path("packaging/dist/release-dry-run-audit.json").read_text(encoding="utf-8"))
+    assert payload["all_passed"] is False
+    assert payload["passed_targets"] == ["windows-dry-run", "linux-deb-dry-run"]
+    assert payload["failed_targets"] == ["linux-appimage-dry-run", "workflows-lint"]
+    assert payload["results"]["linux-appimage-dry-run"]["success"] is False
+    assert payload["results"]["workflows-lint"]["success"] is False
 
 
 def test_workflows_lint_target_writes_audit() -> None:
