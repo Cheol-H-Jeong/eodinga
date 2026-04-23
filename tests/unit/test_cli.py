@@ -687,6 +687,29 @@ def test_interrupted_command_returns_130_without_crash_metrics(
     assert metrics["histograms"]["command_latency_ms"]["count"] == 1
 
 
+def test_nonzero_command_exit_counts_as_failed_without_crash_metrics(
+    tmp_path: Path, capsys
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    exit_code = main(["--db", str(db_path), "search", "date:invalid", "--json"])
+
+    captured = capsys.readouterr()
+    metrics = snapshot_metrics()
+    assert exit_code == 2
+    assert "invalid date" in captured.err
+    assert metrics["counters"]["commands_started"] == 1
+    assert metrics["counters"]["commands.search.started"] == 1
+    assert metrics["counters"]["commands_failed"] == 1
+    assert metrics["counters"]["commands.search.failed"] == 1
+    assert "commands_completed" not in metrics["counters"]
+    assert "crashes_reported" not in metrics["counters"]
+    assert metrics["counters"]["commands.exit_code.2"] == 1
+    assert metrics["histograms"]["command_latency_ms"]["count"] == 1
+
+
 def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Path, capsys, monkeypatch) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
@@ -734,3 +757,22 @@ def test_stats_json_structures_interrupted_command_counts(
     assert payload["commands"]["version"]["interrupted"] == 1
     assert payload["commands"]["version"]["started"] == 1
     assert payload["exit_codes"]["130"] == 1
+
+
+def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    exit_code = main(["--db", str(db_path), "search", "date:invalid", "--json"])
+    assert exit_code == 2
+    capsys.readouterr()
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["commands_failed"] == 1
+    assert payload["commands"]["search"]["failed"] == 1
+    assert payload["commands"]["search"]["started"] == 1
+    assert payload["exit_codes"]["2"] == 1

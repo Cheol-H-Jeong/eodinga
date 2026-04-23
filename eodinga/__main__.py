@@ -266,9 +266,13 @@ def _run_command(args: argparse.Namespace) -> int:
         record_histogram("command_latency_ms", elapsed_ms, command=command)
         if exit_code is not None:
             increment_counter(f"commands.exit_code.{exit_code}")
-    increment_counter("commands_completed", command=command)
-    increment_counter(f"commands.{command}.completed")
     assert exit_code is not None
+    if exit_code == 0:
+        increment_counter("commands_completed", command=command)
+        increment_counter(f"commands.{command}.completed")
+    elif exit_code != 130:
+        increment_counter("commands_failed", command=command)
+        increment_counter(f"commands.{command}.failed")
     return exit_code
 
 
