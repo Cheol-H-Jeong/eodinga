@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.717 - 2026-04-23
+## 0.1.718 - 2026-04-23
 
 - Clarified the README’s operator guidance around choosing the smallest validation path, when to refresh docs assets, and why the opt-in perf suite sits outside the default acceptance pass.
 - Deepened the architecture guide with transaction-boundary, search-visibility, and operator-question-by-layer sections so stale-result and release-review investigations map cleanly onto the runtime design.
