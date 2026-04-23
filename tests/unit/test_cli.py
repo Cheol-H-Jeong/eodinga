@@ -500,6 +500,13 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["counters"]["commands.stats.started"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 1
+    assert payload["parser_counters"] == {"parser_errors": 0}
+    assert payload["watcher_counters"] == {"watcher_events": 0}
+    assert payload["watcher_histograms"] == {}
+    assert payload["indexing_counters"]["files_indexed"] == 0
+    assert payload["indexing_counters"]["index_rebuilds_completed"] == 0
+    assert payload["logging_counters"]["logging_configurations"] == 2
+    assert payload["logging_counters"]["log_sinks.file.disabled"] == 2
 
 
 def test_stats_json_exposes_end_to_end_runtime_metrics(
@@ -565,6 +572,14 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["log_compression"] is None
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
+    assert payload["parser_counters"]["parser_errors"] == 1
+    assert payload["parser_counters"]["parsers.broken.error"] == 1
+    assert payload["watcher_counters"]["watcher_events"] == 1
+    assert payload["indexing_counters"]["files_indexed"] == indexed_files
+    assert payload["indexing_counters"]["index_rebuilds_completed"] == 1
+    assert payload["indexing_histograms"]["index_batch_size"]["count"] >= 1
+    assert payload["indexing_histograms"]["index_rebuild_latency_ms"]["count"] == 1
+    assert payload["logging_counters"]["logging_configurations"] == 3
 
 
 def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path: Path) -> None:

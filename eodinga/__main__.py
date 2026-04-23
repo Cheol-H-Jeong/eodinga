@@ -192,6 +192,29 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         command_latency_histogram=histogram_snapshot("command_latency_ms"),
         commands=_command_summary(counters),
         exit_codes=_exit_code_summary(counters),
+        parser_counters=_counter_subset(counters, exact={"parser_errors"}, prefixes=("parsers.",)),
+        watcher_counters=_counter_subset(counters, exact={"watcher_events"}, prefixes=("watcher_",)),
+        watcher_histograms=_histogram_subset(
+            metrics["histograms"],
+            "watch_event_lag_ms",
+            "watch_flush_batch_size",
+            "watcher_queue_backpressure_ms",
+        ),
+        indexing_counters=_counter_subset(
+            counters,
+            exact={"files_indexed", "index_rebuilds_completed"},
+            prefixes=("index_",),
+        ),
+        indexing_histograms=_histogram_subset(
+            metrics["histograms"],
+            "index_batch_size",
+            "index_rebuild_latency_ms",
+        ),
+        logging_counters=_counter_subset(
+            counters,
+            exact={"logging_configurations"},
+            prefixes=("log_sinks.",),
+        ),
         counters=counters,
         histograms=metrics["histograms"],
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
@@ -280,6 +303,31 @@ def _exit_code_summary(counters: dict[str, int]) -> dict[str, int]:
         name[len(prefix) :]: value for name, value in counters.items() if name.startswith(prefix)
     }
     return dict(sorted(exit_codes.items(), key=lambda item: int(item[0])))
+
+
+def _counter_subset(
+    counters: dict[str, int],
+    *,
+    exact: set[str] = frozenset(),
+    prefixes: tuple[str, ...] = (),
+) -> dict[str, int]:
+    subset = {name: counters.get(name, 0) for name in sorted(exact)}
+    subset.update(
+        {
+            name: value
+            for name, value in counters.items()
+            if any(name.startswith(prefix) for prefix in prefixes)
+        }
+    )
+    return dict(sorted(subset.items()))
+
+
+def _histogram_subset(
+    histograms: dict[str, dict[str, object]],
+    *names: str,
+) -> dict[str, dict[str, object]]:
+    subset = {name: histograms[name] for name in names if name in histograms}
+    return dict(sorted(subset.items()))
 
 
 def main(argv: list[str] | None = None) -> int:
