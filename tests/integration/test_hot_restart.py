@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from queue import Empty
-from time import monotonic
 
 from eodinga.config import RootConfig
 from eodinga.common import PathRules
@@ -14,51 +12,7 @@ from eodinga.index.storage import has_stale_wal, open_index
 from eodinga.index.writer import IndexWriter
 from eodinga.core.walker import walk_batched
 from eodinga.query import search
-from tests.conftest import make_record
-
-
-def _wait_for_query_hit(
-    conn,
-    service: WatchService,
-    writer: IndexWriter,
-    query: str,
-    expected_path: Path,
-    deadline_seconds: float,
-) -> float:
-    started = monotonic()
-    deadline = started + deadline_seconds
-    while monotonic() < deadline:
-        try:
-            event = service.queue.get(timeout=0.05)
-        except Empty:
-            continue
-        writer.apply_events([event], record_loader=make_record)
-        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
-        if expected_path in hits:
-            return min(monotonic() - started, deadline_seconds)
-    raise AssertionError(f"{expected_path} did not become query-visible within {deadline_seconds:.3f}s")
-
-
-def _wait_for_query_miss(
-    conn,
-    service: WatchService,
-    writer: IndexWriter,
-    query: str,
-    missing_path: Path,
-    deadline_seconds: float,
-) -> float:
-    started = monotonic()
-    deadline = started + deadline_seconds
-    while monotonic() < deadline:
-        try:
-            event = service.queue.get(timeout=0.05)
-        except Empty:
-            continue
-        writer.apply_events([event], record_loader=make_record)
-        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
-        if missing_path not in hits:
-            return min(monotonic() - started, deadline_seconds)
-    raise AssertionError(f"{missing_path} remained query-visible after {deadline_seconds:.3f}s")
+from tests.integration._helpers import wait_for_query_hit, wait_for_query_miss
 
 
 def test_hot_restart_recovers_stale_wal_and_preserves_queries(tmp_path: Path) -> None:
@@ -198,7 +152,7 @@ def test_hot_restart_reopen_multi_root_keeps_queries_and_accepts_live_updates(tm
 
         created = root_b / "after-reopen-beta.txt"
         created.write_text("post reopen beta update\n", encoding="utf-8")
-        elapsed = _wait_for_query_hit(
+        elapsed = wait_for_query_hit(
             reopened,
             service,
             writer,
@@ -245,7 +199,7 @@ def test_hot_restart_reopen_multi_root_create_updates_global_and_root_scoped_que
 
         created = root_b / "reopen-created-beta.txt"
         created.write_text("reopen scoped beta creation\n", encoding="utf-8")
-        elapsed = _wait_for_query_hit(
+        elapsed = wait_for_query_hit(
             reopened,
             service,
             writer,
@@ -304,7 +258,7 @@ def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) 
         service.start(root_b)
 
         target.unlink()
-        elapsed = _wait_for_query_miss(
+        elapsed = wait_for_query_miss(
             reopened,
             service,
             writer,
@@ -356,7 +310,7 @@ def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updat
 
         created = root / "after-build-resume.txt"
         created.write_text("live update after staged resume\n", encoding="utf-8")
-        elapsed = _wait_for_query_hit(
+        elapsed = wait_for_query_hit(
             reopened,
             service,
             writer,
@@ -453,7 +407,7 @@ def test_hot_restart_reopen_multi_root_modify_updates_root_scoped_queries(tmp_pa
         service.start(root_b)
 
         target.write_text("beta rewritten reopen marker\n", encoding="utf-8")
-        elapsed = _wait_for_query_hit(
+        elapsed = wait_for_query_hit(
             reopened,
             service,
             writer,
@@ -502,7 +456,7 @@ def test_hot_restart_reopen_same_root_move_updates_query_and_path_hits(tmp_path:
         destination = root / "reopen-renamed.txt"
         source.rename(destination)
 
-        appeared_elapsed = _wait_for_query_hit(
+        appeared_elapsed = wait_for_query_hit(
             reopened,
             service,
             writer,
@@ -510,7 +464,7 @@ def test_hot_restart_reopen_same_root_move_updates_query_and_path_hits(tmp_path:
             destination,
             deadline_seconds=0.5,
         )
-        removed_elapsed = _wait_for_query_miss(
+        removed_elapsed = wait_for_query_miss(
             reopened,
             service,
             writer,
@@ -556,7 +510,7 @@ def test_hot_restart_reopen_cross_root_move_updates_scope_and_global_hits(tmp_pa
 
         destination = root_b / moved.name
         moved.rename(destination)
-        appeared_elapsed = _wait_for_query_hit(
+        appeared_elapsed = wait_for_query_hit(
             reopened,
             service,
             writer,
@@ -564,7 +518,7 @@ def test_hot_restart_reopen_cross_root_move_updates_scope_and_global_hits(tmp_pa
             destination,
             deadline_seconds=0.5,
         )
-        removed_elapsed = _wait_for_query_miss(
+        removed_elapsed = wait_for_query_miss(
             reopened,
             service,
             writer,
