@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.247 - 2026-04-23
+## 0.1.251 - 2026-04-23
 
 - Added visible launcher chip rows for active DSL filters plus clickable recent and pinned query shortcuts, so query context stays on-screen instead of being buried in the empty state copy.
 - Strengthened launcher result emphasis by rendering matched substrings with a heavier highlighted treatment across names, paths, snippets, and extension badges.
