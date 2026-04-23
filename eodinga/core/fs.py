@@ -34,10 +34,10 @@ class ScanEntry(NamedTuple):
 
 
 def _normalize_windows_path_text(raw: str) -> str:
-    normalized = raw.replace("\\", "/")
+    normalized = "/".join(raw.split("\\"))
     match = _WINDOWS_EXTENDED_DRIVE_RE.match(raw)
     if match is not None:
-        return match.group(1).replace("\\", "/")
+        return "/".join(match.group(1).split("\\"))
     return normalized
 
 

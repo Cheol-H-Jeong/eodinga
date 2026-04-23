@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.849 - 2026-04-23
+
+- Normalized Windows extended-length drive prefixes in the filesystem helpers, so `\\?\C:\...` inputs now resolve to the same canonical path text as regular drive paths instead of bypassing Windows-path handling.
+- Applied the same extended-prefix normalization to query root scoping, allowing `search --root \\?\C:\...` to match indexed `C:\...` records and exact root entries without missing results.
+
 ## 0.1.841 - 2026-04-23
 
 - Hardened the read-only filesystem guard so malformed or ambiguous modes now fail fast through `open_readonly`, instead of relying on lower-level `pathlib` mode parsing.
