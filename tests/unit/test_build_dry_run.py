@@ -162,6 +162,9 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
         "version": __version__,
         "recipe": {
             "exists": True,
+            "contains_version_template": True,
+            "rendered_exists": True,
+            "rendered_version_matches_package": True,
             "references_desktop_entry": True,
             "references_icon_asset": True,
             "launches_gui": True,
@@ -193,6 +196,9 @@ def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> Non
         "archive": "packaging/dist/eodinga-linux-appdir.tar.gz",
         "recipe": {
             "exists": True,
+            "contains_version_template": True,
+            "rendered_exists": True,
+            "rendered_version_matches_package": True,
             "references_desktop_entry": True,
             "references_icon_asset": True,
             "launches_gui": True,
@@ -239,6 +245,10 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["desktop_entry"]["categories"] == "Utility;FileTools;"
     assert payload["desktop_entry"]["startup_notify"] == "true"
     assert payload["recipe"]["exists"] is True
+    assert payload["recipe"]["contains_version_template"] is True
+    assert Path(payload["recipe"]["rendered_path"]).exists()
+    assert payload["recipe"]["rendered_exists"] is True
+    assert payload["recipe"]["rendered_version_matches_package"] is True
     assert payload["recipe"]["references_desktop_entry"] is True
     assert payload["recipe"]["references_icon_asset"] is True
     assert payload["recipe"]["launches_gui"] is True

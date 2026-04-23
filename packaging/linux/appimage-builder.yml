@@ -12,7 +12,7 @@ AppDir:
     id: io.github.cheolhjeong.eodinga
     name: eodinga
     icon: eodinga
-    version: latest
+    version: @@APP_VERSION@@
     exec: usr/bin/eodinga
     exec_args: gui
   files:

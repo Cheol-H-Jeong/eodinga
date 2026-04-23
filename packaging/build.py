@@ -233,6 +233,9 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
     launcher_payload = payload.get("launcher", {})
     required_flags = [
         (recipe_payload.get("exists"), "AppImage recipe is missing"),
+        (recipe_payload.get("contains_version_template"), "AppImage recipe no longer uses the version template"),
+        (recipe_payload.get("rendered_exists"), "Rendered AppImage recipe is missing"),
+        (recipe_payload.get("rendered_version_matches_package"), "Rendered AppImage recipe version does not match the package version"),
         (recipe_payload.get("references_desktop_entry"), "AppImage recipe no longer references the desktop entry"),
         (recipe_payload.get("references_icon_asset"), "AppImage recipe no longer references the icon asset"),
         (recipe_payload.get("launches_gui"), "AppImage recipe no longer launches the GUI target"),
