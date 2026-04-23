@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.231 - 2026-04-23
+
+- Expanded `README.md` with a surface matrix, a compact operator checklist, and a troubleshooting runbook so the top-level contract points operators to the right CLI and packaging checks faster.
+- Deepened `docs/ARCHITECTURE.md` with a concrete SQLite schema snapshot, generated-docs asset flow, and an operator debug path that mirrors the runtime stack.
+- Tightened `docs/ACCEPTANCE.md`, `docs/CONTRIBUTING.md`, and `docs/RELEASE.md` around docs-only rounds, Linux packaging checks, and derived-asset refresh steps so shipped documentation drifts less easily.
+- Ignored unknown persisted config keys during load so existing local configs no longer crash CLI subprocesses while the test gate is running.
+
 ## 0.1.224 - 2026-04-23
 
 - Installed global crash hooks for top-level and thread failures so background or early CLI crashes now emit the same `crash-<ts>.log` artifacts as the main exception path.
