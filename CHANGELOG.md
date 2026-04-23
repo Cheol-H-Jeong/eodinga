@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.840 - 2026-04-23
+
+- Fixed open-ended relative date filters like `date:..today`, `date:last-week..`, and `created:..this-month`, which previously only accepted ISO literals on the unbounded side even though closed relative ranges already worked.
+- Added focused `date_range` parser coverage for mixed relative and ISO datetime endpoints, including frozen local-time boundary checks for previous-period aliases.
+- Expanded compiler and executor tests so relative open-ended date filters stay wired through query compilation and live search results end to end.
+
 ## 0.1.837 - 2026-04-23
 
 - Bundled the `eodinga/` runtime tree into the staged Linux AppImage and Debian package roots so packaged launchers no longer depend on the source checkout being present at runtime.
