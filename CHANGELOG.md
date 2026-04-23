@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.279 - 2026-04-23
+## 0.1.286 - 2026-04-23
 
 - Scoped SQLite bulk-write mode to indexing-heavy paths, keeping new connections at `FULL` durability by default while temporarily dropping rebuilds and writer batches to `NORMAL` until the bulk phase finishes.
 - Reused that bulk-write mode across full rebuilds and standalone writer entry points, with nested and in-transaction guards so indexed batches avoid redundant pragma churn without breaking caller-managed transactions.
