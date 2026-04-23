@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import cast
 
 from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
-from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
+from PySide6.QtGui import QKeyEvent, QKeySequence, QMouseEvent, QShortcut
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
@@ -130,6 +130,7 @@ class LauncherPanel(QWidget):
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
+        self.result_list.viewport().installEventFilter(self)
 
         self._shortcuts = [
             QShortcut(QKeySequence(Qt.Key.Key_Return), self),
@@ -247,6 +248,13 @@ class LauncherPanel(QWidget):
             self._refresh_shortcut_hint()
         if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusOut:
             QTimer.singleShot(0, self._refresh_shortcut_hint)
+        if watched is self.result_list.viewport():
+            if event.type() == QEvent.Type.MouseMove:
+                mouse_event = cast(QMouseEvent, event)
+                if not self.result_list.indexAt(mouse_event.position().toPoint()).isValid():
+                    self._refresh_preview()
+            if event.type() == QEvent.Type.Leave:
+                self._refresh_preview()
         if event.type() != QEvent.Type.KeyPress:
             return super().eventFilter(watched, event)
         key_event = cast(QKeyEvent, event)
