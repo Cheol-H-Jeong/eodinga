@@ -25,6 +25,7 @@ from eodinga.observability import (
     resolve_crash_dir,
     resolve_log_compression,
     resolve_log_path,
+    resolve_log_target,
     resolve_log_retention,
     resolve_log_rotation,
     reset_metrics,
@@ -60,6 +61,7 @@ def test_configure_logging_respects_explicit_file_target(tmp_path: Path) -> None
     assert counters["logging_configurations"] == 1
     assert counters["log_sinks.stderr.configured"] == 1
     assert counters["log_sinks.file.configured"] == 1
+    assert counters["log_sinks.file.source.explicit"] == 1
 
 
 def test_install_crash_handlers_records_installation_metric() -> None:
@@ -80,6 +82,7 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
     counters = cast(dict[str, int], snapshot_metrics()["counters"])
     assert log_path.parent.exists()
     assert counters["log_sinks.file.configured"] == 1
+    assert counters["log_sinks.file.source.env_override"] == 1
 
 
 def test_log_and_crash_resolution_respect_runtime_overrides(tmp_path: Path, monkeypatch) -> None:
@@ -89,6 +92,10 @@ def test_log_and_crash_resolution_respect_runtime_overrides(tmp_path: Path, monk
     monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
 
+    log_target = resolve_log_target()
+    assert log_target.path == log_path
+    assert log_target.source == "env_override"
+    assert log_target.disabled_reason is None
     assert resolve_log_path() == log_path
     assert resolve_crash_dir() == crash_dir
     assert file_logging_enabled() is True
@@ -108,14 +115,31 @@ def test_log_resolution_returns_none_when_file_logging_disabled(monkeypatch) -> 
     monkeypatch.setenv("EODINGA_DISABLE_FILE_LOGGING", "1")
     reset_metrics()
 
+    log_target = resolve_log_target()
     assert file_logging_enabled() is False
+    assert log_target.path is None
+    assert log_target.source is None
+    assert log_target.disabled_reason == "disabled_env"
     assert resolve_log_path() is None
     configure_logging("INFO")
     counters = cast(dict[str, int], snapshot_metrics()["counters"])
     assert counters["logging_configurations"] == 1
     assert counters["log_sinks.stderr.configured"] == 1
     assert counters["log_sinks.file.disabled"] == 1
+    assert counters["log_sinks.file.disabled.disabled_env"] == 1
     assert "log_sinks.file.configured" not in counters
+
+
+def test_log_resolution_reports_pytest_disable_reason(monkeypatch) -> None:
+    monkeypatch.delenv("EODINGA_DISABLE_FILE_LOGGING", raising=False)
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "tests/unit/test_observability.py::test")
+
+    log_target = resolve_log_target()
+
+    assert file_logging_enabled() is True
+    assert log_target.path is None
+    assert log_target.source is None
+    assert log_target.disabled_reason == "disabled_pytest"
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
@@ -166,6 +190,8 @@ def test_write_crash_log_records_resolved_log_state(tmp_path: Path, monkeypatch)
 
     contents = crash_path.read_text(encoding="utf-8")
     assert f"log_path={log_path}" in contents
+    assert "log_path_source=env_override" in contents
+    assert "log_path_disabled_reason=None" in contents
     assert "log_rotation=5 MB" in contents
     assert "log_retention=5" in contents
     assert "log_compression=None" in contents

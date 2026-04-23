@@ -28,10 +28,10 @@ from eodinga.observability import (
     record_histogram,
     recent_snapshots,
     resolve_crash_dir,
-    resolve_log_path,
     snapshot_metrics,
     report_crash,
     resolve_log_compression,
+    resolve_log_target,
     resolve_log_retention,
     resolve_log_rotation,
 )
@@ -197,6 +197,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         index_snapshot = read_index_stats(conn)
     metrics = snapshot_metrics()
     counters = metrics["counters"]
+    log_target = resolve_log_target()
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
         process_started_at=metrics["process_started_at"],
@@ -250,7 +251,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         recent_snapshots=[dict(entry) for entry in recent_snapshots()],
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
-        log_path=resolve_log_path(),
+        log_path=log_target.path,
+        log_path_source=log_target.source,
+        log_path_disabled_reason=log_target.disabled_reason,
         log_rotation=resolve_log_rotation(),
         log_retention=resolve_log_retention(),
         log_compression=resolve_log_compression(),

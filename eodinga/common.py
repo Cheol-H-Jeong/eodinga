@@ -148,6 +148,8 @@ class StatsSnapshot(BaseModel):
     roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None
     log_path: Path | None = None
+    log_path_source: str | None = None
+    log_path_disabled_reason: str | None = None
     log_rotation: str | int | None = None
     log_retention: str | int | None = None
     log_compression: str | None = None

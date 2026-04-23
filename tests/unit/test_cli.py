@@ -527,6 +527,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["recent_snapshots"][0]["payload"]["query"] == "duplicate"
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
+    assert payload["log_path_source"] is None
+    assert payload["log_path_disabled_reason"] == "disabled_pytest"
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
@@ -665,6 +667,8 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["parser_activity"]["text"]["parsed"] >= 2
     assert payload["watcher_event_types"] == {"created": 1, "modified": 1}
     assert payload["log_rotation"] == "5 MB"
+    assert payload["log_path_source"] is None
+    assert payload["log_path_disabled_reason"] == "disabled_pytest"
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
     assert payload["histograms"]["query_latency_ms"]["count"] == 1

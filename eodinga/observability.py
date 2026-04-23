@@ -57,6 +57,13 @@ class _HistogramState:
         }
 
 
+@dataclass(frozen=True)
+class LogPathResolution:
+    path: Path | None
+    source: str | None = None
+    disabled_reason: str | None = None
+
+
 class MetricsSnapshot(TypedDict):
     counters: dict[str, int]
     histograms: dict[str, dict[str, object]]
@@ -120,17 +127,21 @@ def file_logging_enabled() -> bool:
     return os.environ.get("EODINGA_DISABLE_FILE_LOGGING") != "1"
 
 
-def resolve_log_path(log_path: Path | None = None) -> Path | None:
+def resolve_log_target(log_path: Path | None = None) -> LogPathResolution:
     if not file_logging_enabled():
-        return None
+        return LogPathResolution(path=None, disabled_reason="disabled_env")
     if log_path is not None:
-        return log_path.expanduser()
+        return LogPathResolution(path=log_path.expanduser(), source="explicit")
     override_path = os.environ.get("EODINGA_LOG_PATH")
     if override_path:
-        return Path(override_path).expanduser()
+        return LogPathResolution(path=Path(override_path).expanduser(), source="env_override")
     if "PYTEST_CURRENT_TEST" in os.environ:
-        return None
-    return default_log_path()
+        return LogPathResolution(path=None, disabled_reason="disabled_pytest")
+    return LogPathResolution(path=default_log_path(), source="platform_default")
+
+
+def resolve_log_path(log_path: Path | None = None) -> Path | None:
+    return resolve_log_target(log_path).path
 
 
 def resolve_crash_dir(crash_dir: Path | None = None) -> Path:
@@ -169,9 +180,12 @@ def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None
     logger.add(sys.stderr, level=level.upper())
     increment_counter("logging_configurations")
     increment_counter("log_sinks.stderr.configured")
-    target = resolve_log_path(log_path)
+    resolution = resolve_log_target(log_path)
+    target = resolution.path
     if target is None:
         increment_counter("log_sinks.file.disabled")
+        if resolution.disabled_reason is not None:
+            increment_counter(f"log_sinks.file.disabled.{resolution.disabled_reason}")
         return
     target.parent.mkdir(parents=True, exist_ok=True)
     logger.add(
@@ -186,6 +200,8 @@ def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None
         level=level.upper(),
     )
     increment_counter("log_sinks.file.configured")
+    if resolution.source is not None:
+        increment_counter(f"log_sinks.file.source.{resolution.source}")
 
 
 def get_logger(name: str | None = None) -> Any:
@@ -307,6 +323,8 @@ def write_crash_log(
         "cwd": str(Path.cwd()),
         "file_logging_enabled": file_logging_enabled(),
         "log_path": resolve_log_path(),
+        "log_path_source": resolve_log_target().source,
+        "log_path_disabled_reason": resolve_log_target().disabled_reason,
         "log_rotation": resolve_log_rotation(),
         "log_retention": resolve_log_retention(),
         "log_compression": resolve_log_compression(),
