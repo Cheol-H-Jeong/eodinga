@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.937 - 2026-04-24
+
+- Extracted launcher copy and selection/status helpers into a shared UX helper module, keeping the launcher panel under the repository's 500-line module cap without changing behavior.
+- Added accessible descriptions across the main window tabs and settings/index/roots controls, so assistive-technology users get action-oriented guidance instead of labels alone.
+- Added launcher action and query-chip tooltips that mirror the existing keyboard shortcuts, improving discoverability for mouse users while preserving the current keyboard-first workflow.
+
 ## 0.1.932 - 2026-04-24
 
 - Added contributor guidance for orchestrated module-worker rounds, including strict scope handling and a compact docs review packet for handoff evidence.
