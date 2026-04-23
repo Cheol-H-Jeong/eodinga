@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.956 - 2026-04-24
+
+- Tightened the Windows packaging audit so the real `windows` target now requires the versioned installer artifact for the current release, preventing stale unversioned `dist/` leftovers from producing a false-green build result.
+- Added hot-restart integration coverage for trimmed multi-root rebuilds, proving a reopened index keeps the surviving root scoped correctly and still accepts watcher-driven updates after the root set changes.
+- Added staged-build resume integration coverage for both multi-root and trimmed-root recovery, pinning that recovered indexes continue serving root-scoped searches and live updates without a fresh rebuild.
+
 ## 0.1.951 - 2026-04-24
 
 - Expanded query date parsing so `date:2026`, `date:2026-02`, and matching `modified:`/`created:` forms resolve to full ISO year and month spans instead of requiring day-level literals.
