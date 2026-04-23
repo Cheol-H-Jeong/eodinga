@@ -206,10 +206,14 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
         },
         "apprun": {
             "is_executable": True,
+            "has_bash_shebang": True,
+            "enables_strict_mode": True,
             "launches_gui": True,
         },
         "launcher": {
             "is_executable": True,
+            "has_bash_shebang": True,
+            "enables_strict_mode": True,
             "executes_python_module": False,
         },
     }
@@ -240,10 +244,14 @@ def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> Non
         },
         "apprun": {
             "is_executable": True,
+            "has_bash_shebang": True,
+            "enables_strict_mode": True,
             "launches_gui": True,
         },
         "launcher": {
             "is_executable": True,
+            "has_bash_shebang": True,
+            "enables_strict_mode": True,
             "executes_python_module": True,
         },
     }
@@ -286,8 +294,12 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["icon"]["diricon_exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True
     assert payload["apprun"]["is_executable"] is True
+    assert payload["apprun"]["has_bash_shebang"] is True
+    assert payload["apprun"]["enables_strict_mode"] is True
     assert payload["apprun"]["launches_gui"] is True
     assert payload["launcher"]["is_executable"] is True
+    assert payload["launcher"]["has_bash_shebang"] is True
+    assert payload["launcher"]["enables_strict_mode"] is True
 
 
 def test_linux_deb_dry_run_renders_control_template() -> None:
@@ -318,6 +330,8 @@ def test_linux_deb_dry_run_renders_control_template() -> None:
     rendered_control = rendered_control_path.read_text(encoding="utf-8")
     assert f"Version: {__version__}" in rendered_control
     assert "Architecture: amd64" in rendered_control
+    assert payload["launcher"]["has_bash_shebang"] is True
+    assert payload["launcher"]["enables_strict_mode"] is True
     assert payload["launcher"]["executes_python_module"] is True
 
 
@@ -345,6 +359,8 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
         },
         "launcher": {
             "is_executable": True,
+            "has_bash_shebang": True,
+            "enables_strict_mode": True,
             "executes_python_module": True,
         },
         "docs": {
@@ -463,6 +479,8 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["icon"]["exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True
     assert payload["launcher"]["is_executable"] is True
+    assert payload["launcher"]["has_bash_shebang"] is True
+    assert payload["launcher"]["enables_strict_mode"] is True
     assert payload["launcher"]["executes_python_module"] is True
     assert payload["docs"]["license_exists"] is True
     assert payload["docs"]["changelog_exists"] is True
@@ -488,3 +506,53 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert Path(payload["deb_path"]).exists()
     assert payload["icon"]["exists"] is True
     assert payload["docs"]["changelog_exists"] is True
+
+
+def test_linux_deb_audit_validator_rejects_missing_strict_launcher_contract() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "amd64",
+        "archive": f"packaging/dist/eodinga_{__version__}_amd64_debroot.tar.gz",
+        "deb_path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "debian_control_template": {
+            "exists": True,
+            "contains_version_template": True,
+            "contains_arch_template": True,
+            "rendered_exists": True,
+            "source": "eodinga",
+            "binary_package": "eodinga",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "launches_gui": True,
+            "icon_matches_package": True,
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_bash_shebang": True,
+            "enables_strict_mode": False,
+            "executes_python_module": True,
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": True,
+            "changelog_has_current_release_heading": True,
+            "changelog_gzip_mtime_zero": True,
+        },
+    }
+
+    errors = module._validate_linux_deb_audit(payload, __version__, __version__)
+
+    assert "Debian launcher shim no longer enables strict shell mode" in errors

@@ -253,8 +253,12 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (icon_payload.get("desktop_icon_matches_asset"), "AppImage desktop icon no longer matches the shipped asset"),
         (icon_payload.get("matches_source_asset"), "AppImage icon payload no longer matches the shipped asset"),
         (apprun_payload.get("is_executable"), "AppImage AppRun is not executable"),
+        (apprun_payload.get("has_bash_shebang"), "AppImage AppRun no longer starts with a bash shebang"),
+        (apprun_payload.get("enables_strict_mode"), "AppImage AppRun no longer enables strict shell mode"),
         (apprun_payload.get("launches_gui"), "AppImage AppRun no longer launches the GUI target"),
         (launcher_payload.get("is_executable"), "AppImage launcher shim is not executable"),
+        (launcher_payload.get("has_bash_shebang"), "AppImage launcher shim no longer starts with a bash shebang"),
+        (launcher_payload.get("enables_strict_mode"), "AppImage launcher shim no longer enables strict shell mode"),
         (launcher_payload.get("executes_python_module"), "AppImage launcher shim no longer executes the Python module"),
     ]
     for ok, message in required_flags:
@@ -310,6 +314,8 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),
         (icon_payload.get("matches_source_asset"), "Debian icon payload no longer matches the shipped asset"),
         (launcher_payload.get("is_executable"), "Debian launcher shim is not executable"),
+        (launcher_payload.get("has_bash_shebang"), "Debian launcher shim no longer starts with a bash shebang"),
+        (launcher_payload.get("enables_strict_mode"), "Debian launcher shim no longer enables strict shell mode"),
         (launcher_payload.get("executes_python_module"), "Debian launcher shim no longer executes the Python module"),
         (docs_payload.get("license_exists"), "Debian package no longer ships the license"),
         (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),

@@ -119,11 +119,15 @@ payload = {
     "apprun": {
         "path": str(apprun_path),
         "is_executable": os.access(apprun_path, os.X_OK),
+        "has_bash_shebang": apprun_path.read_text(encoding="utf-8").startswith("#!/usr/bin/env bash\n"),
+        "enables_strict_mode": "set -euo pipefail" in apprun_path.read_text(encoding="utf-8"),
         "launches_gui": 'usr/bin/eodinga" gui ' in apprun_path.read_text(encoding="utf-8"),
     },
     "launcher": {
         "path": str(launcher_path),
         "is_executable": os.access(launcher_path, os.X_OK),
+        "has_bash_shebang": launcher_path.read_text(encoding="utf-8").startswith("#!/usr/bin/env bash\n"),
+        "enables_strict_mode": "set -euo pipefail" in launcher_path.read_text(encoding="utf-8"),
         "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
     },
 }
