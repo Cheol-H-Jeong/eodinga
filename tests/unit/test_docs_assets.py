@@ -91,13 +91,19 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Data Flow Diagram" in architecture
     assert "## Module Map" in architecture
     assert "## Index Storage" in architecture
+    assert "## SQLite Schema Snapshot" in architecture
     assert "## Index Lifecycle Sequence" in architecture
     assert "## Startup Recovery" in architecture
     assert "## Rebuild Sequence" in architecture
     assert "## Query Execution" in architecture
     assert "## Live Update Sequence" in architecture
+    assert "## Documentation Asset Flow" in architecture
+    assert "## Operator Debug Path" in architecture
     assert "## Packaging Surfaces" in architecture
     assert "compressed changelog" in architecture
+    assert "scripts/generate_manpage.py" in architecture
+    assert "scripts/render_docs_screenshots.py" in architecture
+    assert "tests/unit/test_docs_assets.py" in architecture
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing

@@ -75,6 +75,17 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 - `content_map` keeps the FTS row IDs stable across updates so incremental reindexing does not balloon the content index.
 - `eodinga.index.storage` owns WAL replay on startup and atomic staged-index replacement.
 
+## SQLite Schema Snapshot
+
+| Table or virtual table | Role in the runtime | Populated by |
+| --- | --- | --- |
+| `files` | canonical metadata for roots, paths, timestamps, size, and duplicate hashes | `IndexWriter.bulk_upsert()` and `IndexWriter.apply_events()` |
+| `paths_fts` | lexical filename/path retrieval for fast candidate lookup | mirrored from `files` during writer commits |
+| `content_fts` | parsed document-body retrieval for phrase/content queries | parser-backed content writes only |
+| `content_map` | stable bridge between `files` rows and `content_fts` row ids | storage/writer coordination during content refresh |
+
+The split lets the executor ask SQLite for cheap lexical candidates first, then run regex or mixed fallback checks in Python only on the reduced set.
+
 ## Index Lifecycle Sequence
 
 ```text
@@ -151,6 +162,25 @@ index / watch / search command
             |
             +--> rotating runtime logs / crash-<ts>.log
 ```
+
+## Documentation Asset Flow
+
+```text
+runtime surface changes
+    |
+    +--> README / docs/*.md edits
+    |
+    +--> scripts/generate_manpage.py ------> docs/man/eodinga.1
+    |
+    +--> scripts/render_docs_screenshots.py -> docs/screenshots/*.png
+    |
+    +--> tests/unit/test_docs_assets.py
+```
+
+- `README.md` is the short contract; the deeper guides under `docs/` explain why the runtime is shaped the way it is.
+- `scripts/generate_manpage.py` derives the shipped man page from `eodinga.__main__._build_parser()` so CLI help and packaged docs stay aligned.
+- `scripts/render_docs_screenshots.py` renders offscreen Qt widgets through `eodinga.gui.docs`, keeping screenshots tied to real UI state instead of mock assets.
+- `tests/unit/test_docs_assets.py` pins the presence of the shipped sections and checks that the derived man page still matches the checked-in artifact.
 
 ## Operational Model
 
@@ -229,3 +259,13 @@ startup
 - No runtime network access is allowed; `tests/safety/test_no_network.py` enforces that at source level.
 - Filesystem writes are limited to the application database/config area; the read-only wrappers prevent mutating indexed user roots.
 - Performance tests exist under `tests/perf`, but they stay opt-in for v0.1 so the default gate remains deterministic on developer machines.
+
+## Operator Debug Path
+
+When an operator reports stale or surprising results, the shortest architecture-aware path is:
+
+1. `eodinga stats --json` to confirm which database the active surface is reading.
+2. `eodinga doctor` to validate writable database/config paths and the detected hotkey backend.
+3. `eodinga watch` or `eodinga index --rebuild` depending on whether the issue is live-update lag or a one-shot recovery need.
+
+That sequence mirrors the architecture itself: active DB selection, environment validation, then either watcher-driven incremental repair or staged rebuild.
