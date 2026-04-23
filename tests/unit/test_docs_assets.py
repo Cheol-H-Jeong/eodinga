@@ -55,6 +55,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Release Evidence Matrix" in readme
     assert "## Config and Data Paths" in readme
     assert "## Operator Checklist" in readme
+    assert "## Symptom Guide" in readme
     assert "## Docs-Only Release Pass" in readme
     assert "## Version Collision Recovery" in readme
     assert "## Recovery and Troubleshooting" in readme
@@ -98,12 +99,18 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "EODINGA_LOG_PATH" in readme
     assert "EODINGA_CRASH_DIR" in readme
     assert "Docs asset drift after CLI or UI changes" in readme
+    assert "How do I tell whether a stale result is a watcher problem or the wrong database?" in readme
+    assert "When should I open `release-dry-run-audit.json` instead of a platform-specific audit?" in readme
     assert "Which `packaging/dist/` file should I open first?" in readme
     assert "The release-wide audit is a coordinator summary." in readme
     assert "What should I inspect before cutting a docs-only release?" in readme
     assert "How do I refresh screenshots and the man page without missing a validation step?" in readme
     assert "What is the smallest validation path for a docs-only change?" in readme
     assert "Minimum command" in readme
+    assert "Use the smallest command that proves or narrows the failure" in readme
+    assert "search results look stale" in readme
+    assert "launcher opens but results differ from the CLI" in readme
+    assert "packaging audit failed" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance

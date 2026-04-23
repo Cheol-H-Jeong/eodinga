@@ -443,6 +443,18 @@ eodinga search 'date:this-week ext:md' --limit 10
 
 If those are clean but the packaged app still looks wrong, continue with the release-gate commands in `docs/ACCEPTANCE.md`.
 
+## Symptom Guide
+
+Use the smallest command that proves or narrows the failure before you rerun a broad gate:
+
+| Symptom | Minimum command | Then decide | Why this is the shortest path |
+| --- | --- | --- | --- |
+| search results look stale | `eodinga stats --json` | run `eodinga watch` for live updates or `eodinga index --rebuild` for a full refresh | proves which database the active surface is actually reading before you blame ranking or parsing |
+| launcher opens but results differ from the CLI | `eodinga doctor` | inspect config path and hotkey backend, then compare with `eodinga search 'query' --json` | separates launcher/config drift from a shared query-engine bug |
+| docs-only round changed visible UI or CLI text | `pytest -q tests/unit/test_docs_assets.py` | regenerate screenshots or the man page only if the changed surface is derived | keeps docs validation narrow instead of rerunning unrelated release steps immediately |
+| packaging audit failed | `find packaging/dist -maxdepth 2 -type f | sort` | open the platform-specific `*-audit.json` that matches the dry run you just ran | the actionable review surface is the staged audit artifact, not the shell exit code alone |
+| release instructions feel inconsistent | `docs/RELEASE.md` + `docs/ACCEPTANCE.md` | follow the one-command pass from the acceptance guide, then inspect the matching dry-run manifest | keeps the short checklist and the deeper release flow aligned |
+
 ## Docs Map
 
 - [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md): query cheatsheet and operator notes.
@@ -478,6 +490,10 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
 
+### How do I tell whether a stale result is a watcher problem or the wrong database?
+
+Start with `eodinga stats --json`. If the active database path is wrong, fix the surface configuration first. If the database path is correct but live updates are lagging, run `eodinga watch` or inspect the watcher path with `eodinga doctor` before rebuilding the whole index.
+
 ### Where do logs and crash reports go?
 
 By default they stay under the platform app-data area next to the local index. Use `EODINGA_LOG_PATH` to redirect the rotating runtime log and `EODINGA_CRASH_DIR` to redirect `crash-<ts>.log` artifacts.
@@ -504,6 +520,10 @@ Open the audit that matches the command you just ran:
 - `release-dry-run` -> `packaging/dist/release-dry-run-audit.json`
 
 The release-wide audit is a coordinator summary. When a specific platform target fails, the platform-specific audit is the one with the actionable detail.
+
+### When should I open `release-dry-run-audit.json` instead of a platform-specific audit?
+
+Open `packaging/dist/release-dry-run-audit.json` when you want the coordinator summary after running the combined release dry run. If one platform target failed or the packaged payload looks wrong, switch to the matching platform-specific audit because that is where the file-level evidence lives.
 
 ### What should I inspect before cutting a docs-only release?
 
