@@ -5,7 +5,7 @@ from typing import cast
 
 from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
 from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
@@ -23,6 +23,19 @@ from eodinga.gui.widgets import (
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
+
+_EMPTY_QUERY_HINT = "Type a filename, path, or content term. Alt+Up and Alt+Down browse recent queries."
+_EMPTY_RESULTS_HINT = "Refine with ext:, date:, size:, or content: filters. Alt+Up and Alt+Down browse recent queries."
+_RESULTS_FOCUSED_HINT = (
+    "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. "
+    "Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. "
+    "Ctrl+A or Ctrl+L returns to filter."
+)
+_QUERY_FOCUSED_HINT = (
+    "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. "
+    "Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. "
+    "Alt+Up and Alt+Down browse recent queries."
+)
 
 
 class LauncherPanel(QWidget):
@@ -338,13 +351,13 @@ class LauncherPanel(QWidget):
         has_results = self.model.rowCount() > 0
         if not has_results:
             if self.query_field.text().strip():
-                hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up and Alt+Down browse recent queries."
+                hint = _EMPTY_RESULTS_HINT
             else:
-                hint = "Type a filename, path, or content term. Alt+Up and Alt+Down browse recent queries."
+                hint = _EMPTY_QUERY_HINT
         elif self.result_list.hasFocus():
-            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
+            hint = _RESULTS_FOCUSED_HINT
         else:
-            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up and Alt+Down browse recent queries."
+            hint = _QUERY_FOCUSED_HINT
         self.shortcut_label.setText(hint)
 
     def _current_hit(self) -> SearchHit | None:
@@ -415,7 +428,31 @@ class LauncherPanel(QWidget):
         if event.key() == Qt.Key.Key_PageUp:
             self._move_selection(-self._page_step())
             return True
+        if self._should_edit_query_from_results(event):
+            self._forward_result_keypress_to_query(event)
+            return True
         return False
+
+    def _should_edit_query_from_results(self, event: QKeyEvent) -> bool:
+        modifiers = event.modifiers()
+        if modifiers not in {Qt.KeyboardModifier.NoModifier, Qt.KeyboardModifier.ShiftModifier}:
+            return False
+        if event.key() in {Qt.Key.Key_Backspace, Qt.Key.Key_Delete}:
+            return True
+        return bool(event.text())
+
+    def _forward_result_keypress_to_query(self, event: QKeyEvent) -> None:
+        self.query_field.setFocus()
+        self.query_field.setCursorPosition(len(self.query_field.text()))
+        forwarded = QKeyEvent(
+            QEvent.Type.KeyPress,
+            event.key(),
+            event.modifiers(),
+            event.text(),
+            event.isAutoRepeat(),
+            event.count(),
+        )
+        QApplication.sendEvent(self.query_field, forwarded)
 
     def _move_selection(self, delta: int, *, wrap: bool = False) -> None:
         if self.model.rowCount() == 0:

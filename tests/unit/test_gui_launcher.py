@@ -749,6 +749,65 @@ def test_launcher_alt_number_quick_picks_results(qapp) -> None:
     assert "Home/End and PgUp/PgDn jump" in launcher.shortcut_label.text()
 
 
+def test_launcher_typing_from_results_focuses_query_and_refines_search(qapp) -> None:
+    calls: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        calls.append(query)
+        items = [
+            SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+            SearchHit(path=Path("/tmp/alpine.txt"), parent_path=Path("/tmp"), name="alpine.txt"),
+        ]
+        if query == "alp":
+            items = [items[1]]
+        return QueryResult(items=items[:limit], total=len(items), elapsed_ms=2.0)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("al")
+    _wait(60)
+    launcher.result_list.setFocus()
+    launcher._set_selection(1)
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_P)
+    _wait(60)
+
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.text() == "alp"
+    assert launcher.model.rowCount() == 1
+    result = launcher.model.item_at(0)
+    assert result is not None
+    assert result.name == "alpine.txt"
+    assert calls[-1] == "alp"
+
+
+def test_launcher_backspace_from_results_edits_query(qapp) -> None:
+    calls: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        calls.append(query)
+        items = [
+            SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+            SearchHit(path=Path("/tmp/alpine.txt"), parent_path=Path("/tmp"), name="alpine.txt"),
+        ]
+        return QueryResult(items=items[:limit], total=len(items), elapsed_ms=2.0)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("alp")
+    _wait(60)
+    launcher.result_list.setFocus()
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Backspace)
+    _wait(60)
+
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.text() == "al"
+    assert calls[-1] == "al"
+
+
 def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     launcher = LauncherWindow(state=LauncherState())
     launcher.show()
