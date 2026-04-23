@@ -62,7 +62,6 @@ def test_configure_logging_uses_rotating_utf8_file_sink(tmp_path: Path, monkeypa
     stderr_sink, stderr_kwargs = calls[0]
     file_sink, file_kwargs = calls[1]
     assert stderr_sink is sys.stderr
-    assert stderr_kwargs["enqueue"] is True
     assert stderr_kwargs["diagnose"] is False
     assert stderr_kwargs["level"] == "WARNING"
     assert file_sink == tmp_path / "logs" / "app.log"

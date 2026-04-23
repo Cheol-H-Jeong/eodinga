@@ -93,16 +93,15 @@ def default_crash_dir() -> Path:
 def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
     logger.remove()
     normalized_level = level.upper()
-    sink_options = {
+    common_options = {
         "diagnose": False,
-        "enqueue": True,
         "format": (
             "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | "
             "{process.id}:{thread.id} | {name}:{function}:{line} | {message}"
         ),
         "level": normalized_level,
     }
-    logger.add(sys.stderr, **sink_options)
+    logger.add(sys.stderr, **common_options)
     if os.environ.get("EODINGA_DISABLE_FILE_LOGGING") == "1":
         return
     effective_log_path = log_path
@@ -116,7 +115,14 @@ def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None
             effective_log_path = default_log_path()
     target = effective_log_path.expanduser()
     target.parent.mkdir(parents=True, exist_ok=True)
-    logger.add(target, rotation="5 MB", retention=5, encoding="utf-8", **sink_options)
+    logger.add(
+        target,
+        rotation="5 MB",
+        retention=5,
+        encoding="utf-8",
+        enqueue=True,
+        **common_options,
+    )
 
 
 def get_logger(name: str | None = None) -> Any:

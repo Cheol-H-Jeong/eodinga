@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.182 - 2026-04-23
+
+- Added uncaught-exception crash hooks for main-thread, background-thread, and unraisable runtime failures so `crash-<ts>.log` artifacts are written even when errors bypass the CLI handler.
+- Added command-level observability counters and runtime histograms, exposing invoked, completed, failed, and interrupted command activity through `eodinga stats --json`.
+- Hardened Loguru sink setup so the rotating UTF-8 file sink stays queued while the stderr sink remains synchronous, avoiding closed-stream logging noise under pytest and other captured-output runtimes.
+
 ## 0.1.178 - 2026-04-23
 
 - Enriched `crash-<ts>.log` artifacts with stable runtime metadata including version, platform, current working directory, and argv so unhandled failures are easier to reproduce from one file.
