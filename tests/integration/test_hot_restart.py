@@ -322,6 +322,51 @@ def test_hot_restart_persists_live_create_across_reopen(tmp_path: Path) -> None:
     assert baseline_hits == [existing]
 
 
+def test_hot_restart_persists_live_delete_across_reopen(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    survivor = root / "survivor.txt"
+    target = root / "deleted.txt"
+    survivor.write_text("restart survivor coverage\n", encoding="utf-8")
+    target.write_text("persisted live delete after reopen\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(reopened, "persisted live delete after reopen", limit=3).hits]
+        target.unlink()
+        elapsed = _wait_for_query_miss(
+            reopened,
+            service,
+            writer,
+            "persisted live delete after reopen",
+            target,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        reopened.close()
+
+    reopened_again = open_index(db_path)
+    try:
+        deleted_hits = [
+            hit.file.path for hit in search(reopened_again, "persisted live delete after reopen", limit=3).hits
+        ]
+        survivor_hits = [hit.file.path for hit in search(reopened_again, "restart survivor coverage", limit=3).hits]
+    finally:
+        reopened_again.close()
+
+    assert initial_hits == [target]
+    assert elapsed <= 0.5
+    assert deleted_hits == []
+    assert survivor_hits == [survivor]
+
+
 def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updates(
     tmp_path: Path,
 ) -> None:
