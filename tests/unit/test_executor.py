@@ -776,3 +776,40 @@ def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:
 
     hits = [hit.file.name for hit in search(tmp_db, "-(-(alpha | beta))", limit=10).hits]
     assert hits == ["alpha.txt", "beta.txt"]
+
+
+def test_fetch_content_texts_caches_chunk_shaped_sql() -> None:
+    executor_module._content_texts_sql.cache_clear()
+
+    executor_module._content_texts_sql(2)
+    executor_module._content_texts_sql(2)
+    executor_module._content_texts_sql(5)
+    executor_module._content_texts_sql(5)
+
+    assert executor_module._content_texts_sql.cache_info().hits >= 2
+
+
+def test_fetch_content_texts_chunks_large_id_sets(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    for file_id in range(1, 505):
+        _insert_file(
+            tmp_db,
+            file_id,
+            f"/workspace/doc-{file_id:03d}.txt",
+            1024,
+            now - file_id,
+            "txt",
+            body_text=f"body {file_id}",
+        )
+    tmp_db.commit()
+
+    statements: list[str] = []
+    tmp_db.set_trace_callback(statements.append)
+    try:
+        content = executor_module._fetch_content_texts(tmp_db, range(1, 505))
+    finally:
+        tmp_db.set_trace_callback(None)
+
+    assert len(content) == 504
+    selects = [statement for statement in statements if "FROM content_map" in statement]
+    assert len(selects) == 2
