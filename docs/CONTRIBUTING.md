@@ -51,6 +51,19 @@ pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summ
 
 After the focused slice is green, run the broader acceptance gate before release handoff.
 
+## Gate Selection
+
+Choose the smallest gate that still proves the surface you changed:
+
+| Change type | First gate | Escalate to |
+| --- | --- | --- |
+| prose-only docs refresh | `pytest -q tests/unit/test_docs_assets.py` | docs-only release pass if the docs describe Qt or packaging surfaces |
+| CLI help or command examples | `python scripts/generate_manpage.py && pytest -q tests/unit/test_docs_assets.py` | full acceptance gate if behavior or parser output changed |
+| screenshot-backed GUI text | `python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` | docs-only release pass with GUI smoke |
+| runtime behavior | focused theme slice plus `pytest -q tests/unit` | full repository gate before metadata/tag cut |
+
+The rule is simple: escalate as soon as the docs claim something that needs runtime or packaging evidence.
+
 ## Quality Gates
 
 Default repository gate:
@@ -173,6 +186,16 @@ Collect the smallest reviewable evidence set that matches the docs you changed:
 
 Prefer one explicit evidence bundle over ad-hoc retries. The handoff should show why the docs match the runtime, not just that Markdown changed.
 
+## Metadata Collision Guard
+
+Keep version retargeting mechanical when parallel workers race on `0.1.N`:
+
+```bash
+git fetch origin main --tags && git tag -l | sort -V | tail -5
+```
+
+Only after that refresh should you update `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py`. If another worker consumed the version first, leave earlier docs or feature commits untouched and retarget only the final metadata commit.
+
 ## Metadata Commit Discipline
 
 - Keep the final metadata commit reviewable: version bump, changelog entry, and local tag cut only.
@@ -190,6 +213,17 @@ Use this when another worker lands the same `0.1.N` before your local tag:
 5. recreate the local tag on the new metadata commit only after the branch tip is green
 
 Do not rewrite earlier docs or feature commits just to retarget the patch number.
+
+## Handoff Evidence Ladder
+
+Before you stop a round, make sure the evidence stack is readable in this order:
+
+1. focused unit or docs-assets proof for each logical commit
+2. broader acceptance or docs-only release pass for the assembled round
+3. reviewed generated assets or `packaging/dist/` manifests when the docs mention them
+4. isolated metadata/tag cut at the tip
+
+That sequence keeps review simple and makes later retargeting or rebasing low-risk.
 
 ## Round Exit Criteria
 

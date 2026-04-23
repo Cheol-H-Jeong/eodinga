@@ -65,6 +65,16 @@ Recommended order:
 
 Optional perf evidence belongs after the default gate, not inside it. If you run `EODINGA_RUN_PERF=1 pytest -q tests/perf -s`, capture the printed benchmark summaries and keep failing perf output out of the release baseline or changelog until the regression is understood.
 
+## Gate Selection Matrix
+
+| Round type | Minimum proving pass before metadata | Why |
+| --- | --- | --- |
+| docs prose only | `pytest -q tests/unit/test_docs_assets.py` | proves the written contract and links still exist |
+| docs plus packaged-artifact claims | docs-only validation pass | adds GUI smoke and packaging evidence without pretending runtime changed |
+| runtime or packaging behavior | one-command local release pass | proves the tree, artifacts, and workflow inputs together |
+
+Use the smaller pass only when the round truly stayed inside that surface. If the docs describe changed behavior, the smaller pass is no longer sufficient.
+
 ## Artifact Inventory
 
 Before tagging, know which release inputs this repository expects to exist:
@@ -178,6 +188,16 @@ source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && QT_QPA_
 
 If CLI help or visible GUI surfaces changed, regenerate the man page or screenshots before running that pass. Do not tag a docs-only round from stale derived assets.
 
+## Metadata Retarget Shortcut
+
+When a parallel worker consumed your candidate patch number first, keep the retry small:
+
+```bash
+git fetch origin main --tags && git tag -l | sort -V | tail -5
+```
+
+Then retarget only `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py`, rerun `pytest -q tests/unit`, and recreate the local tag on the new metadata commit. Do not fold unrelated docs or feature edits into that retarget.
+
 ## Evidence Review Questions
 
 Before you cut the local tag, answer these against the actual outputs:
@@ -213,6 +233,12 @@ Collision check example:
 
 ```bash
 if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
+```
+
+Safer single-line cut when you already know the version is free:
+
+```bash
+if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; else git add CHANGELOG.md pyproject.toml eodinga/__init__.py && git commit -m "chore(release): bump to v0.1.N" && git tag v0.1.N; fi
 ```
 
 ## Collision And Retag Rules
@@ -259,3 +285,4 @@ Do not rewrite unrelated docs or code just to refresh one generated asset family
 - The local tag points at the final commit for the round, not an earlier docs or feature commit.
 - The final release commit remains reviewable on its own and does not hide unrelated feature edits.
 - `packaging/dist/` has been reviewed for the dry-run targets touched by the round.
+- The evidence bundle used matches the round type instead of being broader or narrower by habit.

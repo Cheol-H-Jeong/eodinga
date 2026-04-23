@@ -94,6 +94,16 @@ source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && QT_QPA_
 
 Use that path only when the runtime surface itself did not change. If the docs describe new behavior, return to the full acceptance pass instead of treating a docs-only shortcut as sufficient evidence.
 
+## Acceptance Path Selector
+
+| If the round changed... | Use this first | Escalate when... |
+| --- | --- | --- |
+| headings, links, or prose only | `pytest -q tests/unit/test_docs_assets.py` | the docs name Qt surfaces or packaged artifacts |
+| shipped docs plus screenshots or packaged payload claims | docs-only acceptance path | the behavior itself changed, not just the wording |
+| runtime or packaging behavior | one-command acceptance pass | never skip back down to a docs-only path |
+
+This keeps the acceptance proof proportional to the claim being made.
+
 ## Evidence Review Order
 
 Review release evidence in this order so the tag always points at a justified tree:
@@ -126,5 +136,7 @@ For each improvement round:
 For docs-only rounds, the changelog entry still needs to say which shipped guide or derived asset changed and why that matters to operators.
 
 The acceptance pass should be green before the version bump and local tag. Keep the metadata cut as the last step so the tag points at a fully validated tree.
+
+If a parallel worker consumes the planned version first, fetch tags again, retarget only the metadata files, rerun `pytest -q tests/unit`, and recreate the local tag on the new metadata commit.
 
 Publishing the GitHub Release stays outside this repository-local checklist, but the local tag and changelog entry are required before handing off to the orchestrator.
