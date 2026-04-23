@@ -1109,9 +1109,13 @@ def test_execute_size_alias_queries(tmp_db: sqlite3.Connection) -> None:
     tmp_db.commit()
 
     spaced_hits = [hit.file.name for hit in search(tmp_db, "size:> 1.5MB", limit=10).hits]
+    spaced_unit_hits = [hit.file.name for hit in search(tmp_db, "size:> 1.5 MB", limit=10).hits]
+    range_hits = [hit.file.name for hit in search(tmp_db, "size:512 .. 1024 KiB", limit=10).hits]
     kib_hits = [hit.file.name for hit in search(tmp_db, "size:<=512KiB", limit=10).hits]
 
     assert spaced_hits == ["two-meg.txt"]
+    assert spaced_unit_hits == ["two-meg.txt"]
+    assert range_hits == ["half-meg.txt", "one-meg.txt"]
     assert kib_hits == ["half-meg.txt"]
 
 

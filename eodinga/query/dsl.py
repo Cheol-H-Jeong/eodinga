@@ -20,6 +20,7 @@ OP_NAMES = {
 _RANGE_OP_NAMES = {"date", "modified", "created", "size"}
 _SPACED_DATE_PREFIXES = {"this", "last", "prev", "previous"}
 _SPACED_DATE_UNITS = {"week", "month", "year"}
+_SIZE_COMPARATORS = {">", ">=", "<", "<=", "="}
 
 
 class QueryNode(BaseModel):
@@ -335,7 +336,24 @@ class _Parser:
     def _maybe_extend_operator_value(self, name: str, value: str) -> str:
         if name in {"date", "modified", "created"}:
             return self._maybe_extend_spaced_date_value(value)
-        if name != "size" or value not in {">", ">=", "<", "<=", "="}:
+        if name != "size":
+            return value
+        if value in _SIZE_COMPARATORS:
+            checkpoint = self.index
+            self._skip_ws()
+            char = self._peek()
+            if char is None or char in {"|", ")"}:
+                self.index = checkpoint
+                return value
+            suffix = self._read_token()
+            if not suffix:
+                self.index = checkpoint
+                return value
+            value = f"{value}{suffix}"
+        return self._maybe_extend_spaced_size_unit(value)
+
+    def _maybe_extend_spaced_size_unit(self, value: str) -> str:
+        if not self._size_value_needs_unit(value):
             return value
         checkpoint = self.index
         self._skip_ws()
@@ -344,7 +362,7 @@ class _Parser:
             self.index = checkpoint
             return value
         suffix = self._read_token()
-        if not suffix:
+        if not suffix or not suffix.isalpha():
             self.index = checkpoint
             return value
         return f"{value}{suffix}"
@@ -365,6 +383,18 @@ class _Parser:
             self.index = checkpoint
             return value
         return f"{value}-{normalized_suffix}"
+
+    def _size_value_needs_unit(self, value: str) -> bool:
+        endpoint = value.split("..")[-1]
+        if endpoint in _SIZE_COMPARATORS or not endpoint:
+            return False
+        for prefix in sorted(_SIZE_COMPARATORS, key=len, reverse=True):
+            if endpoint.startswith(prefix):
+                endpoint = endpoint[len(prefix) :]
+                break
+        if not endpoint:
+            return False
+        return endpoint.replace(".", "", 1).isdigit()
 
     def _peek(self, *, offset: int = 0) -> str | None:
         index = self.index + offset
