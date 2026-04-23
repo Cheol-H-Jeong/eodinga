@@ -185,6 +185,16 @@ def test_compile_non_ascii_path_filter_uses_python_normalized_scan() -> None:
     assert branch.where_params == ("txt",)
 
 
+def test_compile_phrase_path_filter_uses_python_separator_aware_scan() -> None:
+    compiled = compile_query(parse('path:"release candidate" ext:txt'))
+    branch = compiled.branches[0]
+
+    assert "files.path LIKE ?" not in branch.where_sql
+    assert branch.path_filters[0].kind == "phrase"
+    assert branch.where_sql == "files.ext = ?"
+    assert branch.where_params == ("txt",)
+
+
 def test_compile_negated_group_pushes_negation_to_leaf_terms() -> None:
     compiled = compile_query(parse("-(alpha | beta) ext:txt"))
     branch = compiled.branches[0]

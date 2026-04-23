@@ -326,6 +326,28 @@ def test_execute_content_phrase_query_matches_across_token_separators(
     assert hits == ["release-plan.txt"]
 
 
+def test_execute_path_phrase_filter_matches_across_token_separators(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/release-candidate.txt",
+        512,
+        now,
+        "txt",
+    )
+    tmp_db.commit()
+
+    hits = [
+        hit.file.name
+        for hit in search(tmp_db, 'path:"release candidate"', limit=5).hits
+    ]
+
+    assert hits == ["release-candidate.txt"]
+
+
 def test_execute_relative_date_queries_use_local_day_boundaries(
     tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:
