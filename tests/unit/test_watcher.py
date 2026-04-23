@@ -6,7 +6,7 @@ from threading import Thread
 from time import monotonic, sleep
 
 import pytest
-from watchdog.events import FileMovedEvent
+from watchdog.events import DirCreatedEvent, DirDeletedEvent, FileMovedEvent
 
 from eodinga.common import WatchEvent
 from eodinga.core.watcher import WatchService, _Handler
@@ -46,6 +46,38 @@ def test_watcher_handler_maps_move_entering_root_to_create(tmp_path: Path) -> No
     assert event.event_type == "created"
     assert event.path == destination
     assert event.src_path is None
+    assert event.root_path == root
+
+
+def test_watcher_handler_emits_directory_create_events(tmp_path: Path) -> None:
+    service = WatchService()
+    root = tmp_path / "watched"
+    target = root / "empty-dir"
+    handler = _Handler(service, root)
+
+    handler.on_any_event(DirCreatedEvent(str(target)))
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "created"
+    assert event.path == target
+    assert event.is_dir is True
+    assert event.root_path == root
+
+
+def test_watcher_handler_emits_directory_delete_events(tmp_path: Path) -> None:
+    service = WatchService()
+    root = tmp_path / "watched"
+    target = root / "empty-dir"
+    handler = _Handler(service, root)
+
+    handler.on_any_event(DirDeletedEvent(str(target)))
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "deleted"
+    assert event.path == target
+    assert event.is_dir is True
     assert event.root_path == root
 
 

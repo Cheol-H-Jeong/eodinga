@@ -6,7 +6,7 @@ from pathlib import Path
 from queue import Empty
 
 import pytest
-from watchdog.events import FileMovedEvent
+from watchdog.events import DirCreatedEvent, DirDeletedEvent, FileMovedEvent
 
 from eodinga.common import PathRules, WatchEvent
 from eodinga.content.registry import parse
@@ -397,3 +397,65 @@ def test_e2e_watch_handler_move_entering_root_creates_indexed_row(tmp_path: Path
         conn.close()
 
     assert indexed_paths == {destination}
+
+
+def test_e2e_watch_handler_directory_create_indexes_empty_directory(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    _index_tree(root, db_path)
+
+    created_dir = root / "incoming"
+    created_dir.mkdir()
+
+    conn = open_index(db_path)
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        handler = _Handler(WatchService(), root)
+
+        handler.on_any_event(DirCreatedEvent(str(created_dir)))
+        handler._service._flush_ready(force=True)
+
+        event = handler._service.queue.get_nowait()
+        assert event.event_type == "created"
+        assert event.is_dir is True
+        assert writer.apply_events([event], record_loader=make_record) == 1
+
+        hits = [hit.file.path for hit in search(conn, "is:empty", limit=10).hits]
+    finally:
+        conn.close()
+
+    assert created_dir in hits
+
+
+def test_e2e_watch_handler_directory_delete_removes_empty_directory_from_index(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    doomed_dir = root / "obsolete"
+    doomed_dir.mkdir()
+    _index_tree(root, db_path)
+
+    conn = open_index(db_path)
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        handler = _Handler(WatchService(), root)
+
+        doomed_dir.rmdir()
+        handler.on_any_event(DirDeletedEvent(str(doomed_dir)))
+        handler._service._flush_ready(force=True)
+
+        event = handler._service.queue.get_nowait()
+        assert event.event_type == "deleted"
+        assert event.is_dir is True
+        assert writer.apply_events([event], record_loader=make_record) == 1
+
+        indexed_paths = {
+            Path(row[0]) for row in conn.execute("SELECT path FROM files ORDER BY path").fetchall()
+        }
+    finally:
+        conn.close()
+
+    assert doomed_dir not in indexed_paths
