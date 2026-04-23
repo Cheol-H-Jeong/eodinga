@@ -36,6 +36,19 @@ The current perf suite covers the SPEC §6.3 scenarios with smaller local-dev da
 
 Each benchmark prints a structured summary line to stdout. Capture those lines directly in commit notes or a scratch file when you refresh the baseline so the numbers in this document remain auditable against the exact test output.
 
+## Benchmark Families At A Glance
+
+Use this lookup when you want the shortest perf signal for one subsystem:
+
+| If you changed... | Run first | Why |
+| --- | --- | --- |
+| walker or rebuild flow | `EODINGA_RUN_PERF=1 pytest -q tests/perf/test_cold_start.py -s` | covers raw traversal plus staged rebuild throughput |
+| SQLite writer behavior | `EODINGA_RUN_PERF=1 pytest -q tests/perf/test_bulk_upsert.py -s` | isolates metadata write throughput from traversal cost |
+| parser-backed indexing | `EODINGA_RUN_PERF=1 pytest -q tests/perf/test_content_bulk_upsert.py -s` | exposes content-index write regressions separately from metadata-only paths |
+| name/path query latency | `EODINGA_RUN_PERF=1 pytest -q tests/perf/test_query_latency.py -s` | keeps launcher-style lexical latency isolated |
+| content search latency | `EODINGA_RUN_PERF=1 pytest -q tests/perf/test_content_query.py -s` | exercises content index retrieval and ranking |
+| watcher visibility lag | `EODINGA_RUN_PERF=1 pytest -q tests/perf/test_watch_latency.py -s` | measures file-create to query-visible end-to-end delay |
+
 ## Scaling Knobs
 
 Use env vars to raise workload size or tighten/relax the informational gate for a single run:
@@ -114,6 +127,12 @@ One-command capture example:
 source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s 2>&1 | tee /tmp/eodinga-perf.log && rg '^(bulk_upsert|cold_start|rebuild_cold_start|rebuild_index|walk_batched|query_latency|content_query_latency|watch_latency)' /tmp/eodinga-perf.log
 ```
 
+Single-benchmark capture example:
+
+```bash
+source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf/test_query_latency.py -s 2>&1 | tee /tmp/eodinga-query-perf.log && rg '^query_latency' /tmp/eodinga-query-perf.log
+```
+
 ## Repro Checklist
 
 Use this short checklist before replacing the baseline table:
@@ -123,6 +142,17 @@ Use this short checklist before replacing the baseline table:
 3. Capture the exact stdout summary line from the perf test instead of paraphrasing the result.
 4. Record every non-default `EODINGA_PERF_*` override next to the benchmark output.
 5. Update the document only after a repeat run lands in the same range.
+
+## Capture Worksheet
+
+When you refresh a benchmark note, keep these four fields together in the same scratch note or commit message draft:
+
+1. Command: the exact `pytest` invocation, including every `EODINGA_RUN_PERF` or `EODINGA_PERF_*` override.
+2. Output: the raw structured summary line copied from stdout.
+3. Context: warm-cache vs cold-cache, plus anything unusual about the host.
+4. Decision: whether the result updates the checked-in baseline, stays diagnostic-only, or shows a regression to investigate.
+
+This prevents a later changelog or docs edit from quoting a number without the command and runtime context that produced it.
 
 ## Interpreting Results
 
