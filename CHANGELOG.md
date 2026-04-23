@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.407 - 2026-04-23
+
+- Made PyInstaller data-file discovery follow the checked-in package assets under `eodinga/i18n/` instead of hardcoding locale filenames, reducing future packaging drift when the shipped asset set changes.
+- Made Linux AppImage and Debian dry-run archives reproducible by normalizing tar member order, ownership, and timestamps, with regression coverage that proves repeated packaging runs emit identical archives.
+
 ## 0.1.401 - 2026-04-23
 
 - Hardened the AppImage dry-run audit so staged desktop and icon payloads must remain byte-for-byte aligned with the shipped Linux assets instead of only existing in the AppDir.
