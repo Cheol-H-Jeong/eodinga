@@ -2,17 +2,20 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path, PureWindowsPath
 
 import pytest
 
+import eodinga.__main__ as main_module
 from eodinga import __version__
 from eodinga.__main__ import main
 from eodinga.common import WatchEvent
 from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
+from eodinga.index.build import IndexRebuildInterrupted, RebuildResult
 from eodinga.index.schema import apply_schema
 from eodinga.observability import reset_metrics
 
@@ -450,6 +453,38 @@ def test_index_requires_at_least_one_root(cli_runner, tmp_path: Path) -> None:
 
     assert result.returncode == 2
     assert "requires at least one root" in result.stderr
+
+
+def test_index_interrupt_returns_signal_exit_code_and_preserves_staged_build(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    staged_path = tmp_path / ".index.db.next"
+
+    @contextmanager
+    def fake_capture_shutdown_signals():
+        handlers = main_module._ShutdownSignals()
+        handlers.request_stop(main_module.signal.SIGTERM, None)
+        yield handlers
+
+    def interrupted_rebuild(*args, **kwargs) -> RebuildResult:
+        staged_path.write_text("resume-me", encoding="utf-8")
+        raise IndexRebuildInterrupted("index rebuild interrupted")
+
+    monkeypatch.setattr(main_module, "_capture_shutdown_signals", fake_capture_shutdown_signals)
+    monkeypatch.setattr(main_module, "rebuild_index", interrupted_rebuild)
+
+    exit_code = main(
+        ["--db", str(tmp_path / "index.db"), "index", "--root", str(root), "--rebuild"]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 143
+    assert "index rebuild interrupted; staged build kept for recovery" in captured.err
+    assert staged_path.read_text(encoding="utf-8") == "resume-me"
 
 
 def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:

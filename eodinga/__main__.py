@@ -4,16 +4,19 @@ import argparse
 import json
 import os
 import re
+import signal
 import sys
 from contextlib import closing
+from contextlib import contextmanager
 from pathlib import Path
+from threading import Event
 from typing import Any
 
 from eodinga import __version__
 from eodinga.common import SearchResult, StatsSnapshot
 from eodinga.config import AppConfig, RootConfig, load
 from eodinga.doctor import run_diagnostics
-from eodinga.index.build import rebuild_index
+from eodinga.index.build import IndexRebuildInterrupted, rebuild_index
 from eodinga.index.reader import stats as read_index_stats
 from eodinga.index.storage import open_index
 from eodinga.observability import (
@@ -101,17 +104,55 @@ def _resolve_index_roots(args: argparse.Namespace, config: AppConfig) -> list[Ro
     return list(config.roots)
 
 
+class _ShutdownSignals:
+    def __init__(self) -> None:
+        self._requested = Event()
+        self._signum: int | None = None
+
+    def request_stop(self, signum: int, _frame: object) -> None:
+        self._signum = signum
+        self._requested.set()
+
+    def requested(self) -> bool:
+        return self._requested.is_set()
+
+    @property
+    def exit_code(self) -> int:
+        return 128 + (self._signum or signal.SIGINT)
+
+
+@contextmanager
+def _capture_shutdown_signals() -> Any:
+    handlers = _ShutdownSignals()
+    previous_handlers = {
+        signum: signal.getsignal(signum) for signum in (signal.SIGINT, signal.SIGTERM)
+    }
+    for signum in previous_handlers:
+        signal.signal(signum, handlers.request_stop)
+    try:
+        yield handlers
+    finally:
+        for signum, previous in previous_handlers.items():
+            signal.signal(signum, previous)
+
+
 def _cmd_index(args: argparse.Namespace) -> int:
     config = _resolve_config(args)
     roots = _resolve_index_roots(args, config)
     if not roots:
         sys.stderr.write("index rebuild requires at least one root\n")
         return 2
-    result = rebuild_index(
-        args.db or config.index.db_path,
-        roots,
-        content_enabled=config.index.content_enabled,
-    )
+    with _capture_shutdown_signals() as shutdown:
+        try:
+            result = rebuild_index(
+                args.db or config.index.db_path,
+                roots,
+                content_enabled=config.index.content_enabled,
+                should_stop=shutdown.requested,
+            )
+        except IndexRebuildInterrupted:
+            sys.stderr.write("index rebuild interrupted; staged build kept for recovery\n")
+            return shutdown.exit_code
     payload = {
         "command": "index",
         "rebuild": bool(args.rebuild),

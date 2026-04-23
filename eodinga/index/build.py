@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from time import perf_counter
 from typing import NamedTuple
+from collections.abc import Callable
 
 from eodinga.common import PathRules
 from eodinga.config import RootConfig
@@ -22,6 +23,10 @@ class RebuildResult(NamedTuple):
     roots_indexed: int
 
 
+class IndexRebuildInterrupted(RuntimeError):
+    pass
+
+
 def _staged_build_path(db_path: Path) -> Path:
     return db_path.with_name(f".{db_path.name}.next")
 
@@ -36,6 +41,7 @@ def rebuild_index(
     *,
     content_enabled: bool = True,
     max_body_chars: int = DEFAULT_MAX_BODY_CHARS,
+    should_stop: Callable[[], bool] | None = None,
 ) -> RebuildResult:
     started = perf_counter()
     effective_roots = [_normalize_root(root) for root in roots]
@@ -49,6 +55,7 @@ def rebuild_index(
 
     conn = connect_database(staged_path)
     files_indexed = 0
+    interrupted = False
     parser_callback = (
         (lambda path: parse(path, max_body_chars=max_body_chars))
         if content_enabled
@@ -86,11 +93,18 @@ def rebuild_index(
                     files_indexed += indexed
                     if indexed:
                         increment_counter("files_indexed", indexed, root=str(root.path))
+                    if should_stop is not None and should_stop():
+                        interrupted = True
+                        break
+                if interrupted:
+                    break
     except Exception:
         conn.close()
         _cleanup_index_files(staged_path)
         raise
     conn.close()
+    if interrupted:
+        raise IndexRebuildInterrupted(f"index rebuild interrupted; staged build left at {staged_path}")
     try:
         atomic_replace_index(staged_path, target_path)
     except Exception:
@@ -111,4 +125,9 @@ def rebuild_index(
     )
 
 
-__all__ = ["DEFAULT_MAX_BODY_CHARS", "RebuildResult", "rebuild_index"]
+__all__ = [
+    "DEFAULT_MAX_BODY_CHARS",
+    "IndexRebuildInterrupted",
+    "RebuildResult",
+    "rebuild_index",
+]
