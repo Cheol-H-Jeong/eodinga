@@ -145,15 +145,28 @@ class WatchService:
 
     def stop(self) -> None:
         self._stop.set()
-        for observer in self._observers.values():
-            observer.stop()
-        for observer in self._observers.values():
-            observer.join(timeout=1)
-        if self._flush_thread is not None and self._flush_thread.is_alive():
-            self._flush_thread.join(timeout=1)
-        self._flush_thread = None
-        self._observers.clear()
-        self._reset_state()
+        error: Exception | None = None
+        try:
+            for observer in self._observers.values():
+                try:
+                    observer.stop()
+                except Exception as exc:
+                    if error is None:
+                        error = exc
+            for observer in self._observers.values():
+                try:
+                    observer.join(timeout=1)
+                except Exception as exc:
+                    if error is None:
+                        error = exc
+            if self._flush_thread is not None and self._flush_thread.is_alive():
+                self._flush_thread.join(timeout=1)
+        finally:
+            self._flush_thread = None
+            self._observers.clear()
+            self._reset_state()
+        if error is not None:
+            raise error
 
     def record(self, event: WatchEvent) -> None:
         increment_counter("watcher_events", event_type=event.event_type)

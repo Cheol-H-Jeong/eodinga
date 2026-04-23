@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.415 - 2026-04-23
+
+- Hardened `WatchService.start()` so failed observer scheduling or startup tears down the temporary observer/flush thread instead of leaving background watcher state running after a partial boot.
+- Preserved moved-file source suppression metadata when a flush is re-queued under queue backpressure, preventing follow-up deletes for the old path from leaking through as duplicate events.
+- Hardened `WatchService.stop()` to continue stopping and joining every observer, reset in-memory state, and only then re-raise the first shutdown failure for cleaner recovery after partial teardown errors.
+
 ## 0.1.410 - 2026-04-23
 
 - Expanded `stats --json` so the typed payload now exposes watcher flush/backpressure metrics and logging sink counters directly, without forcing operators to decode raw counter keys.

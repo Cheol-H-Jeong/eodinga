@@ -834,3 +834,59 @@ def test_watcher_requeued_move_under_backpressure_keeps_source_delete_suppressed
 
     with pytest.raises(Empty):
         service.queue.get_nowait()
+
+
+def test_watcher_stop_continues_cleanup_after_observer_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import eodinga.core.watcher as watcher_module
+
+    roots = [tmp_path / "one", tmp_path / "two"]
+    stop_calls: list[Path] = []
+    join_calls: list[Path] = []
+
+    class FakeObserver:
+        def __init__(self) -> None:
+            self.root: Path | None = None
+
+        def schedule(self, _handler: object, root_text: str, recursive: bool = True) -> None:
+            assert recursive is True
+            self.root = Path(root_text)
+
+        def start(self) -> None:
+            assert self.root is not None
+
+        def stop(self) -> None:
+            assert self.root is not None
+            stop_calls.append(self.root)
+            if self.root == roots[0]:
+                raise RuntimeError("simulated observer stop failure")
+
+        def join(self, timeout: float | None = None) -> None:
+            assert self.root is not None
+            assert timeout == 1
+            join_calls.append(self.root)
+
+    monkeypatch.setattr(watcher_module, "Observer", FakeObserver)
+
+    service = WatchService()
+    for root in roots:
+        service.start(root)
+
+    pending = WatchEvent(
+        event_type="created",
+        path=roots[0] / "pending.txt",
+        root_path=roots[0],
+        happened_at=1.0,
+    )
+    service.record(pending)
+
+    with pytest.raises(RuntimeError, match="simulated observer stop failure"):
+        service.stop()
+
+    assert stop_calls == roots
+    assert join_calls == roots
+    assert service._observers == {}
+    assert service._flush_thread is None
+    assert service._pending == {}
+    assert service._timestamps == {}
