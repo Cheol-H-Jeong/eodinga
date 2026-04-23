@@ -1,10 +1,27 @@
 from __future__ import annotations
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 from eodinga.query import compile
-from eodinga.query.compiler import compile_query
+from eodinga.query.compiler import CompiledBranch, compile_query
 from eodinga.query.dsl import QuerySyntaxError, parse
+
+
+def _branch_is_constraining(branch: CompiledBranch) -> bool:
+    return any(
+        (
+            branch.path_match_sql,
+            branch.content_match_sql,
+            branch.where_sql,
+            branch.path_terms,
+            branch.content_terms,
+            branch.path_regex_terms,
+            branch.content_regex_terms,
+            branch.path_filters,
+        )
+    )
 
 
 def test_compile_text_query_shape() -> None:
@@ -251,6 +268,42 @@ def test_compile_mode_only_or_branch_is_ignored_when_other_branch_filters_result
     assert len(compiled.branches) == 1
     branch = compiled.branches[0]
     assert branch.path_match_params == ('"alpha"',)
+
+
+@pytest.mark.parametrize("query", ["case:true", "-case:false", "regex:true", "-regex:false"])
+def test_compile_mode_only_query_preserves_single_unconstrained_branch(query: str) -> None:
+    compiled = compile_query(parse(query))
+
+    assert len(compiled.branches) == 1
+    assert _branch_is_constraining(compiled.branches[0]) is False
+
+
+_MODE_ATOM = st.sampled_from(["case:true", "case:false", "regex:true", "regex:false"])
+_TERM_ATOM = st.sampled_from(["alpha", '"alpha beta"', "content:/todo/i", "path:archive", "ext:txt"])
+
+
+@given(_MODE_ATOM, _TERM_ATOM, st.sampled_from(["|", " "]))
+def test_compile_grouped_mode_queries_keep_only_constraining_branches(
+    mode_atom: str,
+    term_atom: str,
+    joiner: str,
+) -> None:
+    query = f"({mode_atom}{joiner}{term_atom})"
+    compiled = compile_query(parse(query))
+
+    assert compiled.branches
+    assert all(_branch_is_constraining(branch) for branch in compiled.branches)
+
+
+@given(_MODE_ATOM, _TERM_ATOM)
+def test_compile_negated_grouped_mode_queries_keep_only_constraining_branches(
+    mode_atom: str,
+    term_atom: str,
+) -> None:
+    compiled = compile_query(parse(f"-({mode_atom} {term_atom})"))
+
+    assert compiled.branches
+    assert all(_branch_is_constraining(branch) for branch in compiled.branches)
 
 
 def test_compile_reuses_cached_queries() -> None:
