@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.918 - 2026-04-24
+
+- Made `eodinga stats --json` self-observing, so the payload now includes the current stats request, its JSON-mode counter, and the successful `stats` command snapshot instead of stopping at `started`.
+- Exposed active file-log sink state through runtime stats and crash reports, including the configured sink path, whether the log file currently exists, and file size/mtime when the sink has materialized on disk.
+- Added a dedicated `crash_log_write_ms` histogram and coverage for crash-log writes, so crash reporting latency is visible in both `stats --json` and the observability unit suite.
+
 ## 0.1.911 - 2026-04-24
 
 - Normalized list-form subprocess command matching in the no-network source audit, so absolute-path invocations like `['/usr/bin/curl', ...]` and `wget.exe` tuples are rejected the same way as bare command names.
