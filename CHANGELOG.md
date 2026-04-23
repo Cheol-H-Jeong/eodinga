@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.218 - 2026-04-23
+
+- Added real-watch integration coverage for rename, move-in, move-out, and cross-root handoff flows so filesystem moves are pinned through actual query visibility instead of handler-only unit tests.
+- Added CLI process roundtrip integration tests that prove multi-root root scoping survives separate `index` and `search` processes without an in-process shortcut.
+- Added a rebuild roundtrip regression that verifies a second CLI-driven rebuild atomically replaces the searchable snapshot seen by the next process.
+
 ## 0.1.216 - 2026-04-23
 
 - Clarified `README.md` as an operator-facing contract with a tighter at-a-glance summary, reference map, and FAQ coverage for local-only behavior, packaging, uninstall, and generated CLI docs.
