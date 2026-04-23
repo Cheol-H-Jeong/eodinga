@@ -269,20 +269,53 @@ def _fetch_record_batch(
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
+def _strip_windows_extended_prefix(path_text: str) -> str:
+    if path_text.startswith("\\\\?\\UNC\\"):
+        return f"\\\\{path_text[8:]}"
+    if path_text.startswith("//?/UNC/"):
+        return f"//{path_text[8:]}"
+    if path_text.startswith("\\\\?\\") or path_text.startswith("//?/"):
+        return path_text[4:]
+    return path_text
+
+
+def _root_scope_variants(root_text: str) -> tuple[str, ...]:
+    normalized = root_text.rstrip("/\\") or root_text
+    candidates: list[str] = []
+
+    def add(candidate: str) -> None:
+        trimmed = candidate.rstrip("/\\") or candidate
+        if trimmed and trimmed not in candidates:
+            candidates.append(trimmed)
+
+    def add_slash_variants(candidate: str) -> None:
+        add(candidate)
+        add(candidate.replace("\\", "/"))
+        add(candidate.replace("/", "\\"))
+
+    add_slash_variants(normalized)
+    stripped = _strip_windows_extended_prefix(normalized)
+    if stripped != normalized:
+        add_slash_variants(stripped)
+
+    for candidate in tuple(candidates):
+        match = re.match(r"^(?P<drive>[A-Za-z]):(?P<rest>.*)$", candidate)
+        if match is None:
+            continue
+        rest = match.group("rest")
+        for drive in {match.group("drive").lower(), match.group("drive").upper()}:
+            plain = f"{drive}:{rest}"
+            add_slash_variants(plain)
+            extended = plain.replace("/", "\\")
+            add(f"\\\\?\\{extended}")
+
+    return tuple(candidates)
+
+
 def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
-    root_text = str(root)
-    normalized = root_text.rstrip("/\\") or root_text
-    variants = tuple(
-        dict.fromkeys(
-            (
-                normalized,
-                normalized.replace("\\", "/"),
-                normalized.replace("/", "\\"),
-            )
-        )
-    )
+    variants = _root_scope_variants(str(root))
     exact_params = variants
     like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
         f"{variant}\\%" for variant in variants
