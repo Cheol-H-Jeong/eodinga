@@ -674,6 +674,74 @@ def test_launcher_action_bar_triggers_result_actions(qapp) -> None:
     assert properties == ["release-notes.txt"]
 
 
+def test_launcher_result_context_menu_triggers_result_actions(qapp) -> None:
+    activated: list[str] = []
+    revealed: list[str] = []
+    copied_paths: list[str] = []
+    copied_names: list[str] = []
+    properties: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/release-notes.txt"), parent_path=Path("/tmp"), name="release-notes.txt")
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: activated.append(hit.name))
+    launcher.open_containing_folder.connect(lambda hit: revealed.append(hit.name))
+    launcher.copy_path_requested.connect(lambda hit: copied_paths.append(str(hit.path)))
+    launcher.copy_name_requested.connect(lambda hit: copied_names.append(hit.name))
+    launcher.show_properties.connect(lambda hit: properties.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(60)
+
+    menu = launcher._build_result_context_menu()
+    assert [action.text() for action in menu.actions()] == ["Open", "Reveal", "Copy Path", "Copy Name", "Properties"]
+
+    for action in menu.actions():
+        action.trigger()
+
+    assert activated == ["release-notes.txt"]
+    assert revealed == ["release-notes.txt"]
+    assert copied_paths == ["/tmp/release-notes.txt"]
+    assert copied_names == ["release-notes.txt"]
+    assert properties == ["release-notes.txt"]
+
+
+def test_launcher_result_context_menu_selects_clicked_row_before_triggering(qapp) -> None:
+    activated: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+            ][:limit],
+            total=2,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: activated.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("a")
+    _wait(60)
+    assert launcher.result_list.currentIndex().row() == 0
+
+    menu = launcher._build_result_context_menu(1)
+    menu.actions()[0].trigger()
+
+    assert launcher.result_list.currentIndex().row() == 1
+    assert activated == ["beta.txt"]
+
+
 def test_launcher_alt_number_quick_picks_results(qapp) -> None:
     activated: list[str] = []
 
