@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.410 - 2026-04-23
+
+- Made `packaging/build.py --target windows` produce real Windows packaging commands by generating audited CLI and GUI PyInstaller bootstrap entries and invoking PyInstaller for both bundles before handing the rendered script to Inno Setup.
+- Normalized AppImage dry-run tarball metadata through a shared reproducible-archive helper so staged archives now pin member order, uid/gid, owner names, and mtimes instead of leaking builder-specific metadata.
+- Applied the same reproducible-archive normalization to the staged Debian package tree and extended the Linux packaging audits so both dry-run tarballs fail fast if their archive roots or normalized metadata drift.
+
 ## 0.1.406 - 2026-04-23
 
 - Exposed the effective file log sink policy in `stats --json`, including rotation, retention, compression, and whether file logging is active for the current process.
