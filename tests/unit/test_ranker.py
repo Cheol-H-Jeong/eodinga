@@ -14,6 +14,15 @@ def test_rrf_prefers_higher_weighted_channel() -> None:
     assert scores[1] > scores[2]
 
 
+def test_rrf_ignores_duplicate_ids_within_single_channel() -> None:
+    weights = RankingWeights()
+
+    scores = reciprocal_rank_fusion({"name": [1, 1, 2], "path": [], "content": []}, weights)
+
+    assert scores[1] == weights.name / (weights.k + 1)
+    assert scores[2] == weights.name / (weights.k + 3)
+
+
 def test_prefix_boost_increases_score() -> None:
     scores = apply_prefix_boost({1: 0.2, 2: 0.3}, [1], RankingWeights(prefix_boost=0.5))
     assert scores[1] == 0.7
