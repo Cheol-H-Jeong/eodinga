@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.838 - 2026-04-23
+
+- Skipped redundant SQLite PRAGMA writes and restore passes when bulk-write helpers request settings that are already active, cutting avoidable round-trips on steady-state connections.
+- Collapsed duplicate same-path record batches before writer upserts, so hot watch flushes and duplicate-heavy batches no longer reissue identical file writes or parser work for the same path.
+- Added focused unit coverage for the new storage and writer fast paths plus an opt-in duplicate-event perf regression to keep duplicate-heavy live-update throughput measurable.
+
 ## 0.1.830 - 2026-04-23
 
 - Tightened the shipped docs around docs-only validation so README and the release/contributor guides now point at one explicit evidence bundle covering docs assets, GUI smoke, and packaging dry runs.
