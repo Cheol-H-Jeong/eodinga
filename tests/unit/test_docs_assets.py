@@ -134,7 +134,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "is:duplicate" in dsl
     assert "regex:true" in dsl
     assert "-path:node_modules" in dsl
+    assert "## Evaluation Rules" in dsl
+    assert "## Regex And Escaping" in dsl
+    assert "regex:/todo|fixme/im" in dsl
+    assert "path:\"C:\\\\Users\\\\me\\\\Documents\"" in dsl
+    assert "## Operator Matrix" in dsl
     assert "## Operator Notes" in dsl
+    assert "## Troubleshooting Query Shape" in dsl
 
     assert "SPEC §6.3" in performance
     assert "tests/perf/test_cold_start.py" in performance
