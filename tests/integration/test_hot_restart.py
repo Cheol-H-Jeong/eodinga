@@ -420,6 +420,70 @@ def test_hot_restart_resumes_interrupted_multi_root_build_with_root_scoped_queri
     assert not staged_db.exists()
 
 
+def test_hot_restart_resumes_interrupted_multi_root_build_and_accepts_live_updates(
+    tmp_path: Path,
+) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    target_db = tmp_path / "database" / "index.db"
+    staged_db = tmp_path / "database" / ".index.db.next"
+    root_a.mkdir()
+    root_b.mkdir()
+    existing_a = root_a / "alpha-recovered.txt"
+    existing_b = root_b / "beta-recovered.txt"
+    existing_a.write_text("recovered staged alpha\n", encoding="utf-8")
+    existing_b.write_text("recovered staged beta\n", encoding="utf-8")
+
+    rebuild_index(
+        target_db,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+    rebuild_index(
+        staged_db,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+    target_db.unlink()
+    assert staged_db.exists()
+
+    reopened = open_index(target_db)
+    service = WatchService()
+    try:
+        initial_hits = {hit.file.path for hit in search(reopened, "recovered staged", limit=5).hits}
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        created = root_b / "beta-after-resume.txt"
+        created.write_text("recovered staged beta live update\n", encoding="utf-8")
+        elapsed = _wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "recovered staged beta live update",
+            created,
+            deadline_seconds=0.5,
+        )
+        beta_hits = {
+            hit.file.path
+            for hit in search(reopened, "recovered staged beta live update", limit=5, root=root_b).hits
+        }
+        alpha_hits = {
+            hit.file.path
+            for hit in search(reopened, "recovered staged beta live update", limit=5, root=root_a).hits
+        }
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == {existing_a, existing_b}
+    assert elapsed <= 0.5
+    assert beta_hits == {created}
+    assert alpha_hits == set()
+    assert not staged_db.exists()
+
+
 def test_hot_restart_reopen_multi_root_modify_updates_root_scoped_queries(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
@@ -482,6 +546,46 @@ def test_hot_restart_reopen_multi_root_modify_updates_root_scoped_queries(tmp_pa
     assert stale_beta_hits == set()
     assert current_beta_hits == {target}
     assert alpha_hits == {survivor}
+
+
+def test_hot_restart_reopen_delete_then_recreate_same_path_refreshes_query_visibility(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    target = root / "reopen-recreate.txt"
+    target.write_text("before reopen recreate marker\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(reopened, "before reopen recreate", limit=5).hits]
+        target.unlink()
+        target.write_text("after reopen recreate marker\n", encoding="utf-8")
+
+        elapsed = _wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "after reopen recreate",
+            target,
+            deadline_seconds=0.5,
+        )
+        stale_hits = [hit.file.path for hit in search(reopened, "before reopen recreate", limit=5).hits]
+        current_hits = [hit.file.path for hit in search(reopened, "after reopen recreate", limit=5).hits]
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == [target]
+    assert elapsed <= 0.5
+    assert stale_hits == []
+    assert current_hits == [target]
 
 
 def test_hot_restart_reopen_same_root_move_updates_query_and_path_hits(tmp_path: Path) -> None:
