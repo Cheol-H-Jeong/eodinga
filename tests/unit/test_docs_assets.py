@@ -134,10 +134,12 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "scripts/render_docs_screenshots.py" in contributing
     assert "## Docs Refresh Order" in contributing
     assert "## Docs Round Checklist" in contributing
+    assert "## Docs Handoff Example" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
     assert "## Review Checklist" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
+    assert "That keeps doc claims tied to one reproducible proof command" in contributing
     assert "The final release commit for a round should carry the version bump" in contributing
 
     assert "modified:today" in dsl
@@ -174,6 +176,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
     assert "## Artifact Inventory" in release
+    assert "## Release Input Matrix" in release
     assert "## Verify Shipped Docs" in release
     assert "## Worker Handoff Rules" in release
     assert "## Docs-Only Rounds" in release
@@ -184,6 +187,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "python scripts/generate_manpage.py" in release
     assert "git tag -l \"v0.1.N\"" in release
     assert "Collision check example" in release
+    assert "Release input | Source of truth | Refresh command | Proof command before tag" in release
+    assert "If only one release input changed, prove that one input directly" in release
+    assert "Minimal docs-only proof examples:" in release
     assert "Do not push tags or release branches from a worker worktree." in release
 
     assert ".TH EODINGA 1" in manpage

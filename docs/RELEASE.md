@@ -59,6 +59,19 @@ Before tagging, know which release inputs this repository expects to exist:
 - `packaging/dist/` dry-run manifests for Windows, AppImage, and Debian audits.
 - `.github/workflows/release-windows.yml` and `.github/workflows/release-linux.yml` as linted release automation inputs.
 
+## Release Input Matrix
+
+| Release input | Source of truth | Refresh command | Proof command before tag |
+| --- | --- | --- | --- |
+| `README.md` and shipped guides | checked-in markdown under repo root and `docs/` | edit the docs directly | `pytest -q tests/unit/test_docs_assets.py` |
+| `docs/man/eodinga.1` | `eodinga.__main__._build_parser()` via `scripts/generate_manpage.py` | `python scripts/generate_manpage.py` | `pytest -q tests/unit/test_docs_assets.py` |
+| `docs/screenshots/*.png` | real Qt widgets rendered through `eodinga.gui.docs` | `python scripts/render_docs_screenshots.py` | `pytest -q tests/unit/test_docs_assets.py` |
+| Windows dry-run manifest | `packaging/build.py --target windows-dry-run` plus Inno/PyInstaller inputs | rerun the dry run | `python packaging/build.py --target windows-dry-run` |
+| Linux AppImage dry-run manifest | `packaging/build.py --target linux-appimage-dry-run` plus `packaging/linux/appimage-builder.yml` | rerun the dry run | `python packaging/build.py --target linux-appimage-dry-run` |
+| Linux Debian dry-run manifest | `packaging/build.py --target linux-deb-dry-run` plus `packaging/linux/deb/` templates | rerun the dry run | `python packaging/build.py --target linux-deb-dry-run` |
+| Release automation YAML | `.github/workflows/release-*.yml` | edit the workflow file directly | `yamllint .github/workflows/release-windows.yml && yamllint .github/workflows/release-linux.yml` |
+| Version metadata and notes | `pyproject.toml`, `eodinga/__init__.py`, `CHANGELOG.md` | edit together in the final metadata commit | full release gate plus `git tag -l "v0.1.N"` collision check |
+
 ## Verify Shipped Docs
 
 Before tagging, confirm:
@@ -79,6 +92,8 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+If only one release input changed, prove that one input directly instead of jumping straight to the whole release pass. The full gate still runs before tagging, but the per-input proof keeps docs-only and packaging-only rounds easier to audit.
+
 ## Worker Handoff Rules
 
 1. Keep feature or docs commits separate from the final metadata commit.
@@ -95,6 +110,12 @@ Use the same release discipline for docs-only changes when the shipped operator 
 2. Regenerate any derived docs assets touched by the round.
 3. Re-run `pytest -q tests/unit/test_docs_assets.py` plus the matching packaging dry-run or GUI smoke command.
 4. Add a changelog entry that names the docs surface changed and why it matters.
+
+Minimal docs-only proof examples:
+
+- README or guide wording only: `pytest -q tests/unit/test_docs_assets.py`
+- Packaging docs changed: `pytest -q tests/unit/test_docs_assets.py && python packaging/build.py --target windows-dry-run`
+- GUI docs or screenshots changed: `pytest -q tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"`
 
 ## Cut The Local Release
 

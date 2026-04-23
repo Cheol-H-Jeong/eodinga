@@ -138,6 +138,18 @@ Use this when the round is docs-only but still release-bearing:
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
 
+## Docs Handoff Example
+
+For a typical docs-only round, the shortest clean handoff looks like:
+
+1. Update the user-facing contract in `README.md`.
+2. Update the deeper guide under `docs/` that explains the same surface.
+3. Re-run `pytest -q tests/unit/test_docs_assets.py`.
+4. Re-run the specific proof command the docs now describe, such as `python packaging/build.py --target windows-dry-run` or `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"`.
+5. Leave the version bump, changelog entry, and local tag for the final metadata commit.
+
+That keeps doc claims tied to one reproducible proof command instead of relying on general confidence about the tree.
+
 ## Test Selection Guide
 
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`
