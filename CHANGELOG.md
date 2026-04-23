@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.407 - 2026-04-23
+## 0.1.408 - 2026-04-23
 
 - Linux release builds now provision `appimage-builder` and emit a versioned `.AppImage` artifact under `packaging/dist/` instead of stopping at a staged `AppDir`.
 - Hardened the AppImage packaging audit to enforce versioned artifact naming, executable output, and a runnable launcher contract in both the recipe and the staged build path.
