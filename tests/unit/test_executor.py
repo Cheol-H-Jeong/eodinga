@@ -8,6 +8,8 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from eodinga.common import FileRecord
+from eodinga.query import compile as compile_query_text
 from eodinga.query import executor as executor_module
 from eodinga.query import search
 
@@ -626,6 +628,51 @@ def test_execute_unicode_python_path_scan_breaks_equal_name_ties_stably(
     hits = search(tmp_db, "회의록 report", limit=10).hits
 
     assert [hit.file.id for hit in hits] == [1, 2, 3]
+
+
+def test_unicode_path_scan_pages_until_it_finds_late_match(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    branch = compile_query_text('"회의록"').branches[0]
+    calls: list[int] = []
+
+    def make_record(file_id: int, path: str) -> FileRecord:
+        path_obj = Path(path)
+        return FileRecord(
+            id=file_id,
+            root_id=1,
+            path=path_obj,
+            parent_path=path_obj.parent,
+            name=path_obj.name,
+            name_lower=path_obj.name.lower(),
+            ext=path_obj.suffix.lower().lstrip("."),
+            size=512,
+            mtime=1_713_528_000 - file_id,
+            ctime=1_713_528_000 - file_id,
+            is_dir=False,
+            is_symlink=False,
+            indexed_at=1_713_528_000,
+        )
+
+    def fake_fetch_records(*args, **kwargs):
+        raise AssertionError("unicode path scan should page via _fetch_record_batch")
+
+    def fake_fetch_record_batch(conn, where_sql, where_params, limit, offset):
+        calls.append(offset)
+        if offset == 0:
+            return {1: make_record(1, "/workspace/archive/report.txt")}
+        if offset == limit:
+            return {2: make_record(2, "/workspace/문서/회의록.txt")}
+        return {}
+
+    monkeypatch.setattr(executor_module, "_fetch_records", fake_fetch_records)
+    monkeypatch.setattr(executor_module, "_fetch_record_batch", fake_fetch_record_batch)
+
+    ids, records = executor_module._fetch_path_candidates_python_scan(tmp_db, branch, limit=1)
+
+    assert ids == [2]
+    assert list(records) == [2]
+    assert calls == [0, 500]
 
 
 def test_execute_decomposed_korean_content_query_keeps_snippets(
