@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.231 - 2026-04-23
+## 0.1.235 - 2026-04-23
 
 - Preserved the full undelivered watcher flush tail when queue enqueue aborts, eliminating a silent event-loss path under backpressure or shutdown races.
 - Treated command interrupts as an explicit reliability path: `main()` now returns exit code `130`, records interrupt/failure metrics, and skips crash-report generation for expected user aborts.
