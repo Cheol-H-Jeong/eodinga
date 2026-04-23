@@ -4,7 +4,7 @@ from pathlib import Path
 import sqlite3
 from typing import cast
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRect, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QSystemTrayIcon
 
@@ -195,6 +195,7 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
         tuple[object, EodingaWindow, LauncherWindow],
         launch_gui(test_mode=True, config=stored, config_path=temp_config_path),
     )
+    restored_launcher._available_geometry_for_point = lambda x, y: QRect(0, 0, 1600, 1200)
     restored_launcher.show()
     qapp.processEvents()
 
@@ -204,6 +205,38 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     assert restored_launcher.pos().y() == 96
 
     restored_window.close()
+    qapp.processEvents()
+
+
+def test_launcher_geometry_restore_clamps_to_available_screen(qapp, temp_config_path: Path, monkeypatch) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(
+        update={
+            "window_x": 5000,
+            "window_y": 4000,
+            "window_width": 900,
+            "window_height": 700,
+        }
+    )
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+    monkeypatch.setattr(
+        launcher,
+        "_available_geometry_for_point",
+        lambda x, y: QRect(40, 20, 500, 320),
+    )
+
+    launcher.show()
+    qapp.processEvents()
+
+    assert launcher.x() == 40
+    assert launcher.y() == 20
+    assert launcher.width() >= 500
+    assert launcher.height() >= 320
+
+    window.close()
     qapp.processEvents()
 
 

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt, Signal
+from PySide6.QtCore import QPoint, QRect, QTimer, Qt, Signal
 from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
+from PySide6.QtWidgets import QApplication
 
 from eodinga.config import AppConfig
 from eodinga.gui.design import MOTION_DEBOUNCE_MS
@@ -52,8 +53,7 @@ class LauncherWindow(LauncherPanel):
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
         if not self._geometry_restored and self._config is not None:
-            if self._config.launcher.window_x is not None and self._config.launcher.window_y is not None:
-                self.move(self._config.launcher.window_x, self._config.launcher.window_y)
+            self._restore_geometry()
             self._geometry_restored = True
         self.query_field.setFocus()
         self.query_field.selectAll()
@@ -123,3 +123,42 @@ class LauncherWindow(LauncherPanel):
             self.show()
             self.raise_()
             self.activateWindow()
+
+    def _restore_geometry(self) -> None:
+        if self._config is None:
+            return
+        geometry = self._bounded_geometry(
+            self._config.launcher.window_x,
+            self._config.launcher.window_y,
+            self._config.launcher.window_width,
+            self._config.launcher.window_height,
+        )
+        self.resize(geometry.width(), geometry.height())
+        final_geometry = self._bounded_geometry(
+            self._config.launcher.window_x,
+            self._config.launcher.window_y,
+            self.width(),
+            self.height(),
+        )
+        self.move(final_geometry.topLeft())
+
+    def _bounded_geometry(self, x: int | None, y: int | None, width: int, height: int) -> QRect:
+        available = self._available_geometry_for_point(x, y)
+        bounded_width = min(max(320, width), available.width())
+        bounded_height = min(max(240, height), available.height())
+        max_x = available.x() + max(0, available.width() - bounded_width)
+        max_y = available.y() + max(0, available.height() - bounded_height)
+        bounded_x = available.x() if x is None else min(max(x, available.x()), max_x)
+        bounded_y = available.y() if y is None else min(max(y, available.y()), max_y)
+        return QRect(bounded_x, bounded_y, bounded_width, bounded_height)
+
+    def _available_geometry_for_point(self, x: int | None, y: int | None) -> QRect:
+        app = QApplication.instance()
+        screen = None
+        if app is not None and x is not None and y is not None:
+            screen = app.screenAt(QPoint(x, y))
+        if screen is None and app is not None:
+            screen = app.primaryScreen()
+        if screen is None:
+            return QRect(0, 0, 640, 480)
+        return screen.availableGeometry()
