@@ -45,6 +45,17 @@ regex:true report-\d+
 regex:/launch|ship/i path:docs
 ```
 
+## Query Building Patterns
+
+| Goal | Pattern | Notes |
+| --- | --- | --- |
+| Restrict all terms to one tree | `path:docs (release | changelog)` | `path:` compiles early, so this is cheaper than broad regex. |
+| Exclude noisy folders | `term -path:node_modules -path:.git` | Negation applies to each following operator or group. |
+| Keep one branch positive and another negative | `(invoice | receipt) -ext:tmp` | Grouping prevents `|` from leaking across unrelated terms. |
+| Search timestamps precisely | `modified:2026-04-23T09:15:30+00:00` | Datetime values stay exact; they do not round to whole days. |
+| Use regex only where needed | `path:src /todo|fixme/i` | Prefer indexed terms plus one regex over `regex:true` for the whole query. |
+| Find empty files but not folders | `is:empty -is:dir` | `is:empty` includes zero-byte files and empty directories. |
+
 ## Operator Notes
 
 - Path/name terms are case-insensitive unless `case:true` is set.
@@ -54,6 +65,13 @@ regex:/launch|ship/i path:docs
 - `is:duplicate` matches entries that share a content hash with at least one other indexed file.
 - `regex:true` only changes how plain terms are interpreted; explicit `/pattern/flags` literals still work without it.
 - Negation applies to the next term or the entire parenthesized group.
+
+## Execution Hints
+
+- Prefer structured filters first: `ext:`, `path:`, `date:`, and `size:` keep the candidate set small before phrase or regex evaluation.
+- Plain quoted phrases can match across token boundaries in indexed content, but still require content indexing to see document-body text.
+- Broad regex queries are evaluated after candidate fetch, so pair them with `path:` or `ext:` whenever possible.
+- `--root PATH` on `eodinga search` scopes the search surface without changing the query text, which is useful for scripts that reuse one query against several roots.
 
 ## Practical Limits
 

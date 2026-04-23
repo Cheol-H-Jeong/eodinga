@@ -20,6 +20,12 @@ All screenshots in this repository are rendered offscreen from the real Qt surfa
 
 ## Install
 
+| Environment | Path |
+| --- | --- |
+| Linux development | `python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]` |
+| Linux packaged app | Build or download the AppImage / `.deb` artifacts and launch `eodinga gui` |
+| Windows packaged app | Install `eodinga-0.1.x-win-x64-setup.exe` |
+
 ### Linux
 
 ```bash
@@ -35,12 +41,22 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 - Install per-user with the Inno Setup wizard.
 - Optionally enable auto-start at login during install.
 
+## Docs Map
+
+- [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md): complete query cheatsheet, operator notes, and composition examples.
+- [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md): release gate commands and shipped-doc acceptance checks.
+- [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md): runtime flow, index lifecycle, recovery, and packaging surfaces.
+- [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, scaling knobs, and current local baseline.
+- [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md): local workflow, scope guardrails, and test-selection shortcuts.
+- [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md): version bump, changelog, validation, and local tag handoff flow.
+
 ## First Run
 
 1. Launch `eodinga gui` or start the installed app.
 2. Add one or more roots to index.
 3. Keep content indexing enabled if you want document-text matches.
 4. Wait for the initial cold start to finish, then use the launcher hotkey.
+5. Keep `eodinga watch` or the packaged background flow running if you want live updates outside the main GUI session.
 
 ## Quick Start
 
@@ -63,6 +79,17 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 | Content extraction | Text, source code, Office files, PDF, EPUB, HTML, and HWP when parser extras are installed. |
 | Recovery | Atomic staged rebuild and startup recovery for interrupted index swaps and stale WAL state. |
 | Packaging | Windows installer, Linux AppImage, and Linux `.deb` dry-run paths. |
+
+## Search Recipes
+
+| Goal | Command or query |
+| --- | --- |
+| Build the initial index for two roots | `eodinga index --root ~/projects --root ~/docs` |
+| Keep the same roots live | `eodinga watch` |
+| Search recent markdown roadmaps | `eodinga search 'date:this-week ext:md roadmap' --limit 20` |
+| Find duplicate large files | `eodinga search 'is:duplicate size:>10M' --limit 50` |
+| Inspect results as JSON | `eodinga search 'regex:/todo|fixme/i path:src' --json` |
+| Verify runtime health | `eodinga doctor && eodinga stats --json` |
 
 ## Acceptance Quickcheck
 
@@ -101,6 +128,8 @@ eodinga search 'ext:pdf content:"release checklist"' --limit 20
 eodinga stats --json
 eodinga doctor
 ```
+
+Per-command help is available under `eodinga <subcommand> --help`. The top-level parser currently exposes `index`, `watch`, `search`, `stats`, `gui`, `doctor`, and `version`.
 
 ## Query DSL
 
@@ -181,6 +210,12 @@ eodinga stats --json
 eodinga index --rebuild
 ```
 
+Scriptable release-health pass:
+
+```bash
+source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)"
+```
+
 ## Architecture
 
 The runtime stack is intentionally small: read-only filesystem traversal, SQLite/FTS-backed indexing, a shared DSL compiler/executor, and thin CLI/GUI surfaces. The component map and data flow are documented in [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md).
@@ -227,15 +262,6 @@ The doctor command checks Python compatibility, importable dependencies, databas
 
 If search looks stale, run `eodinga stats` to confirm the active database path, then either `eodinga watch` for live updates or `eodinga index --rebuild` to rebuild once.
 
-## Docs Map
-
-- [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md): query cheatsheet and operator notes.
-- [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md): SPEC §9 release checklist and validation commands.
-- [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md): runtime flow, index lifecycle, and packaging surfaces.
-- [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, current baselines, and profiling workflow.
-- [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md): local workflow, guardrails, and doc/screenshot expectations for contributors.
-- [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md): release-candidate workflow, tagging, packaging validation, and handoff.
-
 ## Contributing
 
 Contributor workflow lives in [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md). Use it for local setup, quality gates, screenshot refreshes, and scope guardrails before opening a change.
@@ -261,10 +287,6 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 ### Which commands are most useful for a quick health check?
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
-
-### Does eodinga send any data over the network?
-
-No. Runtime is local-only by design.
 
 ### Which files are skipped by default?
 
