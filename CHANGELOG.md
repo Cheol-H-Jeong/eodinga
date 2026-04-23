@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.907 - 2026-04-23
+
+- Added README operator guidance for one-command desktop, CLI live-update, docs-only release, and full release-candidate paths, plus a surface-to-evidence map for debugging the right boundary first.
+- Expanded the architecture guide with explicit CLI, GUI/launcher, and packaging-provenance lifecycles so release-facing drift can be traced back to the correct runtime or packaging surface faster.
+- Tightened contributor and release docs around avoidable review churn, dry-run review heuristics, and parallel-worker release traps so docs-only rounds stay easier to rebase and audit.
+
 ## 0.1.901 - 2026-04-23
 
 - Made the Linux AppImage packaging script emit and audit a versioned `.AppImage` payload on non-dry-run builds instead of stopping at the staged AppDir tarball.
