@@ -9,4 +9,4 @@ Package: eodinga
 Version: @@APP_VERSION@@
 Architecture: @@TARGET_ARCH@@
 Depends: python3 (>= 3.11)
-Description: Instant lexical file search for Windows and Linux
+Description: Everything-class instant file search for Windows and Linux

@@ -674,7 +674,7 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
             "source": "eodinga",
             "maintainer": "Cheol-H-Jeong",
             "binary_package": "eodinga",
-            "description": "Instant lexical file search for Windows and Linux",
+            "description": "Everything-class instant file search for Windows and Linux",
         },
         "desktop_entry": {
             "name": "eodinga",
@@ -732,14 +732,14 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
             "version": __version__,
             "architecture": "amd64",
             "depends": "python3 (>= 3.11)",
-            "description": "Instant lexical file search for Windows and Linux",
+            "description": "Everything-class instant file search for Windows and Linux",
         },
         "debian_control_template": {
             "exists": True,
             "source": "eodinga",
             "maintainer": "Cheol-H-Jeong",
             "binary_package": "eodinga",
-            "description": "Instant lexical file search for Windows and Linux",
+            "description": "Everything-class instant file search for Windows and Linux",
         },
         "desktop_entry": {
             "name": "eodinga",
@@ -850,7 +850,7 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
         "version": __version__,
         "architecture": "amd64",
         "depends": "python3 (>= 3.11)",
-        "description": "Instant lexical file search for Windows and Linux",
+        "description": "Everything-class instant file search for Windows and Linux",
     }
     assert payload["debian_control_template"]["path"] == str(Path("packaging/linux/debian/control").resolve())
     assert payload["debian_control_template"]["exists"] is True
@@ -860,7 +860,7 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["debian_control_template"]["source"] == "eodinga"
     assert payload["debian_control_template"]["maintainer"] == "Cheol-H-Jeong"
     assert payload["debian_control_template"]["binary_package"] == "eodinga"
-    assert payload["debian_control_template"]["description"] == "Instant lexical file search for Windows and Linux"
+    assert payload["debian_control_template"]["description"] == "Everything-class instant file search for Windows and Linux"
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
@@ -1094,7 +1094,7 @@ def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
             "version": __version__,
             "architecture": "amd64",
             "depends": "python3 (>= 3.11)",
-            "description": "Instant lexical file search for Windows and Linux",
+            "description": "Everything-class instant file search for Windows and Linux",
         },
         "debian_control_template": {
             "exists": True,
@@ -1104,7 +1104,7 @@ def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
             "source": "eodinga",
             "maintainer": "Cheol-H-Jeong",
             "binary_package": "eodinga",
-            "description": "Instant lexical file search for Windows and Linux",
+            "description": "Everything-class instant file search for Windows and Linux",
         },
         "desktop_entry": {
             "matches_source_asset": True,
@@ -1175,7 +1175,7 @@ def test_linux_deb_audit_validator_rejects_launcher_help_regression() -> None:
             "version": __version__,
             "architecture": "amd64",
             "depends": "python3 (>= 3.11)",
-            "description": "Instant lexical file search for Windows and Linux",
+            "description": "Everything-class instant file search for Windows and Linux",
         },
         "debian_control_template": {
             "exists": True,
@@ -1185,7 +1185,7 @@ def test_linux_deb_audit_validator_rejects_launcher_help_regression() -> None:
             "source": "eodinga",
             "maintainer": "Cheol-H-Jeong",
             "binary_package": "eodinga",
-            "description": "Instant lexical file search for Windows and Linux",
+            "description": "Everything-class instant file search for Windows and Linux",
         },
         "desktop_entry": {
             "matches_source_asset": True,
@@ -1258,7 +1258,7 @@ def test_linux_deb_audit_validator_rejects_launcher_version_regression() -> None
             "version": __version__,
             "architecture": "amd64",
             "depends": "python3 (>= 3.11)",
-            "description": "Instant lexical file search for Windows and Linux",
+            "description": "Everything-class instant file search for Windows and Linux",
         },
         "debian_control_template": {
             "exists": True,
@@ -1268,7 +1268,7 @@ def test_linux_deb_audit_validator_rejects_launcher_version_regression() -> None
             "source": "eodinga",
             "maintainer": "Cheol-H-Jeong",
             "binary_package": "eodinga",
-            "description": "Instant lexical file search for Windows and Linux",
+            "description": "Everything-class instant file search for Windows and Linux",
         },
         "desktop_entry": {
             "matches_source_asset": True,
