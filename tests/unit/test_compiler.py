@@ -113,6 +113,8 @@ def test_compile_reversed_date_range_normalizes_bounds() -> None:
     [
         ("date:2026-01-03..", "files.mtime >= ?", 0),
         ("created:..2026-01-03", "files.ctime < ?", 0),
+        ("date:this-week..", "files.mtime >= ?", 0),
+        ("modified:..today", "files.mtime < ?", 0),
     ],
 )
 def test_compile_open_ended_date_ranges(
@@ -125,6 +127,17 @@ def test_compile_open_ended_date_ranges(
 
     assert branch.where_sql == expected_sql
     assert isinstance(branch.where_params[param_index], int)
+
+
+def test_compile_date_range_accepts_mixed_alias_and_iso_endpoints() -> None:
+    compiled = compile_query(parse("date:last-week..2026-04-23"))
+    branch = compiled.branches[0]
+    start, end = branch.where_params
+
+    assert branch.where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert isinstance(start, int)
+    assert isinstance(end, int)
+    assert start < end
 
 
 def test_compile_datetime_literals_preserve_instant_granularity() -> None:

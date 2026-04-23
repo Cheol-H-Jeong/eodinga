@@ -56,7 +56,7 @@ def _parse_iso_endpoint(value: str) -> DateRange:
         raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
 
 
-def parse_date_range(value: str) -> DateRange:
+def _parse_date_alias(value: str) -> DateRange | None:
     today = datetime.now().astimezone().date()
     if value == "today":
         return _day_bounds(today)
@@ -77,16 +77,30 @@ def parse_date_range(value: str) -> DateRange:
         this_month = _month_start(today)
         last_month = _month_start(this_month - timedelta(days=1))
         return DateRange(start=_day_bounds(last_month).start, end=_day_bounds(this_month).start)
+    return None
+
+
+def _parse_date_endpoint(value: str) -> DateRange:
+    alias_range = _parse_date_alias(value)
+    if alias_range is not None:
+        return alias_range
+    return _parse_iso_endpoint(value)
+
+
+def parse_date_range(value: str) -> DateRange:
+    alias_range = _parse_date_alias(value)
+    if alias_range is not None:
+        return alias_range
     if ".." in value:
         left, right = (part.strip() for part in value.split("..", 1))
         if not left and not right:
             raise QuerySyntaxError(f"invalid date literal: {value}", 0)
         if not left:
-            return DateRange(end=_parse_iso_endpoint(right).end)
+            return DateRange(end=_parse_date_endpoint(right).end)
         if not right:
-            return DateRange(start=_parse_iso_endpoint(left).start)
-        left_range = _parse_iso_endpoint(left)
-        right_range = _parse_iso_endpoint(right)
+            return DateRange(start=_parse_date_endpoint(left).start)
+        left_range = _parse_date_endpoint(left)
+        right_range = _parse_date_endpoint(right)
         if (right_range.start or 0) < (left_range.start or 0):
             left_range, right_range = right_range, left_range
         return DateRange(start=left_range.start, end=right_range.end)
