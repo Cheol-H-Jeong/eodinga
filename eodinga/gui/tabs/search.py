@@ -16,6 +16,7 @@ class SearchTab(QWidget):
     ) -> None:
         super().__init__(parent)
         self.setAccessibleName("Search tab")
+        self.setAccessibleDescription("Contains the embedded launcher for searching, previewing, and acting on indexed results.")
         layout = QVBoxLayout(self)
         self.launcher_panel = LauncherPanel(
             search_fn=search_fn,
@@ -23,5 +24,8 @@ class SearchTab(QWidget):
             debounce_ms=debounce_ms,
             state=state,
             parent=self,
+        )
+        self.launcher_panel.setAccessibleDescription(
+            "Embedded launcher with query field, result list, action bar, and preview pane."
         )
         layout.addWidget(self.launcher_panel)

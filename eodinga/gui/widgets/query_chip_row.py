@@ -26,6 +26,7 @@ class QueryChipRow(QWidget):
         self._label.setProperty("role", "secondary")
         self._label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         self._label.setAccessibleName(f"{label} query section")
+        self._label.setAccessibleDescription(f"Heading for {label.lower()} launcher query chips.")
         layout.addWidget(self._label)
 
         self._chips_container = QWidget(self)

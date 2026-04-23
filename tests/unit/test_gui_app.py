@@ -63,13 +63,38 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.index_tab.accessibleName() == "Index tab"
     assert window.index_tab.rebuild_button.accessibleName() == "Rebuild index"
     assert window.search_tab.accessibleName() == "Search tab"
+    assert window.search_tab.accessibleDescription() == (
+        "Contains the embedded launcher for searching, previewing, and acting on indexed results."
+    )
     assert window.settings_tab.accessibleName() == "Settings tab"
+    assert window.settings_tab.title_label.accessibleName() == "Settings title"
+    assert window.settings_tab.body_label.accessibleName() == "Settings summary"
     assert window.settings_tab.system_theme_checkbox.accessibleName() == "Use system theme"
+    assert window.settings_tab.system_theme_checkbox.accessibleDescription() == (
+        "Follow the desktop appearance for the main window and launcher."
+    )
     assert window.settings_tab.frameless_checkbox.accessibleName() == "Use frameless launcher window"
+    assert window.settings_tab.frameless_checkbox.accessibleDescription() == (
+        "Toggle launcher window chrome for a cleaner command palette surface."
+    )
     assert window.settings_tab.always_on_top_checkbox.accessibleName() == "Keep launcher always on top"
+    assert window.settings_tab.always_on_top_checkbox.accessibleDescription() == (
+        "Keep the launcher above other windows when it is visible."
+    )
     assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"
+    assert window.settings_tab.hotkey_label.accessibleDescription() == (
+        "Shows the global launcher shortcut currently configured for eodinga."
+    )
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
+    assert window.settings_tab.remap_hotkey_button.accessibleDescription() == (
+        "Enter a new global shortcut for showing the launcher."
+    )
     assert window.about_tab.accessibleName() == "About tab"
+    assert window.about_tab.title_label.accessibleName() == "About title"
+    assert window.about_tab.body_label.accessibleName() == "About summary"
+    assert window.search_tab.launcher_panel.accessibleDescription() == (
+        "Embedded launcher with query field, result list, action bar, and preview pane."
+    )
     assert window.launcher_window.pinned_queries_row.accessibleName() == "Pinned launcher queries"
     assert window.launcher_window.recent_queries_row.accessibleName() == "Recent launcher queries"
     assert window.launcher_window.empty_state.accessibleName() == "Launcher empty state"

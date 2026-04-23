@@ -108,6 +108,16 @@ class LauncherActionBar(QWidget):
             layout.addWidget(button)
         self.set_context(None)
 
+    @property
+    def buttons(self) -> list[SecondaryButton]:
+        return [
+            self.open_button,
+            self.reveal_button,
+            self.copy_path_button,
+            self.copy_name_button,
+            self.properties_button,
+        ]
+
     def set_enabled(self, enabled: bool) -> None:
         self.open_button.setEnabled(enabled)
         self.reveal_button.setEnabled(enabled)

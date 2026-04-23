@@ -84,8 +84,8 @@ def test_launcher_keyboard_flow_supports_arrow_navigation_and_tab_return(qapp) -
     assert revealed == ["beta.txt"]
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_Tab)
-    assert launcher.query_field.hasFocus()
-    assert "Tab moves to results" in launcher.shortcut_label.text()
+    assert launcher.action_bar.open_button.hasFocus()
+    assert "Tab moves across actions" in launcher.shortcut_label.text()
 
 
 def test_launcher_tab_moves_focus_into_results_without_mouse(qapp) -> None:
@@ -109,6 +109,80 @@ def test_launcher_tab_moves_focus_into_results_without_mouse(qapp) -> None:
 
     assert launcher.result_list.hasFocus()
     assert launcher.result_list.currentIndex().row() == 0
+
+
+def test_launcher_tab_cycles_through_query_chips_results_and_actions(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/report.txt"), parent_path=Path("/tmp"), name="report.txt")][:limit],
+            total=1,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn, state=state)
+    launcher.show()
+
+    launcher.query_field.setText("report")
+    _wait(60)
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Tab)
+    assert launcher.pinned_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[0], Qt.Key.Key_Tab)
+    assert launcher.recent_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.recent_queries_row.buttons[0], Qt.Key.Key_Tab)
+    assert launcher.recent_queries_row.buttons[1].hasFocus()
+
+    QTest.keyClick(launcher.recent_queries_row.buttons[1], Qt.Key.Key_Tab)
+    assert launcher.result_list.hasFocus()
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Tab)
+    assert launcher.action_bar.open_button.hasFocus()
+
+    QTest.keyClick(launcher.action_bar.open_button, Qt.Key.Key_Tab)
+    assert launcher.action_bar.reveal_button.hasFocus()
+
+    launcher.action_bar.properties_button.setFocus()
+    QTest.keyClick(launcher.action_bar.properties_button, Qt.Key.Key_Tab)
+    assert launcher.query_field.hasFocus()
+
+
+def test_launcher_backtab_cycles_back_from_actions_to_query(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/report.txt"), parent_path=Path("/tmp"), name="report.txt")][:limit],
+            total=1,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn, state=state)
+    launcher.show()
+
+    launcher.query_field.setText("report")
+    _wait(60)
+    launcher.action_bar.open_button.setFocus()
+
+    QTest.keyClick(launcher.action_bar.open_button, Qt.Key.Key_Backtab)
+    assert launcher.result_list.hasFocus()
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Backtab)
+    assert launcher.recent_queries_row.buttons[1].hasFocus()
+
+    QTest.keyClick(launcher.recent_queries_row.buttons[1], Qt.Key.Key_Backtab)
+    assert launcher.recent_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.recent_queries_row.buttons[0], Qt.Key.Key_Backtab)
+    assert launcher.pinned_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[0], Qt.Key.Key_Backtab)
+    assert launcher.query_field.hasFocus()
 
 
 def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) -> None:
@@ -812,6 +886,7 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.pinned_queries_row.accessibleName() == "Pinned launcher queries"
     assert launcher.pinned_queries_row.buttons == []
     assert launcher.pinned_queries_row.accessibleDescription() == "No pinned launcher queries are available."
+    assert launcher.pinned_queries_row._label.accessibleDescription() == "Heading for pinned launcher query chips."
     assert launcher.recent_queries_row.accessibleName() == "Recent launcher queries"
     assert launcher.recent_queries_row.accessibleDescription() == "No recent launcher queries are available."
     assert launcher.preview_pane.accessibleName() == "Launcher preview pane"
@@ -911,7 +986,7 @@ def test_launcher_results_expose_accessible_text_and_preview_summary(qapp) -> No
     assert "Path /tmp/release-notes.txt." in accessible_text
     assert tooltip == accessible_text
     assert launcher.result_list.accessibleDescription() == (
-        "1 launcher results. Selected 1 of 1: release-notes.txt. Use Up and Down to move between results, Enter to open, and Alt+1 through Alt+9 for quick picks."
+        "1 launcher results. Selected 1 of 1: release-notes.txt. Use Up and Down to move between results, Enter to open, Alt+1 through Alt+9 for quick picks, and Tab to move into the action bar."
     )
     assert "Previewing release-notes.txt at /tmp/release-notes.txt." in launcher.preview_pane.accessibleDescription()
     assert "Snippet: ...the release notes are attached..." in launcher.preview_pane.accessibleDescription()

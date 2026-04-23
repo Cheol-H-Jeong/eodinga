@@ -8,7 +8,10 @@ from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
+from eodinga.gui.launcher_copy import empty_state_text, result_list_accessibility, shortcut_hint
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
+from eodinga.gui.launcher_focus import LauncherFocusController
+from eodinga.gui.launcher_panel_helpers import emit_if_hit, ensure_result_selection
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
 from eodinga.gui.widgets import (
     ActiveFilterRow,
@@ -23,7 +26,6 @@ from eodinga.gui.widgets import (
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
-
 
 class LauncherPanel(QWidget):
     results_updated = Signal(object)
@@ -86,6 +88,15 @@ class LauncherPanel(QWidget):
         self.preview_pane = LauncherPreviewPane(self)
         self.preview_pane.setMinimumWidth(240)
         self.action_bar = LauncherActionBar(self)
+        self._focus_controller = LauncherFocusController(
+            query_field=self.query_field,
+            pinned_buttons=lambda: self.pinned_queries_row.buttons,
+            recent_buttons=lambda: self.recent_queries_row.buttons,
+            result_list=self.result_list,
+            action_buttons=lambda: self.action_bar.buttons,
+            has_results=lambda: self.model.rowCount() > 0,
+            ensure_result_selection=lambda: ensure_result_selection(self.result_list, self.model),
+        )
 
         self.model = ResultListModel(self)
         self.result_list.setModel(self.model)
@@ -133,8 +144,7 @@ class LauncherPanel(QWidget):
         self.query_field.textChanged.connect(self.active_filter_row.set_query)
         self.query_field.textChanged.connect(self.preview_pane.set_query)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
-        self.query_field.installEventFilter(self)
-        self.result_list.installEventFilter(self)
+        self._focus_controller.install_event_filters(self)
 
         self._shortcuts = [
             QShortcut(QKeySequence(Qt.Key.Key_Return), self),
@@ -152,7 +162,7 @@ class LauncherPanel(QWidget):
         self._shortcuts[2].activated.connect(self.emit_show_properties)
         self._shortcuts[3].activated.connect(self.emit_copy_path)
         self._shortcuts[4].activated.connect(self.emit_copy_name)
-        self._shortcuts[5].activated.connect(self.select_query_text)
+        self._shortcuts[5].activated.connect(self.focus_query_field)
         self._shortcuts[6].activated.connect(self.focus_query_field)
         self._shortcuts[7].activated.connect(self.recall_previous_query)
         self._shortcuts[8].activated.connect(self.recall_next_query)
@@ -180,17 +190,18 @@ class LauncherPanel(QWidget):
         self._refresh_preview()
         self._refresh_result_list_accessibility()
 
-    def set_search_fn(self, search_fn: SearchFn) -> None:
-        self._search_fn = search_fn
+    def set_search_fn(self, search_fn: SearchFn) -> None: self._search_fn = search_fn
 
     def set_recent_queries(self, queries: list[str]) -> None:
         self._recent_queries = queries
         self.recent_queries_row.set_queries(queries[:5])
+        self._focus_controller.install_event_filters(self)
         self._refresh_empty_state()
 
     def set_pinned_queries(self, queries: list[str]) -> None:
         self._pinned_queries = queries
         self.pinned_queries_row.set_queries(queries[:5])
+        self._focus_controller.install_event_filters(self)
         self._refresh_empty_state()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
@@ -200,14 +211,11 @@ class LauncherPanel(QWidget):
 
     def activate_current_result(self) -> None:
         self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.result_activated.emit(hit)
+        emit_if_hit(self._current_hit(), self.result_activated.emit)
 
     def activate_result_at(self, row: int) -> None:
         self._flush_pending_query()
-        hit = self.model.item_at(row)
-        if hit is None:
+        if (hit := self.model.item_at(row)) is None:
             return
         self._set_selection(row)
         self.result_activated.emit(hit)
@@ -216,43 +224,30 @@ class LauncherPanel(QWidget):
         self.query_field.setFocus()
         self.query_field.selectAll()
 
-    def select_query_text(self) -> None:
-        self.focus_query_field()
-
     def emit_open_containing_folder(self) -> None:
         self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.open_containing_folder.emit(hit)
+        emit_if_hit(self._current_hit(), self.open_containing_folder.emit)
 
     def emit_show_properties(self) -> None:
         self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.show_properties.emit(hit)
+        emit_if_hit(self._current_hit(), self.show_properties.emit)
 
     def emit_copy_path(self) -> None:
         self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.copy_path_requested.emit(hit)
+        emit_if_hit(self._current_hit(), self.copy_path_requested.emit)
 
     def emit_copy_name(self) -> None:
         self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.copy_name_requested.emit(hit)
+        emit_if_hit(self._current_hit(), self.copy_name_requested.emit)
 
-    def recall_previous_query(self) -> None:
-        self._navigate_recent_queries(-1)
+    def recall_previous_query(self) -> None: self._navigate_recent_queries(-1)
 
-    def recall_next_query(self) -> None:
-        self._navigate_recent_queries(1)
+    def recall_next_query(self) -> None: self._navigate_recent_queries(1)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusIn:
+        if watched in self._focus_controller.focus_widgets() and event.type() == QEvent.Type.FocusIn:
             self._refresh_shortcut_hint()
-        if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusOut:
+        if watched in self._focus_controller.focus_widgets() and event.type() == QEvent.Type.FocusOut:
             QTimer.singleShot(0, self._refresh_shortcut_hint)
         if event.type() != QEvent.Type.KeyPress:
             return super().eventFilter(watched, event)
@@ -261,6 +256,8 @@ class LauncherPanel(QWidget):
             return self._handle_query_field_keypress(key_event)
         if watched is self.result_list:
             return self._handle_result_list_keypress(key_event)
+        if self._focus_controller.is_chip_button(watched) or watched in self.action_bar.buttons:
+            return self._handle_auxiliary_focus_keypress(cast(QWidget, watched), key_event)
         return super().eventFilter(watched, event)
 
     def _emit_activation(self, row: int) -> None:
@@ -317,35 +314,21 @@ class LauncherPanel(QWidget):
         has_results = self.model.rowCount() > 0
         query = self.query_field.text().strip()
         details = format_indexing_status(self._indexing_status)
-        if not query:
-            recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
-            pinned_queries = f" Pinned: {', '.join(self._pinned_queries[:3])}." if self._pinned_queries else ""
-            self.empty_state.set_content(
-                "Type to search",
-                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up and Alt+Down to browse recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
-                details,
-            )
-        else:
-            self.empty_state.set_content(
-                f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Alt+Up and Alt+Down to revisit recent queries, Tab to jump back to the filter, or Esc to hide the launcher.",
-                details,
-            )
+        title, body = empty_state_text(query, self._recent_queries, self._pinned_queries)
+        self.empty_state.set_content(title, body, details)
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
 
     def _refresh_shortcut_hint(self) -> None:
-        has_results = self.model.rowCount() > 0
-        if not has_results:
-            if self.query_field.text().strip():
-                hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up and Alt+Down browse recent queries."
-            else:
-                hint = "Type a filename, path, or content term. Alt+Up and Alt+Down browse recent queries."
-        elif self.result_list.hasFocus():
-            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
-        else:
-            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up and Alt+Down browse recent queries."
-        self.shortcut_label.setText(hint)
+        action_has_focus = any(button.hasFocus() for button in self.action_bar.buttons)
+        self.shortcut_label.setText(
+            shortcut_hint(
+                has_results=self.model.rowCount() > 0,
+                query=self.query_field.text().strip(),
+                result_list_has_focus=self.result_list.hasFocus(),
+                action_has_focus=action_has_focus,
+            )
+        )
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()
@@ -353,6 +336,10 @@ class LauncherPanel(QWidget):
         return self.model.item_at(row)
 
     def _handle_query_field_keypress(self, event: QKeyEvent) -> bool:
+        if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
+            if event.key() == Qt.Key.Key_Backtab:
+                return self._focus_controller.focus_query_backwards()
+            return self._focus_controller.focus_relative_to(self.query_field, backwards=False)
         if self.model.rowCount() == 0:
             return False
         if event.key() == Qt.Key.Key_Down:
@@ -385,18 +372,11 @@ class LauncherPanel(QWidget):
             self.result_list.setFocus()
             self._move_selection(-self._page_step())
             return True
-        if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
-            self.result_list.setFocus()
-            current_index = self.result_list.currentIndex()
-            if not current_index.isValid() and self.model.rowCount() > 0:
-                self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
-            return True
         return False
 
     def _handle_result_list_keypress(self, event: QKeyEvent) -> bool:
         if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
-            self.query_field.setFocus()
-            return True
+            return self._focus_controller.focus_relative_to(self.result_list, backwards=event.key() == Qt.Key.Key_Backtab)
         if event.key() == Qt.Key.Key_Down:
             self._move_selection(1, wrap=True)
             return True
@@ -416,6 +396,11 @@ class LauncherPanel(QWidget):
             self._move_selection(-self._page_step())
             return True
         return False
+
+    def _handle_auxiliary_focus_keypress(self, watched: QWidget, event: QKeyEvent) -> bool:
+        if event.key() not in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
+            return False
+        return self._focus_controller.focus_relative_to(watched, backwards=event.key() == Qt.Key.Key_Backtab)
 
     def _move_selection(self, delta: int, *, wrap: bool = False) -> None:
         if self.model.rowCount() == 0:
@@ -468,16 +453,13 @@ class LauncherPanel(QWidget):
 
     def _refresh_result_list_accessibility(self) -> None:
         count = self.model.rowCount()
-        if count == 0:
-            self.result_list.setAccessibleDescription("No launcher results are available.")
-            return
         current_hit = self._current_hit()
-        description = f"{count} launcher results."
-        if current_hit is not None:
-            current_row = max(self.result_list.currentIndex().row(), 0) + 1
-            description = f"{description} Selected {current_row} of {count}: {current_hit.name}."
         self.result_list.setAccessibleDescription(
-            f"{description} Use Up and Down to move between results, Enter to open, and Alt+1 through Alt+9 for quick picks."
+            result_list_accessibility(
+                count=count,
+                current_name=current_hit.name if current_hit is not None else None,
+                current_row=max(self.result_list.currentIndex().row(), 0) + 1 if current_hit is not None else None,
+            )
         )
 
     def _navigate_recent_queries(self, direction: int) -> None:
