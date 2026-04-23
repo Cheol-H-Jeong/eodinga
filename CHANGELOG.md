@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.978 - 2026-04-24
+
+- Raised the SQLite connection statement-cache budget to `512`, reducing SQL re-prepare churn during repeated searches and mixed index/query sessions.
+- Optimized staged rebuild databases with an explicit `PRAGMA optimize` pass before the final atomic swap so the promoted index lands with refreshed planner metadata.
+- Added an opt-in warm-query latency benchmark under `EODINGA_RUN_PERF=1` to keep repeated-search performance pinned separately from the broader query-latency suite.
+
 ## 0.1.974 - 2026-04-24
 
 - Added a symptom-first README troubleshooting guide plus FAQ clarifications that point operators to the shortest command or audit artifact before they rerun broader release checks.
