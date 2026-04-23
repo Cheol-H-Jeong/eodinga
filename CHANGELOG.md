@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.111 - 2026-04-23
+## 0.1.114 - 2026-04-23
 
 - Expanded the shipped README with an explicit feature inventory, a compact DSL cheatsheet, generated-screenshot provenance, and direct links to contributor and release workflows so the top-level product contract is easier to audit.
 - Added `docs/CONTRIBUTING.md` with the local setup, quality gates, scope guardrails, screenshot-refresh expectations, and targeted test-selection guidance used in this repository.
