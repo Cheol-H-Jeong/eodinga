@@ -12,7 +12,7 @@ from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.config import AppConfig
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
-from eodinga.gui.widgets import EmptyState, ResultItemDelegate, SearchField, StatusChip
+from eodinga.gui.widgets import EmptyState, PreviewPane, ResultItemDelegate, SearchField, StatusChip
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
@@ -57,6 +57,7 @@ class LauncherPanel(QWidget):
         self.shortcut_label.setProperty("role", "secondary")
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
+        self.preview_pane = PreviewPane(self)
         self.empty_state = EmptyState("Type to search", "Recent queries and indexing progress will appear here.", self)
 
         self.model = ResultListModel(self)
@@ -72,6 +73,7 @@ class LauncherPanel(QWidget):
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
         layout.addWidget(self.result_list, 1)
+        layout.addWidget(self.preview_pane)
         layout.addWidget(self.empty_state)
 
         footer = QHBoxLayout()
@@ -83,6 +85,7 @@ class LauncherPanel(QWidget):
 
         self.query_field.textChanged.connect(self._schedule_query)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
+        self.result_list.selectionModel().currentChanged.connect(lambda *_: self._sync_preview_to_current())
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
 
@@ -257,6 +260,7 @@ class LauncherPanel(QWidget):
             )
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
+        self.preview_pane.setVisible(has_results)
 
     def _refresh_shortcut_hint(self) -> None:
         has_results = self.model.rowCount() > 0
@@ -364,6 +368,9 @@ class LauncherPanel(QWidget):
 
     def _restore_selection(self, previous_hit: SearchHit | None) -> None:
         if self.model.rowCount() == 0:
+            self.preview_pane.clear()
+            return
+        if self.model.rowCount() == 0:
             return
         if previous_hit is not None:
             for row, item in enumerate(self._latest_result.items):
@@ -375,6 +382,13 @@ class LauncherPanel(QWidget):
     def _set_selection(self, row: int) -> None:
         self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(row, 0)))
         self.result_list.scrollTo(self.result_list.currentIndex())
+
+    def _sync_preview_to_current(self) -> None:
+        hit = self._current_hit()
+        if hit is None or self.model.rowCount() == 0:
+            self.preview_pane.clear()
+            return
+        self.preview_pane.set_hit(hit)
 
     def _navigate_recent_queries(self, direction: int) -> None:
         if not self._recent_queries:
