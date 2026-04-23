@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import signal
 from pathlib import Path
-from typing import NamedTuple
+from threading import current_thread, main_thread
+from types import FrameType
+from typing import NamedTuple, cast
 
 from eodinga.common import PathRules
 from eodinga.config import RootConfig
@@ -19,6 +22,44 @@ class RebuildResult(NamedTuple):
     db_path: Path
     files_indexed: int
     roots_indexed: int
+
+
+class RebuildInterrupted(KeyboardInterrupt):
+    def __init__(self, signum: signal.Signals) -> None:
+        self.signum = signum
+        super().__init__(f"index rebuild interrupted by {signum.name}")
+
+
+class _DeferredSignalInterrupt:
+    def __init__(self) -> None:
+        self._previous: dict[signal.Signals, object] = {}
+        self._received: signal.Signals | None = None
+        self._enabled = False
+
+    def __enter__(self) -> _DeferredSignalInterrupt:
+        if current_thread() is not main_thread():
+            return self
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            self._previous[signum] = signal.getsignal(signum)
+            signal.signal(signum, self._handle)
+        self._enabled = True
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        if not self._enabled:
+            return
+        for signum, handler in self._previous.items():
+            signal.signal(signum, cast(signal.Handlers, handler))
+        self._previous.clear()
+        self._enabled = False
+
+    def _handle(self, signum: int, _frame: FrameType | None) -> None:
+        if self._received is None:
+            self._received = signal.Signals(signum)
+
+    def raise_if_requested(self) -> None:
+        if self._received is not None:
+            raise RebuildInterrupted(self._received)
 
 
 def _staged_build_path(db_path: Path) -> Path:
@@ -54,20 +95,22 @@ def rebuild_index(
     )
     try:
         writer = IndexWriter(conn, parser_callback=parser_callback)
-        with conn:
+        with _DeferredSignalInterrupt() as interrupts:
             for root_id, root in enumerate(effective_roots, start=1):
-                conn.execute(
-                    """
-                    INSERT INTO roots(id, path, include, exclude, added_at)
-                    VALUES (?, ?, ?, ?, strftime('%s', 'now'))
-                    """,
-                    (
-                        root_id,
-                        str(root.path),
-                        json.dumps(root.include),
-                        json.dumps(root.exclude),
-                    ),
-                )
+                with conn:
+                    conn.execute(
+                        """
+                        INSERT INTO roots(id, path, include, exclude, added_at)
+                        VALUES (?, ?, ?, ?, strftime('%s', 'now'))
+                        """,
+                        (
+                            root_id,
+                            str(root.path),
+                            json.dumps(root.include),
+                            json.dumps(root.exclude),
+                        ),
+                    )
+                interrupts.raise_if_requested()
                 rules = PathRules(
                     root=root.path,
                     include=tuple(root.include),
@@ -78,7 +121,8 @@ def rebuild_index(
                     files_indexed += indexed
                     if indexed:
                         increment_counter("files_indexed", indexed, root=str(root.path))
-    except Exception:
+                    interrupts.raise_if_requested()
+    except BaseException:
         conn.close()
         _cleanup_index_files(staged_path)
         raise
