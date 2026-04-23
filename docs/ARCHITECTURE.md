@@ -296,6 +296,16 @@ startup
 3. Compare the staged docs payload with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 4. Cut the local tag only after the dry-run output and shipped docs agree.
 
+## Symptom To Subsystem Map
+
+| Symptom | Start in | Reason |
+| --- | --- | --- |
+| A file exists on disk but does not show up in search | `eodinga.core.walker` or `eodinga.index.writer` | Cold-start discovery and persisted metadata live there. |
+| Search finds stale results after a rename or edit | `eodinga.core.watcher` and `IndexWriter.apply_events()` | Live-update freshness is driven by watcher coalescing plus incremental writes. |
+| A filter parses but behaves strangely | `eodinga.query.dsl` and `eodinga.query.compiler` | Operator syntax and SQL lowering are split across those two layers. |
+| Ranking looks plausible but the wrong hit is first | `eodinga.query.executor` and `eodinga.query.ranker` | Candidate fetch and final RRF/blend ordering happen after parsing succeeds. |
+| Packaged output disagrees with the docs | `packaging/build.py`, `packaging/dist/`, and shipped docs assets | Packaging reviews are based on staged manifests, not assumptions about the installer. |
+
 ## Platform Surface Summary
 
 | Surface | Entry point | Purpose |
@@ -318,6 +328,15 @@ startup
 - No runtime network access is allowed; `tests/safety/test_no_network.py` enforces that at source level.
 - Filesystem writes are limited to the application database/config area; the read-only wrappers prevent mutating indexed user roots.
 - Performance tests exist under `tests/perf`, but they stay opt-in for v0.1 so the default gate remains deterministic on developer machines.
+
+## Release Artifact Ownership
+
+| Artifact | Source of truth | Verification path |
+| --- | --- | --- |
+| `docs/man/eodinga.1` | `eodinga.__main__._build_parser()` via `scripts/generate_manpage.py` | `pytest -q tests/unit/test_docs_assets.py` |
+| `docs/screenshots/*.png` | `eodinga.gui.docs` via `scripts/render_docs_screenshots.py` | `pytest -q tests/unit/test_docs_assets.py` |
+| `packaging/dist/*` manifests | `packaging/build.py` plus packaging recipes under `packaging/linux/` and `packaging/windows/` | `python packaging/build.py --target ...-dry-run` |
+| top-level operator docs | `README.md` and the guides under `docs/` | acceptance pass plus human review against the staged manifests |
 
 ## Operator Debug Path
 
