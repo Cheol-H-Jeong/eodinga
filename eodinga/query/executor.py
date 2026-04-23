@@ -503,12 +503,12 @@ def _fetch_content_candidates(
     ids = [row["id"] for row in rows]
     if len(ids) >= limit or not _should_scan_content_candidates(branch, ids):
         return ids, records, snippets
-    scan_records = _scan_filtered_content_records(conn, branch, limit)
+    scan_records, scan_snippets = _scan_filtered_content_records(conn, branch, limit)
     for file_id, record in scan_records.items():
         if file_id in records:
             continue
         records[file_id] = record
-        snippets[file_id] = None
+        snippets[file_id] = scan_snippets.get(file_id)
         ids.append(file_id)
         if len(ids) >= limit:
             break
@@ -532,12 +532,12 @@ def _fetch_auto_content_candidates(
     ids = [row["id"] for row in rows]
     if len(ids) >= limit or not _should_scan_auto_content_candidates(branch, ids):
         return ids, records, snippets
-    scan_records = _scan_auto_content_candidates(conn, branch, limit)
+    scan_records, scan_snippets = _scan_auto_content_candidates(conn, branch, limit)
     for file_id, record in scan_records.items():
         if file_id in records:
             continue
         records[file_id] = record
-        snippets[file_id] = None
+        snippets[file_id] = scan_snippets.get(file_id)
         ids.append(file_id)
         if len(ids) >= limit:
             break
@@ -594,6 +594,13 @@ def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[i
     }
 
 
+def _compact_snippet_text(content_text: str, max_chars: int = 160) -> str | None:
+    compact = " ".join(content_text.split())
+    if not compact:
+        return None
+    return compact[:max_chars]
+
+
 def _fetch_content_backfill(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
 ) -> dict[int, FileRecord]:
@@ -647,37 +654,41 @@ def _scan_filtered_content_records(
     conn: sqlite3.Connection,
     branch: CompiledBranch,
     limit: int,
-) -> dict[int, FileRecord]:
+) -> tuple[dict[int, FileRecord], dict[int, str | None]]:
     target = max(limit, 1)
     batch_size = max(min(target * 2, 2000), 500)
     offset = 0
     matched: dict[int, FileRecord] = {}
+    snippets: dict[int, str | None] = {}
     while len(matched) < target:
         batch = _fetch_content_backfill_batch(conn, branch, limit=batch_size, offset=offset)
         if not batch:
             break
         content_texts = _fetch_content_texts(conn, batch)
         for file_id, record in batch.items():
-            if _filter_record(branch, record, content_texts.get(file_id, "")):
+            content_text = content_texts.get(file_id, "")
+            if _filter_record(branch, record, content_text):
                 matched[file_id] = record
+                snippets[file_id] = _compact_snippet_text(content_text)
                 if len(matched) >= target:
                     break
         offset += batch_size
-    return matched
+    return matched, snippets
 
 
 def _scan_auto_content_candidates(
     conn: sqlite3.Connection,
     branch: CompiledBranch,
     limit: int,
-) -> dict[int, FileRecord]:
+) -> tuple[dict[int, FileRecord], dict[int, str | None]]:
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
-        return {}
+        return {}, {}
     target = max(limit, 1)
     batch_size = max(min(target * 2, 2000), 500)
     offset = 0
     matched: dict[int, FileRecord] = {}
+    snippets: dict[int, str | None] = {}
     while len(matched) < target:
         batch = _fetch_content_backfill_batch(conn, branch, limit=batch_size, offset=offset)
         if not batch:
@@ -691,10 +702,11 @@ def _scan_auto_content_candidates(
             ):
                 continue
             matched[file_id] = record
+            snippets[file_id] = _compact_snippet_text(content_text)
             if len(matched) >= target:
                 break
         offset += batch_size
-    return matched
+    return matched, snippets
 
 
 def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> list[int]:
@@ -815,12 +827,13 @@ def _execute_branch(
         if content_ids:
             candidate_ids = set(content_ids)
         else:
-            content_backfill = _scan_filtered_content_records(
+            content_backfill, content_backfill_snippets = _scan_filtered_content_records(
                 conn,
                 branch,
                 max(limit * 4, 1000),
             )
             extra_records = content_backfill
+            snippets.update(content_backfill_snippets)
             candidate_ids = set(content_backfill)
     else:
         if _needs_record_filter(branch):

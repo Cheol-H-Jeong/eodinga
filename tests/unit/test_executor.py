@@ -714,6 +714,27 @@ def test_execute_decomposed_korean_content_query_keeps_snippets(
     assert "회의록" in result.hits[0].snippet
 
 
+def test_execute_python_scanned_content_match_keeps_snippet(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/report.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="launch_checklist approved for release",
+    )
+    tmp_db.commit()
+
+    result = search(tmp_db, 'content:"launch checklist"', limit=5)
+
+    assert [hit.file.name for hit in result.hits] == ["report.txt"]
+    assert result.hits[0].snippet is not None
+    assert "launch_checklist approved" in result.hits[0].snippet
+
+
 def test_execute_duplicate_and_negated_size_queries(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     duplicate_hash = b"same-content"
