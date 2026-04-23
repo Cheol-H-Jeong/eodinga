@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.169 - 2026-04-23
+
+- Preserved interrupted rebuild progress by committing the current staged `.next` database on shutdown signals and `KeyboardInterrupt`, letting the next `open_index()` resume from durable work instead of throwing the partial rebuild away.
+- Installed explicit CLI shutdown handlers for `SIGINT` and `SIGTERM`, so long-running commands now surface through the same recovery-aware interrupt path instead of relying on process-default termination.
+- Added watcher queue backpressure handling that warns and blocks until consumers drain events, plus a shutdown escape hatch that prevents `stop()` from hanging indefinitely behind a full queue.
+
 ## 0.1.161 - 2026-04-23
 
 - Expanded `date:` macros with `last-week` and `last-month`, and pinned their local-time behavior in compiler and executor regressions.
