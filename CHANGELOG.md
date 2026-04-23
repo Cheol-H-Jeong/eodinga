@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.118 - 2026-04-23
+## 0.1.123 - 2026-04-23
 
 - Expanded the live-update integration coverage to prove modified files replace stale content hits and deleted files disappear from search within the existing 500 ms watcher budget.
 - Added multi-root watchdog regressions that require one `WatchService` to surface fresh hits from two indexed roots, closing a gap between rebuild coverage and real incremental updates.
