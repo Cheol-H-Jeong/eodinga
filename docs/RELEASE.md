@@ -79,6 +79,20 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Release Input To Command Map
+
+Use this map when a release artifact drifts and you need the shortest validating command:
+
+| Release input | First validation command | Why it is the first check |
+| --- | --- | --- |
+| `README.md` and guide set under `docs/` | `pytest -q tests/unit/test_docs_assets.py` | docs assertions fail faster than the full acceptance pass |
+| generated man page `docs/man/eodinga.1` | `python scripts/generate_manpage.py` | re-derives the asset directly from argparse before diffing |
+| screenshots under `docs/screenshots/` | `python scripts/render_docs_screenshots.py` | refreshes the Qt-derived assets from the real widgets |
+| Windows packaging inputs | `python packaging/build.py --target windows-dry-run` | validates the rendered spec, installer script, and manifest together |
+| Linux AppImage recipe | `python packaging/build.py --target linux-appimage-dry-run` | validates the rendered recipe and staged AppDir inputs |
+| Linux `.deb` recipe | `python packaging/build.py --target linux-deb-dry-run` | validates the staged package tree and audit manifest |
+| workflow YAML | `yamllint .github/workflows/release-windows.yml` | catches syntax drift before release automation runs |
+
 ## Worker Handoff Rules
 
 1. Keep feature or docs commits separate from the final metadata commit.

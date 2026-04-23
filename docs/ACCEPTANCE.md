@@ -51,6 +51,19 @@ One-command acceptance pass:
 source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)" && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run && yamllint .github/workflows/release-windows.yml && yamllint .github/workflows/release-linux.yml
 ```
 
+## Surface Smoke Matrix
+
+Use this when the full gate failed and you need to identify which shipped surface drifted before rerunning everything:
+
+| Surface | Command | What success means |
+| --- | --- | --- |
+| CLI parser | `eodinga --help` | all seven v0.1 subcommands are still present |
+| Query engine | `eodinga search 'date:this-week ext:md' --json` | structured hits return without parser or compiler errors |
+| Runtime stats | `eodinga stats --json` | the active DB path, roots, counters, and histograms serialize cleanly |
+| Diagnostics | `eodinga doctor` | dependency and writable-path checks still report JSON cleanly |
+| GUI smoke | `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` | main window and launcher construct without a display server |
+| Packaging docs | `python packaging/build.py --target linux-deb-dry-run` | packaged docs and staged Linux assets still audit cleanly |
+
 ## What The Gate Covers
 
 - `pytest -q tests` exercises the unit, integration, safety, packaging, and GUI-offscreen regressions, including the end-to-end index-and-search path.
@@ -84,6 +97,15 @@ The README is part of the acceptance surface. Before tagging a release, confirm 
 - the generated CLI reference at `docs/man/eodinga.1` when the parser surface changes
 - the release-gate commands for Windows and Linux packaging dry runs
 - the operator runbook and config/data path locations
+
+## Failure Triage
+
+When one part of the acceptance pass fails, narrow it before changing code or docs:
+
+1. If `pyright` fails, confirm the venv-backed interpreter is the one the repo expects and rerun the command before editing source.
+2. If the GUI smoke fails, rerun `pytest -q tests/unit/test_docs_assets.py` after refreshing screenshots so docs drift and GUI drift are separated.
+3. If a packaging dry run fails, inspect the matching manifest under `packaging/dist/` before changing README or release docs language.
+4. If only README or guide assertions fail, refresh the relevant derived asset first, then rerun `tests/unit/test_docs_assets.py`.
 
 ## Release Cut
 

@@ -96,6 +96,20 @@ pytest -q tests/unit
 - Keep `CHANGELOG.md` aligned with landed behavior only; avoid speculative release notes.
 - Prefer documenting one-command validation paths when they exist; release and acceptance docs should not require readers to reverse-engineer command order.
 
+## Docs Source Of Truth
+
+Use the smallest document that fully owns the change instead of repeating the same contract everywhere:
+
+| Topic | Primary document | Supporting document |
+| --- | --- | --- |
+| install, quick start, operator overview | `README.md` | `docs/ACCEPTANCE.md` |
+| query syntax and examples | `docs/DSL.md` | `README.md` |
+| runtime flow and module responsibilities | `docs/ARCHITECTURE.md` | `README.md` |
+| acceptance and release gate | `docs/ACCEPTANCE.md` | `docs/RELEASE.md` |
+| contributor workflow and scoped test selection | `docs/CONTRIBUTING.md` | `README.md` |
+| local tagging and handoff | `docs/RELEASE.md` | `CHANGELOG.md` |
+| derived CLI/UI assets | `docs/man/eodinga.1`, `docs/screenshots/` | `tests/unit/test_docs_assets.py` |
+
 ## Derived Asset Matrix
 
 | If you changed... | Refresh or rerun... |

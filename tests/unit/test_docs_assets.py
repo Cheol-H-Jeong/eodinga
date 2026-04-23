@@ -49,8 +49,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
     assert "## Task Recipes" in readme
+    assert "## Command Roles" in readme
     assert "## Package Artifacts" in readme
     assert "## Config and Data Paths" in readme
+    assert "## Stats Snapshot" in readme
     assert "## Operator Checklist" in readme
     assert "## Recovery and Troubleshooting" in readme
     assert "### Quick Runbook" in readme
@@ -62,6 +64,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Launcher | global hotkey" in readme
     assert "Packaging audit failed" in readme
     assert "eodinga search 'date:this-week ext:md' --limit 10" in readme
+    assert "| `eodinga stats --json` | structured counters, paths, histograms |" in readme
+    assert "`query_latency_histogram`, `command_latency_histogram`, and the watch histograms" in readme
     assert "docs/DSL.md" in readme
     assert "docs/ACCEPTANCE.md" in readme
     assert "docs/ARCHITECTURE.md" in readme
@@ -77,6 +81,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Refresh shipped docs assets" in readme
 
     assert "## Required Commands" in acceptance
+    assert "## Surface Smoke Matrix" in acceptance
     assert "pip install -e .[all]" in acceptance
     assert "eodinga --help" in acceptance
     assert "index" in acceptance
@@ -96,12 +101,15 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "git tag v0.1.N" in acceptance
     assert "docs/man/eodinga.1" in acceptance
     assert "## Derived Docs Checks" in acceptance
+    assert "## Failure Triage" in acceptance
     assert "python scripts/render_docs_screenshots.py" in acceptance
     assert "One-command acceptance pass" in acceptance
+    assert "| GUI smoke | `QT_QPA_PLATFORM=offscreen python -c \"from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)\"` |" in acceptance
 
     assert "## Runtime Flow" in architecture
     assert "## Data Flow Diagram" in architecture
     assert "## Module Map" in architecture
+    assert "## Command Ownership Map" in architecture
     assert "## Index Storage" in architecture
     assert "## SQLite Schema Snapshot" in architecture
     assert "## Index Lifecycle Sequence" in architecture
@@ -119,12 +127,14 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "scripts/generate_manpage.py" in architecture
     assert "scripts/render_docs_screenshots.py" in architecture
     assert "tests/unit/test_docs_assets.py" in architecture
+    assert "| `eodinga stats` | `eodinga.__main__._cmd_stats()` | `eodinga.index.reader`, `eodinga.observability` |" in architecture
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
     assert "## Quality Gates" in contributing
     assert "## Scope Guardrails" in contributing
     assert "## Documentation Expectations" in contributing
+    assert "## Docs Source Of Truth" in contributing
     assert "## Derived Asset Matrix" in contributing
     assert "## Parallel Worktrees" in contributing
     assert "Required start gate for worker rounds" in contributing
@@ -139,6 +149,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Review Checklist" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
     assert "The final release commit for a round should carry the version bump" in contributing
+    assert "| query syntax and examples | `docs/DSL.md` | `README.md` |" in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl
@@ -175,6 +186,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Run The Gate" in release
     assert "## Artifact Inventory" in release
     assert "## Verify Shipped Docs" in release
+    assert "## Release Input To Command Map" in release
     assert "## Worker Handoff Rules" in release
     assert "## Docs-Only Rounds" in release
     assert "## Cut The Local Release" in release
@@ -185,6 +197,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "git tag -l \"v0.1.N\"" in release
     assert "Collision check example" in release
     assert "Do not push tags or release branches from a worker worktree." in release
+    assert "| Linux `.deb` recipe | `python packaging/build.py --target linux-deb-dry-run` | validates the staged package tree and audit manifest |" in release
 
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage

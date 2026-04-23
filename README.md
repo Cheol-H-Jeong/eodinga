@@ -139,6 +139,18 @@ eodinga stats --json
 eodinga doctor
 ```
 
+## Command Roles
+
+| Command | Primary output | Use it when... |
+| --- | --- | --- |
+| `eodinga index` | JSON rebuild summary | you want a one-shot index build or staged recovery after drift |
+| `eodinga watch` | JSON watch-session banner | you want the current index kept fresh from local filesystem events |
+| `eodinga search` | plain text or JSON hits | you need scripted or ad-hoc query verification against the current index |
+| `eodinga stats --json` | structured counters, paths, histograms | you need to confirm which database/log/crash paths the active process is using |
+| `eodinga gui` | Qt main window and launcher | you want the desktop settings, progress, and launcher surfaces |
+| `eodinga doctor` | JSON diagnostics report | you suspect an environment, dependency, root, or writable-path problem |
+| `eodinga version` | version string | you need to confirm the packaged or editable build version quickly |
+
 ## Query DSL
 
 - `report` : plain lexical term
@@ -300,6 +312,16 @@ eodinga doctor
 The doctor command checks Python compatibility, importable dependencies, database writability, readable roots, the detectable hotkey backend, and the default safe excludes.
 
 If search looks stale, run `eodinga stats` to confirm the active database path, then either `eodinga watch` for live updates or `eodinga index --rebuild` to rebuild once.
+
+## Stats Snapshot
+
+`eodinga stats --json` is the shortest machine-readable view of runtime state. The payload is designed for operator checks rather than only internal debugging.
+
+- `files_indexed`, `documents_indexed`, and `roots` confirm what the active database currently contains.
+- `db_path`, `log_path`, and `crash_dir` show which on-disk state the current process will touch.
+- `queries_served`, `parser_errors`, and `watcher_events` expose the top-line runtime counters without digging through nested keys.
+- `query_latency_histogram`, `command_latency_histogram`, and the watch histograms make it obvious whether the issue is search latency, command runtime, or live-update lag.
+- `commands`, `exit_codes`, and `counters` give the full breakdown when you need to correlate a CLI symptom with prior command failures.
 
 ## Operator Checklist
 

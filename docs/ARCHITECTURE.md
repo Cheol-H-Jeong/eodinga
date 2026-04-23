@@ -53,6 +53,18 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 | Content extraction | `eodinga.content.*` | Parse supported document formats into searchable text. |
 | UI + CLI | `eodinga.__main__`, `eodinga.gui.*`, `eodinga.launcher.*` | Expose the same engine through commands, the main window, and the hotkey launcher. |
 
+## Command Ownership Map
+
+| User-facing command | First owner | Downstream modules |
+| --- | --- | --- |
+| `eodinga index` | `eodinga.__main__._cmd_index()` | `eodinga.index.build`, `eodinga.core.walker`, `eodinga.index.writer` |
+| `eodinga watch` | `eodinga.__main__._cmd_watch()` | runtime watch wiring plus `eodinga.core.watcher` event flow |
+| `eodinga search` | `eodinga.__main__._cmd_search()` | `eodinga.query.dsl`, `eodinga.query.compiler`, `eodinga.query.executor`, `eodinga.query.ranker` |
+| `eodinga stats` | `eodinga.__main__._cmd_stats()` | `eodinga.index.reader`, `eodinga.observability` |
+| `eodinga gui` | `eodinga.__main__._cmd_gui()` | `eodinga.gui.app`, `eodinga.gui.launcher`, shared query/index services |
+| `eodinga doctor` | `eodinga.__main__._cmd_doctor()` | `eodinga.doctor`, config/path/runtime probes |
+| `eodinga version` | `eodinga.__main__._cmd_version()` | `eodinga.__version__` only |
+
 ## Why The Pieces Are Split This Way
 
 - `core.*` owns contact with the real filesystem so read-only guarantees stay centralized.
