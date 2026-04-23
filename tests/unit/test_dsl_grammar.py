@@ -355,9 +355,14 @@ OPERATOR_ATOMS = st.one_of(
     st.builds(lambda value: f"size:{value}", st.sampled_from([">10M", "<=42K", "=512B", "100..500K"])),
 )
 
+NONSPACE_LITERAL_CHARS = st.characters(
+    blacklist_characters='()|" /',
+    blacklist_categories=("Cc", "Cs", "Zl", "Zp", "Zs"),
+)
+
 ATOMS = st.one_of(
     st.text(
-        st.characters(blacklist_characters='()|" /', blacklist_categories=("Cs",)),
+        NONSPACE_LITERAL_CHARS,
         min_size=1,
         max_size=12,
     ).filter(lambda value: value.strip() and value != "-"),
@@ -483,7 +488,7 @@ NEGATABLE_OPERATOR_ATOMS = st.one_of(
 
 NEGATABLE_ATOMS = st.one_of(
     st.text(
-        st.characters(blacklist_characters='()|" /', blacklist_categories=("Cs",)),
+        NONSPACE_LITERAL_CHARS,
         min_size=1,
         max_size=12,
     ).filter(lambda value: value.strip() and value != "-" and _is_regex_safe_literal(value)),
@@ -521,10 +526,7 @@ def test_negated_operator_query_fuzz_parses_and_compiles(query: str) -> None:
             st.just("case"),
             st.booleans(),
             st.text(
-                alphabet=st.characters(
-                    blacklist_characters='()|" /',
-                    blacklist_categories=("Cs",),
-                ),
+                alphabet=NONSPACE_LITERAL_CHARS,
                 min_size=1,
                 max_size=12,
             ).filter(lambda value: value.strip() and value != "-" and not value.startswith("-")),
