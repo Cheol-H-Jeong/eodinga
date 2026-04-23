@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 import traceback
 from dataclasses import dataclass, field
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
+from types import TracebackType
 from typing import Any, TypedDict
 
 from loguru import logger
@@ -185,3 +187,38 @@ def write_crash_log(
     ]
     crash_path.write_text("".join(lines), encoding="utf-8")
     return crash_path
+
+
+def _report_uncaught_exception(error: BaseException, *, context: str) -> Path:
+    crash_path = write_crash_log(error, context=context)
+    sys.stderr.write(f"unhandled exception; crash log written to {crash_path}\n")
+    return crash_path
+
+
+def install_crash_handler(command: str) -> None:
+    context = f"Unhandled exception while running: {command}"
+
+    def _sys_hook(
+        exc_type: type[BaseException],
+        exc_value: BaseException,
+        exc_traceback: TracebackType | None,
+    ) -> None:
+        if issubclass(exc_type, KeyboardInterrupt):
+            sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+        _report_uncaught_exception(exc_value, context=context)
+
+    def _thread_hook(args: threading.ExceptHookArgs) -> None:
+        if issubclass(args.exc_type, KeyboardInterrupt):
+            threading.__excepthook__(args)
+            return
+        if args.exc_value is None:
+            return
+        thread_name = args.thread.name if args.thread is not None else "unknown"
+        _report_uncaught_exception(
+            args.exc_value,
+            context=f"{context} [thread={thread_name}]",
+        )
+
+    sys.excepthook = _sys_hook
+    threading.excepthook = _thread_hook

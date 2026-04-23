@@ -20,6 +20,7 @@ from eodinga.observability import (
     configure_logging,
     counter_value,
     histogram_snapshot,
+    install_crash_handler,
     snapshot_metrics,
     write_crash_log,
 )
@@ -208,13 +209,14 @@ def _cmd_version(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    command = " ".join(argv or sys.argv[1:]) or "<interactive>"
     configure_logging(args.log_level)
+    install_crash_handler(command)
     try:
         return args.handler(args)
     except KeyboardInterrupt:
         raise
     except Exception as error:
-        command = " ".join(argv or sys.argv[1:]) or "<interactive>"
         crash_path = write_crash_log(error, context=f"Unhandled exception while running: {command}")
         sys.stderr.write(f"unhandled exception; crash log written to {crash_path}\n")
         return 1

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
 from typing import cast
 
@@ -12,6 +13,7 @@ from eodinga.observability import (
     configure_logging,
     default_crash_dir,
     default_log_path,
+    install_crash_handler,
     reset_metrics,
     snapshot_metrics,
     write_crash_log,
@@ -69,6 +71,47 @@ def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
         crash_path = write_crash_log(error, context="env override")
     assert crash_path.parent == tmp_path
     assert "env override" in crash_path.read_text(encoding="utf-8")
+
+
+def test_install_crash_handler_writes_uncaught_main_exception(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path))
+    install_crash_handler("stats --json")
+
+    try:
+        raise RuntimeError("hook boom")
+    except RuntimeError as error:
+        sys.excepthook(type(error), error, error.__traceback__)
+
+    output = capsys.readouterr().err
+    crash_logs = sorted(tmp_path.glob("crash-*.log"))
+    assert "crash log written to" in output
+    assert len(crash_logs) == 1
+    assert "Unhandled exception while running: stats --json" in crash_logs[0].read_text(
+        encoding="utf-8"
+    )
+
+
+def test_install_crash_handler_writes_uncaught_thread_exception(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path))
+    install_crash_handler("gui")
+
+    try:
+        raise ValueError("thread boom")
+    except ValueError as error:
+        args = threading.ExceptHookArgs(
+            (type(error), error, error.__traceback__, threading.current_thread())
+        )
+        threading.excepthook(args)
+
+    output = capsys.readouterr().err
+    crash_logs = sorted(tmp_path.glob("crash-*.log"))
+    assert "crash log written to" in output
+    assert len(crash_logs) == 1
+    assert "[thread=MainThread]" in crash_logs[0].read_text(encoding="utf-8")
 
 
 def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path: Path) -> None:
