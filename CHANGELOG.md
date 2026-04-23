@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.549 - 2026-04-23
+
+- Fixed grouped `case:` and `regex:` query compilation so mode-only branches no longer survive alongside real filters and accidentally widen grouped or negated queries into match-all results.
+- Added compiler regressions for grouped and negated mode expressions, including OR cases like `case:true | alpha` that previously kept an unconstrained branch alive.
+- Added property-style compiler coverage that exercises grouped mode operators against real terms and asserts compiled branches stay constraining unless the whole query is mode-only.
+
 ## 0.1.547 - 2026-04-23
 
 - Made startup cleanup of orphaned `index.db` recovery and partial-copy artifacts durably sync the parent directory, reducing the chance that stale WAL or partial-stage residue reappears after a crash during reopen.
