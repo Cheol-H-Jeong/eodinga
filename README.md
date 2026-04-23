@@ -311,6 +311,15 @@ Review the dry-run output before tagging. If the staged payload disagrees with `
 - Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, and compressed changelog into the package root.
 - The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
 
+### Artifact-To-Review Map
+
+| If you changed... | Re-run... | Inspect... |
+| --- | --- | --- |
+| installer or bundled runtime wording | `python packaging/build.py --target windows-dry-run` | `packaging/dist/windows-dry-run/` summary plus the rendered `.iss` payload description |
+| Linux desktop packaging claims | `python packaging/build.py --target linux-appimage-dry-run` and `python packaging/build.py --target linux-deb-dry-run` | the AppImage recipe summary, Debian staged payload, and bundled docs list |
+| CLI help, command examples, or environment flags | `python scripts/generate_manpage.py` and `pytest -q tests/unit/test_docs_assets.py` | `docs/man/eodinga.1` plus the docs-assets contract test |
+| visible GUI or launcher behavior | `python scripts/render_docs_screenshots.py` and `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` | the refreshed screenshots under `docs/screenshots/` and the offscreen smoke path |
+
 ## Release Inputs
 
 Treat these as part of the shipped surface, not incidental repository files:
@@ -320,6 +329,15 @@ Treat these as part of the shipped surface, not incidental repository files:
 - `docs/man/eodinga.1` for the generated CLI reference.
 - `docs/screenshots/*.png` for offscreen-rendered evidence of the current Qt surfaces.
 - `packaging/dist/` for the reviewable dry-run manifests and staged payload summaries.
+
+Release reviews move faster if you keep the evidence grouped by surface:
+
+| Surface | Contract file | Derived evidence |
+| --- | --- | --- |
+| CLI and examples | `README.md`, `docs/DSL.md`, `docs/man/eodinga.1` | generated man page plus `tests/unit/test_docs_assets.py` |
+| GUI and launcher behavior | `README.md`, screenshots, keyboard hints | offscreen screenshot render plus GUI smoke |
+| packaging claims | `README.md`, `docs/ACCEPTANCE.md`, `docs/RELEASE.md` | dry-run manifests under `packaging/dist/` |
+| release handoff flow | `CHANGELOG.md`, `docs/RELEASE.md`, `docs/CONTRIBUTING.md` | unit tests, dry runs, and the final local tag |
 
 ## Release Handoff
 
@@ -370,6 +388,13 @@ Parallel workers can consume the same candidate patch version. Before cutting th
 | Packaging audit failed | `python packaging/build.py --target windows-dry-run` | re-run the matching Linux dry run and workflow lint from `docs/ACCEPTANCE.md` |
 | Docs asset drift after CLI or UI changes | `pytest -q tests/unit/test_docs_assets.py` | regenerate `docs/man/eodinga.1` or `docs/screenshots/*.png`, then rerun the docs-assets test |
 
+When the symptom is docs-only drift, keep the recovery path narrow:
+
+1. Re-run `pytest -q tests/unit/test_docs_assets.py` to confirm the contract mismatch.
+2. Regenerate only the derived asset that moved: man page for CLI changes, screenshots for visible UI changes.
+3. Re-run the matching evidence command once: GUI smoke for screenshots, packaging dry run for packaged docs claims.
+4. Return to the docs-only release pass instead of rerunning the full gate unless runtime behavior changed.
+
 ## Config and Data Paths
 
 - Linux config defaults to `~/.config/eodinga/config.toml` and the index database to `~/.local/share/eodinga/index.db`.
@@ -419,6 +444,13 @@ eodinga search 'date:this-week ext:md' --limit 10
 ```
 
 If those are clean but the packaged app still looks wrong, continue with the release-gate commands in `docs/ACCEPTANCE.md`.
+
+Release-facing docs review is usually enough with this order:
+
+1. `pytest -q tests/unit/test_docs_assets.py`
+2. `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"`
+3. the matching `python packaging/build.py --target ...-dry-run`
+4. manifest review under `packaging/dist/`
 
 ## Docs Map
 
