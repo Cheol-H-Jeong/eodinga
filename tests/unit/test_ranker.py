@@ -72,3 +72,24 @@ def test_rrf_ignores_duplicate_file_ids_within_same_channel() -> None:
     scores = reciprocal_rank_fusion({"name": [7, 7, 11]}, weights=weights)
 
     assert scores == {7: 1.0, 11: 1 / 3}
+
+
+def test_rrf_skips_unknown_or_zero_weight_channels_without_emitting_zero_scores() -> None:
+    weights = RankingWeights(name=0.0, path=0.0, content=0.0, k=0)
+
+    scores = reciprocal_rank_fusion({"other": [1, 2], "name": [3]}, weights=weights)
+
+    assert scores == {}
+
+
+def test_path_deboost_does_not_create_scores_for_unranked_paths() -> None:
+    scores = apply_path_deboost(
+        {},
+        {
+            1: "/repo/node_modules/pkg/index.js",
+            2: "/repo/src/main.py",
+        },
+        RankingWeights(deboost_factor=0.25),
+    )
+
+    assert scores == {}

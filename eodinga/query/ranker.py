@@ -37,6 +37,8 @@ def reciprocal_rank_fusion(
     }
     for channel, ranking in rank_sets.items():
         channel_weight = channel_weights.get(channel, 0.0)
+        if channel_weight <= 0:
+            continue
         seen: set[int] = set()
         for index, file_id in enumerate(ranking, start=1):
             if file_id in seen:
@@ -70,6 +72,8 @@ def apply_path_deboost(
     weights = weights or RankingWeights()
     adjusted = dict(scores)
     for file_id, path in paths.items():
+        if file_id not in adjusted:
+            continue
         if any(_path_has_marker_segment(path, marker) for marker in weights.deboost_markers):
             adjusted[file_id] = adjusted.get(file_id, 0.0) * weights.deboost_factor
     return adjusted
