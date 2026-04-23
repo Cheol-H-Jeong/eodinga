@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
+from eodinga.gui.launcher_query import extract_query_filter_chips
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
 from eodinga.gui.widgets import (
     EmptyState,
@@ -22,8 +23,6 @@ from eodinga.gui.widgets import (
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
-
-
 class LauncherPanel(QWidget):
     results_updated = Signal(object)
     result_activated = Signal(object)
@@ -48,11 +47,11 @@ class LauncherPanel(QWidget):
         self._pinned_queries: list[str] = []
         self._indexing_status = IndexingStatus()
         self._state = state
+        self._active_filter_chips: list[str] = []
         self._history_index: int | None = None
         self._history_draft = ""
         self._applying_history_query = False
         self._skip_remember_query = False
-
         self.query_field = SearchField(parent=self)
         self.query_field.setAccessibleName("Launcher search field")
         self.pinned_queries_row = QueryChipRow(
@@ -64,6 +63,12 @@ class LauncherPanel(QWidget):
         self.recent_queries_row = QueryChipRow(
             "Recent",
             accessible_name="Recent launcher queries",
+            on_chip_clicked=self._apply_query_chip,
+            parent=self,
+        )
+        self.active_filters_row = QueryChipRow(
+            "Active filters",
+            accessible_name="Active launcher query filters",
             on_chip_clicked=self._apply_query_chip,
             parent=self,
         )
@@ -84,24 +89,21 @@ class LauncherPanel(QWidget):
         self.preview_pane = LauncherPreviewPane(self)
         self.preview_pane.setMinimumWidth(240)
         self.action_bar = LauncherActionBar(self)
-
         self.model = ResultListModel(self)
         self.result_list.setModel(self.model)
         self.result_list.selectionModel().currentChanged.connect(self._sync_preview_to_current_index)
         self.result_list.entered.connect(self._handle_hovered_index)
-
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
         self._debounce_timer.setInterval(debounce_ms)
         self._debounce_timer.timeout.connect(self._run_query)
-
         layout = QVBoxLayout(self)
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
+        layout.addWidget(self.active_filters_row)
         layout.addWidget(self.pinned_queries_row)
         layout.addWidget(self.recent_queries_row)
-
         content = QHBoxLayout()
         content.setSpacing(SPACE_16)
         content_column = QVBoxLayout()
@@ -185,6 +187,10 @@ class LauncherPanel(QWidget):
         self._pinned_queries = queries
         self.pinned_queries_row.set_queries(queries[:5])
         self._refresh_empty_state()
+
+    def set_active_filter_chips(self, chips: list[str]) -> None:
+        self._active_filter_chips = chips
+        self.active_filters_row.set_queries(chips[:5])
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
@@ -277,6 +283,7 @@ class LauncherPanel(QWidget):
         query = self.query_field.text().strip()
         previous_hit = self._current_hit()
         self._latest_result = self._search_fn(query, self._max_results)
+        self.set_active_filter_chips(extract_query_filter_chips(query))
         if self._state is not None and query and not self._skip_remember_query:
             self._state.remember_query(query)
         self._skip_remember_query = False

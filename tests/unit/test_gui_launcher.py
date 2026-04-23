@@ -333,6 +333,30 @@ def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
     assert calls == ["ext:pdf"]
 
 
+def test_launcher_shows_active_filter_chips_for_current_query(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(items=[], total=0, elapsed_ms=1.0)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText('budget ext:pdf content:"release notes" -is:dir')
+    _wait(60)
+
+    assert launcher.active_filters_row.isVisible()
+    assert [button.text() for button in launcher.active_filters_row.buttons] == [
+        "ext:pdf",
+        'content:"release notes"',
+        "-is:dir",
+    ]
+
+    launcher.query_field.setText("budget")
+    _wait(60)
+
+    assert not launcher.active_filters_row.isVisible()
+    assert launcher.active_filters_row.buttons == []
+
+
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:
     revealed: list[str] = []
 
@@ -720,6 +744,8 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"
     assert launcher.empty_state.body_label.accessibleName() == "Launcher empty state guidance"
     assert launcher.empty_state.details_label.accessibleName() == "Launcher indexing details"
+    assert launcher.active_filters_row.accessibleName() == "Active launcher query filters"
+    assert launcher.active_filters_row.buttons == []
     assert launcher.pinned_queries_row.accessibleName() == "Pinned launcher queries"
     assert launcher.pinned_queries_row.buttons == []
     assert launcher.recent_queries_row.accessibleName() == "Recent launcher queries"
@@ -756,6 +782,22 @@ def test_launcher_query_chips_expose_accessible_context(qapp) -> None:
     assert pinned_chip.accessibleDescription() == "Apply the pinned launcher query"
     assert recent_chip.accessibleName() == "Use query budget"
     assert recent_chip.accessibleDescription() == "Apply the recent launcher query"
+
+
+def test_launcher_active_filter_chips_expose_accessible_metadata(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(items=[], total=0, elapsed_ms=1.0)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("size:>10M")
+    _wait(60)
+
+    chip = launcher.active_filters_row.buttons[0]
+
+    assert chip.accessibleName() == "Use query size:>10M"
+    assert chip.accessibleDescription() == "Apply the active filters launcher query"
 
 
 def test_launcher_result_markup_surfaces_top_nine_quick_pick_badges(qapp) -> None:

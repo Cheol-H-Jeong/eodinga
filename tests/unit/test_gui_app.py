@@ -71,6 +71,7 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.about_tab.accessibleName() == "About tab"
     assert window.launcher_window.pinned_queries_row.accessibleName() == "Pinned launcher queries"
     assert window.launcher_window.recent_queries_row.accessibleName() == "Recent launcher queries"
+    assert window.launcher_window.active_filters_row.accessibleName() == "Active launcher query filters"
     assert window.launcher_window.empty_state.accessibleName() == "Launcher empty state"
     assert window.launcher_window.preview_pane.accessibleName() == "Launcher preview pane"
     assert window.search_tab.launcher_panel.action_bar.accessibleName() == "Launcher action bar"
