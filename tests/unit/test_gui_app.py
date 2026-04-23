@@ -303,7 +303,7 @@ def test_app_wires_launcher_shortcuts_to_desktop_actions(qapp) -> None:
         launcher.emit_open_containing_folder()
         launcher.emit_show_properties()
         launcher.emit_copy_path()
-        window._copy_name_shortcuts[index].activated.emit()
+        launcher.emit_copy_name()
 
     assert spy.opened == ["release-notes.txt", "release-notes.txt"]
     assert spy.revealed == ["release-notes.txt", "release-notes.txt"]

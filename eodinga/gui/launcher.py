@@ -1,22 +1,24 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
-from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
-from PySide6.QtGui import QCloseEvent, QHideEvent, QKeyEvent, QKeySequence, QMoveEvent, QResizeEvent, QShortcut, QShowEvent
+from PySide6.QtCore import QEvent, QModelIndex, QObject, QPoint, QTimer, Qt, Signal
+from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
-from eodinga.config import AppConfig
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
+from eodinga.gui.launcher_menu import build_result_context_menu
 from eodinga.gui.launcher_text import empty_state_content, shortcut_hint
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer
 from eodinga.gui.widgets import EmptyState, LauncherPreviewPane, ResultItemDelegate, SearchField, StatusChip
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
+
+if TYPE_CHECKING:
+    from eodinga.gui.launcher_window import LauncherWindow
 
 
 class LauncherPanel(QWidget):
@@ -25,6 +27,7 @@ class LauncherPanel(QWidget):
     open_containing_folder = Signal(object)
     show_properties = Signal(object)
     copy_path_requested = Signal(object)
+    copy_name_requested = Signal(object)
 
     def __init__(
         self,
@@ -53,6 +56,7 @@ class LauncherPanel(QWidget):
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
         self.result_list.setUniformItemSizes(False)
         self.result_list.setMouseTracking(True)
+        self.result_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
         self.status_chip = StatusChip("Idle", self)
         self.shortcut_label = QLabel("", self)
@@ -66,6 +70,7 @@ class LauncherPanel(QWidget):
         self.result_list.setModel(self.model)
         self.result_list.selectionModel().currentChanged.connect(lambda current, _: self._update_preview_from_index(current))
         self.result_list.entered.connect(self._update_preview_from_index)
+        self.result_list.customContextMenuRequested.connect(self._show_result_context_menu)
         self.result_list.viewport().installEventFilter(self)
 
         self._debounce_timer = QTimer(self)
@@ -105,6 +110,7 @@ class LauncherPanel(QWidget):
             QShortcut(QKeySequence("Ctrl+Return"), self),
             QShortcut(QKeySequence("Shift+Return"), self),
             QShortcut(QKeySequence("Alt+C"), self),
+            QShortcut(QKeySequence("Alt+N"), self),
             QShortcut(QKeySequence(QKeySequence.StandardKey.SelectAll), self),
             QShortcut(QKeySequence("Ctrl+L"), self),
             QShortcut(QKeySequence("Alt+Up"), self),
@@ -114,10 +120,11 @@ class LauncherPanel(QWidget):
         self._shortcuts[1].activated.connect(self.emit_open_containing_folder)
         self._shortcuts[2].activated.connect(self.emit_show_properties)
         self._shortcuts[3].activated.connect(self.emit_copy_path)
-        self._shortcuts[4].activated.connect(self.select_query_text)
-        self._shortcuts[5].activated.connect(self.focus_query_field)
-        self._shortcuts[6].activated.connect(self.recall_previous_query)
-        self._shortcuts[7].activated.connect(self.recall_next_query)
+        self._shortcuts[4].activated.connect(self.emit_copy_name)
+        self._shortcuts[5].activated.connect(self.select_query_text)
+        self._shortcuts[6].activated.connect(self.focus_query_field)
+        self._shortcuts[7].activated.connect(self.recall_previous_query)
+        self._shortcuts[8].activated.connect(self.recall_next_query)
         self._quick_pick_shortcuts: list[QShortcut] = []
         for index in range(9):
             shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
@@ -183,6 +190,12 @@ class LauncherPanel(QWidget):
         hit = self._current_hit()
         if hit is not None:
             self.copy_path_requested.emit(hit)
+
+    def emit_copy_name(self) -> None:
+        self._flush_pending_query()
+        hit = self._current_hit()
+        if hit is not None:
+            self.copy_name_requested.emit(hit)
 
     def recall_previous_query(self) -> None:
         self._navigate_recent_queries(-1)
@@ -340,6 +353,11 @@ class LauncherPanel(QWidget):
         if event.key() == Qt.Key.Key_PageUp:
             self._move_selection(-self._page_step())
             return True
+        if event.key() == Qt.Key.Key_Menu or (
+            event.key() == Qt.Key.Key_F10 and event.modifiers() == Qt.KeyboardModifier.ShiftModifier
+        ):
+            self._show_result_context_menu(self._current_index_center())
+            return True
         return False
 
     def _move_selection(self, delta: int, *, wrap: bool = False) -> None:
@@ -377,6 +395,33 @@ class LauncherPanel(QWidget):
     def _update_preview_from_index(self, index: QModelIndex) -> None:
         self.preview_pane.set_hit(self.model.item_at(index.row()) if index.isValid() else self._current_hit())
 
+    def _build_result_context_menu(self):
+        if self._current_hit() is None:
+            return None
+        return build_result_context_menu(
+            self,
+            open_result=self.activate_current_result,
+            reveal_result=self.emit_open_containing_folder,
+            show_properties=self.emit_show_properties,
+            copy_path=self.emit_copy_path,
+            copy_name=self.emit_copy_name,
+        )
+
+    def _current_index_center(self) -> QPoint:
+        current = self.result_list.currentIndex()
+        if not current.isValid():
+            return QPoint()
+        return self.result_list.visualRect(current).center()
+
+    def _show_result_context_menu(self, pos: QPoint) -> None:
+        index = self.result_list.indexAt(pos)
+        if index.isValid():
+            self._set_selection(index.row())
+        menu = self._build_result_context_menu()
+        if menu is None:
+            return
+        menu.exec(self.result_list.viewport().mapToGlobal(pos))
+
     def _navigate_recent_queries(self, direction: int) -> None:
         if not self._recent_queries:
             return
@@ -409,86 +454,12 @@ class LauncherPanel(QWidget):
             self._applying_history_query = False
 
 
-class LauncherWindow(LauncherPanel):
-    def __init__(
-        self,
-        search_fn: SearchFn | None = None,
-        max_results: int = 200,
-        state: LauncherState | None = None,
-        config: AppConfig | None = None,
-        config_path: Path | None = None,
-        parent=None,
-    ) -> None:
-        super().__init__(search_fn=search_fn, max_results=max_results, state=state, parent=parent)
-        self._config = config
-        self._config_path = config_path.expanduser() if config_path is not None else None
-        self._geometry_restored = False
-        self._geometry_save_timer = QTimer(self)
-        self._geometry_save_timer.setSingleShot(True)
-        self._geometry_save_timer.setInterval(150)
-        self._geometry_save_timer.timeout.connect(self._persist_geometry)
-        self.setObjectName("surface")
-        self.setAccessibleName("Launcher window")
-        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
-        self.setWindowFlag(Qt.WindowType.Tool, True)
-        always_on_top = self._config.launcher.always_on_top if self._config is not None else False
-        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, always_on_top)
-        width = self._config.launcher.window_width if self._config is not None else 640
-        height = self._config.launcher.window_height if self._config is not None else 480
-        self.resize(width, height)
+def __getattr__(name: str):
+    if name == "LauncherWindow":
+        from eodinga.gui.launcher_window import LauncherWindow
 
-    def keyPressEvent(self, event) -> None:
-        if event.key() == Qt.Key.Key_Escape:
-            self.hide()
-            event.accept()
-            return
-        super().keyPressEvent(event)
+        return LauncherWindow
+    raise AttributeError(name)
 
-    def showEvent(self, event: QShowEvent) -> None:
-        super().showEvent(event)
-        if not self._geometry_restored and self._config is not None:
-            if self._config.launcher.window_x is not None and self._config.launcher.window_y is not None:
-                self.move(self._config.launcher.window_x, self._config.launcher.window_y)
-            self._geometry_restored = True
-        self.query_field.setFocus()
-        self.query_field.selectAll()
 
-    def moveEvent(self, event: QMoveEvent) -> None:
-        super().moveEvent(event)
-        self._schedule_geometry_persist()
-
-    def resizeEvent(self, event: QResizeEvent) -> None:
-        super().resizeEvent(event)
-        self._schedule_geometry_persist()
-
-    def hideEvent(self, event: QHideEvent) -> None:
-        self._persist_geometry()
-        super().hideEvent(event)
-
-    def closeEvent(self, event: QCloseEvent) -> None:
-        self._persist_geometry()
-        super().closeEvent(event)
-
-    def _schedule_geometry_persist(self) -> None:
-        if self._config is None or self._config_path is None or not self._geometry_restored or not self.isVisible():
-            return
-        self._geometry_save_timer.start()
-
-    def _persist_geometry(self) -> None:
-        if self._config is None or self._config_path is None or not self._geometry_restored:
-            return
-        geometry = {
-            "window_x": self.x(),
-            "window_y": self.y(),
-            "window_width": self.width(),
-            "window_height": self.height(),
-        }
-        if (
-            self._config.launcher.window_x == geometry["window_x"]
-            and self._config.launcher.window_y == geometry["window_y"]
-            and self._config.launcher.window_width == geometry["window_width"]
-            and self._config.launcher.window_height == geometry["window_height"]
-        ):
-            return
-        self._config.launcher = self._config.launcher.model_copy(update=geometry)
-        self._config.save(self._config_path)
+__all__ = ["LauncherPanel", "LauncherState", "LauncherWindow", "SearchFn", "default_search"]

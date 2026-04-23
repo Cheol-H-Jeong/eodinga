@@ -492,6 +492,7 @@ def test_launcher_alt_up_and_down_recall_recent_queries(qapp) -> None:
 def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
     properties: list[str] = []
     copied: list[str] = []
+    copied_names: list[str] = []
 
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
@@ -509,6 +510,7 @@ def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
     launcher = LauncherWindow(search_fn=search_fn)
     launcher.show_properties.connect(lambda hit: properties.append(hit.name))
     launcher.copy_path_requested.connect(lambda hit: copied.append(str(hit.path)))
+    launcher.copy_name_requested.connect(lambda hit: copied_names.append(hit.name))
     launcher.show()
 
     launcher.query_field.setText("release")
@@ -516,9 +518,58 @@ def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
 
     QTest.keyClick(launcher, Qt.Key.Key_Return, Qt.KeyboardModifier.ShiftModifier)
     QTest.keyClick(launcher, Qt.Key.Key_C, Qt.KeyboardModifier.AltModifier)
+    QTest.keyClick(launcher, Qt.Key.Key_N, Qt.KeyboardModifier.AltModifier)
 
     assert properties == ["release-notes.txt"]
     assert copied == ["/tmp/release-notes.txt"]
+    assert copied_names == ["release-notes.txt"]
+
+
+def test_launcher_result_context_menu_exposes_all_actions(qapp) -> None:
+    opened: list[str] = []
+    revealed: list[str] = []
+    properties: list[str] = []
+    copied: list[str] = []
+    copied_names: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/release-notes.txt"), parent_path=Path("/tmp"), name="release-notes.txt")
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: opened.append(hit.name))
+    launcher.open_containing_folder.connect(lambda hit: revealed.append(hit.name))
+    launcher.show_properties.connect(lambda hit: properties.append(hit.name))
+    launcher.copy_path_requested.connect(lambda hit: copied.append(str(hit.path)))
+    launcher.copy_name_requested.connect(lambda hit: copied_names.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(60)
+
+    menu = launcher._build_result_context_menu()
+    assert menu is not None
+    assert [action.text() for action in menu.actions()] == [
+        "Open",
+        "Reveal in folder",
+        "Show properties",
+        "Copy path",
+        "Copy name",
+    ]
+
+    for action in menu.actions():
+        action.trigger()
+
+    assert opened == ["release-notes.txt"]
+    assert revealed == ["release-notes.txt"]
+    assert properties == ["release-notes.txt"]
+    assert copied == ["/tmp/release-notes.txt"]
+    assert copied_names == ["release-notes.txt"]
 
 
 def test_launcher_alt_number_quick_picks_results(qapp) -> None:
