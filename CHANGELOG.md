@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.829 - 2026-04-23
+
+- Tightened the shipped docs around docs-only validation so README and the release/contributor guides now point at one explicit evidence bundle covering docs assets, GUI smoke, and packaging dry runs.
+- Added acceptance and architecture guidance that explains the review order for docs-only rounds, version-collision retargeting, and why `packaging/dist/` plus generated assets are part of the release contract.
+- Clarified how performance notes should be reported in docs-focused rounds so changelogs and release notes do not imply fresh benchmark measurements when the perf suite was not rerun.
+
 ## 0.1.822 - 2026-04-23
 
 - Hardened watcher lifecycle recovery so failed observer startup now rolls back the flush thread cleanly, and shutdown continues best-effort observer teardown even if one observer raises.
