@@ -138,6 +138,18 @@ Use this when the round is docs-only but still release-bearing:
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
 
+## Red-Gate Triage
+
+If the required start gate is already failing before your theme work begins:
+
+1. Reproduce the failure with the narrowest command that still fails.
+2. Fix the minimum blocker needed to restore a green baseline before resuming theme work.
+3. Keep that unblocker in its own commit so the later theme commits stay reviewable.
+4. Re-run `pytest -q tests/unit` before starting the next logical commit.
+5. Call the unblocker out in the final changelog entry if it shipped as part of the round.
+
+This keeps worker rounds honest: no new feature or docs work is mixed into a red baseline.
+
 ## Test Selection Guide
 
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`
@@ -154,6 +166,16 @@ Use this when the round is docs-only but still release-bearing:
 - Docs-only rounds still require a changelog entry and local tag when the shipped contract changed.
 - If a change cannot stay inside one theme or one logical commit, stop and split it before proceeding.
 - The final release commit for a round should carry the version bump, changelog entry, and local tag together so earlier feature or docs commits remain easy to review and rebase.
+
+## Version Collision Quick Path
+
+When another worker lands the patch number you were about to use:
+
+1. `git fetch --tags origin`
+2. Re-run `git tag -l | sort -V | tail -3`
+3. Pick the next unused `0.1.N`
+4. Update only the release-metadata commit, not the earlier feature or docs commits
+5. Recreate the local tag on the new tip after the gate is green again
 
 ## Review Checklist
 

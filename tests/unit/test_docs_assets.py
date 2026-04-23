@@ -136,8 +136,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "scripts/render_docs_screenshots.py" in contributing
     assert "## Docs Refresh Order" in contributing
     assert "## Docs Round Checklist" in contributing
+    assert "## Red-Gate Triage" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
+    assert "## Version Collision Quick Path" in contributing
     assert "## Review Checklist" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
     assert "The final release commit for a round should carry the version bump" in contributing
@@ -176,11 +178,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
     assert "## Artifact Inventory" in release
+    assert "## Dry-Run Artifact Expectations" in release
     assert "## Verify Shipped Docs" in release
     assert "## Worker Handoff Rules" in release
     assert "## Docs-Only Rounds" in release
     assert "## Cut The Local Release" in release
     assert "## Collision And Retag Rules" in release
+    assert "## Gate Failure Recovery" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release
     assert "python scripts/generate_manpage.py" in release

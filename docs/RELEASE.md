@@ -59,6 +59,15 @@ Before tagging, know which release inputs this repository expects to exist:
 - `packaging/dist/` dry-run manifests for Windows, AppImage, and Debian audits.
 - `.github/workflows/release-windows.yml` and `.github/workflows/release-linux.yml` as linted release automation inputs.
 
+## Dry-Run Artifact Expectations
+
+| Check | Minimal expectation before tag |
+| --- | --- |
+| `windows-dry-run` | staged PyInstaller output is present, the Inno script resolves the current version, and the audit passes without editing the installer by hand |
+| `linux-appimage-dry-run` | rendered `appimage-builder.yml` matches the current version and the staged desktop/icon assets line up with the checked-in payloads |
+| `linux-deb-dry-run` | package root contains launcher shim, desktop entry, SVG icon, license, and compressed changelog |
+| `tests/unit/test_docs_assets.py` | README, deeper guides, screenshots, and generated man page still describe the same shipped contract |
+
 ## Verify Shipped Docs
 
 Before tagging, confirm:
@@ -123,6 +132,18 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - Never move or delete an existing local release tag just to reuse the version number.
 - If another worker landed the same candidate version first, fetch tags again, pick the next unused patch number, and update the release metadata commit instead of force-retagging.
 - If the final gate fails after the metadata commit, fix the issue in a new commit and recreate the local tag on the new tip only after the gate is green again.
+
+## Gate Failure Recovery
+
+If the full gate fails after you already cut the metadata commit:
+
+1. Leave the existing metadata commit in place for auditability.
+2. Fix the failing issue in a new commit instead of amending older commits.
+3. Re-run the full gate.
+4. Delete and recreate the local release tag only after the new tip is green.
+5. Update the changelog entry if the recovery commit materially changed the shipped surface.
+
+This keeps the final handoff truthful about what actually passed the gate.
 
 ## Handoff Checklist
 
