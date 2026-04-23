@@ -45,6 +45,7 @@ PY
 cp "${ROOT_DIR}/packaging/linux/eodinga.desktop" "${APPDIR}/usr/share/applications/eodinga.desktop"
 cp "${APPIMAGE_ICON}" "${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg"
 cp "${APPIMAGE_ICON}" "${APPDIR}/.DirIcon"
+chmod 0644 "${APPDIR}/usr/share/applications/eodinga.desktop" "${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg" "${APPDIR}/.DirIcon"
 cat > "${APPDIR}/AppRun" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -58,7 +59,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)"
 cd "${ROOT_DIR}"
 exec python3 -m eodinga "$@"
 EOF
-chmod +x "${APPDIR}/AppRun" "${APPDIR}/usr/bin/eodinga"
+chmod 0755 "${APPDIR}/AppRun" "${APPDIR}/usr/bin/eodinga"
 
 tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf "${ARCHIVE_PATH}" -C "${DIST_DIR}" "$(basename "${APPDIR}")"
 python3 - <<PY
@@ -121,20 +122,24 @@ payload = {
     "icon": {
         "path": str(icon_path),
         "exists": icon_path.exists(),
+        "mode": f"{icon_path.stat().st_mode & 0o777:03o}",
         "diricon_path": str(diricon_path),
         "diricon_exists": diricon_path.exists(),
+        "diricon_mode": f"{diricon_path.stat().st_mode & 0o777:03o}" if diricon_path.exists() else None,
         "desktop_icon_matches_asset": desktop_entries.get("Icon") == icon_path.stem,
         "matches_source_asset": icon_path.read_text(encoding="utf-8") == Path("${APPIMAGE_ICON}").read_text(encoding="utf-8"),
     },
     "apprun": {
         "path": str(apprun_path),
         "is_executable": os.access(apprun_path, os.X_OK),
+        "mode": f"{apprun_path.stat().st_mode & 0o777:03o}",
         "launches_gui": 'usr/bin/eodinga" gui ' in apprun_path.read_text(encoding="utf-8"),
         "has_strict_shell": "set -euo pipefail" in apprun_path.read_text(encoding="utf-8"),
     },
     "launcher": {
         "path": str(launcher_path),
         "is_executable": os.access(launcher_path, os.X_OK),
+        "mode": f"{launcher_path.stat().st_mode & 0o777:03o}",
         "has_strict_shell": "set -euo pipefail" in launcher_path.read_text(encoding="utf-8"),
         "changes_to_project_root": 'cd "\${ROOT_DIR}"' in launcher_path.read_text(encoding="utf-8"),
         "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),

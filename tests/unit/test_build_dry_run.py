@@ -253,17 +253,21 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
         },
         "icon": {
             "exists": True,
+            "mode": "644",
             "diricon_exists": True,
+            "diricon_mode": "644",
             "desktop_icon_matches_asset": True,
             "matches_source_asset": True,
         },
         "apprun": {
             "is_executable": True,
+            "mode": "755",
             "launches_gui": True,
             "has_strict_shell": True,
         },
         "launcher": {
             "is_executable": True,
+            "mode": "755",
             "has_strict_shell": True,
             "changes_to_project_root": True,
             "executes_python_module": False,
@@ -350,13 +354,17 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["recipe"]["references_icon_asset"] is True
     assert payload["recipe"]["launches_gui"] is True
     assert payload["icon"]["exists"] is True
+    assert payload["icon"]["mode"] == "644"
     assert payload["icon"]["diricon_exists"] is True
+    assert payload["icon"]["diricon_mode"] == "644"
     assert payload["icon"]["desktop_icon_matches_asset"] is True
     assert payload["icon"]["matches_source_asset"] is True
     assert payload["apprun"]["is_executable"] is True
+    assert payload["apprun"]["mode"] == "755"
     assert payload["apprun"]["launches_gui"] is True
     assert payload["apprun"]["has_strict_shell"] is True
     assert payload["launcher"]["is_executable"] is True
+    assert payload["launcher"]["mode"] == "755"
     assert payload["launcher"]["has_strict_shell"] is True
     assert payload["launcher"]["changes_to_project_root"] is True
     assert payload["launcher"]["executes_python_module"] is True
@@ -421,17 +429,21 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
         },
         "icon": {
             "exists": True,
+            "mode": "644",
             "desktop_icon_matches_asset": True,
             "matches_source_asset": True,
         },
         "launcher": {
             "is_executable": True,
+            "mode": "755",
             "has_strict_shell": True,
             "executes_python_module": True,
         },
         "docs": {
             "license_exists": True,
+            "license_mode": "644",
             "changelog_exists": False,
+            "changelog_mode": "644",
             "changelog_has_current_release_heading": True,
         },
     }
@@ -476,17 +488,21 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
         },
         "icon": {
             "exists": True,
+            "mode": "644",
             "desktop_icon_matches_asset": True,
             "matches_source_asset": True,
         },
         "launcher": {
             "is_executable": True,
+            "mode": "755",
             "has_strict_shell": True,
             "executes_python_module": True,
         },
         "docs": {
             "license_exists": True,
+            "license_mode": "644",
             "changelog_exists": True,
+            "changelog_mode": "644",
             "changelog_has_current_release_heading": True,
         },
     }
@@ -564,13 +580,17 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["desktop_entry"]["launches_gui"] is True
     assert payload["desktop_entry"]["icon_matches_package"] is True
     assert payload["icon"]["exists"] is True
+    assert payload["icon"]["mode"] == "644"
     assert payload["icon"]["desktop_icon_matches_asset"] is True
     assert payload["icon"]["matches_source_asset"] is True
     assert payload["launcher"]["is_executable"] is True
+    assert payload["launcher"]["mode"] == "755"
     assert payload["launcher"]["has_strict_shell"] is True
     assert payload["launcher"]["executes_python_module"] is True
     assert payload["docs"]["license_exists"] is True
+    assert payload["docs"]["license_mode"] == "644"
     assert payload["docs"]["changelog_exists"] is True
+    assert payload["docs"]["changelog_mode"] == "644"
     assert payload["docs"]["changelog_has_current_release_heading"] is True
 
 
@@ -595,4 +615,7 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert payload["archive_mtime_zero"] is True
     assert payload["archive_numeric_owner_zero"] is True
     assert payload["icon"]["exists"] is True
+    assert payload["icon"]["mode"] == "644"
     assert payload["docs"]["changelog_exists"] is True
+    assert payload["docs"]["license_mode"] == "644"
+    assert payload["docs"]["changelog_mode"] == "644"

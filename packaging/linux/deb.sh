@@ -54,6 +54,7 @@ if binary_paragraph is None:
 rendered_path.write_text(binary_paragraph + "\n", encoding="utf-8")
 Path("${PACKAGE_DIR}/DEBIAN/control").write_text(binary_paragraph + "\n", encoding="utf-8")
 PY
+chmod 0644 "${DEBIAN_CONTROL_RENDERED}" "${PACKAGE_DIR}/DEBIAN/control"
 
 cat > "${PACKAGE_DIR}/usr/bin/eodinga" <<'EOF'
 #!/usr/bin/env bash
@@ -74,6 +75,7 @@ target = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
 with source.open("rb") as src, gzip.GzipFile(filename="", mode="wb", fileobj=target.open("wb"), mtime=0) as dst:
     dst.write(src.read())
 PY
+chmod 0644 "${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz"
 
 tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf "${ARCHIVE_PATH}" -C "${BUILD_ROOT}" "$(basename "${PACKAGE_DIR}")"
 python3 - <<PY
@@ -160,20 +162,24 @@ payload = {
     "icon": {
         "path": str(icon_path),
         "exists": icon_path.exists(),
+        "mode": f"{icon_path.stat().st_mode & 0o777:03o}",
         "desktop_icon_matches_asset": desktop_entries.get("Icon") == icon_path.stem,
         "matches_source_asset": icon_path.read_text(encoding="utf-8") == Path("${ICON_ASSET}").read_text(encoding="utf-8"),
     },
     "launcher": {
         "path": str(launcher_path),
         "is_executable": os.access(launcher_path, os.X_OK),
+        "mode": f"{launcher_path.stat().st_mode & 0o777:03o}",
         "has_strict_shell": "set -euo pipefail" in launcher_path.read_text(encoding="utf-8"),
         "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
     },
     "docs": {
         "license_path": str(license_path),
         "license_exists": license_path.exists(),
+        "license_mode": f"{license_path.stat().st_mode & 0o777:03o}" if license_path.exists() else None,
         "changelog_path": str(changelog_path),
         "changelog_exists": changelog_path.exists(),
+        "changelog_mode": f"{changelog_path.stat().st_mode & 0o777:03o}" if changelog_path.exists() else None,
         "changelog_has_current_release_heading": changelog_text.startswith("# Changelog\n\n## ${VERSION} - "),
         "changelog_gzip_mtime_zero": changelog_path.read_bytes()[4:8] == b"\x00\x00\x00\x00",
     },
