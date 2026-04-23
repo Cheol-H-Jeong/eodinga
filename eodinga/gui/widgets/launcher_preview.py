@@ -83,21 +83,49 @@ class LauncherActionBar(QWidget):
         self.copy_name_button.setAccessibleName("Copy selected name")
         self.properties_button.setAccessibleName("Show selected properties")
 
-        for button in (
+        self._buttons = (
             self.open_button,
             self.reveal_button,
             self.copy_path_button,
             self.copy_name_button,
             self.properties_button,
-        ):
+        )
+        for button in self._buttons:
             layout.addWidget(button)
 
     def set_enabled(self, enabled: bool) -> None:
-        self.open_button.setEnabled(enabled)
-        self.reveal_button.setEnabled(enabled)
-        self.copy_path_button.setEnabled(enabled)
-        self.copy_name_button.setEnabled(enabled)
-        self.properties_button.setEnabled(enabled)
+        for button in self._buttons:
+            button.setEnabled(enabled)
+
+    @property
+    def buttons(self) -> tuple[SecondaryButton, ...]:
+        return self._buttons
+
+    def focus_first(self) -> None:
+        self._buttons[0].setFocus()
+
+    def focus_last(self) -> None:
+        self._buttons[-1].setFocus()
+
+    def focus_next(self, button: QWidget, fallback: QWidget) -> None:
+        current_index = self._buttons.index(button)
+        if current_index == len(self._buttons) - 1:
+            fallback.setFocus()
+            return
+        self._buttons[current_index + 1].setFocus()
+
+    def focus_previous(self, button: QWidget, fallback: QWidget) -> None:
+        current_index = self._buttons.index(button)
+        if current_index == 0:
+            fallback.setFocus()
+            return
+        self._buttons[current_index - 1].setFocus()
+
+    def focused_button(self) -> SecondaryButton | None:
+        for button in self._buttons:
+            if button.hasFocus():
+                return button
+        return None
 
 
 __all__ = ["LauncherActionBar", "LauncherPreviewPane"]
