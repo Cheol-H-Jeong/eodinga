@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.382 - 2026-04-23
+
+- Fixed regex literal parsing so `/.../` queries and spaced operator regexes now close on true odd/even backslash parity instead of misreading escaped delimiters.
+- Stabilized equal-score search ordering by breaking ties on normalized path text, removing rebuild-order drift caused by `file_id` fallback sorting.
+- Normalized Windows root scoping for drive-letter case, so lower-case `--root c:/...` filters still match indexed `C:\...` paths.
+
 ## 0.1.377 - 2026-04-23
 
 - Returned a clean `130` exit code for interrupted CLI commands, recording them as interrupted instead of crashed so Ctrl+C and signal stops no longer surface as unhandled failures.

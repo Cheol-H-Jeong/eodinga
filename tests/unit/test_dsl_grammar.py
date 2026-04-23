@@ -203,20 +203,21 @@ def test_parse_content_regex_with_escaped_slash_and_korean_text() -> None:
 )
 def test_parse_regex_allows_even_backslashes_before_closing_delimiter(
     query: str,
-    expected_type: type[object],
+    expected_type: type[RegexNode] | type[OperatorNode],
     expected_value: str,
 ) -> None:
     node = parse(query)
 
-    assert isinstance(node, expected_type)
-    if isinstance(node, RegexNode):
+    if expected_type is RegexNode:
+        assert isinstance(node, RegexNode)
         assert node.pattern == expected_value
         assert node.flags == "i"
-    else:
-        assert node.name == "content"
-        assert node.value_kind == "regex"
-        assert node.value == expected_value
-        assert node.regex_flags == "i"
+        return
+    assert isinstance(node, OperatorNode)
+    assert node.name == "content"
+    assert node.value_kind == "regex"
+    assert node.value == expected_value
+    assert node.regex_flags == "i"
 
 
 @pytest.mark.parametrize(
