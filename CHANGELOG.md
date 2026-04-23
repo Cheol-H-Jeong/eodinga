@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.874 - 2026-04-23
+
+- Fixed `eodinga stats --json` so the emitted command metrics now include the in-flight `stats` invocation itself, keeping command completion, exit-code totals, and recent snapshots internally consistent.
+- Added structured `log_file_sources` and `log_file_disable_reasons` sections to the stats payload, so operators can audit file-log routing without decoding dotted counter names by hand.
+
 ## 0.1.868 - 2026-04-23
 
 - Preserved negated query filters in launcher summaries, so grouped filters like `-(ext:pdf | date:today)` no longer show misleading positive chips.
