@@ -647,3 +647,36 @@ def test_watcher_start_ignores_duplicate_root_registration(
 
     assert started == [tmp_path]
     assert stopped == [tmp_path]
+
+
+def test_watcher_backpressure_keeps_pending_events_until_queue_drains(tmp_path: Path) -> None:
+    service = WatchService(max_queue_size=1)
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=first,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=second,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    queued = service.queue.get_nowait()
+    assert queued.path == first
+    assert second in service._pending
+
+    service._flush_ready(force=True)
+    queued = service.queue.get_nowait()
+    assert queued.path == second
+    assert second not in service._pending

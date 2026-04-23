@@ -100,8 +100,8 @@ class _Handler(FileSystemEventHandler):
 
 
 class WatchService:
-    def __init__(self) -> None:
-        self.queue: Queue[WatchEvent] = Queue()
+    def __init__(self, *, max_queue_size: int = 0) -> None:
+        self.queue: Queue[WatchEvent] = Queue(maxsize=max_queue_size)
         self._pending: dict[Path, WatchEvent] = {}
         self._retired_sources: dict[Path, set[Path]] = {}
         self._flushed_retired_sources: set[Path] = set()
@@ -261,7 +261,12 @@ class WatchService:
                 for path, timestamp in self._timestamps.items()
                 if force or (now - timestamp) >= _DEBOUNCE_SECONDS
             ]
+            available_slots = self.queue.maxsize - self.queue.qsize()
+            if self.queue.maxsize <= 0:
+                available_slots = len(ready_paths)
             for path in ready_paths:
+                if available_slots <= 0:
+                    break
                 event = self._pending.pop(path, None)
                 retired_sources = self._retired_sources.pop(path, set())
                 self._timestamps.pop(path, None)
@@ -273,6 +278,7 @@ class WatchService:
                     if event.event_type in {"created", "modified", "deleted"}:
                         self._flushed_retired_sources.discard(event.path)
                     self.queue.put(event)
+                    available_slots -= 1
 
     def _reset_state(self) -> None:
         with self._lock:
