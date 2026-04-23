@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QEventLoop, QTimer
+from PySide6.QtCore import QEvent, QEventLoop, QPoint, QPointF, QTimer
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QMouseEvent
 from PySide6.QtTest import QTest
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
@@ -688,3 +689,44 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.preview_pane.accessibleName() == "Launcher preview pane"
     assert launcher.action_bar.accessibleName() == "Launcher action bar"
     assert launcher.action_bar.open_button.accessibleName() == "Open selected result"
+
+
+def test_launcher_can_drag_frameless_window_from_footer_surface(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+    launcher.move(120, 90)
+    qapp.processEvents()
+
+    press = QMouseEvent(
+        QEvent.Type.MouseButtonPress,
+        QPointF(6, 6),
+        QPointF(6, 6),
+        QPointF(126, 96),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    move = QMouseEvent(
+        QEvent.Type.MouseMove,
+        QPointF(30, 22),
+        QPointF(30, 22),
+        QPointF(260, 180),
+        Qt.MouseButton.NoButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    release = QMouseEvent(
+        QEvent.Type.MouseButtonRelease,
+        QPointF(30, 22),
+        QPointF(30, 22),
+        QPointF(260, 180),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+    assert launcher.eventFilter(launcher.shortcut_label, press)
+    assert launcher.eventFilter(launcher.shortcut_label, move)
+    assert launcher.pos() == QPoint(254, 174)
+    assert launcher.eventFilter(launcher.shortcut_label, release)
+    assert launcher.shortcut_label.cursor().shape() == Qt.CursorShape.OpenHandCursor

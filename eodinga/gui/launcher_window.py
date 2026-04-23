@@ -1,13 +1,38 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
-from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
+from PySide6.QtCore import QEvent, QPoint, QRect, QSize, QTimer, Qt
+from PySide6.QtGui import QCloseEvent, QGuiApplication, QHideEvent, QMouseEvent, QMoveEvent, QResizeEvent, QShowEvent
+from PySide6.QtWidgets import QWidget
 
 from eodinga.config import AppConfig
 from eodinga.gui.design import MOTION_DEBOUNCE_MS
 from eodinga.gui.launcher import LauncherPanel, LauncherState, SearchFn
+
+
+def _bounded_size(size: QSize, available: QRect) -> QSize:
+    return QSize(
+        min(max(size.width(), 320), max(available.width(), 320)),
+        min(max(size.height(), 240), max(available.height(), 240)),
+    )
+
+
+def _clamp_top_left(top_left: QPoint, size: QSize, available: QRect) -> QPoint:
+    max_x = max(available.left(), available.right() - size.width() + 1)
+    max_y = max(available.top(), available.bottom() - size.height() + 1)
+    return QPoint(
+        min(max(top_left.x(), available.left()), max_x),
+        min(max(top_left.y(), available.top()), max_y),
+    )
+
+
+def _centered_top_left(size: QSize, available: QRect) -> QPoint:
+    return QPoint(
+        available.left() + max((available.width() - size.width()) // 2, 0),
+        available.top() + max((available.height() - size.height()) // 2, 0),
+    )
 
 
 class LauncherWindow(LauncherPanel):
@@ -25,6 +50,7 @@ class LauncherWindow(LauncherPanel):
         self._config = config
         self._config_path = config_path.expanduser() if config_path is not None else None
         self._geometry_restored = False
+        self._drag_offset: QPoint | None = None
         self._geometry_save_timer = QTimer(self)
         self._geometry_save_timer.setSingleShot(True)
         self._geometry_save_timer.setInterval(150)
@@ -38,6 +64,9 @@ class LauncherWindow(LauncherPanel):
         width = self._config.launcher.window_width if self._config is not None else 640
         height = self._config.launcher.window_height if self._config is not None else 480
         self.resize(width, height)
+        for widget in (self.empty_state, self.status_chip, self.shortcut_label, self.status_label):
+            widget.installEventFilter(self)
+            widget.setCursor(Qt.CursorShape.OpenHandCursor)
 
     def keyPressEvent(self, event) -> None:
         if event.key() == Qt.Key.Key_Escape:
@@ -49,11 +78,18 @@ class LauncherWindow(LauncherPanel):
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
         if not self._geometry_restored and self._config is not None:
-            if self._config.launcher.window_x is not None and self._config.launcher.window_y is not None:
-                self.move(self._config.launcher.window_x, self._config.launcher.window_y)
+            geometry = self._restored_geometry()
+            self.resize(geometry.size())
+            self.move(geometry.topLeft())
             self._geometry_restored = True
         self.query_field.setFocus()
         self.query_field.selectAll()
+
+    def eventFilter(self, watched, event) -> bool:
+        if watched in {self.empty_state, self.status_chip, self.shortcut_label, self.status_label}:
+            if self._handle_drag_event(cast(QWidget, watched), event):
+                return True
+        return super().eventFilter(watched, event)
 
     def moveEvent(self, event: QMoveEvent) -> None:
         super().moveEvent(event)
@@ -84,6 +120,27 @@ class LauncherWindow(LauncherPanel):
         self._persist_geometry()
         super().closeEvent(event)
 
+    def _available_geometry(self) -> QRect:
+        if QGuiApplication.instance() is None:
+            return QRect(0, 0, max(self.width(), 640), max(self.height(), 480))
+        cursor_pos = self.mapToGlobal(self.rect().center())
+        screen = QGuiApplication.screenAt(cursor_pos) or QGuiApplication.primaryScreen()
+        if screen is None:
+            return QRect(0, 0, max(self.width(), 640), max(self.height(), 480))
+        return screen.availableGeometry()
+
+    def _restored_geometry(self) -> QRect:
+        available = self._available_geometry()
+        target_size = _bounded_size(self.size(), available)
+        if self._config is None:
+            top_left = _centered_top_left(target_size, available)
+            return QRect(top_left, target_size)
+        if self._config.launcher.window_x is None or self._config.launcher.window_y is None:
+            top_left = _centered_top_left(target_size, available)
+            return QRect(top_left, target_size)
+        top_left = QPoint(self._config.launcher.window_x, self._config.launcher.window_y)
+        return QRect(_clamp_top_left(top_left, target_size, available), target_size)
+
     def _schedule_geometry_persist(self) -> None:
         if self._config is None or self._config_path is None or not self._geometry_restored or not self.isVisible():
             return
@@ -107,3 +164,26 @@ class LauncherWindow(LauncherPanel):
             return
         self._config.launcher = self._config.launcher.model_copy(update=geometry)
         self._config.save(self._config_path)
+
+    def _handle_drag_event(self, watched: QWidget, event: QEvent) -> bool:
+        if event.type() == QEvent.Type.MouseButtonPress:
+            mouse_event = cast(QMouseEvent, event)
+            if mouse_event.button() != Qt.MouseButton.LeftButton:
+                return False
+            self._drag_offset = mouse_event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            watched.setCursor(Qt.CursorShape.ClosedHandCursor)
+            return True
+        if event.type() == QEvent.Type.MouseMove and self._drag_offset is not None:
+            mouse_event = cast(QMouseEvent, event)
+            if not mouse_event.buttons() & Qt.MouseButton.LeftButton:
+                return False
+            self.move(mouse_event.globalPosition().toPoint() - self._drag_offset)
+            return True
+        if event.type() == QEvent.Type.MouseButtonRelease and self._drag_offset is not None:
+            mouse_event = cast(QMouseEvent, event)
+            if mouse_event.button() != Qt.MouseButton.LeftButton:
+                return False
+            self._drag_offset = None
+            watched.setCursor(Qt.CursorShape.OpenHandCursor)
+            return True
+        return False

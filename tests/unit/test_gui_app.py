@@ -4,7 +4,7 @@ from pathlib import Path
 import sqlite3
 from typing import cast
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRect, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QSystemTrayIcon
 
@@ -150,6 +150,7 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
         tuple[object, EodingaWindow, LauncherWindow],
         launch_gui(test_mode=True, config=config, config_path=temp_config_path),
     )
+    launcher._available_geometry = lambda: QRect(0, 0, 1920, 1080)  # type: ignore[method-assign]
 
     launcher.show()
     launcher.move(180, 96)
@@ -170,6 +171,7 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
         tuple[object, EodingaWindow, LauncherWindow],
         launch_gui(test_mode=True, config=stored, config_path=temp_config_path),
     )
+    restored_launcher._available_geometry = lambda: QRect(0, 0, 1920, 1080)  # type: ignore[method-assign]
     restored_launcher.show()
     qapp.processEvents()
 
@@ -179,6 +181,50 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     assert restored_launcher.pos().y() == 96
 
     restored_window.close()
+    qapp.processEvents()
+
+
+def test_launcher_centers_on_available_screen_without_saved_position(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"window_x": None, "window_y": None, "window_width": 720, "window_height": 400})
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+    launcher._available_geometry = lambda: QRect(100, 80, 1280, 720)  # type: ignore[method-assign]
+
+    launcher.show()
+    qapp.processEvents()
+
+    assert launcher.width() == 720
+    assert launcher.height() == 400
+    assert launcher.pos().x() == 380
+    assert launcher.pos().y() == 240
+
+    window.close()
+    qapp.processEvents()
+
+
+def test_launcher_clamps_saved_geometry_to_available_screen(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(
+        update={"window_x": 2200, "window_y": 1600, "window_width": 1600, "window_height": 900}
+    )
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+    launcher._available_geometry = lambda: QRect(40, 20, 1024, 640)  # type: ignore[method-assign]
+
+    launcher.show()
+    qapp.processEvents()
+
+    assert launcher.width() == 1024
+    assert launcher.height() == 640
+    assert launcher.pos().x() == 40
+    assert launcher.pos().y() == 20
+
+    window.close()
     qapp.processEvents()
 
 
