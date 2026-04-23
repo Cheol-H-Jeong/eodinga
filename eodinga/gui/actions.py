@@ -52,6 +52,10 @@ class DesktopActions:
         clipboard = self._app.clipboard()
         clipboard.setText(str(hit.path))
 
+    def copy_hit_name(self, hit: SearchHit) -> None:
+        clipboard = self._app.clipboard()
+        clipboard.setText(hit.name)
+
     def _open_path(self, path: Path) -> None:
         if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
             get_logger().warning("failed to open local path {}", path)

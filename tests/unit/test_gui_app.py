@@ -261,6 +261,7 @@ class _ActionSpy:
         self.revealed: list[str] = []
         self.properties: list[str] = []
         self.copied: list[str] = []
+        self.copied_names: list[str] = []
 
     def open_hit(self, hit: SearchHit) -> None:
         self.opened.append(hit.name)
@@ -273,6 +274,9 @@ class _ActionSpy:
 
     def copy_hit_path(self, hit: SearchHit) -> None:
         self.copied.append(str(hit.path))
+
+    def copy_hit_name(self, hit: SearchHit) -> None:
+        self.copied_names.append(hit.name)
 
 
 def test_app_wires_launcher_shortcuts_to_desktop_actions(qapp) -> None:
@@ -292,18 +296,20 @@ def test_app_wires_launcher_shortcuts_to_desktop_actions(qapp) -> None:
     spy = _ActionSpy()
     window = EodingaWindow(search_fn=search_fn, desktop_actions=spy)
 
-    for launcher in (window.launcher_window, window.search_tab.launcher_panel):
+    for index, launcher in enumerate((window.launcher_window, window.search_tab.launcher_panel)):
         launcher.query_field.setText("release")
         launcher._run_query()
         launcher.activate_current_result()
         launcher.emit_open_containing_folder()
         launcher.emit_show_properties()
         launcher.emit_copy_path()
+        window._copy_name_shortcuts[index].activated.emit()
 
     assert spy.opened == ["release-notes.txt", "release-notes.txt"]
     assert spy.revealed == ["release-notes.txt", "release-notes.txt"]
     assert spy.properties == ["release-notes.txt", "release-notes.txt"]
     assert spy.copied == ["/tmp/release-notes.txt", "/tmp/release-notes.txt"]
+    assert spy.copied_names == ["release-notes.txt", "release-notes.txt"]
 
 
 def test_desktop_actions_copy_path_updates_clipboard(qapp) -> None:
@@ -313,6 +319,15 @@ def test_desktop_actions_copy_path_updates_clipboard(qapp) -> None:
     actions.copy_hit_path(hit)
 
     assert qapp.clipboard().text() == "/tmp/report.txt"
+
+
+def test_desktop_actions_copy_name_updates_clipboard(qapp) -> None:
+    actions = DesktopActions(qapp)
+    hit = SearchHit(path=Path("/tmp/report.txt"), parent_path=Path("/tmp"), name="report.txt")
+
+    actions.copy_hit_name(hit)
+
+    assert qapp.clipboard().text() == "report.txt"
 
 
 def test_build_index_search_fn_queries_real_index(tmp_path: Path) -> None:
