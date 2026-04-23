@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.527 - 2026-04-23
+
+- Added an active-filter row to the launcher so parsed DSL operators such as `ext:`, `date:`, `content:`, and negated filters stay visible while typing instead of disappearing into the raw query string.
+- Made those active-filter chips actionable, so clicking one focuses the query field and selects the matching filter token for immediate editing.
+- Brought the preview pane onto the same highlighting path as the result list, so matched terms are emphasized consistently in the selected file name, path, and snippet.
+
 ## 0.1.524 - 2026-04-23
 
 - Retained a bounded in-memory timeline of recent command snapshots and exposed it through `stats --json`, so operators can see the last successful index/search/stats/doctor/version activity without scraping debug logs.
