@@ -4,6 +4,7 @@ import sqlite3
 import unicodedata
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Mapping
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -1436,7 +1437,7 @@ def test_phrase_query_python_scan_reads_records_in_batches(
         where_params: tuple[object, ...],
         limit: int,
         offset: int,
-    ) -> dict[int, object]:
+    ) -> Mapping[int, object]:
         batch_limits.append(limit)
         return original_fetch(conn, where_sql, where_params, limit, offset)
 

@@ -4,7 +4,7 @@ import re
 import sqlite3
 import time
 import unicodedata
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict
 
 from eodinga.common import FileRecord
 from eodinga.observability import increment_counter, record_histogram
-from eodinga.query.compiler import CompiledBranch, CompiledQuery
+from eodinga.query.compiler import CompiledBranch, CompiledQuery, CompiledTextTerm
 from eodinga.query.ranker import rank_results
 
 
@@ -273,7 +273,7 @@ def _plain_term_matches_record(
 
 def _record_matches_positive_path_terms(
     record: FileRecord,
-    positive_terms: list[object],
+    positive_terms: Sequence[CompiledTextTerm],
     *,
     case_sensitive: bool,
 ) -> bool:
@@ -286,7 +286,7 @@ def _record_matches_positive_path_terms(
 
 def _record_has_prefix_hit(
     record: FileRecord,
-    positive_terms: list[object],
+    positive_terms: Sequence[CompiledTextTerm],
     *,
     case_sensitive: bool,
 ) -> bool:
