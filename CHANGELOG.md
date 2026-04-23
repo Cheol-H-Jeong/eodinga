@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.707 - 2026-04-23
+## 0.1.708 - 2026-04-23
 
 - Persisted observability counters, histograms, and recent command snapshots to a runtime state file so separate CLI invocations now accumulate into the same `stats --json` view instead of resetting to process-local memory.
 - Exposed the resolved metrics-state path and last persisted timestamp in `stats --json`, and embedded the same metadata into crash logs so operators can inspect or clean up the persisted observability state directly.
