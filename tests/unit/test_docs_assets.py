@@ -148,6 +148,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Running the Suite" in performance
     assert "## Baseline" in performance
     assert "## Profiling Workflow" in performance
+    assert "Each benchmark prints a structured summary line to stdout." in performance
+    assert "The defaults currently checked into the suite are:" in performance
+    assert "The printed benchmark summary line." in performance
 
     assert "## Pick The Version" in release
     assert "## Refresh Release Notes" in release

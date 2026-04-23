@@ -32,6 +32,8 @@ The current perf suite covers the SPEC §6.3 scenarios with smaller local-dev da
 - `tests/perf/test_content_query.py`: content query latency against a 5k-document corpus.
 - `tests/perf/test_watch_latency.py`: file-create to query-visible latency through the watcher path.
 
+Each benchmark prints a structured summary line to stdout. Capture those lines directly in commit notes or a scratch file when you refresh the baseline so the numbers in this document remain auditable against the exact test output.
+
 ## Scaling Knobs
 
 Use env vars to raise workload size or tighten/relax the informational gate for a single run:
@@ -55,6 +57,16 @@ Supported overrides:
 - `EODINGA_PERF_CONTENT_DOC_COUNT`, `EODINGA_PERF_CONTENT_QUERY_COUNT`, `EODINGA_PERF_CONTENT_P95_MS`
 - `EODINGA_PERF_WATCH_FILE_COUNT`, `EODINGA_PERF_WATCH_P99_SECONDS`
 
+The defaults currently checked into the suite are:
+
+| Benchmark | Size knobs | Gate knobs |
+| --- | --- | --- |
+| Cold start | `EODINGA_PERF_COLD_START_FILE_COUNT=20000` | `EODINGA_PERF_COLD_START_MIN_FPS=4000`, `EODINGA_PERF_REBUILD_MIN_FPS=3500` |
+| Bulk upsert | `EODINGA_PERF_BULK_FILE_COUNT=50000` | `EODINGA_PERF_BULK_MIN_RPS=20000` |
+| Name query | `EODINGA_PERF_QUERY_FILE_COUNT=50000`, `EODINGA_PERF_QUERY_COUNT=2000` | `EODINGA_PERF_QUERY_P95_MS=30` |
+| Content query | `EODINGA_PERF_CONTENT_DOC_COUNT=5000`, `EODINGA_PERF_CONTENT_QUERY_COUNT=500` | `EODINGA_PERF_CONTENT_P95_MS=150` |
+| Watch latency | `EODINGA_PERF_WATCH_FILE_COUNT=25` | `EODINGA_PERF_WATCH_P99_SECONDS=2.0` |
+
 ## Baseline
 
 Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed after the 0.1.69 writer no-parser fast-path round:
@@ -69,6 +81,13 @@ Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv`
 | Watch latency | 25 created files | p99 0.133 s |
 
 These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. This round removes the guaranteed-empty content-upsert pass whenever `IndexWriter` is running without a parser callback, which trims metadata-only indexing and makes the staged rebuild benchmark reflect the actual `content_enabled=False` fast path instead of paying for a no-op parser loop.
+
+When you refresh this table, record:
+
+1. The command you ran.
+2. The printed benchmark summary line.
+3. Any non-default env overrides that changed dataset size or gate thresholds.
+4. Whether the run was warm-cache or after a cold filesystem cache reset.
 
 ## Interpreting Results
 
@@ -100,3 +119,4 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 - The shipped thresholds are intentionally lower than the SPEC reference-box targets so developer laptops and CI-like hosts can still catch algorithmic regressions.
 - Query latency benchmarks are most useful as relative comparisons across rounds; the absolute number depends heavily on cache warmth and SQLite page cache state.
 - Content-query numbers move with parser output volume as much as with ranking logic, so compare corpus shape before attributing a slowdown to the executor.
+- Watch-latency failures should be read as an end-to-end signal; check watchdog delivery, event batching, SQLite commit timing, and query visibility before assuming the bottleneck is filesystem notification latency itself.
