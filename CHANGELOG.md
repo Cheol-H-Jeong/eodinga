@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.450 - 2026-04-23
+## 0.1.500 - 2026-04-23
 
 - Retained labeled counter and histogram series in the in-memory observability registry, so metrics tagged with fields such as parser name, command, event type, or root are no longer flattened away after increment time.
 - Expanded `eodinga stats --json` with raw metric series plus operator-friendly breakdowns for files indexed by root, parser errors by parser, watcher events by type, and command or watcher latency grouped by label.
