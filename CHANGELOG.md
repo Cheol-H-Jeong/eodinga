@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.525 - 2026-04-23
+## 0.1.531 - 2026-04-23
 
 - Extracted shared integration polling helpers so hot-restart and live-update end-to-end tests assert query visibility transitions through one consistent path.
 - Added watchdog integration coverage for files moving into a watched root, proving that a real filesystem rename becomes query-visible within the existing 500ms budget.
