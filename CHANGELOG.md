@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.244 - 2026-04-23
+
+- Added integration coverage for cross-root live moves so the watched query surface now proves a renamed file eventually leaves the source root scope and settles under the destination root.
+- Added hot-restart regressions that confirm watcher-applied creates survive reopen and watcher-applied deletes stay gone after reopening the index without a rebuild.
+- Added a real-watchdog service restart regression that proves `WatchService.stop()` clears queued state and the restarted watcher still propagates deletes into search within the existing latency budget.
+
 ## 0.1.242 - 2026-04-23
 
 - Hardened crash observability so same-second failures no longer overwrite prior `crash-*.log` files, unraisable exceptions now flow through the same crash-report path, and crash counters are visible in runtime stats.
