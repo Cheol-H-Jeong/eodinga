@@ -816,6 +816,43 @@ def test_nonzero_command_exit_counts_as_failed_without_crash_metrics(
     assert metrics["histograms"]["command_latency_ms"]["count"] == 1
 
 
+def test_successful_version_command_is_visible_in_stats(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    exit_code = main(["--db", str(db_path), "version"])
+    version_output = capsys.readouterr()
+    assert exit_code == 0
+    assert version_output.out.strip() == __version__
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["commands_started"] == 2
+    assert payload["commands_completed"] == 1
+    assert payload["commands_failed"] == 0
+    assert payload["commands"]["version"]["started"] == 1
+    assert payload["commands"]["version"]["completed"] == 1
+    assert payload["commands"]["stats"]["started"] == 1
+    assert payload["exit_codes"]["0"] == 1
+    assert payload["recent_snapshot_count"] == 1
+    assert payload["snapshots_recorded"] == 1
+    assert payload["recent_snapshots"] == [
+        {
+            "name": "command.version",
+            "recorded_at": payload["recent_snapshots"][0]["recorded_at"],
+            "payload": {"version": __version__},
+        }
+    ]
+    assert payload["counters"]["commands.version.started"] == 1
+    assert payload["counters"]["commands.version.completed"] == 1
+    assert payload["counters"]["commands.stats.started"] == 1
+    assert payload["counters"]["snapshots_recorded"] == 1
+    assert payload["histograms"]["command_latency_ms"]["count"] == 1
+
+
 def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Path, capsys, monkeypatch) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
