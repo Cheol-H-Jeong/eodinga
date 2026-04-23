@@ -110,6 +110,21 @@ user / startup
 - `eodinga doctor` reports both resumed staged rebuild/recovery work and unrecoverable stale-WAL failures so the operator sees the same startup path the runtime takes.
 - This keeps crash recovery local to the database directory and avoids mutating indexed user roots.
 
+## Hot Restart Sequence
+
+```text
+running app exits
+    |
+    +--> config and index paths stay on disk
+    |
+    +--> next launch -> open_index()
+            |
+            +--> resume staged recovery if needed
+            +--> open existing DB without a fresh walk
+            +--> queries work immediately
+            +--> watcher resumes incremental updates
+```
+
 ## Rebuild Sequence
 
 ```text
@@ -181,6 +196,14 @@ index / watch / search command
             +--> rotating runtime logs / crash-<ts>.log
 ```
 
+## Config And Data Paths
+
+| Kind of state | Default Linux path | Default Windows path | Notes |
+| --- | --- | --- | --- |
+| Config | `~/.config/eodinga/config.toml` | `%APPDATA%\\eodinga\\config.toml` | user-facing settings such as roots and launcher preferences |
+| Index DB | `~/.local/share/eodinga/index.db` | `%LOCALAPPDATA%\\eodinga\\index.db` | live SQLite/FTS store plus transient WAL/recovery sidecars |
+| Logs / crash reports | platform app-data directory | platform app-data directory | written only inside app-owned state, not indexed roots |
+
 ## Documentation Asset Flow
 
 ```text
@@ -199,6 +222,20 @@ runtime surface changes
 - `scripts/generate_manpage.py` derives the shipped man page from `eodinga.__main__._build_parser()` so CLI help and packaged docs stay aligned.
 - `scripts/render_docs_screenshots.py` renders offscreen Qt widgets through `eodinga.gui.docs`, keeping screenshots tied to real UI state instead of mock assets.
 - `tests/unit/test_docs_assets.py` pins the presence of the shipped sections and checks that the derived man page still matches the checked-in artifact.
+
+## Release Input Flow
+
+```text
+runtime / packaging / UI change
+    |
+    +--> README / docs/*.md update
+    |
+    +--> regenerate derived docs assets when needed
+    |
+    +--> docs asset tests + packaging dry-runs
+    |
+    +--> changelog + version bump + local tag
+```
 
 ## State Ownership
 

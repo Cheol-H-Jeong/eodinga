@@ -83,6 +83,15 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 - Operator tooling: `doctor`, `stats --json`, generated man page, screenshots rendered from real Qt widgets, and dry-run packaging audits.
 - Packaging contract: Windows installer plus Linux AppImage and `.deb` paths, all documented and verified in-repo.
 
+## Runtime Lifecycle
+
+| Phase | What happens | Primary command or surface |
+| --- | --- | --- |
+| Cold start | Walk configured roots, parse optional content, and stage a fresh SQLite/FTS index. | `eodinga index --root ...` or first GUI run |
+| Steady state | Watchdog-backed events coalesce filesystem changes and update the same index incrementally. | `eodinga watch` or packaged GUI background flow |
+| Search | CLI, GUI, and launcher all share the same parser, compiler, executor, and ranker. | `eodinga search`, main GUI, launcher |
+| Recovery | automatic on startup: resumes interrupted staged rebuilds, interrupted swaps, and stale WAL cleanup before opening the live DB. | automatic on startup, visible via `eodinga doctor` |
+
 ## Surface Matrix
 
 | Surface | Entry point | Best for | Notes |
@@ -240,7 +249,7 @@ Perf gates remain opt-in in v0.1, but the suite and local baseline are documente
 source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
 ```
 
-Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/path lookups at about 0.06 ms p95, content queries at about 0.62 ms p95, and watch visibility at about 0.133 s p99.
+Current 2026-04-23 local-dev baseline at this HEAD: cold start at roughly 5.6k files/sec, staged rebuild at 6.1k files/sec, 50k-file name/path lookups at about 0.10 ms p95, content queries at about 0.79 ms p95, and watch visibility at about 0.132 s p99.
 
 ## Packaging
 
@@ -264,6 +273,15 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - Linux AppImage dry runs render `packaging/linux/appimage-builder.yml` from the current package version before building.
 - Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, and compressed changelog into the package root.
 - The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
+
+## Validation Matrix
+
+| If you changed... | Minimum command | Broader confirmation |
+| --- | --- | --- |
+| Docs or README only | `pytest -q tests/unit/test_docs_assets.py` | `pytest -q tests/unit` |
+| CLI surface or parser flags | `python scripts/generate_manpage.py && pytest -q tests/unit/test_docs_assets.py` | `eodinga --help` plus the acceptance quickcheck |
+| Visible GUI copy or layout | `python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` | `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
+| Packaging docs or release notes | `python packaging/build.py --target windows-dry-run` | all three packaging dry-runs plus workflow lint |
 
 ## Recovery and Troubleshooting
 
@@ -336,6 +354,10 @@ Release-specific steps live in [docs/RELEASE.md](/home/cheol/projects/eodinga/do
 
 No. The runtime is local-only, the source tree is guarded by `tests/safety/test_no_network.py`, and indexed roots are treated as read-only inputs.
 
+### Which docs are treated as shipped release inputs?
+
+`README.md`, the guides under `docs/`, the generated man page at `docs/man/eodinga.1`, and the screenshots under `docs/screenshots/` are all treated as release inputs and are pinned by tests.
+
 ### What happens if indexing is interrupted?
 
 Startup resumes interrupted staged rebuilds and recovery swaps automatically. If recovery still looks suspicious, run `eodinga doctor` and then `eodinga index --rebuild`.
@@ -363,6 +385,10 @@ No. `0.1.x` is lexical only.
 ### Where is the CLI reference for packaged builds?
 
 Use `docs/man/eodinga.1`. It is generated from the parser in `eodinga.__main__`, so it stays aligned with `eodinga --help` instead of drifting as hand-written prose.
+
+### Can I validate release docs without producing installers?
+
+Yes. Run `pytest -q tests/unit/test_docs_assets.py` first, then use the packaging dry-runs from the acceptance checklist when the docs describe packaged artifacts or installer behavior.
 
 ## Limitations
 

@@ -79,6 +79,16 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Pre-Tag Sanity Check
+
+Use one non-interactive pass right before the metadata commit when you want to confirm the release inputs still line up:
+
+```bash
+git tag -l | sort -V | tail -3 && python -c "from pathlib import Path; import tomllib; print('pyproject', tomllib.loads(Path('pyproject.toml').read_text())['project']['version']); import eodinga; print('__init__', eodinga.__version__)"
+```
+
+That check catches the two easiest release mistakes in worker branches: picking a stale patch number after another worker lands first, or leaving `pyproject.toml` and `eodinga/__init__.py` out of sync.
+
 ## Worker Handoff Rules
 
 1. Keep feature or docs commits separate from the final metadata commit.
@@ -95,6 +105,8 @@ Use the same release discipline for docs-only changes when the shipped operator 
 2. Regenerate any derived docs assets touched by the round.
 3. Re-run `pytest -q tests/unit/test_docs_assets.py` plus the matching packaging dry-run or GUI smoke command.
 4. Add a changelog entry that names the docs surface changed and why it matters.
+
+Docs-only rounds should still describe what concrete operator surface moved, for example refreshed perf baselines, expanded recovery runbooks, or updated package validation commands.
 
 ## Cut The Local Release
 

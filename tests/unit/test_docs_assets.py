@@ -43,6 +43,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Quick Start" in readme
     assert "## Feature Overview" in readme
     assert "## Feature Inventory" in readme
+    assert "## Runtime Lifecycle" in readme
     assert "## Surface Matrix" in readme
     assert "## Acceptance Quickcheck" in readme
     assert "## DSL Cheatsheet" in readme
@@ -50,6 +51,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Hotkey" in readme
     assert "## Task Recipes" in readme
     assert "## Package Artifacts" in readme
+    assert "## Validation Matrix" in readme
     assert "## Config and Data Paths" in readme
     assert "## Operator Checklist" in readme
     assert "## Recovery and Troubleshooting" in readme
@@ -61,6 +63,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "linux-deb-dry-run" in readme
     assert "Launcher | global hotkey" in readme
     assert "Packaging audit failed" in readme
+    assert "Recovery | automatic on startup" in readme
+    assert "Visible GUI copy or layout" in readme
     assert "eodinga search 'date:this-week ext:md' --limit 10" in readme
     assert "docs/DSL.md" in readme
     assert "docs/ACCEPTANCE.md" in readme
@@ -75,6 +79,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "rendered offscreen from the real Qt surfaces" in readme
     assert "CLI-only hacking" in readme
     assert "Refresh shipped docs assets" in readme
+    assert "Which docs are treated as shipped release inputs?" in readme
+    assert "Can I validate release docs without producing installers?" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance
@@ -106,11 +112,14 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## SQLite Schema Snapshot" in architecture
     assert "## Index Lifecycle Sequence" in architecture
     assert "## Startup Recovery" in architecture
+    assert "## Hot Restart Sequence" in architecture
     assert "## Rebuild Sequence" in architecture
     assert "## Query Execution" in architecture
     assert "## Search Decision Path" in architecture
     assert "## Live Update Sequence" in architecture
+    assert "## Config And Data Paths" in architecture
     assert "## Documentation Asset Flow" in architecture
+    assert "## Release Input Flow" in architecture
     assert "## State Ownership" in architecture
     assert "## Failure Domains" in architecture
     assert "## Operator Debug Path" in architecture
@@ -126,6 +135,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Scope Guardrails" in contributing
     assert "## Documentation Expectations" in contributing
     assert "## Derived Asset Matrix" in contributing
+    assert "## Docs Change Matrix" in contributing
     assert "## Parallel Worktrees" in contributing
     assert "Required start gate for worker rounds" in contributing
     assert "## Theme-Sized Test Guide" in contributing
@@ -137,6 +147,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
     assert "## Review Checklist" in contributing
+    assert "## Perf Docs Refresh Rules" in contributing
+    assert "record the exact perf command and summary lines in the doc" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
     assert "The final release commit for a round should carry the version bump" in contributing
 
@@ -165,16 +177,20 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "EODINGA_PERF_REBUILD_MIN_FPS" in performance
     assert "## Running the Suite" in performance
     assert "## Baseline" in performance
+    assert "## Baseline Provenance" in performance
     assert "## Profiling Workflow" in performance
     assert "Each benchmark prints a structured summary line to stdout." in performance
     assert "The defaults currently checked into the suite are:" in performance
     assert "The printed benchmark summary line." in performance
+    assert "Captured benchmark summary lines:" in performance
+    assert "content_query docs=5000 count=500" in performance
 
     assert "## Pick The Version" in release
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
     assert "## Artifact Inventory" in release
     assert "## Verify Shipped Docs" in release
+    assert "## Pre-Tag Sanity Check" in release
     assert "## Worker Handoff Rules" in release
     assert "## Docs-Only Rounds" in release
     assert "## Cut The Local Release" in release
@@ -185,6 +201,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "git tag -l \"v0.1.N\"" in release
     assert "Collision check example" in release
     assert "Do not push tags or release branches from a worker worktree." in release
+    assert "git tag -l | sort -V | tail -3" in release
+    assert "stale patch number" in release
 
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage

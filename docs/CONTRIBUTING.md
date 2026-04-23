@@ -96,6 +96,15 @@ pytest -q tests/unit
 - Keep `CHANGELOG.md` aligned with landed behavior only; avoid speculative release notes.
 - Prefer documenting one-command validation paths when they exist; release and acceptance docs should not require readers to reverse-engineer command order.
 
+## Docs Change Matrix
+
+| Change type | Files to update first | Validation path |
+| --- | --- | --- |
+| Operator-facing behavior or packaging contract | `README.md`, then the deeper guide under `docs/` | `pytest -q tests/unit/test_docs_assets.py` plus any matching dry-run |
+| Runtime flow or recovery narrative | `docs/ARCHITECTURE.md` | `pytest -q tests/unit/test_docs_assets.py` |
+| Refreshed perf numbers | `docs/PERFORMANCE.md` only after rerunning `tests/perf/*` | record the exact perf command and summary lines in the doc |
+| CLI command surface | `docs/man/eodinga.1` via `python scripts/generate_manpage.py` | `pytest -q tests/unit/test_docs_assets.py` and `eodinga --help` |
+
 ## Derived Asset Matrix
 
 | If you changed... | Refresh or rerun... |
@@ -137,6 +146,14 @@ Use this when the round is docs-only but still release-bearing:
 4. Re-run `pytest -q tests/unit/test_docs_assets.py`.
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
+
+## Perf Docs Refresh Rules
+
+1. Do not refresh `docs/PERFORMANCE.md` from memory or a previous changelog entry.
+2. Re-run the benchmark command at the current HEAD first.
+3. Copy the emitted summary lines into the doc, not a paraphrase alone.
+4. Note whether env overrides or unusual cache conditions were used.
+5. If you did not rerun the benchmark locally, leave the existing baseline untouched.
 
 ## Test Selection Guide
 
