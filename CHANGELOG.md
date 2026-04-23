@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.510 - 2026-04-23
+
+- Rolled back watcher startup cleanly when `Observer.start()` fails, so a failed watch registration no longer leaves the debounce flush thread running in the background.
+- Preserved staged recovery and interrupted-build databases when the final atomic swap fails, allowing the next startup to retry from a verified staged snapshot instead of rebuilding recovery state from scratch.
+- Kept completed `.next` rebuild snapshots on publish failure, so transient swap errors no longer discard a fully built index before restart-based recovery can finish the handoff.
+
 ## 0.1.504 - 2026-04-23
 
 - Expanded `stats --json` with rebuild completion, rebuild latency, and batch-size summaries so operators can inspect indexing throughput without decoding raw metric keys.
