@@ -577,6 +577,7 @@ def test_execute_reuses_cached_sql_shapes_for_content_queries(
     executor_module._content_candidates_sql.cache_clear()
     executor_module._auto_content_candidates_sql.cache_clear()
     executor_module._content_backfill_sql.cache_clear()
+    executor_module._content_texts_sql.cache_clear()
 
     first = search(populated_db, "content:launch", limit=5)
     second = search(populated_db, 'content:"alpha project 20"', limit=5)
@@ -584,6 +585,50 @@ def test_execute_reuses_cached_sql_shapes_for_content_queries(
     assert first.hits
     assert second.hits
     assert executor_module._content_candidates_sql.cache_info().hits >= 1
+    assert executor_module._content_texts_sql.cache_info().currsize >= 1
+
+
+def test_fetch_content_texts_chunks_large_id_sets(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    for file_id in range(1, 260):
+        _insert_file(
+            tmp_db,
+            file_id,
+            f"/workspace/chunk/doc-{file_id:03d}.txt",
+            512,
+            now,
+            "txt",
+            body_text=f"body {file_id}",
+        )
+    tmp_db.commit()
+    executor_module._content_texts_sql.cache_clear()
+
+    content = executor_module._fetch_content_texts(tmp_db, range(1, 260))
+
+    assert len(content) == 259
+    assert content[1].endswith("body 1")
+    assert content[259].endswith("body 259")
+    assert executor_module._content_texts_sql.cache_info().currsize == 2
+
+
+def test_fetch_content_texts_reuses_cached_sql_shape(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    for file_id in range(1, 4):
+        _insert_file(
+            tmp_db,
+            file_id,
+            f"/workspace/cache/doc-{file_id:03d}.txt",
+            512,
+            now,
+            "txt",
+            body_text=f"cache {file_id}",
+        )
+    tmp_db.commit()
+    executor_module._content_texts_sql.cache_clear()
+
+    assert executor_module._fetch_content_texts(tmp_db, (1, 2))
+    assert executor_module._fetch_content_texts(tmp_db, (2, 3))
+    assert executor_module._content_texts_sql.cache_info().hits >= 1
 
 
 def test_execute_path_filter_with_short_unix_basename_literal(tmp_db: sqlite3.Connection) -> None:
