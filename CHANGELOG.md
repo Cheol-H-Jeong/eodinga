@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.733 - 2026-04-23
+## 0.1.734 - 2026-04-23
 
 - Expanded the README with clearer indexing-mode guidance, a first-index checklist, and troubleshooting recipes that distinguish content-indexing misses, root scoping, duplicate queries, and live-update issues.
 - Tightened `docs/ACCEPTANCE.md` and `docs/RELEASE.md` around docs-only validation, release-asset review order, and cheap metadata retargeting when another worker lands the candidate patch version first.
