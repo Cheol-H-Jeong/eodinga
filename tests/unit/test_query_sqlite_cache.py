@@ -1,30 +1,32 @@
 from __future__ import annotations
 
 import sqlite3
+from typing import cast
 
 from eodinga.query.sqlite_cache import PreparedStatementCache, clear_statement_cache, statement_cache_for
 
 
 class RecordingCursor(sqlite3.Cursor):
     def close(self) -> None:
-        self.connection.closed_cursors += 1  # type: ignore[attr-defined]
+        connection = cast(RecordingConnection, self.connection)
+        connection.closed_cursors += 1
         super().close()
 
 
 class RecordingConnection(sqlite3.Connection):
-    def __init__(self, *args: object, **kwargs: object) -> None:
-        super().__init__(*args, **kwargs)
-        self.cursor_calls = 0
-        self.closed_cursors = 0
+    cursor_calls: int
+    closed_cursors: int
 
-    def cursor(self, *args: object, **kwargs: object) -> sqlite3.Cursor:
+    def cursor(self, factory: type[sqlite3.Cursor] = RecordingCursor) -> sqlite3.Cursor:
         self.cursor_calls += 1
-        kwargs.setdefault("factory", RecordingCursor)
-        return super().cursor(*args, **kwargs)
+        return super().cursor(factory=factory)
 
 
 def test_prepared_statement_cache_reuses_cursor_for_same_sql() -> None:
     conn = sqlite3.connect(":memory:", factory=RecordingConnection)
+    conn = cast(RecordingConnection, conn)
+    conn.cursor_calls = 0
+    conn.closed_cursors = 0
     cache = PreparedStatementCache(conn, maxsize=4)
 
     assert cache.fetchone("SELECT 1") == (1,)
@@ -37,6 +39,9 @@ def test_prepared_statement_cache_reuses_cursor_for_same_sql() -> None:
 
 def test_prepared_statement_cache_evicts_least_recently_used_cursor() -> None:
     conn = sqlite3.connect(":memory:", factory=RecordingConnection)
+    conn = cast(RecordingConnection, conn)
+    conn.cursor_calls = 0
+    conn.closed_cursors = 0
     cache = PreparedStatementCache(conn, maxsize=2)
 
     assert cache.fetchone("SELECT 1") == (1,)

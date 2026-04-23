@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.834 - 2026-04-23
+
+- Added a reusable SQLite prepared-statement cache helper and routed executor hot-path reads through it, reducing repeated cursor setup on repeated query shapes.
+- Cached compiled regex patterns in the query executor so regex searches no longer recompile the same pattern for every candidate record.
+- Added an opt-in regex query latency benchmark behind `EODINGA_RUN_PERF=1` to keep the regex execution path measured alongside the existing perf suite.
+
 ## 0.1.830 - 2026-04-23
 
 - Tightened the shipped docs around docs-only validation so README and the release/contributor guides now point at one explicit evidence bundle covering docs assets, GUI smoke, and packaging dry runs.

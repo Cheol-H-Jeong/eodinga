@@ -7,7 +7,7 @@ import unicodedata
 from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, cast
 
 from pydantic import BaseModel, ConfigDict
 
@@ -166,8 +166,8 @@ def _content_texts_sql(chunk_size: int) -> str:
     """
 
 
-def _row_to_record(row: Mapping[str, object]) -> FileRecord:
-    payload = {key: row[key] for key in row.keys()}  # type: ignore[arg-type]
+def _row_to_record(row: sqlite3.Row) -> FileRecord:
+    payload = {key: row[key] for key in row.keys()}
     payload["is_dir"] = bool(payload["is_dir"])
     payload["is_symlink"] = bool(payload["is_symlink"])
     return FileRecord.model_validate(payload)
@@ -773,7 +773,9 @@ def _metadata_only_total_estimate(
         f"SELECT COUNT(*) FROM ({union_sql} LIMIT {int(cap)}) AS metadata_matches",
         tuple(params),
     )
-    return int(row[0]) if row is not None else 0
+    if row is None:
+        return 0
+    return int(cast(int | float | str | bytes, row[0]))
 
 
 def _derive_name_path_hits(
