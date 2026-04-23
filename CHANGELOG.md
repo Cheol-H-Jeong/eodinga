@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.744 - 2026-04-23
+
+- Extracted shared integration watcher/query wait helpers so live-update and hot-restart coverage can exercise identical timing and query assertions without duplicating queue-drain logic.
+- Added sequential integration flows that prove search refreshes correctly across create, modify, delete, and cross-root moves within a single live watcher session.
+- Added reopen-after-live-update coverage so the latest live-created, live-modified, and cross-root-moved state remains query-correct after closing and reopening the index without a rebuild.
+
 ## 0.1.738 - 2026-04-23
 
 - Added a `workflows-lint` packaging target and folded it into `release-dry-run`, so the packaging summary now proves the release workflow YAML stays lint-clean alongside the Windows and Linux dry-run audits.
