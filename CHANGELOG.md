@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.518 - 2026-04-23
+
+- Tightened unary `-` parsing so only directly attached terms are treated as negation, while dashed literals followed by whitespace no longer fail fuzzed parse and compile paths.
+- Stabilized equal-score query result ordering by breaking ties on normalized name, path, and then id, preventing rebuild-dependent shuffles when scores are identical.
+- Added parser and executor regressions for escaped-slash regexes with Korean text, covering raw regex literals and `content:/.../flags` queries end to end.
+
 ## 0.1.510 - 2026-04-23
 
 - Tightened structural query filters so `is:file` now matches regular files only and `is:dir` now matches non-symlink directories only, leaving `is:symlink` as the explicit way to query link entries.
