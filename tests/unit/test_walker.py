@@ -11,6 +11,18 @@ from eodinga.common import PathRules
 from eodinga.core.walker import walk_batched
 
 
+class _FakeDirEntry:
+    def __init__(self, path: Path, stat_result: os.stat_result) -> None:
+        self.path = str(path)
+        self._stat_result = stat_result
+        self.stat_calls = 0
+
+    def stat(self, *, follow_symlinks: bool = True) -> os.stat_result:
+        assert follow_symlinks is False
+        self.stat_calls += 1
+        return self._stat_result
+
+
 def test_walk_batched_visits_files_once_and_avoids_symlink_loop(tmp_path: Path) -> None:
     root = tmp_path / "tree"
     root.mkdir()
@@ -36,7 +48,7 @@ def test_walk_batched_visits_files_once_and_avoids_symlink_loop(tmp_path: Path) 
     assert before == after
 
 
-def test_walk_batched_reuses_discovery_stat_result(
+def test_walk_batched_reuses_scandir_entry_stat_for_children(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = tmp_path / "tree"
@@ -47,20 +59,32 @@ def test_walk_batched_reuses_discovery_stat_result(
 
     stat_calls: list[Path] = []
     original_stat_safe = walker_module.stat_safe
+    nested_stat = nested.lstat()
+    sample_stat = sample.lstat()
+    entries_by_path = {
+        root: [_FakeDirEntry(nested, nested_stat)],
+        nested: [_FakeDirEntry(sample, sample_stat)],
+    }
 
     def counting_stat(path: Path) -> os.stat_result:
         stat_calls.append(path)
         return original_stat_safe(path)
 
+    def fake_scandir(path: Path) -> list[_FakeDirEntry]:
+        return entries_by_path.get(path, [])
+
     monkeypatch.setattr(walker_module, "stat_safe", counting_stat)
+    monkeypatch.setattr(walker_module, "scandir_safe", fake_scandir)
 
     rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
     records = [record for batch in walk_batched(root, rules) for record in batch]
 
     assert {record.path for record in records} == {root, nested, sample}
     assert stat_calls.count(root) == 1
-    assert stat_calls.count(nested) == 1
-    assert stat_calls.count(sample) == 1
+    assert nested not in stat_calls
+    assert sample not in stat_calls
+    assert entries_by_path[root][0].stat_calls == 1
+    assert entries_by_path[nested][0].stat_calls == 1
 
 
 def test_walk_batched_uses_fs_wrapper_to_detect_symlinked_directories(

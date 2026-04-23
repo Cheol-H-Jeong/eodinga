@@ -67,10 +67,10 @@ def stat_follow_safe(path: Path) -> os.stat_result:
     return path.stat()
 
 
-def scandir_safe(path: Path) -> Iterator[Path]:
+def scandir_safe(path: Path) -> Iterator[os.DirEntry[str]]:
     with os.scandir(path) as entries:
         for entry in entries:
-            yield Path(entry.path)
+            yield entry
 
 
 def is_hidden(path: Path) -> bool:

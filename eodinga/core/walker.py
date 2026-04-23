@@ -2,16 +2,23 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterator
+from os import DirEntry
 from pathlib import Path
 from os import stat_result
 from stat import S_ISDIR, S_ISLNK
 from time import time
+from typing import NamedTuple
 
 from eodinga.common import FileRecord, PathRules
 from eodinga.core.fs import resolve_safe, scandir_safe, stat_follow_safe, stat_safe
 from eodinga.core.rules import should_index
 
 BATCH_SIZE = 8192
+
+
+class _PendingPath(NamedTuple):
+    path: Path
+    stat_result: stat_result | None
 
 
 def _to_record(root_id: int, path: Path, stat_result: stat_result) -> FileRecord:
@@ -49,17 +56,32 @@ def _should_descend(path: Path, root: Path, stat_result: stat_result) -> bool:
         return False
 
 
+def _entry_path(entry: DirEntry[str] | Path) -> Path:
+    if isinstance(entry, Path):
+        return entry
+    return Path(entry.path)
+
+
+def _entry_lstat(entry: DirEntry[str] | Path) -> stat_result:
+    if isinstance(entry, Path):
+        return stat_safe(entry)
+    return entry.stat(follow_symlinks=False)
+
+
 def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[list[FileRecord]]:
-    queue: deque[Path] = deque([root])
+    queue: deque[_PendingPath] = deque([_PendingPath(root, None)])
     visited_dirs: set[tuple[int, int]] = set()
     visited_resolved_dirs: set[Path] = set()
     batch: list[FileRecord] = []
     while queue:
-        current = queue.popleft()
-        try:
-            stat_result = stat_safe(current)
-        except OSError:
-            continue
+        pending = queue.popleft()
+        current = pending.path
+        stat_result = pending.stat_result
+        if stat_result is None:
+            try:
+                stat_result = stat_safe(current)
+            except OSError:
+                continue
         if not should_index(current, rules):
             continue
         batch.append(_to_record(root_id=root_id, path=current, stat_result=stat_result))
@@ -83,6 +105,12 @@ def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[lis
             children = scandir_safe(current)
         except OSError:
             continue
-        queue.extend(children)
+        for entry in children:
+            child_path = _entry_path(entry)
+            try:
+                child_stat = _entry_lstat(entry)
+            except OSError:
+                continue
+            queue.append(_PendingPath(child_path, child_stat))
     if batch:
         yield batch
