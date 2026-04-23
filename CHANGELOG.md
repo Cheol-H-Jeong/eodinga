@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.287 - 2026-04-23
+
+- Added an active-query summary row to the launcher so typed terms, filters, negations, and syntax mistakes stay visible while you refine a search.
+- Surfaced `Alt+1` through `Alt+9` quick-pick badges directly in launcher results and strengthened inline hit highlighting so the top matches scan faster.
+- Expanded launcher accessibility names across the status/footer, empty state, query summary, and preview content so the popup is easier to navigate with assistive tooling.
+
 ## 0.1.282 - 2026-04-23
 
 - Tightened the contributor and release guides around parallel worker worktrees, one-commit-at-a-time unit gates, and the final local-tag handoff flow so docs rounds remain reproducible under concurrent landing.
