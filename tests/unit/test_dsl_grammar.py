@@ -195,6 +195,35 @@ def test_parse_content_regex_with_escaped_slash_and_korean_text() -> None:
 
 
 @pytest.mark.parametrize(
+    ("query", "expected_name", "expected_pattern", "expected_flags"),
+    [
+        (r"/foo\\/i", None, r"foo\\", "i"),
+        (r"content: /foo\\/i", "content", r"foo\\", "i"),
+        (r"path: /tmp\\/m", "path", r"tmp\\", "m"),
+    ],
+)
+def test_parse_regex_closes_after_even_backslashes(
+    query: str,
+    expected_name: str | None,
+    expected_pattern: str,
+    expected_flags: str,
+) -> None:
+    node = parse(query)
+
+    if expected_name is None:
+        assert isinstance(node, RegexNode)
+        assert node.pattern == expected_pattern
+        assert node.flags == expected_flags
+        return
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == expected_name
+    assert node.value == expected_pattern
+    assert node.value_kind == "regex"
+    assert node.regex_flags == expected_flags
+
+
+@pytest.mark.parametrize(
     ("query", "expected_pattern", "expected_flags"),
     [
         (r"path:/tmp\/logs/i", r"tmp\/logs", "i"),
