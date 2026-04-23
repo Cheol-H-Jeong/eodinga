@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.406 - 2026-04-23
+## 0.1.411 - 2026-04-23
 
 - Surfaced active launcher filter chips directly beneath the search field so structured query terms stay visible while typing and navigating results.
 - Added launcher-side pin and unpin controls, including `Alt+P` and config persistence, so shared pinned queries can be curated from either launcher surface without editing config files.
