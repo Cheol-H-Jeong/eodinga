@@ -434,6 +434,21 @@ def test_watcher_backpressure_metrics_increment(tmp_path: Path) -> None:
     assert histograms["watcher_queue_backpressure_ms"]["count"] == 1
 
 
+def test_log_file_size_and_crash_inventory_follow_runtime_state(tmp_path: Path) -> None:
+    log_path = tmp_path / "logs" / "eodinga.log"
+    crash_dir = tmp_path / "crashes"
+    crash_dir.mkdir()
+    log_path.parent.mkdir()
+    log_path.write_text("hello log", encoding="utf-8")
+    (crash_dir / "crash-1.log").write_text("abc", encoding="utf-8")
+    (crash_dir / "crash-2.log").write_text("defgh", encoding="utf-8")
+
+    from eodinga.observability import crash_log_inventory, log_file_size
+
+    assert log_file_size(log_path) == 9
+    assert crash_log_inventory(crash_dir) == (2, 8)
+
+
 def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:
     reset_metrics()
 

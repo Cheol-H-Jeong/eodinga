@@ -29,6 +29,8 @@ from eodinga.observability import (
     recent_snapshots,
     resolve_crash_dir,
     resolve_log_path,
+    crash_log_inventory,
+    log_file_size,
     snapshot_metrics,
     report_crash,
     resolve_log_compression,
@@ -197,6 +199,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         index_snapshot = read_index_stats(conn)
     metrics = snapshot_metrics()
     counters = metrics["counters"]
+    log_path = resolve_log_path()
+    crash_dir = resolve_crash_dir()
+    crash_log_count, crash_log_bytes = crash_log_inventory(crash_dir)
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
         process_started_at=metrics["process_started_at"],
@@ -253,11 +258,15 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         recent_snapshots=[dict(entry) for entry in recent_snapshots()],
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
-        log_path=resolve_log_path(),
+        log_path=log_path,
+        log_exists=log_path is not None and log_path.exists(),
+        log_size_bytes=log_file_size(log_path),
         log_rotation=resolve_log_rotation(),
         log_retention=resolve_log_retention(),
         log_compression=resolve_log_compression(),
-        crash_dir=resolve_crash_dir(),
+        crash_dir=crash_dir,
+        crash_log_count=crash_log_count,
+        crash_log_bytes=crash_log_bytes,
         file_logging_enabled=file_logging_enabled(),
     ).model_dump(mode="json")
     record_snapshot(

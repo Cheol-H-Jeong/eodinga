@@ -116,6 +116,32 @@ def default_crash_dir() -> Path:
     return default_state_dir() / "crashes"
 
 
+def log_file_size(log_path: Path | None = None) -> int | None:
+    target = resolve_log_path(log_path)
+    if target is None:
+        return None
+    try:
+        return target.stat().st_size
+    except OSError:
+        return None
+
+
+def crash_log_inventory(crash_dir: Path | None = None) -> tuple[int, int]:
+    target_dir = resolve_crash_dir(crash_dir)
+    try:
+        crash_logs = [path for path in target_dir.glob("crash-*.log") if path.is_file()]
+    except OSError:
+        return (0, 0)
+    crash_count = len(crash_logs)
+    crash_bytes = 0
+    for path in crash_logs:
+        try:
+            crash_bytes += path.stat().st_size
+        except OSError:
+            continue
+    return (crash_count, crash_bytes)
+
+
 def file_logging_enabled() -> bool:
     return os.environ.get("EODINGA_DISABLE_FILE_LOGGING") != "1"
 

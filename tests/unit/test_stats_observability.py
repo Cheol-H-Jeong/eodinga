@@ -55,3 +55,34 @@ def test_stats_json_exposes_snapshot_counters_and_activity(tmp_path: Path, capsy
     assert payload["counters"]["snapshots_recorded"] == 2
     assert payload["counters"]["snapshots.command.search"] == 1
     assert payload["counters"]["snapshots.command.version"] == 1
+
+
+def test_stats_json_exposes_log_and_crash_artifact_inventory(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    capsys.readouterr()
+    log_path = tmp_path / "runtime" / "eodinga.log"
+    crash_dir = tmp_path / "runtime" / "crashes"
+    crash_dir.mkdir(parents=True)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text("log-body", encoding="utf-8")
+    (crash_dir / "crash-a.log").write_text("boom", encoding="utf-8")
+    (crash_dir / "crash-b.log").write_text("trace", encoding="utf-8")
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    reset_metrics()
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["log_path"] == str(log_path)
+    assert payload["log_exists"] is True
+    assert payload["log_size_bytes"] == 8
+    assert payload["crash_dir"] == str(crash_dir)
+    assert payload["crash_log_count"] == 2
+    assert payload["crash_log_bytes"] == 9
