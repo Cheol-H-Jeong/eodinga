@@ -269,20 +269,52 @@ def _fetch_record_batch(
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
+def _windows_scope_variants(root_text: str) -> tuple[str, ...]:
+    normalized = root_text.rstrip("/\\") or root_text
+    variants: list[str] = []
+
+    def add_variant(value: str) -> None:
+        candidate = value.rstrip("/\\") or value
+        if candidate and candidate not in variants:
+            variants.append(candidate)
+
+    def add_slash_forms(value: str) -> None:
+        add_variant(value)
+        add_variant(value.replace("\\", "/"))
+        add_variant(value.replace("/", "\\"))
+
+    def add_drive_letter_forms(value: str) -> None:
+        add_slash_forms(value)
+        if len(value) >= 2 and value[1] == ":" and value[0].isalpha():
+            add_slash_forms(value[0].upper() + value[1:])
+            add_slash_forms(value[0].lower() + value[1:])
+
+    raw = normalized
+    if raw.startswith("\\\\?\\"):
+        raw = raw[4:]
+    elif raw.startswith("//?/"):
+        raw = raw[4:]
+
+    add_drive_letter_forms(raw)
+    if len(raw) >= 2 and raw[1] == ":" and raw[0].isalpha():
+        raw_backslashes = raw.replace("/", "\\")
+        raw_forward = raw.replace("\\", "/")
+        upper_drive = raw[0].upper() + raw[1:]
+        lower_drive = raw[0].lower() + raw[1:]
+        add_variant("\\\\?\\" + raw_backslashes)
+        add_variant("//?/" + raw_forward)
+        add_variant("\\\\?\\" + upper_drive.replace("/", "\\"))
+        add_variant("\\\\?\\" + lower_drive.replace("/", "\\"))
+        add_variant("//?/" + upper_drive.replace("\\", "/"))
+        add_variant("//?/" + lower_drive.replace("\\", "/"))
+
+    return tuple(variants)
+
+
 def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
-    root_text = str(root)
-    normalized = root_text.rstrip("/\\") or root_text
-    variants = tuple(
-        dict.fromkeys(
-            (
-                normalized,
-                normalized.replace("\\", "/"),
-                normalized.replace("/", "\\"),
-            )
-        )
-    )
+    variants = _windows_scope_variants(str(root))
     exact_params = variants
     like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
         f"{variant}\\%" for variant in variants

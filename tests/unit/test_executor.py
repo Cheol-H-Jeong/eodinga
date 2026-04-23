@@ -756,6 +756,28 @@ def test_search_root_scope_matches_windows_style_paths(tmp_db: sqlite3.Connectio
     assert hits == [Path(r"C:\workspace\reports\alpha.txt")]
 
 
+@pytest.mark.parametrize(
+    ("stored_path", "root"),
+    [
+        (r"C:\workspace\reports\alpha.txt", Path("c:/workspace/reports")),
+        (r"\\?\C:\workspace\reports\alpha.txt", Path("C:/workspace/reports")),
+    ],
+)
+def test_search_root_scope_normalizes_windows_drive_case_and_long_path_prefix(
+    tmp_db: sqlite3.Connection,
+    stored_path: str,
+    root: Path,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, stored_path, 1024, now, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, r"C:\workspace\archive\alpha.txt", 1024, now - 60, "txt", body_text="alpha")
+    tmp_db.commit()
+
+    hits = [hit.file.path for hit in search(tmp_db, "alpha", limit=10, root=root).hits]
+
+    assert hits == [Path(stored_path)]
+
+
 def test_plain_query_can_fall_back_to_content_matches(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/projects/alpha.txt", 1024, now, "txt", body_text="launch checklist")
