@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.506 - 2026-04-23
+
+- Added launcher-side query pinning with config persistence, so frequently reused searches can be promoted from the active query into the shared pinned row without leaving the keyboard flow.
+- Kept launcher result actions inside the keyboard loop by sending `Tab` from the result list into the action bar and preserving `Shift+Tab` back toward the query field.
+- Surfaced active DSL operator chips beside the launcher search surface, making filters like `ext:`, `date:`, `path:`, and `content:` visible while typing without changing query semantics.
+
 ## 0.1.448 - 2026-04-23
 
 - Counted ordinary nonzero CLI exits as failed commands in observability metrics, so validation and syntax errors now appear in `commands_failed`, per-command failure tallies, and exit-code summaries without being misclassified as crashes.

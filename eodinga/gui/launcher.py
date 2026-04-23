@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_filters import active_filter_chips
+from eodinga.gui.launcher_hints import EMPTY_QUERY_HINT, FILTER_QUERY_HINT, RESULT_LIST_HINT, RESULT_QUERY_HINT
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
 from eodinga.gui.widgets import (
     EmptyState,
@@ -21,10 +22,7 @@ from eodinga.gui.widgets import (
     StatusChip,
 )
 from eodinga.observability import get_logger
-
 SearchFn = Callable[[str, int], QueryResult]
-
-
 class LauncherPanel(QWidget):
     results_updated = Signal(object)
     result_activated = Signal(object)
@@ -127,16 +125,11 @@ class LauncherPanel(QWidget):
         self.result_list.installEventFilter(self)
 
         self._shortcuts = [
-            QShortcut(QKeySequence(Qt.Key.Key_Return), self),
-            QShortcut(QKeySequence("Ctrl+Return"), self),
-            QShortcut(QKeySequence("Shift+Return"), self),
-            QShortcut(QKeySequence("Ctrl+D"), self),
-            QShortcut(QKeySequence("Alt+C"), self),
-            QShortcut(QKeySequence("Alt+N"), self),
-            QShortcut(QKeySequence(QKeySequence.StandardKey.SelectAll), self),
-            QShortcut(QKeySequence("Ctrl+L"), self),
-            QShortcut(QKeySequence("Alt+Up"), self),
-            QShortcut(QKeySequence("Alt+Down"), self),
+            QShortcut(QKeySequence(Qt.Key.Key_Return), self), QShortcut(QKeySequence("Ctrl+Return"), self),
+            QShortcut(QKeySequence("Shift+Return"), self), QShortcut(QKeySequence("Ctrl+D"), self),
+            QShortcut(QKeySequence("Alt+C"), self), QShortcut(QKeySequence("Alt+N"), self),
+            QShortcut(QKeySequence(QKeySequence.StandardKey.SelectAll), self), QShortcut(QKeySequence("Ctrl+L"), self),
+            QShortcut(QKeySequence("Alt+Up"), self), QShortcut(QKeySequence("Alt+Down"), self),
         ]
         self._shortcuts[0].activated.connect(self.activate_current_result)
         self._shortcuts[1].activated.connect(self.emit_open_containing_folder)
@@ -159,13 +152,12 @@ class LauncherPanel(QWidget):
         self.action_bar.copy_path_button.clicked.connect(self.emit_copy_path)
         self.action_bar.copy_name_button.clicked.connect(self.emit_copy_name)
         self.action_bar.properties_button.clicked.connect(self.emit_show_properties)
-        QWidget.setTabOrder(self.query_field, self.result_list)
-        QWidget.setTabOrder(self.result_list, self.action_bar.open_button)
-        QWidget.setTabOrder(self.action_bar.open_button, self.action_bar.reveal_button)
-        QWidget.setTabOrder(self.action_bar.reveal_button, self.action_bar.copy_path_button)
-        QWidget.setTabOrder(self.action_bar.copy_path_button, self.action_bar.copy_name_button)
-        QWidget.setTabOrder(self.action_bar.copy_name_button, self.action_bar.properties_button)
-        QWidget.setTabOrder(self.action_bar.properties_button, self.query_field)
+        for before, after in (
+            (self.query_field, self.result_list), (self.result_list, self.action_bar.open_button), (self.action_bar.open_button, self.action_bar.reveal_button),
+            (self.action_bar.reveal_button, self.action_bar.copy_path_button), (self.action_bar.copy_path_button, self.action_bar.copy_name_button),
+            (self.action_bar.copy_name_button, self.action_bar.properties_button), (self.action_bar.properties_button, self.query_field),
+        ):
+            QWidget.setTabOrder(before, after)
         self._quick_pick_shortcuts: list[QShortcut] = []
         for index in range(9):
             shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
@@ -187,13 +179,19 @@ class LauncherPanel(QWidget):
         self._search_fn = search_fn
 
     def set_recent_queries(self, queries: list[str]) -> None:
-        self._recent_queries = queries; self.recent_queries_row.set_queries(queries[:5]); self._refresh_empty_state()
+        self._recent_queries = queries
+        self.recent_queries_row.set_queries(queries[:5])
+        self._refresh_empty_state()
 
     def set_pinned_queries(self, queries: list[str]) -> None:
-        self._pinned_queries = queries; self.pinned_queries_row.set_queries(queries[:5]); self._refresh_empty_state()
+        self._pinned_queries = queries
+        self.pinned_queries_row.set_queries(queries[:5])
+        self._refresh_empty_state()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
-        self._indexing_status = status; self._refresh_status_footer(); self._refresh_empty_state()
+        self._indexing_status = status
+        self._refresh_status_footer()
+        self._refresh_empty_state()
 
     def activate_current_result(self) -> None:
         self._flush_pending_query()
@@ -210,9 +208,11 @@ class LauncherPanel(QWidget):
         self.result_activated.emit(hit)
 
     def focus_query_field(self) -> None:
-        self.query_field.setFocus(); self.query_field.selectAll()
+        self.query_field.setFocus()
+        self.query_field.selectAll()
 
-    def select_query_text(self) -> None: self.focus_query_field()
+    def select_query_text(self) -> None:
+        self.focus_query_field()
 
     def emit_open_containing_folder(self) -> None:
         self._emit_current_hit(self.open_containing_folder)
@@ -232,9 +232,11 @@ class LauncherPanel(QWidget):
         if hit is not None:
             signal.emit(hit)
 
-    def recall_previous_query(self) -> None: self._navigate_recent_queries(-1)
+    def recall_previous_query(self) -> None:
+        self._navigate_recent_queries(-1)
 
-    def recall_next_query(self) -> None: self._navigate_recent_queries(1)
+    def recall_next_query(self) -> None:
+        self._navigate_recent_queries(1)
 
     def toggle_current_query_pin(self) -> None:
         query = self.query_field.text().strip()
@@ -336,14 +338,11 @@ class LauncherPanel(QWidget):
     def _refresh_shortcut_hint(self) -> None:
         has_results = self.model.rowCount() > 0
         if not has_results:
-            if self.query_field.text().strip():
-                hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries."
-            else:
-                hint = "Type a filename, path, or content term. Alt+Up recalls recent queries. Ctrl+D pins the current query."
+            hint = FILTER_QUERY_HINT if self.query_field.text().strip() else EMPTY_QUERY_HINT
         elif self.result_list.hasFocus():
-            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Ctrl+D pins the current query. Tab reaches actions. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
+            hint = RESULT_LIST_HINT
         else:
-            hint = "Tab moves through results and actions. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Ctrl+D pins the current query. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
+            hint = RESULT_QUERY_HINT
         self.shortcut_label.setText(hint)
 
     def _current_hit(self) -> SearchHit | None:
