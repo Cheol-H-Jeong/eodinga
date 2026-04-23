@@ -150,8 +150,12 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "test_rebuild_cold_start_throughput" in performance
     assert "EODINGA_PERF_REBUILD_MIN_FPS" in performance
     assert "## Running the Suite" in performance
+    assert "## Benchmark Environment" in performance
     assert "## Baseline" in performance
+    assert "## Capture Discipline" in performance
     assert "## Profiling Workflow" in performance
+    assert "Python 3.12.3" in performance
+    assert "EODINGA_RUN_PERF=1 pytest -q tests/perf -s" in performance
 
     assert "## Pick The Version" in release
     assert "## Refresh Release Notes" in release

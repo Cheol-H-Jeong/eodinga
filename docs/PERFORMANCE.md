@@ -8,6 +8,16 @@ source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
 
 The shipped datasets stay small enough for local developer runs, but each benchmark now accepts env overrides so you can scale toward the SPEC reference-box shapes without editing test code.
 
+## Benchmark Environment
+
+This document should only carry numbers from a named local environment and a reproducible command. Current baseline environment:
+
+- Date: `2026-04-23`
+- Python: `Python 3.12.3`
+- OS: `Linux 6.17.0-22-generic x86_64 GNU/Linux`
+- Install surface: editable `.venv` with `pip install -e .[dev,parsers,gui]`
+- Command set: `EODINGA_RUN_PERF=1 pytest -q tests/perf -s` plus targeted reruns when one summary line is noisy or scrolled out of the aggregate output
+
 ## Running the Suite
 
 Use a warm local virtualenv and run the perf tests on an otherwise idle machine when you want comparable numbers.
@@ -57,18 +67,27 @@ Supported overrides:
 
 ## Baseline
 
-Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed after the 0.1.69 writer no-parser fast-path round:
+Measured on `2026-04-23` at current HEAD in the environment above:
 
 | Benchmark | Dataset | Result |
 | --- | --- | --- |
-| Cold start | 20,201 indexed entries | 6,059 files/sec |
-| Rebuild cold start | 20,201 indexed entries via `rebuild_index()` | 6,537 files/sec |
-| Bulk upsert | 50k synthetic records | 56,222 records/sec |
-| Name query latency | 2,000 queries / 50k files | p50 0.06 ms, p95 0.06 ms, p99 0.07 ms |
-| Content query latency | 500 queries / 5k docs | p50 0.60 ms, p95 0.63 ms, p99 0.67 ms |
-| Watch latency | 25 created files | p99 0.133 s |
+| Cold start | 20,201 indexed entries | 5,502 files/sec |
+| Rebuild cold start | 20,201 indexed entries via `rebuild_index()` | 5,474 files/sec |
+| Bulk upsert | 50k synthetic records | 53,859 records/sec |
+| Name query latency | 2,000 queries / 50k files | p50 0.10 ms, p95 0.11 ms, p99 0.12 ms |
+| Content query latency | 500 queries / 5k docs | p50 0.72 ms, p95 0.77 ms, p99 0.94 ms |
+| Watch latency | 25 created files | p99 0.151 s |
 
-These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. This round removes the guaranteed-empty content-upsert pass whenever `IndexWriter` is running without a parser callback, which trims metadata-only indexing and makes the staged rebuild benchmark reflect the actual `content_enabled=False` fast path instead of paying for a no-op parser loop.
+These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. Treat this table as a reproducibility ledger for the exact command set above, not as a promise that every host will match the same absolute numbers.
+
+## Capture Discipline
+
+When refreshing this page:
+
+1. Run the full suite once with `EODINGA_RUN_PERF=1 pytest -q tests/perf -s`.
+2. If one summary line scrolls past or looks noisy, rerun that individual perf file and record only the second run.
+3. Update the environment block, not just the numbers, whenever Python or kernel changes.
+4. Do not carry forward explanatory text from an older perf-improvement round unless the same behavior change still explains the current results.
 
 ## Interpreting Results
 
