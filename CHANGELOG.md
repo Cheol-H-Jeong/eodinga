@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.575 - 2026-04-23
+## 0.1.577 - 2026-04-23
 
 - Added subprocess CLI integration coverage for multi-root indexing, root-scoped search, and rebuilds that remove dropped-root content from follow-up queries.
 - Added CLI-backed live-update integration coverage on real temporary directories, asserting that watcher-applied file creation becomes searchable within 500ms for both single-root and multi-root indexes.
