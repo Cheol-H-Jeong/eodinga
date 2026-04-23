@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import json
+import signal
+from contextlib import contextmanager
 from pathlib import Path
-from typing import NamedTuple
+from threading import current_thread, main_thread
+from types import FrameType
+from typing import Iterator, NamedTuple, cast
 
 from eodinga.common import PathRules
 from eodinga.config import RootConfig
@@ -10,7 +14,7 @@ from eodinga.content.registry import parse
 from eodinga.core.walker import walk_batched
 from eodinga.index.storage import _cleanup_index_files, atomic_replace_index, connect_database
 from eodinga.index.writer import IndexWriter
-from eodinga.observability import increment_counter
+from eodinga.observability import get_logger, increment_counter
 
 DEFAULT_MAX_BODY_CHARS = 4096
 
@@ -21,12 +25,51 @@ class RebuildResult(NamedTuple):
     roots_indexed: int
 
 
+class _InterruptState:
+    def __init__(self) -> None:
+        self.requested = False
+        self.signal_name: str | None = None
+
+    def request(self, signum: int) -> None:
+        self.requested = True
+        self.signal_name = signal.Signals(signum).name
+
+
 def _staged_build_path(db_path: Path) -> Path:
     return db_path.with_name(f".{db_path.name}.next")
 
 
 def _normalize_root(root: RootConfig) -> RootConfig:
     return root.model_copy(update={"path": root.path.expanduser()})
+
+
+@contextmanager
+def _defer_termination_signals() -> Iterator[_InterruptState]:
+    state = _InterruptState()
+    if current_thread() is not main_thread():
+        yield state
+        return
+
+    logger = get_logger("index.build")
+    previous_handlers: dict[int, object] = {}
+
+    def handle(signum: int, _frame: FrameType | None) -> None:
+        if state.requested:
+            return
+        state.request(signum)
+        logger.warning(
+            "received {}; committing current transaction before stopping",
+            state.signal_name,
+        )
+
+    try:
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            previous_handlers[signum] = signal.getsignal(signum)
+            signal.signal(signum, handle)
+        yield state
+    finally:
+        for signum, handler in previous_handlers.items():
+            signal.signal(signum, cast(signal.Handlers, handler))
 
 
 def rebuild_index(
@@ -47,6 +90,8 @@ def rebuild_index(
 
     conn = connect_database(staged_path)
     files_indexed = 0
+    interrupted = False
+    interrupt_reason = "signal"
     parser_callback = (
         (lambda path: parse(path, max_body_chars=max_body_chars))
         if content_enabled
@@ -54,35 +99,49 @@ def rebuild_index(
     )
     try:
         writer = IndexWriter(conn, parser_callback=parser_callback)
-        with conn:
-            for root_id, root in enumerate(effective_roots, start=1):
-                conn.execute(
-                    """
-                    INSERT INTO roots(id, path, include, exclude, added_at)
-                    VALUES (?, ?, ?, ?, strftime('%s', 'now'))
-                    """,
-                    (
-                        root_id,
-                        str(root.path),
-                        json.dumps(root.include),
-                        json.dumps(root.exclude),
-                    ),
-                )
-                rules = PathRules(
-                    root=root.path,
-                    include=tuple(root.include),
-                    exclude=tuple(root.exclude),
-                )
-                for batch in walk_batched(root.path, rules, root_id=root_id):
-                    indexed = writer.bulk_upsert(batch)
-                    files_indexed += indexed
-                    if indexed:
-                        increment_counter("files_indexed", indexed, root=str(root.path))
+        with _defer_termination_signals() as interrupts:
+            with conn:
+                for root_id, root in enumerate(effective_roots, start=1):
+                    if interrupts.requested:
+                        interrupted = True
+                        interrupt_reason = interrupts.signal_name or interrupt_reason
+                        break
+                    conn.execute(
+                        """
+                        INSERT INTO roots(id, path, include, exclude, added_at)
+                        VALUES (?, ?, ?, ?, strftime('%s', 'now'))
+                        """,
+                        (
+                            root_id,
+                            str(root.path),
+                            json.dumps(root.include),
+                            json.dumps(root.exclude),
+                        ),
+                    )
+                    rules = PathRules(
+                        root=root.path,
+                        include=tuple(root.include),
+                        exclude=tuple(root.exclude),
+                    )
+                    for batch in walk_batched(root.path, rules, root_id=root_id):
+                        indexed = writer.bulk_upsert(batch)
+                        files_indexed += indexed
+                        if indexed:
+                            increment_counter("files_indexed", indexed, root=str(root.path))
+                        if interrupts.requested:
+                            interrupted = True
+                            interrupt_reason = interrupts.signal_name or interrupt_reason
+                            break
+                    if interrupted:
+                        break
     except Exception:
         conn.close()
         _cleanup_index_files(staged_path)
         raise
     conn.close()
+    if interrupted:
+        _cleanup_index_files(staged_path)
+        raise KeyboardInterrupt(f"index rebuild interrupted by {interrupt_reason}")
     try:
         atomic_replace_index(staged_path, target_path)
     except Exception:
