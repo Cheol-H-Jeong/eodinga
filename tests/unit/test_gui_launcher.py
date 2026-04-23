@@ -4,10 +4,12 @@ from pathlib import Path
 
 from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QPushButton
 from PySide6.QtTest import QTest
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
-from eodinga.gui.launcher import LauncherState, LauncherWindow
+from eodinga.gui.launcher import LauncherState
+from eodinga.gui.launcher_window import LauncherWindow
 
 
 def _wait(milliseconds: int) -> None:
@@ -567,6 +569,44 @@ def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     assert "Alt+1 through Alt+9" in launcher.empty_state.body_label.text()
 
 
+def test_launcher_query_chips_prioritize_pinned_and_recent_queries(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf", "size:>10M"])
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+    state.remember_query("budget")
+    state.remember_query("invoice")
+
+    chips = launcher.query_chip_bar.chip_labels()
+
+    assert chips[:4] == ["ext:pdf", "size:>10M", "invoice", "budget"]
+    assert "date:this-week" in chips
+
+
+def test_launcher_query_chip_click_appends_missing_filter_once(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState(pinned_queries=["ext:pdf"]))
+    launcher.show()
+
+    chip = next(button for button in launcher.query_chip_bar.findChildren(QPushButton) if button.text() == "ext:pdf")
+    launcher.query_field.setText("report")
+    QTest.mouseClick(chip, Qt.MouseButton.LeftButton)
+    assert launcher.query_field.text() == "report ext:pdf"
+
+    QTest.mouseClick(chip, Qt.MouseButton.LeftButton)
+    assert launcher.query_field.text() == "report ext:pdf"
+
+
+def test_launcher_query_chips_hide_existing_terms_from_suggestions(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState(pinned_queries=["ext:pdf", "date:this-week"]))
+    launcher.show()
+
+    launcher.query_field.setText("quarterly ext:pdf")
+    _wait(10)
+    chips = launcher.query_chip_bar.chip_labels()
+
+    assert "ext:pdf" not in chips
+    assert "date:this-week" in chips
+
+
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     launcher = LauncherWindow()
     launcher.show()
@@ -574,3 +614,11 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.result_list.accessibleName() == "Launcher results list"
+    assert launcher.query_chip_bar.accessibleName() == "Launcher query suggestions"
+    assert launcher.status_chip.accessibleName() == "Launcher status"
+    assert launcher.shortcut_label.accessibleName() == "Launcher shortcut hint"
+    assert launcher.status_label.accessibleName() == "Launcher status details"
+    assert launcher.empty_state.accessibleName() == "Launcher empty state"
+    assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"
+    assert launcher.empty_state.body_label.accessibleName() == "Launcher empty state guidance"
+    assert launcher.empty_state.details_label.accessibleName() == "Launcher empty state details"

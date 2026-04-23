@@ -4,7 +4,7 @@ from typing import Protocol
 
 from PySide6.QtCore import QObject, Signal
 
-from eodinga.gui.launcher import LauncherWindow
+from eodinga.gui.launcher_window import LauncherWindow
 from eodinga.launcher.hotkey import HotkeyService
 from eodinga.observability import get_logger
 

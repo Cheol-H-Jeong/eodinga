@@ -12,7 +12,7 @@ from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.config import AppConfig, load
 from eodinga.gui.actions import DesktopActions
 from eodinga.gui.app import EodingaWindow, build_index_search_fn, launch_gui
-from eodinga.gui.launcher import LauncherWindow
+from eodinga.gui.launcher_window import LauncherWindow
 from eodinga.gui.tabs import AboutTab, IndexTab, RootsTab, SearchTab, SettingsTab
 from eodinga.index.schema import apply_schema
 
