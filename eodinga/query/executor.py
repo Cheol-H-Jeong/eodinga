@@ -335,9 +335,9 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     root_text = str(root)
     normalized = _normalize_root_scope_text(root_text)
     variants = _root_variants(normalized)
-    windows_drive = _is_windows_drive_root(normalized)
-    column = "lower(files.path)" if windows_drive else "files.path"
-    exact_params = tuple(variant.lower() for variant in variants) if windows_drive else variants
+    windows_root = _is_windows_root(normalized)
+    column = "lower(files.path)" if windows_root else "files.path"
+    exact_params = tuple(variant.lower() for variant in variants) if windows_root else variants
     like_variants = tuple(_escape_like_pattern(variant) for variant in exact_params)
     like_params = tuple(f"{variant}/%" for variant in like_variants) + tuple(
         f"{variant}\\%" for variant in like_variants
@@ -373,13 +373,15 @@ def _normalize_root_scope_text(root_text: str) -> str:
 
 def _strip_windows_extended_prefix(root_text: str) -> str:
     windows_text = root_text.replace("/", "\\")
+    if windows_text.startswith("\\\\?\\UNC\\"):
+        return "\\\\" + windows_text[8:]
     if windows_text.startswith("\\\\?\\") and _WINDOWS_DRIVE_RE.match(windows_text[4:]):
         return windows_text[4:]
     return root_text
 
 
-def _is_windows_drive_root(root_text: str) -> bool:
-    return bool(_WINDOWS_DRIVE_RE.match(root_text))
+def _is_windows_root(root_text: str) -> bool:
+    return bool(_WINDOWS_DRIVE_RE.match(root_text)) or root_text.startswith("\\\\")
 
 
 def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:

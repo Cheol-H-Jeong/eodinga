@@ -1432,6 +1432,77 @@ def test_search_root_scope_matches_windows_extended_drive_prefix_paths(
     assert hits == [Path(r"C:\workspace\reports"), Path(r"C:\workspace\reports\alpha.txt")]
 
 
+def test_search_root_scope_matches_unc_share_case_variants(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, r"\\SERVER\Share\Reports", 0, now, "", is_dir=1)
+    _insert_file(
+        tmp_db,
+        2,
+        r"\\SERVER\Share\Reports\alpha.txt",
+        1024,
+        now - 60,
+        "txt",
+        body_text="alpha",
+    )
+    _insert_file(
+        tmp_db,
+        3,
+        r"\\SERVER\Share\Archive\alpha.txt",
+        1024,
+        now - 120,
+        "txt",
+        body_text="alpha",
+    )
+    tmp_db.commit()
+
+    hits = [
+        hit.file.path
+        for hit in search(tmp_db, "path:reports", limit=10, root=Path(r"\\server\share\reports")).hits
+    ]
+
+    assert hits == [Path(r"\\SERVER\Share\Reports"), Path(r"\\SERVER\Share\Reports\alpha.txt")]
+
+
+def test_search_root_scope_matches_extended_unc_prefix_paths(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, r"\\SERVER\Share\Reports", 0, now, "", is_dir=1)
+    _insert_file(
+        tmp_db,
+        2,
+        r"\\SERVER\Share\Reports\alpha.txt",
+        1024,
+        now - 60,
+        "txt",
+        body_text="alpha",
+    )
+    _insert_file(
+        tmp_db,
+        3,
+        r"\\SERVER\Share\Archive\alpha.txt",
+        1024,
+        now - 120,
+        "txt",
+        body_text="alpha",
+    )
+    tmp_db.commit()
+
+    hits = [
+        hit.file.path
+        for hit in search(
+            tmp_db,
+            "path:reports",
+            limit=10,
+            root=Path(r"\\?\UNC\server\share\reports"),
+        ).hits
+    ]
+
+    assert hits == [Path(r"\\SERVER\Share\Reports"), Path(r"\\SERVER\Share\Reports\alpha.txt")]
+
+
 def test_search_root_scope_escapes_like_wildcards_in_posix_paths(
     tmp_db: sqlite3.Connection,
 ) -> None:
