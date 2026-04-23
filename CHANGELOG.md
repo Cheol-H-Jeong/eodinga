@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.563 - 2026-04-23
+## 0.1.565 - 2026-04-23
 
 - Restored `PRAGMA synchronous=FULL` for idle connections while temporarily relaxing writer-owned top-level bulk transactions to `NORMAL`, so steady-state durability stays conservative without paying the full fsync cost during large index writes.
 - Tuned large writer upserts to run in fixed-size chunks across file rows, content FTS rows, content-map rows, and file-hash updates, reducing oversized `executemany()` bursts during heavy indexing.
