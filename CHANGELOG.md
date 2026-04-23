@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.845 - 2026-04-23
+
+- Restored the watcher flush tail when queue backpressure interrupts a multi-event delivery, so undelivered ready events stay pending instead of disappearing after the first blocked enqueue.
+- Extended staged rebuild signal handling to cover root metadata insertion, ensuring SIGINT and SIGTERM still leave a resumable staged database with committed root rows.
+- Hardened the no-network source audit to flag path-qualified `curl` and `wget` subprocess calls like `/usr/bin/curl` and `C:/Tools/wget.exe`.
+
 ## 0.1.841 - 2026-04-23
 
 - Hardened the read-only filesystem guard so malformed or ambiguous modes now fail fast through `open_readonly`, instead of relying on lower-level `pathlib` mode parsing.
