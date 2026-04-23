@@ -216,6 +216,35 @@ def test_parse_content_regex_with_escaped_slash_and_korean_text() -> None:
 @pytest.mark.parametrize(
     ("query", "expected_name", "expected_pattern", "expected_flags"),
     [
+        (r"/release notes/ms", None, "release notes", "ms"),
+        (r"content:/team notes/i", "content", "team notes", "i"),
+        (r"path:/docs 2026/i", "path", "docs 2026", "i"),
+    ],
+)
+def test_parse_regex_with_literal_spaces(
+    query: str,
+    expected_name: str | None,
+    expected_pattern: str,
+    expected_flags: str,
+) -> None:
+    node = parse(query)
+
+    if expected_name is None:
+        assert isinstance(node, RegexNode)
+        assert node.pattern == expected_pattern
+        assert node.flags == expected_flags
+        return
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == expected_name
+    assert node.value_kind == "regex"
+    assert node.value == expected_pattern
+    assert node.regex_flags == expected_flags
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_name", "expected_pattern", "expected_flags"),
+    [
         (r"/회의\/록\/초안/im", None, r"회의\/록\/초안", "im"),
         (r"content:/회의\/록\/초안/im", "content", r"회의\/록\/초안", "im"),
         (r"path:/문서\/회의록\/[0-9]+/i", "path", r"문서\/회의록\/[0-9]+", "i"),

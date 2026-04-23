@@ -309,6 +309,9 @@ def _branch_signature(compiled) -> set[tuple[tuple[tuple[str, bool, str], ...], 
         ("-(alpha | beta)", "-alpha -beta"),
         ("-((alpha | beta) gamma)", "-gamma | (-alpha -beta)"),
         ("-(-(alpha | beta))", "alpha | beta"),
+        ("-(alpha ext:txt)", "-alpha | -ext:txt"),
+        ("-(ext:txt | size:>10M)", "-ext:txt -size:>10M"),
+        ("-((ext:txt | ext:md) path:docs)", "(-ext:txt -ext:md) | -path:docs"),
     ],
 )
 def test_compile_group_negation_truth_table_matches_equivalent_form(
