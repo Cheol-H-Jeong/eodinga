@@ -209,6 +209,54 @@ def test_search_json_executes_regex_mode_query(cli_runner, tmp_path: Path) -> No
     ]
 
 
+def test_search_json_accepts_open_ended_size_ranges(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        _insert_file(conn, 1, "/workspace/tiny.txt", 99, 1_713_528_000, "txt", body_text="tiny")
+        _insert_file(conn, 2, "/workspace/mid.txt", 100, 1_713_527_940, "txt", body_text="mid")
+        _insert_file(conn, 3, "/workspace/large.txt", 500 * 1024, 1_713_527_880, "txt", body_text="large")
+        conn.commit()
+    finally:
+        conn.close()
+
+    upper_result = cli_runner("--db", str(db_path), "search", "size:..100", "--json")
+    lower_result = cli_runner("--db", str(db_path), "search", "size:100..", "--json")
+
+    assert upper_result.returncode == 0
+    assert lower_result.returncode == 0
+    upper_payload = json.loads(upper_result.stdout)
+    lower_payload = json.loads(lower_result.stdout)
+    assert [Path(item["path"]).name for item in upper_payload["results"]] == ["mid.txt", "tiny.txt"]
+    assert [Path(item["path"]).name for item in lower_payload["results"]] == ["large.txt", "mid.txt"]
+
+
+def test_search_json_matches_content_phrase_across_underscores(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        _insert_file(
+            conn,
+            1,
+            "/workspace/launch_checklist.txt",
+            512,
+            1_713_528_000,
+            "txt",
+            body_text="launch_checklist approved",
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = cli_runner("--db", str(db_path), "search", 'content:"launch checklist"', "--json")
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == ["launch_checklist.txt"]
+
+
 def test_search_json_honors_root_filter(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
