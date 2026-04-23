@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.562 - 2026-04-23
+
+- Stabilized observability histogram snapshots with zero-filled buckets and explicit averages, so `stats --json` and crash artifacts now keep a consistent shape across sparse and busy runs.
+- Classified crashes by source (`command`, `top_level`, `thread`, `unraisable`) in addition to exception type, making it easier to tell where a failure entered the runtime from a single stats payload.
+- Surfaced the latest failed-command and crash snapshots directly in `stats --json`, and aligned crash snapshot command names with command-failure summaries for cleaner operator triage.
+
 ## 0.1.557 - 2026-04-23
 
 - Cached the executor's dynamic `content_map.file_id IN (...)` SQL templates by chunk size, reducing repeated statement construction during content backfill and record-filter scans.
