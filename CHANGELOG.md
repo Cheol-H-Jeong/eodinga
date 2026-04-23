@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.819 - 2026-04-23
+
+- Declared a stable AppImage recipe output name and target architecture, and moved the launcher shim into the recipe so non-dry-run builds package the same entrypoint contract audited in dry runs.
+- Updated the Linux AppImage build target to invoke `appimage-builder` for real bundle builds, while still emitting the reproducible AppDir tarball and audit manifest used for review.
+- Extended packaging validation to distinguish dry-run staging from real `.AppImage` output, including filename, path, size, and SHA-256 checks for the built artifact.
+
 ## 0.1.810 - 2026-04-23
 
 - Escaped literal `%`, `_`, and `^` characters in the query compiler's `path:` SQL fast path, so wildcard-like path fragments now stay literal without falling back to slower broad matches.
