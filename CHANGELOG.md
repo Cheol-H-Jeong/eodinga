@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.744 - 2026-04-23
+
+- Clarified the README with an explicit surface-decision guide, command matrix, and fast-triage order so operators can pick the right entry point before rebuilding or debugging the wrong state.
+- Expanded the architecture guide with surface-to-engine ownership, recovery evidence order, and a release review loop that ties docs assets and packaging manifests back to the shared runtime.
+- Tightened contributing and release docs around parallel worker rounds, metadata-cut discipline, and the smallest sane pre-tag verification path.
+
 ## 0.1.738 - 2026-04-23
 
 - Added a `workflows-lint` packaging target and folded it into `release-dry-run`, so the packaging summary now proves the release workflow YAML stays lint-clean alongside the Windows and Linux dry-run audits.
