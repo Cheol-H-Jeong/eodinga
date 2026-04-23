@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.387 - 2026-04-23
+## 0.1.389 - 2026-04-23
 
 - Fixed regex literal parsing so `/.../` queries and spaced operator regexes now close on true odd/even backslash parity instead of misreading escaped delimiters.
 - Stabilized equal-score search ordering by breaking ties on normalized path text, removing rebuild-order drift caused by `file_id` fallback sorting.
