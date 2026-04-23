@@ -294,6 +294,50 @@ def test_execute_previous_period_date_queries_use_local_boundaries(
     assert last_month_hits == ["last-month.txt"]
 
 
+def test_execute_year_date_queries_use_local_boundaries(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    frozen_now = datetime(2026, 4, 23, 0, 30, tzinfo=seoul)
+    last_year_hit = int(datetime(2025, 7, 15, 12, 0, tzinfo=seoul).timestamp())
+    this_year_hit = int(datetime(2026, 2, 10, 12, 0, tzinfo=seoul).timestamp())
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/last-year.txt",
+        512,
+        last_year_hit,
+        "txt",
+        body_text="last year note",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/this-year.txt",
+        512,
+        this_year_hit,
+        "txt",
+        body_text="this year note",
+    )
+    tmp_db.commit()
+
+    last_year_hits = [hit.file.name for hit in search(tmp_db, "date:last-year", limit=10).hits]
+    this_year_hits = [hit.file.name for hit in search(tmp_db, "date:this-year", limit=10).hits]
+
+    assert last_year_hits == ["last-year.txt"]
+    assert this_year_hits == ["this-year.txt"]
+
+
 def test_execute_date_keywords_are_case_insensitive_and_allow_underscores(
     tmp_db: sqlite3.Connection,
 ) -> None:
@@ -579,6 +623,25 @@ def test_execute_datetime_literal_and_range_queries(tmp_db: sqlite3.Connection) 
 
     assert exact_hits == ["exact-second.txt"]
     assert range_hits == ["exact-second.txt", "later-second.txt"]
+
+
+def test_execute_reduced_precision_iso_date_queries(tmp_db: sqlite3.Connection) -> None:
+    jan_hit = int(datetime(2026, 1, 15, 12, tzinfo=UTC).timestamp())
+    feb_hit = int(datetime(2026, 2, 20, 12, tzinfo=UTC).timestamp())
+    next_year_hit = int(datetime(2027, 1, 5, 12, tzinfo=UTC).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/january.txt", 512, jan_hit, "txt", body_text="january note")
+    _insert_file(tmp_db, 2, "/workspace/february.txt", 512, feb_hit, "txt", body_text="february note")
+    _insert_file(tmp_db, 3, "/workspace/next-year.txt", 512, next_year_hit, "txt", body_text="next year note")
+    tmp_db.commit()
+
+    year_hits = [hit.file.name for hit in search(tmp_db, "date:2026", limit=10).hits]
+    month_hits = [hit.file.name for hit in search(tmp_db, "date:2026-02", limit=10).hits]
+    open_ended_hits = [hit.file.name for hit in search(tmp_db, "date:..2026-02", limit=10).hits]
+
+    assert year_hits == ["february.txt", "january.txt"]
+    assert month_hits == ["february.txt"]
+    assert open_ended_hits == ["february.txt", "january.txt"]
 
 
 def test_execute_datetime_query_accepts_lowercase_utc_suffix(tmp_db: sqlite3.Connection) -> None:

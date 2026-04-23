@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, tzinfo
 
@@ -10,6 +11,10 @@ from eodinga.query.dsl import QuerySyntaxError
 class DateRange:
     start: int | None = None
     end: int | None = None
+
+
+_ISO_YEAR_RE = re.compile(r"^\d{4}$")
+_ISO_MONTH_RE = re.compile(r"^\d{4}-\d{2}$")
 
 
 def _local_tzinfo() -> tzinfo | None:
@@ -31,6 +36,28 @@ def _next_month_start(day: date) -> date:
     return (day.replace(day=28) + timedelta(days=4)).replace(day=1)
 
 
+def _year_bounds(year: int) -> DateRange:
+    try:
+        start = date(year, 1, 1)
+        end = date(year + 1, 1, 1)
+    except ValueError as error:
+        raise QuerySyntaxError(f"invalid date literal: {year}", 0) from error
+    return DateRange(start=_day_bounds(start).start, end=_day_bounds(end).start)
+
+
+def _month_bounds(year: int, month: int, original: str) -> DateRange:
+    try:
+        start = date(year, month, 1)
+    except ValueError as error:
+        raise QuerySyntaxError(f"invalid date literal: {original}", 0) from error
+    end = _next_month_start(start)
+    return DateRange(start=_day_bounds(start).start, end=_day_bounds(end).start)
+
+
+def _year_start(day: date) -> date:
+    return day.replace(month=1, day=1)
+
+
 def _parse_iso_day(value: str) -> date:
     try:
         return date.fromisoformat(value)
@@ -49,6 +76,11 @@ def _parse_iso_endpoint(value: str) -> DateRange:
         return _day_bounds(_parse_iso_day(value))
     except QuerySyntaxError:
         pass
+    if _ISO_MONTH_RE.fullmatch(value):
+        year_text, month_text = value.split("-", 1)
+        return _month_bounds(int(year_text), int(month_text), value)
+    if _ISO_YEAR_RE.fullmatch(value):
+        return _year_bounds(int(value))
     normalized = value[:-1] + "+00:00" if value.endswith(("Z", "z")) else value
     try:
         return _instant_bounds(datetime.fromisoformat(normalized))
@@ -78,6 +110,11 @@ def _relative_range(value: str) -> DateRange | None:
         this_month = _month_start(today)
         last_month = _month_start(this_month - timedelta(days=1))
         return DateRange(start=_day_bounds(last_month).start, end=_day_bounds(this_month).start)
+    if normalized == "this-year":
+        start = _year_start(today)
+        return _year_bounds(start.year)
+    if normalized == "last-year":
+        return _year_bounds(_year_start(today).year - 1)
     return None
 
 
