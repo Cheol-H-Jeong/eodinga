@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from os import fsdecode
 from pathlib import Path
-from queue import Empty, Queue
+from queue import Empty, Full, Queue
 from threading import Event, Lock, Thread
 from time import monotonic
 from typing import Protocol
@@ -100,8 +100,8 @@ class _Handler(FileSystemEventHandler):
 
 
 class WatchService:
-    def __init__(self) -> None:
-        self.queue: Queue[WatchEvent] = Queue()
+    def __init__(self, *, queue_maxsize: int = 0) -> None:
+        self.queue: Queue[WatchEvent] = Queue(maxsize=max(queue_maxsize, 0))
         self._pending: dict[Path, WatchEvent] = {}
         self._retired_sources: dict[Path, set[Path]] = {}
         self._flushed_retired_sources: set[Path] = set()
@@ -110,6 +110,7 @@ class WatchService:
         self._stop = Event()
         self._flush_thread = None
         self._observers: dict[Path, _ManagedObserver] = {}
+        self._queue_wait_timeout = 0.05
 
     def start(self, root: Path) -> None:
         if root in self._observers:
@@ -160,7 +161,7 @@ class WatchService:
                 and existing.event_type == "moved"
                 and event.event_type == "deleted"
             ):
-                self.queue.put(existing)
+                self._enqueue(existing)
                 self._pending[event.path] = event
                 self._timestamps[event.path] = monotonic()
                 return
@@ -273,8 +274,8 @@ class WatchService:
                         self._flushed_retired_sources.update(retired_sources)
                     if event.event_type in {"created", "modified", "deleted"}:
                         self._flushed_retired_sources.discard(event.path)
-                    self.queue.put(event)
-                    flushed.append(event)
+                    if self._enqueue(event):
+                        flushed.append(event)
         if flushed:
             increment_counter("watcher_flushes")
             increment_counter("watcher_events_flushed", len(flushed))
@@ -282,6 +283,19 @@ class WatchService:
             for event in flushed:
                 lag_ms = max((now - event.happened_at) * 1000, 0.0)
                 record_histogram("watch_event_lag_ms", lag_ms, event_type=event.event_type)
+
+    def _enqueue(self, event: WatchEvent) -> bool:
+        blocked = False
+        while not self._stop.is_set():
+            try:
+                self.queue.put(event, timeout=self._queue_wait_timeout)
+                return True
+            except Full:
+                if not blocked:
+                    increment_counter("watcher_queue_backpressure")
+                    blocked = True
+        increment_counter("watcher_events_dropped_on_stop")
+        return False
 
     def _reset_state(self) -> None:
         with self._lock:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from queue import Empty
+from threading import Thread
 from time import monotonic, sleep
 
 import pytest
@@ -572,6 +573,37 @@ def test_watcher_can_restart_after_stop(tmp_path: Path) -> None:
         assert event.path == target
     finally:
         service.stop()
+
+
+def test_watcher_flush_blocks_until_queue_has_capacity(tmp_path: Path) -> None:
+    service = WatchService(queue_maxsize=1)
+    first = WatchEvent(
+        event_type="created",
+        path=tmp_path / "first.txt",
+        root_path=tmp_path,
+        happened_at=1.0,
+    )
+    second = WatchEvent(
+        event_type="modified",
+        path=tmp_path / "second.txt",
+        root_path=tmp_path,
+        happened_at=2.0,
+    )
+    service.queue.put(first)
+    service.record(second)
+
+    thread = Thread(target=lambda: service._flush_ready(force=True), daemon=True)
+    thread.start()
+    sleep(0.1)
+    assert thread.is_alive()
+
+    drained = service.queue.get_nowait()
+    assert drained == first
+
+    thread.join(timeout=1)
+    assert not thread.is_alive()
+    flushed = service.queue.get_nowait()
+    assert flushed == second
 
 
 def test_watcher_stop_clears_stale_pending_events_before_restart(tmp_path: Path) -> None:
