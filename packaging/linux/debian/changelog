@@ -1,4 +1,4 @@
-eodinga (0.1.15-1) unstable; urgency=medium
+eodinga (@@APP_VERSION@@-1) unstable; urgency=medium
 
   * Package Windows and Linux release artifacts with audited AppImage and Debian recipes.
 

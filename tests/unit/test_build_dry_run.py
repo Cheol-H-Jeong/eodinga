@@ -374,6 +374,12 @@ def test_linux_deb_dry_run_renders_control_template() -> None:
     rendered_control = rendered_control_path.read_text(encoding="utf-8")
     assert f"Version: {__version__}" in rendered_control
     assert "Architecture: amd64" in rendered_control
+    assert payload["debian_changelog_template"]["exists"] is True
+    assert payload["debian_changelog_template"]["contains_version_template"] is True
+    rendered_changelog_path = Path(payload["debian_changelog_template"]["rendered_path"])
+    assert rendered_changelog_path.exists()
+    assert payload["debian_changelog_template"]["rendered_exists"] is True
+    assert payload["debian_changelog_template"]["rendered_version_matches_package"] is True
     assert payload["launcher"]["executes_python_module"] is True
 
 
@@ -532,6 +538,11 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["debian_control_template"]["maintainer"] == "Cheol-H-Jeong"
     assert payload["debian_control_template"]["binary_package"] == "eodinga"
     assert payload["debian_control_template"]["description"] == "Instant lexical file search for Windows and Linux"
+    assert payload["debian_changelog_template"]["path"] == str(Path("packaging/linux/debian/changelog").resolve())
+    assert payload["debian_changelog_template"]["exists"] is True
+    assert payload["debian_changelog_template"]["contains_version_template"] is True
+    assert payload["debian_changelog_template"]["rendered_exists"] is True
+    assert payload["debian_changelog_template"]["rendered_version_matches_package"] is True
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"

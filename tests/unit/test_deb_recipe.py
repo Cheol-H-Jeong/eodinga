@@ -8,6 +8,7 @@ def test_deb_recipe_tracks_desktop_icon_and_docs_assets() -> None:
     icon = Path("packaging/linux/eodinga.svg").read_text(encoding="utf-8")
     changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
     control = Path("packaging/linux/debian/control").read_text(encoding="utf-8")
+    debian_changelog = Path("packaging/linux/debian/changelog").read_text(encoding="utf-8")
 
     assert "Name=eodinga" in desktop
     assert "Exec=eodinga gui" in desktop
@@ -16,6 +17,7 @@ def test_deb_recipe_tracks_desktop_icon_and_docs_assets() -> None:
     assert "<svg" in icon
     assert "<title" in icon
     assert "# Changelog" in changelog
+    assert "eodinga (@@APP_VERSION@@-1) unstable; urgency=medium" in debian_changelog
     assert "Source: eodinga" in control
     assert "Package: eodinga" in control
     assert "Version: @@APP_VERSION@@" in control

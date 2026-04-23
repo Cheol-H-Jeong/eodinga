@@ -9,6 +9,8 @@ DESKTOP_ENTRY="${ROOT_DIR}/packaging/linux/eodinga.desktop"
 ICON_ASSET="${ROOT_DIR}/packaging/linux/eodinga.svg"
 DEBIAN_CONTROL_TEMPLATE="${ROOT_DIR}/packaging/linux/debian/control"
 DEBIAN_CONTROL_RENDERED="${DIST_DIR}/debian-control"
+DEBIAN_CHANGELOG_TEMPLATE="${ROOT_DIR}/packaging/linux/debian/changelog"
+DEBIAN_CHANGELOG_RENDERED="${DIST_DIR}/debian-changelog"
 APP_VERSION_TOKEN="@@APP_VERSION@@"
 TARGET_ARCH_TOKEN="@@TARGET_ARCH@@"
 VERSION="$(python3 - <<'PY'
@@ -53,6 +55,16 @@ if binary_paragraph is None:
     raise SystemExit("missing binary package stanza in Debian control template")
 rendered_path.write_text(binary_paragraph + "\n", encoding="utf-8")
 Path("${PACKAGE_DIR}/DEBIAN/control").write_text(binary_paragraph + "\n", encoding="utf-8")
+PY
+
+python3 - <<PY
+from pathlib import Path
+
+template_path = Path("${DEBIAN_CHANGELOG_TEMPLATE}")
+rendered_path = Path("${DEBIAN_CHANGELOG_RENDERED}")
+template_text = template_path.read_text(encoding="utf-8")
+rendered = template_text.replace("${APP_VERSION_TOKEN}", "${VERSION}")
+rendered_path.write_text(rendered, encoding="utf-8")
 PY
 
 cat > "${PACKAGE_DIR}/usr/bin/eodinga" <<'EOF'
@@ -104,6 +116,7 @@ icon_path = Path("${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.s
 license_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE")
 changelog_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
 debian_control_template_path = Path("${DEBIAN_CONTROL_TEMPLATE}")
+debian_changelog_template_path = Path("${DEBIAN_CHANGELOG_TEMPLATE}")
 template_control_entries = {}
 for line in debian_control_template_path.read_text(encoding="utf-8").splitlines():
     if not line or ":" not in line:
@@ -143,6 +156,14 @@ payload = {
         "maintainer": template_control_entries.get("Maintainer"),
         "binary_package": template_control_entries.get("Package"),
         "description": template_control_entries.get("Description"),
+    },
+    "debian_changelog_template": {
+        "path": str(debian_changelog_template_path),
+        "exists": debian_changelog_template_path.exists(),
+        "contains_version_template": "${APP_VERSION_TOKEN}" in debian_changelog_template_path.read_text(encoding="utf-8"),
+        "rendered_path": "${DEBIAN_CHANGELOG_RENDERED}",
+        "rendered_exists": Path("${DEBIAN_CHANGELOG_RENDERED}").exists(),
+        "rendered_version_matches_package": Path("${DEBIAN_CHANGELOG_RENDERED}").read_text(encoding="utf-8").startswith("eodinga (${VERSION}-1) "),
     },
     "desktop_entry": {
         "path": str(desktop_path),
