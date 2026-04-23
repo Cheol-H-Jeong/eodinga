@@ -368,10 +368,14 @@ class LauncherPanel(QWidget):
                 self._move_selection(-1)
             return True
         if event.key() == Qt.Key.Key_Home:
+            if self.query_field.hasSelectedText() or self.query_field.cursorPosition() > 0:
+                return False
             self.result_list.setFocus()
             self._set_selection(0)
             return True
         if event.key() == Qt.Key.Key_End:
+            if self.query_field.hasSelectedText() or self.query_field.cursorPosition() < len(self.query_field.text()):
+                return False
             self.result_list.setFocus()
             self._set_selection(self.model.rowCount() - 1)
             return True

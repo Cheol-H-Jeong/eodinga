@@ -212,6 +212,11 @@ def test_launcher_query_field_home_end_and_page_keys_jump_into_results(qapp) -> 
     assert launcher.result_list.hasFocus()
     assert launcher.result_list.currentIndex().row() == 5
 
+    launcher.query_field.setFocus()
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Home)
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.cursorPosition() == 0
+
     QTest.keyClick(launcher.query_field, Qt.Key.Key_Home)
     assert launcher.result_list.currentIndex().row() == 0
 
@@ -221,6 +226,41 @@ def test_launcher_query_field_home_end_and_page_keys_jump_into_results(qapp) -> 
 
     launcher.query_field.setFocus()
     QTest.keyClick(launcher.query_field, Qt.Key.Key_PageUp)
+    assert launcher.result_list.currentIndex().row() == 0
+
+
+def test_launcher_query_field_home_end_preserve_text_navigation_before_jumping(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        items = [
+            SearchHit(path=Path(f"/tmp/item-{index}.txt"), parent_path=Path("/tmp"), name=f"item-{index}.txt")
+            for index in range(4)
+        ]
+        return QueryResult(items=items[:limit], total=len(items), elapsed_ms=1.5)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("report draft")
+    _wait(60)
+
+    launcher.query_field.setFocus()
+    launcher.query_field.setCursorPosition(3)
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_End)
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.cursorPosition() == len("report draft")
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_End)
+    assert launcher.result_list.hasFocus()
+    assert launcher.result_list.currentIndex().row() == 3
+
+    launcher.query_field.setFocus()
+    launcher.query_field.setCursorPosition(4)
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Home)
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.cursorPosition() == 0
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Home)
+    assert launcher.result_list.hasFocus()
     assert launcher.result_list.currentIndex().row() == 0
 
 
