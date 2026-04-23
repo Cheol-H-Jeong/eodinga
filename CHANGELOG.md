@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.905 - 2026-04-23
+## 0.1.909 - 2026-04-23
 
 - Rebuilds now mark staged databases as `building` until the final commit point, and startup recovery will only resume `.next` databases explicitly marked `complete`, preventing partial interrupted builds from replacing a live index.
 - Added regression coverage for incomplete staged builds so `open_index()` and `doctor` discard partial `.next` files safely while still resuming completed staged rebuilds.
