@@ -211,6 +211,8 @@ def test_launcher_query_field_home_end_and_page_keys_jump_into_results(qapp) -> 
     assert launcher.result_list.hasFocus()
     assert launcher.result_list.currentIndex().row() == 5
 
+    launcher.query_field.setFocus()
+    launcher.query_field.setCursorPosition(0)
     QTest.keyClick(launcher.query_field, Qt.Key.Key_Home)
     assert launcher.result_list.currentIndex().row() == 0
 
@@ -221,6 +223,33 @@ def test_launcher_query_field_home_end_and_page_keys_jump_into_results(qapp) -> 
     launcher.query_field.setFocus()
     QTest.keyClick(launcher.query_field, Qt.Key.Key_PageUp)
     assert launcher.result_list.currentIndex().row() == 0
+
+
+def test_launcher_query_field_home_end_preserve_text_editing_when_cursor_is_mid_query(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        items = [
+            SearchHit(path=Path(f"/tmp/item-{index}.txt"), parent_path=Path("/tmp"), name=f"item-{index}.txt")
+            for index in range(3)
+        ]
+        return QueryResult(items=items[:limit], total=len(items), elapsed_ms=1.5)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("item")
+    _wait(60)
+
+    launcher.query_field.setFocus()
+    launcher.query_field.setCursorPosition(2)
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Home)
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.cursorPosition() == 0
+    assert launcher.result_list.currentIndex().row() == 0
+
+    launcher.query_field.setCursorPosition(1)
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_End)
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.cursorPosition() == len(launcher.query_field.text())
 
 
 def test_launcher_up_from_query_field_selects_last_result(qapp) -> None:
@@ -368,8 +397,8 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
 
     assert launcher.empty_state.title_label.text() == "Type to search"
     assert "No recent queries yet" in launcher.empty_state.body_label.text()
-    assert "Alt+Up" in launcher.empty_state.body_label.text()
-    assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
+    assert "Alt+Up" in launcher.empty_state.hints_label.text()
+    assert "Ctrl+Enter" in launcher.empty_state.hints_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
     assert "(20%)" in launcher.empty_state.details_label.text()
     assert launcher.status_chip.text() == "Indexing"
@@ -382,7 +411,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.status_chip.text() == "No results"
     assert launcher.empty_state.title_label.text() == 'No results for "missing"'
     assert "date:this-week" in launcher.empty_state.body_label.text()
-    assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
+    assert "Esc to hide the launcher" in launcher.empty_state.hints_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
     assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
     assert "Alt+Up recalls recent queries" in launcher.shortcut_label.text()
@@ -564,7 +593,7 @@ def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     launcher = LauncherWindow(state=LauncherState())
     launcher.show()
 
-    assert "Alt+1 through Alt+9" in launcher.empty_state.body_label.text()
+    assert "Alt+1 through Alt+9" in launcher.empty_state.hints_label.text()
 
 
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
@@ -574,3 +603,8 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.result_list.accessibleName() == "Launcher results list"
+    assert launcher.status_chip.accessibleName() == "Launcher status"
+    assert launcher.shortcut_label.accessibleName() == "Launcher shortcut hints"
+    assert launcher.status_label.accessibleName() == "Launcher result summary"
+    assert launcher.empty_state.accessibleName() == "Launcher empty state"
+    assert launcher.empty_state.hints_label.accessibleName() == "Empty state keyboard hints"

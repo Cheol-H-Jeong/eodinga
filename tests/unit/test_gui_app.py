@@ -55,6 +55,7 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     window = EodingaWindow()
     window.show()
 
+    assert window.accessibleName() == "Main window"
     assert window.tab_widget.accessibleName() == "Main navigation tabs"
     assert window.roots_tab.accessibleName() == "Roots tab"
     assert window.roots_tab.add_root_button.accessibleName() == "Add root"
@@ -62,6 +63,7 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.index_tab.accessibleName() == "Index tab"
     assert window.index_tab.rebuild_button.accessibleName() == "Rebuild index"
     assert window.search_tab.accessibleName() == "Search tab"
+    assert window.search_tab.launcher_panel.accessibleName() == "Launcher panel"
     assert window.settings_tab.accessibleName() == "Settings tab"
     assert window.settings_tab.system_theme_checkbox.accessibleName() == "Use system theme"
     assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"

@@ -47,6 +47,42 @@ def format_indexing_footer(status: IndexingStatus) -> str:
     return " · ".join(parts)
 
 
+def format_empty_state_body(recent_queries: list[str], pinned_queries: list[str]) -> str:
+    recent = ", ".join(recent_queries[:3]) if recent_queries else "No recent queries yet"
+    pinned = f"\nPinned: {', '.join(pinned_queries[:3])}." if pinned_queries else ""
+    return f"Recent: {recent}.{pinned}"
+
+
+def format_no_results_body() -> str:
+    return "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M."
+
+
+def format_empty_state_hints(*, has_query: bool) -> str:
+    if has_query:
+        return "Keyboard: Tab returns to the filter and Esc to hide the launcher."
+    return (
+        "Keyboard: Alt+Up recalls recent queries, Alt+1 through Alt+9 opens a top hit,\n"
+        "Tab moves to results, Enter opens the top hit, and Ctrl+Enter reveals its folder."
+    )
+
+
+def format_shortcut_hint(*, has_results: bool, query: str, results_have_focus: bool) -> str:
+    if not has_results:
+        if query:
+            return "Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries."
+        return "Type a filename, path, or content term. Alt+Up recalls recent queries."
+    if results_have_focus:
+        return (
+            "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. "
+            "Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
+        )
+    return (
+        "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. "
+        "Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. "
+        "Alt+Up recalls recent queries."
+    )
+
+
 class LauncherState(QObject):
     recent_queries_changed = Signal(list)
     pinned_queries_changed = Signal(list)

@@ -106,6 +106,7 @@ class EodingaWindow(QMainWindow):
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("eodinga")
+        self.setAccessibleName("Main window")
         self.resize(960, 640)
         resolved_config = config or AppConfig()
         resolved_config_path = config_path or default_path()
