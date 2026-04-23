@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.717 - 2026-04-23
+## 0.1.720 - 2026-04-23
 
 - Templated the Debian source changelog version and audited the rendered file so Linux package metadata can no longer drift silently from the release version.
 - Staged the `eodinga/` package tree into Debian packages under `/usr/lib/eodinga` and rewired the launcher to use that packaged library path instead of ambient source state.
