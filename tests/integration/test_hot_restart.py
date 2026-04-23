@@ -275,6 +275,57 @@ def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updat
     assert not staged_db.exists()
 
 
+def test_hot_restart_open_index_resumes_interrupted_build_with_replaced_root_set(
+    tmp_path: Path,
+) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    target_db = tmp_path / "database" / "index.db"
+    staged_db = tmp_path / "database" / ".index.db.next"
+    root_a.mkdir()
+    root_b.mkdir()
+    alpha = root_a / "alpha-keep.txt"
+    beta = root_b / "beta-drop.txt"
+    alpha.write_text("resumed staged alpha survivor\n", encoding="utf-8")
+    beta.write_text("resumed staged beta removed\n", encoding="utf-8")
+
+    rebuild_index(
+        target_db,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+    rebuild_index(
+        staged_db,
+        [RootConfig(path=root_a)],
+        content_enabled=True,
+    )
+
+    reopened = open_index(target_db)
+    try:
+        all_hits = {
+            hit.file.path for hit in search(reopened, "resumed staged", limit=5).hits
+        }
+        alpha_hits = {
+            hit.file.path
+            for hit in search(reopened, "resumed staged", limit=5, root=root_a).hits
+        }
+        beta_hits = {
+            hit.file.path
+            for hit in search(reopened, "resumed staged", limit=5, root=root_b).hits
+        }
+        stored_roots = {
+            Path(row[0]) for row in reopened.execute("SELECT path FROM roots ORDER BY id").fetchall()
+        }
+    finally:
+        reopened.close()
+
+    assert all_hits == {alpha}
+    assert alpha_hits == {alpha}
+    assert beta_hits == set()
+    assert stored_roots == {root_a}
+    assert not staged_db.exists()
+
+
 def test_hot_restart_reopen_multi_root_modify_updates_root_scoped_queries(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
