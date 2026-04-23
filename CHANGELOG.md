@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.185 - 2026-04-23
+## 0.1.186 - 2026-04-23
 
 - Cached compiled include/exclude `PathSpec` rules and the expanded denylist so repeated `should_index()` checks stop rebuilding matcher state while walking large trees.
 - Reworked the filesystem walker to keep `os.scandir()` child metadata as queued `(path, lstat)` pairs, avoiding an immediate second stat pass for every discovered entry.
