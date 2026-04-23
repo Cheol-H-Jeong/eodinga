@@ -110,7 +110,7 @@ class EodingaWindow(QMainWindow):
         resolved_config = config or AppConfig()
         resolved_config_path = config_path or default_path()
         launcher_config = resolved_config.launcher
-        self.launcher_state = LauncherState(self)
+        self.launcher_state = LauncherState(self, pinned_queries=launcher_config.pinned_queries)
         self.launcher_window = LauncherWindow(
             search_fn=search_fn,
             max_results=launcher_config.max_results,
