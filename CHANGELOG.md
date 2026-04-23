@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.941 - 2026-04-24
+
+- Restored minimized launcher and main windows correctly from tray and hotkey presentation paths, so toggling now reopens a minimized surface instead of hiding it again.
+- Centered first-show launcher placement on the target screen and clamped restored geometry to visible bounds, which keeps saved popup positions usable on smaller or changed displays.
+- Added macOS-native launcher result actions for Finder reveal and Properties fallback handling, alongside targeted Qt and desktop-action regression coverage.
+
 ## 0.1.936 - 2026-04-24
 
 - Reused nested SQLite temporary PRAGMA overrides per connection, which cuts redundant PRAGMA reads and rewrites when rebuild and writer code stack the same fast-write mode.
