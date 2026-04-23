@@ -46,6 +46,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Surface Matrix" in readme
     assert "## Acceptance Quickcheck" in readme
     assert "## Validation Paths" in readme
+    assert "## Surface-To-Evidence Shortcuts" in readme
     assert "## DSL Cheatsheet" in readme
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
@@ -55,6 +56,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Release Evidence Matrix" in readme
     assert "## Config and Data Paths" in readme
     assert "## Operator Checklist" in readme
+    assert "## Operator Decision Matrix" in readme
     assert "## Docs-Only Release Pass" in readme
     assert "## Version Collision Recovery" in readme
     assert "## Recovery and Troubleshooting" in readme
@@ -93,6 +95,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "The dry-run audits are the review surface." in readme
     assert "Review the dry-run output before tagging." in readme
     assert "Treat that docs-only pass as release evidence" in readme
+    assert "Use this when you already know the surface that changed" in readme
+    assert "Docs-only release handoff" in readme
+    assert "Am I searching the database I think I am?" in readme
+    assert "Should I run the full repo gate or only the docs-only pass?" in readme
     assert "git fetch origin main --tags && git tag -l | sort -V | tail -5" in readme
     assert "### State Directory Summary" in readme
     assert "EODINGA_LOG_PATH" in readme
@@ -102,6 +108,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "The release-wide audit is a coordinator summary." in readme
     assert "What should I inspect before cutting a docs-only release?" in readme
     assert "How do I refresh screenshots and the man page without missing a validation step?" in readme
+    assert "What should a reviewer expect in a docs-heavy handoff?" in readme
+    assert "When should I prefer `release-dry-run` over a platform-specific dry run?" in readme
     assert "What is the smallest validation path for a docs-only change?" in readme
     assert "Minimum command" in readme
 

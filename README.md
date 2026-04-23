@@ -134,6 +134,18 @@ Use the smallest path that matches the work you changed:
 | launcher or GUI text/layout | `pytest -q tests/unit/test_gui_app.py tests/unit/test_gui_launcher.py tests/unit/test_docs_assets.py` | `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
 | packaging docs or recipes | `python packaging/build.py --target windows-dry-run` | the matching Linux dry run plus workflow lint from `docs/ACCEPTANCE.md` |
 
+## Surface-To-Evidence Shortcuts
+
+Use this when you already know the surface that changed and want the shortest proof path without rereading the longer release docs:
+
+| Surface changed | Minimum command | Evidence to inspect |
+| --- | --- | --- |
+| README or guide prose only | `pytest -q tests/unit/test_docs_assets.py` | the updated headings, links, and examples in the checked-in docs |
+| Query examples or CLI wording | `python scripts/generate_manpage.py && pytest -q tests/unit/test_docs_assets.py` | `docs/man/eodinga.1` plus the docs-assets test |
+| Visible GUI or launcher wording | `python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` | `docs/screenshots/*.png` rendered from the current Qt surfaces |
+| Packaging or release claims | `python packaging/build.py --target windows-dry-run` or the matching Linux dry run | the matching `packaging/dist/*-audit.json` file |
+| Docs-only release handoff | `source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run` | docs contract, GUI smoke, and packaging manifests from the same pass |
+
 ## CLI
 
 ```bash
@@ -443,6 +455,18 @@ eodinga search 'date:this-week ext:md' --limit 10
 
 If those are clean but the packaged app still looks wrong, continue with the release-gate commands in `docs/ACCEPTANCE.md`.
 
+## Operator Decision Matrix
+
+Use this when you want the shortest next step for one class of problem:
+
+| If you are trying to answer... | Start here | Why |
+| --- | --- | --- |
+| "Am I searching the database I think I am?" | `eodinga stats --json` | shows the active DB path, counters, and versioned runtime snapshot |
+| "Is the local environment or launcher backend wrong?" | `eodinga doctor` | validates writable paths, imports, hotkey backend detection, and excludes |
+| "Did packaging actually stage what the docs claim?" | `python packaging/build.py --target ...-dry-run` | turns the release claim into a reviewable `packaging/dist/` manifest |
+| "Did a docs-only round refresh all derived assets?" | `pytest -q tests/unit/test_docs_assets.py` | proves the README/guides/manpage asset contract still matches the repo |
+| "Should I run the full repo gate or only the docs-only pass?" | `docs/ACCEPTANCE.md` for release candidates, this README's docs-only pass for docs rounds | keeps docs-only validation narrow and release validation broad |
+
 ## Docs Map
 
 - [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md): query cheatsheet and operator notes.
@@ -512,6 +536,14 @@ Check `tests/unit/test_docs_assets.py`, the matching GUI smoke or packaging dry 
 ### How do I refresh screenshots and the man page without missing a validation step?
 
 Use `python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py`. If the docs also describe packaged artifacts, follow that with the matching `packaging/build.py --target ...-dry-run` command and inspect `packaging/dist/`.
+
+### What should a reviewer expect in a docs-heavy handoff?
+
+At minimum: the exact command bundle that was run, the derived asset or manifest path that was inspected, and the section headings or examples that changed. That keeps the review repeatable without replaying the whole round from memory.
+
+### When should I prefer `release-dry-run` over a platform-specific dry run?
+
+Use `release-dry-run` when you want the coordinator summary that points at every platform audit from one pass. Use the platform-specific dry run when a single target failed or when you need the actionable detail for one manifest family.
 
 ### Which files are skipped by default?
 
