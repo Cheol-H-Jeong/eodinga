@@ -1340,6 +1340,18 @@ def test_search_root_scope_escapes_like_wildcards_in_windows_style_paths(
     assert hits == [Path(r"C:\workspace\team_1\alpha.txt")]
 
 
+def test_search_root_scope_reuses_cached_scope_clause() -> None:
+    executor_module._root_scope_clause_for_text.cache_clear()
+
+    first = executor_module._root_scope_clause(Path("C:/workspace/reports"))
+    second = executor_module._root_scope_clause(Path(r"C:\workspace\reports"))
+    third = executor_module._root_scope_clause(Path("C:/workspace/reports/"))
+
+    assert first == second
+    assert first == third
+    assert executor_module._root_scope_clause_for_text.cache_info().hits >= 2
+
+
 def test_plain_query_can_fall_back_to_content_matches(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/projects/alpha.txt", 1024, now, "txt", body_text="launch checklist")

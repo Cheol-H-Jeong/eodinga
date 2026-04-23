@@ -333,14 +333,7 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
         return "", ()
     root_text = str(root)
     normalized = root_text.rstrip("/\\") or root_text
-    variants = _root_variants(normalized)
-    exact_params = variants
-    like_params = tuple(f"{_escape_like_pattern(variant)}/%" for variant in variants) + tuple(
-        f"{_escape_like_pattern(variant)}\\%" for variant in variants
-    )
-    exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
-    like_clause = " OR ".join("files.path LIKE ? ESCAPE '^'" for _ in like_params)
-    return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
+    return _root_scope_clause_for_text(_canonical_root_scope_key(normalized))
 
 
 def _escape_like_pattern(value: str) -> str:
@@ -360,6 +353,25 @@ def _root_variants(root_text: str) -> tuple[str, ...]:
             variants[f"{candidate[0].lower()}{candidate[1:]}"] = None
             variants[f"{candidate[0].upper()}{candidate[1:]}"] = None
     return tuple(variants)
+
+
+def _canonical_root_scope_key(root_text: str) -> str:
+    canonical = root_text.replace("\\", "/")
+    if len(canonical) >= 2 and canonical[1] == ":" and canonical[0].isalpha():
+        canonical = f"{canonical[0].lower()}{canonical[1:]}"
+    return canonical
+
+
+@lru_cache(maxsize=128)
+def _root_scope_clause_for_text(root_text: str) -> tuple[str, tuple[object, ...]]:
+    variants = _root_variants(root_text)
+    exact_params = variants
+    like_params = tuple(f"{_escape_like_pattern(variant)}/%" for variant in variants) + tuple(
+        f"{_escape_like_pattern(variant)}\\%" for variant in variants
+    )
+    exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
+    like_clause = " OR ".join("files.path LIKE ? ESCAPE '^'" for _ in like_params)
+    return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
 
 
 def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:
