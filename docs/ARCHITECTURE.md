@@ -241,6 +241,16 @@ runtime code / CLI / UI changes
 - Query fallback failures must not mutate state; they only affect one search invocation and are observable through `eodinga stats --json` and runtime logs.
 - Docs or packaging drift is treated as a release-input failure, caught by `tests/unit/test_docs_assets.py` and the packaging dry-run audits before a tag is cut.
 
+## Search Surface Contract
+
+| Surface | Shared pieces | Surface-specific responsibility |
+| --- | --- | --- |
+| `eodinga search` | DSL parser, compiler, executor, ranker, storage reader | Formatting plain-text or JSON results for scripts and terminals. |
+| Main GUI search tab | DSL parser, compiler, executor, ranker, storage reader | Exposing roots, settings, diagnostics, and search in one operator-facing shell. |
+| Launcher | DSL parser, compiler, executor, ranker, storage reader | Hotkey-first result browsing, quick actions, recent queries, and preview behavior. |
+
+The contract matters for docs and release review: a query example or keyboard note should describe what is genuinely shared versus what belongs to one shell only.
+
 ## Live Update Sequence
 
 ```text
@@ -295,6 +305,22 @@ startup
 2. Inspect the emitted manifest or staged payload summary under `packaging/dist/`.
 3. Compare the staged docs payload with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 4. Cut the local tag only after the dry-run output and shipped docs agree.
+
+## Release Audit Loop
+
+```text
+runtime or docs change
+    |
+    +--> update README / docs guide / derived asset if needed
+    |
+    +--> run docs asset test and the matching packaging or GUI smoke check
+    |
+    +--> inspect packaging/dist/ for staged payload drift
+    |
+    +--> bump version + changelog + local tag only after the evidence agrees
+```
+
+This loop keeps architecture review grounded in the same surfaced artifacts that a release reviewer sees instead of relying on memory of earlier commands.
 
 ## Platform Surface Summary
 

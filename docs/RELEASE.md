@@ -81,6 +81,18 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Dry-Run Review Checklist
+
+Use this when a dry run passed but you still need to confirm the staged payload is sane:
+
+| Target | Review first | Common drift to catch |
+| --- | --- | --- |
+| `windows-dry-run` | Inno audit output and staged shortcut metadata under `packaging/dist/` | Installer version drift, wrong GUI entrypoint, missing packaged docs or license. |
+| `linux-appimage-dry-run` | Rendered AppImage recipe and staged launcher shim | Wrong app version token, launcher script drift, desktop/icon mismatch. |
+| `linux-deb-dry-run` | `DEBIAN/control`, staged desktop entry, changelog gzip metadata | Missing maintainer/version fields, stale desktop metadata, unreproducible doc payload. |
+
+If the dry-run output and the checked-in docs disagree, fix the docs or the recipe before cutting the metadata commit. Do not rely on the reviewer to reconcile that mismatch later.
+
 ## Tag Decision Path
 
 ```text
@@ -117,6 +129,13 @@ Use the same release discipline for docs-only changes when the shipped operator 
 2. Regenerate any derived docs assets touched by the round.
 3. Re-run `pytest -q tests/unit/test_docs_assets.py` plus the matching packaging dry-run or GUI smoke command.
 4. Add a changelog entry that names the docs surface changed and why it matters.
+
+Evidence pack for docs-only rounds:
+
+- `pytest -q tests/unit/test_docs_assets.py`
+- the matching packaging dry run if packaging behavior or artifacts are described
+- the matching GUI smoke command if screenshots or visible UI wording changed
+- the final `git diff --stat` showing that only docs and release metadata moved
 
 ## Cut The Local Release
 

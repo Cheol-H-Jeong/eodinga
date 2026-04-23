@@ -138,6 +138,15 @@ Use this when the round is docs-only but still release-bearing:
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
 
+## Parallel Review Hygiene
+
+When several workers are landing in parallel, make the review surface easy to rebase:
+
+1. Keep docs-only commits free of version bumps until the final metadata cut.
+2. Prefer one docs topic per commit, such as README/DSL guidance or release/runbook updates.
+3. Re-run `git diff --stat origin/main...HEAD` before tagging so the final handoff is easy to audit for cross-theme drift.
+4. If a dry-run manifest changes because of a docs-described packaging behavior, mention that relationship in the commit message instead of leaving the reviewer to infer it.
+
 ## Test Selection Guide
 
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`
