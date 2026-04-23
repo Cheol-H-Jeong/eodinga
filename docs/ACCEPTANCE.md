@@ -70,6 +70,20 @@ Run it as written. If it fails, investigate the first failing stage before rerun
 3. Packaging dry-run failure: review the generated manifest or staged payload summary under `packaging/dist/`.
 4. Workflow lint failure: fix the shipped workflow YAML before cutting the local tag.
 
+## Choose The Smallest Valid Gate
+
+Use the narrowest gate that still proves the surface you changed:
+
+| Change scope | Required gate |
+| --- | --- |
+| docs prose only | `pytest -q tests/unit/test_docs_assets.py` |
+| CLI help or examples | regenerate `docs/man/eodinga.1` plus `pytest -q tests/unit/test_docs_assets.py` |
+| visible GUI or launcher docs | docs-assets test plus `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
+| packaged artifacts or release instructions | matching `python packaging/build.py --target ...-dry-run` command plus manifest review |
+| runtime behavior | full acceptance pass |
+
+This keeps docs-only rounds efficient without lowering the evidence bar.
+
 ## Derived Docs Checks
 
 Before tagging, re-run the doc-asset checks that pin shipped documentation against the real runtime surface:
@@ -102,6 +116,14 @@ Review release evidence in this order so the tag always points at a justified tr
 2. offscreen GUI smoke for any documented Qt surface.
 3. matching packaging dry runs plus manifest review under `packaging/dist/`.
 4. metadata cut: version bump, changelog entry, local tag.
+
+## Packaging Review Prompts
+
+When a packaging dry run is part of the gate, answer these before tagging:
+
+1. Does the manifest show the same versioned artifact name as the metadata files?
+2. Do the staged docs or installer inputs match what `README.md` and `docs/RELEASE.md` claim ships?
+3. If the round changed packaging prose, is that claim backed by `packaging/dist/` rather than by memory?
 
 ## Documentation Contract
 

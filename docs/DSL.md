@@ -49,6 +49,30 @@ regex:/launch|ship/i path:docs
 -(draft | scratch) /todo|fixme/i
 ```
 
+## Boolean And Negation Patterns
+
+| Goal | Query | Why it works |
+| --- | --- | --- |
+| require two terms | `invoice receipt` | spaces are implicit `AND` |
+| accept either branch | `invoice | receipt` | `|` keeps either side as a valid match |
+| exclude one noisy subtree | `report -path:archive` | term-level negation removes the next operator only |
+| exclude either grouped branch | `-(draft | scratch) ext:md` | group negation applies to the whole parenthesized branch |
+| combine groups with a structural filter | `(invoice | receipt) is:file` | the structural operator still applies after the grouped match |
+
+If a query feels ambiguous, add parentheses. The parser is predictable, but explicit grouping is easier to review and easier to debug later.
+
+## Regex Forms
+
+| Form | Example | Use it when |
+| --- | --- | --- |
+| literal regex term | `/todo|fixme/i` | you want a regex without toggling global regex mode |
+| operator-style regex alias | `regex:/todo|fixme/i path:src` | you want the query to read like the other operators |
+| plain-term regex mode | `regex:true report-\\d+` | several following plain terms should be interpreted as regex path/name patterns |
+
+- Supported flags are `i`, `m`, and `s`.
+- Embedded `/` characters stay valid inside the pattern when escaped, for example `/api\\/v1\\/health/i`.
+- Regex literals and `regex:/pattern/flags` stay local to the query; `regex:true` changes how plain terms are read until another `regex:` operator overrides it.
+
 ## Operator Notes
 
 - Path/name terms are case-insensitive unless `case:true` is set.

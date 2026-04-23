@@ -117,6 +117,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "README is part of the acceptance surface" in acceptance
     assert "git tag v0.1.N" in acceptance
     assert "docs/man/eodinga.1" in acceptance
+    assert "## Choose The Smallest Valid Gate" in acceptance
+    assert "## Packaging Review Prompts" in acceptance
+    assert "This keeps docs-only rounds efficient without lowering the evidence bar." in acceptance
     assert "## Derived Docs Checks" in acceptance
     assert "## Docs-Only Acceptance Path" in acceptance
     assert "## Evidence Review Order" in acceptance
@@ -205,6 +208,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "regex:/todo|fixme/i" in dsl
     assert "-(draft | scratch) /todo|fixme/i" in dsl
     assert "-path:node_modules" in dsl
+    assert "## Boolean And Negation Patterns" in dsl
+    assert "## Regex Forms" in dsl
+    assert "/api\\\\/v1\\\\/health/i" in dsl
     assert "## Operator Notes" in dsl
 
     assert "SPEC §6.3" in performance
