@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict
 from eodinga.common import FileRecord
 from eodinga.observability import increment_counter, record_histogram
 from eodinga.query.compiler import CompiledBranch, CompiledQuery
-from eodinga.query.ranker import rank_results
+from eodinga.query.ranker import order_result_ids, rank_results
 
 
 class SearchHit(BaseModel):
@@ -853,10 +853,7 @@ def execute(
         for file_id, snippet in branch_snippets.items():
             if snippet and not merged_snippets.get(file_id):
                 merged_snippets[file_id] = snippet
-    ordered_ids = sorted(
-        merged_scores,
-        key=lambda file_id: (-merged_scores[file_id], merged_records[file_id].name_lower, file_id),
-    )[:limit]
+    ordered_ids = order_result_ids(merged_scores, merged_records)[:limit]
     hits = [
         SearchHit(
             file=merged_records[file_id],

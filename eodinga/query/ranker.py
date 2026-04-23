@@ -5,6 +5,8 @@ import re
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from eodinga.common import FileRecord
+
 
 class RankingWeights(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -84,10 +86,23 @@ def rank_results(
     return apply_path_deboost(boosted, paths, weights=weights)
 
 
+def order_result_ids(scores: Mapping[int, float], records: Mapping[int, FileRecord]) -> list[int]:
+    return sorted(
+        scores,
+        key=lambda file_id: (
+            -scores[file_id],
+            records[file_id].name_lower,
+            str(records[file_id].path),
+            file_id,
+        ),
+    )
+
+
 __all__ = [
     "RankingWeights",
     "apply_path_deboost",
     "apply_prefix_boost",
+    "order_result_ids",
     "rank_results",
     "reciprocal_rank_fusion",
 ]
