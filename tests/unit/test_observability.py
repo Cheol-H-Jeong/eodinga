@@ -19,7 +19,10 @@ from eodinga.observability import (
     file_logging_enabled,
     install_crash_handlers,
     resolve_crash_dir,
+    resolve_log_compression,
     resolve_log_path,
+    resolve_log_retention,
+    resolve_log_rotation,
     reset_metrics,
     report_crash,
     snapshot_metrics,
@@ -63,9 +66,15 @@ def test_log_and_crash_resolution_respect_runtime_overrides(tmp_path: Path, monk
     crash_dir = tmp_path / "crashes"
     monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
     monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    monkeypatch.setenv("EODINGA_LOG_ROTATION", "12 MB")
+    monkeypatch.setenv("EODINGA_LOG_RETENTION", "9")
+    monkeypatch.setenv("EODINGA_LOG_COMPRESSION", "gz")
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
 
     assert resolve_log_path() == log_path
+    assert resolve_log_rotation() == "12 MB"
+    assert resolve_log_retention() == 9
+    assert resolve_log_compression() == "gz"
     assert resolve_crash_dir() == crash_dir
     assert file_logging_enabled() is True
 
@@ -75,6 +84,16 @@ def test_log_resolution_returns_none_when_file_logging_disabled(monkeypatch) -> 
 
     assert file_logging_enabled() is False
     assert resolve_log_path() is None
+
+
+def test_log_settings_fall_back_to_defaults(monkeypatch) -> None:
+    monkeypatch.delenv("EODINGA_LOG_ROTATION", raising=False)
+    monkeypatch.delenv("EODINGA_LOG_RETENTION", raising=False)
+    monkeypatch.delenv("EODINGA_LOG_COMPRESSION", raising=False)
+
+    assert resolve_log_rotation() == "5 MB"
+    assert resolve_log_retention() == 5
+    assert resolve_log_compression() is None
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:

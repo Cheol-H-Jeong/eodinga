@@ -96,6 +96,33 @@ def file_logging_enabled() -> bool:
     return os.environ.get("EODINGA_DISABLE_FILE_LOGGING") != "1"
 
 
+def resolve_log_rotation(rotation: str | None = None) -> str:
+    if rotation is not None:
+        return rotation
+    override = os.environ.get("EODINGA_LOG_ROTATION", "").strip()
+    return override or "5 MB"
+
+
+def resolve_log_retention(retention: str | int | None = None) -> str | int:
+    if retention is not None:
+        return retention
+    override = os.environ.get("EODINGA_LOG_RETENTION", "").strip()
+    if not override:
+        return 5
+    if override.isdigit():
+        return int(override)
+    return override
+
+
+def resolve_log_compression(compression: str | None = None) -> str | None:
+    if compression is not None:
+        return compression or None
+    override = os.environ.get("EODINGA_LOG_COMPRESSION", "").strip()
+    if not override or override.lower() == "none":
+        return None
+    return override
+
+
 def resolve_log_path(log_path: Path | None = None) -> Path | None:
     if not file_logging_enabled():
         return None
@@ -118,14 +145,28 @@ def resolve_crash_dir(crash_dir: Path | None = None) -> Path:
     return default_crash_dir()
 
 
-def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
+def configure_logging(
+    level: str = "INFO",
+    log_path: Path | None = None,
+    *,
+    rotation: str | None = None,
+    retention: str | int | None = None,
+    compression: str | None = None,
+) -> None:
     logger.remove()
     logger.add(sys.stderr, level=level.upper())
     target = resolve_log_path(log_path)
     if target is None:
         return
     target.parent.mkdir(parents=True, exist_ok=True)
-    logger.add(target, rotation="5 MB", retention=5, level=level.upper())
+    logger.add(
+        target,
+        rotation=resolve_log_rotation(rotation),
+        retention=resolve_log_retention(retention),
+        compression=resolve_log_compression(compression),
+        level=level.upper(),
+        enqueue=True,
+    )
 
 
 def get_logger(name: str | None = None) -> Any:

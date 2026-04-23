@@ -487,6 +487,9 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["exit_codes"]["0"] == 1
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
+    assert payload["log_rotation"] == "5 MB"
+    assert payload["log_retention"] == 5
+    assert payload["log_compression"] is None
     assert payload["crash_dir"]
     assert payload["counters"]["queries_served"] == 1
     assert payload["counters"]["commands_started"] == 2
@@ -553,6 +556,34 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["exit_codes"]["0"] == 2
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
+
+
+def test_stats_json_reports_resolved_log_sink_settings(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+    log_path = tmp_path / "logs" / "custom.log"
+    crash_dir = tmp_path / "crashes"
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    monkeypatch.setenv("EODINGA_LOG_ROTATION", "12 MB")
+    monkeypatch.setenv("EODINGA_LOG_RETENTION", "9")
+    monkeypatch.setenv("EODINGA_LOG_COMPRESSION", "gz")
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["log_path"] == str(log_path)
+    assert payload["log_rotation"] == "12 MB"
+    assert payload["log_retention"] == 9
+    assert payload["log_compression"] == "gz"
+    assert payload["crash_dir"] == str(crash_dir)
 
 
 def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path: Path) -> None:
