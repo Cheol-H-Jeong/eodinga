@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.859 - 2026-04-23
+
+- Expanded the launcher’s inline and empty-state keyboard guidance to cover both `Alt+Up` and `Alt+Down`, so recent-query browsing is explained consistently anywhere the user can get stuck.
+- Added dynamic accessibility summaries for pinned and recent query chips, including when those rows are empty, so keyboard and screen-reader users get the same launcher history context as mouse users.
+- Narrated the current launcher selection and action bar state in plain language, including selected position and available actions, so result focus changes are announced without relying on visual preview updates.
+
 ## 0.1.855 - 2026-04-23
 
 - Avoided redundant stylesheet reapplication on the shared Qt application instance, eliminating the test-mode launcher relaunch crash path seen under the offscreen backend.
