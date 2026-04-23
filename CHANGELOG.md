@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.914 - 2026-04-24
+
+- Taught the PyInstaller hidden-import scan to follow literal module names passed through local variables and helper functions, so packaging audits now auto-discover launcher backend imports instead of relying only on a hand-maintained list.
+- Filtered out `TYPE_CHECKING`-only imports from the hidden-import scanners, keeping the Windows packaging contract focused on runtime dependencies instead of type-only modules.
+- Hardened the Windows dry-run audit so the rendered Inno Setup script must resolve every `@@...@@` template token before the packaging contract passes.
+
 ## 0.1.908 - 2026-04-23
 
 - Skipped redundant SQLite PRAGMA rewrites when a connection is already in the requested fast-write state, trimming per-batch rebuild overhead without changing steady-state durability defaults.
