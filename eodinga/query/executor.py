@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict
 
 from eodinga.common import FileRecord
 from eodinga.observability import increment_counter, record_histogram
-from eodinga.query.compiler import CompiledBranch, CompiledQuery
+from eodinga.query.compiler import CompiledBranch, CompiledQuery, CompiledTextTerm
 from eodinga.query.ranker import rank_results
 
 
@@ -208,6 +208,21 @@ def _normalize_search_text(value: str, case_sensitive: bool) -> str:
     return normalized if case_sensitive else normalized.casefold()
 
 
+@lru_cache(maxsize=512)
+def _positive_term_values(terms: tuple[CompiledTextTerm, ...]) -> tuple[str, ...]:
+    return tuple(term.value for term in terms if not term.negated)
+
+
+@lru_cache(maxsize=512)
+def _normalized_positive_term_values(
+    terms: tuple[CompiledTextTerm, ...], case_sensitive: bool
+) -> tuple[str, ...]:
+    return tuple(
+        _normalize_search_text(value, case_sensitive=case_sensitive)
+        for value in _positive_term_values(terms)
+    )
+
+
 def _fts_prefix_literal(value: str) -> str:
     escaped = value.replace('"', '""')
     return f'"{escaped}"*'
@@ -374,24 +389,24 @@ def _fetch_path_candidates(
 
 
 def _should_scan_path_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_terms = _positive_term_values(branch.path_terms)
     if not positive_terms:
         return False
     if not fts_ids:
         return True
     # Keep the scan supplement for scripts where unicode token boundaries are less predictable.
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return any(any(ord(char) > 127 for char in term) for term in positive_terms)
 
 
 def _fetch_path_candidates_fts(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
 ) -> tuple[list[int], dict[int, FileRecord]]:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_terms = _positive_term_values(branch.path_terms)
     if not positive_terms:
         return [], {}
-    path_query = " ".join(_fts_prefix_literal(term.value) for term in positive_terms)
+    path_query = " ".join(_fts_prefix_literal(term) for term in positive_terms)
     params: list[object] = [path_query]
-    prefix_term = positive_terms[0].value if positive_terms else ""
+    prefix_term = positive_terms[0] if positive_terms else ""
     if branch.where_sql:
         params.extend(branch.where_params)
     sql = _path_candidates_fts_sql(
@@ -411,15 +426,15 @@ def _fetch_path_candidates_fts(
 def _fetch_path_candidates_scan(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
 ) -> tuple[list[int], dict[int, FileRecord]]:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_terms = _positive_term_values(branch.path_terms)
     if not positive_terms:
         return [], {}
-    if any(any(ord(char) > 127 for char in term.value) for term in positive_terms):
+    if any(any(ord(char) > 127 for char in term) for term in positive_terms):
         return _fetch_path_candidates_python_scan(conn, branch, limit)
     params: list[object] = []
-    prefix_term = positive_terms[0].value if positive_terms else ""
+    prefix_term = positive_terms[0] if positive_terms else ""
     for term in positive_terms:
-        value = term.value if branch.case_sensitive else term.value.lower()
+        value = term if branch.case_sensitive else term.lower()
         params.extend([value, value])
     if branch.where_sql:
         params.extend(branch.where_params)
@@ -437,17 +452,18 @@ def _fetch_path_candidates_scan(
 def _fetch_path_candidates_python_scan(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
 ) -> tuple[list[int], dict[int, FileRecord]]:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_terms = _positive_term_values(branch.path_terms)
     if not positive_terms:
         return [], {}
+    normalized_terms = _normalized_positive_term_values(branch.path_terms, branch.case_sensitive)
     records = _fetch_records(conn, branch.where_sql, branch.where_params, limit=100_000)
     matched = {
         file_id: record
         for file_id, record in records.items()
         if all(
-            _text_matches(record.name, term.value, branch.case_sensitive)
-            or _text_matches(str(record.path), term.value, branch.case_sensitive)
-            for term in positive_terms
+            term in _normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
+            or term in _normalize_search_text(str(record.path), case_sensitive=branch.case_sensitive)
+            for term in normalized_terms
         )
     }
     ordered = sorted(
@@ -455,10 +471,8 @@ def _fetch_path_candidates_python_scan(
         key=lambda record: (
             0
             if any(
-                _normalize_search_text(record.name, case_sensitive=branch.case_sensitive).startswith(
-                    _normalize_search_text(term.value, case_sensitive=branch.case_sensitive)
-                )
-                for term in positive_terms
+                _normalize_search_text(record.name, case_sensitive=branch.case_sensitive).startswith(term)
+                for term in normalized_terms
             )
             else 1,
             record.name if branch.case_sensitive else record.name_lower,
@@ -530,21 +544,21 @@ def _fetch_auto_content_candidates(
 
 
 def _should_scan_content_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
-    positive_terms = [term for term in branch.content_terms if not term.negated]
+    positive_terms = _positive_term_values(branch.content_terms)
     if not positive_terms:
         return False
     if not fts_ids:
         return True
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return any(any(ord(char) > 127 for char in term) for term in positive_terms)
 
 
 def _should_scan_auto_content_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_terms = _positive_term_values(branch.path_terms)
     if not positive_terms:
         return False
     if not fts_ids:
         return True
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return any(any(ord(char) > 127 for char in term) for term in positive_terms)
 
 
 def _has_indexed_content(conn: sqlite3.Connection) -> bool:
@@ -655,9 +669,10 @@ def _scan_auto_content_candidates(
     branch: CompiledBranch,
     limit: int,
 ) -> dict[int, FileRecord]:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_terms = _positive_term_values(branch.path_terms)
     if not positive_terms:
         return {}
+    normalized_terms = _normalized_positive_term_values(branch.path_terms, branch.case_sensitive)
     target = max(limit, 1)
     batch_size = max(min(target * 2, 2000), 500)
     offset = 0
@@ -669,10 +684,10 @@ def _scan_auto_content_candidates(
         content_texts = _fetch_content_texts(conn, batch)
         for file_id, record in batch.items():
             content_text = content_texts.get(file_id, "")
-            if not all(
-                _text_matches(content_text, term.value, branch.case_sensitive)
-                for term in positive_terms
-            ):
+            normalized_content = _normalize_search_text(
+                content_text, case_sensitive=branch.case_sensitive
+            )
+            if not all(term in normalized_content for term in normalized_terms):
                 continue
             matched[file_id] = record
             if len(matched) >= target:
@@ -682,7 +697,7 @@ def _scan_auto_content_candidates(
 
 
 def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> list[int]:
-    positives = [term.value for term in branch.path_terms if not term.negated]
+    positives = _normalized_positive_term_values(branch.path_terms, branch.case_sensitive)
     if not positives:
         return []
     hits: list[int] = []
@@ -737,7 +752,7 @@ def _metadata_only_total_estimate(
 def _derive_name_path_hits(
     records: Mapping[int, FileRecord], branch: CompiledBranch
 ) -> tuple[list[int], list[int]]:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_terms = _normalized_positive_term_values(branch.path_terms, branch.case_sensitive)
     name_hits: list[int] = []
     path_hits: list[int] = []
     if not positive_terms:
@@ -747,17 +762,11 @@ def _derive_name_path_hits(
     for record in records.values():
         if record.id is None:
             continue
-        target_name = record.name
-        target_path = str(record.path)
-        if any(
-            _text_matches(target_name, term.value, branch.case_sensitive)
-            for term in positive_terms
-        ):
+        target_name = _normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
+        target_path = _normalize_search_text(str(record.path), case_sensitive=branch.case_sensitive)
+        if any(term in target_name for term in positive_terms):
             name_hits.append(record.id)
-        if any(
-            _text_matches(target_path, term.value, branch.case_sensitive)
-            for term in positive_terms
-        ):
+        if any(term in target_path for term in positive_terms):
             path_hits.append(record.id)
     return name_hits, path_hits
 
