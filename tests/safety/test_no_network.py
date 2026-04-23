@@ -99,24 +99,19 @@ def _string_literal(node: ast.AST) -> str | None:
     return None
 
 
-def _subprocess_command_name(node: ast.AST) -> str | None:
-    if isinstance(node, (ast.List, ast.Tuple)) and node.elts:
-        return _string_literal(node.elts[0])
-    return _string_literal(node)
-
-
-def _shell_uses_banned_command(command: str) -> str | None:
-    try:
-        tokens = shlex.split(command, posix=True)
-    except ValueError:
-        tokens = command.split()
-    for token in tokens:
-        base = Path(token).name.lower()
-        if base.endswith(".exe"):
-            base = base[:-4]
-        if base in _BANNED_SUBPROCESS_COMMANDS:
-            return base
-    return None
+def _subprocess_command_tokens(node: ast.AST) -> list[str] | None:
+    if isinstance(node, (ast.List, ast.Tuple)):
+        tokens: list[str] = []
+        for element in node.elts:
+            token = _string_literal(element)
+            if token is None:
+                return None
+            tokens.append(token)
+        return tokens
+    command = _string_literal(node)
+    if command is None:
+        return None
+    return [command]
 
 
 def _normalize_command_name(command: str) -> str:
@@ -124,6 +119,59 @@ def _normalize_command_name(command: str) -> str:
     if base.endswith(".exe"):
         return base[:-4]
     return base
+
+
+def _banned_subprocess_command(tokens: list[str]) -> str | None:
+    if not tokens:
+        return None
+    command = _normalize_command_name(tokens[0])
+    if command == "env":
+        index = 1
+        while index < len(tokens):
+            token = tokens[index]
+            if token == "--":
+                index += 1
+                break
+            if token.startswith("-"):
+                index += 1
+                continue
+            if "=" in token and not token.startswith("="):
+                index += 1
+                continue
+            break
+        return _banned_subprocess_command(tokens[index:])
+    if command in {"bash", "sh", "zsh", "fish"}:
+        for index, token in enumerate(tokens[1:], start=1):
+            if token in {"-c", "-lc"} and index + 1 < len(tokens):
+                return _shell_uses_banned_command(tokens[index + 1])
+        return None
+    if command in {"pwsh", "powershell"}:
+        for index, token in enumerate(tokens[1:], start=1):
+            if token.lower() in {"-c", "-command"} and index + 1 < len(tokens):
+                return _shell_uses_banned_command(tokens[index + 1])
+        return None
+    if command == "cmd":
+        for index, token in enumerate(tokens[1:], start=1):
+            if token.lower() == "/c" and index + 1 < len(tokens):
+                return _shell_uses_banned_command(tokens[index + 1])
+        return None
+    if command in _BANNED_SUBPROCESS_COMMANDS:
+        return command
+    return None
+
+
+def _banned_command_from_ast_tokens(tokens: list[str]) -> str | None:
+    if len(tokens) == 1:
+        return _shell_uses_banned_command(tokens[0])
+    return _banned_subprocess_command(tokens)
+
+
+def _shell_uses_banned_command(command: str) -> str | None:
+    try:
+        tokens = shlex.split(command, posix=True)
+    except ValueError:
+        tokens = command.split()
+    return _banned_subprocess_command(tokens)
 
 
 def _scan_python_source(path: Path, root: Path) -> list[str]:
@@ -152,9 +200,9 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
             dotted = _resolve_dotted_name(node.func, aliases)
             if dotted in _BANNED_CALLS:
                 if node.args:
-                    command = _subprocess_command_name(node.args[0])
+                    command = _subprocess_command_tokens(node.args[0])
                     if command is not None:
-                        shell_command = _shell_uses_banned_command(command)
+                        shell_command = _banned_command_from_ast_tokens(command)
                         if shell_command is not None:
                             violations.append(
                                 f"{path.relative_to(root)}:{node.lineno}:subprocess {shell_command}"
@@ -162,10 +210,10 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                             continue
                 violations.append(f"{path.relative_to(root)}:{node.lineno}:{dotted}")
             if dotted in _BANNED_EXEC_CALLS and node.args:
-                command = _subprocess_command_name(node.args[0])
-                if command is not None and _normalize_command_name(command) in _BANNED_SUBPROCESS_COMMANDS:
+                command = _subprocess_command_tokens(node.args[0])
+                if command is not None and (banned := _banned_command_from_ast_tokens(command)) is not None:
                     violations.append(
-                        f"{path.relative_to(root)}:{node.lineno}:subprocess {_normalize_command_name(command)}"
+                        f"{path.relative_to(root)}:{node.lineno}:subprocess {banned}"
                     )
                     continue
             if dotted in {
@@ -175,10 +223,8 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                 "subprocess.check_output",
                 "subprocess.Popen",
             } and node.args:
-                command = _subprocess_command_name(node.args[0])
-                normalized_command = (
-                    _normalize_command_name(command) if command is not None else None
-                )
+                command = _subprocess_command_tokens(node.args[0])
+                normalized_command = _banned_command_from_ast_tokens(command) if command is not None else None
                 if normalized_command in _BANNED_SUBPROCESS_COMMANDS:
                     violations.append(
                         f"{path.relative_to(root)}:{node.lineno}:subprocess {normalized_command}"
@@ -191,7 +237,7 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                     for keyword in node.keywords
                 )
                 if command is not None and shell_mode:
-                    shell_command = _shell_uses_banned_command(command)
+                    shell_command = _shell_uses_banned_command(command[0])
                     if shell_command is not None:
                         violations.append(
                             f"{path.relative_to(root)}:{node.lineno}:subprocess {shell_command}"
@@ -203,6 +249,8 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
 def test_shell_command_scanner_flags_curl_and_wget_variants() -> None:
     assert _shell_uses_banned_command("curl https://example.com") == "curl"
     assert _shell_uses_banned_command("C:/Windows/System32/wget.exe https://example.com") == "wget"
+    assert _shell_uses_banned_command("/usr/bin/env curl https://example.com") == "curl"
+    assert _shell_uses_banned_command("bash -lc 'curl https://example.com'") == "curl"
     assert _shell_uses_banned_command("python -m http.server") is None
 
 
@@ -231,6 +279,25 @@ def test_python_source_scan_flags_list_form_network_commands_with_absolute_paths
         "import subprocess\n"
         "subprocess.run(['/usr/bin/curl', 'https://example.com'])\n"
         "subprocess.Popen((r'C:/Windows/System32/wget.exe', 'https://example.com'))\n",
+        encoding="utf-8",
+    )
+
+    violations = _scan_python_source(source, tmp_path)
+
+    assert violations == [
+        "candidate.py:2:subprocess curl",
+        "candidate.py:3:subprocess wget",
+    ]
+
+
+def test_python_source_scan_flags_env_and_shell_wrapped_network_commands(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "candidate.py"
+    source.write_text(
+        "import subprocess\n"
+        "subprocess.run(['/usr/bin/env', 'curl', 'https://example.com'])\n"
+        "subprocess.Popen(['bash', '-lc', 'wget https://example.com'])\n",
         encoding="utf-8",
     )
 
