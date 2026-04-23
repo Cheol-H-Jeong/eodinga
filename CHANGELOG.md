@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.382 - 2026-04-23
+## 0.1.387 - 2026-04-23
 
 - Kept quoted phrase queries complete even when FTS returns only the exact-token subset first, so separator-spanning matches in names, paths, and content still surface together.
 - Aligned the path-side fallback and ranking passes with phrase semantics, preventing punctuation-separated path hits from being dropped after candidate fetch.
