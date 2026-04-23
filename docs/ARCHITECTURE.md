@@ -53,6 +53,15 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 | Content extraction | `eodinga.content.*` | Parse supported document formats into searchable text. |
 | UI + CLI | `eodinga.__main__`, `eodinga.gui.*`, `eodinga.launcher.*` | Expose the same engine through commands, the main window, and the hotkey launcher. |
 
+## Boundary Map
+
+| Boundary | Allowed behavior | Notable guardrail |
+| --- | --- | --- |
+| Indexed roots | read-only traversal and parsing | `eodinga.core.fs` keeps the runtime from mutating user files |
+| App state directory | config, logs, crashes, and SQLite index files | all persistent runtime writes are expected to stay here |
+| Query execution | SQLite candidate fetch plus Python fallback checks | no network calls and no direct writes to indexed roots |
+| GUI and launcher | thin presentation over the shared query/index stack | no separate search implementation is allowed to drift from the CLI |
+
 ## Why The Pieces Are Split This Way
 
 - `core.*` owns contact with the real filesystem so read-only guarantees stay centralized.
@@ -85,6 +94,17 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 | `content_map` | stable bridge between `files` rows and `content_fts` row ids | storage/writer coordination during content refresh |
 
 The split lets the executor ask SQLite for cheap lexical candidates first, then run regex or mixed fallback checks in Python only on the reduced set.
+
+## Persistent State Surfaces
+
+| Artifact | Purpose | Written by |
+| --- | --- | --- |
+| `config.toml` | roots, launcher settings, and operator preferences | CLI and GUI config save paths |
+| `index.db` | live metadata and FTS storage | rebuilds, watcher updates, and recovery flows |
+| `index.db-wal` / `index.db-shm` | SQLite write-ahead sidecars while the DB is active | SQLite itself under the storage layer |
+| `.index.db.next` | staged rebuild candidate before promotion | `eodinga index --rebuild` |
+| `.index.db.recover` | staged recovery copy during repair or WAL replay | startup recovery in `eodinga.index.storage` |
+| `crash-<ts>.log` | last-resort crash artifact for failed runs | observability crash hooks |
 
 ## Index Lifecycle Sequence
 
@@ -129,6 +149,16 @@ eodinga index --rebuild
 - Structured operators such as `ext:`, `path:`, `content:`, `size:`, `date:`, `modified:`, `created:`, and `is:` compile into SQLite predicates where possible.
 - Regex and mixed path/content terms are finalized in Python against the candidate set so the CLI and GUI share identical behavior.
 - `eodinga.query.ranker` applies reciprocal rank fusion, filename prefix boosts, and path deboosting for noisy trees such as `node_modules`.
+
+## Query Capability Map
+
+| Query feature | First-stage execution | Fallback or finalization |
+| --- | --- | --- |
+| plain terms and phrases | FTS probe against `paths_fts` / `content_fts` | ranker merges path and content hits |
+| `ext:`, `size:`, `date:` family filters | SQLite predicates on `files` columns | none when the compiler can lower them directly |
+| grouped OR branches | compiler expands branch predicates | executor merges candidate sets before rerank |
+| regex and mixed field checks | candidate fetch narrowed first | Python predicate pass over the reduced hit set |
+| negation-heavy expressions | partial SQL lowering when safe | executor enforces the remaining truth table |
 
 ## Query Sequence
 
@@ -181,6 +211,22 @@ runtime surface changes
 - `scripts/generate_manpage.py` derives the shipped man page from `eodinga.__main__._build_parser()` so CLI help and packaged docs stay aligned.
 - `scripts/render_docs_screenshots.py` renders offscreen Qt widgets through `eodinga.gui.docs`, keeping screenshots tied to real UI state instead of mock assets.
 - `tests/unit/test_docs_assets.py` pins the presence of the shipped sections and checks that the derived man page still matches the checked-in artifact.
+
+## Release Artifact Flow
+
+```text
+runtime / docs / packaging change
+    |
+    +--> README + docs/*.md refresh
+    |
+    +--> docs asset refresh (man page / screenshots when needed)
+    |
+    +--> tests/unit/test_docs_assets.py
+    |
+    +--> packaging dry runs + workflow lint
+    |
+    +--> changelog + version bump + local tag
+```
 
 ## Operational Model
 
@@ -237,6 +283,14 @@ startup
 - Documentation screenshots are rendered from the real Qt surfaces through `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
 - Release docs also ship a generated CLI man page under `docs/man/` so packaged audits can verify the command surface without importing the project interactively.
 
+## Packaging Input Matrix
+
+| Packaging target | Primary inputs | Validation path |
+| --- | --- | --- |
+| Windows installer | `packaging/pyinstaller.spec`, `packaging/windows/eodinga.iss`, version metadata | `python packaging/build.py --target windows-dry-run` |
+| Linux AppImage | `packaging/linux/appimage-builder.yml`, launcher entrypoints, version metadata | `python packaging/build.py --target linux-appimage-dry-run` |
+| Linux `.deb` | `packaging/linux/deb/*`, desktop assets, changelog, version metadata | `python packaging/build.py --target linux-deb-dry-run` |
+
 ## Platform Surface Summary
 
 | Surface | Entry point | Purpose |
@@ -269,3 +323,13 @@ When an operator reports stale or surprising results, the shortest architecture-
 3. `eodinga watch` or `eodinga index --rebuild` depending on whether the issue is live-update lag or a one-shot recovery need.
 
 That sequence mirrors the architecture itself: active DB selection, environment validation, then either watcher-driven incremental repair or staged rebuild.
+
+## Failure Domains
+
+| Symptom | Most likely subsystem | First file or module family to inspect |
+| --- | --- | --- |
+| stale results after file changes | watcher or writer | `eodinga.core.watcher`, `eodinga.index.writer` |
+| query parses oddly or ranks unexpectedly | DSL/compiler/executor/ranker | `eodinga.query.*` |
+| startup talks about recovery or WAL state | storage lifecycle | `eodinga.index.storage` |
+| packaged app differs from editable behavior | packaging entrypoint or shipped assets | `packaging/*`, `docs/man/eodinga.1`, `docs/screenshots/*` |
+| GUI looks right but CLI differs | duplicated surface assumption | `eodinga.__main__` versus shared query/index modules |
