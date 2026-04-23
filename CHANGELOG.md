@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.823 - 2026-04-23
+
+- Rolled back watcher startup cleanly when observer registration fails, so a failed watch attach no longer leaves the debounce flush thread running without any registered roots.
+- Extended staged rebuild signal handling to cover root metadata insertion, preserving a resumable `.next` database even when `SIGINT` or `SIGTERM` arrives before file walking begins.
+- Tightened the repository no-network safety scan to flag `subprocess` calls that hide `curl` or `wget` behind shell interpreters such as `sh -c` or `bash -lc`.
+
 ## 0.1.821 - 2026-04-23
 
 - Added a bounded filesystem-backed launcher preview fallback for text results that do not yet have an indexed snippet, while still skipping binary content and preserving indexed snippets when they exist.
