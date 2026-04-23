@@ -332,6 +332,48 @@ def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
     assert calls == ["ext:pdf"]
 
 
+def test_launcher_tab_focuses_query_chips_when_results_are_empty(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("release notes")
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+    launcher.query_field.setFocus()
+    qapp.processEvents()
+
+    assert launcher.query_field.hasFocus()
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Tab)
+    assert launcher.pinned_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Backtab)
+    assert launcher.recent_queries_row.buttons[0].hasFocus()
+
+
+def test_launcher_query_chips_support_arrow_navigation_and_escape(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf", "size:>10M", "content:release"])
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    launcher.pinned_queries_row.focus_first()
+    qapp.processEvents()
+    assert launcher.pinned_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[0], Qt.Key.Key_Right)
+    assert launcher.pinned_queries_row.buttons[1].hasFocus()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[1], Qt.Key.Key_End)
+    assert launcher.pinned_queries_row.buttons[2].hasFocus()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[2], Qt.Key.Key_Left)
+    assert launcher.pinned_queries_row.buttons[1].hasFocus()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[1], Qt.Key.Key_Home)
+    assert launcher.pinned_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[0], Qt.Key.Key_Escape)
+    assert launcher.query_field.hasFocus()
+
+
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:
     revealed: list[str] = []
 

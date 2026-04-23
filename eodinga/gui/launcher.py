@@ -59,12 +59,14 @@ class LauncherPanel(QWidget):
             "Pinned",
             accessible_name="Pinned launcher queries",
             on_chip_clicked=self._apply_query_chip,
+            on_escape=self.focus_query_field,
             parent=self,
         )
         self.recent_queries_row = QueryChipRow(
             "Recent",
             accessible_name="Recent launcher queries",
             on_chip_clicked=self._apply_query_chip,
+            on_escape=self.focus_query_field,
             parent=self,
         )
         self.result_list = QListView(self)
@@ -346,6 +348,10 @@ class LauncherPanel(QWidget):
 
     def _handle_query_field_keypress(self, event: QKeyEvent) -> bool:
         if self.model.rowCount() == 0:
+            if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Down}:
+                return self._focus_query_chip(backwards=False)
+            if event.key() in {Qt.Key.Key_Backtab, Qt.Key.Key_Up}:
+                return self._focus_query_chip(backwards=True)
             return False
         if event.key() == Qt.Key.Key_Down:
             self.result_list.setFocus()
@@ -384,6 +390,13 @@ class LauncherPanel(QWidget):
                 self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
             return True
         return False
+
+    def _focus_query_chip(self, *, backwards: bool) -> bool:
+        rows = [row for row in (self.pinned_queries_row, self.recent_queries_row) if row.buttons]
+        if not rows:
+            return False
+        target = rows[-1] if backwards else rows[0]
+        return target.focus_last() if backwards else target.focus_first()
 
     def _handle_result_list_keypress(self, event: QKeyEvent) -> bool:
         if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
