@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.195 - 2026-04-23
+
+- Normalized dotted `ext:` filters so queries like `ext:.TXT` now match the indexed `txt` extension instead of falling through to an exact `.txt` comparison that returned no hits.
+- Escaped SQL wildcard characters in query root scopes, so scoped searches against roots containing `_` or `%` now stay inside the intended tree instead of leaking into similarly named sibling paths.
+- Fixed `path:` regex parsing for escaped slashes, including operator values that contain regex metacharacters after an escaped `/`, so patterns like `path:/reports\/today-alpha-(copy|clone)\.txt/i` execute as real regex filters.
+
 ## 0.1.190 - 2026-04-23
 
 - Expanded multi-root live-update coverage so a real watched delete in one root must disappear from both global and root-scoped search results within 500 ms without disturbing sibling-root hits.
