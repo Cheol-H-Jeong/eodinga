@@ -7,17 +7,8 @@ BUILD_ROOT="${DIST_DIR}/deb-root"
 AUDIT_PATH="${DIST_DIR}/linux-deb-audit.json"
 DESKTOP_ENTRY="${ROOT_DIR}/packaging/linux/eodinga.desktop"
 ICON_ASSET="${ROOT_DIR}/packaging/linux/eodinga.svg"
-VERSION="$(python3 - <<'PY'
-import pathlib
-import re
-
-text = pathlib.Path("eodinga/__init__.py").read_text(encoding="utf-8")
-match = re.search(r'^__version__\s*=\s*"([^"]+)"', text, re.MULTILINE)
-if match is None:
-    raise SystemExit("missing __version__")
-print(match.group(1))
-PY
-)"
+eval "$(python3 "${ROOT_DIR}/packaging/project_metadata.py" --format shell)"
+VERSION="${PROJECT_VERSION}"
 ARCH="${TARGET_ARCH:-amd64}"
 PACKAGE_DIR="${BUILD_ROOT}/eodinga_${VERSION}_${ARCH}"
 ARCHIVE_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}_debroot.tar.gz"
@@ -33,14 +24,14 @@ mkdir -p "${PACKAGE_DIR}/DEBIAN" "${PACKAGE_DIR}/usr/bin" "${PACKAGE_DIR}/usr/sh
 mkdir -p "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps"
 
 cat > "${PACKAGE_DIR}/DEBIAN/control" <<EOF
-Package: eodinga
+Package: ${PROJECT_NAME}
 Version: ${VERSION}
 Section: utils
 Priority: optional
 Architecture: ${ARCH}
-Maintainer: Cheol-H-Jeong
-Depends: python3 (>= 3.11)
-Description: Instant lexical file search for Windows and Linux
+Maintainer: ${PROJECT_PUBLISHER}
+Depends: ${PROJECT_DEBIAN_PYTHON_DEPENDENCY}
+Description: ${PROJECT_DESCRIPTION}
 EOF
 
 cat > "${PACKAGE_DIR}/usr/bin/eodinga" <<'EOF'
@@ -102,6 +93,7 @@ payload = {
         "package": control_entries.get("Package"),
         "version": control_entries.get("Version"),
         "architecture": control_entries.get("Architecture"),
+        "maintainer": control_entries.get("Maintainer"),
         "depends": control_entries.get("Depends"),
         "description": control_entries.get("Description"),
     },

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import subprocess
@@ -19,6 +20,7 @@ PYPROJECT = PROJECT_ROOT / "pyproject.toml"
 APPIMAGE_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "appimage.sh"
 DEB_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "deb.sh"
 APPIMAGE_DESKTOP = PROJECT_ROOT / "packaging" / "linux" / "eodinga.desktop"
+PROJECT_METADATA_MODULE = PROJECT_ROOT / "packaging" / "project_metadata.py"
 INNO_VERSION_TOKEN = "@@APP_VERSION@@"
 INNO_GUI_DIST_TOKEN = "@@GUI_DIST_NAME@@"
 INNO_CLI_DIST_TOKEN = "@@CLI_DIST_NAME@@"
@@ -40,6 +42,18 @@ def _read_package_version() -> str:
     if match is None:
         raise ValueError(f"could not determine package version from {PACKAGE_INIT}")
     return match.group("version")
+
+
+def _read_project_metadata() -> dict[str, str]:
+    spec = importlib.util.spec_from_file_location("project_metadata", PROJECT_METADATA_MODULE)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"could not load packaging metadata helper from {PROJECT_METADATA_MODULE}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    metadata = module.read_project_metadata(PROJECT_ROOT / "pyproject.toml")
+    if not isinstance(metadata, dict):
+        raise RuntimeError("packaging metadata helper returned a non-dict payload")
+    return {str(key): str(value) for key, value in metadata.items()}
 
 
 def _load_windows_spec_namespace() -> dict[str, Any]:
@@ -75,7 +89,7 @@ def _macro_value(text: str, macro_name: str) -> str | None:
     return match.group(1)
 
 
-def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
+def _audit_windows_inputs(version: str, package_version: str, metadata: dict[str, str]) -> dict[str, Any]:
     spec_namespace = _load_windows_spec_namespace()
     inno_text = INNO_SCRIPT.read_text(encoding="utf-8")
     app_id = _macro_value(inno_text, "AppId")
@@ -125,6 +139,10 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
         "inno_setup": {
             "path": str(INNO_SCRIPT),
             "exists": INNO_SCRIPT.exists(),
+            "app_name": _macro_value(inno_text, "AppName"),
+            "app_name_matches_project": _macro_value(inno_text, "AppName") == metadata["name"],
+            "app_publisher": _macro_value(inno_text, "AppPublisher"),
+            "app_publisher_matches_project": _macro_value(inno_text, "AppPublisher") == metadata["publisher"],
             "app_id": app_id,
             "app_id_is_guid_macro": app_id is not None and bool(_INNO_APP_ID_PATTERN.fullmatch(app_id)),
             "app_version_macro": app_version,
@@ -195,6 +213,8 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         errors.append("PyInstaller data files are empty")
     inno_payload = payload.get("inno_setup", {})
     required_flags = {
+        "app_name_matches_project": "Inno AppName drifted from pyproject metadata",
+        "app_publisher_matches_project": "Inno AppPublisher drifted from pyproject metadata",
         "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
         "app_version_uses_template": "Inno AppVersion macro no longer uses the template token",
         "source_entries_match_pyinstaller_dist": "Inno source entries drifted from PyInstaller dist names",
@@ -212,10 +232,13 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     return errors
 
 
-def _validate_linux_appimage_audit(payload: dict[str, Any], package_version: str) -> list[str]:
+def _validate_linux_appimage_audit(payload: dict[str, Any], metadata: dict[str, str], package_version: str) -> list[str]:
     errors: list[str] = []
     if payload.get("version") != package_version:
         errors.append("AppImage audit version does not match the package version")
+    desktop_payload = payload.get("desktop_entry", {})
+    if desktop_payload.get("name") != metadata["name"]:
+        errors.append("AppImage desktop entry name drifted from pyproject metadata")
     recipe_payload = payload.get("recipe", {})
     icon_payload = payload.get("icon", {})
     apprun_payload = payload.get("apprun", {})
@@ -239,18 +262,27 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], package_version: str
     return errors
 
 
-def _validate_linux_deb_audit(payload: dict[str, Any], package_version: str) -> list[str]:
+def _validate_linux_deb_audit(payload: dict[str, Any], metadata: dict[str, str], package_version: str) -> list[str]:
     errors: list[str] = []
     if payload.get("version") != package_version:
         errors.append("Debian audit version does not match the package version")
     control_payload = payload.get("control", {})
+    desktop_payload = payload.get("desktop_entry", {})
     icon_payload = payload.get("icon", {})
     launcher_payload = payload.get("launcher", {})
     docs_payload = payload.get("docs", {})
-    if control_payload.get("package") != "eodinga":
+    if control_payload.get("package") != metadata["name"]:
         errors.append("Debian control package name drifted from eodinga")
     if control_payload.get("version") != package_version:
         errors.append("Debian control version does not match the package version")
+    if control_payload.get("maintainer") != metadata["publisher"]:
+        errors.append("Debian control maintainer drifted from pyproject metadata")
+    if control_payload.get("depends") != metadata["debian_python_dependency"]:
+        errors.append("Debian control Python dependency drifted from pyproject metadata")
+    if control_payload.get("description") != metadata["description"]:
+        errors.append("Debian control description drifted from pyproject metadata")
+    if desktop_payload.get("name") != metadata["name"]:
+        errors.append("Debian desktop entry name drifted from pyproject metadata")
     required_flags = [
         (icon_payload.get("exists"), "Debian icon asset is missing from the package tree"),
         (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),
@@ -276,7 +308,8 @@ def _report_validation_errors(target: str, errors: list[str]) -> int:
 def _run_windows_dry_run() -> int:
     version = _read_project_version()
     package_version = _read_package_version()
-    payload = _audit_windows_inputs(version, package_version)
+    metadata = _read_project_metadata()
+    payload = _audit_windows_inputs(version, package_version, metadata)
     _write_audit(payload)
     return _report_validation_errors("windows-dry-run", _validate_windows_audit(payload))
 
@@ -284,7 +317,8 @@ def _run_windows_dry_run() -> int:
 def _run_windows() -> int:
     version = _read_project_version()
     package_version = _read_package_version()
-    payload = _audit_windows_inputs(version, package_version)
+    metadata = _read_project_metadata()
+    payload = _audit_windows_inputs(version, package_version, metadata)
     payload["platform_tools"] = ["pyinstaller", "iscc"]
     _write_audit(payload)
     return _report_validation_errors("windows", _validate_windows_audit(payload))
@@ -299,10 +333,11 @@ def _run_linux_appimage_dry_run() -> int:
     if result.returncode != 0:
         return result.returncode
     payload = _load_audit(DIST_DIR / "linux-appimage-audit.json")
+    metadata = _read_project_metadata()
     package_version = _read_package_version()
     return _report_validation_errors(
         "linux-appimage-dry-run",
-        _validate_linux_appimage_audit(payload, package_version),
+        _validate_linux_appimage_audit(payload, metadata, package_version),
     )
 
 
@@ -315,10 +350,11 @@ def _run_linux_appimage() -> int:
     if result.returncode != 0:
         return result.returncode
     payload = _load_audit(DIST_DIR / "linux-appimage-audit.json")
+    metadata = _read_project_metadata()
     package_version = _read_package_version()
     return _report_validation_errors(
         "linux-appimage",
-        _validate_linux_appimage_audit(payload, package_version),
+        _validate_linux_appimage_audit(payload, metadata, package_version),
     )
 
 
@@ -331,10 +367,11 @@ def _run_linux_deb_dry_run() -> int:
     if result.returncode != 0:
         return result.returncode
     payload = _load_audit(DIST_DIR / "linux-deb-audit.json")
+    metadata = _read_project_metadata()
     package_version = _read_package_version()
     return _report_validation_errors(
         "linux-deb-dry-run",
-        _validate_linux_deb_audit(payload, package_version),
+        _validate_linux_deb_audit(payload, metadata, package_version),
     )
 
 
@@ -347,10 +384,11 @@ def _run_linux_deb() -> int:
     if result.returncode != 0:
         return result.returncode
     payload = _load_audit(DIST_DIR / "linux-deb-audit.json")
+    metadata = _read_project_metadata()
     package_version = _read_package_version()
     return _report_validation_errors(
         "linux-deb",
-        _validate_linux_deb_audit(payload, package_version),
+        _validate_linux_deb_audit(payload, metadata, package_version),
     )
 
 

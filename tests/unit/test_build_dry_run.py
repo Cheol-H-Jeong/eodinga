@@ -57,6 +57,10 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert "@@CLI_DIST_NAME@@" not in rendered_text
     assert "@@GUI_EXE_NAME@@" not in rendered_text
     assert payload["inno_setup"]["output_base_filename"] == f"eodinga-{__version__}-win-x64-setup"
+    assert payload["inno_setup"]["app_name"] == "eodinga"
+    assert payload["inno_setup"]["app_name_matches_project"] is True
+    assert payload["inno_setup"]["app_publisher"] == "Cheol-H-Jeong"
+    assert payload["inno_setup"]["app_publisher_matches_project"] is True
     assert payload["inno_setup"]["app_id"] == "{{B4D25A04-71A1-45A2-A0BB-7B3F612E9E68}"
     assert payload["inno_setup"]["app_id_is_guid_macro"] is True
     assert payload["inno_setup"]["app_version_macro"] == "@@APP_VERSION@@"
@@ -89,7 +93,8 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
 
 def test_windows_audit_validator_rejects_version_mismatch() -> None:
     module = _load_build_module()
-    payload = module._audit_windows_inputs("0.1.136", "0.1.135")
+    metadata = module._read_project_metadata()
+    payload = module._audit_windows_inputs("0.1.136", "0.1.135", metadata)
 
     errors = module._validate_windows_audit(payload)
 
@@ -98,7 +103,8 @@ def test_windows_audit_validator_rejects_version_mismatch() -> None:
 
 def test_windows_audit_validator_rejects_missing_source_hidden_import_contract() -> None:
     module = _load_build_module()
-    payload = module._audit_windows_inputs(__version__, __version__)
+    metadata = module._read_project_metadata()
+    payload = module._audit_windows_inputs(__version__, __version__, metadata)
     payload["pyinstaller_spec"]["hiddenimports"] = ["PySide6"]
 
     errors = module._validate_windows_audit(payload)
@@ -169,7 +175,8 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
         },
     }
 
-    errors = module._validate_linux_appimage_audit(payload, __version__)
+    metadata = module._read_project_metadata()
+    errors = module._validate_linux_appimage_audit(payload, metadata, __version__)
 
     assert "AppImage launcher shim no longer executes the Python module" in errors
 
@@ -215,6 +222,12 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
         "control": {
             "package": "eodinga",
             "version": __version__,
+            "maintainer": "Cheol-H-Jeong",
+            "depends": "python3 (>=3.11)",
+            "description": "Everything-class instant file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "name": "eodinga",
         },
         "icon": {
             "exists": True,
@@ -230,7 +243,8 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
         },
     }
 
-    errors = module._validate_linux_deb_audit(payload, __version__)
+    metadata = module._read_project_metadata()
+    errors = module._validate_linux_deb_audit(payload, metadata, __version__)
 
     assert "Debian package no longer ships the changelog" in errors
 
@@ -275,8 +289,9 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
         "package": "eodinga",
         "version": __version__,
         "architecture": "amd64",
-        "depends": "python3 (>= 3.11)",
-        "description": "Instant lexical file search for Windows and Linux",
+        "maintainer": "Cheol-H-Jeong",
+        "depends": "python3 (>=3.11)",
+        "description": "Everything-class instant file search for Windows and Linux",
     }
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
