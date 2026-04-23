@@ -303,6 +303,43 @@ def test_execute_escaped_phrase_query_matches_literal_quotes_and_backslashes(
     assert content_hits == ['release "candidate" notes.txt']
 
 
+def test_execute_path_phrase_query_matches_across_ascii_token_boundaries(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/release notes.txt", 512, now, "txt")
+    _insert_file(tmp_db, 2, "/workspace/release-notes.txt", 512, now - 60, "txt")
+    _insert_file(tmp_db, 3, "/workspace/release_notes.txt", 512, now - 120, "txt")
+    _insert_file(tmp_db, 4, "/workspace/release.notes.txt", 512, now - 180, "txt")
+    _insert_file(tmp_db, 5, "/workspace/releaseXnotes.txt", 512, now - 240, "txt")
+    tmp_db.commit()
+
+    hits = {hit.file.name for hit in search(tmp_db, 'path:"release notes"', limit=10).hits}
+
+    assert hits == {
+        "release notes.txt",
+        "release-notes.txt",
+        "release_notes.txt",
+        "release.notes.txt",
+    }
+
+
+def test_execute_content_phrase_query_matches_across_ascii_token_boundaries(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/spaced.txt", 512, now, "txt", body_text="release notes ready")
+    _insert_file(tmp_db, 2, "/workspace/hyphen.txt", 512, now - 60, "txt", body_text="release-notes ready")
+    _insert_file(tmp_db, 3, "/workspace/underscore.txt", 512, now - 120, "txt", body_text="release_notes ready")
+    _insert_file(tmp_db, 4, "/workspace/dot.txt", 512, now - 180, "txt", body_text="release.notes ready")
+    _insert_file(tmp_db, 5, "/workspace/merged.txt", 512, now - 240, "txt", body_text="releaseXnotes ready")
+    tmp_db.commit()
+
+    hits = {hit.file.name for hit in search(tmp_db, 'content:"release notes"', limit=10).hits}
+
+    assert hits == {"spaced.txt", "hyphen.txt", "underscore.txt", "dot.txt"}
+
+
 def test_execute_relative_date_queries_use_local_day_boundaries(
     tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -916,6 +953,45 @@ def test_plain_query_can_fall_back_to_content_matches(tmp_db: sqlite3.Connection
     hits = [hit.file.name for hit in search(tmp_db, "launch", limit=10).hits]
 
     assert hits == ["alpha.txt"]
+
+
+def test_execute_plain_phrase_query_can_fall_back_to_ascii_token_boundary_content_matches(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/projects/spaced.txt", 1024, now, "txt", body_text="release notes")
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/projects/underscore.txt",
+        1024,
+        now - 60,
+        "txt",
+        body_text="release_notes",
+    )
+    _insert_file(
+        tmp_db,
+        3,
+        "/workspace/projects/dotted.txt",
+        1024,
+        now - 120,
+        "txt",
+        body_text="release.notes",
+    )
+    _insert_file(
+        tmp_db,
+        4,
+        "/workspace/projects/merged.txt",
+        1024,
+        now - 180,
+        "txt",
+        body_text="releaseXnotes",
+    )
+    tmp_db.commit()
+
+    hits = {hit.file.name for hit in search(tmp_db, '"release notes"', limit=10).hits}
+
+    assert hits == {"spaced.txt", "underscore.txt", "dotted.txt"}
 
 
 def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:

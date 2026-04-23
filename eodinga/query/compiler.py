@@ -293,7 +293,9 @@ def _compile_branch(
                         negated=term.negated,
                     )
                 )
-                if not _has_non_ascii(normalized_value):
+                if not _has_non_ascii(normalized_value) and not (
+                    term.value_kind == "phrase" and any(char.isspace() for char in normalized_value)
+                ):
                     comparator = "NOT LIKE" if term.negated else "LIKE"
                     where_parts.append(f"files.path {comparator} ?")
                     where_params.append(f"%{normalized_value}%")

@@ -173,13 +173,55 @@ def _normalize_search_text(value: str, case_sensitive: bool) -> str:
     return normalized if case_sensitive else normalized.casefold()
 
 
+def _normalize_phrase_boundary_text(value: str, case_sensitive: bool) -> str:
+    normalized = _normalize_search_text(value, case_sensitive=case_sensitive)
+    collapsed: list[str] = []
+    previous_was_space = True
+    for char in normalized:
+        if char.isalnum():
+            collapsed.append(char)
+            previous_was_space = False
+            continue
+        if not previous_was_space:
+            collapsed.append(" ")
+            previous_was_space = True
+    return "".join(collapsed).strip()
+
+
+def _phrase_matches(value: str, phrase: str, case_sensitive: bool) -> bool:
+    if _text_matches(value, phrase, case_sensitive):
+        return True
+    if not any(char.isspace() for char in phrase):
+        return False
+    normalized_phrase = _normalize_phrase_boundary_text(phrase, case_sensitive=case_sensitive)
+    if not normalized_phrase:
+        return False
+    return normalized_phrase in _normalize_phrase_boundary_text(
+        value,
+        case_sensitive=case_sensitive,
+    )
+
+
+def _compiled_text_matches(text: str, term: str, kind: str, case_sensitive: bool) -> bool:
+    if kind == "phrase":
+        return _phrase_matches(text, term, case_sensitive)
+    return _text_matches(text, term, case_sensitive)
+
+
 def _fts_prefix_literal(value: str) -> str:
     escaped = value.replace('"', '""')
     return f'"{escaped}"*'
 
 
-def _term_ok(text: str, term_value: str, case_sensitive: bool, negated: bool) -> bool:
-    matched = _text_matches(text, term_value, case_sensitive)
+def _term_ok(
+    text: str,
+    term_value: str,
+    *,
+    kind: str = "word",
+    case_sensitive: bool,
+    negated: bool,
+) -> bool:
+    matched = _compiled_text_matches(text, term_value, kind, case_sensitive)
     return not matched if negated else matched
 
 
@@ -203,11 +245,13 @@ def _plain_term_matches_record(
     record: FileRecord,
     content_text: str,
     term_value: str,
+    *,
+    kind: str,
     case_sensitive: bool,
 ) -> bool:
     target_text = f"{record.name} {record.parent_path} {record.path}"
-    return _text_matches(target_text, term_value, case_sensitive) or (
-        bool(content_text) and _text_matches(content_text, term_value, case_sensitive)
+    return _compiled_text_matches(target_text, term_value, kind, case_sensitive) or (
+        bool(content_text) and _compiled_text_matches(content_text, term_value, kind, case_sensitive)
     )
 
 
@@ -217,18 +261,33 @@ def _filter_record(branch: CompiledBranch, record: FileRecord, content_text: str
             record,
             content_text,
             term.value,
-            branch.case_sensitive,
+            kind=term.kind,
+            case_sensitive=branch.case_sensitive,
         )
         if term.negated and matched:
             return False
         if not term.negated and not matched:
             return False
     for term in branch.path_filters:
-        if not _term_ok(str(record.path), term.value, branch.case_sensitive, term.negated):
+        if not _term_ok(
+            str(record.path),
+            term.value,
+            kind=term.kind,
+            case_sensitive=branch.case_sensitive,
+            negated=term.negated,
+        ):
             return False
     target_text = f"{record.name} {record.parent_path} {record.path}"
     for term in branch.content_terms:
-        if not _term_ok(content_text, term.value, branch.case_sensitive, term.negated):
+        matched = _compiled_text_matches(
+            content_text,
+            term.value,
+            term.kind,
+            branch.case_sensitive,
+        )
+        if term.negated and matched:
+            return False
+        if not term.negated and not matched:
             return False
     for term in branch.path_regex_terms:
         if not _regex_ok(
@@ -330,7 +389,11 @@ def _should_scan_path_candidates(branch: CompiledBranch, fts_ids: list[int]) -> 
     if not fts_ids:
         return True
     # Keep the scan supplement for scripts where unicode token boundaries are less predictable.
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return any(
+        any(ord(char) > 127 for char in term.value)
+        or (term.kind == "phrase" and any(char.isspace() for char in term.value))
+        for term in positive_terms
+    )
 
 
 def _fetch_path_candidates_fts(
@@ -364,7 +427,11 @@ def _fetch_path_candidates_scan(
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return [], {}
-    if any(any(ord(char) > 127 for char in term.value) for term in positive_terms):
+    if any(
+        any(ord(char) > 127 for char in term.value)
+        or (term.kind == "phrase" and any(char.isspace() for char in term.value))
+        for term in positive_terms
+    ):
         return _fetch_path_candidates_python_scan(conn, branch, limit)
     params: list[object] = []
     prefix_term = positive_terms[0].value if positive_terms else ""
@@ -395,8 +462,8 @@ def _fetch_path_candidates_python_scan(
         file_id: record
         for file_id, record in records.items()
         if all(
-            _text_matches(record.name, term.value, branch.case_sensitive)
-            or _text_matches(str(record.path), term.value, branch.case_sensitive)
+            _compiled_text_matches(record.name, term.value, term.kind, branch.case_sensitive)
+            or _compiled_text_matches(str(record.path), term.value, term.kind, branch.case_sensitive)
             for term in positive_terms
         )
     }
@@ -483,7 +550,11 @@ def _should_scan_content_candidates(branch: CompiledBranch, fts_ids: list[int]) 
         return False
     if not fts_ids:
         return True
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return any(
+        any(ord(char) > 127 for char in term.value)
+        or (term.kind == "phrase" and any(char.isspace() for char in term.value))
+        for term in positive_terms
+    )
 
 
 def _should_scan_auto_content_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
@@ -492,7 +563,11 @@ def _should_scan_auto_content_candidates(branch: CompiledBranch, fts_ids: list[i
         return False
     if not fts_ids:
         return True
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return any(
+        any(ord(char) > 127 for char in term.value)
+        or (term.kind == "phrase" and any(char.isspace() for char in term.value))
+        for term in positive_terms
+    )
 
 
 def _has_indexed_content(conn: sqlite3.Connection) -> bool:
@@ -619,7 +694,7 @@ def _scan_auto_content_candidates(
         for file_id, record in batch.items():
             content_text = content_texts.get(file_id, "")
             if not all(
-                _text_matches(content_text, term.value, branch.case_sensitive)
+                _compiled_text_matches(content_text, term.value, term.kind, branch.case_sensitive)
                 for term in positive_terms
             ):
                 continue
@@ -699,12 +774,12 @@ def _derive_name_path_hits(
         target_name = record.name
         target_path = str(record.path)
         if any(
-            _text_matches(target_name, term.value, branch.case_sensitive)
+            _compiled_text_matches(target_name, term.value, term.kind, branch.case_sensitive)
             for term in positive_terms
         ):
             name_hits.append(record.id)
         if any(
-            _text_matches(target_path, term.value, branch.case_sensitive)
+            _compiled_text_matches(target_path, term.value, term.kind, branch.case_sensitive)
             for term in positive_terms
         ):
             path_hits.append(record.id)
