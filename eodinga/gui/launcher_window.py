@@ -74,11 +74,11 @@ class LauncherWindow(LauncherPanel):
         if current == enabled:
             return
         was_visible = self.isVisible()
-        position = self.pos()
+        geometry = self.geometry()
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, enabled)
+        self.setGeometry(geometry)
         if was_visible:
             self.show()
-            self.move(position)
             self.raise_()
             self.activateWindow()
 

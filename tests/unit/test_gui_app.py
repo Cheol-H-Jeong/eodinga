@@ -295,6 +295,51 @@ def test_launcher_respects_always_on_top_config(qapp, temp_config_path: Path) ->
     qapp.processEvents()
 
 
+def test_launcher_toggling_always_on_top_preserves_visible_geometry(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+    launcher.show()
+    launcher.move(210, 140)
+    launcher.resize(760, 540)
+    qapp.processEvents()
+
+    before = launcher.geometry()
+    launcher.set_always_on_top(True)
+    qapp.processEvents()
+    enabled_geometry = launcher.geometry()
+    launcher.set_always_on_top(False)
+    qapp.processEvents()
+
+    assert bool(launcher.windowFlags() & Qt.WindowType.WindowStaysOnTopHint) is False
+    assert enabled_geometry == before
+    assert launcher.geometry() == before
+
+    window.close()
+    qapp.processEvents()
+
+
+def test_hidden_launcher_always_on_top_toggle_keeps_window_hidden(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    assert not launcher.isVisible()
+
+    launcher.set_always_on_top(True)
+    qapp.processEvents()
+
+    assert not launcher.isVisible()
+    assert bool(launcher.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
+
+    window.close()
+    qapp.processEvents()
+
+
 def test_tray_activation_toggles_launcher_visibility(qapp) -> None:
     window = EodingaWindow()
 
