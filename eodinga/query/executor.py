@@ -678,7 +678,12 @@ def _scan_auto_content_candidates(
         for file_id, record in batch.items():
             content_text = content_texts.get(file_id, "")
             if not all(
-                _text_matches(content_text, term.value, branch.case_sensitive)
+                _term_matches(
+                    content_text,
+                    term.value,
+                    kind=term.kind,
+                    case_sensitive=branch.case_sensitive,
+                )
                 for term in positive_terms
             ):
                 continue
