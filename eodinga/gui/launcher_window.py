@@ -3,12 +3,37 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QTimer, Qt, Signal
+from PySide6.QtCore import QPoint, QRect
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
 
 from eodinga.config import AppConfig
 from eodinga.gui.design import MOTION_DEBOUNCE_MS
 from eodinga.gui.launcher import LauncherPanel, LauncherState, SearchFn
+
+
+def _screen_distance(rect: QRect, available: QRect) -> int:
+    if rect.intersects(available):
+        return 0
+    center = rect.center()
+    clamped_x = min(max(center.x(), available.left()), available.right())
+    clamped_y = min(max(center.y(), available.top()), available.bottom())
+    target = QPoint(clamped_x, clamped_y)
+    return abs(center.x() - target.x()) + abs(center.y() - target.y())
+
+
+def _best_available_geometry(saved_rect: QRect | None, fallback: QRect, screens: list[QRect]) -> QRect:
+    if not screens:
+        return fallback
+    if saved_rect is None:
+        return fallback
+    overlapping = [available for available in screens if saved_rect.intersects(available)]
+    if overlapping:
+        return max(
+            overlapping,
+            key=lambda available: saved_rect.intersected(available).width() * saved_rect.intersected(available).height(),
+        )
+    return min(screens, key=lambda available: _screen_distance(saved_rect, available))
 
 
 class LauncherWindow(LauncherPanel):
@@ -126,17 +151,18 @@ class LauncherWindow(LauncherPanel):
         screen = self.screen() or QGuiApplication.primaryScreen()
         if screen is None:
             return
-        available = screen.availableGeometry()
+        screen_geometries = [candidate.availableGeometry() for candidate in QGuiApplication.screens()]
         saved_width = max(self.width(), 1)
         saved_height = max(self.height(), 1)
-        width = min(saved_width, available.width())
-        height = min(saved_height, available.height())
         x = self._config.launcher.window_x
         y = self._config.launcher.window_y
+        saved_rect = QRect(x, y, saved_width, saved_height) if x is not None and y is not None else None
+        available = _best_available_geometry(saved_rect, screen.availableGeometry(), screen_geometries)
+        width = min(saved_width, available.width())
+        height = min(saved_height, available.height())
         if x is None or y is None:
             self.resize(width, height)
             return
-        saved_rect = available.__class__(x, y, saved_width, saved_height)
         if saved_rect.intersects(available):
             self.setGeometry(x, y, width, height)
             return

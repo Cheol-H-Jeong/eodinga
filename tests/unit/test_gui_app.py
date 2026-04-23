@@ -4,7 +4,7 @@ from pathlib import Path
 import sqlite3
 from typing import cast
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRect, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QSystemTrayIcon
 
@@ -12,7 +12,7 @@ from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.config import AppConfig, load
 from eodinga.gui.actions import DesktopActions
 from eodinga.gui.app import EodingaWindow, build_index_search_fn, launch_gui
-from eodinga.gui.launcher_window import LauncherWindow
+from eodinga.gui.launcher_window import LauncherWindow, _best_available_geometry
 from eodinga.gui.tabs import AboutTab, IndexTab, RootsTab, SearchTab, SettingsTab
 from eodinga.index.schema import apply_schema
 
@@ -232,6 +232,24 @@ def test_launcher_clamps_restored_geometry_to_available_screen(qapp, temp_config
 
     window.close()
     qapp.processEvents()
+
+
+def test_best_available_geometry_prefers_saved_screen_overlap() -> None:
+    primary = QRect(0, 0, 1440, 900)
+    secondary = QRect(1600, 0, 1920, 1080)
+
+    chosen = _best_available_geometry(QRect(1700, 80, 900, 640), primary, [primary, secondary])
+
+    assert chosen == secondary
+
+
+def test_best_available_geometry_chooses_nearest_screen_for_offscreen_restore() -> None:
+    primary = QRect(0, 0, 1440, 900)
+    secondary = QRect(1600, 0, 1920, 1080)
+
+    chosen = _best_available_geometry(QRect(3900, 120, 900, 640), primary, [primary, secondary])
+
+    assert chosen == secondary
 
 
 def test_launcher_respects_always_on_top_config(qapp, temp_config_path: Path) -> None:
