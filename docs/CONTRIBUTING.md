@@ -91,6 +91,7 @@ pytest -q tests/unit
 - Update `README.md` when installation, query syntax, keyboard behavior, supported formats, packaging, or recovery behavior changes.
 - Refresh `docs/ARCHITECTURE.md` when data flow, rebuild/recovery, or packaging surfaces change materially.
 - Refresh `docs/PERFORMANCE.md` only after rerunning the benchmark you are documenting in the same local environment.
+- If a perf rerun misses an opt-in threshold, record the failing one-line summary in `docs/PERFORMANCE.md` instead of quietly rewriting the checked-in baseline as if the rerun passed.
 - Regenerate the shipped screenshots with `python scripts/render_docs_screenshots.py` after visible GUI changes.
 - Regenerate `docs/man/eodinga.1` with `python scripts/generate_manpage.py` after CLI parser changes.
 - Keep `CHANGELOG.md` aligned with landed behavior only; avoid speculative release notes.
@@ -167,4 +168,5 @@ Use this when the round is docs-only but still release-bearing:
 - Release docs do not describe artifacts or paths that the packaging dry runs do not actually produce.
 - README examples use the current query surface and current operator names.
 - Derived docs assets are regenerated from code, not edited by hand.
+- Perf docs either cite a same-round rerun with the exact summary line or leave the prior checked-in baseline untouched.
 - The final release metadata commit contains only the version/changelog/tag cut unless a same-round asset refresh is required.

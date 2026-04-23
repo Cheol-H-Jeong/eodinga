@@ -62,6 +62,7 @@ Recommended order:
 1. `pytest -q tests/unit` after every logical commit.
 2. `pytest -q tests` once the candidate release branch is assembled.
 3. `ruff`, `pyright`, GUI smoke, packaging dry-runs, and workflow lint after the full test pass.
+4. If you reran `EODINGA_RUN_PERF=1 pytest -q tests/perf -s` or any narrower perf target for the release notes, copy the exact one-line summary into `docs/PERFORMANCE.md`, and if a perf threshold missed, document that miss explicitly instead of implying a green perf rerun.
 
 ## Artifact Inventory
 
@@ -80,6 +81,7 @@ Before tagging, confirm:
 - `README.md` still matches the current install, CLI, launcher, and DSL behavior.
 - `docs/ARCHITECTURE.md` still matches the index lifecycle and packaging surfaces.
 - `docs/PERFORMANCE.md` numbers come from a rerun at the documented HEAD.
+- Any documented perf rerun that missed an opt-in threshold still carries the exact failing summary line so release notes do not silently convert a red perf sample into a green baseline claim.
 - `docs/man/eodinga.1` has been regenerated if `eodinga.__main__` changed.
 - Screenshot assets under `docs/screenshots/` still match the current UI, or have been refreshed with `python scripts/render_docs_screenshots.py`.
 
