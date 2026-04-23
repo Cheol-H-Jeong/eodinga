@@ -150,6 +150,16 @@ def test_parse_slash_prefixed_path_regex_with_valid_flags() -> None:
     assert node.regex_flags == "i"
 
 
+def test_parse_path_regex_with_escaped_slash_and_flags() -> None:
+    node = parse(r"path:/tmp\/log/i")
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "path"
+    assert node.value == r"tmp\/log"
+    assert node.value_kind == "regex"
+    assert node.regex_flags == "i"
+
+
 @pytest.mark.parametrize(
     ("query", "expected_name", "expected_value", "expected_kind"),
     [

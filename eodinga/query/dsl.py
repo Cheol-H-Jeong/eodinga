@@ -146,7 +146,7 @@ class _Parser:
             name, raw = token.split(":", 1)
             if name in OP_NAMES:
                 if (raw.startswith('"') and not raw.endswith('"')) or (
-                    raw.startswith("/") and raw.count("/") < 2
+                    raw.startswith("/") and len(self._regex_delimiters(raw)) < 2
                 ):
                     self.index = token_start + len(name) + 1
                     return self._parse_operator(name, "", negated)
@@ -256,7 +256,9 @@ class _Parser:
             suffix = value[last + 1 :]
             if suffix and (len(suffix) > 3 or not suffix.isalpha()):
                 return value, "word", ""
-            if name == "path" and value.startswith("/") and (len(delimiters) < 3 or not suffix):
+            if name == "path" and value.startswith("/") and (
+                not suffix or (len(delimiters) < 3 and r"\/" not in pattern)
+            ):
                 return value, "word", ""
             if name == "path" and suffix:
                 try:

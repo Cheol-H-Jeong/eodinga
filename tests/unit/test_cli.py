@@ -228,6 +228,26 @@ def test_search_json_executes_regex_mode_query(cli_runner, tmp_path: Path) -> No
     ]
 
 
+def test_search_json_executes_path_regex_with_escaped_slash(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        r"path:/reports\/today-alpha-(copy|clone)\.txt/i",
+        "--json",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == [
+        "today-alpha-clone.txt",
+        "today-alpha-copy.txt",
+    ]
+
+
 def test_search_json_honors_root_filter(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
