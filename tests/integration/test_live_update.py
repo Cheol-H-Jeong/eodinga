@@ -121,6 +121,44 @@ def test_live_delete_removed_from_search_within_500ms(tmp_path: Path) -> None:
     assert elapsed <= 0.5
 
 
+def test_live_rename_updates_query_path_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    source = root / "rename-source.txt"
+    source.write_text("rename integration coverage\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(conn, "rename integration coverage", limit=5).hits]
+        renamed = root / "rename-target.txt"
+        source.rename(renamed)
+
+        elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "rename integration coverage",
+            renamed,
+            deadline_seconds=0.5,
+        )
+        renamed_hits = [hit.file.path for hit in search(conn, "rename integration coverage", limit=5).hits]
+        legacy_hits = [hit.file.path for hit in search(conn, "path:rename-source", limit=5).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_hits == [source]
+    assert elapsed <= 0.5
+    assert renamed_hits == [renamed]
+    assert legacy_hits == []
+
+
 def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
