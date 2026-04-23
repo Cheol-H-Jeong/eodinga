@@ -120,6 +120,7 @@ payload = {
         "rendered_path": str(rendered_recipe_path),
         "rendered_exists": rendered_recipe_path.exists(),
         "rendered_version_matches_package": f"version: ${VERSION}" in rendered_recipe_text,
+        "rendered_contains_template_tokens": "@@" in rendered_recipe_text,
         "references_desktop_entry": "packaging/linux/eodinga.desktop" in recipe_text,
         "references_icon_asset": "packaging/linux/eodinga.svg" in recipe_text,
         "launches_gui": "exec_args: gui" in recipe_text,

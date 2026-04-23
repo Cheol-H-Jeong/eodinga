@@ -71,6 +71,7 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["app_version_macro"] == "@@APP_VERSION@@"
     assert payload["inno_setup"]["app_version_uses_template"] is True
     assert payload["inno_setup"]["contains_versioned_output_macro"] is True
+    assert payload["inno_setup"]["rendered_contains_template_tokens"] is False
     assert payload["inno_setup"]["contains_user_install_dir"] is True
     assert payload["inno_setup"]["contains_rendered_uninstall_display_icon"] is True
     assert payload["inno_setup"]["contains_start_menu_shortcut"] is True
@@ -394,6 +395,62 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
     assert "AppImage launcher shim no longer executes the Python module" in errors
 
 
+def test_linux_appimage_audit_validator_rejects_unresolved_rendered_recipe_tokens() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "x86_64",
+        "archive": f"packaging/dist/eodinga-{__version__}-linux-x86_64-appdir.tar.gz",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "archive_artifact": {
+            "exists": True,
+            "size_bytes": 1,
+            "sha256": "f" * 64,
+        },
+        "recipe": {
+            "exists": True,
+            "contains_version_template": True,
+            "rendered_exists": True,
+            "rendered_version_matches_package": True,
+            "rendered_contains_template_tokens": True,
+            "references_desktop_entry": True,
+            "references_icon_asset": True,
+            "launches_gui": True,
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "exec": "eodinga gui",
+            "icon": "eodinga",
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "diricon_exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "apprun": {
+            "is_executable": True,
+            "launches_gui": True,
+            "has_strict_shell": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "changes_to_project_root": True,
+            "executes_python_module": True,
+        },
+    }
+
+    errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
+
+    assert "Rendered AppImage recipe still contains unresolved template tokens" in errors
+
+
 def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> None:
     module = _load_build_module()
     payload = {
@@ -467,6 +524,7 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert Path(payload["recipe"]["rendered_path"]).exists()
     assert payload["recipe"]["rendered_exists"] is True
     assert payload["recipe"]["rendered_version_matches_package"] is True
+    assert payload["recipe"]["rendered_contains_template_tokens"] is False
     assert payload["recipe"]["references_desktop_entry"] is True
     assert payload["recipe"]["references_icon_asset"] is True
     assert payload["recipe"]["launches_gui"] is True
@@ -508,6 +566,7 @@ def test_linux_deb_dry_run_renders_control_template() -> None:
     rendered_control_path = Path(payload["debian_control_template"]["rendered_path"])
     assert rendered_control_path.exists()
     assert payload["debian_control_template"]["rendered_exists"] is True
+    assert payload["debian_control_template"]["rendered_contains_template_tokens"] is False
     rendered_control = rendered_control_path.read_text(encoding="utf-8")
     assert f"Version: {__version__}" in rendered_control
     assert "Architecture: amd64" in rendered_control
@@ -556,6 +615,77 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
     errors = module._validate_linux_deb_audit(payload, __version__, __version__)
 
     assert "Debian package no longer ships the changelog" in errors
+
+
+def test_linux_deb_audit_validator_rejects_unresolved_rendered_control_tokens() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "amd64",
+        "archive": f"packaging/dist/eodinga_{__version__}_amd64_debroot.tar.gz",
+        "deb_path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "archive_artifact": {
+            "exists": True,
+            "size_bytes": 1,
+            "sha256": "f" * 64,
+        },
+        "deb_artifact": {
+            "path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+            "exists": False,
+            "size_bytes": None,
+            "sha256": None,
+        },
+        "dry_run": True,
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+            "architecture": "amd64",
+            "depends": "python3 (>= 3.11)",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "debian_control_template": {
+            "exists": True,
+            "contains_version_template": True,
+            "contains_arch_template": True,
+            "rendered_exists": True,
+            "rendered_contains_template_tokens": True,
+            "source": "eodinga",
+            "maintainer": "Cheol-H-Jeong",
+            "binary_package": "eodinga",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "launches_gui": True,
+            "icon_matches_package": True,
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "executes_python_module": True,
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": True,
+            "changelog_has_current_release_heading": True,
+            "changelog_gzip_mtime_zero": True,
+        },
+    }
+
+    errors = module._validate_linux_deb_audit(payload, __version__, __version__)
+
+    assert "Rendered Debian control file still contains unresolved template tokens" in errors
 
 
 def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
@@ -673,6 +803,7 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["debian_control_template"]["contains_version_template"] is True
     assert payload["debian_control_template"]["contains_arch_template"] is True
     assert payload["debian_control_template"]["rendered_exists"] is True
+    assert payload["debian_control_template"]["rendered_contains_template_tokens"] is False
     assert payload["debian_control_template"]["source"] == "eodinga"
     assert payload["debian_control_template"]["maintainer"] == "Cheol-H-Jeong"
     assert payload["debian_control_template"]["binary_package"] == "eodinga"

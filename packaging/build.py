@@ -25,6 +25,7 @@ INNO_GUI_DIST_TOKEN = "@@GUI_DIST_NAME@@"
 INNO_CLI_DIST_TOKEN = "@@CLI_DIST_NAME@@"
 INNO_GUI_EXE_TOKEN = "@@GUI_EXE_NAME@@"
 _INNO_APP_ID_PATTERN = re.compile(r"^\{\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$")
+_TEMPLATE_TOKEN_PATTERN = re.compile(r"@@[A-Z0-9_]+@@")
 RELEASE_DRY_RUN_AUDIT = DIST_DIR / "release-dry-run-audit.json"
 RELEASE_WORKFLOWS = [
     PROJECT_ROOT / ".github" / "workflows" / "release-windows.yml",
@@ -79,6 +80,10 @@ def _macro_value(text: str, macro_name: str) -> str | None:
     if match is None:
         return None
     return match.group(1)
+
+
+def _contains_template_tokens(text: str) -> bool:
+    return _TEMPLATE_TOKEN_PATTERN.search(text) is not None
 
 
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
@@ -163,6 +168,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "rendered_source_entries": _source_entries(rendered_text),
             "rendered_source_entries_match_pyinstaller_dist": _source_entries(rendered_text) == rendered_source_entries,
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
+            "rendered_contains_template_tokens": _contains_template_tokens(rendered_text),
             "license_file_exists": (PROJECT_ROOT / "LICENSE").exists(),
             "contains_user_install_dir": _inno_contains(rendered_text, r"DefaultDirName={userappdata}\eodinga"),
             "contains_rendered_uninstall_display_icon": _inno_contains(
@@ -268,6 +274,7 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         "license_file_exists": "Inno setup no longer references a shipped LICENSE file",
         "source_entries_match_pyinstaller_dist": "Inno source entries drifted from PyInstaller dist names",
         "rendered_source_entries_match_pyinstaller_dist": "Rendered Inno source entries drifted from PyInstaller dist names",
+        "rendered_contains_template_tokens": "Rendered Inno setup still contains unresolved template tokens",
         "contains_rendered_uninstall_display_icon": "Rendered Inno uninstall icon does not point at the GUI executable",
         "contains_start_menu_shortcut": "Rendered Inno start menu shortcut is missing",
         "contains_user_desktop_shortcut": "Inno desktop shortcut no longer targets the per-user desktop",
@@ -280,6 +287,10 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         "purge_targets_local_and_roaming_user_state": "Inno uninstall purge no longer targets both local data and roaming config",
     }
     for key, message in required_flags.items():
+        if key == "rendered_contains_template_tokens":
+            if inno_payload.get(key):
+                errors.append(message)
+            continue
         if not inno_payload.get(key):
             errors.append(message)
     return errors
@@ -308,6 +319,7 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (recipe_payload.get("contains_version_template"), "AppImage recipe no longer uses the version template"),
         (recipe_payload.get("rendered_exists"), "Rendered AppImage recipe is missing"),
         (recipe_payload.get("rendered_version_matches_package"), "Rendered AppImage recipe version does not match the package version"),
+        (not recipe_payload.get("rendered_contains_template_tokens"), "Rendered AppImage recipe still contains unresolved template tokens"),
         (recipe_payload.get("references_desktop_entry"), "AppImage recipe no longer references the desktop entry"),
         (recipe_payload.get("references_icon_asset"), "AppImage recipe no longer references the icon asset"),
         (recipe_payload.get("launches_gui"), "AppImage recipe no longer launches the GUI target"),
@@ -389,6 +401,7 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (control_template_payload.get("contains_version_template"), "Debian control template no longer uses the version token"),
         (control_template_payload.get("contains_arch_template"), "Debian control template no longer uses the architecture token"),
         (control_template_payload.get("rendered_exists"), "Rendered Debian control file is missing"),
+        (not control_template_payload.get("rendered_contains_template_tokens"), "Rendered Debian control file still contains unresolved template tokens"),
         (
             control_template_payload.get("source") == "eodinga",
             "Debian control template source package drifted from eodinga",
