@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.388 - 2026-04-23
+## 0.1.402 - 2026-04-23
 
 - Expanded the README and DSL guide with goal-oriented query examples, regex-flag notes, structural-filter coverage, and clearer operator runbooks so the shipped search contract is easier to audit from the docs alone.
 - Deepened the architecture guide with explicit documentation layering, release-input boundaries, and clearer explanations of where SQLite ends and Python fallback begins during query execution.
