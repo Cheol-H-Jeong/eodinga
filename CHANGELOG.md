@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.175 - 2026-04-23
+## 0.1.178 - 2026-04-23
 
 - Enriched `crash-<ts>.log` artifacts with stable runtime metadata including version, platform, current working directory, and argv so unhandled failures are easier to reproduce from one file.
 - Added index rebuild observability for completed runs, including end-to-end rebuild latency and per-batch sizing histograms alongside the existing file-indexed counter.
