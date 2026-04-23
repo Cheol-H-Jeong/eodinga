@@ -16,6 +16,13 @@ def query_hit_names(conn, query: str, *, limit: int = 5, root: Path | None = Non
     return [hit.file.name for hit in search(conn, query, limit=limit, root=root).hits]
 
 
+def _load_record_if_present(record_loader, path: Path):
+    try:
+        return record_loader(path)
+    except FileNotFoundError:
+        return None
+
+
 def wait_for_query_hit(
     conn,
     service,
@@ -34,7 +41,7 @@ def wait_for_query_hit(
             event = service.queue.get(timeout=0.05)
         except Empty:
             continue
-        writer.apply_events([event], record_loader=record_loader)
+        writer.apply_events([event], record_loader=lambda path: _load_record_if_present(record_loader, path))
         hits = query_hit_paths(conn, query, limit=5, root=root)
         if expected_path in hits:
             return min(monotonic() - started, deadline_seconds)
@@ -59,7 +66,7 @@ def wait_for_query_miss(
             event = service.queue.get(timeout=0.05)
         except Empty:
             continue
-        writer.apply_events([event], record_loader=record_loader)
+        writer.apply_events([event], record_loader=lambda path: _load_record_if_present(record_loader, path))
         hits = query_hit_paths(conn, query, limit=5, root=root)
         if missing_path not in hits:
             return min(monotonic() - started, deadline_seconds)
