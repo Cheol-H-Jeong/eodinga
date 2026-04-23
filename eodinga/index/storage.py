@@ -173,8 +173,7 @@ def recover_interrupted_recovery(path: Path) -> bool:
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted recovery resume for {}", path)
         return False
-    finally:
-        _cleanup_index_files(staged_path)
+    _cleanup_index_files(staged_path)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
 
@@ -191,8 +190,7 @@ def recover_interrupted_build(path: Path) -> bool:
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted staged build resume for {}", path)
         return False
-    finally:
-        _cleanup_index_files(staged_path)
+    _cleanup_index_files(staged_path)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
 

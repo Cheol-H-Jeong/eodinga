@@ -405,6 +405,88 @@ def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path
     assert not staged.exists()
 
 
+def test_recover_interrupted_recovery_preserves_staged_copy_when_swap_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live-target", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/retriable-recovery", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+    staged_wal = staged.with_name(".index.db.recover-wal")
+    staged_shm = staged.with_name(".index.db.recover-shm")
+    staged_wal.write_bytes(b"staged-wal")
+    staged_shm.write_bytes(b"staged-shm")
+
+    def fail_replace(_source: Path, _target: Path) -> None:
+        raise OSError("simulated replace failure")
+
+    monkeypatch.setattr("eodinga.index.storage.os.replace", fail_replace)
+
+    assert recover_interrupted_recovery(target) is False
+    assert staged.exists()
+    assert _read_root_paths(staged) == ["/retriable-recovery"]
+    assert _read_root_paths(target) == ["/live-target"]
+    assert not staged_wal.exists() or staged_wal.read_bytes() == b"staged-wal"
+    assert not staged_shm.exists() or staged_shm.read_bytes() == b"staged-shm"
+
+
+def test_recover_interrupted_build_preserves_staged_copy_when_swap_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live-target", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/retriable-build", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+    staged_wal = staged.with_name(".index.db.next-wal")
+    staged_shm = staged.with_name(".index.db.next-shm")
+    staged_wal.write_bytes(b"staged-wal")
+    staged_shm.write_bytes(b"staged-shm")
+
+    def fail_replace(_source: Path, _target: Path) -> None:
+        raise OSError("simulated replace failure")
+
+    monkeypatch.setattr("eodinga.index.storage.os.replace", fail_replace)
+
+    assert recover_interrupted_build(target) is False
+    assert staged.exists()
+    assert _read_root_paths(staged) == ["/retriable-build"]
+    assert _read_root_paths(target) == ["/live-target"]
+    assert not staged_wal.exists() or staged_wal.read_bytes() == b"staged-wal"
+    assert not staged_shm.exists() or staged_shm.read_bytes() == b"staged-shm"
+
+
 def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     target = tmp_path / "index.db"
     staged = tmp_path / ".index.db.next"
