@@ -32,6 +32,12 @@ def _event_type_for(event: FileSystemEvent) -> str:
 
 
 def _is_within_root(path: Path, root: Path) -> bool:
+    path_text = str(path)
+    root_text = str(root)
+    if _is_windows_root_text(path_text) or _is_windows_root_text(root_text):
+        canonical_path = _canonical_windows_path_text(path_text)
+        canonical_root = _canonical_windows_path_text(root_text)
+        return canonical_path == canonical_root or canonical_path.startswith(f"{canonical_root}\\")
     try:
         path.relative_to(root)
     except ValueError:
@@ -71,6 +77,24 @@ def _normalize_windows_root_text(root_text: str) -> str:
         suffix = windows_root[1:].rstrip("\\")
         return f"{windows_root[0].upper()}{suffix}"
     return windows_root.rstrip("\\")
+
+
+def _canonical_windows_path_text(path_text: str) -> str:
+    windows_path = path_text.replace("/", "\\")
+    if windows_path.startswith("\\\\?\\UNC\\"):
+        unc_suffix = windows_path[8:].lstrip("\\")
+        windows_path = f"\\\\{unc_suffix}"
+    elif (
+        len(windows_path) >= 6
+        and windows_path.startswith("\\\\?\\")
+        and windows_path[4].isalpha()
+        and windows_path[5] == ":"
+    ):
+        windows_path = windows_path[4:]
+    windows_path = windows_path.rstrip("\\")
+    if len(windows_path) >= 2 and windows_path[1] == ":" and windows_path[0].isalpha():
+        windows_path = f"{windows_path[0].upper()}{windows_path[1:]}"
+    return windows_path.casefold()
 
 
 class _ManagedObserver(Protocol):
@@ -160,8 +184,9 @@ class WatchService:
 
     def start(self, root: Path) -> None:
         root = _normalize_root(root)
-        if root in self._observers:
-            return
+        for existing_root in self._observers:
+            if existing_root == root or _is_within_root(root, existing_root) and _is_within_root(existing_root, root):
+                return
         if self._stop.is_set():
             self._stop = Event()
         if self._flush_thread is None or not self._flush_thread.is_alive():
