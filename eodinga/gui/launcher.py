@@ -23,6 +23,7 @@ from eodinga.gui.widgets import (
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
+COMMON_FILTER_SUGGESTIONS = ("ext:pdf", "date:this-week", "size:>10M", "content:", "path:")
 
 
 class LauncherPanel(QWidget):
@@ -59,6 +60,12 @@ class LauncherPanel(QWidget):
         self.pin_query_button = SecondaryButton("Pin", self)
         self.pin_query_button.setAccessibleName("Pin current query")
         self.pin_query_button.clicked.connect(self.toggle_current_query_pin)
+        self.filter_suggestions_row = QueryChipRow(
+            "Filters",
+            accessible_name="Suggested launcher filters",
+            on_chip_clicked=self._apply_filter_suggestion,
+            parent=self,
+        )
         self.pinned_queries_row = QueryChipRow(
             "Pinned",
             accessible_name="Pinned launcher queries",
@@ -108,6 +115,7 @@ class LauncherPanel(QWidget):
         query_row.addWidget(self.query_field, 1)
         query_row.addWidget(self.pin_query_button)
         layout.addLayout(query_row)
+        layout.addWidget(self.filter_suggestions_row)
         layout.addWidget(self.pinned_queries_row)
         layout.addWidget(self.recent_queries_row)
 
@@ -181,6 +189,7 @@ class LauncherPanel(QWidget):
             self.set_indexing_status(self._state.indexing_status)
 
         self._refresh_empty_state()
+        self._refresh_filter_suggestions()
         self._refresh_shortcut_hint()
         self._refresh_preview()
         self._refresh_pin_button()
@@ -290,6 +299,7 @@ class LauncherPanel(QWidget):
         if not self._applying_history_query:
             self._history_index = None
             self._history_draft = ""
+        self._refresh_filter_suggestions()
         self._refresh_pin_button()
         self._debounce_timer.start()
 
@@ -364,6 +374,20 @@ class LauncherPanel(QWidget):
         else:
             hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+P pins the current query. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
+
+    def _refresh_filter_suggestions(self) -> None:
+        query = self.query_field.text().strip()
+        self.filter_suggestions_row.set_queries(self._suggested_filters(query))
+
+    def _suggested_filters(self, query: str) -> list[str]:
+        terms = {part for part in query.split() if part}
+        suggestions: list[str] = []
+        for suggestion in COMMON_FILTER_SUGGESTIONS:
+            prefix = suggestion.split(":", 1)[0] + ":"
+            if any(term.startswith(prefix) for term in terms):
+                continue
+            suggestions.append(suggestion)
+        return suggestions[:4]
 
     def _refresh_pin_button(self) -> None:
         query = self.query_field.text().strip()
@@ -519,4 +543,16 @@ class LauncherPanel(QWidget):
     def _apply_query_chip(self, query: str) -> None:
         self.query_field.setFocus()
         self._set_query_from_history(query)
+        self._flush_pending_query()
+
+    def _apply_filter_suggestion(self, suggestion: str) -> None:
+        current = self.query_field.text().strip()
+        terms = [part for part in current.split() if part]
+        if suggestion in terms:
+            self.query_field.setFocus()
+            self.query_field.setCursorPosition(len(self.query_field.text()))
+            return
+        next_query = " ".join([*terms, suggestion]) if terms else suggestion
+        self.query_field.setFocus()
+        self._set_query_from_history(next_query)
         self._flush_pending_query()

@@ -332,6 +332,47 @@ def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
     assert calls == ["ext:pdf"]
 
 
+def test_launcher_shows_contextual_filter_suggestions(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    assert [button.text() for button in launcher.filter_suggestions_row.buttons] == [
+        "ext:pdf",
+        "date:this-week",
+        "size:>10M",
+        "content:",
+    ]
+
+    launcher.query_field.setText("budget ext:md")
+    qapp.processEvents()
+
+    assert [button.text() for button in launcher.filter_suggestions_row.buttons] == [
+        "date:this-week",
+        "size:>10M",
+        "content:",
+        "path:",
+    ]
+
+
+def test_launcher_filter_suggestion_appends_to_query_and_runs_search(qapp) -> None:
+    calls: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        calls.append(query)
+        return QueryResult(items=[], total=0, elapsed_ms=1.0)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+    launcher.query_field.setText("budget")
+    qapp.processEvents()
+
+    chip = launcher.filter_suggestions_row.buttons[0]
+    chip.click()
+
+    assert launcher.query_field.text() == "budget ext:pdf"
+    assert calls[-1] == "budget ext:pdf"
+
+
 def test_launcher_pin_button_toggles_shared_pinned_queries(qapp) -> None:
     state = LauncherState()
     launcher = LauncherWindow(state=state)
@@ -721,6 +762,7 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.pin_query_button.accessibleName() == "Pin current query"
+    assert launcher.filter_suggestions_row.accessibleName() == "Suggested launcher filters"
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"
