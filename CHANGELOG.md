@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.306 - 2026-04-23
+
+- Preserved the full undelivered tail of a watcher flush batch when queue backpressure blocks delivery, preventing silently dropped file events once the consumer drains the queue.
+- Kept interrupted `.next` and `.recover` staged indexes on disk when the final atomic swap fails with an `OSError`, so startup recovery can retry instead of discarding resumable state.
+
 ## 0.1.302 - 2026-04-23
 
 - Normalized query fallback phrase matching so quoted phrases still match across separators such as newlines and punctuation in path and content scans.
