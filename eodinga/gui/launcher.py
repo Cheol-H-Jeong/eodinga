@@ -7,7 +7,6 @@ from typing import cast
 from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
 from PySide6.QtGui import QCloseEvent, QHideEvent, QKeyEvent, QKeySequence, QMoveEvent, QResizeEvent, QShortcut, QShowEvent
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
-
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.config import AppConfig
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
@@ -129,10 +128,11 @@ class LauncherPanel(QWidget):
         self._search_fn = search_fn
 
     def set_recent_queries(self, queries: list[str]) -> None:
-        self._recent_queries = queries; self._refresh_empty_state()
+        self._recent_queries = queries
+        self._refresh_empty_state()
     def set_pinned_queries(self, queries: list[str]) -> None:
-        self._pinned_queries = queries; self._refresh_empty_state()
-
+        self._pinned_queries = queries
+        self._refresh_empty_state()
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
         self._refresh_status_footer()
@@ -153,8 +153,8 @@ class LauncherPanel(QWidget):
         self.result_activated.emit(hit)
 
     def focus_query_field(self) -> None:
-        self.query_field.setFocus(); self.query_field.selectAll()
-
+        self.query_field.setFocus()
+        self.query_field.selectAll()
     def select_query_text(self) -> None:
         self.focus_query_field()
 
