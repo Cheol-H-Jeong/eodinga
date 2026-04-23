@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.814 - 2026-04-23
+## 0.1.817 - 2026-04-23
 
 - Wired the CLI `watch` command into the real watchdog-to-index flow, so a long-running watcher process now applies filesystem updates directly into the database instead of returning a placeholder payload.
 - Added unit coverage for watch root loading, root-id resolution, and on-the-fly file record materialization used by the watcher command.
