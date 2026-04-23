@@ -698,3 +698,35 @@ def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path)
 
     second_event = service.queue.get_nowait()
     assert second_event.path == second
+
+
+def test_watcher_flush_requeues_entire_undelivered_batch_on_enqueue_failure(tmp_path: Path) -> None:
+    service = WatchService()
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    third = tmp_path / "third.txt"
+
+    for happened_at, path in enumerate((first, second, third), start=1):
+        service.record(
+            WatchEvent(
+                event_type="created",
+                path=path,
+                root_path=tmp_path,
+                happened_at=float(happened_at),
+            )
+        )
+
+    delivered: list[Path] = []
+
+    def fail_after_first(event: WatchEvent) -> bool:
+        delivered.append(event.path)
+        return len(delivered) == 1
+
+    service._enqueue_event = fail_after_first  # type: ignore[method-assign]
+
+    service._flush_ready(force=True)
+
+    assert delivered == [first, second]
+    assert list(service._pending) == [second, third]
+    assert service._pending[second].path == second
+    assert service._pending[third].path == third

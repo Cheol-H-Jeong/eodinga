@@ -288,11 +288,9 @@ class WatchService:
                         self._flushed_retired_sources.discard(event.path)
                     flushed.append(event)
         delivered: list[WatchEvent] = []
-        for event in flushed:
+        for index, event in enumerate(flushed):
             if not self._enqueue_event(event):
-                with self._lock:
-                    self._pending[event.path] = event
-                    self._timestamps[event.path] = now
+                self._restore_undelivered(flushed[index:], timestamp=now)
                 break
             delivered.append(event)
         if delivered:
@@ -302,6 +300,12 @@ class WatchService:
             for event in delivered:
                 lag_ms = max((now - event.happened_at) * 1000, 0.0)
                 record_histogram("watch_event_lag_ms", lag_ms, event_type=event.event_type)
+
+    def _restore_undelivered(self, events: list[WatchEvent], *, timestamp: float) -> None:
+        with self._lock:
+            for event in events:
+                self._pending[event.path] = event
+                self._timestamps[event.path] = timestamp
 
     def _reset_state(self) -> None:
         with self._lock:
