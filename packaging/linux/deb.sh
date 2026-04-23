@@ -147,11 +147,13 @@ payload = {
         "startup_notify": desktop_entries.get("StartupNotify"),
         "launches_gui": desktop_entries.get("Exec") == "eodinga gui",
         "icon_matches_package": desktop_entries.get("Icon") == icon_path.stem,
+        "matches_source_asset": desktop_path.read_text(encoding="utf-8") == Path("${DESKTOP_ENTRY}").read_text(encoding="utf-8"),
     },
     "icon": {
         "path": str(icon_path),
         "exists": icon_path.exists(),
         "desktop_icon_matches_asset": desktop_entries.get("Icon") == icon_path.stem,
+        "matches_source_asset": icon_path.read_text(encoding="utf-8") == Path("${ICON_ASSET}").read_text(encoding="utf-8"),
     },
     "launcher": {
         "path": str(launcher_path),
@@ -164,6 +166,7 @@ payload = {
         "changelog_path": str(changelog_path),
         "changelog_exists": changelog_path.exists(),
         "changelog_has_current_release_heading": changelog_text.startswith("# Changelog\n\n## ${VERSION} - "),
+        "changelog_gzip_mtime_zero": changelog_path.read_bytes()[4:8] == b"\x00\x00\x00\x00",
     },
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")

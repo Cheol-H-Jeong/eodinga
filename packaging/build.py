@@ -296,15 +296,18 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
             control_template_payload.get("description") == control_payload.get("description"),
             "Debian control template description drifted from the staged package",
         ),
+        (desktop_payload.get("matches_source_asset"), "Debian desktop entry no longer matches the shipped asset"),
         (desktop_payload.get("launches_gui"), "Debian desktop entry no longer launches the GUI command"),
         (desktop_payload.get("icon_matches_package"), "Debian desktop entry icon no longer matches the packaged asset"),
         (icon_payload.get("exists"), "Debian icon asset is missing from the package tree"),
         (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),
+        (icon_payload.get("matches_source_asset"), "Debian icon payload no longer matches the shipped asset"),
         (launcher_payload.get("is_executable"), "Debian launcher shim is not executable"),
         (launcher_payload.get("executes_python_module"), "Debian launcher shim no longer executes the Python module"),
         (docs_payload.get("license_exists"), "Debian package no longer ships the license"),
         (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),
         (docs_payload.get("changelog_has_current_release_heading"), "Debian package changelog no longer starts with the current release heading"),
+        (docs_payload.get("changelog_gzip_mtime_zero"), "Debian package changelog gzip header is no longer reproducible"),
     ]
     for ok, message in required_flags:
         if not ok:
