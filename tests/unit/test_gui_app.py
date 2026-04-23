@@ -69,6 +69,7 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
     assert window.about_tab.accessibleName() == "About tab"
+    assert window.launcher_window.active_filters_row.accessibleName() == "Active launcher filters"
     assert window.launcher_window.pinned_queries_row.accessibleName() == "Pinned launcher queries"
     assert window.launcher_window.recent_queries_row.accessibleName() == "Recent launcher queries"
     assert window.launcher_window.empty_state.accessibleName() == "Launcher empty state"

@@ -17,11 +17,53 @@ from eodinga.gui.widgets import (
     QueryChipRow,
     ResultItemDelegate,
     SearchField,
+    StaticChipRow,
     StatusChip,
 )
 from eodinga.observability import get_logger
+from eodinga.query.dsl import AndNode, AstNode, NotNode, OperatorNode, OrNode, QuerySyntaxError, parse
 
 SearchFn = Callable[[str, int], QueryResult]
+
+
+def _format_operator_chip(node: OperatorNode, *, negated: bool = False) -> str:
+    prefix = "-" if negated or node.negated else ""
+    if node.value_kind == "phrase":
+        return f'{prefix}{node.name}:"{node.value}"'
+    if node.value_kind == "regex":
+        return f"{prefix}{node.name}:/{node.value}/{node.regex_flags}"
+    return f"{prefix}{node.name}:{node.value}"
+
+
+def _collect_operator_chips(node: AstNode, *, negated: bool = False) -> list[str]:
+    effective_negated = negated
+    if isinstance(node, OperatorNode):
+        return [_format_operator_chip(node, negated=effective_negated)]
+    if isinstance(node, NotNode):
+        return _collect_operator_chips(node.clause, negated=not effective_negated)
+    if isinstance(node, (AndNode, OrNode)):
+        chips: list[str] = []
+        for child in node.clauses:
+            chips.extend(_collect_operator_chips(child, negated=effective_negated))
+        return chips
+    return []
+
+
+def active_filter_chips(query: str) -> tuple[str, ...]:
+    if not query.strip():
+        return ()
+    try:
+        chips = _collect_operator_chips(parse(query))
+    except QuerySyntaxError:
+        return ()
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for chip in chips:
+        if chip in seen:
+            continue
+        seen.add(chip)
+        deduped.append(chip)
+    return tuple(deduped)
 
 
 class LauncherPanel(QWidget):
@@ -55,6 +97,7 @@ class LauncherPanel(QWidget):
 
         self.query_field = SearchField(parent=self)
         self.query_field.setAccessibleName("Launcher search field")
+        self.active_filters_row = StaticChipRow("Filters", accessible_name="Active launcher filters", parent=self)
         self.pinned_queries_row = QueryChipRow(
             "Pinned",
             accessible_name="Pinned launcher queries",
@@ -99,6 +142,7 @@ class LauncherPanel(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
+        layout.addWidget(self.active_filters_row)
         layout.addWidget(self.pinned_queries_row)
         layout.addWidget(self.recent_queries_row)
 
@@ -170,6 +214,7 @@ class LauncherPanel(QWidget):
             self.set_indexing_status(self._state.indexing_status)
 
         self._refresh_empty_state()
+        self._refresh_active_filters()
         self._refresh_shortcut_hint()
         self._refresh_preview()
 
@@ -265,6 +310,7 @@ class LauncherPanel(QWidget):
         if not self._applying_history_query:
             self._history_index = None
             self._history_draft = ""
+        self._refresh_active_filters()
         self._debounce_timer.start()
 
     def _flush_pending_query(self) -> None:
@@ -284,6 +330,7 @@ class LauncherPanel(QWidget):
         self._refresh_status_footer()
         self._restore_selection(previous_hit)
         self._refresh_empty_state()
+        self._refresh_active_filters()
         self._refresh_shortcut_hint()
         self._refresh_preview()
         self.results_updated.emit(self._latest_result)
@@ -338,6 +385,9 @@ class LauncherPanel(QWidget):
         else:
             hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
+
+    def _refresh_active_filters(self) -> None:
+        self.active_filters_row.set_chips(list(active_filter_chips(self.query_field.text())))
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()
@@ -443,7 +493,7 @@ class LauncherPanel(QWidget):
         self._sync_preview_to_index(current)
 
     def _sync_preview_to_index(self, index: QModelIndex) -> None:
-        self.preview_pane.set_hit(self.model.item_at(index.row()) if index.isValid() else None)
+        self.preview_pane.set_hit(self.model.item_at(index.row()) if index.isValid() else None, self.query_field.text())
         self.action_bar.set_enabled(index.isValid())
 
     def _refresh_preview(self) -> None:

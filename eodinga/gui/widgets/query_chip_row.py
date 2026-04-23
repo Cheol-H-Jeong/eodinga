@@ -55,3 +55,48 @@ class QueryChipRow(QWidget):
     @property
     def buttons(self) -> list[SecondaryButton]:
         return list(self._buttons)
+
+
+class StaticChipRow(QWidget):
+    def __init__(self, label: str, *, accessible_name: str, parent=None) -> None:
+        super().__init__(parent)
+        self.setAccessibleName(accessible_name)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(SPACE_8)
+
+        self._label = QLabel(label, self)
+        self._label.setProperty("role", "secondary")
+        self._label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        layout.addWidget(self._label)
+
+        self._chips_container = QWidget(self)
+        chips_layout = QHBoxLayout(self._chips_container)
+        chips_layout.setContentsMargins(0, 0, 0, 0)
+        chips_layout.setSpacing(SPACE_4)
+        layout.addWidget(self._chips_container, 1)
+        layout.addStretch(1)
+        self._chips_layout = chips_layout
+        self._labels: list[QLabel] = []
+        self.setVisible(False)
+
+    def set_chips(self, chips: list[str]) -> None:
+        while self._labels:
+            label = self._labels.pop()
+            self._chips_layout.removeWidget(label)
+            label.deleteLater()
+
+        for chip in chips:
+            label = QLabel(chip, self._chips_container)
+            label.setProperty("chip", True)
+            label.setProperty("role", "secondary")
+            label.setAccessibleName(f"Active filter {chip}")
+            self._chips_layout.addWidget(label)
+            self._labels.append(label)
+
+        self.setVisible(bool(chips))
+
+    @property
+    def labels(self) -> list[QLabel]:
+        return list(self._labels)

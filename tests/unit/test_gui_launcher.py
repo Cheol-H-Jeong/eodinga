@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
-from eodinga.gui.launcher import LauncherState
+from eodinga.gui.launcher import LauncherState, active_filter_chips
 from eodinga.gui.launcher_window import LauncherWindow
 
 
@@ -596,7 +596,8 @@ def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
 
     assert launcher.preview_pane.title_label.text() == "alpha.txt"
     assert "/tmp/alpha.txt" in launcher.preview_pane.path_label.text()
-    assert "Alpha release notes" in launcher.preview_pane.snippet_label.text()
+    assert "Alpha release " in launcher.preview_pane.snippet_label.text()
+    assert "<mark" in launcher.preview_pane.snippet_label.text()
     assert launcher.action_bar.open_button.isEnabled()
 
     launcher._sync_preview_to_index(launcher.model.index(1, 0))
@@ -671,11 +672,57 @@ def test_launcher_alt_number_quick_picks_results(qapp) -> None:
     assert "Home/End and PgUp/PgDn jump" in launcher.shortcut_label.text()
 
 
+def test_active_filter_chips_collects_dsl_operators() -> None:
+    assert active_filter_chips('report ext:pdf date:this-week -is:dir content:"release notes"') == (
+        "ext:pdf",
+        "date:this-week",
+        "-is:dir",
+        'content:"release notes"',
+    )
+
+
+def test_launcher_shows_active_filter_chips_for_current_query(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText('report ext:pdf date:this-week')
+    _wait(60)
+
+    assert launcher.active_filters_row.isVisible()
+    assert [label.text() for label in launcher.active_filters_row.labels] == ["ext:pdf", "date:this-week"]
+
+
 def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     launcher = LauncherWindow(state=LauncherState())
     launcher.show()
 
     assert "Alt+1 through Alt+9" in launcher.empty_state.body_label.text()
+
+
+def test_launcher_preview_highlights_current_query(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/workspace/reports/release-notes.txt"),
+                    parent_path=Path("/workspace/reports"),
+                    name="release-notes.txt",
+                    snippet="The release notes are attached.",
+                )
+            ][:limit],
+            total=1,
+            elapsed_ms=1.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText('release path:reports content:"release notes"')
+    _wait(60)
+
+    assert "<mark" in launcher.preview_pane.title_label.text()
+    assert "<mark" in launcher.preview_pane.path_label.text()
+    assert "<mark" in launcher.preview_pane.snippet_label.text()
 
 
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
@@ -684,6 +731,7 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
 
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
+    assert launcher.active_filters_row.accessibleName() == "Active launcher filters"
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"
