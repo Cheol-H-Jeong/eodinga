@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.140 - 2026-04-23
+## 0.1.145 - 2026-04-23
 
 - Added launcher-side pinned queries that persist in config, surface in the empty state, and can be toggled directly from the search field without leaving keyboard flow.
 - Rendered active operator filters as inline chips inside the launcher query field so `ext:`, `date:`, `size:`, `path:`, and related modifiers stay visible while refining a search.
