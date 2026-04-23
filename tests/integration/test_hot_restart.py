@@ -28,6 +28,9 @@ def _wait_for_query_hit(
     started = monotonic()
     deadline = started + deadline_seconds
     while monotonic() < deadline:
+        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
+        if expected_path in hits:
+            return monotonic() - started
         try:
             event = service.queue.get(timeout=0.05)
         except Empty:
@@ -50,6 +53,9 @@ def _wait_for_query_miss(
     started = monotonic()
     deadline = started + deadline_seconds
     while monotonic() < deadline:
+        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
+        if missing_path not in hits:
+            return monotonic() - started
         try:
             event = service.queue.get(timeout=0.05)
         except Empty:
