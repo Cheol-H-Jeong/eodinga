@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.578 - 2026-04-23
+## 0.1.581 - 2026-04-23
 
 - Surfaced launcher hotkey backend availability directly in Settings, including a disabled remap control and explicit status text when the global hotkey backend is unavailable in the current session.
 - Centered the launcher popup on first show when no position has been saved yet, avoiding the default corner placement on fresh setups.
