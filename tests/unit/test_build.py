@@ -176,3 +176,29 @@ def test_rebuild_index_installs_sigint_and_sigterm_handlers_on_main_thread(
 
     assert installed == [signal.SIGINT, signal.SIGTERM]
     assert restored == [signal.SIGINT, signal.SIGTERM]
+
+
+def test_rebuild_index_enters_bulk_write_mode_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    entered: list[object] = []
+
+    class _BulkWriteProbe:
+        def __init__(self, conn: object) -> None:
+            self._conn = conn
+
+        def __enter__(self) -> None:
+            entered.append(self._conn)
+
+        def __exit__(self, exc_type, exc, tb) -> bool:
+            return False
+
+    monkeypatch.setattr(build_module, "bulk_write_mode", lambda conn: _BulkWriteProbe(conn))
+
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    assert len(entered) == 1

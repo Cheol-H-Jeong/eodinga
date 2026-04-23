@@ -334,6 +334,24 @@ def test_bulk_write_mode_is_nested_and_restores_once(tmp_path: Path) -> None:
         conn.close()
 
 
+def test_bulk_write_mode_is_noop_inside_existing_transaction(tmp_path: Path) -> None:
+    conn = connect_database(tmp_path / "index.db")
+    statements: list[str] = []
+    conn.set_trace_callback(statements.append)
+    try:
+        conn.execute("BEGIN")
+        with bulk_write_mode(conn):
+            current = conn.execute("PRAGMA synchronous;").fetchone()
+            assert current is not None
+            assert int(current[0]) == SQLITE_SYNCHRONOUS_FULL
+        pragma_statements = [statement for statement in statements if statement.startswith("PRAGMA synchronous=")]
+        assert pragma_statements == []
+    finally:
+        conn.rollback()
+        conn.set_trace_callback(None)
+        conn.close()
+
+
 def test_recover_stale_wal_returns_false_when_nonempty_sidecar_survives(
     tmp_path: Path, monkeypatch
 ) -> None:

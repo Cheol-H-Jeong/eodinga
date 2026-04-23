@@ -4,6 +4,8 @@ import sqlite3
 from pathlib import Path
 from time import perf_counter, time
 
+import pytest
+
 import eodinga.index.writer as writer_module
 from eodinga.content.base import ParsedContent
 from eodinga.common import FileRecord, WatchEvent
@@ -76,6 +78,38 @@ def test_writer_caches_chunk_shaped_sql_templates() -> None:
     assert writer_module._delete_content_rows_sql.cache_info().hits >= 1
     assert writer_module._select_deleted_content_rowids_sql.cache_info().hits >= 1
     assert writer_module._select_existing_content_rows_sql.cache_info().hits >= 1
+
+
+def test_writer_bulk_upsert_enters_bulk_write_mode(
+    tmp_db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    writer = IndexWriter(conn)
+    records = [_synthetic_record(index, tmp_path) for index in range(2)]
+    entered: list[sqlite3.Connection] = []
+
+    class _BulkWriteProbe:
+        def __init__(self, target: sqlite3.Connection) -> None:
+            self._target = target
+
+        def __enter__(self) -> None:
+            entered.append(self._target)
+
+        def __exit__(self, exc_type, exc, tb) -> bool:
+            return False
+
+    monkeypatch.setattr(writer_module, "bulk_write_mode", lambda target: _BulkWriteProbe(target))
+
+    try:
+        assert writer.bulk_upsert(records) == 2
+    finally:
+        conn.close()
+
+    assert entered == [conn]
 
 
 def test_writer_without_parser_skips_content_queries(tmp_db: Path, tmp_path: Path) -> None:
@@ -209,6 +243,47 @@ def test_writer_apply_events_batches_deleted_path_cleanup(tmp_db: Path, tmp_path
     assert len(batched_deletes) == 1
     assert conn.execute("SELECT COUNT(*) FROM files").fetchone() == (1,)
     assert conn.execute("SELECT COUNT(*) FROM content_fts").fetchone() == (1,)
+
+
+def test_writer_apply_events_enters_bulk_write_mode(
+    tmp_db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    writer = IndexWriter(conn)
+    target = tmp_path / "live.txt"
+    target.write_text("live", encoding="utf-8")
+    entered: list[sqlite3.Connection] = []
+
+    class _BulkWriteProbe:
+        def __init__(self, target_conn: sqlite3.Connection) -> None:
+            self._target_conn = target_conn
+
+        def __enter__(self) -> None:
+            entered.append(self._target_conn)
+
+        def __exit__(self, exc_type, exc, tb) -> bool:
+            return False
+
+    monkeypatch.setattr(
+        writer_module,
+        "bulk_write_mode",
+        lambda target_conn: _BulkWriteProbe(target_conn),
+    )
+
+    try:
+        processed = writer.apply_events(
+            [WatchEvent(event_type="created", path=target)],
+            record_loader=make_record,
+        )
+    finally:
+        conn.close()
+
+    assert processed == 1
+    assert entered == [conn]
 
 
 def test_writer_apply_events_batches_moved_source_cleanup(tmp_db: Path, tmp_path: Path) -> None:

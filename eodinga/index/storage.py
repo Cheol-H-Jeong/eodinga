@@ -69,6 +69,9 @@ def _write_synchronous_mode(conn: sqlite3.Connection, level: int) -> None:
 def bulk_write_mode(conn: sqlite3.Connection) -> Iterator[None]:
     key = id(conn)
     state = _BULK_WRITE_STATES.get(key)
+    if state is None and conn.in_transaction:
+        yield
+        return
     if state is None:
         original_synchronous = _read_synchronous_mode(conn)
         _BULK_WRITE_STATES[key] = _BulkWriteState(

@@ -10,6 +10,7 @@ from typing import NamedTuple, TypeVar
 
 from eodinga.common import FileRecord, ParsedContent, WatchEvent
 from eodinga.index.schema import apply_schema, current_schema_version
+from eodinga.index.storage import bulk_write_mode
 
 ParserCallback = Callable[[Path], ParsedContent | None]
 RecordLoader = Callable[[Path], FileRecord | None]
@@ -100,9 +101,10 @@ class IndexWriter:
         buffered = _materialize_records(records)
         if not buffered:
             return 0
-        with self._transaction():
-            self._upsert_records(buffered)
-            self._upsert_content(buffered)
+        with bulk_write_mode(self._conn):
+            with self._transaction():
+                self._upsert_records(buffered)
+                self._upsert_content(buffered)
         return len(buffered)
 
     def apply_events(self, events: Sequence[WatchEvent], record_loader: RecordLoader) -> int:
@@ -111,27 +113,28 @@ class IndexWriter:
         deleted_paths: list[Path] = []
         retired_paths: list[Path] = []
         pending_records: list[FileRecord] = []
-        with self._transaction():
-            for event in events:
-                if event.event_type == "deleted":
-                    deleted_paths.append(event.path)
-                    continue
-                if event.event_type == "moved" and event.src_path is not None:
-                    retired_paths.append(event.src_path)
-                record = record_loader(event.path)
-                if record is None:
-                    continue
-                pending_records.append(record)
-                processed += 1
-            if deleted_paths:
-                processed += self._delete_paths(deleted_paths, content_deletes)
-            if retired_paths:
-                self._delete_paths(retired_paths, content_deletes)
-            if pending_records:
-                self._upsert_records(pending_records)
-                self._upsert_content(pending_records)
-            if content_deletes:
-                self._delete_content_rows(content_deletes)
+        with bulk_write_mode(self._conn):
+            with self._transaction():
+                for event in events:
+                    if event.event_type == "deleted":
+                        deleted_paths.append(event.path)
+                        continue
+                    if event.event_type == "moved" and event.src_path is not None:
+                        retired_paths.append(event.src_path)
+                    record = record_loader(event.path)
+                    if record is None:
+                        continue
+                    pending_records.append(record)
+                    processed += 1
+                if deleted_paths:
+                    processed += self._delete_paths(deleted_paths, content_deletes)
+                if retired_paths:
+                    self._delete_paths(retired_paths, content_deletes)
+                if pending_records:
+                    self._upsert_records(pending_records)
+                    self._upsert_content(pending_records)
+                if content_deletes:
+                    self._delete_content_rows(content_deletes)
         return processed
 
     @contextmanager
