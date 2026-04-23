@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
+from typing import Callable, cast
 
 
 def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
@@ -22,13 +22,13 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     assert "pypdf" in hiddenimports
     assert "eodinga.gui.app" in hiddenimports
     assert "eodinga.content.registry" in hiddenimports
+    assert "eodinga.content.base" in hiddenimports
+    assert "eodinga.gui.widgets.button" in hiddenimports
     assert "eodinga.launcher.hotkey_win" in hiddenimports
-    assert discovered_hiddenimports == [
-        "Xlib.X",
-        "Xlib.XK",
-        "Xlib.display",
-        "pynput.keyboard",
-    ]
+    assert "Xlib.X" in discovered_hiddenimports
+    assert "Xlib.XK" in discovered_hiddenimports
+    assert "Xlib.display" in discovered_hiddenimports
+    assert "pynput.keyboard" in discovered_hiddenimports
     assert set(required_hiddenimports).issubset(set(hiddenimports))
     assert set(runtime_modules).issubset(set(hiddenimports))
     assert set(discovered_hiddenimports).issubset(set(hiddenimports))
@@ -59,3 +59,18 @@ def test_pyinstaller_runtime_modules_map_to_real_sources() -> None:
     for module_name in runtime_modules:
         module_path = Path(*module_name.split(".")).with_suffix(".py")
         assert module_path.exists(), module_name
+
+
+def test_pyinstaller_spec_discovers_absolute_and_relative_package_imports() -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+
+    discover_hidden_imports = cast(Callable[[Path], list[str]], namespace["_discover_hidden_imports"])
+    source_root = Path("eodinga").resolve()
+    discovered_hiddenimports = discover_hidden_imports(source_root)
+
+    assert "eodinga.content.base" in discovered_hiddenimports
+    assert "eodinga.gui.tabs.about" in discovered_hiddenimports
+    assert "eodinga.gui.widgets.button" in discovered_hiddenimports

@@ -65,20 +65,76 @@ REQUIRED_HIDDEN_IMPORTS = [
 ]
 
 
+def _module_name_for_path(source_root: Path, source_path: Path) -> str:
+    relative_path = source_path.relative_to(source_root.parent)
+    if source_path.name == "__init__.py":
+        return ".".join(relative_path.parts[:-1])
+    return ".".join(relative_path.with_suffix("").parts)
+
+
+def _package_name_for_path(source_root: Path, source_path: Path) -> str:
+    module_name = _module_name_for_path(source_root, source_path)
+    if source_path.name == "__init__.py":
+        return module_name
+    package_name, _, _ = module_name.rpartition(".")
+    return package_name
+
+
+def _module_exists(source_root: Path, module_name: str) -> bool:
+    module_path = source_root.parent.joinpath(*module_name.split("."))
+    return module_path.with_suffix(".py").exists() or (module_path / "__init__.py").exists()
+
+
+def _resolve_from_import_module(source_root: Path, source_path: Path, node: ast.ImportFrom) -> str | None:
+    if node.level == 0:
+        return node.module
+
+    current_package = _package_name_for_path(source_root, source_path)
+    if not current_package:
+        return None
+    package_parts = current_package.split(".")
+    if node.level > len(package_parts):
+        return None
+    anchor_parts = package_parts[: len(package_parts) - (node.level - 1)]
+    if node.module:
+        anchor_parts.extend(node.module.split("."))
+    return ".".join(anchor_parts)
+
+
 def _discover_hidden_imports(source_root: Path) -> list[str]:
     discovered: set[str] = set()
     for source_path in source_root.rglob("*.py"):
         module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
         for node in ast.walk(module):
-            if not isinstance(node, ast.Call):
+            if isinstance(node, ast.Call):
+                if not isinstance(node.func, ast.Name) or node.func.id != "import_module":
+                    continue
+                if not node.args or not isinstance(node.args[0], ast.Constant):
+                    continue
+                if not isinstance(node.args[0].value, str):
+                    continue
+                discovered.add(node.args[0].value)
                 continue
-            if not isinstance(node.func, ast.Name) or node.func.id != "import_module":
+
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == SOURCE_ROOT.name or alias.name.startswith(f"{SOURCE_ROOT.name}."):
+                        discovered.add(alias.name)
                 continue
-            if not node.args or not isinstance(node.args[0], ast.Constant):
+
+            if not isinstance(node, ast.ImportFrom):
                 continue
-            if not isinstance(node.args[0].value, str):
+            module_name = _resolve_from_import_module(source_root, source_path, node)
+            if module_name is None:
                 continue
-            discovered.add(node.args[0].value)
+            if module_name == SOURCE_ROOT.name or module_name.startswith(f"{SOURCE_ROOT.name}."):
+                discovered.add(module_name)
+            for alias in node.names:
+                if alias.name == "*":
+                    continue
+                imported_module_name = f"{module_name}.{alias.name}"
+                if _module_exists(source_root, imported_module_name):
+                    discovered.add(imported_module_name)
     return sorted(discovered)
 
 
