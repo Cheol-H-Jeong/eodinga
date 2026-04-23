@@ -355,5 +355,9 @@ def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:
 
     metrics = snapshot_metrics()
 
+    assert metrics["started_at"].endswith("Z")
     assert metrics["generated_at"].endswith("Z")
     assert metrics["uptime_ms"] >= 0
+    assert metrics["pid"] > 0
+    assert metrics["platform"] == sys.platform
+    assert metrics["python"] == sys.version.split()[0]

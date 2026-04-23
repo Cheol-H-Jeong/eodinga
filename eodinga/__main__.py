@@ -173,8 +173,13 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     metrics = snapshot_metrics()
     counters = metrics["counters"]
     snapshot = StatsSnapshot(
+        version=__version__,
         generated_at=metrics["generated_at"],
+        started_at=metrics["started_at"],
         uptime_ms=float(metrics["uptime_ms"]),
+        pid=int(metrics["pid"]),
+        platform=str(metrics["platform"]),
+        python=str(metrics["python"]),
         files_indexed=index_snapshot.file_count,
         documents_indexed=index_snapshot.content_count,
         queries_served=counter_value("queries_served"),

@@ -26,6 +26,10 @@ class MetricsSnapshot(TypedDict):
     histograms: dict[str, dict[str, object]]
     generated_at: str
     uptime_ms: float
+    started_at: str
+    pid: int
+    platform: str
+    python: str
 
 
 @dataclass
@@ -170,6 +174,10 @@ def snapshot_metrics() -> MetricsSnapshot:
         "histograms": histograms,
         "generated_at": now.isoformat().replace("+00:00", "Z"),
         "uptime_ms": round((now - _PROCESS_STARTED_AT).total_seconds() * 1000, 3),
+        "started_at": _PROCESS_STARTED_AT.isoformat().replace("+00:00", "Z"),
+        "pid": os.getpid(),
+        "platform": sys.platform,
+        "python": sys.version.split()[0],
     }
 
 

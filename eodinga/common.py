@@ -95,8 +95,13 @@ class SearchResult(BaseModel):
 class StatsSnapshot(BaseModel):
     model_config = ConfigDict(frozen=True)
 
+    version: str | None = None
     generated_at: str | None = None
+    started_at: str | None = None
     uptime_ms: float = 0.0
+    pid: int = 0
+    platform: str | None = None
+    python: str | None = None
     files_indexed: int = 0
     documents_indexed: int = 0
     queries_served: int = 0

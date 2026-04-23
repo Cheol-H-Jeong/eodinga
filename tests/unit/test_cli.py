@@ -467,8 +467,14 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert stats_exit == 0
     payload = json.loads(stats_output.out)
     generated_at = datetime.fromisoformat(payload["generated_at"].replace("Z", "+00:00"))
+    started_at = datetime.fromisoformat(payload["started_at"].replace("Z", "+00:00"))
     assert generated_at.tzinfo is not None
+    assert started_at.tzinfo is not None
+    assert payload["version"]
     assert payload["uptime_ms"] >= 0
+    assert payload["pid"] > 0
+    assert payload["platform"]
+    assert payload["python"]
     assert payload["files_indexed"] == 3
     assert payload["documents_indexed"] == 3
     assert payload["queries_served"] == 1
