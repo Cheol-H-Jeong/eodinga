@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.871 - 2026-04-23
+
+- Aligned the Debian package description with the canonical project metadata in `pyproject.toml`, so packaging audits and shipped control metadata no longer depend on a stale hard-coded release summary.
+- Hardened the Windows installer dry-run audit to verify the rendered Inno script still references the shipped license and contains no unreplaced packaging tokens before a release can pass.
+- Hardened the Linux AppImage and Debian dry-run audits to reject rendered recipe/control files that still contain version or architecture template tokens, closing a silent packaging-drift gap.
+
 ## 0.1.868 - 2026-04-23
 
 - Preserved negated query filters in launcher summaries, so grouped filters like `-(ext:pdf | date:today)` no longer show misleading positive chips.
