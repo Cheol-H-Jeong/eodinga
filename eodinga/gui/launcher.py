@@ -55,6 +55,7 @@ class LauncherPanel(QWidget):
 
         self.query_field = SearchField(parent=self)
         self.query_field.setAccessibleName("Launcher search field")
+        self.query_field.pin_query_requested.connect(self.toggle_current_query_pin)
         self.pinned_queries_row = QueryChipRow(
             "Pinned",
             accessible_name="Pinned launcher queries",
@@ -135,6 +136,7 @@ class LauncherPanel(QWidget):
             QShortcut(QKeySequence(Qt.Key.Key_Return), self),
             QShortcut(QKeySequence("Ctrl+Return"), self),
             QShortcut(QKeySequence("Shift+Return"), self),
+            QShortcut(QKeySequence("Ctrl+D"), self),
             QShortcut(QKeySequence("Alt+C"), self),
             QShortcut(QKeySequence("Alt+N"), self),
             QShortcut(QKeySequence(QKeySequence.StandardKey.SelectAll), self),
@@ -145,12 +147,19 @@ class LauncherPanel(QWidget):
         self._shortcuts[0].activated.connect(self.activate_current_result)
         self._shortcuts[1].activated.connect(self.emit_open_containing_folder)
         self._shortcuts[2].activated.connect(self.emit_show_properties)
-        self._shortcuts[3].activated.connect(self.emit_copy_path)
-        self._shortcuts[4].activated.connect(self.emit_copy_name)
-        self._shortcuts[5].activated.connect(self.select_query_text)
-        self._shortcuts[6].activated.connect(self.focus_query_field)
-        self._shortcuts[7].activated.connect(self.recall_previous_query)
-        self._shortcuts[8].activated.connect(self.recall_next_query)
+        self._shortcuts[3].activated.connect(self.toggle_current_query_pin)
+        self._shortcuts[4].activated.connect(self.emit_copy_path)
+        self._shortcuts[5].activated.connect(self.emit_copy_name)
+        self._shortcuts[6].activated.connect(self.select_query_text)
+        self._shortcuts[7].activated.connect(self.focus_query_field)
+        self._shortcuts[8].activated.connect(self.recall_previous_query)
+        self._shortcuts[9].activated.connect(self.recall_next_query)
+        for shortcut in self._shortcuts:
+            shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self._local_shortcuts = [QShortcut(QKeySequence("Ctrl+D"), self.result_list)]
+        for shortcut in self._local_shortcuts:
+            shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            shortcut.activated.connect(self.toggle_current_query_pin)
         self.action_bar.open_button.clicked.connect(self.activate_current_result)
         self.action_bar.reveal_button.clicked.connect(self.emit_open_containing_folder)
         self.action_bar.copy_path_button.clicked.connect(self.emit_copy_path)
@@ -242,6 +251,18 @@ class LauncherPanel(QWidget):
     def recall_next_query(self) -> None:
         self._navigate_recent_queries(1)
 
+    def toggle_current_query_pin(self) -> None:
+        query = self.query_field.text().strip()
+        if not query:
+            return
+        if self._state is not None:
+            self._state.toggle_pinned_query(query)
+            return
+        if query in self._pinned_queries:
+            self.set_pinned_queries([item for item in self._pinned_queries if item != query])
+            return
+        self.set_pinned_queries([*self._pinned_queries, query])
+
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusIn:
             self._refresh_shortcut_hint()
@@ -332,11 +353,11 @@ class LauncherPanel(QWidget):
             if self.query_field.text().strip():
                 hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries."
             else:
-                hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
+                hint = "Type a filename, path, or content term. Alt+Up recalls recent queries. Ctrl+D pins the current query."
         elif self.result_list.hasFocus():
-            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
+            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Ctrl+D pins the current query. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
         else:
-            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
+            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Ctrl+D pins the current query. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
 
     def _current_hit(self) -> SearchHit | None:
@@ -386,6 +407,9 @@ class LauncherPanel(QWidget):
         return False
 
     def _handle_result_list_keypress(self, event: QKeyEvent) -> bool:
+        if event.key() == Qt.Key.Key_D and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            self.toggle_current_query_pin()
+            return True
         if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
             self.query_field.setFocus()
             return True

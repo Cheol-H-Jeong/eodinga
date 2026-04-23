@@ -207,6 +207,31 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     qapp.processEvents()
 
 
+def test_launcher_pinned_queries_persist_to_config(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher.show()
+    launcher.query_field.setText("ext:pdf")
+    launcher.toggle_current_query_pin()
+    qapp.processEvents()
+
+    stored = load(temp_config_path)
+    assert stored.launcher.pinned_queries == ["ext:pdf"]
+
+    launcher.toggle_current_query_pin()
+    qapp.processEvents()
+
+    stored = load(temp_config_path)
+    assert stored.launcher.pinned_queries == []
+
+    window.close()
+    qapp.processEvents()
+
+
 def test_launcher_respects_always_on_top_config(qapp, temp_config_path: Path) -> None:
     config = AppConfig()
     config.launcher = config.launcher.model_copy(update={"always_on_top": False})

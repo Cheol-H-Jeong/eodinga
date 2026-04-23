@@ -404,7 +404,10 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "(20%)" in launcher.empty_state.details_label.text()
     assert launcher.status_chip.text() == "Indexing"
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
-    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Alt+Up recalls recent queries."
+    assert (
+        launcher.shortcut_label.text()
+        == "Type a filename, path, or content term. Alt+Up recalls recent queries. Ctrl+D pins the current query."
+    )
 
     launcher.query_field.setText("missing")
     _wait(60)
@@ -435,6 +438,24 @@ def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> No
     launcher.show()
 
     assert "Pinned: ext:pdf, size:>10M." in launcher.empty_state.body_label.text()
+
+
+def test_launcher_ctrl_d_toggles_current_query_in_pinned_chips(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    launcher.query_field.setText("ext:pdf date:this-week")
+    launcher.toggle_current_query_pin()
+
+    assert state.pinned_queries == ["ext:pdf date:this-week"]
+    assert [button.text() for button in launcher.pinned_queries_row.buttons] == ["ext:pdf date:this-week"]
+    assert "Ctrl+D pins the current query" in launcher.shortcut_label.text()
+
+    launcher.toggle_current_query_pin()
+
+    assert state.pinned_queries == []
+    assert launcher.pinned_queries_row.buttons == []
 
 
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:
@@ -562,6 +583,7 @@ def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
     assert copied == ["/tmp/release-notes.txt"]
     assert copied_names == ["release-notes.txt"]
     assert "Alt+N copies name" in launcher.shortcut_label.text()
+    assert "Ctrl+D pins the current query" in launcher.shortcut_label.text()
 
 
 def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
