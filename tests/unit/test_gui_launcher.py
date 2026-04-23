@@ -78,14 +78,16 @@ def test_launcher_keyboard_flow_supports_arrow_navigation_and_tab_return(qapp) -
     assert launcher.result_list.currentIndex().row() == 1
 
     QTest.keyClick(launcher, Qt.Key.Key_Return)
+    assert activated == ["beta.txt"]
+
+    launcher.show()
+    launcher.query_field.setText("a")
+    _wait(60)
+    launcher.result_list.setFocus()
+    launcher._set_selection(1)
     QTest.keyClick(launcher, Qt.Key.Key_Return, Qt.KeyboardModifier.ControlModifier)
 
-    assert activated == ["beta.txt"]
     assert revealed == ["beta.txt"]
-
-    QTest.keyClick(launcher.result_list, Qt.Key.Key_Tab)
-    assert launcher.query_field.hasFocus()
-    assert "Tab moves to results" in launcher.shortcut_label.text()
 
 
 def test_launcher_tab_moves_focus_into_results_without_mouse(qapp) -> None:
@@ -376,11 +378,16 @@ def test_launcher_enter_and_ctrl_enter_work_while_query_field_keeps_focus(qapp) 
     assert launcher.query_field.hasFocus()
 
     QTest.keyClick(launcher.query_field, Qt.Key.Key_Return)
+    assert activated == ["report.txt"]
+
+    launcher.show()
+    launcher.query_field.setText("report")
+    launcher.query_field.setFocus()
+    _wait(60)
     QTest.keyClick(launcher.query_field, Qt.Key.Key_Return, Qt.KeyboardModifier.ControlModifier)
 
-    assert activated == ["report.txt"]
     assert revealed == ["report.txt"]
-    assert launcher.query_field.hasFocus()
+    assert not launcher.isVisible()
     assert launcher.model.rowCount() == 1
 
 
@@ -561,10 +568,14 @@ def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
     _wait(60)
 
     QTest.keyClick(launcher, Qt.Key.Key_Return, Qt.KeyboardModifier.ShiftModifier)
+    assert properties == ["release-notes.txt"]
+
+    launcher.show()
+    launcher.query_field.setText("release")
+    _wait(60)
     QTest.keyClick(launcher, Qt.Key.Key_C, Qt.KeyboardModifier.AltModifier)
     QTest.keyClick(launcher, Qt.Key.Key_N, Qt.KeyboardModifier.AltModifier)
 
-    assert properties == ["release-notes.txt"]
     assert copied == ["/tmp/release-notes.txt"]
     assert copied_names == ["release-notes.txt"]
     assert "Alt+N copies name" in launcher.shortcut_label.text()
@@ -892,6 +903,55 @@ def test_launcher_escape_clears_query_even_when_results_have_focus(qapp) -> None
     assert launcher.isVisible()
     assert launcher.query_field.hasFocus()
     assert launcher.query_field.text() == ""
+
+
+def test_launcher_hides_after_open_reveal_and_properties_actions(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/release.txt"), parent_path=Path("/tmp"), name="release.txt")][:limit],
+            total=1,
+            elapsed_ms=1.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(60)
+    QTest.keyClick(launcher, Qt.Key.Key_Return)
+    assert not launcher.isVisible()
+
+    launcher.show()
+    launcher.query_field.setText("release")
+    _wait(60)
+    QTest.keyClick(launcher, Qt.Key.Key_Return, Qt.KeyboardModifier.ControlModifier)
+    assert not launcher.isVisible()
+
+    launcher.show()
+    launcher.query_field.setText("release")
+    _wait(60)
+    QTest.keyClick(launcher, Qt.Key.Key_Return, Qt.KeyboardModifier.ShiftModifier)
+    assert not launcher.isVisible()
+
+
+def test_launcher_copy_actions_keep_popup_visible(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/release.txt"), parent_path=Path("/tmp"), name="release.txt")][:limit],
+            total=1,
+            elapsed_ms=1.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(60)
+    QTest.keyClick(launcher, Qt.Key.Key_C, Qt.KeyboardModifier.AltModifier)
+    assert launcher.isVisible()
+
+    QTest.keyClick(launcher, Qt.Key.Key_N, Qt.KeyboardModifier.AltModifier)
+    assert launcher.isVisible()
 
 
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:

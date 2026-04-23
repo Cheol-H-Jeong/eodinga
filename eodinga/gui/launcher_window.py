@@ -43,6 +43,9 @@ class LauncherWindow(LauncherPanel):
         width = self._config.launcher.window_width if self._config is not None else 640
         height = self._config.launcher.window_height if self._config is not None else 480
         self.resize(width, height)
+        self.result_activated.connect(self._hide_after_result_action)
+        self.open_containing_folder.connect(self._hide_after_result_action)
+        self.show_properties.connect(self._hide_after_result_action)
 
     def keyPressEvent(self, event) -> None:
         if event.key() == Qt.Key.Key_Escape:
@@ -90,6 +93,10 @@ class LauncherWindow(LauncherPanel):
     def closeEvent(self, event: QCloseEvent) -> None:
         self._persist_geometry()
         super().closeEvent(event)
+
+    def _hide_after_result_action(self, _hit) -> None:
+        if self.isVisible():
+            self.hide()
 
     def _schedule_geometry_persist(self) -> None:
         if self._config is None or self._config_path is None or not self._geometry_restored or not self.isVisible():
