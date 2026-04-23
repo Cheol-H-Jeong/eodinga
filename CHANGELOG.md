@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.953 - 2026-04-24
+## 0.1.954 - 2026-04-24
 
 - Added pinned-query management to the settings tab, including normalized multi-line editing, one-click clearing, shared-state updates, and config persistence without restarting the launcher.
 - Added recent-query visibility and a clear-history control in settings, so the popup and embedded search launcher stay in sync with history changes while giving users an explicit reset path.
