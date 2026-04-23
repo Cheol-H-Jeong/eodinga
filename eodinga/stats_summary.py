@@ -61,3 +61,32 @@ def watcher_event_type_summary(counters: dict[str, int]) -> dict[str, int]:
         if name.startswith(prefix)
     }
     return dict(sorted(event_types.items()))
+
+
+def watcher_failure_summary(counters: dict[str, int]) -> dict[str, dict[str, int]]:
+    return {
+        "observer_cleanup": _suffix_summary(counters, "watcher_observer_cleanup_failures."),
+        "observer_start": _suffix_summary(counters, "watcher_observer_failures."),
+        "observer_startup_cleanup": _suffix_summary(
+            counters,
+            "watcher_observer_startup_cleanup_failures.",
+        ),
+    }
+
+
+def log_sink_file_source_summary(counters: dict[str, int]) -> dict[str, int]:
+    return _suffix_summary(counters, "log_sinks.file.source.")
+
+
+def log_sink_file_disabled_reason_summary(counters: dict[str, int]) -> dict[str, int]:
+    return _suffix_summary(counters, "log_sinks.file.disabled.")
+
+
+def _suffix_summary(counters: dict[str, int], prefix: str) -> dict[str, int]:
+    return dict(
+        sorted(
+            (name[len(prefix) :], value)
+            for name, value in counters.items()
+            if name.startswith(prefix)
+        )
+    )

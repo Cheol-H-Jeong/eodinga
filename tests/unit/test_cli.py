@@ -16,7 +16,7 @@ from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga.index.schema import apply_schema
-from eodinga.observability import reset_metrics, snapshot_metrics
+from eodinga.observability import increment_counter, reset_metrics, snapshot_metrics
 
 
 def _insert_file(
@@ -497,6 +497,10 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["watcher_events_flushed"] == 0
     assert payload["watcher_queue_full"] == 0
     assert payload["watcher_enqueue_aborted"] == 0
+    assert payload["watcher_observer_failures"] == 0
+    assert payload["watcher_observer_cleanup_failures"] == 0
+    assert payload["watcher_observer_startup_cleanup_failures"] == 0
+    assert payload["watcher_startup_rollbacks"] == 0
     assert payload["index_rebuilds_completed"] == 0
     assert payload["commands_started"] == 2
     assert payload["commands_completed"] == 1
@@ -523,6 +527,13 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["crash_types"] == {}
     assert payload["parser_activity"] == {}
     assert payload["watcher_event_types"] == {}
+    assert payload["watcher_failures"] == {
+        "observer_cleanup": {},
+        "observer_start": {},
+        "observer_startup_cleanup": {},
+    }
+    assert payload["log_sink_file_sources"] == {}
+    assert payload["log_sink_file_disabled_reasons"] == {"disabled_pytest": 2}
     assert len(payload["recent_snapshots"]) == 1
     assert payload["recent_snapshots"][0]["name"] == "command.search"
     assert payload["recent_snapshots"][0]["payload"]["query"] == "duplicate"
@@ -636,6 +647,10 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["watcher_events_flushed"] == 2
     assert payload["watcher_queue_full"] == 1
     assert payload["watcher_enqueue_aborted"] == 0
+    assert payload["watcher_observer_failures"] == 0
+    assert payload["watcher_observer_cleanup_failures"] == 0
+    assert payload["watcher_observer_startup_cleanup_failures"] == 0
+    assert payload["watcher_startup_rollbacks"] == 0
     assert payload["process_started_at"].endswith("Z")
     assert payload["pid"] > 0
     assert payload["thread_count"] >= 1
@@ -667,11 +682,18 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["parser_activity"]["broken"]["errors"] == 1
     assert payload["parser_activity"]["text"]["parsed"] >= 2
     assert payload["watcher_event_types"] == {"created": 1, "modified": 1}
+    assert payload["watcher_failures"] == {
+        "observer_cleanup": {},
+        "observer_start": {},
+        "observer_startup_cleanup": {},
+    }
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_path_source"] is None
     assert payload["log_path_disabled_reason"] == "disabled_pytest"
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
+    assert payload["log_sink_file_sources"] == {}
+    assert payload["log_sink_file_disabled_reasons"] == {"disabled_pytest": 3}
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["query_result_count"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
@@ -845,6 +867,44 @@ def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Pat
     ]
     assert payload["recent_snapshots"][0]["payload"]["reason"] == "exception"
     assert payload["recent_snapshots"][1]["payload"]["error_type"] == "RuntimeError"
+
+
+def test_stats_json_structures_watcher_failure_and_log_sink_summaries(
+    tmp_path: Path,
+    capsys,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    increment_counter("watcher_observer_failures")
+    increment_counter("watcher_observer_failures.schedule")
+    increment_counter("watcher_observer_failures.start")
+    increment_counter("watcher_observer_cleanup_failures", 2)
+    increment_counter("watcher_observer_cleanup_failures.stop")
+    increment_counter("watcher_observer_cleanup_failures.join")
+    increment_counter("watcher_observer_startup_cleanup_failures", 2)
+    increment_counter("watcher_observer_startup_cleanup_failures.stop")
+    increment_counter("watcher_observer_startup_cleanup_failures.join")
+    increment_counter("watcher_startup_rollbacks")
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(tmp_path / "logs" / "eodinga.log"))
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["watcher_observer_failures"] == 1
+    assert payload["watcher_observer_cleanup_failures"] == 2
+    assert payload["watcher_observer_startup_cleanup_failures"] == 2
+    assert payload["watcher_startup_rollbacks"] == 1
+    assert payload["watcher_failures"] == {
+        "observer_cleanup": {"join": 1, "stop": 1},
+        "observer_start": {"schedule": 1, "start": 1},
+        "observer_startup_cleanup": {"join": 1, "stop": 1},
+    }
+    assert payload["log_sink_file_sources"] == {"env_override": 1}
+    assert payload["log_sink_file_disabled_reasons"] == {}
 
 
 def test_stats_json_exposes_crash_log_write_failures(tmp_path: Path, capsys, monkeypatch) -> None:

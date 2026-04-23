@@ -40,7 +40,10 @@ from eodinga.stats_summary import (
     command_summary,
     crash_type_summary,
     exit_code_summary,
+    log_sink_file_disabled_reason_summary,
+    log_sink_file_source_summary,
     parser_activity_summary,
+    watcher_failure_summary,
     watcher_event_type_summary,
 )
 
@@ -227,6 +230,12 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         watcher_enqueue_aborted=counter_value("watcher_enqueue_aborted"),
         watcher_observers_started=counter_value("watcher_observers_started"),
         watcher_observers_stopped=counter_value("watcher_observers_stopped"),
+        watcher_observer_failures=counter_value("watcher_observer_failures"),
+        watcher_observer_cleanup_failures=counter_value("watcher_observer_cleanup_failures"),
+        watcher_observer_startup_cleanup_failures=counter_value(
+            "watcher_observer_startup_cleanup_failures"
+        ),
+        watcher_startup_rollbacks=counter_value("watcher_startup_rollbacks"),
         index_rebuilds_completed=counter_value("index_rebuilds_completed"),
         commands_started=counter_value("commands_started"),
         commands_completed=counter_value("commands_completed"),
@@ -253,6 +262,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         crash_types=crash_type_summary(counters),
         parser_activity=parser_activity_summary(counters),
         watcher_event_types=watcher_event_type_summary(counters),
+        watcher_failures=watcher_failure_summary(counters),
+        log_sink_file_sources=log_sink_file_source_summary(counters),
+        log_sink_file_disabled_reasons=log_sink_file_disabled_reason_summary(counters),
         counters=counters,
         histograms=metrics["histograms"],
         recent_snapshots=[dict(entry) for entry in recent_snapshots()],
