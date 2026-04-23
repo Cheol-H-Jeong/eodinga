@@ -130,6 +130,17 @@ eodinga index --rebuild
 - Regex and mixed path/content terms are finalized in Python against the candidate set so the CLI and GUI share identical behavior.
 - `eodinga.query.ranker` applies reciprocal rank fusion, filename prefix boosts, and path deboosting for noisy trees such as `node_modules`.
 
+## Query Feature Ownership
+
+| Query surface | First owner | Final enforcement point |
+| --- | --- | --- |
+| Tokenization, grouping, negation, regex literals | `eodinga.query.dsl` | parser AST shape |
+| Structured filters such as `ext:`, `path:`, `size:`, `date:` | `eodinga.query.compiler` | compiled SQLite predicates |
+| Regex fallback and mixed path/content edges | `eodinga.query.executor` | Python fallback predicates on the candidate set |
+| Stable tie handling and blended lexical ranking | `eodinga.query.ranker` | final reranked hit list |
+
+This split matters for debugging. A query can parse correctly in `dsl`, compile mostly to SQLite in `compiler`, and still look wrong because the executor fallback or ranker changed the final candidate order.
+
 ## Query Sequence
 
 ```text
@@ -260,6 +271,22 @@ IndexWriter.apply_events()
 next query sees updated results
 ```
 
+## Query Visibility Boundary
+
+```text
+file change
+    |
+    +--> watcher receives event
+    |
+    +--> writer transaction commits updated files / FTS rows
+    |
+    +--> next reader connection sees committed rows
+    |
+    +--> CLI / launcher / GUI search reflects the change
+```
+
+The visible boundary for users is the writer commit, not the raw filesystem event. This is why watcher latency and query latency are tracked separately in the perf and observability surfaces.
+
 ## Recovery Decision Tree
 
 ```text
@@ -296,6 +323,17 @@ startup
 3. Compare the staged docs payload with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 4. Cut the local tag only after the dry-run output and shipped docs agree.
 
+## Release Asset Provenance
+
+| Release input | Produced from | Verification path |
+| --- | --- | --- |
+| `docs/man/eodinga.1` | `eodinga.__main__._build_parser()` via `scripts/generate_manpage.py` | `tests/unit/test_docs_assets.py` |
+| `docs/screenshots/*.png` | real Qt widgets via `eodinga.gui.docs` and `scripts/render_docs_screenshots.py` | `tests/unit/test_docs_assets.py` plus visual review |
+| Windows dry-run manifest | `packaging/build.py --target windows-dry-run` | packaging audit under `packaging/dist/` |
+| Linux AppImage and `.deb` dry-run manifests | `packaging/build.py --target linux-appimage-dry-run` and `linux-deb-dry-run` | packaging audit under `packaging/dist/` |
+
+Treating these as derived release inputs keeps the docs, packaging, and runtime surfaces tied to the same code revision instead of drifting as hand-maintained side notes.
+
 ## Platform Surface Summary
 
 | Surface | Entry point | Purpose |
@@ -328,3 +366,12 @@ When an operator reports stale or surprising results, the shortest architecture-
 3. `eodinga watch` or `eodinga index --rebuild` depending on whether the issue is live-update lag or a one-shot recovery need.
 
 That sequence mirrors the architecture itself: active DB selection, environment validation, then either watcher-driven incremental repair or staged rebuild.
+
+## Operator Triage Map
+
+| Symptom | Likely boundary to inspect first | Primary command |
+| --- | --- | --- |
+| Query parses oddly or operators behave strangely | DSL or compiler | `eodinga search 'query' --json` |
+| Hits are stale after a filesystem change | watcher or writer commit path | `eodinga stats --json`, then `eodinga watch` |
+| Startup talks about recovery or WAL replay | storage/open path | `eodinga doctor` |
+| Packaged app differs from editable install | packaging inputs and staged docs assets | `python packaging/build.py --target ...-dry-run` |
