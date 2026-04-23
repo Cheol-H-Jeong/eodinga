@@ -303,12 +303,13 @@ class LauncherPanel(QWidget):
         has_results = self.model.rowCount() > 0
         query = self.query_field.text().strip()
         details = format_indexing_status(self._indexing_status)
+        tab_hint = "Tab moves through launcher chips and results." if self._pinned_queries or self._recent_queries else "Tab moves to results."
         if not query:
             recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
             pinned_queries = f" Pinned: {', '.join(self._pinned_queries[:3])}." if self._pinned_queries else ""
             self.empty_state.set_content(
                 "Type to search",
-                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
+                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, {tab_hint} Enter opens the top hit, and Ctrl+Enter reveals its folder.",
                 details,
             )
         else:
@@ -322,15 +323,17 @@ class LauncherPanel(QWidget):
 
     def _refresh_shortcut_hint(self) -> None:
         has_results = self.model.rowCount() > 0
+        has_query_chips = bool(self._pinned_queries or self._recent_queries)
         if not has_results:
             if self.query_field.text().strip():
                 hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries."
             else:
                 hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
         elif self.result_list.hasFocus():
-            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
+            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Tab reaches actions. Ctrl+A or Ctrl+L returns to filter."
         else:
-            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
+            tab_hint = "Tab moves through launcher chips and results." if has_query_chips else "Tab moves to results."
+            hint = f"{tab_hint} Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
 
     def _current_hit(self) -> SearchHit | None:

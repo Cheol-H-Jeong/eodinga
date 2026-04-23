@@ -142,6 +142,7 @@ def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) ->
     assert "Ctrl+Enter reveals" in launcher.shortcut_label.text()
     assert "Up/Down wraps" in launcher.shortcut_label.text()
     assert "Home/End and PgUp/PgDn jump" in launcher.shortcut_label.text()
+    assert "Tab reaches actions" in launcher.shortcut_label.text()
     assert "Ctrl+A or Ctrl+L returns to filter" in launcher.shortcut_label.text()
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_End)
@@ -793,6 +794,29 @@ def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     launcher.show()
 
     assert "Alt+1 through Alt+9" in launcher.empty_state.body_label.text()
+    assert "Tab moves to results" in launcher.empty_state.body_label.text()
+
+
+def test_launcher_shortcut_copy_mentions_query_chips_when_available(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/report.txt"), parent_path=Path("/tmp"), name="report.txt")][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn, state=state)
+    launcher.show()
+
+    assert "Tab moves through launcher chips and results" in launcher.empty_state.body_label.text()
+
+    launcher.query_field.setText("report")
+    _wait(60)
+
+    assert "Tab moves through launcher chips and results" in launcher.shortcut_label.text()
 
 
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
