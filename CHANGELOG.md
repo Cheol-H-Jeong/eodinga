@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.871 - 2026-04-23
+## 0.1.874 - 2026-04-23
 
 - Aligned the Debian package description with the canonical project metadata in `pyproject.toml`, so packaging audits and shipped control metadata no longer depend on a stale hard-coded release summary.
 - Hardened the Windows installer dry-run audit to verify the rendered Inno script still references the shipped license and contains no unreplaced packaging tokens before a release can pass.
