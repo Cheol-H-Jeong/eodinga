@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.850 - 2026-04-23
+## 0.1.856 - 2026-04-23
 
 - Classified search-query failures in runtime stats, separating query syntax/validation errors from generic command failures and surfacing them in recent snapshots.
 - Added watcher backpressure observability with queue and pending high-water marks plus explicit `watcher.backpressure` snapshots when a blocked enqueue clears.
