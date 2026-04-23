@@ -49,13 +49,20 @@ def _cleanup_sidecars(path: Path) -> None:
     for suffix in ("-wal", "-shm"):
         sidecar = _sidecar(path, suffix)
         if sidecar.exists():
-            sidecar.unlink()
+            _safe_unlink(sidecar)
 
 
 def _cleanup_index_files(path: Path) -> None:
     if path.exists():
-        path.unlink()
+        _safe_unlink(path)
     _cleanup_sidecars(path)
+
+
+def _safe_unlink(path: Path) -> None:
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return
 
 
 def _fsync_file(path: Path) -> None:
@@ -101,7 +108,7 @@ def _cleanup_orphan_recovery_sidecars(path: Path) -> bool:
     for suffix in ("-wal", "-shm"):
         orphan = _sidecar(staged_path, suffix)
         if orphan.exists():
-            orphan.unlink()
+            _safe_unlink(orphan)
             cleaned = True
     return cleaned
 
@@ -110,12 +117,12 @@ def _cleanup_partial_copy_artifacts(path: Path) -> bool:
     partial_path = _partial_copy_path(path)
     cleaned = False
     if partial_path.exists():
-        partial_path.unlink()
+        _safe_unlink(partial_path)
         cleaned = True
     for suffix in ("-wal", "-shm"):
         sidecar = _sidecar(partial_path, suffix)
         if sidecar.exists():
-            sidecar.unlink()
+            _safe_unlink(sidecar)
             cleaned = True
     return cleaned
 
@@ -128,7 +135,7 @@ def _cleanup_orphan_build_sidecars(path: Path) -> bool:
     for suffix in ("-wal", "-shm"):
         orphan = _sidecar(staged_path, suffix)
         if orphan.exists():
-            orphan.unlink()
+            _safe_unlink(orphan)
             cleaned = True
     return cleaned
 
@@ -140,7 +147,7 @@ def _cleanup_orphan_live_sidecars(path: Path) -> bool:
     for suffix in ("-wal", "-shm"):
         orphan = _sidecar(path, suffix)
         if orphan.exists():
-            orphan.unlink()
+            _safe_unlink(orphan)
             cleaned = True
     return cleaned
 
@@ -186,7 +193,7 @@ def _replay_stale_wal(path: Path) -> bool:
         if sidecar.exists() and sidecar.stat().st_size > 0:
             return False
         if sidecar.exists():
-            sidecar.unlink()
+            _safe_unlink(sidecar)
     return True
 
 

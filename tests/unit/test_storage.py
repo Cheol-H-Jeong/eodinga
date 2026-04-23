@@ -208,6 +208,49 @@ def test_atomic_replace_index_preserves_live_sidecars_when_swap_fails(
     assert _read_root_paths(target) == ["/live"]
 
 
+def test_atomic_replace_index_ignores_missing_target_sidecar_cleanup_race(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / "index.staged.db"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.close()
+    target_wal = target.with_name("index.db-wal")
+    target_shm = target.with_name("index.db-shm")
+    target_wal.write_bytes(b"stale")
+    target_shm.write_bytes(b"stale")
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/staged", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    original_unlink = Path.unlink
+    raced: set[Path] = set()
+
+    def flaky_unlink(self: Path, *args: Any, **kwargs: Any) -> None:
+        if self == target_wal and self not in raced:
+            raced.add(self)
+            original_unlink(self, *args, **kwargs)
+            raise FileNotFoundError(self)
+        original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+
+    atomic_replace_index(staged, target)
+
+    assert raced == {target_wal}
+    assert _read_root_paths(target) == ["/staged"]
+    assert not target_wal.exists()
+    assert not target_shm.exists()
+
+
 def test_open_index_replays_stale_wal_on_startup(tmp_path: Path) -> None:
     source = tmp_path / "source.db"
     snapshot = tmp_path / "snapshot.db"
@@ -738,6 +781,40 @@ def test_open_index_cleans_orphaned_live_sidecars_before_open(tmp_path: Path) ->
 
     assert not path.with_name("index.db-wal").exists()
     assert not path.with_name("index.db-shm").exists()
+
+
+def test_open_index_ignores_missing_orphan_live_sidecar_cleanup_race(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    wal_path = path.with_name("index.db-wal")
+    shm_path = path.with_name("index.db-shm")
+    wal_path.write_bytes(b"orphaned")
+    shm_path.write_bytes(b"orphaned")
+
+    original_unlink = Path.unlink
+    raced: set[Path] = set()
+
+    def flaky_unlink(self: Path, *args: Any, **kwargs: Any) -> None:
+        if self == wal_path and self not in raced:
+            raced.add(self)
+            original_unlink(self, *args, **kwargs)
+            raise FileNotFoundError(self)
+        original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+
+    reopened = open_index(path)
+    try:
+        rows = reopened.execute("SELECT COUNT(*) FROM roots").fetchone()
+        assert rows is not None
+        assert int(rows[0]) == 0
+    finally:
+        reopened.close()
+
+    assert raced == {wal_path}
+    assert not wal_path.exists()
+    assert not shm_path.exists()
 
 
 def test_open_index_cleans_partial_recovery_copy_before_open(tmp_path: Path) -> None:
