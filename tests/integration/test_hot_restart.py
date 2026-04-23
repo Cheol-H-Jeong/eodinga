@@ -236,6 +236,70 @@ def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) 
     assert remaining_hits == {survivor}
 
 
+def test_hot_restart_reopen_cross_root_move_converges_to_destination_root(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    source = root_a / "pre-reopen-alpha.txt"
+    destination = root_b / "post-reopen-beta.txt"
+    source.write_text("reopened cross root migration\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    first_conn = open_index(db_path)
+    try:
+        initial_hits = [hit.file.path for hit in search(first_conn, "reopened cross root migration", limit=5).hits]
+    finally:
+        first_conn.close()
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        record_loader = root_aware_record_loader(reopened)
+        root_ids = {
+            Path(str(row[0])): int(row[1])
+            for row in reopened.execute("SELECT path, id FROM roots ORDER BY id").fetchall()
+        }
+        service.start(root_a)
+        service.start(root_b)
+
+        source.rename(destination)
+        elapsed = wait_for_applied_event(
+            service,
+            writer,
+            record_loader=record_loader,
+            deadline_seconds=1.0,
+            predicate=lambda: search(
+                reopened, "reopened cross root migration", limit=5, root=root_a
+            ).hits
+            == []
+            and [
+                hit.file.path
+                for hit in search(reopened, "reopened cross root migration", limit=5, root=root_b).hits
+            ]
+            == [destination],
+        )
+        stored = reopened.execute(
+            "SELECT path, root_id FROM files WHERE path IN (?, ?) ORDER BY path",
+            (str(source), str(destination)),
+        ).fetchall()
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == [source]
+    assert elapsed <= 1.0
+    assert [(Path(str(row[0])), int(row[1])) for row in stored] == [
+        (destination, root_ids[root_b]),
+    ]
+
+
 def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updates(
     tmp_path: Path,
 ) -> None:
