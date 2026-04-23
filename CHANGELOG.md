@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.165 - 2026-04-23
+
+- Surfaced config-backed pinned queries and recent queries directly in the launcher as reusable chips, so frequent searches no longer require retyping filters or navigating history first.
+- Added active filter chips for parsed launcher DSL operators, making `ext:`, `date:`, `size:`, and similar query constraints visible the moment they are typed or recalled from a chip.
+- Completed launcher accessibility naming for the empty-state and status surfaces, and hardened the launcher geometry regression to assert the actual Qt-restored size instead of a requested offscreen resize target.
+
 ## 0.1.155 - 2026-04-23
 
 - Fixed the default observability paths on macOS so rotating logs now land under `~/Library/Logs/eodinga` and crash reports follow the same platform-native log root instead of falling back to Linux-style state directories.
