@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.744 - 2026-04-23
+
+- Surfaced launcher hotkey backend availability in Settings, disabling remap controls when the session cannot register a global shortcut instead of presenting a dead control.
+- Validated remapped launcher hotkeys before rebinding, rejecting blank, modifier-only, and multi-key chord input with a stable error path that leaves the current binding untouched.
+- Improved launcher popup restore so unsaved windows center on the active screen and saved geometry prefers the screen at the stored position before falling back to safe clamping.
+
 ## 0.1.738 - 2026-04-23
 
 - Added a `workflows-lint` packaging target and folded it into `release-dry-run`, so the packaging summary now proves the release workflow YAML stays lint-clean alongside the Windows and Linux dry-run audits.
