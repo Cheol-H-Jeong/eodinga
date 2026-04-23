@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.545 - 2026-04-23
+
+- Surfaced active launcher filter chips directly under the query field, so typed `ext:`, `date:`, `size:`, and other DSL operators stay visible and reusable while refining a search.
+- Carried query highlighting into the launcher preview pane, keeping the selected file's name, path, and snippet visually aligned with the result list instead of dropping match context on selection.
+- Added clearer launcher tooltips and accessibility descriptions for the search field, query chips, and action bar shortcuts so both assistive-tech and mouse-driven use expose the same workflow cues as keyboard users.
+
 ## 0.1.540 - 2026-04-23
 
 - Normalized remapped launcher hotkeys into a stable canonical form, so spaced or alias-heavy input like `Control + Alt + K` now rebinds, persists, and displays as `ctrl+alt+k`.
