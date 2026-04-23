@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 
 def command_summary(counters: dict[str, int]) -> dict[str, dict[str, int]]:
     commands: dict[str, dict[str, int]] = {}
@@ -80,6 +82,22 @@ def log_sink_file_source_summary(counters: dict[str, int]) -> dict[str, int]:
 
 def log_sink_file_disabled_reason_summary(counters: dict[str, int]) -> dict[str, int]:
     return _suffix_summary(counters, "log_sinks.file.disabled.")
+
+
+def histogram_average(summary: Mapping[str, object]) -> float | None:
+    count = summary.get("count")
+    sum_ms = summary.get("sum_ms")
+    if not isinstance(count, int) or count <= 0:
+        return None
+    if not isinstance(sum_ms, int | float):
+        return None
+    return round(float(sum_ms) / count, 3)
+
+
+def ratio_summary(numerator: int, denominator: int) -> float | None:
+    if denominator <= 0:
+        return None
+    return round(numerator / denominator, 4)
 
 
 def _suffix_summary(counters: dict[str, int], prefix: str) -> dict[str, int]:

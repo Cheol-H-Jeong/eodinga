@@ -40,9 +40,11 @@ from eodinga.stats_summary import (
     command_summary,
     crash_type_summary,
     exit_code_summary,
+    histogram_average,
     log_sink_file_disabled_reason_summary,
     log_sink_file_source_summary,
     parser_activity_summary,
+    ratio_summary,
     watcher_failure_summary,
     watcher_event_type_summary,
 )
@@ -208,6 +210,20 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     metrics = snapshot_metrics()
     counters = metrics["counters"]
     log_target = resolve_log_target()
+    query_latency_histogram = histogram_snapshot("query_latency_ms")
+    query_result_count_histogram = histogram_snapshot("query_result_count")
+    command_latency_histogram = histogram_snapshot("command_latency_ms")
+    watch_flush_batch_histogram = histogram_snapshot("watch_flush_batch_size")
+    watch_event_lag_histogram = histogram_snapshot("watch_event_lag_ms")
+    watcher_queue_backpressure_histogram = histogram_snapshot("watcher_queue_backpressure_ms")
+    index_rebuild_latency_histogram = histogram_snapshot("index_rebuild_latency_ms")
+    index_batch_size_histogram = histogram_snapshot("index_batch_size")
+    queries_served = counter_value("queries_served")
+    queries_zero_results = counter_value("queries_zero_results")
+    queries_truncated = counter_value("queries_truncated")
+    commands_started = counter_value("commands_started")
+    commands_failed = counter_value("commands_failed")
+    commands_interrupted = counter_value("commands_interrupted")
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
         process_started_at=metrics["process_started_at"],
@@ -219,9 +235,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         uptime_ms=float(metrics["uptime_ms"]),
         files_indexed=index_snapshot.file_count,
         documents_indexed=index_snapshot.content_count,
-        queries_served=counter_value("queries_served"),
-        queries_zero_results=counter_value("queries_zero_results"),
-        queries_truncated=counter_value("queries_truncated"),
+        queries_served=queries_served,
+        queries_zero_results=queries_zero_results,
+        queries_truncated=queries_truncated,
         parser_errors=counter_value("parser_errors"),
         watcher_events=counter_value("watcher_events"),
         watcher_flushes=counter_value("watcher_flushes"),
@@ -238,10 +254,10 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         ),
         watcher_startup_rollbacks=counter_value("watcher_startup_rollbacks"),
         index_rebuilds_completed=counter_value("index_rebuilds_completed"),
-        commands_started=counter_value("commands_started"),
+        commands_started=commands_started,
         commands_completed=counter_value("commands_completed"),
-        commands_failed=counter_value("commands_failed"),
-        commands_interrupted=counter_value("commands_interrupted"),
+        commands_failed=commands_failed,
+        commands_interrupted=commands_interrupted,
         crashes_reported=counter_value("crashes_reported"),
         crash_logs_written=counter_value("crash_logs_written"),
         crash_log_write_failures=counter_value("crash_log_write_failures"),
@@ -250,14 +266,28 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         log_sinks_stderr_configured=counter_value("log_sinks.stderr.configured"),
         log_sinks_file_configured=counter_value("log_sinks.file.configured"),
         log_sinks_file_disabled=counter_value("log_sinks.file.disabled"),
-        query_latency_histogram=histogram_snapshot("query_latency_ms"),
-        query_result_count_histogram=histogram_snapshot("query_result_count"),
-        command_latency_histogram=histogram_snapshot("command_latency_ms"),
-        watch_flush_batch_histogram=histogram_snapshot("watch_flush_batch_size"),
-        watch_event_lag_histogram=histogram_snapshot("watch_event_lag_ms"),
-        watcher_queue_backpressure_histogram=histogram_snapshot("watcher_queue_backpressure_ms"),
-        index_rebuild_latency_histogram=histogram_snapshot("index_rebuild_latency_ms"),
-        index_batch_size_histogram=histogram_snapshot("index_batch_size"),
+        queries_zero_result_rate=ratio_summary(queries_zero_results, queries_served),
+        queries_truncation_rate=ratio_summary(queries_truncated, queries_served),
+        command_failure_rate=ratio_summary(commands_failed, commands_started),
+        command_interruption_rate=ratio_summary(commands_interrupted, commands_started),
+        query_latency_avg_ms=histogram_average(query_latency_histogram),
+        query_result_count_avg=histogram_average(query_result_count_histogram),
+        command_latency_avg_ms=histogram_average(command_latency_histogram),
+        watch_flush_batch_avg=histogram_average(watch_flush_batch_histogram),
+        watch_event_lag_avg_ms=histogram_average(watch_event_lag_histogram),
+        watcher_queue_backpressure_avg_ms=histogram_average(
+            watcher_queue_backpressure_histogram
+        ),
+        index_rebuild_latency_avg_ms=histogram_average(index_rebuild_latency_histogram),
+        index_batch_size_avg=histogram_average(index_batch_size_histogram),
+        query_latency_histogram=query_latency_histogram,
+        query_result_count_histogram=query_result_count_histogram,
+        command_latency_histogram=command_latency_histogram,
+        watch_flush_batch_histogram=watch_flush_batch_histogram,
+        watch_event_lag_histogram=watch_event_lag_histogram,
+        watcher_queue_backpressure_histogram=watcher_queue_backpressure_histogram,
+        index_rebuild_latency_histogram=index_rebuild_latency_histogram,
+        index_batch_size_histogram=index_batch_size_histogram,
         commands=command_summary(counters),
         exit_codes=exit_code_summary(counters),
         crash_types=crash_type_summary(counters),

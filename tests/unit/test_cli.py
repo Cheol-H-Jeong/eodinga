@@ -491,6 +491,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["queries_served"] == 1
     assert payload["queries_zero_results"] == 0
     assert payload["queries_truncated"] == 0
+    assert payload["queries_zero_result_rate"] == 0.0
+    assert payload["queries_truncation_rate"] == 0.0
     assert payload["parser_errors"] == 0
     assert payload["watcher_events"] == 0
     assert payload["watcher_flushes"] == 0
@@ -506,6 +508,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["commands_started"] == 2
     assert payload["commands_completed"] == 1
     assert payload["commands_failed"] == 0
+    assert payload["command_failure_rate"] == 0.0
+    assert payload["command_interruption_rate"] == 0.0
     assert payload["crashes_reported"] == 0
     assert payload["crash_logs_written"] == 0
     assert payload["crash_log_write_failures"] == 0
@@ -514,13 +518,21 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_sinks_file_configured"] == 0
     assert payload["log_sinks_file_disabled"] == 2
     assert payload["query_latency_histogram"]["count"] == 1
+    assert payload["query_latency_avg_ms"] == payload["query_latency_histogram"]["sum_ms"]
     assert payload["query_result_count_histogram"]["count"] == 1
+    assert payload["query_result_count_avg"] == 2.0
     assert payload["command_latency_histogram"]["count"] == 1
+    assert payload["command_latency_avg_ms"] == payload["command_latency_histogram"]["sum_ms"]
     assert payload["watch_flush_batch_histogram"] == {}
+    assert payload["watch_flush_batch_avg"] is None
     assert payload["watch_event_lag_histogram"] == {}
+    assert payload["watch_event_lag_avg_ms"] is None
     assert payload["watcher_queue_backpressure_histogram"] == {}
+    assert payload["watcher_queue_backpressure_avg_ms"] is None
     assert payload["index_rebuild_latency_histogram"] == {}
+    assert payload["index_rebuild_latency_avg_ms"] is None
     assert payload["index_batch_size_histogram"] == {}
+    assert payload["index_batch_size_avg"] is None
     assert payload["commands"]["search"]["completed"] == 1
     assert payload["commands"]["search"]["started"] == 1
     assert payload["commands"]["stats"]["started"] == 1
@@ -677,6 +689,10 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["index_rebuilds_completed"] == 1
     assert payload["queries_zero_results"] == 0
     assert payload["queries_truncated"] == 1
+    assert payload["queries_zero_result_rate"] == 0.0
+    assert payload["queries_truncation_rate"] == 1.0
+    assert payload["command_failure_rate"] == 0.0
+    assert payload["command_interruption_rate"] == 0.0
     assert payload["commands"]["index"]["completed"] == 1
     assert payload["commands"]["search"]["completed"] == 1
     assert payload["commands"]["stats"]["started"] == 1
@@ -701,11 +717,17 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["histograms"]["query_result_count"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
     assert payload["query_result_count_histogram"]["count"] == 1
+    assert payload["query_result_count_avg"] == 2.0
     assert payload["watch_flush_batch_histogram"]["count"] == 2
+    assert payload["watch_flush_batch_avg"] == 1.0
     assert payload["watch_event_lag_histogram"]["count"] == 2
+    assert payload["watch_event_lag_avg_ms"] is not None
     assert payload["watcher_queue_backpressure_histogram"]["count"] == 1
+    assert payload["watcher_queue_backpressure_avg_ms"] is not None
     assert payload["index_rebuild_latency_histogram"]["count"] == 1
+    assert payload["index_rebuild_latency_avg_ms"] == payload["index_rebuild_latency_histogram"]["sum_ms"]
     assert payload["index_batch_size_histogram"]["count"] >= 1
+    assert payload["index_batch_size_avg"] is not None
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
         "command.index",
         "command.search",
@@ -760,8 +782,11 @@ def test_stats_json_exposes_zero_result_query_metrics(tmp_path: Path, capsys) ->
     assert payload["queries_served"] == 1
     assert payload["queries_zero_results"] == 1
     assert payload["queries_truncated"] == 0
+    assert payload["queries_zero_result_rate"] == 1.0
+    assert payload["queries_truncation_rate"] == 0.0
     assert payload["query_result_count_histogram"]["count"] == 1
     assert payload["query_result_count_histogram"]["min_ms"] == 0.0
+    assert payload["query_result_count_avg"] == 0.0
     assert payload["counters"]["queries_zero_results"] == 1
     assert "queries_truncated" not in payload["counters"]
     assert payload["parser_activity"] == {}

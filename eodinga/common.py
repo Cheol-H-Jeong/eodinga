@@ -134,6 +134,18 @@ class StatsSnapshot(BaseModel):
     log_sinks_stderr_configured: int = 0
     log_sinks_file_configured: int = 0
     log_sinks_file_disabled: int = 0
+    queries_zero_result_rate: float | None = None
+    queries_truncation_rate: float | None = None
+    command_failure_rate: float | None = None
+    command_interruption_rate: float | None = None
+    query_latency_avg_ms: float | None = None
+    query_result_count_avg: float | None = None
+    command_latency_avg_ms: float | None = None
+    watch_flush_batch_avg: float | None = None
+    watch_event_lag_avg_ms: float | None = None
+    watcher_queue_backpressure_avg_ms: float | None = None
+    index_rebuild_latency_avg_ms: float | None = None
+    index_batch_size_avg: float | None = None
     query_latency_histogram: dict[str, object] = Field(default_factory=dict)
     query_result_count_histogram: dict[str, object] = Field(default_factory=dict)
     command_latency_histogram: dict[str, object] = Field(default_factory=dict)
