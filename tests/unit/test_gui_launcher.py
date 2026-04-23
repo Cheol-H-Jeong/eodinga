@@ -679,12 +679,22 @@ def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
 
 
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
-    launcher = LauncherWindow()
+    launcher = LauncherWindow(state=LauncherState(pinned_queries=["ext:pdf"]))
     launcher.show()
 
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.result_list.accessibleName() == "Launcher results list"
+    assert launcher.shortcut_label.accessibleName() == "Launcher keyboard shortcuts"
+    assert launcher.status_label.accessibleName() == "Launcher result status"
+    assert launcher.empty_state.accessibleName() == "Launcher empty state"
+    assert launcher.empty_state.title_label.accessibleName() == "Empty state title"
+    assert launcher.empty_state.body_label.accessibleName() == "Empty state summary"
+    assert launcher.empty_state.details_label.accessibleName() == "Empty state details"
+    assert launcher.pinned_queries_row.buttons[0].accessibleName() == "Use query ext:pdf"
     assert launcher.preview_pane.accessibleName() == "Launcher preview pane"
+    assert launcher.preview_pane.title_label.accessibleName() == "Preview result name"
+    assert launcher.preview_pane.path_label.accessibleName() == "Preview result path"
+    assert launcher.preview_pane.snippet_label.accessibleName() == "Preview result snippet"
     assert launcher.action_bar.accessibleName() == "Launcher action bar"
     assert launcher.action_bar.open_button.accessibleName() == "Open selected result"
