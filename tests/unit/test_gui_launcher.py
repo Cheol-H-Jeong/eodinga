@@ -596,13 +596,39 @@ def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
 
     assert launcher.preview_pane.title_label.text() == "alpha.txt"
     assert "/tmp/alpha.txt" in launcher.preview_pane.path_label.text()
-    assert "Alpha release notes" in launcher.preview_pane.snippet_label.text()
+    assert "<mark" in launcher.preview_pane.snippet_label.text()
+    assert "Alpha release <mark" in launcher.preview_pane.snippet_label.text()
     assert launcher.action_bar.open_button.isEnabled()
 
     launcher._sync_preview_to_index(launcher.model.index(1, 0))
 
     assert launcher.preview_pane.title_label.text() == "beta.txt"
     assert "Beta launch checklist" in launcher.preview_pane.snippet_label.text()
+
+
+def test_launcher_preview_highlights_name_and_path_matches(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/quarterly-report.txt"),
+                    parent_path=Path("/tmp"),
+                    name="quarterly-report.txt",
+                    snippet="Draft summary",
+                )
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("report")
+    _wait(60)
+
+    assert "<mark" in launcher.preview_pane.title_label.text()
+    assert "<mark" in launcher.preview_pane.path_label.text()
 
 
 def test_launcher_action_bar_triggers_result_actions(qapp) -> None:

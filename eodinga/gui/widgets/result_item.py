@@ -248,6 +248,29 @@ def format_hit_html(hit: SearchHit, query: str) -> str:
     )
 
 
+def format_preview_html(hit: SearchHit | None, query: str) -> tuple[str, str, str]:
+    if hit is None:
+        return (
+            "No preview yet",
+            "Hover a result or move the selection to inspect it before opening.",
+            "Snippets and target paths appear here when a result is available.",
+        )
+    title_html = _style_marks(hit.highlighted_name or highlight_text(hit.name, query, target="name"))
+    path_html = _style_marks(hit.highlighted_path or highlight_text(str(hit.path), query, target="path"))
+    if hit.snippet:
+        snippet_html = (
+            _highlight_fts_snippet(hit.snippet)
+            if "[" in hit.snippet and "]" in hit.snippet
+            else highlight_text(hit.snippet, query, target="snippet")
+        )
+        return title_html, path_html, _style_marks(snippet_html)
+    return (
+        title_html,
+        path_html,
+        "No indexed content snippet is available for this result.",
+    )
+
+
 class ResultItemDelegate(QStyledItemDelegate):
     def paint(self, painter, option: QStyleOptionViewItem, index) -> None:
         doc = QTextDocument()
