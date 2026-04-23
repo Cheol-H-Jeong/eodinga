@@ -219,6 +219,9 @@ def test_connect_database_applies_row_factory_and_pragmas(tmp_path: Path) -> Non
         cache_size = conn.execute("PRAGMA cache_size;").fetchone()
         assert cache_size is not None
         assert int(cache_size[0]) == -64000
+        synchronous = conn.execute("PRAGMA synchronous;").fetchone()
+        assert synchronous is not None
+        assert int(synchronous[0]) == 2
     finally:
         conn.close()
 
@@ -249,6 +252,30 @@ def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, m
     try:
         assert seen["database"] == path
         assert seen["cached_statements"] == SQLITE_CACHED_STATEMENTS
+    finally:
+        conn.close()
+
+
+def test_connect_database_uses_bulk_write_profile_when_requested(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+
+    conn = connect_database(path, bulk_writes=True)
+    try:
+        synchronous = conn.execute("PRAGMA synchronous;").fetchone()
+        assert synchronous is not None
+        assert int(synchronous[0]) == 1
+    finally:
+        conn.close()
+
+
+def test_open_index_restores_idle_write_profile_after_schema_init(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+
+    conn = open_index(path)
+    try:
+        synchronous = conn.execute("PRAGMA synchronous;").fetchone()
+        assert synchronous is not None
+        assert int(synchronous[0]) == 2
     finally:
         conn.close()
 

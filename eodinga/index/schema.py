@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import sqlite3
 
+DEFAULT_SYNCHRONOUS = "FULL"
+BULK_SYNCHRONOUS = "NORMAL"
+
 PRAGMAS = (
     "PRAGMA journal_mode=WAL;",
-    "PRAGMA synchronous=NORMAL;",
     "PRAGMA mmap_size=1073741824;",
     "PRAGMA temp_store=MEMORY;",
     "PRAGMA cache_size=-64000;",
@@ -90,9 +92,15 @@ END;
 """
 
 
-def apply_schema(conn: sqlite3.Connection) -> None:
+def apply_pragmas(conn: sqlite3.Connection, *, synchronous: str = DEFAULT_SYNCHRONOUS) -> None:
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute(f"PRAGMA synchronous={synchronous};")
     for pragma in PRAGMAS:
         conn.execute(pragma)
+
+
+def apply_schema(conn: sqlite3.Connection, *, synchronous: str = DEFAULT_SYNCHRONOUS) -> None:
+    apply_pragmas(conn, synchronous=synchronous)
     conn.executescript(SCHEMA_SQL)
     conn.execute(
         "INSERT INTO meta(key, value) VALUES('schema_version', ?) "

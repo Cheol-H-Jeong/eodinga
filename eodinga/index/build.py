@@ -9,6 +9,7 @@ from eodinga.common import PathRules
 from eodinga.config import RootConfig
 from eodinga.content.registry import parse
 from eodinga.core.walker import walk_batched
+from eodinga.index.schema import BULK_SYNCHRONOUS, apply_schema
 from eodinga.index.storage import _cleanup_index_files, atomic_replace_index, connect_database
 from eodinga.index.writer import IndexWriter
 from eodinga.observability import increment_counter, record_histogram
@@ -47,7 +48,7 @@ def rebuild_index(
     staged_path = _staged_build_path(target_path)
     _cleanup_index_files(staged_path)
 
-    conn = connect_database(staged_path)
+    conn = connect_database(staged_path, bulk_writes=True)
     files_indexed = 0
     parser_callback = (
         (lambda path: parse(path, max_body_chars=max_body_chars))
@@ -55,6 +56,7 @@ def rebuild_index(
         else (lambda _path: None)
     )
     try:
+        apply_schema(conn, synchronous=BULK_SYNCHRONOUS)
         writer = IndexWriter(conn, parser_callback=parser_callback)
         with conn:
             for root_id, root in enumerate(effective_roots, start=1):
