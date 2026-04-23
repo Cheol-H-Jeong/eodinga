@@ -280,6 +280,72 @@ def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) 
     assert remaining_hits == {survivor}
 
 
+def test_hot_restart_reopen_multi_root_cross_root_move_stays_root_scoped(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    source = root_a / "existing-alpha.txt"
+    destination = root_b / "moved-beta.txt"
+    source.write_text("persisted reopen cross root move\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    first_conn = open_index(db_path)
+    try:
+        initial_hits = {hit.file.path for hit in search(first_conn, "persisted reopen cross root move", limit=5).hits}
+    finally:
+        first_conn.close()
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        source.rename(destination)
+        elapsed = _wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "persisted reopen cross root move",
+            destination,
+            deadline_seconds=0.5,
+        )
+        deadline = monotonic() + 0.5
+        while monotonic() < deadline:
+            try:
+                event = service.queue.get(timeout=0.05)
+            except Empty:
+                break
+            writer.apply_events([event], record_loader=make_record)
+        alpha_hits = {
+            hit.file.path
+            for hit in search(reopened, "persisted reopen cross root move", limit=5, root=root_a).hits
+        }
+        beta_hits = {
+            hit.file.path
+            for hit in search(reopened, "persisted reopen cross root move", limit=5, root=root_b).hits
+        }
+        global_hits = {
+            hit.file.path for hit in search(reopened, "persisted reopen cross root move", limit=5).hits
+        }
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == {source}
+    assert elapsed <= 0.5
+    assert alpha_hits == set()
+    assert beta_hits == {destination}
+    assert global_hits == {destination}
+
+
 def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updates(
     tmp_path: Path,
 ) -> None:
