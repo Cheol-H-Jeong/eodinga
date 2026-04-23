@@ -4,6 +4,7 @@ import sqlite3
 from pathlib import Path
 from time import perf_counter, time
 
+import eodinga.index.writer as writer_module
 from eodinga.content.base import ParsedContent
 from eodinga.common import FileRecord, WatchEvent
 from eodinga.index.writer import IndexWriter
@@ -54,6 +55,27 @@ def test_writer_bulk_insert_and_incremental_apply_are_fast(tmp_db: Path, tmp_pat
     incr_elapsed = perf_counter() - started
     assert processed == 100
     assert incr_elapsed < 0.05
+
+
+def test_writer_caches_chunk_shaped_sql_templates() -> None:
+    writer_module._delete_files_sql.cache_clear()
+    writer_module._delete_content_rows_sql.cache_clear()
+    writer_module._select_deleted_content_rowids_sql.cache_clear()
+    writer_module._select_existing_content_rows_sql.cache_clear()
+
+    writer_module._delete_files_sql(2)
+    writer_module._delete_files_sql(2)
+    writer_module._delete_content_rows_sql(3)
+    writer_module._delete_content_rows_sql(3)
+    writer_module._select_deleted_content_rowids_sql(4)
+    writer_module._select_deleted_content_rowids_sql(4)
+    writer_module._select_existing_content_rows_sql(5)
+    writer_module._select_existing_content_rows_sql(5)
+
+    assert writer_module._delete_files_sql.cache_info().hits >= 1
+    assert writer_module._delete_content_rows_sql.cache_info().hits >= 1
+    assert writer_module._select_deleted_content_rowids_sql.cache_info().hits >= 1
+    assert writer_module._select_existing_content_rows_sql.cache_info().hits >= 1
 
 
 def test_writer_without_parser_skips_content_queries(tmp_db: Path, tmp_path: Path) -> None:

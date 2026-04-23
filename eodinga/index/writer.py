@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Callable, Iterable, Sequence
+from functools import lru_cache
 from pathlib import Path
 from time import time
 from typing import NamedTuple, TypeVar
@@ -47,6 +48,40 @@ def _materialize_records(records: Iterable[FileRecord]) -> Sequence[FileRecord]:
     if isinstance(records, (list, tuple)):
         return records
     return tuple(records)
+
+
+@lru_cache(maxsize=16)
+def _select_deleted_content_rowids_sql(chunk_size: int) -> str:
+    placeholders = ", ".join("?" for _ in range(chunk_size))
+    return f"""
+        SELECT content_map.fts_rowid
+        FROM files
+        JOIN content_map ON content_map.file_id = files.id
+        WHERE files.path IN ({placeholders})
+        """
+
+
+@lru_cache(maxsize=16)
+def _delete_files_sql(chunk_size: int) -> str:
+    placeholders = ", ".join("?" for _ in range(chunk_size))
+    return f"DELETE FROM files WHERE path IN ({placeholders})"
+
+
+@lru_cache(maxsize=16)
+def _select_existing_content_rows_sql(chunk_size: int) -> str:
+    placeholders = ", ".join("?" for _ in range(chunk_size))
+    return f"""
+        SELECT files.path, files.id, content_map.fts_rowid, content_map.content_sha
+        FROM files
+        LEFT JOIN content_map ON content_map.file_id = files.id
+        WHERE files.path IN ({placeholders})
+        """
+
+
+@lru_cache(maxsize=16)
+def _delete_content_rows_sql(chunk_size: int) -> str:
+    placeholders = ", ".join("?" for _ in range(chunk_size))
+    return f"DELETE FROM content_fts WHERE rowid IN ({placeholders})"
 
 
 class IndexWriter:
@@ -129,19 +164,13 @@ class IndexWriter:
             return 0
         deleted = 0
         for chunk in _chunked(unique_paths):
-            placeholders = ", ".join("?" for _ in chunk)
             rows = self._conn.execute(
-                f"""
-                SELECT content_map.fts_rowid
-                FROM files
-                JOIN content_map ON content_map.file_id = files.id
-                WHERE files.path IN ({placeholders})
-                """,
+                _select_deleted_content_rowids_sql(len(chunk)),
                 tuple(chunk),
             ).fetchall()
             content_deletes.extend(int(row[0]) for row in rows)
             cursor = self._conn.execute(
-                f"DELETE FROM files WHERE path IN ({placeholders})",
+                _delete_files_sql(len(chunk)),
                 tuple(chunk),
             )
             deleted += cursor.rowcount
@@ -231,14 +260,8 @@ class IndexWriter:
     def _select_existing_content_rows(self, paths: Sequence[str]) -> dict[str, ExistingContentRow]:
         results: dict[str, ExistingContentRow] = {}
         for chunk in _chunked(paths):
-            placeholders = ", ".join("?" for _ in chunk)
             rows = self._conn.execute(
-                f"""
-                SELECT files.path, files.id, content_map.fts_rowid, content_map.content_sha
-                FROM files
-                LEFT JOIN content_map ON content_map.file_id = files.id
-                WHERE files.path IN ({placeholders})
-                """,
+                _select_existing_content_rows_sql(len(chunk)),
                 tuple(chunk),
             ).fetchall()
             for row in rows:
@@ -256,8 +279,7 @@ class IndexWriter:
 
     def _delete_content_rows(self, rowids: Sequence[int]) -> None:
         for chunk in _chunked(tuple(dict.fromkeys(rowids))):
-            placeholders = ", ".join("?" for _ in chunk)
             self._conn.execute(
-                f"DELETE FROM content_fts WHERE rowid IN ({placeholders})",
+                _delete_content_rows_sql(len(chunk)),
                 tuple(chunk),
             )
