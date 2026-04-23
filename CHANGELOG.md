@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.187 - 2026-04-23
+
+- Expanded multi-root live-update coverage so a real watched delete in one root must disappear from both global and root-scoped search results within 500 ms without disturbing sibling-root hits.
+- Added a hot-restart regression that reopens a persisted multi-root index, deletes a file from one watched root, and proves the stale hit clears only from that root while the other root remains queryable.
+- Added an interrupted staged-build integration flow that resumes `.next` recovery on `open_index()` and verifies the recovered index can immediately accept fresh watcher updates.
+
 ## 0.1.184 - 2026-04-23
 
 - Wired `launcher.debounce_ms` and `launcher.max_results` into both launcher surfaces, so the popup and embedded search panel now respect the configured debounce window and result cap instead of hard-coded defaults.
