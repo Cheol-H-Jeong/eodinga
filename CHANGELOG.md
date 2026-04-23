@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.859 - 2026-04-23
+## 0.1.865 - 2026-04-23
 
 - Split Windows packaging into explicit CLI and GUI wrapper entry scripts, so the two staged executables now map to real launch modes instead of sharing a single ambiguous entrypoint.
 - Taught `packaging/build.py --target windows` to execute the audited PyInstaller and Inno Setup commands and to fail unless the current release's versioned setup artifact is actually produced.
