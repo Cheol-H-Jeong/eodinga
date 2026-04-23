@@ -18,6 +18,10 @@ def _wait(milliseconds: int) -> None:
     loop.exec()
 
 
+def _result_list_has_focus(launcher: LauncherWindow) -> bool:
+    return launcher.result_list.hasFocus() or launcher.result_list.viewport().hasFocus()
+
+
 def test_launcher_debounces_and_updates_results(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
@@ -74,7 +78,7 @@ def test_launcher_keyboard_flow_supports_arrow_navigation_and_tab_return(qapp) -
 
     QTest.keyClick(launcher.query_field, Qt.Key.Key_Down)
 
-    assert launcher.result_list.hasFocus()
+    assert _result_list_has_focus(launcher)
     assert launcher.result_list.currentIndex().row() == 1
 
     QTest.keyClick(launcher, Qt.Key.Key_Return)
@@ -84,7 +88,7 @@ def test_launcher_keyboard_flow_supports_arrow_navigation_and_tab_return(qapp) -
     assert revealed == ["beta.txt"]
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_Tab)
-    assert launcher.query_field.hasFocus()
+    assert launcher.action_bar.open_button.hasFocus()
     assert "Tab moves to results" in launcher.shortcut_label.text()
 
 
@@ -107,7 +111,7 @@ def test_launcher_tab_moves_focus_into_results_without_mouse(qapp) -> None:
     assert launcher.query_field.hasFocus()
     QTest.keyClick(launcher.query_field, Qt.Key.Key_Tab)
 
-    assert launcher.result_list.hasFocus()
+    assert _result_list_has_focus(launcher)
     assert launcher.result_list.currentIndex().row() == 0
 
 
@@ -130,7 +134,7 @@ def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) ->
     _wait(60)
 
     QTest.keyClick(launcher.query_field, Qt.Key.Key_Backtab)
-    assert launcher.result_list.hasFocus()
+    assert _result_list_has_focus(launcher)
     assert launcher.result_list.currentIndex().row() == 0
     assert "Ctrl+Enter reveals" in launcher.shortcut_label.text()
     assert "Up/Down wraps" in launcher.shortcut_label.text()
@@ -210,7 +214,7 @@ def test_launcher_query_field_home_end_and_page_keys_jump_into_results(qapp) -> 
     _wait(60)
 
     QTest.keyClick(launcher.query_field, Qt.Key.Key_End)
-    assert launcher.result_list.hasFocus()
+    assert _result_list_has_focus(launcher)
     assert launcher.result_list.currentIndex().row() == 5
 
     QTest.keyClick(launcher.query_field, Qt.Key.Key_Home)
@@ -247,7 +251,7 @@ def test_launcher_up_from_query_field_selects_last_result(qapp) -> None:
 
     QTest.keyClick(launcher.query_field, Qt.Key.Key_Up)
 
-    assert launcher.result_list.hasFocus()
+    assert _result_list_has_focus(launcher)
     assert launcher.result_list.currentIndex().row() == 2
 
 
@@ -331,6 +335,79 @@ def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
 
     assert launcher.query_field.text() == "ext:pdf"
     assert calls == ["ext:pdf"]
+
+
+def test_launcher_tab_cycle_reaches_query_chips_results_and_actions(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/report.txt"), parent_path=Path("/tmp"), name="report.txt")][:limit],
+            total=1,
+            elapsed_ms=1.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn, state=state)
+    launcher.show()
+
+    launcher.query_field.setText("report")
+    _wait(60)
+    launcher._flush_pending_query()
+
+    assert launcher.query_field.hasFocus()
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Tab)
+    _wait(10)
+    assert launcher.pinned_queries_row.buttons[0].hasFocus()
+
+    launcher._move_focus(1, current=launcher.pinned_queries_row.buttons[0])
+    assert launcher.recent_queries_row.buttons[0].hasFocus()
+
+    launcher._move_focus(1, current=launcher.recent_queries_row.buttons[0])
+    assert launcher.recent_queries_row.buttons[1].hasFocus()
+
+    launcher._move_focus(1, current=launcher.recent_queries_row.buttons[1])
+    assert _result_list_has_focus(launcher)
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Tab)
+    assert launcher.action_bar.open_button.hasFocus()
+
+    QTest.keyClick(launcher.action_bar.open_button, Qt.Key.Key_Backtab)
+    assert _result_list_has_focus(launcher)
+
+    launcher._focus_previous_surface_from_results()
+    assert launcher.recent_queries_row.buttons[1].hasFocus()
+
+
+def test_launcher_chip_buttons_support_arrow_and_home_end_navigation(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf", "size:>10M", "date:this-week"])
+    state.remember_query("budget")
+    state.remember_query("report")
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    first_chip = launcher.pinned_queries_row.buttons[0]
+    middle_chip = launcher.pinned_queries_row.buttons[1]
+    last_recent_chip = launcher.recent_queries_row.buttons[1]
+
+    launcher._focus_widget(first_chip, reason=Qt.FocusReason.TabFocusReason)
+    assert first_chip.hasFocus()
+
+    QTest.keyClick(first_chip, Qt.Key.Key_Right)
+    assert middle_chip.hasFocus()
+
+    QTest.keyClick(middle_chip, Qt.Key.Key_End)
+    assert launcher.pinned_queries_row.buttons[-1].hasFocus()
+
+    launcher._move_focus(1, current=launcher.pinned_queries_row.buttons[-1])
+    assert launcher.recent_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.recent_queries_row.buttons[0], Qt.Key.Key_End)
+    assert last_recent_chip.hasFocus()
+
+    QTest.keyClick(last_recent_chip, Qt.Key.Key_Home)
+    assert launcher.recent_queries_row.buttons[0].hasFocus()
 
 
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:

@@ -5,7 +5,7 @@ from typing import cast
 
 from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
 from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QAbstractButton, QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
@@ -161,6 +161,8 @@ class LauncherPanel(QWidget):
         self.action_bar.copy_path_button.clicked.connect(self.emit_copy_path)
         self.action_bar.copy_name_button.clicked.connect(self.emit_copy_name)
         self.action_bar.properties_button.clicked.connect(self.emit_show_properties)
+        self.action_bar.install_keyboard_navigation(self)
+        self._configure_button_navigation()
         self._quick_pick_shortcuts: list[QShortcut] = []
         for index in range(9):
             shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
@@ -179,6 +181,7 @@ class LauncherPanel(QWidget):
         self.active_filter_row.set_query(self.query_field.text())
         self._refresh_preview()
         self._refresh_result_list_accessibility()
+        self._refresh_tab_order()
 
     def set_search_fn(self, search_fn: SearchFn) -> None:
         self._search_fn = search_fn
@@ -186,12 +189,18 @@ class LauncherPanel(QWidget):
     def set_recent_queries(self, queries: list[str]) -> None:
         self._recent_queries = queries
         self.recent_queries_row.set_queries(queries[:5])
+        self.recent_queries_row.install_keyboard_navigation(self)
+        self._configure_button_navigation()
         self._refresh_empty_state()
+        self._refresh_tab_order()
 
     def set_pinned_queries(self, queries: list[str]) -> None:
         self._pinned_queries = queries
         self.pinned_queries_row.set_queries(queries[:5])
+        self.pinned_queries_row.install_keyboard_navigation(self)
+        self._configure_button_navigation()
         self._refresh_empty_state()
+        self._refresh_tab_order()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
@@ -261,6 +270,8 @@ class LauncherPanel(QWidget):
             return self._handle_query_field_keypress(key_event)
         if watched is self.result_list:
             return self._handle_result_list_keypress(key_event)
+        if isinstance(watched, QAbstractButton):
+            return self._handle_button_keypress(watched, key_event)
         return super().eventFilter(watched, event)
 
     def _emit_activation(self, row: int) -> None:
@@ -294,6 +305,8 @@ class LauncherPanel(QWidget):
         self._refresh_shortcut_hint()
         self._refresh_preview()
         self._refresh_result_list_accessibility()
+        self._configure_button_navigation()
+        self._refresh_tab_order()
         self.results_updated.emit(self._latest_result)
         get_logger().debug("launcher query '{}' returned {}", query, self._latest_result.total)
 
@@ -386,16 +399,19 @@ class LauncherPanel(QWidget):
             self._move_selection(-self._page_step())
             return True
         if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
-            self.result_list.setFocus()
-            current_index = self.result_list.currentIndex()
-            if not current_index.isValid() and self.model.rowCount() > 0:
-                self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
+            if event.key() == Qt.Key.Key_Backtab:
+                self._focus_previous_surface_from_query()
+            else:
+                self._focus_next_surface_from_query()
             return True
         return False
 
     def _handle_result_list_keypress(self, event: QKeyEvent) -> bool:
         if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
-            self.query_field.setFocus()
+            if event.key() == Qt.Key.Key_Backtab:
+                self._focus_previous_surface_from_results()
+            else:
+                self._focus_next_surface_from_results()
             return True
         if event.key() == Qt.Key.Key_Down:
             self._move_selection(1, wrap=True)
@@ -416,6 +432,138 @@ class LauncherPanel(QWidget):
             self._move_selection(-self._page_step())
             return True
         return False
+
+    def _handle_button_keypress(self, button: QAbstractButton, event: QKeyEvent) -> bool:
+        if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
+            self._move_focus(-1 if event.key() == Qt.Key.Key_Backtab else 1, current=button)
+            return True
+        row = self._button_row(button)
+        if not row:
+            return False
+        if event.key() in {Qt.Key.Key_Left, Qt.Key.Key_Up}:
+            self._move_button_focus(row, button, -1)
+            return True
+        if event.key() in {Qt.Key.Key_Right, Qt.Key.Key_Down}:
+            self._move_button_focus(row, button, 1)
+            return True
+        if event.key() == Qt.Key.Key_Home:
+            self._focus_widget(row[0], reason=Qt.FocusReason.TabFocusReason)
+            return True
+        if event.key() == Qt.Key.Key_End:
+            self._focus_widget(row[-1], reason=Qt.FocusReason.TabFocusReason)
+            return True
+        return False
+
+    def _focusable_widgets(self) -> list[QWidget]:
+        focusables: list[QWidget] = [self.query_field]
+        focusables.extend(self.pinned_queries_row.buttons)
+        focusables.extend(self.recent_queries_row.buttons)
+        if self.model.rowCount() > 0:
+            focusables.append(self.result_list)
+        focusables.extend(self.action_bar.focusable_buttons(enabled_only=True))
+        return focusables
+
+    def _move_focus(self, delta: int, *, current: QWidget) -> None:
+        focusables = self._focusable_widgets()
+        if not focusables:
+            return
+        try:
+            index = focusables.index(current)
+        except ValueError:
+            index = 0
+        next_widget = focusables[(index + delta) % len(focusables)]
+        self._focus_widget(next_widget, reason=Qt.FocusReason.TabFocusReason)
+
+    def _button_row(self, button: QAbstractButton) -> list[QAbstractButton]:
+        if button in self.pinned_queries_row.buttons:
+            return list(self.pinned_queries_row.buttons)
+        if button in self.recent_queries_row.buttons:
+            return list(self.recent_queries_row.buttons)
+        return list(self.action_bar.focusable_buttons(enabled_only=True))
+
+    def _move_button_focus(self, row: list[QAbstractButton], current: QAbstractButton, delta: int) -> None:
+        if not row:
+            return
+        index = row.index(current)
+        self._focus_widget(row[(index + delta) % len(row)], reason=Qt.FocusReason.TabFocusReason)
+
+    def _focus_next_surface_from_query(self) -> None:
+        if self.pinned_queries_row.buttons:
+            self._focus_widget(self.pinned_queries_row.buttons[0], reason=Qt.FocusReason.TabFocusReason)
+            return
+        if self.recent_queries_row.buttons:
+            self._focus_widget(self.recent_queries_row.buttons[0], reason=Qt.FocusReason.TabFocusReason)
+            return
+        if self.model.rowCount() > 0:
+            self._focus_widget(self.result_list, reason=Qt.FocusReason.TabFocusReason)
+            return
+        action_buttons = self.action_bar.focusable_buttons(enabled_only=True)
+        if action_buttons:
+            self._focus_widget(action_buttons[0], reason=Qt.FocusReason.TabFocusReason)
+
+    def _focus_previous_surface_from_query(self) -> None:
+        if self.model.rowCount() > 0:
+            self._focus_widget(self.result_list, reason=Qt.FocusReason.BacktabFocusReason)
+            return
+        if self.recent_queries_row.buttons:
+            self._focus_widget(self.recent_queries_row.buttons[-1], reason=Qt.FocusReason.BacktabFocusReason)
+            return
+        if self.pinned_queries_row.buttons:
+            self._focus_widget(self.pinned_queries_row.buttons[-1], reason=Qt.FocusReason.BacktabFocusReason)
+
+    def _focus_next_surface_from_results(self) -> None:
+        action_buttons = self.action_bar.focusable_buttons(enabled_only=True)
+        if action_buttons:
+            self._focus_widget(action_buttons[0], reason=Qt.FocusReason.TabFocusReason)
+            return
+        self._focus_widget(self.query_field, reason=Qt.FocusReason.TabFocusReason)
+
+    def _focus_previous_surface_from_results(self) -> None:
+        if self.recent_queries_row.buttons:
+            self._focus_widget(self.recent_queries_row.buttons[-1], reason=Qt.FocusReason.BacktabFocusReason)
+            return
+        if self.pinned_queries_row.buttons:
+            self._focus_widget(self.pinned_queries_row.buttons[-1], reason=Qt.FocusReason.BacktabFocusReason)
+            return
+        self._focus_widget(self.query_field, reason=Qt.FocusReason.BacktabFocusReason)
+
+    def _focus_widget(self, widget: QWidget, *, reason: Qt.FocusReason) -> None:
+        widget.setFocus(reason)
+        if widget is self.result_list:
+            self.result_list.viewport().setFocus(reason)
+        QApplication.processEvents()
+        if widget is self.query_field:
+            self.query_field.selectAll()
+            return
+        if widget is self.result_list and not self.result_list.currentIndex().isValid() and self.model.rowCount() > 0:
+            self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
+
+    def _refresh_tab_order(self) -> None:
+        focusables = self._focusable_widgets()
+        for current, following in zip(focusables, focusables[1:]):
+            QWidget.setTabOrder(current, following)
+
+    def _configure_button_navigation(self) -> None:
+        for button in [*self.pinned_queries_row.buttons, *self.recent_queries_row.buttons, *self.action_bar.focusable_buttons()]:
+            button.clear_navigation_handlers()
+            button.set_navigation_handler(Qt.Key.Key_Tab, lambda button=button: self._move_focus(1, current=button))
+            button.set_navigation_handler(Qt.Key.Key_Backtab, lambda button=button: self._move_focus(-1, current=button))
+            button.set_navigation_handler(Qt.Key.Key_Left, lambda button=button: self._move_button_by_key(button, -1))
+            button.set_navigation_handler(Qt.Key.Key_Up, lambda button=button: self._move_button_by_key(button, -1))
+            button.set_navigation_handler(Qt.Key.Key_Right, lambda button=button: self._move_button_by_key(button, 1))
+            button.set_navigation_handler(Qt.Key.Key_Down, lambda button=button: self._move_button_by_key(button, 1))
+            button.set_navigation_handler(Qt.Key.Key_Home, lambda button=button: self._focus_button_row_end(button, first=True))
+            button.set_navigation_handler(Qt.Key.Key_End, lambda button=button: self._focus_button_row_end(button, first=False))
+
+    def _move_button_by_key(self, button: QAbstractButton, delta: int) -> None:
+        row = self._button_row(button)
+        if row:
+            self._move_button_focus(row, button, delta)
+
+    def _focus_button_row_end(self, button: QAbstractButton, *, first: bool) -> None:
+        row = self._button_row(button)
+        if row:
+            self._focus_widget(row[0] if first else row[-1], reason=Qt.FocusReason.TabFocusReason)
 
     def _move_selection(self, delta: int, *, wrap: bool = False) -> None:
         if self.model.rowCount() == 0:

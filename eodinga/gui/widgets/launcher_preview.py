@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from eodinga.common import SearchHit
@@ -122,6 +122,22 @@ class LauncherActionBar(QWidget):
         self.setAccessibleDescription(
             f"Actions for {hit.name}: Enter opens, Ctrl+Enter reveals, Alt+C copies the path, Alt+N copies the name, and Shift+Enter shows properties."
         )
+
+    def focusable_buttons(self, *, enabled_only: bool = False) -> list[SecondaryButton]:
+        buttons = [
+            self.open_button,
+            self.reveal_button,
+            self.copy_path_button,
+            self.copy_name_button,
+            self.properties_button,
+        ]
+        if not enabled_only:
+            return buttons
+        return [button for button in buttons if button.isEnabled()]
+
+    def install_keyboard_navigation(self, listener: QObject) -> None:
+        for button in self.focusable_buttons():
+            button.installEventFilter(listener)
 
 
 __all__ = ["LauncherActionBar", "LauncherPreviewPane"]

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QWidget
 
 from eodinga.gui.design import SPACE_4, SPACE_8
@@ -74,3 +74,7 @@ class QueryChipRow(QWidget):
     @property
     def buttons(self) -> list[SecondaryButton]:
         return list(self._buttons)
+
+    def install_keyboard_navigation(self, listener: QObject) -> None:
+        for button in self._buttons:
+            button.installEventFilter(listener)
