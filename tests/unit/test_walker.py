@@ -36,7 +36,7 @@ def test_walk_batched_visits_files_once_and_avoids_symlink_loop(tmp_path: Path) 
     assert before == after
 
 
-def test_walk_batched_reuses_discovery_stat_result(
+def test_walk_batched_reuses_scandir_stat_results_for_discovered_children(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = tmp_path / "tree"
@@ -53,6 +53,41 @@ def test_walk_batched_reuses_discovery_stat_result(
         return original_stat_safe(path)
 
     monkeypatch.setattr(walker_module, "stat_safe", counting_stat)
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+
+    assert {record.path for record in records} == {root, nested, sample}
+    assert stat_calls.count(root) == 1
+    assert nested not in stat_calls
+    assert sample not in stat_calls
+
+
+def test_walk_batched_falls_back_to_stat_safe_when_scandir_metadata_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "tree"
+    nested = root / "nested"
+    sample = nested / "sample.txt"
+    nested.mkdir(parents=True)
+    sample.write_text("sample", encoding="utf-8")
+
+    stat_calls: list[Path] = []
+    original_stat_safe = walker_module.stat_safe
+    original_scandir_safe = walker_module.scandir_safe
+
+    def counting_stat(path: Path) -> os.stat_result:
+        stat_calls.append(path)
+        return original_stat_safe(path)
+
+    def statless_scandir(path: Path) -> list[walker_module.ScanEntry]:
+        return [
+            walker_module.ScanEntry(path=entry.path, stat_result=None)
+            for entry in original_scandir_safe(path)
+        ]
+
+    monkeypatch.setattr(walker_module, "stat_safe", counting_stat)
+    monkeypatch.setattr(walker_module, "scandir_safe", statless_scandir)
 
     rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
     records = [record for batch in walk_batched(root, rules) for record in batch]
