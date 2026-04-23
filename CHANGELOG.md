@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.379 - 2026-04-23
+
+- Fixed slash-delimited query parsing so top-level regex literals and spaced operator regex values now close correctly when the pattern ends with an even run of backslashes before the delimiter.
+- Normalized cross-token phrase fallback matching against the searched text before punctuation bridging, so decomposed Korean content still matches phrase queries such as `content:"회의록 초안"`.
+
 ## 0.1.377 - 2026-04-23
 
 - Returned a clean `130` exit code for interrupted CLI commands, recording them as interrupted instead of crashed so Ctrl+C and signal stops no longer surface as unhandled failures.
