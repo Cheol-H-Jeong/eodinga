@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.140 - 2026-04-23
+## 0.1.143 - 2026-04-23
 
 - Expanded the top-level README with a surface matrix, command reference, and explicit logging and crash-path guidance so operators can audit the shipped CLI, launcher, and diagnostics surfaces from one place.
 - Extended the architecture guide with process boundaries, a search execution sequence, and a failure-and-recovery map that ties staged rebuilds, recovery swaps, stale WAL replay, and crash logging into one runtime model.
