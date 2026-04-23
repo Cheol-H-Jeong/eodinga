@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.982 - 2026-04-24
+
+- Made launcher guidance state-aware so empty states and shortcut hints only advertise recent-query navigation and quick-picks when those actions are actually available.
+- Surfaced the active launcher hotkey in the tray toggle action and kept that label synced after hotkey remaps, making the launcher entrypoint more discoverable from the tray.
+
 ## 0.1.979 - 2026-04-24
 
 - Hardened the Windows packaging dry-run audit so it now rejects missing CLI/GUI entrypoints, missing required hidden imports, dropped runtime modules, and staged data drift before those regressions can leak into a release build.
