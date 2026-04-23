@@ -485,6 +485,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["files_indexed"] == 3
     assert payload["documents_indexed"] == 3
     assert payload["queries_served"] == 1
+    assert payload["queries_zero_results"] == 0
+    assert payload["queries_truncated"] == 0
     assert payload["parser_errors"] == 0
     assert payload["watcher_events"] == 0
     assert payload["watcher_flushes"] == 0
@@ -502,6 +504,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_sinks_file_configured"] == 0
     assert payload["log_sinks_file_disabled"] == 2
     assert payload["query_latency_histogram"]["count"] == 1
+    assert payload["query_result_count_histogram"]["count"] == 1
     assert payload["command_latency_histogram"]["count"] == 1
     assert payload["watch_flush_batch_histogram"] == {}
     assert payload["watch_event_lag_histogram"] == {}
@@ -526,6 +529,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["counters"]["commands.search.completed"] == 1
     assert payload["counters"]["commands.stats.started"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
+    assert payload["histograms"]["query_result_count"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 1
 
 
@@ -591,10 +595,10 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     second_event = service.queue.get_nowait()
     assert second_event.path == docs / "gamma.txt"
 
-    search_exit = main(["--db", str(db_path), "search", "alpha", "--json"])
+    search_exit = main(["--db", str(db_path), "search", "launch", "--json", "--limit", "1"])
     search_output = capsys.readouterr()
     assert search_exit == 0
-    assert json.loads(search_output.out)["count"] == 1
+    assert json.loads(search_output.out)["count"] == 2
 
     stats_exit = main(["--db", str(db_path), "stats", "--json"])
     stats_output = capsys.readouterr()
@@ -604,6 +608,8 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["parser_errors"] == 1
     assert payload["counters"]["parsers.broken.error"] == 1
     assert payload["counters"]["queries_served"] == 1
+    assert "queries_zero_results" not in payload["counters"]
+    assert payload["counters"]["queries_truncated"] == 1
     assert payload["counters"]["watcher_events"] == 2
     assert payload["counters"]["watcher_flushes"] == 2
     assert payload["counters"]["watcher_events_flushed"] == 2
@@ -631,6 +637,8 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["crash_logs_written"] == 0
     assert payload["crash_handlers_installed"] == 3
     assert payload["index_rebuilds_completed"] == 1
+    assert payload["queries_zero_results"] == 0
+    assert payload["queries_truncated"] == 1
     assert payload["commands"]["index"]["completed"] == 1
     assert payload["commands"]["search"]["completed"] == 1
     assert payload["commands"]["stats"]["started"] == 1
@@ -639,12 +647,37 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
+    assert payload["histograms"]["query_result_count"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
+    assert payload["query_result_count_histogram"]["count"] == 1
     assert payload["watch_flush_batch_histogram"]["count"] == 2
     assert payload["watch_event_lag_histogram"]["count"] == 2
     assert payload["watcher_queue_backpressure_histogram"]["count"] == 1
     assert payload["index_rebuild_latency_histogram"]["count"] == 1
     assert payload["index_batch_size_histogram"]["count"] >= 1
+
+
+def test_stats_json_exposes_zero_result_query_metrics(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    search_exit = main(["--db", str(db_path), "search", "missing-term", "--json"])
+    search_output = capsys.readouterr()
+    assert search_exit == 0
+    assert json.loads(search_output.out)["count"] == 0
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["queries_served"] == 1
+    assert payload["queries_zero_results"] == 1
+    assert payload["queries_truncated"] == 0
+    assert payload["query_result_count_histogram"]["count"] == 1
+    assert payload["query_result_count_histogram"]["min_ms"] == 0.0
+    assert payload["counters"]["queries_zero_results"] == 1
+    assert "queries_truncated" not in payload["counters"]
 
 
 def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path: Path) -> None:

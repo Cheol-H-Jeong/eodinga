@@ -103,6 +103,8 @@ class StatsSnapshot(BaseModel):
     files_indexed: int = 0
     documents_indexed: int = 0
     queries_served: int = 0
+    queries_zero_results: int = 0
+    queries_truncated: int = 0
     parser_errors: int = 0
     watcher_events: int = 0
     watcher_flushes: int = 0
@@ -124,6 +126,7 @@ class StatsSnapshot(BaseModel):
     log_sinks_file_configured: int = 0
     log_sinks_file_disabled: int = 0
     query_latency_histogram: dict[str, object] = Field(default_factory=dict)
+    query_result_count_histogram: dict[str, object] = Field(default_factory=dict)
     command_latency_histogram: dict[str, object] = Field(default_factory=dict)
     watch_flush_batch_histogram: dict[str, object] = Field(default_factory=dict)
     watch_event_lag_histogram: dict[str, object] = Field(default_factory=dict)
