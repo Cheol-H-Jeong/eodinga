@@ -920,6 +920,18 @@ def test_search_root_scope_matches_windows_root_directory_with_drive_case_mismat
     assert hits == [Path(r"c:\workspace\reports")]
 
 
+def test_search_root_scope_matches_windows_root_directory_with_segment_case_mismatch(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, r"C:\Workspace\Reports", 0, now, "", is_dir=1)
+    tmp_db.commit()
+
+    hits = [hit.file.path for hit in search(tmp_db, "is:dir", limit=10, root=Path("c:/workspace/reports")).hits]
+
+    assert hits == [Path(r"C:\Workspace\Reports")]
+
+
 def test_search_root_scope_matches_windows_long_path_prefix_variants(
     tmp_db: sqlite3.Connection,
 ) -> None:
@@ -945,6 +957,21 @@ def test_search_root_scope_matches_windows_long_path_prefix_variants(
         Path(r"\\?\c:\workspace\reports"),
         Path(r"\\?\c:\workspace\reports\alpha.txt"),
     }
+
+
+def test_search_root_scope_matches_prefixed_windows_query_against_unprefixed_paths(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, r"C:\workspace\reports\alpha.txt", 1024, now, "txt", body_text="alpha")
+    tmp_db.commit()
+
+    hits = [
+        hit.file.path
+        for hit in search(tmp_db, "alpha", limit=10, root=Path(r"\\?\c:\workspace\reports")).hits
+    ]
+
+    assert hits == [Path(r"C:\workspace\reports\alpha.txt")]
 
 
 def test_search_root_scope_matches_unc_root_directory_case_insensitively(
