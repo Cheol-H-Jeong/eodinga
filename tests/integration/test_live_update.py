@@ -42,6 +42,40 @@ def test_live_update_visible_to_search_within_500ms(tmp_path: Path) -> None:
     assert elapsed <= 0.5
 
 
+def test_live_nested_create_visible_to_search_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        nested = root / "incoming" / "batch"
+        nested.mkdir(parents=True)
+        created = nested / "nested-live-update.txt"
+        created.write_text("nested live update integration coverage\n", encoding="utf-8")
+
+        elapsed = wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "nested live update integration",
+            created,
+            deadline_seconds=0.5,
+        )
+        path_hits = [hit.file.path for hit in search(conn, "path:nested-live-update", limit=5).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert elapsed <= 0.5
+    assert path_hits == [created]
+
+
 def test_live_delete_removed_from_search_within_500ms(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     db_path = tmp_path / "database" / "index.db"
@@ -73,6 +107,45 @@ def test_live_delete_removed_from_search_within_500ms(tmp_path: Path) -> None:
 
     assert initial_hits == [target]
     assert elapsed <= 0.5
+
+
+def test_live_nested_delete_removed_from_search_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    nested = root / "incoming" / "batch"
+    target = nested / "nested-live-delete.txt"
+    root.mkdir()
+    nested.mkdir(parents=True)
+    target.write_text("nested live delete integration coverage\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(conn, "nested live delete integration", limit=5).hits]
+        target.unlink()
+        nested.rmdir()
+        nested.parent.rmdir()
+
+        elapsed = wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "nested live delete integration",
+            target,
+            deadline_seconds=0.5,
+        )
+        path_hits = [hit.file.path for hit in search(conn, "path:nested-live-delete", limit=5).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_hits == [target]
+    assert elapsed <= 0.5
+    assert path_hits == []
 
 
 def test_live_modify_replaces_query_visibility_within_500ms(tmp_path: Path) -> None:
