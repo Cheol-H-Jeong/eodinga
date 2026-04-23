@@ -30,6 +30,7 @@ fi
 rm -rf "${APPDIR}"
 mkdir -p "${APPDIR}/usr/bin" "${APPDIR}/usr/share/applications"
 mkdir -p "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
+mkdir -p "${APPDIR}/usr/lib/eodinga"
 mkdir -p "${DIST_DIR}"
 
 python3 - <<PY
@@ -44,6 +45,7 @@ PY
 cp "${ROOT_DIR}/packaging/linux/eodinga.desktop" "${APPDIR}/usr/share/applications/eodinga.desktop"
 cp "${APPIMAGE_ICON}" "${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg"
 cp "${APPIMAGE_ICON}" "${APPDIR}/.DirIcon"
+cp -R "${ROOT_DIR}/eodinga" "${APPDIR}/usr/lib/eodinga/eodinga"
 cat > "${APPDIR}/AppRun" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -53,8 +55,8 @@ EOF
 cat > "${APPDIR}/usr/bin/eodinga" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)"
-cd "${ROOT_DIR}"
+APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../" && pwd)"
+export PYTHONPATH="${APPDIR}/usr/lib/eodinga${PYTHONPATH:+:${PYTHONPATH}}"
 exec python3 -m eodinga "$@"
 EOF
 chmod +x "${APPDIR}/AppRun" "${APPDIR}/usr/bin/eodinga"
@@ -76,12 +78,14 @@ for line in desktop_lines:
 
 apprun_path = Path("${APPDIR}/AppRun")
 launcher_path = Path("${APPDIR}/usr/bin/eodinga")
+bundled_source_path = Path("${APPDIR}/usr/lib/eodinga/eodinga")
 icon_path = Path("${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 diricon_path = Path("${APPDIR}/.DirIcon")
 recipe_path = Path("${APPIMAGE_RECIPE}")
 rendered_recipe_path = Path("${RENDERED_RECIPE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
 rendered_recipe_text = rendered_recipe_path.read_text(encoding="utf-8")
+launcher_text = launcher_path.read_text(encoding="utf-8")
 payload = {
     "target": "linux-appimage-dry-run" if ${DRY_RUN} else "linux-appimage",
     "version": "${VERSION}",
@@ -122,7 +126,12 @@ payload = {
     "launcher": {
         "path": str(launcher_path),
         "is_executable": os.access(launcher_path, os.X_OK),
-        "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
+        "executes_python_module": "exec python3 -m eodinga" in launcher_text,
+        "uses_bundled_module_path": "/usr/lib/eodinga" in launcher_text,
+    },
+    "bundled_source": {
+        "path": str(bundled_source_path),
+        "exists": bundled_source_path.exists(),
     },
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")

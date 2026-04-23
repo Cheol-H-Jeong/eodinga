@@ -30,7 +30,7 @@ if [[ "${1:-}" == "--dry-run" ]]; then
 fi
 
 rm -rf "${PACKAGE_DIR}"
-mkdir -p "${PACKAGE_DIR}/DEBIAN" "${PACKAGE_DIR}/usr/bin" "${PACKAGE_DIR}/usr/share/applications" "${PACKAGE_DIR}/usr/share/doc/eodinga"
+mkdir -p "${PACKAGE_DIR}/DEBIAN" "${PACKAGE_DIR}/usr/bin" "${PACKAGE_DIR}/usr/lib/eodinga" "${PACKAGE_DIR}/usr/share/applications" "${PACKAGE_DIR}/usr/share/doc/eodinga"
 mkdir -p "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps"
 
 cat > "${PACKAGE_DIR}/DEBIAN/control" <<EOF
@@ -47,10 +47,12 @@ EOF
 cat > "${PACKAGE_DIR}/usr/bin/eodinga" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+export PYTHONPATH="/usr/lib/eodinga${PYTHONPATH:+:${PYTHONPATH}}"
 exec python3 -m eodinga "$@"
 EOF
 chmod 0755 "${PACKAGE_DIR}/usr/bin/eodinga"
 
+cp -R "${ROOT_DIR}/eodinga" "${PACKAGE_DIR}/usr/lib/eodinga/eodinga"
 install -m 0644 "${DESKTOP_ENTRY}" "${PACKAGE_DIR}/usr/share/applications/eodinga.desktop"
 install -m 0644 "${ICON_ASSET}" "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg"
 install -m 0644 "${ROOT_DIR}/LICENSE" "${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE"
@@ -88,6 +90,7 @@ for line in control_path.read_text(encoding="utf-8").splitlines():
     control_entries[key] = value.strip()
 
 launcher_path = Path("${PACKAGE_DIR}/usr/bin/eodinga")
+bundled_source_path = Path("${PACKAGE_DIR}/usr/lib/eodinga/eodinga")
 icon_path = Path("${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 license_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE")
 changelog_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
@@ -99,6 +102,7 @@ for line in debian_control_template_path.read_text(encoding="utf-8").splitlines(
     key, value = line.split(":", 1)
     template_control_entries[key] = value.strip()
 changelog_text = gzip.decompress(changelog_path.read_bytes()).decode("utf-8")
+launcher_text = launcher_path.read_text(encoding="utf-8")
 payload = {
     "target": "linux-deb-dry-run" if ${DRY_RUN} else "linux-deb",
     "version": "${VERSION}",
@@ -141,7 +145,12 @@ payload = {
     "launcher": {
         "path": str(launcher_path),
         "is_executable": os.access(launcher_path, os.X_OK),
-        "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
+        "executes_python_module": "exec python3 -m eodinga" in launcher_text,
+        "uses_bundled_module_path": "/usr/lib/eodinga" in launcher_text,
+    },
+    "bundled_source": {
+        "path": str(bundled_source_path),
+        "exists": bundled_source_path.exists(),
     },
     "docs": {
         "license_path": str(license_path),

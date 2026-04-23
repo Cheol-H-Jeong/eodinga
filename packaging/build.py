@@ -231,6 +231,7 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
     icon_payload = payload.get("icon", {})
     apprun_payload = payload.get("apprun", {})
     launcher_payload = payload.get("launcher", {})
+    bundled_source_payload = payload.get("bundled_source", {})
     required_flags = [
         (recipe_payload.get("exists"), "AppImage recipe is missing"),
         (recipe_payload.get("contains_version_template"), "AppImage recipe no longer uses the version template"),
@@ -246,6 +247,8 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (apprun_payload.get("launches_gui"), "AppImage AppRun no longer launches the GUI target"),
         (launcher_payload.get("is_executable"), "AppImage launcher shim is not executable"),
         (launcher_payload.get("executes_python_module"), "AppImage launcher shim no longer executes the Python module"),
+        (launcher_payload.get("uses_bundled_module_path"), "AppImage launcher shim no longer points PYTHONPATH at the packaged module tree"),
+        (bundled_source_payload.get("exists"), "AppImage bundle no longer ships the eodinga source tree"),
     ]
     for ok, message in required_flags:
         if not ok:
@@ -264,6 +267,7 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
     desktop_payload = payload.get("desktop_entry", {})
     icon_payload = payload.get("icon", {})
     launcher_payload = payload.get("launcher", {})
+    bundled_source_payload = payload.get("bundled_source", {})
     docs_payload = payload.get("docs", {})
     arch = payload.get("arch")
     if control_payload.get("package") != "eodinga":
@@ -296,6 +300,8 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),
         (launcher_payload.get("is_executable"), "Debian launcher shim is not executable"),
         (launcher_payload.get("executes_python_module"), "Debian launcher shim no longer executes the Python module"),
+        (launcher_payload.get("uses_bundled_module_path"), "Debian launcher shim no longer points PYTHONPATH at the packaged module tree"),
+        (bundled_source_payload.get("exists"), "Debian package no longer ships the eodinga source tree"),
         (docs_payload.get("license_exists"), "Debian package no longer ships the license"),
         (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),
         (docs_payload.get("changelog_has_current_release_heading"), "Debian package changelog no longer starts with the current release heading"),

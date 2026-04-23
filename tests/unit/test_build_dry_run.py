@@ -181,6 +181,10 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
         "launcher": {
             "is_executable": True,
             "executes_python_module": False,
+            "uses_bundled_module_path": True,
+        },
+        "bundled_source": {
+            "exists": True,
         },
     }
 
@@ -215,6 +219,10 @@ def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> Non
         "launcher": {
             "is_executable": True,
             "executes_python_module": True,
+            "uses_bundled_module_path": True,
+        },
+        "bundled_source": {
+            "exists": True,
         },
     }
 
@@ -259,6 +267,8 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["apprun"]["launches_gui"] is True
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["executes_python_module"] is True
+    assert payload["launcher"]["uses_bundled_module_path"] is True
+    assert payload["bundled_source"]["exists"] is True
 
 
 def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
@@ -286,6 +296,10 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
         "launcher": {
             "is_executable": True,
             "executes_python_module": True,
+            "uses_bundled_module_path": True,
+        },
+        "bundled_source": {
+            "exists": True,
         },
         "docs": {
             "license_exists": True,
@@ -327,6 +341,10 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
         "launcher": {
             "is_executable": True,
             "executes_python_module": True,
+            "uses_bundled_module_path": True,
+        },
+        "bundled_source": {
+            "exists": True,
         },
         "docs": {
             "license_exists": True,
@@ -403,6 +421,8 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["icon"]["desktop_icon_matches_asset"] is True
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["executes_python_module"] is True
+    assert payload["launcher"]["uses_bundled_module_path"] is True
+    assert payload["bundled_source"]["exists"] is True
     assert payload["docs"]["license_exists"] is True
     assert payload["docs"]["changelog_exists"] is True
     assert payload["docs"]["changelog_has_current_release_heading"] is True
@@ -426,4 +446,5 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert Path(payload["control_path"]).exists()
     assert Path(payload["deb_path"]).exists()
     assert payload["icon"]["exists"] is True
+    assert payload["bundled_source"]["exists"] is True
     assert payload["docs"]["changelog_exists"] is True
