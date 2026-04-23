@@ -1,3 +1,3 @@
 from __future__ import annotations
 
-__version__ = "0.1.371"
+__version__ = "0.1.372"
