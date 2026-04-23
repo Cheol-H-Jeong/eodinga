@@ -698,3 +698,53 @@ def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path)
 
     second_event = service.queue.get_nowait()
     assert second_event.path == second
+
+
+def test_watcher_flush_requeues_entire_ready_tail_when_enqueue_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service = WatchService()
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    attempted: list[Path] = []
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=first,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=second,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+
+    def fail_once(event: WatchEvent) -> bool:
+        attempted.append(event.path)
+        return len(attempted) != 1
+
+    monkeypatch.setattr(service, "_enqueue_event", fail_once)
+
+    service._flush_ready(force=True)
+
+    assert attempted == [first]
+    assert set(service._pending) == {first, second}
+
+    def enqueue(event: WatchEvent) -> bool:
+        service.queue.put_nowait(event)
+        return True
+
+    monkeypatch.setattr(service, "_enqueue_event", enqueue)
+    service._flush_ready(force=True)
+
+    flushed = [service.queue.get_nowait(), service.queue.get_nowait()]
+    assert [event.path for event in flushed] == [first, second]
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()

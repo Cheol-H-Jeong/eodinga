@@ -268,7 +268,7 @@ class WatchService:
 
     def _flush_ready(self, force: bool) -> None:
         now = monotonic()
-        flushed: list[WatchEvent] = []
+        flushed: list[tuple[WatchEvent, set[Path]]] = []
         with self._lock:
             ready_paths = [
                 path
@@ -286,13 +286,30 @@ class WatchService:
                         self._flushed_retired_sources.update(retired_sources)
                     if event.event_type in {"created", "modified", "deleted"}:
                         self._flushed_retired_sources.discard(event.path)
-                    flushed.append(event)
+                    flushed.append((event, retired_sources))
         delivered: list[WatchEvent] = []
-        for event in flushed:
+        for index, (event, retired_sources) in enumerate(flushed):
             if not self._enqueue_event(event):
                 with self._lock:
                     self._pending[event.path] = event
                     self._timestamps[event.path] = now
+                    if retired_sources:
+                        existing_retired_sources = self._retired_sources.get(event.path, set())
+                        self._retired_sources[event.path] = {
+                            *existing_retired_sources,
+                            *retired_sources,
+                        }
+                    for undispatched_event, undispatched_retired_sources in flushed[index + 1 :]:
+                        self._pending[undispatched_event.path] = undispatched_event
+                        self._timestamps[undispatched_event.path] = now
+                        if undispatched_retired_sources:
+                            existing_retired_sources = self._retired_sources.get(
+                                undispatched_event.path, set()
+                            )
+                            self._retired_sources[undispatched_event.path] = {
+                                *existing_retired_sources,
+                                *undispatched_retired_sources,
+                            }
                 break
             delivered.append(event)
         if delivered:
