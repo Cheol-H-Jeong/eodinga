@@ -11,6 +11,20 @@ from eodinga.index.writer import IndexWriter
 from tests.conftest import make_record
 
 
+class _TrackingConnection:
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+        self.executemany_batch_sizes: list[int] = []
+
+    def executemany(self, sql: str, seq_of_parameters) -> sqlite3.Cursor:
+        rows = tuple(seq_of_parameters)
+        self.executemany_batch_sizes.append(len(rows))
+        return self._conn.executemany(sql, rows)
+
+    def __getattr__(self, name: str):
+        return getattr(self._conn, name)
+
+
 def _synthetic_record(index: int, root: Path) -> FileRecord:
     path = root / f"file-{index}.txt"
     return FileRecord(
@@ -76,6 +90,63 @@ def test_writer_caches_chunk_shaped_sql_templates() -> None:
     assert writer_module._delete_content_rows_sql.cache_info().hits >= 1
     assert writer_module._select_deleted_content_rowids_sql.cache_info().hits >= 1
     assert writer_module._select_existing_content_rows_sql.cache_info().hits >= 1
+
+
+def test_writer_upsert_records_batches_large_file_writes(tmp_db: Path, tmp_path: Path) -> None:
+    base_conn = sqlite3.connect(tmp_db)
+    conn = _TrackingConnection(base_conn)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    writer = IndexWriter(conn)
+    records = [
+        _synthetic_record(index, tmp_path)
+        for index in range(writer_module.RECORD_WRITE_BATCH_SIZE + 25)
+    ]
+
+    assert writer.bulk_upsert(records) == len(records)
+
+    assert conn.executemany_batch_sizes[:2] == [
+        writer_module.RECORD_WRITE_BATCH_SIZE,
+        25,
+    ]
+    assert base_conn.execute("SELECT COUNT(*) FROM files").fetchone() == (len(records),)
+
+
+def test_writer_upsert_content_batches_large_content_writes(tmp_db: Path, tmp_path: Path) -> None:
+    base_conn = sqlite3.connect(tmp_db)
+    conn = _TrackingConnection(base_conn)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    records = [
+        _synthetic_record(index, tmp_path)
+        for index in range(writer_module.CONTENT_WRITE_BATCH_SIZE + 10)
+    ]
+    parsed_by_path = {
+        record.path: ParsedContent(
+            title=record.name,
+            head_text=f"head {record.name}",
+            body_text=f"body {record.name}",
+            content_sha=f"sha-{record.name}".encode(),
+        )
+        for record in records
+    }
+    writer = IndexWriter(conn, parser_callback=lambda path: parsed_by_path.get(path))
+
+    assert writer.bulk_upsert(records) == len(records)
+
+    assert conn.executemany_batch_sizes[1:] == [
+        writer_module.CONTENT_WRITE_BATCH_SIZE,
+        10,
+        writer_module.CONTENT_WRITE_BATCH_SIZE,
+        10,
+        writer_module.CONTENT_WRITE_BATCH_SIZE,
+        10,
+    ]
+    assert base_conn.execute("SELECT COUNT(*) FROM content_map").fetchone() == (len(records),)
 
 
 def test_writer_without_parser_skips_content_queries(tmp_db: Path, tmp_path: Path) -> None:

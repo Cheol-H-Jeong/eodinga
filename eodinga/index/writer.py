@@ -14,6 +14,8 @@ from eodinga.index.schema import apply_schema, current_schema_version
 ParserCallback = Callable[[Path], ParsedContent | None]
 RecordLoader = Callable[[Path], FileRecord | None]
 T = TypeVar("T")
+RECORD_WRITE_BATCH_SIZE = 1000
+CONTENT_WRITE_BATCH_SIZE = 500
 
 
 class ExistingContentRow(NamedTuple):
@@ -49,6 +51,17 @@ def _materialize_records(records: Iterable[FileRecord]) -> Sequence[FileRecord]:
     if isinstance(records, (list, tuple)):
         return records
     return tuple(records)
+
+
+def _executemany_batched(
+    conn: sqlite3.Connection,
+    sql: str,
+    rows: Sequence[tuple[object, ...]],
+    *,
+    batch_size: int,
+) -> None:
+    for chunk in _chunked(rows, size=batch_size):
+        conn.executemany(sql, chunk)
 
 
 @lru_cache(maxsize=16)
@@ -152,7 +165,9 @@ class IndexWriter:
         self._conn.execute(f"RELEASE SAVEPOINT {savepoint_name}")
 
     def _upsert_records(self, records: Sequence[FileRecord]) -> None:
-        self._conn.executemany(
+        rows = tuple(_record_tuple(record) for record in records)
+        _executemany_batched(
+            self._conn,
             """
             INSERT INTO files(
               root_id, path, parent_path, name, name_lower, ext, size, mtime, ctime,
@@ -172,7 +187,8 @@ class IndexWriter:
               content_hash=COALESCE(excluded.content_hash, files.content_hash),
               indexed_at=excluded.indexed_at
             """,
-            (_record_tuple(record) for record in records),
+            rows,
+            batch_size=RECORD_WRITE_BATCH_SIZE,
         )
 
     def _delete_path(self, path: Path, content_deletes: list[int]) -> int:
@@ -260,11 +276,14 @@ class IndexWriter:
             hash_rows.append((parsed_sha, file_id))
 
         if content_rows:
-            self._conn.executemany(
+            _executemany_batched(
+                self._conn,
                 "INSERT INTO content_fts(rowid, title, head_text, body_text) VALUES (?, ?, ?, ?)",
                 content_rows,
+                batch_size=CONTENT_WRITE_BATCH_SIZE,
             )
-            self._conn.executemany(
+            _executemany_batched(
+                self._conn,
                 """
                 INSERT INTO content_map(file_id, fts_rowid, parser, parsed_at, content_sha)
                 VALUES (?, ?, ?, ?, ?)
@@ -275,10 +294,13 @@ class IndexWriter:
                   content_sha=excluded.content_sha
                 """,
                 mapping_rows,
+                batch_size=CONTENT_WRITE_BATCH_SIZE,
             )
-            self._conn.executemany(
+            _executemany_batched(
+                self._conn,
                 "UPDATE files SET content_hash = ? WHERE id = ?",
                 hash_rows,
+                batch_size=CONTENT_WRITE_BATCH_SIZE,
             )
             self._next_content_rowid_cache = next_rowid
 
