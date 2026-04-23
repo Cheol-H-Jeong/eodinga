@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.927 - 2026-04-24
+## 0.1.928 - 2026-04-24
 
 - Added a practical query playbook to the README and DSL guide, including narrowing order, grouping examples, and regex-flag guidance so operators can build or debug queries without guesswork.
 - Expanded the architecture guide with release-evidence ownership, docs-to-asset decision paths, and documentation failure domains, making it clearer which proof command belongs to each symptom.
