@@ -46,6 +46,15 @@ Recommended order:
 2. `pytest -q tests` once the candidate release branch is assembled.
 3. `ruff`, `pyright`, GUI smoke, packaging dry-runs, and workflow lint after the full test pass.
 
+## Gate By Change Type
+
+| Change type | Minimum proof before handoff | Additional release proof |
+| --- | --- | --- |
+| docs-only wording | `pytest -q tests/unit/test_docs_assets.py` | full `pytest -q tests`, `ruff`, `pyright` |
+| CLI parser or command surface | docs asset test plus regenerated man page | full gate plus packaging dry-runs |
+| visible GUI docs surface | docs asset test plus refreshed screenshots | full gate plus offscreen GUI smoke |
+| packaging or installer docs | matching packaging dry-run | full gate plus workflow lint |
+
 ## Verify Shipped Docs
 
 Before tagging, confirm:
@@ -66,6 +75,15 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Version Sync Checklist
+
+Before the final metadata commit, confirm all of the following point at the same patch release:
+
+- `pyproject.toml`
+- `eodinga/__init__.py`
+- the new heading in `CHANGELOG.md`
+- the local `v0.1.N` tag you are about to create
+
 ## Docs-Only Rounds
 
 Use the same release discipline for docs-only changes when the shipped operator contract moved:
@@ -74,6 +92,8 @@ Use the same release discipline for docs-only changes when the shipped operator 
 2. Regenerate any derived docs assets touched by the round.
 3. Re-run `pytest -q tests/unit/test_docs_assets.py` plus the matching packaging dry-run or GUI smoke command.
 4. Add a changelog entry that names the docs surface changed and why it matters.
+
+Do not skip the version bump or local tag just because runtime code stayed untouched; the shipped documentation set is part of the release artifact surface.
 
 ## Cut The Local Release
 
@@ -90,6 +110,16 @@ git tag v0.1.N
 ```
 
 If `git tag -l "v0.1.N"` already returns a result, stop and pick the next unused patch version instead of moving the existing tag.
+
+## Tag Placement Rule
+
+Create the local tag only after:
+
+1. the content commits are finished,
+2. the release metadata commit has landed, and
+3. the final validation pass is green.
+
+That keeps the tag attached to the actual handoff commit instead of a pre-release intermediate step.
 
 ## Handoff Checklist
 

@@ -88,12 +88,30 @@ When a change affects the shipped contract, refresh docs in this order:
 4. Re-run `pytest -q tests/unit/test_docs_assets.py` before the broader gate.
 5. Re-run any matching packaging dry run if the docs now describe packaging behavior or artifacts differently.
 
+## Docs-Only Workflow
+
+Use this path when the shipped contract changed but runtime code did not:
+
+1. Update `README.md` first because it is the shortest operator-facing contract.
+2. Update the deeper guide under `docs/` that explains the same behavior in more detail.
+3. Refresh derived assets only if the round touched CLI parser output or visible GUI surfaces.
+4. Re-run `pytest -q tests/unit/test_docs_assets.py` before broader unit coverage.
+5. Add the changelog entry and release metadata bump for the round; docs-only changes still ship.
+
 ## Test Selection Guide
 
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`
 - GUI/launcher changes: `pytest -q tests/unit/test_gui_app.py tests/unit/test_gui_launcher.py tests/unit/test_docs_assets.py`
 - Index/storage/watcher changes: `pytest -q tests/unit/test_storage.py tests/unit/test_writer.py tests/unit/test_watcher.py`
 - Packaging changes: `pytest -q tests/unit/test_build.py tests/unit/test_build_dry_run.py tests/unit/test_inno_script.py tests/unit/test_pyinstaller_spec.py`
+
+## Review Checklist
+
+- Confirm the change stayed inside one theme and one logical commit at a time.
+- Confirm `README.md` and the deeper `docs/*.md` guide do not contradict each other.
+- Confirm every dry-run command shown in docs still exists exactly as written.
+- Confirm screenshots and `docs/man/eodinga.1` were refreshed if the round touched those derived surfaces.
+- Confirm the changelog entry describes landed behavior instead of future intent.
 
 ## Commit and Release Notes
 
@@ -103,3 +121,10 @@ When a change affects the shipped contract, refresh docs in this order:
 - Local tags are created during the release-cut handoff flow documented in [RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md).
 - Docs-only rounds still require a changelog entry and local tag when the shipped contract changed.
 - If a change cannot stay inside one theme or one logical commit, stop and split it before proceeding.
+
+## Handoff Expectations
+
+- Leave the working tree clean except for intentional round output.
+- Mention the exact test slice you ran if it was narrower than the full gate.
+- If a docs statement depends on a local measurement, capture the command that produced it in the same round.
+- If you could not regenerate a derived asset, do not paper over that gap with prose; leave the existing asset untouched and call out the blocker.
