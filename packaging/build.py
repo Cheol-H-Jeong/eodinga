@@ -280,6 +280,7 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
     icon_payload = payload.get("icon", {})
     apprun_payload = payload.get("apprun", {})
     launcher_payload = payload.get("launcher", {})
+    archive_payload = payload.get("archive_audit", {})
     required_flags = [
         (recipe_payload.get("exists"), "AppImage recipe is missing"),
         (recipe_payload.get("contains_version_template"), "AppImage recipe no longer uses the version template"),
@@ -288,6 +289,10 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (recipe_payload.get("references_desktop_entry"), "AppImage recipe no longer references the desktop entry"),
         (recipe_payload.get("references_icon_asset"), "AppImage recipe no longer references the icon asset"),
         (recipe_payload.get("launches_gui"), "AppImage recipe no longer launches the GUI target"),
+        (archive_payload.get("root_directory") == "eodinga.AppDir", "AppImage archive root no longer matches the staged AppDir"),
+        (archive_payload.get("all_mtime_zero"), "AppImage archive members are no longer normalized to mtime zero"),
+        (archive_payload.get("all_root_owned"), "AppImage archive members are no longer normalized to uid/gid zero"),
+        (archive_payload.get("all_root_named"), "AppImage archive members are no longer normalized to root ownership names"),
         (payload.get("desktop_entry", {}).get("matches_source_asset"), "AppImage desktop entry no longer matches the shipped asset"),
         (icon_payload.get("exists"), "AppImage icon asset is missing from the staged AppDir"),
         (icon_payload.get("diricon_exists"), "AppImage .DirIcon is missing"),

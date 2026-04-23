@@ -59,10 +59,11 @@ exec python3 -m eodinga "$@"
 EOF
 chmod +x "${APPDIR}/AppRun" "${APPDIR}/usr/bin/eodinga"
 
-tar -czf "${ARCHIVE_PATH}" -C "${DIST_DIR}" "$(basename "${APPDIR}")"
+python3 "${ROOT_DIR}/packaging/reproducible_tar.py" --source "${APPDIR}" --output "${ARCHIVE_PATH}"
 python3 - <<PY
 import json
 import os
+import tarfile
 from pathlib import Path
 
 desktop_path = Path("${APPDIR}/usr/share/applications/eodinga.desktop")
@@ -82,6 +83,8 @@ recipe_path = Path("${APPIMAGE_RECIPE}")
 rendered_recipe_path = Path("${RENDERED_RECIPE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
 rendered_recipe_text = rendered_recipe_path.read_text(encoding="utf-8")
+with tarfile.open("${ARCHIVE_PATH}", "r:gz") as archive:
+    members = archive.getmembers()
 payload = {
     "target": "linux-appimage-dry-run" if ${DRY_RUN} else "linux-appimage",
     "version": "${VERSION}",
@@ -107,6 +110,13 @@ payload = {
         "references_desktop_entry": "packaging/linux/eodinga.desktop" in recipe_text,
         "references_icon_asset": "packaging/linux/eodinga.svg" in recipe_text,
         "launches_gui": "exec_args: gui" in recipe_text,
+    },
+    "archive_audit": {
+        "member_names": [member.name for member in members],
+        "root_directory": members[0].name if members else None,
+        "all_mtime_zero": all(member.mtime == 0 for member in members),
+        "all_root_owned": all(member.uid == 0 and member.gid == 0 for member in members),
+        "all_root_named": all(member.uname == "root" and member.gname == "root" for member in members),
     },
     "icon": {
         "path": str(icon_path),

@@ -241,6 +241,12 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
     module = _load_build_module()
     payload = {
         "version": __version__,
+        "archive_audit": {
+            "root_directory": "eodinga.AppDir",
+            "all_mtime_zero": True,
+            "all_root_owned": True,
+            "all_root_named": True,
+        },
         "recipe": {
             "exists": True,
             "contains_version_template": True,
@@ -275,6 +281,12 @@ def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> Non
     payload = {
         "version": __version__,
         "archive": "packaging/dist/eodinga-linux-appdir.tar.gz",
+        "archive_audit": {
+            "root_directory": "eodinga.AppDir",
+            "all_mtime_zero": True,
+            "all_root_owned": True,
+            "all_root_named": True,
+        },
         "recipe": {
             "exists": True,
             "contains_version_template": True,
@@ -333,6 +345,11 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["recipe"]["references_desktop_entry"] is True
     assert payload["recipe"]["references_icon_asset"] is True
     assert payload["recipe"]["launches_gui"] is True
+    assert payload["archive_audit"]["root_directory"] == "eodinga.AppDir"
+    assert payload["archive_audit"]["all_mtime_zero"] is True
+    assert payload["archive_audit"]["all_root_owned"] is True
+    assert payload["archive_audit"]["all_root_named"] is True
+    assert payload["archive_audit"]["member_names"][0] == "eodinga.AppDir"
     assert payload["icon"]["exists"] is True
     assert payload["icon"]["diricon_exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True
@@ -468,6 +485,7 @@ def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
     assert payload["dry_run"] is False
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
+    assert payload["archive_audit"]["all_mtime_zero"] is True
 
 
 def test_linux_deb_dry_run_stages_recipe() -> None:
