@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.382 - 2026-04-23
+## 0.1.383 - 2026-04-23
 
 - Hardened watcher backpressure handling so immediate move emissions and later ready events are re-queued instead of being silently lost when the consumer queue is full.
 - Added watcher regressions that prove queue pressure preserves event order across `moved` plus `deleted` delivery and across multi-event flush retries.
