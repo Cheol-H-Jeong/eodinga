@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.277 - 2026-04-23
+## 0.1.280 - 2026-04-23
 
 - Added parser observability for attempts, successes, empty parses, skip-too-large decisions, and per-parser latency/body-size histograms so parser health is visible through runtime stats instead of only logs.
 - Added query observability for scoped searches, zero-result vs non-empty outcomes, truncation, branch counts, result counts, and invalid query syntax failures, making search behavior easier to inspect from `eodinga stats --json`.
