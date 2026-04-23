@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.703 - 2026-04-23
+
+- Normalized observability log and crash destinations into stable absolute runtime paths, so relative overrides and platform-specific state roots no longer depend on the caller's working directory.
+- Recorded bounded `crash.report` timeline entries for both successful crash-log writes and write failures, keeping postmortem status visible through `stats --json` even when the log artifact could not be created.
+- Enriched retained `command.stats` snapshots with the resolved log path, crash directory, and file-logging enablement state so repeated stats inspection preserves the runtime configuration it observed.
+
 ## 0.1.585 - 2026-04-23
 
 - Tightened scoped-search root matching so wildcard characters in root paths no longer leak results from sibling roots, and Windows drive-letter case variants now keep exact-root records in scope.
