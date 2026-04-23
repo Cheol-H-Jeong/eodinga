@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.806 - 2026-04-23
+## 0.1.811 - 2026-04-23
 
 - Fixed watcher flush retries so a queueing failure can no longer silently drop the rest of a ready batch; undelivered events are requeued intact and retried in order.
 - Made interrupted recovery and interrupted staged-build cleanup durable by fsyncing the parent directory after invalid stage artifacts are removed during startup recovery.
