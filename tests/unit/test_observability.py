@@ -202,9 +202,13 @@ def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
 
 def test_write_crash_log_records_resolved_log_state(tmp_path: Path, monkeypatch) -> None:
     log_path = tmp_path / "logs" / "eodinga.log"
+    metrics_path = tmp_path / "metrics" / "runtime.json"
     monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
 
+    increment_counter("queries_served")
+    flush_metrics()
     try:
         raise RuntimeError("log state")
     except RuntimeError as error:
@@ -212,6 +216,8 @@ def test_write_crash_log_records_resolved_log_state(tmp_path: Path, monkeypatch)
 
     contents = crash_path.read_text(encoding="utf-8")
     assert f"log_path={log_path}" in contents
+    assert f"metrics_path={metrics_path}" in contents
+    assert "metrics_persisted_at=" in contents
     assert "log_rotation=5 MB" in contents
     assert "log_retention=5" in contents
     assert "log_compression=None" in contents

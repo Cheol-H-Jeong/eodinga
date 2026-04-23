@@ -355,6 +355,10 @@ def recent_snapshots() -> list[SnapshotRecord]:
         return list(_RECENT_SNAPSHOTS)
 
 
+def metrics_persisted_at() -> str | None:
+    return _PERSISTED_AT
+
+
 def counter_value(name: str) -> int:
     with _METRICS_LOCK:
         return _COUNTERS.get(name, 0)

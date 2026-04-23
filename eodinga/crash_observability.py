@@ -37,11 +37,13 @@ def write_crash_log(
     from eodinga.observability import (
         file_logging_enabled,
         increment_counter,
+        metrics_persisted_at,
         recent_snapshots,
         resolve_log_compression,
         resolve_log_path,
         resolve_log_retention,
         resolve_log_rotation,
+        resolve_metrics_path,
         snapshot_metrics,
     )
 
@@ -71,6 +73,8 @@ def write_crash_log(
         "log_retention": resolve_log_retention(),
         "log_compression": resolve_log_compression(),
         "crash_dir": target_dir,
+        "metrics_path": resolve_metrics_path(),
+        "metrics_persisted_at": metrics_persisted_at(),
         "metrics_generated_at": metrics["generated_at"],
         "metrics_counters": metrics["counters"],
         "metrics_histograms": metrics["histograms"],

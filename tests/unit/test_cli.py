@@ -527,6 +527,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["recent_snapshots"][0]["payload"]["query"] == "duplicate"
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
+    assert payload["metrics_path"] is None
+    assert payload["metrics_persisted_at"] is None
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
@@ -541,6 +543,30 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["query_result_count"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 1
+
+
+def test_stats_json_exposes_metrics_state_location(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "index.db"
+    metrics_path = tmp_path / "state" / "metrics.json"
+    _build_search_db(db_path)
+    reset_metrics()
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    search_exit = main(["--db", str(db_path), "search", "duplicate", "--json"])
+    capsys.readouterr()
+    assert search_exit == 0
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["metrics_path"] == str(metrics_path)
+    assert payload["metrics_persisted_at"]
 
 
 def test_stats_json_exposes_end_to_end_runtime_metrics(
