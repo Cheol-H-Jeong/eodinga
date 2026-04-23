@@ -41,17 +41,23 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Install" in readme
     assert "## Quick Start" in readme
     assert "## Feature Overview" in readme
+    assert "## Surface Matrix" in readme
     assert "## Acceptance Quickcheck" in readme
     assert "## DSL Cheatsheet" in readme
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
     assert "## Config and Data Paths" in readme
+    assert "## Operator Checklist" in readme
     assert "## Recovery and Troubleshooting" in readme
+    assert "### Quick Runbook" in readme
     assert "## Limitations" in readme
     assert "## Packaging" in readme
     assert "## Contributing" in readme
     assert "## Release Process" in readme
     assert "linux-deb-dry-run" in readme
+    assert "Launcher | global hotkey" in readme
+    assert "Packaging audit failed" in readme
+    assert "eodinga search 'date:this-week ext:md' --limit 10" in readme
     assert "docs/DSL.md" in readme
     assert "docs/ACCEPTANCE.md" in readme
     assert "docs/ARCHITECTURE.md" in readme

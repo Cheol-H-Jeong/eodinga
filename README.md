@@ -64,6 +64,16 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 | Recovery | Atomic staged rebuild and startup recovery for interrupted index swaps and stale WAL state. |
 | Packaging | Windows installer, Linux AppImage, and Linux `.deb` dry-run paths. |
 
+## Surface Matrix
+
+| Surface | Entry point | Best for | Notes |
+| --- | --- | --- | --- |
+| CLI | `eodinga search`, `index`, `watch`, `stats`, `doctor` | scripted indexing, diagnostics, CI-like checks | emits plain text or `--json`; shares the same DSL and ranking engine as the GUI |
+| Main GUI | `eodinga gui` | root management, settings, indexing progress, diagnostics | offscreen-rendered screenshots in this repo come from the real Qt widgets |
+| Launcher | global hotkey, packaged launcher entry, embedded search tab | fast keyboard-first open/reveal flows | recent queries, pinned queries, hover preview, and quick actions stay local to the same index |
+| Linux packages | AppImage / `.deb` | desktop installation on Linux | both launch the GUI surface; `.deb` also installs desktop metadata and packaged docs |
+| Windows installer | Inno Setup + PyInstaller bundle | per-user install on Windows | uninstall keeps `%LOCALAPPDATA%\\eodinga\\` unless purge is chosen explicitly |
+
 ## At A Glance
 
 - Local-only indexing and search; no hosted service and no runtime network calls.
@@ -226,6 +236,16 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - A one-shot recovery path is `eodinga index --rebuild`; live updates still require `eodinga watch` or the packaged background service flow.
 - Documentation and screenshots are part of the shipped contract; refresh the gallery with `python scripts/render_docs_screenshots.py` after visible UI changes.
 
+### Quick Runbook
+
+| Symptom | First command | What to confirm next |
+| --- | --- | --- |
+| No search hits you expect | `eodinga search 'query' --json` | confirm the query shape and whether filename/path-only search would have matched |
+| Results look stale after file changes | `eodinga stats --json` | verify the active database path, then run `eodinga watch` or `eodinga index --rebuild` |
+| Startup mentions recovery | `eodinga doctor` | check that the live DB path is writable and recovery sidecars are gone after startup |
+| Hotkey or launcher looks wrong | `eodinga doctor` | inspect detected hotkey backend and then re-open `eodinga gui` for settings/state |
+| Packaging audit failed | `python packaging/build.py --target windows-dry-run` | re-run the matching Linux dry run and workflow lint from `docs/ACCEPTANCE.md` |
+
 ## Config and Data Paths
 
 - Linux config defaults to `~/.config/eodinga/config.toml` and the index database to `~/.local/share/eodinga/index.db`.
@@ -244,6 +264,18 @@ eodinga doctor
 The doctor command checks Python compatibility, importable dependencies, database writability, readable roots, the detectable hotkey backend, and the default safe excludes.
 
 If search looks stale, run `eodinga stats` to confirm the active database path, then either `eodinga watch` for live updates or `eodinga index --rebuild` to rebuild once.
+
+## Operator Checklist
+
+Use this short sequence when you need a high-signal local health check without opening the full acceptance guide:
+
+```bash
+eodinga doctor
+eodinga stats --json
+eodinga search 'date:this-week ext:md' --limit 10
+```
+
+If those are clean but the packaged app still looks wrong, continue with the release-gate commands in `docs/ACCEPTANCE.md`.
 
 ## Docs Map
 
