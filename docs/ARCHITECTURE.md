@@ -10,6 +10,13 @@
 4. `eodinga.query.dsl.parse()` and `eodinga.query.compiler.compile_query()` lower the DSL into SQLite filters plus in-memory fallback checks.
 5. `eodinga.query.executor.search()` fetches candidates, merges name/path/content rankings, and returns hits to the CLI or GUI.
 
+## Design Constraints
+
+- Local-first only: no runtime network dependencies, no RPC layer, and no background service outside the local process and watchdog backend.
+- Indexed roots are inputs, not managed state. The runtime can read them and derive metadata, but writes stay inside config, logs, and index storage.
+- CLI, GUI, and launcher are thin surfaces over the same compiler/executor stack, so behavior differences are treated as bugs.
+- Rebuild and recovery paths favor staged copies plus atomic rename instead of in-place repair on the live index.
+
 ## Data Flow Diagram
 
 ```text
@@ -22,10 +29,29 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
     +-------------------------------> IndexWriter ---> SQLite tables + FTS5
                                                          |
                                                          v
-                                              compiler + executor + ranker
+                                             compiler + executor + ranker
                                                          |
                                                          v
                                                  CLI / GUI / launcher
+```
+
+## Control Plane Vs Data Plane
+
+```text
+control plane                                      data plane
+-------------                                      ----------
+config.toml ---> root list ----------+            filesystem metadata ----+
+                                     |                                    |
+CLI flags ----> overrides ---------->+----> walker / watcher ----------+  |
+                                     |                                 |  |
+GUI settings -> launcher + roots ----+                                 v  v
+                                                                  parser registry
+                                                                         |
+                                                                         v
+                                                             SQLite tables + FTS
+                                                                         |
+                                                                         v
+                                                                  ranked results
 ```
 
 ## Module Map
@@ -45,6 +71,18 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 - `content_fts` stores parsed document text when parser extras are installed.
 - `content_map` keeps the FTS row IDs stable across updates so incremental reindexing does not balloon the content index.
 - `eodinga.index.storage` owns WAL replay on startup and atomic staged-index replacement.
+
+## Storage Layout Snapshot
+
+| Table or sidecar | Purpose | Notes |
+| --- | --- | --- |
+| `files` | Canonical file row | Root membership, timestamps, size, extension, hash, and duplicate bookkeeping. |
+| `paths_fts` | Name/path lexical index | Drives filename and path matching for ordinary term queries. |
+| `content_fts` | Parsed-text lexical index | Populated only when content extraction is enabled and a parser succeeds. |
+| `content_map` | Stable content-row indirection | Prevents FTS row churn during incremental updates and deletes. |
+| `index.db-wal` / `index.db-shm` | SQLite journaling | May exist transiently during normal operation; startup recovery drains stale WAL state before reopen. |
+| `.index.db.next` | Staged rebuild database | Promoted into place after a successful rebuild and checkpoint. |
+| `.index.db.recover` | Recovery swap candidate | Used when a staged repair must be completed safely on next startup. |
 
 ## Index Lifecycle Sequence
 
@@ -83,6 +121,24 @@ eodinga index --rebuild
     +--> remove stale sidecars
 ```
 
+## Query Path Sequence
+
+```text
+user query
+    |
+    +--> dsl.parse()
+            |
+            +--> compiler.compile_query()
+                    |
+                    +--> SQLite predicates + candidate fetch
+                    |
+                    +--> Python fallback checks for regex / mixed predicates
+                    |
+                    +--> ranker reciprocal-rank fusion
+                    |
+                    +--> common.Result rows for CLI / GUI / launcher
+```
+
 ## Query Execution
 
 - The DSL supports terms, phrases, regex, grouped `|` branches, and negation.
@@ -116,6 +172,13 @@ IndexWriter.apply_events()
 next query sees updated results
 ```
 
+## Watcher Boundaries
+
+- The watcher is an incremental maintenance layer, not the source of truth. If it falls behind or the process is offline, a rebuild still produces the authoritative index.
+- Event coalescing happens before writer calls so bursty editor save sequences do not thrash SQLite with redundant updates.
+- Cross-root moves are normalized into create/delete semantics when a rename leaves or enters a configured root.
+- The next visible query result is gated by a committed transaction, not by event receipt alone.
+
 ## Packaging Surfaces
 
 - Editable local development targets `pip install -e .[all]` on Python 3.11.
@@ -130,6 +193,15 @@ next query sees updated results
 - `eodinga.gui.app.EodingaWindow` is the settings and diagnostics shell.
 - `eodinga.gui.launcher.LauncherWindow` is the hotkey-first search surface with keyboard navigation and match highlighting.
 - Both UI paths reuse the same query models from `eodinga.common`.
+
+## Failure Domains
+
+| Failure domain | Typical symptom | Recovery path |
+| --- | --- | --- |
+| Parser failure on one file | File stays searchable by name/path but content text is missing | Logged as a parser failure; fix parser support or rebuild after the document becomes readable. |
+| Watch backend interruption | Live updates lag or stop until restart | Restart `eodinga watch` or the GUI session; full rebuild is the fallback if drift accumulated. |
+| Interrupted staged rebuild | `.index.db.next` remains beside the live index | Next startup resumes or promotes the staged rebuild before opening the live DB. |
+| Stale WAL or interrupted recovery swap | `.index.db.recover` or live `-wal` remains after crash | `open_index()` replays and swaps staged recovery artifacts before normal reads. |
 
 ## Safety Boundaries
 
