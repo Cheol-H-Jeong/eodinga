@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.360 - 2026-04-23
+
+- Cleaned leftover `.recover.partial*` and `.next.partial*` artifacts during interrupted-stage resume and startup open, so crash residue no longer survives into the next reopen path.
+- Added storage regressions covering partial staged-build and partial staged-recovery cleanup, including orphaned `.next.partial*` files present before `open_index()`.
+- Hardened rebuild signal setup so a failed `SIGTERM` handler install restores any already-installed `SIGINT` handler instead of leaking a half-installed stop hook into the process.
+
 ## 0.1.359 - 2026-04-23
 
 - Rendered the staged Debian `DEBIAN/control` file directly from the checked-in template, with version and architecture tokens enforced by the dry-run audit so package metadata no longer drifts from the Debian recipe.
