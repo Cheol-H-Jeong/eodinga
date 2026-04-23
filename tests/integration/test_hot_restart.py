@@ -61,6 +61,11 @@ def _wait_for_query_miss(
     raise AssertionError(f"{missing_path} remained query-visible after {deadline_seconds:.3f}s")
 
 
+def _indexed_root_id(conn, path: Path) -> int | None:
+    row = conn.execute("SELECT root_id FROM files WHERE path = ?", (str(path),)).fetchone()
+    return None if row is None else int(row[0])
+
+
 def test_hot_restart_recovers_stale_wal_and_preserves_queries(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     root.mkdir()
@@ -211,6 +216,7 @@ def test_hot_restart_reopen_multi_root_keeps_queries_and_accepts_live_updates(tm
             hit.file.path
             for hit in search(reopened, "persisted multi root", limit=5, root=root_b).hits
         }
+        created_root_id = _indexed_root_id(reopened, created)
     finally:
         service.stop()
         reopened.close()
@@ -220,6 +226,7 @@ def test_hot_restart_reopen_multi_root_keeps_queries_and_accepts_live_updates(tm
     assert elapsed <= 0.5
     assert reopened_hits == {existing_a, existing_b}
     assert reopened_beta_hits == {existing_b}
+    assert created_root_id == 2
 
 
 def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) -> None:

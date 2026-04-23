@@ -58,6 +58,11 @@ def _wait_for_query_miss(
     raise AssertionError(f"{missing_path} remained query-visible after {deadline_seconds:.3f}s")
 
 
+def _indexed_root_id(conn, path: Path) -> int | None:
+    row = conn.execute("SELECT root_id FROM files WHERE path = ?", (str(path),)).fetchone()
+    return None if row is None else int(row[0])
+
+
 def test_live_update_visible_to_search_within_500ms(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     db_path = tmp_path / "database" / "index.db"
@@ -159,6 +164,7 @@ def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: P
             hit.file.path
             for hit in search(conn, "scoped integration visibility", limit=5, root=root_b).hits
         ]
+        created_root_id = _indexed_root_id(conn, created)
     finally:
         service.stop()
         conn.close()
@@ -166,6 +172,7 @@ def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: P
     assert elapsed <= 0.5
     assert alpha_hits == []
     assert beta_hits == [created]
+    assert created_root_id == 2
 
 
 def test_live_delete_removed_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
@@ -223,6 +230,71 @@ def test_live_delete_removed_with_multi_root_watchers_and_root_scope(tmp_path: P
     assert elapsed <= 0.5
     assert alpha_hits == [survivor]
     assert beta_hits == []
+
+
+def test_live_cross_root_move_updates_scope_and_root_id_within_500ms(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    source = root_a / "cross-root.txt"
+    destination = root_b / "cross-root.txt"
+    source.write_text("cross root live move integration\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        initial_alpha_hits = [
+            hit.file.path
+            for hit in search(conn, "cross root live move integration", limit=5, root=root_a).hits
+        ]
+        source.rename(destination)
+
+        appeared_elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "cross root live move integration",
+            destination,
+            deadline_seconds=0.5,
+        )
+        disappeared_elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "cross root live move integration",
+            source,
+            deadline_seconds=0.5,
+        )
+        alpha_hits = [
+            hit.file.path
+            for hit in search(conn, "cross root live move integration", limit=5, root=root_a).hits
+        ]
+        beta_hits = [
+            hit.file.path
+            for hit in search(conn, "cross root live move integration", limit=5, root=root_b).hits
+        ]
+        destination_root_id = _indexed_root_id(conn, destination)
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_alpha_hits == [source]
+    assert appeared_elapsed <= 0.5
+    assert disappeared_elapsed <= 0.5
+    assert alpha_hits == []
+    assert beta_hits == [destination]
+    assert destination_root_id == 2
 
 
 def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Path) -> None:
