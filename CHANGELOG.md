@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.981 - 2026-04-24
+## 0.1.982 - 2026-04-24
 
 - Clamped launcher restores that reopen partially off the top or left edge, while keeping in-bounds saved geometry intact and stabilizing the geometry persistence regression coverage around reachable restores.
 - Surfaced the configured launcher hotkey directly in the tray toggle action and kept that label live when the hotkey is remapped or disabled without restart.
