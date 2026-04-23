@@ -189,6 +189,20 @@ def test_write_crash_log_records_runtime_metrics(tmp_path: Path) -> None:
     assert 'recent_snapshots=[{"name": "command.search"' in contents
 
 
+def test_snapshot_metrics_reports_recent_snapshot_capacity_and_drops() -> None:
+    reset_metrics()
+
+    for index in range(25):
+        record_snapshot("command.search", {"query": f"q-{index}"})
+
+    metrics = snapshot_metrics()
+    assert metrics["recent_snapshot_limit"] == 20
+    assert metrics["recent_snapshot_count"] == 20
+    assert metrics["recent_snapshot_dropped"] == 5
+    assert recent_snapshots()[0]["payload"]["query"] == "q-5"
+    assert recent_snapshots()[-1]["payload"]["query"] == "q-24"
+
+
 def test_write_crash_log_uses_unique_path_when_timestamp_collides(tmp_path: Path) -> None:
     try:
         raise RuntimeError("first")

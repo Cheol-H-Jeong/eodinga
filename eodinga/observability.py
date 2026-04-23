@@ -65,6 +65,9 @@ class MetricsSnapshot(TypedDict):
     process_started_at: str
     pid: int
     rss_bytes: int | None
+    recent_snapshot_count: int
+    recent_snapshot_dropped: int
+    recent_snapshot_limit: int
     thread_count: int
     version: str
     uptime_ms: float
@@ -77,6 +80,7 @@ class SnapshotRecord(TypedDict):
 
 
 _RECENT_SNAPSHOTS: deque[SnapshotRecord] = deque(maxlen=_RECENT_SNAPSHOT_LIMIT)
+_RECENT_SNAPSHOTS_DROPPED = 0
 
 
 def _bucket_label(value_ms: float, buckets_ms: tuple[float, ...]) -> str:
@@ -234,6 +238,9 @@ def snapshot_metrics() -> MetricsSnapshot:
         "open_fd_count": _open_fd_count(),
         "process_started_at": _PROCESS_STARTED_AT.isoformat().replace("+00:00", "Z"),
         "pid": os.getpid(),
+        "recent_snapshot_count": len(_RECENT_SNAPSHOTS),
+        "recent_snapshot_dropped": _RECENT_SNAPSHOTS_DROPPED,
+        "recent_snapshot_limit": _RECENT_SNAPSHOT_LIMIT,
         "rss_bytes": _rss_bytes(),
         "thread_count": threading.active_count(),
         "version": __version__,
@@ -242,19 +249,24 @@ def snapshot_metrics() -> MetricsSnapshot:
 
 
 def reset_metrics() -> None:
+    global _RECENT_SNAPSHOTS_DROPPED
     with _METRICS_LOCK:
         _COUNTERS.clear()
         _HISTOGRAMS.clear()
         _RECENT_SNAPSHOTS.clear()
+        _RECENT_SNAPSHOTS_DROPPED = 0
 
 
 def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
+    global _RECENT_SNAPSHOTS_DROPPED
     record: SnapshotRecord = {
         "name": name,
         "recorded_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "payload": dict(payload),
     }
     with _METRICS_LOCK:
+        if len(_RECENT_SNAPSHOTS) == _RECENT_SNAPSHOTS.maxlen:
+            _RECENT_SNAPSHOTS_DROPPED += 1
         _RECENT_SNAPSHOTS.append(record)
     logger.bind(metric=name, payload=record["payload"]).debug("snapshot recorded")
 

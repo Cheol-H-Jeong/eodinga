@@ -525,6 +525,9 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert len(payload["recent_snapshots"]) == 1
     assert payload["recent_snapshots"][0]["name"] == "command.search"
     assert payload["recent_snapshots"][0]["payload"]["query"] == "duplicate"
+    assert payload["recent_snapshot_count"] == 1
+    assert payload["recent_snapshot_limit"] == 20
+    assert payload["recent_snapshot_dropped"] == 0
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
     assert payload["log_rotation"] == "5 MB"
@@ -931,3 +934,23 @@ def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> 
     assert payload["recent_snapshots"][0]["name"] == "command.failure"
     assert payload["recent_snapshots"][0]["payload"]["command"] == "search"
     assert payload["recent_snapshots"][0]["payload"]["reason"] == "nonzero_exit"
+
+
+def test_stats_json_reports_recent_snapshot_overflow(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    for index in range(25):
+        exit_code = main(["--db", str(db_path), "version"])
+        assert exit_code == 0
+        capsys.readouterr()
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["recent_snapshot_limit"] == 20
+    assert payload["recent_snapshot_count"] == 20
+    assert payload["recent_snapshot_dropped"] == 5
+    assert [entry["name"] for entry in payload["recent_snapshots"]] == ["command.version"] * 20
