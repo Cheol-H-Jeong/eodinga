@@ -112,6 +112,16 @@ def _build_search_db(db_path: Path) -> None:
             body_text="beta archive note",
             content_hash=b"unique-content",
         )
+        _insert_file(
+            conn,
+            4,
+            "/workspace/reports/release-candidate.txt",
+            2 * 1024 * 1024,
+            today_start + 180,
+            "txt",
+            body_text="release\ncandidate checklist",
+            content_hash=b"phrase-content",
+        )
         conn.commit()
     finally:
         conn.close()
@@ -205,6 +215,30 @@ def test_search_json_executes_regex_mode_query(cli_runner, tmp_path: Path) -> No
         "today-alpha-clone.txt",
         "today-alpha-copy.txt",
     ]
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_name"),
+    [
+        ('content:"release candidate"', "release-candidate.txt"),
+        ('path:"release candidate"', "release-candidate.txt"),
+        ('"reports release"', "release-candidate.txt"),
+    ],
+)
+def test_search_json_matches_phrase_queries_across_token_separators(
+    cli_runner,
+    tmp_path: Path,
+    query: str,
+    expected_name: str,
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+
+    result = cli_runner("--db", str(db_path), "search", query, "--json")
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == [expected_name]
 
 
 def test_search_json_honors_root_filter(cli_runner, tmp_path: Path) -> None:
@@ -466,8 +500,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     stats_output = capsys.readouterr()
     assert stats_exit == 0
     payload = json.loads(stats_output.out)
-    assert payload["files_indexed"] == 3
-    assert payload["documents_indexed"] == 3
+    assert payload["files_indexed"] == 4
+    assert payload["documents_indexed"] == 4
     assert payload["queries_served"] == 1
     assert payload["parser_errors"] == 0
     assert payload["watcher_events"] == 0
