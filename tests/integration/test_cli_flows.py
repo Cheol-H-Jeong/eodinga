@@ -300,3 +300,65 @@ def test_cli_multi_root_cross_root_move_research_stays_root_scoped(
     assert _result_names(json.loads(after_alpha.stdout)) == []
     assert _result_names(json.loads(after_beta.stdout)) == ["alpha-note.txt"]
     assert _result_names(json.loads(global_search.stdout)) == ["alpha-note.txt"]
+
+
+def test_cli_search_resumes_interrupted_multi_root_build_with_root_filters(
+    cli_runner,
+    tmp_path: Path,
+) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    target_db = tmp_path / "database" / "index.db"
+    staged_db = tmp_path / "database" / ".index.db.next"
+    root_a.mkdir()
+    root_b.mkdir()
+    alpha = root_a / "alpha-recovered.txt"
+    beta = root_b / "beta-recovered.txt"
+    alpha.write_text("cli resumed alpha root\n", encoding="utf-8")
+    beta.write_text("cli resumed beta root\n", encoding="utf-8")
+
+    rebuild_index(
+        target_db,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+    rebuild_index(
+        staged_db,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+    target_db.unlink()
+    assert staged_db.exists()
+
+    global_search = cli_runner("--db", str(target_db), "search", "cli resumed", "--json")
+    alpha_search = cli_runner(
+        "--db",
+        str(target_db),
+        "search",
+        "cli resumed",
+        "--json",
+        "--root",
+        str(root_a),
+    )
+    beta_search = cli_runner(
+        "--db",
+        str(target_db),
+        "search",
+        "cli resumed",
+        "--json",
+        "--root",
+        str(root_b),
+    )
+    stats_result = cli_runner("--db", str(target_db), "stats", "--json")
+
+    assert global_search.returncode == 0
+    assert alpha_search.returncode == 0
+    assert beta_search.returncode == 0
+    assert stats_result.returncode == 0
+    assert _result_names(json.loads(global_search.stdout)) == ["alpha-recovered.txt", "beta-recovered.txt"]
+    assert _result_names(json.loads(alpha_search.stdout)) == ["alpha-recovered.txt"]
+    assert _result_names(json.loads(beta_search.stdout)) == ["beta-recovered.txt"]
+    stats_payload = json.loads(stats_result.stdout)
+    assert stats_payload["documents_indexed"] == 2
+    assert stats_payload["roots"] == [str(root_a), str(root_b)]
+    assert not staged_db.exists()
