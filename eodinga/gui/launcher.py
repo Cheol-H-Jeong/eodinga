@@ -8,7 +8,9 @@ from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
+from eodinga.gui.launcher_copy import build_empty_state_body, build_shortcut_hint
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
+from eodinga.gui.query_filters import extract_active_filter_chips, remove_active_filter_chip
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
 from eodinga.gui.widgets import (
     EmptyState,
@@ -21,56 +23,8 @@ from eodinga.gui.widgets import (
     StatusChip,
 )
 from eodinga.observability import get_logger
-from eodinga.query.dsl import AndNode, AstNode, NotNode, OperatorNode, OrNode, QuerySyntaxError, parse
 
 SearchFn = Callable[[str, int], QueryResult]
-
-_FILTER_OPERATOR_NAMES = frozenset({"date", "ext", "path", "size", "modified", "created", "is", "content", "case", "regex"})
-
-
-def _quote_filter_value(value: str) -> str:
-    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-    return f'"{escaped}"'
-
-
-def _format_filter_chip(node: OperatorNode) -> str:
-    prefix = "-" if node.negated else ""
-    if node.value_kind == "phrase":
-        value = _quote_filter_value(node.value)
-    elif node.value_kind == "regex":
-        value = f"/{node.value}/{node.regex_flags}"
-    else:
-        value = node.value
-    return f"{prefix}{node.name}:{value}"
-
-
-def _collect_filter_chips(node: AstNode, *, negated: bool = False) -> list[str]:
-    if isinstance(node, OperatorNode) and node.name in _FILTER_OPERATOR_NAMES:
-        formatted = node.model_copy(update={"negated": negated or node.negated})
-        return [_format_filter_chip(formatted)]
-    if isinstance(node, NotNode):
-        return _collect_filter_chips(node.clause, negated=not negated)
-    if isinstance(node, (AndNode, OrNode)):
-        chips: list[str] = []
-        for clause in node.clauses:
-            chips.extend(_collect_filter_chips(clause, negated=negated))
-        return chips
-    return []
-
-
-def extract_active_filter_chips(query: str) -> list[str]:
-    normalized = query.strip()
-    if not normalized:
-        return []
-    try:
-        ast = parse(normalized)
-    except QuerySyntaxError:
-        return []
-    chips: list[str] = []
-    for chip in _collect_filter_chips(ast):
-        if chip not in chips:
-            chips.append(chip)
-    return chips
 
 
 class LauncherPanel(QWidget):
@@ -110,7 +64,7 @@ class LauncherPanel(QWidget):
         self.active_filters_row = QueryChipRow(
             "Filters",
             accessible_name="Active launcher filters",
-            on_chip_clicked=self._focus_query_field,
+            on_chip_clicked=self._remove_active_filter_chip,
             chip_accessible_name_prefix="Active filter",
             parent=self,
         )
@@ -278,11 +232,14 @@ class LauncherPanel(QWidget):
         self.query_field.setFocus()
         self.query_field.selectAll()
 
-    def _focus_query_field(self, _: str) -> None:
-        self.query_field.setFocus()
-
     def select_query_text(self) -> None:
         self.focus_query_field()
+
+    def _remove_active_filter_chip(self, chip: str) -> None:
+        updated_query = remove_active_filter_chip(self.query_field.text(), chip)
+        self.query_field.setFocus()
+        self.query_field.setText(updated_query)
+        self._flush_pending_query()
 
     def toggle_current_query_pin(self) -> None:
         query = self.query_field.text().strip()
@@ -395,20 +352,11 @@ class LauncherPanel(QWidget):
         has_results = self.model.rowCount() > 0
         query = self.query_field.text().strip()
         details = format_indexing_status(self._indexing_status)
-        if not query:
-            recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
-            pinned_queries = f" Pinned: {', '.join(self._pinned_queries[:3])}." if self._pinned_queries else ""
-            self.empty_state.set_content(
-                "Type to search",
-                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up to recall recent queries, Alt+P to pin the current query, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
-                details,
-            )
-        else:
-            self.empty_state.set_content(
-                f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Alt+P to pin the current query, Tab to jump back to the filter, or Esc to hide the launcher.",
-                details,
-            )
+        self.empty_state.set_content(
+            "Type to search" if not query else f'No results for "{query}"',
+            build_empty_state_body(query=query, recent_queries=self._recent_queries, pinned_queries=self._pinned_queries),
+            details,
+        )
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
 
@@ -422,17 +370,13 @@ class LauncherPanel(QWidget):
         self.pin_query_button.setText("Unpin query" if is_pinned else "Pin query")
 
     def _refresh_shortcut_hint(self) -> None:
-        has_results = self.model.rowCount() > 0
-        if not has_results:
-            if self.query_field.text().strip():
-                hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries. Alt+P pins the current query."
-            else:
-                hint = "Type a filename, path, or content term. Alt+Up recalls recent queries. Alt+P pins the current query."
-        elif self.result_list.hasFocus():
-            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+P pins the current query. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
-        else:
-            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+P pins the current query. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
-        self.shortcut_label.setText(hint)
+        self.shortcut_label.setText(
+            build_shortcut_hint(
+                has_results=self.model.rowCount() > 0,
+                query_present=bool(self.query_field.text().strip()),
+                result_list_focused=self.result_list.hasFocus(),
+            )
+        )
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()

@@ -7,7 +7,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
-from eodinga.gui.launcher import LauncherState, extract_active_filter_chips
+from eodinga.gui.launcher import LauncherState
+from eodinga.gui.query_filters import extract_active_filter_chips, remove_active_filter_chip
 from eodinga.gui.launcher_window import LauncherWindow
 
 
@@ -767,3 +768,22 @@ def test_launcher_shows_active_filter_chips_for_query(qapp) -> None:
         'content:"notes"',
     ]
     assert launcher.active_filters_row.buttons[0].accessibleName() == "Active filter ext:pdf"
+
+
+def test_remove_active_filter_chip_preserves_remaining_query_terms() -> None:
+    updated = remove_active_filter_chip('report ext:pdf date:this-week content:"release notes"', "date:this-week")
+
+    assert updated == 'report ext:pdf content:"release notes"'
+
+
+def test_launcher_clicking_filter_chip_removes_it_from_query(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText('release ext:pdf date:this-week')
+    _wait(60)
+    launcher.active_filters_row.buttons[0].click()
+    _wait(60)
+
+    assert launcher.query_field.text() == "release date:this-week"
+    assert [button.text() for button in launcher.active_filters_row.buttons] == ["date:this-week"]
