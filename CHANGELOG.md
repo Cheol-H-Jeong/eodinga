@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.385 - 2026-04-23
+## 0.1.388 - 2026-04-23
 
 - Fixed slash-delimited DSL regex parsing so closing `/` detection now honors even vs odd backslash runs, which keeps valid patterns ending in a literal backslash from being misread as unterminated.
 - Stopped `content:` and `regex:` inline operators from silently downgrading malformed regex suffixes such as `imsi` or `i1` into plain word filters; these now fail with a syntax error consistently.
