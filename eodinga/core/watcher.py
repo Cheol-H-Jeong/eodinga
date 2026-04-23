@@ -103,6 +103,8 @@ class _Handler(FileSystemEventHandler):
                 return
             self._service.record(normalized)
             return
+        if not _is_within_root(src_path, self._root):
+            return
         self._service.record(
             WatchEvent(
                 event_type=_event_type_for(event),

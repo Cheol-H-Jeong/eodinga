@@ -6,7 +6,7 @@ from threading import Thread
 from time import monotonic, sleep
 
 import pytest
-from watchdog.events import FileMovedEvent
+from watchdog.events import FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileMovedEvent
 
 from eodinga.common import WatchEvent
 from eodinga.core.watcher import WatchService, _Handler
@@ -80,6 +80,30 @@ def test_watcher_handler_normalizes_same_path_move_to_modify(tmp_path: Path) -> 
     assert event.path == target
     assert event.src_path is None
     assert event.root_path == root
+
+
+@pytest.mark.parametrize(
+    "event_factory",
+    [
+        FileCreatedEvent,
+        FileModifiedEvent,
+        FileDeletedEvent,
+    ],
+)
+def test_watcher_handler_ignores_non_move_events_outside_root(
+    tmp_path: Path,
+    event_factory: type[FileCreatedEvent] | type[FileModifiedEvent] | type[FileDeletedEvent],
+) -> None:
+    service = WatchService()
+    root = tmp_path / "watched"
+    outside = tmp_path / "outside.txt"
+    handler = _Handler(service, root)
+
+    handler.on_any_event(event_factory(str(outside)))
+    service._flush_ready(force=True)
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
 
 
 def test_watcher_coalesces_events_within_500ms(tmp_path: Path) -> None:
