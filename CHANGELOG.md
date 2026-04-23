@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.807 - 2026-04-23
+
+- Reused compiled regex and normalized text predicates across the executor's Python-scan fallback path, trimming repeat `re.compile()` and Unicode normalization work out of branch-local record filtering.
+- Removed a redundant symlink-root `resolve_safe(...).is_dir()` probe in the walker, so alias-root traversals no longer pay the extra root resolution before the existing ancestry-aware descent logic runs.
+- Added an opt-in fallback-query perf benchmark behind `EODINGA_RUN_PERF=1` and documented its knobs, covering regex-only scan latency without refreshing the checked-in full-suite baseline table.
+
 ## 0.1.744 - 2026-04-23
 
 - Extended query date macros with `tomorrow`, `year`, and previous-period aliases like `prev-week`, `previous_month`, and `previous_year`, keeping them on the existing local-time boundary rules.
