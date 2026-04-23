@@ -144,6 +144,32 @@ def test_compile_double_negated_group_restores_positive_branches() -> None:
     assert all(not branch.path_terms[0].negated for branch in compiled.branches)
 
 
+def test_compile_boolean_or_group_expands_to_distinct_truth_table_branches() -> None:
+    compiled = compile_query(parse("(case:true | regex:true) report-[0-9]+"))
+
+    assert len(compiled.branches) == 2
+    assert {(branch.case_sensitive, branch.regex_mode) for branch in compiled.branches} == {
+        (True, False),
+        (False, True),
+    }
+    literal_branch = next(branch for branch in compiled.branches if branch.case_sensitive)
+    regex_branch = next(branch for branch in compiled.branches if branch.regex_mode)
+    assert literal_branch.path_terms[0].value == "report-[0-9]+"
+    assert regex_branch.path_regex_terms[0].pattern == "report-[0-9]+"
+
+
+def test_compile_negated_boolean_and_group_deduplicates_equivalent_branches() -> None:
+    compiled = compile_query(parse("-(case:true regex:true) report-[0-9]+"))
+
+    assert len(compiled.branches) == 1
+    branch = compiled.branches[0]
+    assert branch.case_sensitive is False
+    assert branch.regex_mode is False
+    assert branch.path_terms == (branch.path_terms[0],)
+    assert branch.path_terms[0].value == "report-[0-9]+"
+    assert branch.path_terms[0].negated is False
+
+
 def test_compile_reuses_cached_queries() -> None:
     first = compile("report ext:pdf")
     second = compile("report ext:pdf")

@@ -381,9 +381,18 @@ def _compile_branch(
     )
 
 
+def _dedupe_branches(branches: list[CompiledBranch]) -> tuple[CompiledBranch, ...]:
+    unique: list[CompiledBranch] = []
+    for branch in branches:
+        if branch in unique:
+            continue
+        unique.append(branch)
+    return tuple(unique)
+
+
 def compile_query(ast: AstNode) -> CompiledQuery:
     normalized = _to_nnf(ast)
-    branches = tuple(_compile_branch(branch) for branch in _to_dnf(normalized))
+    branches = _dedupe_branches([_compile_branch(branch) for branch in _to_dnf(normalized)])
     return CompiledQuery(branches=branches)
 
 
