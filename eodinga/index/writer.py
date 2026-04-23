@@ -14,6 +14,8 @@ from eodinga.index.schema import apply_schema, current_schema_version
 ParserCallback = Callable[[Path], ParsedContent | None]
 RecordLoader = Callable[[Path], FileRecord | None]
 T = TypeVar("T")
+IDLE_SYNCHRONOUS_MODE = "FULL"
+BULK_SYNCHRONOUS_MODE = "NORMAL"
 
 
 class ExistingContentRow(NamedTuple):
@@ -137,8 +139,12 @@ class IndexWriter:
     @contextmanager
     def _transaction(self) -> Iterator[None]:
         if not self._conn.in_transaction:
-            with self._conn:
-                yield
+            self._conn.execute(f"PRAGMA synchronous={BULK_SYNCHRONOUS_MODE}")
+            try:
+                with self._conn:
+                    yield
+            finally:
+                self._conn.execute(f"PRAGMA synchronous={IDLE_SYNCHRONOUS_MODE}")
             return
         self._savepoint_index += 1
         savepoint_name = f"eodinga_writer_{self._savepoint_index}"

@@ -254,8 +254,11 @@ def test_connect_database_applies_row_factory_and_pragmas(tmp_path: Path) -> Non
     conn = connect_database(path)
     try:
         assert conn.row_factory is sqlite3.Row
+        synchronous = conn.execute("PRAGMA synchronous;").fetchone()
         cache_size = conn.execute("PRAGMA cache_size;").fetchone()
+        assert synchronous is not None
         assert cache_size is not None
+        assert int(synchronous[0]) == 2
         assert int(cache_size[0]) == -64000
     finally:
         conn.close()

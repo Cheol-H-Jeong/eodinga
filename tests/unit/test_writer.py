@@ -470,6 +470,49 @@ def test_writer_bulk_upsert_respects_active_transaction_rollback(tmp_db: Path, t
     assert rows == []
 
 
+def test_writer_bulk_upsert_temporarily_relaxes_synchronous_mode_for_top_level_transactions(
+    tmp_db: Path, tmp_path: Path
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    writer = IndexWriter(conn)
+    before = conn.execute("PRAGMA synchronous").fetchone()
+
+    assert writer.bulk_upsert([_synthetic_record(1, tmp_path)]) == 1
+
+    after = conn.execute("PRAGMA synchronous").fetchone()
+    assert before == (2,)
+    assert after == (2,)
+
+
+def test_writer_nested_transactions_keep_outer_synchronous_mode_unchanged(
+    tmp_db: Path, tmp_path: Path
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    conn.commit()
+    writer = IndexWriter(conn)
+
+    before = conn.execute("PRAGMA synchronous").fetchone()
+    conn.execute("BEGIN")
+    try:
+        assert writer.bulk_upsert([_synthetic_record(1, tmp_path)]) == 1
+        during = conn.execute("PRAGMA synchronous").fetchone()
+    finally:
+        conn.rollback()
+    after = conn.execute("PRAGMA synchronous").fetchone()
+
+    assert before == (2,)
+    assert during == (2,)
+    assert after == (2,)
+
+
 def test_writer_apply_events_respects_active_transaction_rollback(tmp_db: Path, tmp_path: Path) -> None:
     conn = sqlite3.connect(tmp_db)
     with conn:
