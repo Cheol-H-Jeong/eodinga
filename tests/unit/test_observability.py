@@ -467,15 +467,20 @@ def test_record_snapshot_keeps_recent_entries_bounded() -> None:
 
 def test_recent_snapshots_return_isolated_payload_copies() -> None:
     reset_metrics()
-    payload = {"query": {"text": "alpha", "filters": ["ext:txt"]}}
+    payload: dict[str, object] = {"query": {"text": "alpha", "filters": ["ext:txt"]}}
 
     record_snapshot("command.search", payload)
-    payload["query"]["text"] = "mutated"
-    payload["query"]["filters"].append("size:>1M")
+    query_payload = cast(dict[str, object], payload["query"])
+    filters = cast(list[str], query_payload["filters"])
+    query_payload["text"] = "mutated"
+    filters.append("size:>1M")
 
     snapshots = recent_snapshots()
-    snapshots[0]["payload"]["query"]["text"] = "changed again"
-    snapshots[0]["payload"]["query"]["filters"].append("path:docs")
+    stored_payload = cast(dict[str, object], snapshots[0]["payload"])
+    stored_query = cast(dict[str, object], stored_payload["query"])
+    stored_filters = cast(list[str], stored_query["filters"])
+    stored_query["text"] = "changed again"
+    stored_filters.append("path:docs")
 
     fresh_snapshots = recent_snapshots()
     assert fresh_snapshots[0]["payload"] == {"query": {"text": "alpha", "filters": ["ext:txt"]}}
