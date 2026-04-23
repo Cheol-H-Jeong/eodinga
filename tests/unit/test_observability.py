@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 
 from eodinga.common import WatchEvent
@@ -13,7 +15,9 @@ from eodinga.observability import (
     configure_logging,
     default_crash_dir,
     default_log_path,
+    install_crash_handlers,
     reset_metrics,
+    report_crash,
     snapshot_metrics,
     write_crash_log,
 )
@@ -75,6 +79,44 @@ def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
         crash_path = write_crash_log(error, context="env override")
     assert crash_path.parent == tmp_path
     assert "env override" in crash_path.read_text(encoding="utf-8")
+
+
+def test_report_crash_writes_log_and_stderr(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path))
+
+    crash_path = report_crash(RuntimeError("boom"), context="reported crash")
+
+    captured = capsys.readouterr()
+    assert str(crash_path) in captured.err
+    assert "reported crash" in crash_path.read_text(encoding="utf-8")
+
+
+def test_install_crash_handlers_writes_thread_crash_log(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path))
+    install_crash_handlers()
+
+    try:
+        raise RuntimeError("thread boom")
+    except RuntimeError as error:
+        args = SimpleNamespace(
+            exc_type=type(error),
+            exc_value=error,
+            exc_traceback=error.__traceback__,
+            thread=threading.current_thread(),
+        )
+    threading.excepthook(args)
+
+    captured = capsys.readouterr()
+    crash_logs = sorted(tmp_path.glob("crash-*.log"))
+    assert len(crash_logs) == 1
+    assert str(crash_logs[0]) in captured.err
+    contents = crash_logs[0].read_text(encoding="utf-8")
+    assert "Unhandled thread exception" in contents
+    assert f"thread={threading.current_thread().name}" in contents
 
 
 def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path: Path) -> None:

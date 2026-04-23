@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 import traceback
 from dataclasses import dataclass, field
 from collections.abc import Mapping
@@ -9,7 +10,7 @@ from datetime import UTC, datetime
 from json import dumps as json_dumps
 from pathlib import Path
 from threading import Lock
-from typing import Any, TypedDict
+from typing import IO, Any, TypedDict
 
 from loguru import logger
 
@@ -202,6 +203,45 @@ def write_crash_log(
     ]
     crash_path.write_text("".join(lines), encoding="utf-8")
     return crash_path
+
+
+def report_crash(
+    error: BaseException,
+    *,
+    context: str = "Unhandled exception",
+    details: Mapping[str, object] | None = None,
+    stream: IO[str] | None = None,
+) -> Path:
+    crash_path = write_crash_log(error, context=context, details=details)
+    target_stream = stream or sys.stderr
+    target_stream.write(f"unhandled exception; crash log written to {crash_path}\n")
+    return crash_path
+
+
+def install_crash_handlers(*, stream: IO[str] | None = None) -> None:
+    def _handle_exception(
+        exc_type: type[BaseException],
+        error: BaseException,
+        tb: Any,
+    ) -> None:
+        if issubclass(exc_type, KeyboardInterrupt):
+            return
+        error.__traceback__ = tb
+        report_crash(error, context="Unhandled top-level exception", stream=stream)
+
+    def _handle_thread_exception(args: threading.ExceptHookArgs) -> None:
+        if isinstance(args.exc_value, KeyboardInterrupt):
+            return
+        details = {"thread": args.thread.name if args.thread is not None else None}
+        report_crash(
+            args.exc_value,
+            context="Unhandled thread exception",
+            details=details,
+            stream=stream,
+        )
+
+    sys.excepthook = _handle_exception
+    threading.excepthook = _handle_thread_exception
 
 
 def _format_detail_value(value: object) -> str:

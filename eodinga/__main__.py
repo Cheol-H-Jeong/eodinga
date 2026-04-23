@@ -20,8 +20,9 @@ from eodinga.observability import (
     configure_logging,
     counter_value,
     histogram_snapshot,
+    install_crash_handlers,
     snapshot_metrics,
-    write_crash_log,
+    report_crash,
 )
 from eodinga.query import QuerySyntaxError, search as run_search
 
@@ -209,6 +210,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     configure_logging(args.log_level)
+    install_crash_handlers()
     try:
         return args.handler(args)
     except KeyboardInterrupt:
@@ -216,12 +218,11 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as error:
         command_argv = argv or sys.argv[1:]
         command = " ".join(command_argv) or "<interactive>"
-        crash_path = write_crash_log(
+        report_crash(
             error,
             context=f"Unhandled exception while running: {command}",
             details={"argv": command_argv},
         )
-        sys.stderr.write(f"unhandled exception; crash log written to {crash_path}\n")
         return 1
 
 
