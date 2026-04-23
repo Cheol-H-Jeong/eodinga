@@ -393,6 +393,48 @@ def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
     assert calls == ["ext:pdf"]
 
 
+def test_launcher_can_pin_and_unpin_current_query(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    assert not launcher.pin_query_button.isEnabled()
+
+    launcher.query_field.setText("ext:pdf")
+    _wait(10)
+
+    assert launcher.pin_query_button.isEnabled()
+    assert launcher.pin_query_button.text() == "Pin Query"
+
+    launcher.pin_query_button.click()
+
+    assert state.pinned_queries == ["ext:pdf"]
+    assert [button.text() for button in launcher.pinned_queries_row.buttons] == ["ext:pdf"]
+    assert launcher.pin_query_button.text() == "Unpin Query"
+
+    launcher.pin_query_button.click()
+
+    assert state.pinned_queries == []
+    assert launcher.pinned_queries_row.buttons == []
+    assert launcher.pin_query_button.text() == "Pin Query"
+
+
+def test_launcher_ctrl_p_toggles_pinned_query(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    launcher.query_field.setText("budget")
+    _wait(10)
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_P, Qt.KeyboardModifier.ControlModifier)
+    assert state.pinned_queries == ["budget"]
+    assert "Ctrl+P pins the current query" in launcher.shortcut_label.text()
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_P, Qt.KeyboardModifier.ControlModifier)
+    assert state.pinned_queries == []
+
+
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:
     revealed: list[str] = []
 
@@ -461,11 +503,12 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "No recent queries yet" in launcher.empty_state.body_label.text()
     assert "Alt+Up" in launcher.empty_state.body_label.text()
     assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
+    assert "Ctrl+P" in launcher.empty_state.body_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
     assert "(20%)" in launcher.empty_state.details_label.text()
     assert launcher.status_chip.text() == "Indexing"
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
-    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Alt+Up recalls recent queries."
+    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Ctrl+P pins the current query. Alt+Up recalls recent queries."
 
     launcher.query_field.setText("missing")
     _wait(60)
@@ -473,8 +516,10 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.status_chip.text() == "No results"
     assert launcher.empty_state.title_label.text() == 'No results for "missing"'
     assert "date:this-week" in launcher.empty_state.body_label.text()
+    assert "Ctrl+P to pin the current query" in launcher.empty_state.body_label.text()
     assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
+    assert "Ctrl+P pins the current query" in launcher.shortcut_label.text()
     assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
     assert "Alt+Up recalls recent queries" in launcher.shortcut_label.text()
 
@@ -856,6 +901,8 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.query_field.accessibleDescription() == "Type a filename, path, or content term to search the index."
+    assert launcher.pin_query_button.accessibleName() == "Pin current query"
+    assert launcher.pin_query_button.accessibleDescription() == "Enter a query to pin it for quick access."
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"

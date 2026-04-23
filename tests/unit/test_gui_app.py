@@ -70,6 +70,7 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
     assert window.about_tab.accessibleName() == "About tab"
+    assert window.launcher_window.pin_query_button.accessibleName() == "Pin current query"
     assert window.launcher_window.pinned_queries_row.accessibleName() == "Pinned launcher queries"
     assert window.launcher_window.recent_queries_row.accessibleName() == "Recent launcher queries"
     assert window.launcher_window.empty_state.accessibleName() == "Launcher empty state"
@@ -113,6 +114,20 @@ def test_launcher_state_is_shared_between_popup_and_search_tab(qapp) -> None:
     launcher._run_query()
 
     assert "release" in window.search_tab.launcher_panel.empty_state.body_label.text()
+
+
+def test_pinned_queries_persist_when_launcher_state_changes(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+
+    window.launcher_window.query_field.setText("ext:pdf")
+    QTest.qWait(10)
+    window.launcher_window.pin_query_button.click()
+    qapp.processEvents()
+
+    stored = load(temp_config_path)
+    assert stored.launcher.pinned_queries == ["ext:pdf"]
+    assert window.search_tab.launcher_panel.pinned_queries_row.buttons[0].text() == "ext:pdf"
 
 
 def test_launchers_respect_configured_limit_and_debounce(qapp) -> None:
