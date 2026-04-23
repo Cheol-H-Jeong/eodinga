@@ -136,6 +136,19 @@ class WatchService:
         self._observers.clear()
         self._reset_state()
 
+    def flush(self) -> None:
+        self._flush_ready(force=True)
+
+    def drain(self, *, flush: bool = False) -> list[WatchEvent]:
+        if flush:
+            self.flush()
+        drained: list[WatchEvent] = []
+        while True:
+            try:
+                drained.append(self.queue.get_nowait())
+            except Empty:
+                return drained
+
     def record(self, event: WatchEvent) -> None:
         increment_counter("watcher_events", event_type=event.event_type)
         with self._lock:

@@ -7,6 +7,8 @@ from time import perf_counter, time
 import eodinga.index.writer as writer_module
 from eodinga.content.base import ParsedContent
 from eodinga.common import FileRecord, WatchEvent
+from eodinga.core.watcher import WatchService
+from eodinga.index.live import apply_live_updates
 from eodinga.index.writer import IndexWriter
 from tests.conftest import make_record
 
@@ -253,6 +255,33 @@ def test_writer_apply_events_batches_moved_source_cleanup(tmp_db: Path, tmp_path
         row[0] for row in conn.execute("SELECT path FROM files ORDER BY path").fetchall()
     }
     assert remaining_paths == {str(path) for path in moved_paths}
+
+
+def test_apply_live_updates_flushes_and_persists_pending_create(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(id, path, include, exclude, added_at) VALUES (?, ?, ?, ?, ?)",
+        (1, str(tmp_path), "[]", "[]", 1),
+    )
+    writer = IndexWriter(conn)
+    service = WatchService()
+    created = tmp_path / "pending-create.txt"
+    created.write_text("pending create", encoding="utf-8")
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=created,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+
+    result = apply_live_updates(service, writer, record_loader=make_record)
+
+    assert result == (1, 1)
+    rows = conn.execute("SELECT path FROM files").fetchall()
+    assert rows == [(str(created),)]
 
 
 def test_writer_bulk_upsert_reuses_existing_content_rowids(tmp_db: Path, tmp_path: Path) -> None:

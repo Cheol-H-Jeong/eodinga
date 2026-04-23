@@ -219,6 +219,27 @@ def test_watcher_move_then_destination_create_preserves_move_metadata(tmp_path: 
     assert event.src_path == source
 
 
+def test_watcher_drain_flushes_pending_events(tmp_path: Path) -> None:
+    service = WatchService()
+    target = tmp_path / "pending.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=target,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+
+    drained = service.drain(flush=True)
+
+    assert [(event.event_type, event.path) for event in drained] == [("created", target)]
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+
 def test_watcher_move_then_source_delete_keeps_single_move_event(tmp_path: Path) -> None:
     service = WatchService()
     source = tmp_path / "before.txt"
