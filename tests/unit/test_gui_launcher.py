@@ -500,6 +500,7 @@ def test_launcher_alt_up_and_down_recall_recent_queries(qapp) -> None:
 def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
     properties: list[str] = []
     copied: list[str] = []
+    copied_names: list[str] = []
 
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
@@ -517,6 +518,7 @@ def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
     launcher = LauncherWindow(search_fn=search_fn)
     launcher.show_properties.connect(lambda hit: properties.append(hit.name))
     launcher.copy_path_requested.connect(lambda hit: copied.append(str(hit.path)))
+    launcher.copy_name_requested.connect(lambda hit: copied_names.append(hit.name))
     launcher.show()
 
     launcher.query_field.setText("release")
@@ -524,9 +526,12 @@ def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
 
     QTest.keyClick(launcher, Qt.Key.Key_Return, Qt.KeyboardModifier.ShiftModifier)
     QTest.keyClick(launcher, Qt.Key.Key_C, Qt.KeyboardModifier.AltModifier)
+    QTest.keyClick(launcher, Qt.Key.Key_N, Qt.KeyboardModifier.AltModifier)
 
     assert properties == ["release-notes.txt"]
     assert copied == ["/tmp/release-notes.txt"]
+    assert copied_names == ["release-notes.txt"]
+    assert "Alt+N copies name" in launcher.shortcut_label.text()
 
 
 def test_launcher_alt_number_quick_picks_results(qapp) -> None:

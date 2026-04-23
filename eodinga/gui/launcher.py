@@ -24,7 +24,7 @@ class LauncherPanel(QWidget):
     open_containing_folder = Signal(object)
     show_properties = Signal(object)
     copy_path_requested = Signal(object)
-
+    copy_name_requested = Signal(object)
     def __init__(
         self,
         search_fn: SearchFn | None = None,
@@ -93,6 +93,7 @@ class LauncherPanel(QWidget):
             QShortcut(QKeySequence("Ctrl+Return"), self),
             QShortcut(QKeySequence("Shift+Return"), self),
             QShortcut(QKeySequence("Alt+C"), self),
+            QShortcut(QKeySequence("Alt+N"), self),
             QShortcut(QKeySequence(QKeySequence.StandardKey.SelectAll), self),
             QShortcut(QKeySequence("Ctrl+L"), self),
             QShortcut(QKeySequence("Alt+Up"), self),
@@ -102,16 +103,16 @@ class LauncherPanel(QWidget):
         self._shortcuts[1].activated.connect(self.emit_open_containing_folder)
         self._shortcuts[2].activated.connect(self.emit_show_properties)
         self._shortcuts[3].activated.connect(self.emit_copy_path)
-        self._shortcuts[4].activated.connect(self.select_query_text)
-        self._shortcuts[5].activated.connect(self.focus_query_field)
-        self._shortcuts[6].activated.connect(self.recall_previous_query)
-        self._shortcuts[7].activated.connect(self.recall_next_query)
+        self._shortcuts[4].activated.connect(self.emit_copy_name)
+        self._shortcuts[5].activated.connect(self.select_query_text)
+        self._shortcuts[6].activated.connect(self.focus_query_field)
+        self._shortcuts[7].activated.connect(self.recall_previous_query)
+        self._shortcuts[8].activated.connect(self.recall_next_query)
         self._quick_pick_shortcuts: list[QShortcut] = []
         for index in range(9):
             shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
             shortcut.activated.connect(lambda row=index: self.activate_result_at(row))
             self._quick_pick_shortcuts.append(shortcut)
-
         if self._state is not None:
             self._state.recent_queries_changed.connect(self.set_recent_queries)
             self._state.pinned_queries_changed.connect(self.set_pinned_queries)
@@ -176,6 +177,12 @@ class LauncherPanel(QWidget):
         hit = self._current_hit()
         if hit is not None:
             self.copy_path_requested.emit(hit)
+
+    def emit_copy_name(self) -> None:
+        self._flush_pending_query()
+        hit = self._current_hit()
+        if hit is not None:
+            self.copy_name_requested.emit(hit)
 
     def recall_previous_query(self) -> None:
         self._navigate_recent_queries(-1)
@@ -270,15 +277,9 @@ class LauncherPanel(QWidget):
             else:
                 hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
         elif self.result_list.hasFocus():
-            hint = (
-                "Enter opens. Alt+1..9 quick-picks. Up/Down wraps. "
-                "Home/End and PgUp/PgDn jump. Ctrl+Enter reveals. Ctrl+A or Ctrl+L returns to filter."
-            )
+            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
         else:
-            hint = (
-                "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. "
-                "Enter opens the top hit. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
-            )
+            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
 
     def _current_hit(self) -> SearchHit | None:

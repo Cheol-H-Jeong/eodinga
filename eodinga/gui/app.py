@@ -4,7 +4,7 @@ from contextlib import closing
 import sys
 from typing import Literal, Protocol, cast, overload
 
-from PySide6.QtGui import QAction, QKeySequence, QShortcut
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QMessageBox, QStyle, QSystemTrayIcon, QTabWidget, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
@@ -148,7 +148,6 @@ class EodingaWindow(QMainWindow):
 
         app = cast(QApplication, QApplication.instance())
         self.desktop_actions = desktop_actions or DesktopActions(app)
-        self._copy_name_shortcuts: list[QShortcut] = []
         self._connect_launcher_actions(self.launcher_window)
         self._connect_launcher_actions(self.search_tab.launcher_panel)
         self.tray_indicator = TrayIndicatorController(app, self.launcher_window, self)
@@ -171,9 +170,7 @@ class EodingaWindow(QMainWindow):
         launcher.open_containing_folder.connect(self.desktop_actions.reveal_hit)
         launcher.show_properties.connect(self.desktop_actions.show_properties)
         launcher.copy_path_requested.connect(self.desktop_actions.copy_hit_path)
-        shortcut = QShortcut(QKeySequence("Alt+N"), launcher)
-        shortcut.activated.connect(lambda current_launcher=launcher: self._copy_launcher_hit_name(current_launcher))
-        self._copy_name_shortcuts.append(shortcut)
+        launcher.copy_name_requested.connect(self.desktop_actions.copy_hit_name)
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self.launcher_state.set_indexing_status(status)
@@ -192,12 +189,6 @@ class EodingaWindow(QMainWindow):
         self._config.launcher = self._config.launcher.model_copy(update={"hotkey": self._hotkey_controller.combo})
         self._config.save(self._config_path)
         self.settings_tab.set_hotkey_combo(self._hotkey_controller.combo)
-
-    def _copy_launcher_hit_name(self, launcher: LauncherPanel) -> None:
-        hit = launcher._current_hit()
-        if hit is not None:
-            self.desktop_actions.copy_hit_name(hit)
-
 
 def build_index_search_fn(db_path) -> SearchFn:
     def _search(query: str, limit: int) -> QueryResult:
