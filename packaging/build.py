@@ -335,6 +335,11 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (launcher_payload.get("has_strict_shell"), "AppImage launcher shim no longer uses strict shell flags"),
         (launcher_payload.get("uses_bundled_runtime"), "AppImage launcher shim no longer uses the bundled runtime"),
         (launcher_payload.get("executes_python_module"), "AppImage launcher shim no longer executes the Python module"),
+        (launcher_payload.get("help_exit_code") == 0, "AppImage launcher smoke test exited non-zero"),
+        (
+            launcher_payload.get("help_mentions_search_command"),
+            "AppImage launcher smoke test output no longer exposes the CLI commands",
+        ),
         (payload.get("archive_entries_sorted"), "AppImage archive entries are no longer sorted"),
         (payload.get("archive_mtime_zero"), "AppImage archive member mtimes are no longer reproducible"),
         (payload.get("archive_numeric_owner_zero"), "AppImage archive ownership is no longer reproducible"),
@@ -425,6 +430,11 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (launcher_payload.get("has_strict_shell"), "Debian launcher shim no longer uses strict shell flags"),
         (launcher_payload.get("uses_bundled_runtime"), "Debian launcher shim no longer uses the bundled runtime"),
         (launcher_payload.get("executes_python_module"), "Debian launcher shim no longer executes the Python module"),
+        (launcher_payload.get("help_exit_code") == 0, "Debian launcher smoke test exited non-zero"),
+        (
+            launcher_payload.get("help_mentions_search_command"),
+            "Debian launcher smoke test output no longer exposes the CLI commands",
+        ),
         (docs_payload.get("license_exists"), "Debian package no longer ships the license"),
         (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),
         (docs_payload.get("changelog_has_current_release_heading"), "Debian package changelog no longer starts with the current release heading"),

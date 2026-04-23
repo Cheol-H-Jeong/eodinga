@@ -358,12 +358,79 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
             "has_strict_shell": True,
             "uses_bundled_runtime": True,
             "executes_python_module": False,
+            "help_exit_code": 0,
+            "help_mentions_search_command": True,
         },
     }
 
     errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
 
     assert "AppImage launcher shim no longer executes the Python module" in errors
+
+
+def test_linux_appimage_audit_validator_rejects_launcher_help_regression() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "x86_64",
+        "archive": f"packaging/dist/eodinga-{__version__}-linux-x86_64-appdir.tar.gz",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "archive_artifact": {
+            "exists": True,
+            "size_bytes": 1,
+            "sha256": "0" * 64,
+        },
+        "recipe": {
+            "exists": True,
+            "contains_version_template": True,
+            "rendered_exists": True,
+            "rendered_version_matches_package": True,
+            "references_desktop_entry": True,
+            "references_icon_asset": True,
+            "launches_gui": True,
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "exec": "eodinga gui",
+            "icon": "eodinga",
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "diricon_exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "runtime_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "package_init_exists": True,
+            "module_entry_exists": True,
+            "i18n_en_exists": True,
+        },
+        "apprun": {
+            "is_executable": True,
+            "launches_gui": True,
+            "has_strict_shell": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "uses_bundled_runtime": True,
+            "executes_python_module": True,
+            "help_exit_code": 1,
+            "help_mentions_search_command": False,
+        },
+    }
+
+    errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
+
+    assert "AppImage launcher smoke test exited non-zero" in errors
+    assert "AppImage launcher smoke test output no longer exposes the CLI commands" in errors
 
 
 def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> None:
@@ -458,6 +525,8 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["launcher"]["has_strict_shell"] is True
     assert payload["launcher"]["uses_bundled_runtime"] is True
     assert payload["launcher"]["executes_python_module"] is True
+    assert payload["launcher"]["help_exit_code"] == 0
+    assert payload["launcher"]["help_mentions_search_command"] is True
 
 
 def test_linux_deb_dry_run_renders_control_template() -> None:
@@ -495,6 +564,8 @@ def test_linux_deb_dry_run_renders_control_template() -> None:
     assert payload["runtime_bundle"]["i18n_en_exists"] is True
     assert payload["launcher"]["uses_bundled_runtime"] is True
     assert payload["launcher"]["executes_python_module"] is True
+    assert payload["launcher"]["help_exit_code"] == 0
+    assert payload["launcher"]["help_mentions_search_command"] is True
 
 
 def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
@@ -536,6 +607,8 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
             "has_strict_shell": True,
             "uses_bundled_runtime": True,
             "executes_python_module": True,
+            "help_exit_code": 0,
+            "help_mentions_search_command": True,
         },
         "docs": {
             "license_exists": True,
@@ -597,6 +670,8 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
             "has_strict_shell": True,
             "uses_bundled_runtime": True,
             "executes_python_module": True,
+            "help_exit_code": 0,
+            "help_mentions_search_command": True,
         },
         "docs": {
             "license_exists": True,
@@ -695,6 +770,8 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["launcher"]["has_strict_shell"] is True
     assert payload["launcher"]["uses_bundled_runtime"] is True
     assert payload["launcher"]["executes_python_module"] is True
+    assert payload["launcher"]["help_exit_code"] == 0
+    assert payload["launcher"]["help_mentions_search_command"] is True
     assert payload["docs"]["license_exists"] is True
     assert payload["docs"]["changelog_exists"] is True
     assert payload["docs"]["changelog_has_current_release_heading"] is True
@@ -851,6 +928,9 @@ def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
             "is_executable": True,
             "has_strict_shell": True,
             "executes_python_module": True,
+            "uses_bundled_runtime": True,
+            "help_exit_code": 0,
+            "help_mentions_search_command": True,
         },
         "docs": {
             "license_exists": True,
@@ -867,3 +947,84 @@ def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
     assert "Debian package is missing" in errors
     assert "Debian package size is missing" in errors
     assert "Debian package digest is missing" in errors
+
+
+def test_linux_deb_audit_validator_rejects_launcher_help_regression() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "amd64",
+        "archive": f"packaging/dist/eodinga_{__version__}_amd64_debroot.tar.gz",
+        "deb_path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "archive_artifact": {
+            "exists": True,
+            "size_bytes": 1,
+            "sha256": "0" * 64,
+        },
+        "deb_artifact": {
+            "path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+            "exists": True,
+            "size_bytes": 1,
+            "sha256": "1" * 64,
+        },
+        "dry_run": False,
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+            "architecture": "amd64",
+            "depends": "python3 (>= 3.11)",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "debian_control_template": {
+            "exists": True,
+            "contains_version_template": True,
+            "contains_arch_template": True,
+            "rendered_exists": True,
+            "source": "eodinga",
+            "maintainer": "Cheol-H-Jeong",
+            "binary_package": "eodinga",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "launches_gui": True,
+            "icon_matches_package": True,
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "runtime_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "package_init_exists": True,
+            "module_entry_exists": True,
+            "i18n_en_exists": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "uses_bundled_runtime": True,
+            "executes_python_module": True,
+            "help_exit_code": 2,
+            "help_mentions_search_command": False,
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": True,
+            "changelog_has_current_release_heading": True,
+            "changelog_gzip_mtime_zero": True,
+        },
+    }
+
+    errors = module._validate_linux_deb_audit(payload, __version__, __version__)
+
+    assert "Debian launcher smoke test exited non-zero" in errors
+    assert "Debian launcher smoke test output no longer exposes the CLI commands" in errors

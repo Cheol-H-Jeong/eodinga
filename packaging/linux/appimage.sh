@@ -70,6 +70,7 @@ import json
 import os
 import tarfile
 import hashlib
+import subprocess
 from pathlib import Path
 
 desktop_path = Path("${APPDIR}/usr/share/applications/eodinga.desktop")
@@ -92,6 +93,18 @@ rendered_recipe_path = Path("${RENDERED_RECIPE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
 rendered_recipe_text = rendered_recipe_path.read_text(encoding="utf-8")
 archive_path = Path("${ARCHIVE_PATH}")
+launcher_help = subprocess.run(
+    [str(launcher_path), "--help"],
+    capture_output=True,
+    text=True,
+    check=False,
+    cwd="/",
+    env={
+        "HOME": str(Path("${DIST_DIR}").resolve()),
+        "PATH": os.environ.get("PATH", ""),
+    },
+)
+launcher_help_output = launcher_help.stdout + launcher_help.stderr
 with tarfile.open("${ARCHIVE_PATH}", mode="r:gz") as archive:
     members = archive.getmembers()
 payload = {
@@ -160,6 +173,8 @@ payload = {
         "uses_bundled_runtime": "/usr/lib/eodinga" in launcher_path.read_text(encoding="utf-8")
         and "PYTHONPATH=" in launcher_path.read_text(encoding="utf-8"),
         "executes_python_module": "exec python3 -Im eodinga" in launcher_path.read_text(encoding="utf-8"),
+        "help_exit_code": launcher_help.returncode,
+        "help_mentions_search_command": "{index,watch,search,stats,gui,doctor,version}" in launcher_help_output,
     },
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")

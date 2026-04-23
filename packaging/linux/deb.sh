@@ -90,6 +90,7 @@ import json
 import os
 import tarfile
 import hashlib
+import subprocess
 from pathlib import Path
 
 desktop_path = Path("${PACKAGE_DIR}/usr/share/applications/eodinga.desktop")
@@ -124,6 +125,18 @@ for line in debian_control_template_path.read_text(encoding="utf-8").splitlines(
 changelog_text = gzip.decompress(changelog_path.read_bytes()).decode("utf-8")
 archive_path = Path("${ARCHIVE_PATH}")
 deb_path = Path("${DEB_PATH}")
+launcher_help = subprocess.run(
+    [str(launcher_path), "--help"],
+    capture_output=True,
+    text=True,
+    check=False,
+    cwd="/",
+    env={
+        "HOME": str(Path("${DIST_DIR}").resolve()),
+        "PATH": os.environ.get("PATH", ""),
+    },
+)
+launcher_help_output = launcher_help.stdout + launcher_help.stderr
 with tarfile.open("${ARCHIVE_PATH}", mode="r:gz") as archive:
     members = archive.getmembers()
 payload = {
@@ -201,6 +214,8 @@ payload = {
         "has_strict_shell": "set -euo pipefail" in launcher_path.read_text(encoding="utf-8"),
         "uses_bundled_runtime": 'PYTHONPATH="/usr/lib/eodinga' in launcher_path.read_text(encoding="utf-8"),
         "executes_python_module": "exec python3 -Im eodinga" in launcher_path.read_text(encoding="utf-8"),
+        "help_exit_code": launcher_help.returncode,
+        "help_mentions_search_command": "{index,watch,search,stats,gui,doctor,version}" in launcher_help_output,
     },
     "docs": {
         "license_path": str(license_path),
