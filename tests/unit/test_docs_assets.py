@@ -216,8 +216,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "EODINGA_PERF_REBUILD_MIN_FPS" in performance
     assert "## Running the Suite" in performance
     assert "## Baseline" in performance
+    assert "## Perf Refresh Bundle" in performance
     assert "## Baseline Freshness Policy" in performance
     assert "## Repro Checklist" in performance
+    assert "## Summary Capture Checklist" in performance
     assert "## Profiling Workflow" in performance
     assert "## Release Use" in performance
     assert "## Reporting Perf In Release Notes" in performance
@@ -226,6 +228,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "The defaults currently checked into the suite are:" in performance
     assert "The printed benchmark summary line." in performance
     assert "current checked-in baseline" in performance
+    assert "When you intend to refresh perf documentation, collect one replayable bundle:" in performance
+    assert "This keeps release notes and changelog entries tied to concrete perf evidence instead of memory or a partially rerun suite." in performance
 
     assert "## Pick The Version" in release
     assert "## Version Collision Guard" in release

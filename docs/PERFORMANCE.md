@@ -71,6 +71,17 @@ The defaults currently checked into the suite are:
 | Content query | `EODINGA_PERF_CONTENT_DOC_COUNT=5000`, `EODINGA_PERF_CONTENT_QUERY_COUNT=500` | `EODINGA_PERF_CONTENT_P95_MS=150` |
 | Watch latency | `EODINGA_PERF_WATCH_FILE_COUNT=25` | `EODINGA_PERF_WATCH_P99_SECONDS=2.0` |
 
+## Perf Refresh Bundle
+
+When you intend to refresh perf documentation, collect one replayable bundle:
+
+1. the exact `EODINGA_RUN_PERF=1 ...` command you ran
+2. every non-default `EODINGA_PERF_*` override used in that run
+3. the raw stdout summary lines captured from the benchmark
+4. a short note stating whether the run was warm-cache or after any cache reset
+
+Without that bundle, treat the checked-in table as historical baseline context only and leave the numeric rows unchanged.
+
 ## Baseline
 
 Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed on the branch that originally introduced the current no-parser indexing fast path:
@@ -113,6 +124,17 @@ One-command capture example:
 ```bash
 source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s 2>&1 | tee /tmp/eodinga-perf.log && rg '^(bulk_upsert|cold_start|rebuild_cold_start|rebuild_index|walk_batched|query_latency|content_query_latency|watch_latency)' /tmp/eodinga-perf.log
 ```
+
+## Summary Capture Checklist
+
+Before updating prose or tables, confirm that you have:
+
+- the benchmark family name that moved, such as cold start, rebuild throughput, name query latency, content query latency, or watch latency
+- the structured stdout summary line copied verbatim into your scratch notes
+- the command and env overrides recorded beside that output
+- a same-round explanation for why the new sample differs from the previous checked-in baseline
+
+This keeps release notes and changelog entries tied to concrete perf evidence instead of memory or a partially rerun suite.
 
 ## Repro Checklist
 
