@@ -13,7 +13,15 @@ def test_doctor_returns_expected_shape(tmp_path: Path) -> None:
     config = AppConfig(roots=[RootConfig(path=tmp_path)])
     report, exit_code = run_diagnostics(config=config, db_path=tmp_path / "index.db")
     assert exit_code == 0
-    assert set(report) == {"python", "dependencies", "db", "roots", "hotkey_backend", "default_excludes"}
+    assert set(report) == {
+        "python",
+        "dependencies",
+        "db",
+        "roots",
+        "hotkey_backend",
+        "observability",
+        "default_excludes",
+    }
     assert report["default_excludes"]["effective"] is True
     assert report["db"]["exists"] is False
     assert report["db"]["interrupted_build_resumed"] is False
@@ -21,6 +29,29 @@ def test_doctor_returns_expected_shape(tmp_path: Path) -> None:
     assert report["db"]["stale_wal_present"] is False
     assert report["db"]["stale_wal_recovered"] is False
     assert report["db"]["stale_wal_error"] is None
+    assert report["observability"]["file_logging_enabled"] is True
+    assert report["observability"]["log_path"] is None
+    assert report["observability"]["metrics_persistence_enabled"] is False
+    assert report["observability"]["metrics_path"] is None
+    assert report["observability"]["crash_dir"]
+
+
+def test_doctor_reports_observability_overrides(monkeypatch, tmp_path: Path) -> None:
+    log_path = tmp_path / "logs" / "app.log"
+    metrics_path = tmp_path / "state" / "metrics.json"
+    crash_dir = tmp_path / "crashes"
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    report, exit_code = run_diagnostics(config=AppConfig(), db_path=tmp_path / "index.db")
+
+    assert exit_code == 0
+    assert report["observability"]["log_path"] == str(log_path)
+    assert report["observability"]["metrics_persistence_enabled"] is True
+    assert report["observability"]["metrics_path"] == str(metrics_path)
+    assert report["observability"]["crash_dir"] == str(crash_dir)
 
 
 def test_doctor_flags_missing_dependency(monkeypatch, tmp_path: Path) -> None:

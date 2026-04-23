@@ -14,6 +14,13 @@ from eodinga.index import (
     recover_interrupted_recovery,
     recover_stale_wal,
 )
+from eodinga.observability import (
+    file_logging_enabled,
+    metrics_persistence_enabled,
+    resolve_crash_dir,
+    resolve_log_path,
+    resolve_metrics_path,
+)
 
 DEFAULT_EXCLUDES = list(DENYLIST) + ["/var/lib/docker"]
 
@@ -98,6 +105,15 @@ def run_diagnostics(config: AppConfig | None = None, db_path: Path | None = None
         },
         "roots": roots,
         "hotkey_backend": _detect_hotkey_backend(),
+        "observability": {
+            "file_logging_enabled": file_logging_enabled(),
+            "log_path": str(resolve_log_path()) if resolve_log_path() is not None else None,
+            "metrics_persistence_enabled": metrics_persistence_enabled(),
+            "metrics_path": (
+                str(resolve_metrics_path()) if resolve_metrics_path() is not None else None
+            ),
+            "crash_dir": str(resolve_crash_dir()),
+        },
         "default_excludes": {
             "effective": True,
             "entries": DEFAULT_EXCLUDES,
