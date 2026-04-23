@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.852 - 2026-04-23
+## 0.1.857 - 2026-04-23
 
 - Cached compiled include and exclude path rules plus the expanded default denylist, removing repeated `PathSpec` rebuilds from every walker rule check.
 - Short-circuited excluded walker paths before `stat()` calls, cutting avoidable filesystem syscalls when large ignored trees are present under an indexed root.
