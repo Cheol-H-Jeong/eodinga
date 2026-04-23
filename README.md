@@ -72,6 +72,16 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 6. Use `Alt+Up` to recall recent queries, `Ctrl+L` to jump back to the filter, and `PgUp` / `PgDn` to move through longer result sets without leaving the keyboard.
 7. Re-run `python scripts/render_docs_screenshots.py` if you update the Qt surfaces and want the shipped screenshots refreshed.
 
+## Search Surface Decision Guide
+
+| If you need to... | Use this first | Why |
+| --- | --- | --- |
+| set roots, inspect parser/install state, or change launcher options | `eodinga gui` | keeps setup, diagnostics, and indexing controls in one place |
+| keep a shell-only workstation fresh after an initial crawl | `eodinga watch` | reuses the same local index without opening the GUI |
+| script checks or embed search in another tool | `eodinga search`, `stats --json`, `doctor` | returns stable CLI or JSON outputs against the shared query engine |
+| jump into the top result from anywhere with the keyboard | launcher hotkey | keeps the search path minimal once the index already exists |
+| recover after a crash, stale WAL, or interrupted rebuild | `eodinga doctor` then `eodinga index --rebuild` | surfaces the active state before forcing a rebuild |
+
 ## Feature Overview
 
 | Area | Included in `0.1.x` |
@@ -204,6 +214,18 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Exclude noisy trees | `-path:node_modules` |
 | Run regex | `/todo|fixme/i` |
 
+## Query Building Ladder
+
+Use this order when a query is not behaving the way you expected:
+
+1. Start with a plain lexical term such as `roadmap`.
+2. Add one structural limiter such as `ext:md`, `path:docs`, or `is:file`.
+3. Add time or size bounds only after the plain match shape is right.
+4. Switch to a quoted phrase when word order matters.
+5. Use regex last, because it runs against the reduced candidate set rather than the full indexed corpus.
+
+That progression mirrors the engine path in [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md): cheap indexed filters first, fallback-heavy predicates later.
+
 ## Supported Content Types
 
 - Plain text and source code: `.txt`, `.md`, `.py`, and similar text-first formats.
@@ -310,6 +332,19 @@ Review the dry-run output before tagging. If the staged payload disagrees with `
 - Linux AppImage dry runs render `packaging/linux/appimage-builder.yml` from the current package version before building.
 - Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, and compressed changelog into the package root.
 - The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
+
+## Release Evidence Checklist
+
+Before tagging a worker round, confirm all four evidence classes line up:
+
+| Evidence | Command or file | Why it matters |
+| --- | --- | --- |
+| Runtime gate | `pytest -q tests`, `ruff check eodinga tests`, `pyright` | proves the repository health before metadata moves |
+| Derived docs assets | `pytest -q tests/unit/test_docs_assets.py` | catches drift between markdown, screenshots, and man page |
+| Packaging review | `python packaging/build.py --target ...-dry-run`, then inspect `packaging/dist/` | validates the staged installer inputs instead of trusting exit status alone |
+| Release metadata | `CHANGELOG.md`, `pyproject.toml`, `eodinga/__init__.py`, local tag | keeps the patch version and notes aligned with the exact branch tip |
+
+If any one of those four is out of sync, treat the release as incomplete even when the markdown itself reads correctly.
 
 ## Release Inputs
 
