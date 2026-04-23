@@ -178,6 +178,15 @@ def test_windows_build_target_relabels_audit_and_requires_built_artifacts(monkey
         return f"/usr/bin/{command}"
 
     monkeypatch.setattr(module.shutil, "which", fake_which)
+    real_audit = module._audit_windows_inputs
+
+    def fake_audit(version: str, package_version: str) -> dict[str, object]:
+        payload = real_audit(version, package_version)
+        payload["pyinstaller_spec"]["dist_exists"] = {"cli": False, "gui": False}
+        payload["pyinstaller_spec"]["exe_exists"] = {"cli": False, "gui": False}
+        return payload
+
+    monkeypatch.setattr(module, "_audit_windows_inputs", fake_audit)
 
     result = module._run_windows()
 
