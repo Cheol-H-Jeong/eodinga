@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.847 - 2026-04-23
+## 0.1.850 - 2026-04-23
 
 - Added ISO year period literals to the query date parser, so `date:2026` now covers the full calendar year without spelling out explicit day endpoints.
 - Added ISO month period literals, enabling compact filters like `date:2026-04` across `date:`, `modified:`, and `created:` operators.
