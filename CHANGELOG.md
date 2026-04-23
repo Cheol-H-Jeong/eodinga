@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.191 - 2026-04-23
+## 0.1.195 - 2026-04-23
 
 - Split the launcher popup window into its own module so the launcher surface stays under the repository's module-size cap while preserving the existing geometry, topmost, and hotkey behavior.
 - Added a launcher preview pane that follows the current or hovered result and surfaces the target path plus indexed snippet before opening a file.
