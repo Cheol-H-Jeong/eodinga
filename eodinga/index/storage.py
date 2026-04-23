@@ -94,21 +94,27 @@ def _checkpoint_wal(path: Path) -> None:
         conn.close()
 
 
+def _unlink_if_exists(path: Path) -> bool:
+    if not path.exists():
+        return False
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return True
+    return True
+
+
 def _cleanup_sidecars(path: Path) -> bool:
     cleaned = False
     for suffix in ("-wal", "-shm"):
         sidecar = _sidecar(path, suffix)
-        if sidecar.exists():
-            sidecar.unlink()
-            cleaned = True
+        cleaned = _unlink_if_exists(sidecar) or cleaned
     return cleaned
 
 
 def _cleanup_index_files(path: Path, *, durable: bool = False) -> bool:
     cleaned = False
-    if path.exists():
-        path.unlink()
-        cleaned = True
+    cleaned = _unlink_if_exists(path) or cleaned
     cleaned = _cleanup_sidecars(path) or cleaned
     if cleaned and durable:
         _fsync_directory(path.parent)
@@ -234,8 +240,7 @@ def _replay_stale_wal(path: Path) -> bool:
         sidecar = _sidecar(path, suffix)
         if sidecar.exists() and sidecar.stat().st_size > 0:
             return False
-        if sidecar.exists():
-            sidecar.unlink()
+        _unlink_if_exists(sidecar)
     return True
 
 

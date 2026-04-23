@@ -148,6 +148,29 @@ def test_cleanup_index_files_fsyncs_parent_directory_when_durable(
     assert not path.with_name("index.db-shm").exists()
 
 
+def test_cleanup_index_files_tolerates_concurrent_disappearance(tmp_path: Path, monkeypatch) -> None:
+    path = tmp_path / "index.db"
+    wal = path.with_name("index.db-wal")
+    shm = path.with_name("index.db-shm")
+    path.write_bytes(b"sqlite")
+    wal.write_bytes(b"wal")
+    shm.write_bytes(b"shm")
+    original_unlink = Path.unlink
+
+    def racing_unlink(self: Path, *args: Any, **kwargs: Any) -> None:
+        if self in {path, wal, shm} and self.exists():
+            original_unlink(self, *args, **kwargs)
+            raise FileNotFoundError(self)
+        original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", racing_unlink)
+
+    assert storage_module._cleanup_index_files(path) is True
+    assert not path.exists()
+    assert not wal.exists()
+    assert not shm.exists()
+
+
 def test_copy_index_with_sidecars_fsyncs_promoted_sidecars(tmp_path: Path, monkeypatch) -> None:
     source = tmp_path / "source.db"
     target = tmp_path / ".index.db.recover"
@@ -225,6 +248,40 @@ def test_atomic_replace_index_preserves_live_sidecars_when_swap_fails(
     assert target_shm.read_bytes() == b"live-shm"
     assert staged.exists()
     assert _read_root_paths(target) == ["/live"]
+
+
+def test_atomic_replace_index_tolerates_target_sidecars_disappearing_during_cleanup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / "index.staged.db"
+    target.with_name("index.db-wal").write_bytes(b"stale")
+    target.with_name("index.db-shm").write_bytes(b"stale")
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/new", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    original_unlink = Path.unlink
+
+    def racing_unlink(self: Path, *args: Any, **kwargs: Any) -> None:
+        if self in {target.with_name("index.db-wal"), target.with_name("index.db-shm")} and self.exists():
+            original_unlink(self, *args, **kwargs)
+            raise FileNotFoundError(self)
+        original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", racing_unlink)
+
+    atomic_replace_index(staged, target)
+
+    assert _read_root_paths(target) == ["/new"]
+    assert not target.with_name("index.db-wal").exists()
+    assert not target.with_name("index.db-shm").exists()
 
 
 def test_open_index_replays_stale_wal_on_startup(tmp_path: Path) -> None:
