@@ -1,12 +1,22 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import re
 import subprocess
 import sys
 from pathlib import Path
 
 from eodinga import __version__
+
+
+def _load_build_module():
+    spec = importlib.util.spec_from_file_location("packaging_build", Path("packaging/build.py"))
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_build_dry_run_returns_zero_and_writes_audit() -> None:
@@ -74,6 +84,15 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["contains_uninstall_purge_prompt"] is True
 
 
+def test_windows_audit_validator_rejects_version_mismatch() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs("0.1.136", "0.1.135")
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "project and package versions do not match" in errors
+
+
 def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
     result = subprocess.run(
         [sys.executable, "packaging/build.py", "--target", "windows-dry-run"],
@@ -90,6 +109,36 @@ def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
     hotkey_module = Path("eodinga/launcher/hotkey_linux.py").read_text(encoding="utf-8")
     expected_modules = set(re.findall(r'import_module\\("([^"]+)"\\)', hotkey_module))
     assert expected_modules <= hidden_imports
+
+
+def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "recipe": {
+            "exists": True,
+            "references_desktop_entry": True,
+            "references_icon_asset": True,
+            "launches_gui": True,
+        },
+        "icon": {
+            "exists": True,
+            "diricon_exists": True,
+            "desktop_icon_matches_asset": True,
+        },
+        "apprun": {
+            "is_executable": True,
+            "launches_gui": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "executes_python_module": False,
+        },
+    }
+
+    errors = module._validate_linux_appimage_audit(payload, __version__)
+
+    assert "AppImage launcher shim no longer executes the Python module" in errors
 
 
 def test_linux_appimage_dry_run_stages_recipe() -> None:
@@ -124,6 +173,33 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["apprun"]["launches_gui"] is True
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["executes_python_module"] is True
+
+
+def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "executes_python_module": True,
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": False,
+        },
+    }
+
+    errors = module._validate_linux_deb_audit(payload, __version__)
+
+    assert "Debian package no longer ships the changelog" in errors
 
 
 def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:

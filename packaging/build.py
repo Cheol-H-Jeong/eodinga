@@ -4,6 +4,7 @@ import argparse
 import json
 import re
 import subprocess
+import sys
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -171,12 +172,107 @@ def _write_audit(payload: dict[str, Any]) -> Path:
     return target
 
 
+def _load_audit(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    if not payload.get("version_matches_package"):
+        errors.append("project and package versions do not match")
+    spec_payload = payload.get("pyinstaller_spec", {})
+    if not spec_payload.get("exists"):
+        errors.append("PyInstaller spec is missing")
+    if not spec_payload.get("hiddenimports"):
+        errors.append("PyInstaller hidden imports are empty")
+    if not spec_payload.get("datas"):
+        errors.append("PyInstaller data files are empty")
+    inno_payload = payload.get("inno_setup", {})
+    required_flags = {
+        "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
+        "app_version_uses_template": "Inno AppVersion macro no longer uses the template token",
+        "source_entries_match_pyinstaller_dist": "Inno source entries drifted from PyInstaller dist names",
+        "rendered_source_entries_match_pyinstaller_dist": "Rendered Inno source entries drifted from PyInstaller dist names",
+        "contains_rendered_uninstall_display_icon": "Rendered Inno uninstall icon does not point at the GUI executable",
+        "contains_start_menu_shortcut": "Rendered Inno start menu shortcut is missing",
+        "contains_postinstall_launch": "Rendered Inno postinstall launch action is missing",
+        "contains_autostart_registry": "Inno autostart registry entry is missing",
+        "rendered_autostart_registry_matches_gui_exe": "Rendered Inno autostart registry entry does not point at the GUI executable",
+        "contains_uninstall_purge_prompt": "Inno uninstall purge prompt is missing",
+    }
+    for key, message in required_flags.items():
+        if not inno_payload.get(key):
+            errors.append(message)
+    return errors
+
+
+def _validate_linux_appimage_audit(payload: dict[str, Any], package_version: str) -> list[str]:
+    errors: list[str] = []
+    if payload.get("version") != package_version:
+        errors.append("AppImage audit version does not match the package version")
+    recipe_payload = payload.get("recipe", {})
+    icon_payload = payload.get("icon", {})
+    apprun_payload = payload.get("apprun", {})
+    launcher_payload = payload.get("launcher", {})
+    required_flags = [
+        (recipe_payload.get("exists"), "AppImage recipe is missing"),
+        (recipe_payload.get("references_desktop_entry"), "AppImage recipe no longer references the desktop entry"),
+        (recipe_payload.get("references_icon_asset"), "AppImage recipe no longer references the icon asset"),
+        (recipe_payload.get("launches_gui"), "AppImage recipe no longer launches the GUI target"),
+        (icon_payload.get("exists"), "AppImage icon asset is missing from the staged AppDir"),
+        (icon_payload.get("diricon_exists"), "AppImage .DirIcon is missing"),
+        (icon_payload.get("desktop_icon_matches_asset"), "AppImage desktop icon no longer matches the shipped asset"),
+        (apprun_payload.get("is_executable"), "AppImage AppRun is not executable"),
+        (apprun_payload.get("launches_gui"), "AppImage AppRun no longer launches the GUI target"),
+        (launcher_payload.get("is_executable"), "AppImage launcher shim is not executable"),
+        (launcher_payload.get("executes_python_module"), "AppImage launcher shim no longer executes the Python module"),
+    ]
+    for ok, message in required_flags:
+        if not ok:
+            errors.append(message)
+    return errors
+
+
+def _validate_linux_deb_audit(payload: dict[str, Any], package_version: str) -> list[str]:
+    errors: list[str] = []
+    if payload.get("version") != package_version:
+        errors.append("Debian audit version does not match the package version")
+    control_payload = payload.get("control", {})
+    icon_payload = payload.get("icon", {})
+    launcher_payload = payload.get("launcher", {})
+    docs_payload = payload.get("docs", {})
+    if control_payload.get("package") != "eodinga":
+        errors.append("Debian control package name drifted from eodinga")
+    if control_payload.get("version") != package_version:
+        errors.append("Debian control version does not match the package version")
+    required_flags = [
+        (icon_payload.get("exists"), "Debian icon asset is missing from the package tree"),
+        (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),
+        (launcher_payload.get("is_executable"), "Debian launcher shim is not executable"),
+        (launcher_payload.get("executes_python_module"), "Debian launcher shim no longer executes the Python module"),
+        (docs_payload.get("license_exists"), "Debian package no longer ships the license"),
+        (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),
+    ]
+    for ok, message in required_flags:
+        if not ok:
+            errors.append(message)
+    return errors
+
+
+def _report_validation_errors(target: str, errors: list[str]) -> int:
+    if not errors:
+        return 0
+    joined = "\n".join(f"- {error}" for error in errors)
+    print(f"{target} packaging audit failed:\n{joined}", file=sys.stderr)
+    return 1
+
+
 def _run_windows_dry_run() -> int:
     version = _read_project_version()
     package_version = _read_package_version()
     payload = _audit_windows_inputs(version, package_version)
     _write_audit(payload)
-    return 0
+    return _report_validation_errors("windows-dry-run", _validate_windows_audit(payload))
 
 
 def _run_windows() -> int:
@@ -185,7 +281,7 @@ def _run_windows() -> int:
     payload = _audit_windows_inputs(version, package_version)
     payload["platform_tools"] = ["pyinstaller", "iscc"]
     _write_audit(payload)
-    return 0
+    return _report_validation_errors("windows", _validate_windows_audit(payload))
 
 
 def _run_linux_appimage_dry_run() -> int:
@@ -194,7 +290,14 @@ def _run_linux_appimage_dry_run() -> int:
         cwd=PROJECT_ROOT,
         check=False,
     )
-    return result.returncode
+    if result.returncode != 0:
+        return result.returncode
+    payload = _load_audit(DIST_DIR / "linux-appimage-audit.json")
+    package_version = _read_package_version()
+    return _report_validation_errors(
+        "linux-appimage-dry-run",
+        _validate_linux_appimage_audit(payload, package_version),
+    )
 
 
 def _run_linux_appimage() -> int:
@@ -203,7 +306,14 @@ def _run_linux_appimage() -> int:
         cwd=PROJECT_ROOT,
         check=False,
     )
-    return result.returncode
+    if result.returncode != 0:
+        return result.returncode
+    payload = _load_audit(DIST_DIR / "linux-appimage-audit.json")
+    package_version = _read_package_version()
+    return _report_validation_errors(
+        "linux-appimage",
+        _validate_linux_appimage_audit(payload, package_version),
+    )
 
 
 def _run_linux_deb_dry_run() -> int:
@@ -212,7 +322,14 @@ def _run_linux_deb_dry_run() -> int:
         cwd=PROJECT_ROOT,
         check=False,
     )
-    return result.returncode
+    if result.returncode != 0:
+        return result.returncode
+    payload = _load_audit(DIST_DIR / "linux-deb-audit.json")
+    package_version = _read_package_version()
+    return _report_validation_errors(
+        "linux-deb-dry-run",
+        _validate_linux_deb_audit(payload, package_version),
+    )
 
 
 def _run_linux_deb() -> int:
@@ -221,7 +338,14 @@ def _run_linux_deb() -> int:
         cwd=PROJECT_ROOT,
         check=False,
     )
-    return result.returncode
+    if result.returncode != 0:
+        return result.returncode
+    payload = _load_audit(DIST_DIR / "linux-deb-audit.json")
+    package_version = _read_package_version()
+    return _report_validation_errors(
+        "linux-deb",
+        _validate_linux_deb_audit(payload, package_version),
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
