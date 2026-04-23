@@ -176,7 +176,7 @@ def _phrase_matches(value: str, phrase: str, case_sensitive: bool) -> bool:
     tokens = tuple(token for token in re.split(r"\s+", normalized_phrase) if token)
     if len(tokens) < 2:
         return False
-    pattern = r"\W+".join(re.escape(token) for token in tokens)
+    pattern = r"[_\W]+".join(re.escape(token) for token in tokens)
     return bool(re.search(pattern, normalized_value))
 
 
@@ -403,7 +403,9 @@ def _fetch_path_candidates_scan(
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return [], {}
-    if any(any(ord(char) > 127 for char in term.value) for term in positive_terms):
+    if any(term.kind == "phrase" for term in positive_terms) or any(
+        any(ord(char) > 127 for char in term.value) for term in positive_terms
+    ):
         return _fetch_path_candidates_python_scan(conn, branch, limit)
     params: list[object] = []
     prefix_term = positive_terms[0].value if positive_terms else ""
@@ -434,8 +436,10 @@ def _fetch_path_candidates_python_scan(
         file_id: record
         for file_id, record in records.items()
         if all(
-            _text_matches(record.name, term.value, branch.case_sensitive)
-            or _text_matches(str(record.path), term.value, branch.case_sensitive)
+            _term_matches(record.name, term.value, kind=term.kind, case_sensitive=branch.case_sensitive)
+            or _term_matches(
+                str(record.path), term.value, kind=term.kind, case_sensitive=branch.case_sensitive
+            )
             for term in positive_terms
         )
     }
@@ -740,12 +744,22 @@ def _derive_name_path_hits(
         target_name = record.name
         target_path = str(record.path)
         if any(
-            _text_matches(target_name, term.value, branch.case_sensitive)
+            _term_matches(
+                target_name,
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
             for term in positive_terms
         ):
             name_hits.append(record.id)
         if any(
-            _text_matches(target_path, term.value, branch.case_sensitive)
+            _term_matches(
+                target_path,
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
             for term in positive_terms
         ):
             path_hits.append(record.id)
