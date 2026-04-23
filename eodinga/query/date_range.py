@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, tzinfo
 
 from eodinga.query.dsl import QuerySyntaxError
 
@@ -12,7 +12,7 @@ class DateRange:
     end: int | None = None
 
 
-def _local_tzinfo() -> object:
+def _local_tzinfo() -> tzinfo | None:
     return datetime.now().astimezone().tzinfo
 
 

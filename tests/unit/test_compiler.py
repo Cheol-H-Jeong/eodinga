@@ -133,6 +133,8 @@ def test_compile_datetime_literals_preserve_instant_granularity() -> None:
     start, end = branch.where_params
 
     assert branch.where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert isinstance(start, int)
+    assert isinstance(end, int)
     assert end - start == 1
 
 
@@ -142,6 +144,8 @@ def test_compile_datetime_ranges_preserve_exact_endpoints() -> None:
     start, end = branch.where_params
 
     assert branch.where_sql == "files.ctime >= ? AND files.ctime < ?"
+    assert isinstance(start, int)
+    assert isinstance(end, int)
     assert end - start == 31
 
 
