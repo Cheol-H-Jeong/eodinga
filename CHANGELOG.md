@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.866 - 2026-04-23
+
+- Added tighter docs guidance for theme-sized validation, evidence bundles, and derived-asset triggers so docs-focused rounds can prove the right runtime or packaging surface without rerunning unrelated checks.
+- Expanded the architecture and release guides with symptom-to-boundary routing, failure-first release triage, and pre-tag evidence expectations, making docs-only and release-candidate reviews more evidence-driven.
+- Clarified the performance guide around capture bundles and summary checklists so refreshes to perf prose or baselines stay tied to explicit same-round benchmark output.
+
 ## 0.1.855 - 2026-04-23
 
 - Avoided redundant stylesheet reapplication on the shared Qt application instance, eliminating the test-mode launcher relaunch crash path seen under the offscreen backend.
