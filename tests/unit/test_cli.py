@@ -468,3 +468,5 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["parser_errors"] == 0
     assert payload["watcher_events"] == 0
     assert payload["query_latency_histogram"]["count"] == 1
+    assert payload["runtime_counters"]["queries_served"] == 1
+    assert payload["runtime_histograms"]["query_latency_ms"]["count"] == 1
