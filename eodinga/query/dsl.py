@@ -201,7 +201,7 @@ class _Parser:
         if self._peek() != '"':
             raise QuerySyntaxError("unterminated phrase", start)
         self.index += 1
-        if not value:
+        if not value.strip():
             raise QuerySyntaxError("empty phrase", phrase_start)
         return PhraseNode(value=value)
 
@@ -242,7 +242,7 @@ class _Parser:
             if not value.endswith('"') or len(value) == 1:
                 raise QuerySyntaxError("unterminated phrase", start)
             decoded = self._decode_phrase_text(value[1:-1], start + 1)
-            if not decoded:
+            if not decoded.strip():
                 raise QuerySyntaxError("empty phrase", start + 1)
             return decoded, "phrase", ""
         if value.startswith("/"):

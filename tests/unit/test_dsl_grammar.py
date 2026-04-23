@@ -154,7 +154,7 @@ def test_parse_inline_operator_empty_regex_errors(query: str) -> None:
         parse(query)
 
 
-@pytest.mark.parametrize("query", ['""', 'content:""', 'path: ""'])
+@pytest.mark.parametrize("query", ['""', 'content:""', 'path: ""', '"   "', 'content:" \t "', 'path:"\n"'])
 def test_parse_empty_phrase_errors(query: str) -> None:
     with pytest.raises(QuerySyntaxError, match="empty phrase"):
         parse(query)
