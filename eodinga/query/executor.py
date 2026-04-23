@@ -41,6 +41,22 @@ class _ContentPresenceCache(NamedTuple):
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
 
 
+def _windows_root_aliases(root_text: str) -> tuple[str, ...]:
+    aliases = [root_text]
+    if root_text.startswith("\\\\?\\UNC\\"):
+        aliases.append("\\\\" + root_text.removeprefix("\\\\?\\UNC\\"))
+    elif root_text.startswith("\\\\?\\") and len(root_text) >= 6 and root_text[4].isalpha() and root_text[5] == ":":
+        aliases.append(root_text.removeprefix("\\\\?\\"))
+
+    expanded: list[str] = []
+    for alias in aliases:
+        expanded.append(alias)
+        if len(alias) >= 2 and alias[1] == ":" and alias[0].isalpha():
+            expanded.append(alias[0].upper() + alias[1:])
+            expanded.append(alias[0].lower() + alias[1:])
+    return tuple(dict.fromkeys(expanded))
+
+
 @lru_cache(maxsize=256)
 def _record_batch_sql(has_where: bool) -> str:
     sql = "SELECT files.* FROM files"
@@ -276,10 +292,12 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     normalized = root_text.rstrip("/\\") or root_text
     variants = tuple(
         dict.fromkeys(
-            (
-                normalized,
-                normalized.replace("\\", "/"),
-                normalized.replace("/", "\\"),
+            variant
+            for alias in _windows_root_aliases(normalized)
+            for variant in (
+                alias,
+                alias.replace("\\", "/"),
+                alias.replace("/", "\\"),
             )
         )
     )
