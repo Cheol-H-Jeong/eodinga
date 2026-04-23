@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.506 - 2026-04-23
+## 0.1.507 - 2026-04-23
 
 - Added launcher-side query pinning with config persistence, so frequently reused searches can be promoted from the active query into the shared pinned row without leaving the keyboard flow.
 - Kept launcher result actions inside the keyboard loop by sending `Tab` from the result list into the action bar and preserving `Shift+Tab` back toward the query field.
