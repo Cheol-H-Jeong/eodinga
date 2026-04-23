@@ -113,6 +113,7 @@ def test_launcher_state_is_shared_between_popup_and_search_tab(qapp) -> None:
     launcher._run_query()
 
     assert "release" in window.search_tab.launcher_panel.empty_state.body_label.text()
+    window.close()
 
 
 def test_launcher_bootstraps_recent_queries_from_config(qapp) -> None:
@@ -125,6 +126,7 @@ def test_launcher_bootstraps_recent_queries_from_config(qapp) -> None:
         "budget",
         "release notes",
     ]
+    window.close()
 
 
 def test_launcher_persists_recent_queries_to_config(qapp, temp_config_path: Path) -> None:
@@ -137,6 +139,21 @@ def test_launcher_persists_recent_queries_to_config(qapp, temp_config_path: Path
     stored = load(temp_config_path)
 
     assert stored.launcher.recent_queries == ["release notes", "budget"]
+    window.close()
+
+
+def test_launcher_persists_pinned_queries_to_config(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+
+    window.launcher_window.query_field.setText("ext:pdf")
+    window.launcher_window.pin_query_button.click()
+
+    stored = load(temp_config_path)
+
+    assert stored.launcher.pinned_queries == ["ext:pdf"]
+    assert [button.text() for button in window.search_tab.launcher_panel.pinned_queries_row.buttons] == ["ext:pdf"]
+    window.close()
 
 
 def test_launchers_respect_configured_limit_and_debounce(qapp) -> None:

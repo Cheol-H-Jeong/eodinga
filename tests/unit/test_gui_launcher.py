@@ -334,6 +334,30 @@ def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
     assert calls == ["ext:pdf"]
 
 
+def test_launcher_pin_query_button_toggles_pinned_queries(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    assert not launcher.pin_query_button.isEnabled()
+    assert launcher.pin_query_button.text() == "Pin Query"
+
+    launcher.query_field.setText("ext:pdf")
+    _wait(10)
+    launcher.pin_query_button.click()
+
+    assert state.pinned_queries == ["ext:pdf"]
+    assert [button.text() for button in launcher.pinned_queries_row.buttons] == ["ext:pdf"]
+    assert launcher.pin_query_button.text() == "Unpin Query"
+
+    launcher.pin_query_button.click()
+
+    assert state.pinned_queries == []
+    assert launcher.pinned_queries_row.buttons == []
+    assert launcher.pin_query_button.text() == "Pin Query"
+    launcher.close()
+
+
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:
     revealed: list[str] = []
 
@@ -854,6 +878,10 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.query_field.accessibleDescription() == "Type a filename, path, or content term to search the index."
+    assert launcher.pin_query_button.accessibleName() == "Pin current launcher query"
+    assert launcher.pin_query_button.accessibleDescription() == (
+        "Save the current launcher query so it stays available as a pinned chip."
+    )
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"

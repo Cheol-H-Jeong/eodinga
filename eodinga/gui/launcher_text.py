@@ -44,4 +44,13 @@ def launcher_shortcut_hint(*, has_results: bool, has_query: bool, results_have_f
     )
 
 
-__all__ = ["launcher_empty_state_content", "launcher_shortcut_hint"]
+def launcher_result_list_accessibility(*, count: int, current_name: str | None, current_row: int) -> str:
+    if count == 0:
+        return "No launcher results are available."
+    description = f"{count} launcher results."
+    if current_name is not None:
+        description = f"{description} Selected {current_row} of {count}: {current_name}."
+    return f"{description} Use Up and Down to move between results, Enter to open, and Alt+1 through Alt+9 for quick picks."
+
+
+__all__ = ["launcher_empty_state_content", "launcher_result_list_accessibility", "launcher_shortcut_hint"]
