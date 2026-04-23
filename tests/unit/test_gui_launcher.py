@@ -561,3 +561,56 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.result_list.accessibleName() == "Launcher results list"
+    assert launcher.action_bar.accessibleName() == "Launcher action bar"
+    assert launcher.action_bar.open_button.accessibleName() == "Open selected result"
+    assert launcher.action_bar.copy_name_button.accessibleName() == "Copy selected result name"
+
+
+def test_launcher_action_bar_tracks_selection_and_emits_actions(qapp) -> None:
+    copied_paths: list[str] = []
+    copied_names: list[str] = []
+    revealed: list[str] = []
+    properties: list[str] = []
+    activated: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+            ][:limit],
+            total=2,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.copy_path_requested.connect(lambda hit: copied_paths.append(str(hit.path)))
+    launcher.copy_name_requested.connect(lambda hit: copied_names.append(hit.name))
+    launcher.open_containing_folder.connect(lambda hit: revealed.append(hit.name))
+    launcher.show_properties.connect(lambda hit: properties.append(hit.name))
+    launcher.result_activated.connect(lambda hit: activated.append(hit.name))
+    launcher.show()
+
+    assert not launcher.action_bar.open_button.isEnabled()
+    assert not launcher.action_bar.copy_name_button.isEnabled()
+
+    launcher.query_field.setText("a")
+    _wait(60)
+
+    assert launcher.action_bar.open_button.isEnabled()
+    assert launcher.action_bar.copy_name_button.isEnabled()
+
+    launcher.result_list.setFocus()
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Down)
+
+    launcher.action_bar.open_button.click()
+    launcher.action_bar.reveal_button.click()
+    launcher.action_bar.copy_path_button.click()
+    launcher.action_bar.copy_name_button.click()
+    launcher.action_bar.properties_button.click()
+
+    assert activated == ["beta.txt"]
+    assert revealed == ["beta.txt"]
+    assert copied_paths == ["/tmp/beta.txt"]
+    assert copied_names == ["beta.txt"]
+    assert properties == ["beta.txt"]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .action_bar import LauncherActionBar
 from .button import PrimaryButton, SecondaryButton
 from .empty_state import EmptyState
 from .result_item import ResultItemDelegate
@@ -8,10 +9,10 @@ from .status_chip import StatusChip
 
 __all__ = [
     "EmptyState",
+    "LauncherActionBar",
     "PrimaryButton",
     "ResultItemDelegate",
     "SearchField",
     "SecondaryButton",
     "StatusChip",
 ]
-

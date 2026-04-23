@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
-from eodinga.gui.widgets import EmptyState, ResultItemDelegate, SearchField, StatusChip
+from eodinga.gui.widgets import EmptyState, LauncherActionBar, ResultItemDelegate, SearchField, StatusChip
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
@@ -22,6 +22,7 @@ class LauncherPanel(QWidget):
     open_containing_folder = Signal(object)
     show_properties = Signal(object)
     copy_path_requested = Signal(object)
+    copy_name_requested = Signal(object)
 
     def __init__(
         self,
@@ -56,9 +57,11 @@ class LauncherPanel(QWidget):
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
         self.empty_state = EmptyState("Type to search", "Recent queries and indexing progress will appear here.", self)
+        self.action_bar = LauncherActionBar(self)
 
         self.model = ResultListModel(self)
         self.result_list.setModel(self.model)
+        self.result_list.selectionModel().currentChanged.connect(lambda *_: self._sync_result_affordances())
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -71,6 +74,7 @@ class LauncherPanel(QWidget):
         layout.addWidget(self.query_field)
         layout.addWidget(self.result_list, 1)
         layout.addWidget(self.empty_state)
+        layout.addWidget(self.action_bar)
 
         footer = QHBoxLayout()
         footer.addWidget(self.status_chip)
@@ -83,6 +87,11 @@ class LauncherPanel(QWidget):
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
+        self.action_bar.open_button.clicked.connect(self.activate_current_result)
+        self.action_bar.reveal_button.clicked.connect(self.emit_open_containing_folder)
+        self.action_bar.copy_path_button.clicked.connect(self.emit_copy_path)
+        self.action_bar.copy_name_button.clicked.connect(self.emit_copy_name)
+        self.action_bar.properties_button.clicked.connect(self.emit_show_properties)
 
         self._shortcuts = [
             QShortcut(QKeySequence(Qt.Key.Key_Return), self),
@@ -168,6 +177,12 @@ class LauncherPanel(QWidget):
         if hit is not None:
             self.copy_path_requested.emit(hit)
 
+    def emit_copy_name(self) -> None:
+        self._flush_pending_query()
+        hit = self._current_hit()
+        if hit is not None:
+            self.copy_name_requested.emit(hit)
+
     def recall_previous_query(self) -> None:
         self._navigate_recent_queries(-1)
 
@@ -217,6 +232,7 @@ class LauncherPanel(QWidget):
         self._restore_selection(previous_hit)
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
+        self._sync_result_affordances()
         self.results_updated.emit(self._latest_result)
         get_logger().debug("launcher query '{}' returned {}", query, self._latest_result.total)
 
@@ -255,6 +271,7 @@ class LauncherPanel(QWidget):
             )
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
+        self.action_bar.set_actions_enabled(has_results)
 
     def _refresh_shortcut_hint(self) -> None:
         has_results = self.model.rowCount() > 0
@@ -373,6 +390,9 @@ class LauncherPanel(QWidget):
     def _set_selection(self, row: int) -> None:
         self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(row, 0)))
         self.result_list.scrollTo(self.result_list.currentIndex())
+
+    def _sync_result_affordances(self) -> None:
+        self.action_bar.set_actions_enabled(self._current_hit() is not None)
 
     def _navigate_recent_queries(self, direction: int) -> None:
         if not self._recent_queries:

@@ -162,6 +162,7 @@ class EodingaWindow(QMainWindow):
         launcher.open_containing_folder.connect(self.desktop_actions.reveal_hit)
         launcher.show_properties.connect(self.desktop_actions.show_properties)
         launcher.copy_path_requested.connect(self.desktop_actions.copy_hit_path)
+        launcher.copy_name_requested.connect(self.desktop_actions.copy_hit_name)
         shortcut = QShortcut(QKeySequence("Alt+N"), launcher)
         shortcut.activated.connect(lambda current_launcher=launcher: self._copy_launcher_hit_name(current_launcher))
         self._copy_name_shortcuts.append(shortcut)
