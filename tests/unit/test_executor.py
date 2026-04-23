@@ -4,12 +4,16 @@ import sqlite3
 import unicodedata
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 from zoneinfo import ZoneInfo
 
 import pytest
 
+from eodinga.common import FileRecord
 from eodinga.query import executor as executor_module
 from eodinga.query import search
+from eodinga.query.compiler import compile_query
+from eodinga.query.dsl import parse
 
 
 def _insert_file(
@@ -548,6 +552,63 @@ def test_execute_phrase_query_matches_across_path_separators(
     hits = [hit.file.path.as_posix() for hit in search(tmp_db, '"launch checklist"', limit=5).hits]
 
     assert hits == ["/workspace/launch/checklist.txt"]
+
+
+def test_fetch_path_candidates_python_scan_pages_past_first_batch_for_phrase_queries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    branch = compile_query(parse('"final report"')).branches[0]
+    offsets: list[int] = []
+
+    def make_record(file_id: int, path_text: str) -> FileRecord:
+        path = Path(path_text)
+        return FileRecord(
+            id=file_id,
+            root_id=1,
+            path=path,
+            parent_path=path.parent,
+            name=path.name,
+            name_lower=path.name.lower(),
+            ext=path.suffix.lstrip("."),
+            size=1,
+            mtime=1,
+            ctime=1,
+            is_dir=False,
+            is_symlink=False,
+            indexed_at=1,
+        )
+
+    batches = {
+        0: {
+            1: make_record(1, "/workspace/archive/alpha.txt"),
+        },
+        1: {
+            2: make_record(2, "/workspace/archive/final/report.txt"),
+        },
+    }
+
+    def fake_fetch_record_batch(
+        conn: sqlite3.Connection,
+        where_sql: str,
+        where_params: tuple[object, ...],
+        limit: int,
+        offset: int,
+    ) -> dict[int, FileRecord]:
+        del conn, where_sql, where_params, limit
+        offsets.append(offset)
+        return batches.get(offset, {})
+
+    monkeypatch.setattr(executor_module, "_fetch_record_batch", fake_fetch_record_batch)
+
+    ids, records = executor_module._fetch_path_candidates_python_scan(
+        cast(sqlite3.Connection, object()),
+        branch,
+        limit=5,
+    )
+
+    assert offsets == [0, 1, 2]
+    assert ids == [2]
+    assert [record.path.as_posix() for record in records.values()] == ["/workspace/archive/final/report.txt"]
 
 
 def test_execute_decomposed_korean_phrase_query_matches_across_punctuation(
