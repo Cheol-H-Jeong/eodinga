@@ -160,6 +160,7 @@ def write_crash_log(
     *,
     crash_dir: Path | None = None,
     context: str = "Unhandled exception",
+    metadata: Mapping[str, object] | None = None,
 ) -> Path:
     override_dir = os.environ.get("EODINGA_CRASH_DIR")
     target_dir = (crash_dir or (Path(override_dir) if override_dir else default_crash_dir())).expanduser()
@@ -170,9 +171,20 @@ def write_crash_log(
         f"{context}\n",
         f"timestamp={timestamp}\n",
         f"pid={os.getpid()}\n",
+        f"version={metadata.get('version', 'unknown') if metadata else 'unknown'}\n",
+        f"python={sys.version.splitlines()[0]}\n",
+        f"platform={sys.platform}\n",
+        f"executable={sys.executable}\n",
+        f"cwd={Path.cwd()}\n",
         f"{type(error).__name__}: {error}\n",
         "\n",
-        *traceback.format_exception(type(error), error, error.__traceback__),
     ]
+    if metadata:
+        for key, value in sorted(metadata.items()):
+            if key == "version":
+                continue
+            lines.append(f"{key}={value}\n")
+        lines.append("\n")
+    lines.extend(traceback.format_exception(type(error), error, error.__traceback__))
     crash_path.write_text("".join(lines), encoding="utf-8")
     return crash_path
