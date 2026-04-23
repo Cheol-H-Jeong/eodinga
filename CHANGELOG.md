@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.826 - 2026-04-23
+## 0.1.832 - 2026-04-23
 
 - Fixed top-level regex parsing so terms like `/foo/bar/baz/` keep embedded unescaped slashes without swallowing following query terms after the first valid boundary.
 - Tightened ranking modifiers so prefix boosts and path deboosts only adjust already-ranked file IDs instead of accidentally inventing extra hits from broader helper inputs.
