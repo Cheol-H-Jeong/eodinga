@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.377 - 2026-04-23
+## 0.1.378 - 2026-04-23
 
 - Replaced executor fallback `OFFSET` scans with `files.id` cursor batches and cached repeated content-text SQL shapes, reducing the cost of deep regex, Unicode, and content backfill scans.
 - Reused a single walker `indexed_at` timestamp per traversal and kept symlink-root descent on the existing follow-stat path, trimming per-entry filesystem work in cold-start indexing.
