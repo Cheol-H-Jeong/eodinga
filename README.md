@@ -35,6 +35,19 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 - Install per-user with the Inno Setup wizard.
 - Optionally enable auto-start at login during install.
 
+## Install Profiles
+
+| Need | Install command or artifact | Includes |
+| --- | --- | --- |
+| Full local development surface | `pip install -e .[all]` | GUI, parsers, hotkey backend, lint, tests, and packaging helpers |
+| CLI plus diagnostics only | `pip install -e .[dev]` | CLI, lint, tests, and release-gate tooling without GUI or parser extras |
+| GUI without document parsers | `pip install -e .[gui,hotkey]` | main window, launcher, watchdog, and hotkey backend |
+| GUI plus content extraction | `pip install -e .[gui,hotkey,parsers]` | GUI plus Office/PDF/EPUB/HTML/HWP parser stack |
+| Linux packaged install | AppImage or `.deb` artifact | prebuilt GUI launch surface with packaged desktop metadata |
+| Windows packaged install | `eodinga-0.1.x-win-x64-setup.exe` | per-user installer with PyInstaller bundle and uninstaller |
+
+Use the editable installs for local development or reproducible docs/testing work. Use the packaged artifacts when you want to validate the same installer shape that release users receive.
+
 ## First Run
 
 1. Launch `eodinga gui` or start the installed app.
@@ -73,6 +86,17 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 | Launcher | global hotkey, packaged launcher entry, embedded search tab | fast keyboard-first open/reveal flows | recent queries, pinned queries, hover preview, and quick actions stay local to the same index |
 | Linux packages | AppImage / `.deb` | desktop installation on Linux | both launch the GUI surface; `.deb` also installs desktop metadata and packaged docs |
 | Windows installer | Inno Setup + PyInstaller bundle | per-user install on Windows | uninstall keeps `%LOCALAPPDATA%\\eodinga\\` unless purge is chosen explicitly |
+
+## Surface By Task
+
+| If you need to... | Start here | Why |
+| --- | --- | --- |
+| Validate one query quickly | `eodinga search "query" --json` | fastest path to see compiled query behavior and raw hits |
+| Confirm runtime health | `eodinga doctor` then `eodinga stats --json` | checks writable paths, hotkey/backend state, and active DB selection |
+| Manage roots or settings | `eodinga gui` | exposes root configuration, indexing progress, and settings tabs |
+| Search from anywhere on desktop | launcher hotkey | shortest keyboard path for open/reveal actions |
+| Audit packaging inputs | `python packaging/build.py --target ...-dry-run` | validates installer metadata and shipped docs without cutting artifacts |
+| Verify shipped docs match runtime | `pytest -q tests/unit/test_docs_assets.py` | catches README, guide, screenshot, and generated-manpage drift |
 
 ## At A Glance
 

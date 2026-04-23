@@ -39,9 +39,11 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "![Index progress window]" in readme
     assert "![Settings window]" in readme
     assert "## Install" in readme
+    assert "## Install Profiles" in readme
     assert "## Quick Start" in readme
     assert "## Feature Overview" in readme
     assert "## Surface Matrix" in readme
+    assert "## Surface By Task" in readme
     assert "## Acceptance Quickcheck" in readme
     assert "## DSL Cheatsheet" in readme
     assert "## Supported Content Types" in readme
@@ -56,6 +58,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Release Process" in readme
     assert "linux-deb-dry-run" in readme
     assert "Launcher | global hotkey" in readme
+    assert "pip install -e .[gui,hotkey,parsers]" in readme
+    assert "Validate one query quickly" in readme
+    assert "Verify shipped docs match runtime" in readme
     assert "Packaging audit failed" in readme
     assert "eodinga search 'date:this-week ext:md' --limit 10" in readme
     assert "docs/DSL.md" in readme
