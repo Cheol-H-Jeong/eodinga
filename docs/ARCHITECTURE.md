@@ -68,6 +68,18 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 - `content_map` keeps the FTS row IDs stable across updates so incremental reindexing does not balloon the content index.
 - `eodinga.index.storage` owns WAL replay on startup and atomic staged-index replacement.
 
+## Schema Map
+
+| Table or sidecar | Owner | Contents | Why it exists |
+| --- | --- | --- | --- |
+| `files` | `eodinga.index.writer` | Canonical per-path metadata: root, timestamps, size, extension, hash, and flags. | Every search result and watcher update resolves back to this row. |
+| `paths_fts` | `eodinga.index.writer` | Filename and normalized path tokens. | Fast lexical lookup for path/name queries without scanning `files`. |
+| `content_fts` | `eodinga.index.writer` | Parsed document text for content-enabled runs. | Keeps content search independent from metadata-only indexing. |
+| `content_map` | `eodinga.index.writer` | Stable mapping between file rows and FTS row IDs. | Prevents FTS churn during incremental updates and deletes. |
+| `index.db-wal` / `index.db-shm` | SQLite | WAL journal and shared-memory sidecars. | Allow fast commits while startup recovery decides whether replay is needed. |
+| `.index.db.next` | `eodinga.index.storage` | Fully built staged replacement index. | Lets `index --rebuild` swap atomically only after the new database is complete. |
+| `.index.db.recover` | `eodinga.index.storage` | Recovery-staged database during interrupted replacement. | Makes failed swaps resumable on the next startup instead of corrupting the live file. |
+
 ## Index Lifecycle Sequence
 
 ```text
@@ -91,6 +103,16 @@ user / startup
 - If the live database still has a non-empty `-wal` sidecar, recovery is replayed against a staged copy first; only a clean checkpointed database is swapped into place.
 - `eodinga doctor` reports both resumed staged rebuild/recovery work and unrecoverable stale-WAL failures so the operator sees the same startup path the runtime takes.
 - This keeps crash recovery local to the database directory and avoids mutating indexed user roots.
+
+Failure ownership:
+
+| Symptom | First component that sees it | Recovery owner | Operator-visible command |
+| --- | --- | --- | --- |
+| Interrupted rebuild left `.next` behind | `open_index()` at startup | `eodinga.index.storage` | `eodinga doctor` or any normal startup |
+| Interrupted swap left `.recover` behind | `open_index()` at startup | `eodinga.index.storage` | `eodinga doctor` or any normal startup |
+| Stale WAL sidecar remains after crash | SQLite open path | `eodinga.index.storage` | `eodinga doctor`, then `eodinga index --rebuild` if recovery cannot complete |
+| Search looks stale but DB opens cleanly | Query surface | operator action, not auto-recovery | `eodinga stats --json`, then `eodinga watch` or `eodinga index --rebuild` |
+| Root unreadable or dependency missing | diagnostics path | operator action, not auto-recovery | `eodinga doctor` |
 
 ## Rebuild Sequence
 
@@ -139,6 +161,16 @@ raw query string
 - Steady state is watcher-driven: coalesced filesystem events reuse the same writer path and preserve FTS row stability for changed documents.
 - Search is read-only against the index: CLI, launcher, and embedded search tab all call the same compiler and executor stack.
 - Packaging keeps the app local-first: no network services, no daemon dependency outside the local watchdog flow, and no writes outside config/database state.
+
+Operational surfaces:
+
+| Surface | Write path | Read path | Typical operator use |
+| --- | --- | --- | --- |
+| `eodinga index` | Full staged rebuild into `.next`, then atomic swap | configured roots | Cold start, recovery, or intentional rebuild |
+| `eodinga watch` | Incremental commits through `IndexWriter.apply_events()` | filesystem event stream + existing DB | Keep results fresh after the initial build |
+| `eodinga search` | none | `files` plus FTS tables | CLI debugging, scripting, and parity checks against the GUI |
+| `eodinga stats --json` | none | runtime counters + persisted DB metadata | Observability, support, and stale-result triage |
+| `eodinga doctor` | none | environment, config, roots, DB path, hotkey backend | First-line diagnostics before deeper debugging |
 
 ## Live Update Sequence
 
@@ -209,3 +241,9 @@ startup
 - No runtime network access is allowed; `tests/safety/test_no_network.py` enforces that at source level.
 - Filesystem writes are limited to the application database/config area; the read-only wrappers prevent mutating indexed user roots.
 - Performance tests exist under `tests/perf`, but they stay opt-in for v0.1 so the default gate remains deterministic on developer machines.
+
+## Documentation Contract
+
+- `README.md` is the operator-facing contract: install surfaces, CLI verbs, DSL examples, recovery steps, and screenshots.
+- `docs/ARCHITECTURE.md` is the maintainer-facing contract: ownership boundaries, schema layout, staged swap semantics, and packaging surfaces.
+- `docs/RELEASE.md` and `docs/ACCEPTANCE.md` connect the runtime architecture to the release gate so docs drift is caught before tagging.
