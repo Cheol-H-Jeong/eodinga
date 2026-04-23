@@ -647,6 +647,18 @@ def test_launcher_active_filter_row_shows_overflow_count_for_many_filters(qapp) 
     assert launcher.active_filter_row.accessibleDescription() == "Showing 5 of 6 active launcher filters."
 
 
+def test_launcher_active_filter_row_preserves_group_negation_for_operator_filters(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText("-(ext:pdf | path:archive)")
+    _wait(10)
+
+    assert launcher.active_filter_row.isVisible()
+    assert "-ext:pdf" in launcher.active_filter_row.chips_label.text()
+    assert "-path:archive" in launcher.active_filter_row.chips_label.text()
+
+
 def test_launcher_hovered_result_becomes_action_target(qapp) -> None:
     activated: list[str] = []
 
