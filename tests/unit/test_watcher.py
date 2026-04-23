@@ -801,3 +801,44 @@ def test_watcher_logs_when_shutdown_aborts_backpressured_enqueue(
             tmp_path / "second.txt",
         )
     ]
+
+
+def test_watcher_stop_resets_state_when_observer_stop_raises(tmp_path: Path) -> None:
+    joined: list[str] = []
+
+    class FakeObserver:
+        def __init__(self, name: str, *, fail_stop: bool = False) -> None:
+            self.name = name
+            self.fail_stop = fail_stop
+
+        def stop(self) -> None:
+            if self.fail_stop:
+                raise RuntimeError(f"stop failed for {self.name}")
+
+        def join(self, timeout: float | None = None) -> None:
+            assert timeout == 1
+            joined.append(self.name)
+
+    service = WatchService()
+    service._observers = {
+        tmp_path / "a": FakeObserver("a", fail_stop=True),
+        tmp_path / "b": FakeObserver("b"),
+    }
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "queued.txt",
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    with pytest.raises(RuntimeError, match="stop failed for a"):
+        service.stop()
+
+    assert joined == ["a", "b"]
+    assert service._observers == {}
+    assert service._flush_thread is None
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
