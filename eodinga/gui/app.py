@@ -184,6 +184,7 @@ class EodingaWindow(QMainWindow):
         self.settings_tab.always_on_top_changed.connect(self._change_always_on_top)
         self.launcher_state.indexing_status_changed.connect(self.index_tab.set_indexing_status)
         self.launcher_state.indexing_status_changed.connect(self.tray_indicator.set_indexing_status)
+        self.launcher_state.pinned_queries_changed.connect(self._sync_pinned_queries)
         self.set_indexing_status(IndexingStatus())
 
     def _connect_launcher_actions(self, launcher: LauncherPanel) -> None:
@@ -222,6 +223,12 @@ class EodingaWindow(QMainWindow):
         self._config.launcher = self._config.launcher.model_copy(update={"frameless": enabled})
         self._config.save(self._config_path)
         self.settings_tab.set_frameless(enabled)
+
+    def _sync_pinned_queries(self, queries: list[str]) -> None:
+        if self._config.launcher.pinned_queries == queries:
+            return
+        self._config.launcher = self._config.launcher.model_copy(update={"pinned_queries": queries})
+        self._config.save(self._config_path)
 
 def build_index_search_fn(db_path) -> SearchFn:
     def _search(query: str, limit: int) -> QueryResult:

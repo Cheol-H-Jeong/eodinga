@@ -74,6 +74,7 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.launcher_window.recent_queries_row.accessibleName() == "Recent launcher queries"
     assert window.launcher_window.empty_state.accessibleName() == "Launcher empty state"
     assert window.launcher_window.preview_pane.accessibleName() == "Launcher preview pane"
+    assert window.launcher_window.pin_query_button.accessibleName() == "Pin current query"
     assert window.search_tab.launcher_panel.action_bar.accessibleName() == "Launcher action bar"
     assert window.search_tab.launcher_panel.status_chip.accessibleName() == "Launcher status"
 
@@ -484,6 +485,21 @@ def test_settings_tab_toggles_frameless_without_restart(qapp, temp_config_path: 
 
     assert not bool(window.launcher_window.windowFlags() & Qt.WindowType.FramelessWindowHint)
     assert load(temp_config_path).launcher.frameless is False
+
+
+def test_launcher_pin_toggle_persists_queries_to_config(qapp, temp_config_path: Path) -> None:
+    window = EodingaWindow(config_path=temp_config_path)
+    window.launcher_window.show()
+
+    window.launcher_window.query_field.setText("ext:pdf")
+    window.launcher_window.pin_query_button.click()
+
+    assert load(temp_config_path).launcher.pinned_queries == ["ext:pdf"]
+
+    window.search_tab.launcher_panel.query_field.setText("ext:pdf")
+    window.search_tab.launcher_panel.pin_query_button.click()
+
+    assert load(temp_config_path).launcher.pinned_queries == []
 
 
 def test_launcher_flag_toggles_preserve_geometry(qapp, temp_config_path: Path) -> None:
