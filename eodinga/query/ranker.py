@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
+from functools import lru_cache
 import re
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -21,8 +22,19 @@ class RankingWeights(BaseModel):
 _PATH_SPLIT_RE = re.compile(r"[\\/]+")
 
 
+@lru_cache(maxsize=4096)
+def _path_segments(path: str) -> tuple[str, ...]:
+    return tuple(_PATH_SPLIT_RE.split(path))
+
+
 def _path_has_marker_segment(path: str, marker: str) -> bool:
-    return marker in _PATH_SPLIT_RE.split(path)
+    return marker in _path_segments(path)
+
+
+@lru_cache(maxsize=4096)
+def _path_has_any_marker(path: str, markers: tuple[str, ...]) -> bool:
+    segments = _path_segments(path)
+    return any(marker in segments for marker in markers)
 
 
 def reciprocal_rank_fusion(
@@ -70,7 +82,7 @@ def apply_path_deboost(
     weights = weights or RankingWeights()
     adjusted = dict(scores)
     for file_id, path in paths.items():
-        if any(_path_has_marker_segment(path, marker) for marker in weights.deboost_markers):
+        if _path_has_any_marker(path, weights.deboost_markers):
             adjusted[file_id] = adjusted.get(file_id, 0.0) * weights.deboost_factor
     return adjusted
 

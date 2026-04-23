@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from eodinga.query.ranker import (
     RankingWeights,
+    _path_has_marker_segment,
+    _path_has_any_marker,
+    _path_segments,
     apply_path_deboost,
     apply_prefix_boost,
     rank_results,
@@ -53,6 +56,23 @@ def test_deboost_matches_complete_path_segments_only() -> None:
     assert scores[2] == 1.0
     assert scores[3] == 0.25
     assert scores[4] == 1.0
+
+
+def test_deboost_caches_path_segment_checks() -> None:
+    _path_segments.cache_clear()
+    _path_has_any_marker.cache_clear()
+    markers = ("node_modules", ".git")
+    path = "/home/user/node_modules/pkg/index.js"
+
+    assert _path_has_marker_segment(path, "node_modules") is True
+    assert _path_has_marker_segment(path, "node_modules") is True
+    first = _path_has_any_marker(path, markers)
+    second = _path_has_any_marker(path, markers)
+
+    assert first is True
+    assert second is True
+    assert _path_segments.cache_info().hits >= 1
+    assert _path_has_any_marker.cache_info().hits >= 1
 
 
 def test_rank_results_combines_rrf_boost_and_deboost() -> None:
