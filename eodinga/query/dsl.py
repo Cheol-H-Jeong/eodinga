@@ -260,8 +260,6 @@ class _Parser:
             if not pattern:
                 raise QuerySyntaxError("empty regex", self.index - len(value) + 1)
             suffix = value[last + 1 :]
-            if suffix and (len(suffix) > 3 or not suffix.isalpha()):
-                return value, "word", ""
             if name == "path" and value.startswith("/") and (len(delimiters) < 3 or not suffix):
                 return value, "word", ""
             if name == "path" and suffix:

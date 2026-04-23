@@ -125,6 +125,12 @@ def test_parse_inline_operator_empty_regex_errors(query: str) -> None:
         parse(query)
 
 
+@pytest.mark.parametrize("query", ["content:/todo/imsa", "regex:/todo/im1", "content:/todo/i1"])
+def test_parse_inline_operator_invalid_regex_suffix_errors(query: str) -> None:
+    with pytest.raises(QuerySyntaxError, match="regex flag"):
+        parse(query)
+
+
 @pytest.mark.parametrize("query", ["/todo/x", "content:/todo/mii", "regex:/todo/ix"])
 def test_parse_regex_flags_must_be_supported_and_unique(query: str) -> None:
     with pytest.raises(QuerySyntaxError, match="regex flag"):
