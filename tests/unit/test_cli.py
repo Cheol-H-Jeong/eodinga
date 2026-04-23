@@ -613,6 +613,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["files_indexed"] == indexed_files
     assert payload["counters"]["parser_errors"] == 1
     assert payload["counters"]["parsers.broken.error"] == 1
+    assert payload["counters"]["parsers.text.parsed"] >= 2
     assert payload["counters"]["queries_served"] == 1
     assert "queries_zero_results" not in payload["counters"]
     assert payload["counters"]["queries_truncated"] == 1
@@ -653,6 +654,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["exit_codes"]["0"] == 2
     assert payload["crash_types"] == {}
     assert payload["parser_activity"]["broken"]["errors"] == 1
+    assert payload["parser_activity"]["text"]["parsed"] >= 2
     assert payload["watcher_event_types"] == {"created": 1, "modified": 1}
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_retention"] == 5
@@ -670,6 +672,37 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
         "command.index",
         "command.search",
     ]
+
+
+def test_stats_json_structures_parser_success_and_skip_counts(tmp_path: Path, capsys, monkeypatch) -> None:
+    sample = tmp_path / "sample.txt"
+    sample.write_text("sample parser text", encoding="utf-8")
+    oversized = tmp_path / "oversized.txt"
+    oversized.write_text("x" * 64, encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    from eodinga.content.base import empty_content
+
+    success_spec = ParserSpec(
+        name="tracked",
+        parse=lambda path, _max_chars: empty_content(path),
+        extensions=frozenset({"txt"}),
+        max_bytes=32,
+    )
+    monkeypatch.setattr("eodinga.content.registry.get_spec_for", lambda _path: success_spec)
+
+    parse(sample, max_body_chars=64)
+    parse(oversized, max_body_chars=64)
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["parser_activity"]["tracked"] == {"parsed": 1, "skipped_too_large": 1}
+    assert payload["counters"]["parsers.tracked.parsed"] == 1
+    assert payload["counters"]["parsers.tracked.skipped_too_large"] == 1
 
 
 def test_stats_json_exposes_zero_result_query_metrics(tmp_path: Path, capsys) -> None:

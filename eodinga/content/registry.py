@@ -68,7 +68,9 @@ def parse(path: Path, max_body_chars: int) -> ParsedContent:
         if file_size(path) > spec.max_bytes:
             increment_counter(f"parsers.{spec.name}.skipped_too_large")
             return empty_content(path)
-        return spec.parse(path, max_body_chars)
+        parsed = spec.parse(path, max_body_chars)
+        increment_counter(f"parsers.{spec.name}.parsed")
+        return parsed
     except Exception:
         increment_counter("parser_errors")
         increment_counter(f"parsers.{spec.name}.error")

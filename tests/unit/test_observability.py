@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 from eodinga.common import WatchEvent
-from eodinga.content.base import ParserSpec
+from eodinga.content.base import ParserSpec, empty_content
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga import __version__
@@ -292,6 +292,42 @@ def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path:
     counters = cast(dict[str, int], snapshot_metrics()["counters"])
     assert counters["parser_errors"] == 1
     assert counters["parsers.broken.error"] == 1
+
+
+def test_parser_success_counter_increments_for_successful_parse(monkeypatch, tmp_path: Path) -> None:
+    document = tmp_path / "ok.txt"
+    document.write_text("hello parser", encoding="utf-8")
+    spec = ParserSpec(
+        name="ok",
+        parse=lambda path, _max_chars: empty_content(path),
+        extensions=frozenset({"txt"}),
+        max_bytes=1024,
+    )
+    reset_metrics()
+    monkeypatch.setattr("eodinga.content.registry.get_spec_for", lambda _path: spec)
+
+    parse(document, max_body_chars=128)
+
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["parsers.ok.parsed"] == 1
+
+
+def test_parser_skipped_too_large_counter_increments(monkeypatch, tmp_path: Path) -> None:
+    document = tmp_path / "large.txt"
+    document.write_text("x" * 32, encoding="utf-8")
+    spec = ParserSpec(
+        name="tiny-limit",
+        parse=lambda path, _max_chars: empty_content(path),
+        extensions=frozenset({"txt"}),
+        max_bytes=4,
+    )
+    reset_metrics()
+    monkeypatch.setattr("eodinga.content.registry.get_spec_for", lambda _path: spec)
+
+    parse(document, max_body_chars=128)
+
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["parsers.tiny-limit.skipped_too_large"] == 1
 
 
 def test_watcher_event_counter_increments() -> None:

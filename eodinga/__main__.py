@@ -385,9 +385,14 @@ def _parser_activity_summary(counters: dict[str, int]) -> dict[str, dict[str, in
         if not name.startswith(prefix):
             continue
         parser_name, _, status = name[len(prefix) :].rpartition(".")
-        if not parser_name or status not in {"error", "skipped_too_large"}:
+        if not parser_name or status not in {"error", "parsed", "skipped_too_large"}:
             continue
-        key = "errors" if status == "error" else "skipped_too_large"
+        if status == "error":
+            key = "errors"
+        elif status == "parsed":
+            key = "parsed"
+        else:
+            key = "skipped_too_large"
         parser_activity.setdefault(parser_name, {})[key] = value
     return dict(
         sorted((name, dict(sorted(statuses.items()))) for name, statuses in parser_activity.items())
