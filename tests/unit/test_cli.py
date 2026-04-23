@@ -527,6 +527,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["recent_snapshots"][0]["payload"]["query"] == "duplicate"
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
+    assert payload["metrics_path"] is None
+    assert payload["metrics_persistence_enabled"] is False
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
@@ -665,6 +667,8 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["parser_activity"]["text"]["parsed"] >= 2
     assert payload["watcher_event_types"] == {"created": 1, "modified": 1}
     assert payload["log_rotation"] == "5 MB"
+    assert payload["metrics_path"] is None
+    assert payload["metrics_persistence_enabled"] is False
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
@@ -732,10 +736,42 @@ def test_stats_json_exposes_zero_result_query_metrics(tmp_path: Path, capsys) ->
     assert payload["queries_truncated"] == 0
     assert payload["query_result_count_histogram"]["count"] == 1
     assert payload["query_result_count_histogram"]["min_ms"] == 0.0
+    assert payload["metrics_persistence_enabled"] is False
     assert payload["counters"]["queries_zero_results"] == 1
     assert "queries_truncated" not in payload["counters"]
     assert payload["parser_activity"] == {}
     assert payload["watcher_event_types"] == {}
+
+
+def test_stats_json_reads_persisted_metrics_after_runtime_reset(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "index.db"
+    metrics_path = tmp_path / "metrics.json"
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+    _build_search_db(db_path)
+    reset_metrics()
+
+    search_exit = main(["--db", str(db_path), "search", "duplicate", "--json", "--limit", "1"])
+    search_output = capsys.readouterr()
+    assert search_exit == 0
+    assert json.loads(search_output.out)["count"] == 2
+
+    reset_metrics(reset_persisted=False)
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["metrics_path"] == str(metrics_path)
+    assert payload["metrics_persistence_enabled"] is True
+    assert payload["queries_served"] == 1
+    assert payload["commands_started"] == 2
+    assert payload["commands_completed"] == 1
+    assert payload["histograms"]["query_latency_ms"]["count"] == 1
+    assert payload["recent_snapshots"][0]["name"] == "command.search"
 
 
 def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path: Path) -> None:
