@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.113 - 2026-04-23
+## 0.1.119 - 2026-04-23
 
 - Reduced walker syscall overhead by carrying `os.scandir()` child `lstat` metadata into traversal, so discovered descendants no longer pay a second `lstat()` before indexing.
 - Streamed bulk index upserts in fixed-size chunks inside one transaction, which lowers peak memory during large ingests and preserves the caller's prior SQLite `synchronous` mode after the bulk write scope exits.
