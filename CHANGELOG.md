@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.559 - 2026-04-23
+## 0.1.561 - 2026-04-23
 
 - Made the Windows release target execute the staged CLI and GUI PyInstaller builds before invoking Inno Setup, and fail the packaging audit if the final installer executable is missing instead of reporting a build without artifacts.
 - Added command-plan auditing for the Windows release path, so `windows-dry-run` now verifies the expected CLI and GUI entrypoints, GUI windowed mode, and the rendered Inno invocation before CI reaches the real build step.
