@@ -690,10 +690,14 @@ def _derive_name_path_hits(
     name_hits: list[int] = []
     path_hits: list[int] = []
     if not positive_terms:
-        ordered = sorted(records.values(), key=lambda item: item.name_lower)
-        ids = [record.id for record in ordered if record.id is not None]
+        ordered_records = sorted(
+            records.values(),
+            key=lambda item: (item.name_lower, item.id if item.id is not None else -1),
+        )
+        ids = [record.id for record in ordered_records if record.id is not None]
         return ids, ids
-    for record in records.values():
+    ordered_records = sorted(records.values(), key=lambda item: item.id if item.id is not None else -1)
+    for record in ordered_records:
         if record.id is None:
             continue
         target_name = record.name

@@ -8,8 +8,11 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from eodinga.common import FileRecord
 from eodinga.query import executor as executor_module
 from eodinga.query import search
+from eodinga.query.compiler import compile_query
+from eodinga.query.dsl import parse
 
 
 def _insert_file(
@@ -182,6 +185,46 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     assert "today.txt" not in last_week_hits
     last_month_hits = [hit.file.name for hit in search(tmp_db, "date:last-month", limit=10).hits]
     assert "old.txt" in last_month_hits
+
+
+def test_derive_name_path_hits_are_stable_across_record_insertion_order() -> None:
+    branch = compile_query(parse("alpha")).branches[0]
+    first = FileRecord(
+        id=1,
+        root_id=1,
+        path=Path("/workspace/alpha-a.txt"),
+        parent_path=Path("/workspace"),
+        name="alpha-a.txt",
+        name_lower="alpha-a.txt",
+        ext="txt",
+        size=1,
+        mtime=1,
+        ctime=1,
+        is_dir=False,
+        is_symlink=False,
+        indexed_at=1,
+    )
+    second = FileRecord(
+        id=2,
+        root_id=1,
+        path=Path("/workspace/alpha-b.txt"),
+        parent_path=Path("/workspace"),
+        name="alpha-b.txt",
+        name_lower="alpha-b.txt",
+        ext="txt",
+        size=1,
+        mtime=1,
+        ctime=1,
+        is_dir=False,
+        is_symlink=False,
+        indexed_at=1,
+    )
+
+    reversed_hits = executor_module._derive_name_path_hits({2: second, 1: first}, branch)
+    forward_hits = executor_module._derive_name_path_hits({1: first, 2: second}, branch)
+
+    assert reversed_hits == ([1, 2], [1, 2])
+    assert forward_hits == reversed_hits
 
 
 def test_execute_previous_period_date_queries_use_local_boundaries(
