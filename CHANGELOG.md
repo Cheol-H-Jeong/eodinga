@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.266 - 2026-04-23
+
+- Expanded `README.md` with dependency profiles, task-oriented query recipes, and packaging-output checks so operators can choose the right local install and validation path faster.
+- Clarified `docs/DSL.md` with precedence rules, calendar-boundary date macros, range examples, and regex-flag coverage so complex queries are easier to reason about correctly.
+- Added runtime artifact ownership and a docs-to-tag handoff flow across `docs/ARCHITECTURE.md`, `docs/CONTRIBUTING.md`, and `docs/RELEASE.md`, tightening the shipped docs workflow for concurrent worktrees.
+
 ## 0.1.262 - 2026-04-23
 
 - Restricted ranking deboost markers like `node_modules` and `.git` to full path segments, preventing unrelated paths such as `node_modules_backup` or `git-cache` from being unfairly pushed down.
