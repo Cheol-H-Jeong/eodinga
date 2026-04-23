@@ -230,7 +230,12 @@ def test_report_crash_writes_log_and_stderr(tmp_path: Path, monkeypatch, capsys)
     assert str(crash_path) in captured.err
     assert "reported crash" in crash_path.read_text(encoding="utf-8")
     counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    snapshots = recent_snapshots()
     assert counters["crashes.RuntimeError"] == 1
+    assert snapshots[-1]["name"] == "crash.report"
+    assert snapshots[-1]["payload"]["context"] == "reported crash"
+    assert snapshots[-1]["payload"]["error_type"] == "RuntimeError"
+    assert snapshots[-1]["payload"]["crash_path"] == str(crash_path)
 
 
 def test_report_crash_records_write_failure_without_raising(monkeypatch, capsys) -> None:
@@ -245,6 +250,7 @@ def test_report_crash_records_write_failure_without_raising(monkeypatch, capsys)
 
     captured = capsys.readouterr()
     counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    snapshots = recent_snapshots()
     assert crash_path is None
     assert "failed to write crash log" in captured.err
     assert "disk full" in captured.err
@@ -252,6 +258,11 @@ def test_report_crash_records_write_failure_without_raising(monkeypatch, capsys)
     assert counters["crashes_reported"] == 1
     assert counters["crash_log_write_failures"] == 1
     assert "crash_logs_written" not in counters
+    assert snapshots[-1]["name"] == "crash.report"
+    assert snapshots[-1]["payload"]["context"] == "reported crash"
+    assert snapshots[-1]["payload"]["error_type"] == "RuntimeError"
+    assert snapshots[-1]["payload"]["crash_path"] is None
+    assert snapshots[-1]["payload"]["write_error"] == "OSError: disk full"
 
 
 def test_install_crash_handlers_writes_thread_crash_log(

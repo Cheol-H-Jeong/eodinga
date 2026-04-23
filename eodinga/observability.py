@@ -344,6 +344,15 @@ def report_crash(
         increment_counter("crash_log_write_failures")
         increment_counter("crashes_reported")
         increment_counter(f"crashes.{type(error).__name__}")
+        record_snapshot(
+            "crash.report",
+            {
+                "context": context,
+                "error_type": type(error).__name__,
+                "crash_path": None,
+                "write_error": f"{type(write_error).__name__}: {write_error}",
+            },
+        )
         target_stream.write(
             "unhandled exception; failed to write crash log: "
             f"{type(write_error).__name__}: {write_error}\n"
@@ -351,6 +360,14 @@ def report_crash(
         return None
     increment_counter("crashes_reported")
     increment_counter(f"crashes.{type(error).__name__}")
+    record_snapshot(
+        "crash.report",
+        {
+            "context": context,
+            "error_type": type(error).__name__,
+            "crash_path": str(crash_path),
+        },
+    )
     target_stream.write(f"unhandled exception; crash log written to {crash_path}\n")
     return crash_path
 

@@ -265,6 +265,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
             "documents_indexed": snapshot["documents_indexed"],
             "queries_served": snapshot["queries_served"],
             "commands_started": snapshot["commands_started"],
+            "file_logging_enabled": snapshot["file_logging_enabled"],
+            "log_path": str(snapshot["log_path"]) if snapshot["log_path"] is not None else None,
+            "crash_dir": str(snapshot["crash_dir"]) if snapshot["crash_dir"] is not None else None,
         },
     )
     return _emit(snapshot, as_json=bool(args.json))

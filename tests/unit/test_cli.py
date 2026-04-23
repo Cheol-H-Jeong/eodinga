@@ -713,6 +713,39 @@ def test_stats_json_structures_parser_success_and_skip_counts(tmp_path: Path, ca
     assert payload["counters"]["parsers.tracked.skipped_too_large"] == 1
 
 
+def test_stats_json_preserves_prior_stats_snapshot_runtime_paths(
+    tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    log_path = tmp_path / "logs" / "runtime.log"
+    crash_dir = tmp_path / "crashes"
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    reset_metrics()
+
+    first_exit = main(["--db", str(db_path), "stats", "--json"])
+    capsys.readouterr()
+    assert first_exit == 0
+
+    second_exit = main(["--db", str(db_path), "stats", "--json"])
+    second_output = capsys.readouterr()
+    assert second_exit == 0
+    payload = json.loads(second_output.out)
+    assert payload["recent_snapshots"][-1]["name"] == "command.stats"
+    assert payload["recent_snapshots"][-1]["payload"] == {
+        "db": str(db_path),
+        "files_indexed": 3,
+        "documents_indexed": 3,
+        "queries_served": 0,
+        "commands_started": 1,
+        "file_logging_enabled": True,
+        "log_path": str(log_path),
+        "crash_dir": str(crash_dir),
+    }
+
+
 def test_stats_json_exposes_zero_result_query_metrics(tmp_path: Path, capsys) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
@@ -836,10 +869,12 @@ def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Pat
     assert payload["crash_types"] == {"RuntimeError": 1}
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
         "command.failure",
+        "crash.report",
         "command.crash",
     ]
     assert payload["recent_snapshots"][0]["payload"]["reason"] == "exception"
     assert payload["recent_snapshots"][1]["payload"]["error_type"] == "RuntimeError"
+    assert payload["recent_snapshots"][2]["payload"]["error_type"] == "RuntimeError"
 
 
 def test_stats_json_exposes_crash_log_write_failures(tmp_path: Path, capsys, monkeypatch) -> None:
@@ -869,7 +904,10 @@ def test_stats_json_exposes_crash_log_write_failures(tmp_path: Path, capsys, mon
     assert payload["crash_logs_written"] == 0
     assert payload["crash_log_write_failures"] == 1
     assert payload["crash_types"] == {"RuntimeError": 1}
+    assert payload["recent_snapshots"][1]["name"] == "crash.report"
     assert payload["recent_snapshots"][1]["payload"]["crash_path"] is None
+    assert payload["recent_snapshots"][1]["payload"]["write_error"] == "OSError: disk full"
+    assert payload["recent_snapshots"][2]["name"] == "command.crash"
 
 
 def test_stats_json_structures_interrupted_command_counts(
