@@ -332,6 +332,38 @@ def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
     assert calls == ["ext:pdf"]
 
 
+def test_launcher_pin_button_toggles_shared_pinned_queries(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    launcher.query_field.setText("ext:pdf")
+    launcher.pin_query_button.click()
+
+    assert state.pinned_queries == ["ext:pdf"]
+    assert launcher.pin_query_button.text() == "Unpin"
+
+    launcher.pin_query_button.click()
+
+    assert state.pinned_queries == []
+    assert launcher.pin_query_button.text() == "Pin"
+
+
+def test_launcher_alt_p_toggles_current_query_pin(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+    launcher.query_field.setText("date:this-week")
+    launcher.query_field.setFocus()
+    qapp.processEvents()
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_P, Qt.KeyboardModifier.AltModifier)
+    assert state.pinned_queries == ["date:this-week"]
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_P, Qt.KeyboardModifier.AltModifier)
+    assert state.pinned_queries == []
+
+
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:
     revealed: list[str] = []
 
@@ -399,12 +431,13 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.empty_state.title_label.text() == "Type to search"
     assert "No recent queries yet" in launcher.empty_state.body_label.text()
     assert "Alt+Up" in launcher.empty_state.body_label.text()
+    assert "Alt+P" in launcher.empty_state.body_label.text()
     assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
     assert "(20%)" in launcher.empty_state.details_label.text()
     assert launcher.status_chip.text() == "Indexing"
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
-    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Alt+Up recalls recent queries."
+    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Alt+P pins the current query. Alt+Up recalls recent queries."
 
     launcher.query_field.setText("missing")
     _wait(60)
@@ -415,6 +448,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
     assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
+    assert "Alt+P pins the current query" in launcher.shortcut_label.text()
     assert "Alt+Up recalls recent queries" in launcher.shortcut_label.text()
 
 
@@ -668,6 +702,7 @@ def test_launcher_alt_number_quick_picks_results(qapp) -> None:
     assert activated == ["item-2.txt"]
     assert launcher.result_list.currentIndex().row() == 2
     assert "Alt+1..9 quick-picks" in launcher.shortcut_label.text()
+    assert "Alt+P pins the current query" in launcher.shortcut_label.text()
     assert "Home/End and PgUp/PgDn jump" in launcher.shortcut_label.text()
 
 
@@ -676,6 +711,7 @@ def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     launcher.show()
 
     assert "Alt+1 through Alt+9" in launcher.empty_state.body_label.text()
+    assert "Alt+P" in launcher.empty_state.body_label.text()
 
 
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
@@ -684,6 +720,7 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
 
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
+    assert launcher.pin_query_button.accessibleName() == "Pin current query"
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"
