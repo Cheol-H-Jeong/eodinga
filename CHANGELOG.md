@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.356 - 2026-04-23
+## 0.1.359 - 2026-04-23
 
 - Fixed bare `/.../flags` regex parsing when the pattern ends with an escaped backslash before the closing delimiter, keeping bare-regex behavior aligned with operator regex parsing.
 - Added grouped-negation compiler regressions that pin De Morgan normalization for `AND`, `OR`, and double-negated query groups.
