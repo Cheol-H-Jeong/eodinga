@@ -84,6 +84,16 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 - Operator tooling: `doctor`, `stats --json`, generated man page, screenshots rendered from real Qt widgets, and dry-run packaging audits.
 - Packaging contract: Windows installer plus Linux AppImage and `.deb` paths, all documented and verified in-repo.
 
+## Full Feature Checklist
+
+- Shared search engine across `eodinga search`, the main GUI, and the global-hotkey launcher, so query semantics do not drift by surface.
+- Root-scoped indexing for multiple trees, with staged rebuilds for cold start and watcher-driven incremental updates afterward.
+- Local-only parser pipeline for text, source code, PDF, EPUB, HTML, HWP, and Office content when `.[parsers]` is installed.
+- Structured filters for extension, path, content, size, modified date, created date, file type, emptiness, and duplicate detection.
+- Keyboard-first launcher actions for open, reveal, properties, recent-query recall, paging, and direct result activation.
+- Operator diagnostics through `eodinga doctor`, `eodinga stats --json`, generated docs assets, and packaging dry-run audits under `packaging/dist/`.
+- Crash-safe index lifecycle that resumes interrupted staged rebuilds and stale-WAL recovery on the next startup before the live DB is reopened.
+
 ## Surface Matrix
 
 | Surface | Entry point | Best for | Notes |
@@ -181,6 +191,30 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Find the previous calendar month | `date:last-month ext:pdf` |
 | Exclude noisy trees | `-path:node_modules` |
 | Run regex | `regex:/todo|fixme/i` |
+
+### Date Macros
+
+| Window | Query |
+| --- | --- |
+| Today | `date:today` |
+| Yesterday | `date:yesterday` |
+| Current week | `date:this-week` |
+| Previous week | `date:last-week` |
+| Current month | `date:this-month` |
+| Previous month | `date:last-month` |
+| Open-ended start | `date:2026-04-01..` |
+| Open-ended end | `modified:..2026-04-23` |
+| Exact instant | `modified:2026-04-23T09:15:30+00:00` |
+
+### Structural Filters
+
+| Goal | Query |
+| --- | --- |
+| Regular files only | `is:file` |
+| Directories only | `is:dir` |
+| Symlink entries only | `is:symlink` |
+| Zero-byte files or empty directories | `is:empty` |
+| Content-hash duplicates | `is:duplicate` |
 
 ## Supported Content Types
 
@@ -360,6 +394,22 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 ### Which commands are most useful for a quick health check?
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
+
+### Do I need to keep `eodinga watch` running if I mainly use the GUI or launcher?
+
+For CLI-only workflows, yes: live updates require `eodinga watch` unless you rebuild manually. Packaged desktop flows can wrap the same watcher behavior for you, but the underlying contract is still watcher-driven rather than a background network service.
+
+### How do I prove which index a surface is reading?
+
+Run `eodinga stats --json` and check the reported database path before debugging query behavior. That gives you the fastest confirmation that the CLI, GUI, or launcher is pointed at the expected local index.
+
+### Can I keep multiple roots but search only one subtree when debugging?
+
+Yes. Use `--root PATH` with `eodinga search` for a scoped CLI check, or use `path:` filters when you want the shared query engine to stay on the same database but narrow the result set.
+
+### What should I read after the README?
+
+Use `docs/DSL.md` for the full query grammar, `docs/ARCHITECTURE.md` for runtime flow and recovery, `docs/CONTRIBUTING.md` for the worker loop, and `docs/RELEASE.md` when you are cutting or reviewing a tagged round.
 
 ### Where do I inspect packaging outputs before a release?
 
