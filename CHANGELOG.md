@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.368 - 2026-04-23
+
+- Fixed slash-delimited regex parsing so a closing `/` after an even run of backslashes is treated as the real delimiter instead of leaving the pattern unterminated.
+- Fixed normalized phrase fallback scans so decomposed Korean content still matches quoted phrase queries across separators such as newlines when FTS misses the normalized form.
+- Expanded query correctness coverage for escaped regex delimiters, normalized Unicode phrase fallback, and nested negated groups so De Morgan distribution remains pinned end to end.
+
 ## 0.1.365 - 2026-04-23
 
 - Cleaned leftover `.recover.partial*` and `.next.partial*` artifacts during interrupted-stage resume and startup open, so crash residue no longer survives into the next reopen path.
