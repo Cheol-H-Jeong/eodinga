@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.193 - 2026-04-23
+
+- Hardened staged-index recovery so `.index.db.next` is promoted only after an explicit completion marker is written, and incomplete or corrupt staged builds are discarded instead of replacing a healthy live index after restart.
+- Added hot-restart and storage regressions that cover interrupted staged builds, unreadable staged databases, and the new discard-on-startup path, keeping partial rebuild state from leaking into live search results.
+- Bounded the watcher delivery queue and added explicit backpressure handling so a slow consumer now blocks producer flushes, records saturation, and avoids unbounded queue growth without silently dropping file events.
+
 ## 0.1.190 - 2026-04-23
 
 - Expanded multi-root live-update coverage so a real watched delete in one root must disappear from both global and root-scoped search results within 500 ms without disturbing sibling-root hits.
