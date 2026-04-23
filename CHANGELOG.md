@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.908 - 2026-04-23
+
+- Skipped redundant SQLite PRAGMA rewrites when a connection is already in the requested fast-write state, trimming per-batch rebuild overhead without changing steady-state durability defaults.
+- Expanded writer-managed fast-write mode to borrow the same larger SQLite cache budget used by staged rebuilds, covering both bulk upserts and incremental watcher event application.
+- Added an opt-in `apply_events` throughput benchmark under `EODINGA_RUN_PERF=1`, so incremental indexing performance now has a dedicated regression guard alongside the existing cold-start and bulk-upsert perf suite.
+
 ## 0.1.905 - 2026-04-23
 
 - Moved CLI stats summarization into a dedicated observability helper so the command surface stays easier to evolve without bloating the main entrypoint.
