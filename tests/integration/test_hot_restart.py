@@ -39,6 +39,35 @@ def _wait_for_query_hit(
     raise AssertionError(f"{expected_path} did not become query-visible within {deadline_seconds:.3f}s")
 
 
+def _wait_for_query_state(
+    conn,
+    service: WatchService,
+    writer: IndexWriter,
+    query: str,
+    deadline_seconds: float,
+    *,
+    expected_paths: set[Path],
+    root: Path | None = None,
+) -> float:
+    started = monotonic()
+    deadline = started + deadline_seconds
+    while monotonic() < deadline:
+        try:
+            event = service.queue.get(timeout=0.05)
+        except Empty:
+            continue
+        writer.apply_events([event], record_loader=make_record)
+        hits = {
+            hit.file.path for hit in search(conn, query, limit=5, root=root).hits
+        }
+        if hits == expected_paths:
+            return monotonic() - started
+    raise AssertionError(
+        f"query {query!r} did not reach expected paths {sorted(str(path) for path in expected_paths)} "
+        f"within {deadline_seconds:.3f}s"
+    )
+
+
 def test_hot_restart_recovers_stale_wal_and_preserves_queries(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     root.mkdir()
@@ -198,3 +227,52 @@ def test_hot_restart_reopen_multi_root_keeps_queries_and_accepts_live_updates(tm
     assert elapsed <= 0.5
     assert reopened_hits == {existing_a, existing_b}
     assert reopened_beta_hits == {existing_b}
+
+
+def test_hot_restart_reopen_multi_root_accepts_live_delete_and_preserves_scope(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    existing_a = root_a / "existing-alpha.txt"
+    existing_b = root_b / "existing-beta.txt"
+    existing_a.write_text("restart scoped delete alpha\n", encoding="utf-8")
+    existing_b.write_text("restart scoped delete beta\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        existing_b.unlink()
+        elapsed = _wait_for_query_state(
+            reopened,
+            service,
+            writer,
+            "restart scoped delete",
+            deadline_seconds=0.5,
+            expected_paths={existing_a},
+        )
+        alpha_hits = {
+            hit.file.path
+            for hit in search(reopened, "restart scoped delete", limit=5, root=root_a).hits
+        }
+        beta_hits = {
+            hit.file.path
+            for hit in search(reopened, "restart scoped delete", limit=5, root=root_b).hits
+        }
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert elapsed <= 0.5
+    assert alpha_hits == {existing_a}
+    assert beta_hits == set()
