@@ -49,6 +49,17 @@ regex:/launch|ship/i path:docs
 -(draft | scratch) /todo|fixme/i
 ```
 
+## Narrowing Strategy
+
+When you are building a query interactively, prefer this order:
+
+1. start with one plain term or phrase
+2. add one structured filter such as `path:`, `ext:`, `date:`, or `is:`
+3. add grouping or negation only after the base candidate set looks right
+4. add regex last, because it is the easiest operator family to make overly broad
+
+That sequence mirrors how the runtime narrows candidates: cheap lexical filters first, then the more selective or fallback-heavy pieces.
+
 ## Operator Notes
 
 - Path/name terms are case-insensitive unless `case:true` is set.
@@ -61,6 +72,27 @@ regex:/launch|ship/i path:docs
 - `regex:true` only changes how plain terms are interpreted; explicit `/pattern/flags` literals still work without it.
 - `regex:/pattern/flags` is an explicit alias for a path/name regex term when you want the query to read like an operator list.
 - Negation applies to the next term or the entire parenthesized group.
+
+## Grouping And Negation Examples
+
+| Intent | Query | Why the grouping matters |
+| --- | --- | --- |
+| exclude either branch | `-(invoice | receipt) ext:pdf` | the `-` applies to the whole group |
+| exclude only one branch | `-invoice | receipt` | parsed as one negated branch OR one positive branch |
+| keep one branch scoped to one type | `(invoice | receipt) ext:pdf` | both terms share the same extension filter |
+| exclude one path and one file class | `-path:node_modules -is:dir` | each negation applies to the next operator only |
+
+## Regex Notes
+
+| Pattern | Meaning |
+| --- | --- |
+| `/todo|fixme/` | regex literal with default case-insensitive path/name matching rules |
+| `/todo|fixme/i` | explicit case-insensitive regex |
+| `/^README$/m` | multiline flag for anchors |
+| `/foo.*bar/s` | dot-all flag so `.` can cross newline boundaries |
+| `regex:true report-\\d+` | treat later plain terms as regex path/name filters |
+
+If a regex query feels too wide, drop back to a plain term plus `path:` or `ext:` first, then reintroduce the regex once the candidate set is already narrow.
 
 ## Practical Limits
 

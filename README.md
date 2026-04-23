@@ -261,6 +261,22 @@ eodinga index --rebuild
 | Confirm runtime health | `eodinga doctor && eodinga stats --json` |
 | Refresh shipped docs assets | `python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` |
 
+## Query Playbook
+
+Use these patterns when you want a quick reminder of which operator family answers a specific question:
+
+| Goal | Query | Why it helps |
+| --- | --- | --- |
+| Keep results inside one subtree | `path:projects roadmap` | path filters reduce noisy cross-root hits before ranking |
+| Search document body only | `content:"release checklist"` | avoids filename-only matches when parser-backed content exists |
+| Find work from a calendar window | `date:last-week ext:md` | uses the shared relative-date macros instead of hard-coded timestamps |
+| Filter exact file classes | `is:file -is:empty` | narrows to non-empty regular files only |
+| Catch regex-shaped names | `/todo|fixme/i path:src` | uses the explicit regex literal with case-insensitive matching |
+| Exclude noisy grouped branches | `-(draft | scratch) ext:pdf` | applies negation to the whole group instead of just one term |
+| Audit storage-heavy duplicates | `is:duplicate size:>10M` | combines duplicate detection with a size threshold |
+
+When a query behaves differently than you expected, move in this order: plain term, one structured operator, then grouping or regex. That keeps failures attributable to one feature at a time.
+
 ## Architecture
 
 The runtime stack is intentionally small: read-only filesystem traversal, SQLite/FTS-backed indexing, a shared DSL compiler/executor, and thin CLI/GUI surfaces. The component map and data flow are documented in [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md).
@@ -467,6 +483,10 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
 
+### How should I debug an unexpected query result?
+
+Start with the smallest reproducible query and add operators one by one. Use `eodinga search 'plain term' --json` first, then add `path:`, `content:`, `date:`, or `is:` filters individually so you can tell which operator changed the result set.
+
 ### Where do logs and crash reports go?
 
 By default they stay under the platform app-data area next to the local index. Use `EODINGA_LOG_PATH` to redirect the rotating runtime log and `EODINGA_CRASH_DIR` to redirect `crash-<ts>.log` artifacts.
@@ -490,6 +510,10 @@ Check `tests/unit/test_docs_assets.py`, the matching GUI smoke or packaging dry 
 ### How do I refresh screenshots and the man page without missing a validation step?
 
 Use `python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py`. If the docs also describe packaged artifacts, follow that with the matching `packaging/build.py --target ...-dry-run` command and inspect `packaging/dist/`.
+
+### What is the safest release-evidence bundle for a docs-only round?
+
+Use the docs-only pass in this README or `docs/RELEASE.md`: `source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run`. That proves the written docs, visible Qt surfaces, and packaged payload claims still agree.
 
 ### Which files are skipped by default?
 
