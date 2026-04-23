@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.588 - 2026-04-23
+## 0.1.589 - 2026-04-23
 
 - Preserved every ready watcher event across queue-backpressure retries, so a single full queue no longer drops the tail of a flush batch before it can be retried.
 - Kept rebuild signal handling active through the final staged-index publish step, allowing `SIGINT` and `SIGTERM` to finish the atomic swap and then surface as an interrupt instead of silently succeeding.
