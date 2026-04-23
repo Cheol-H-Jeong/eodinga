@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.287 - 2026-04-23
+
+- Kept the frameless launcher popup usable across screen changes by centering first launch, restoring saved geometry only after clamping it to the visible screen, and adding mouse dragging from non-editing launcher surfaces.
+- Clamped dragged and persisted launcher bounds to the active screen so oversized or off-screen popup positions are normalized before they are saved back into config.
+
 ## 0.1.282 - 2026-04-23
 
 - Tightened the contributor and release guides around parallel worker worktrees, one-commit-at-a-time unit gates, and the final local-tag handoff flow so docs rounds remain reproducible under concurrent landing.
