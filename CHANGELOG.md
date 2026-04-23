@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.138 - 2026-04-23
+## 0.1.142 - 2026-04-23
 
 - Expanded the Windows PyInstaller spec so packaging now auto-discovers real `eodinga.*` module imports from the source tree, including relative imports, instead of relying only on a hand-maintained runtime list.
 - Hardened `packaging/build.py` dry-run validation so Windows, AppImage, and Debian packaging audits now fail fast when version sync, installer metadata, launcher shims, or shipped-doc contracts drift.
