@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.502 - 2026-04-23
+## 0.1.504 - 2026-04-23
 
 - Shared the integration watcher polling helpers across live-update and hot-restart suites so rename-path regressions exercise the same end-to-end event application loop instead of duplicated local copies.
 - Added real watchdog integration coverage for same-root file renames in both single-root and multi-root indexing, proving renamed files remain query-visible within the 500ms live-update budget and preserve root scoping.
