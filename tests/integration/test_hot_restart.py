@@ -286,6 +286,71 @@ def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) 
     assert remaining_hits == {survivor}
 
 
+def test_hot_restart_reopen_after_removed_root_rebuild_accepts_remaining_root_live_updates(
+    tmp_path: Path,
+) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    survivor = root_a / "alpha-survivor.txt"
+    removed = root_b / "beta-removed.txt"
+    survivor.write_text("trimmed reopen alpha survivor\n", encoding="utf-8")
+    removed.write_text("trimmed reopen beta removed\n", encoding="utf-8")
+
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+    rebuild_index(db_path, [RootConfig(path=root_a)], content_enabled=True)
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        initial_hits = {
+            hit.file.path for hit in search(reopened, "trimmed reopen alpha survivor", limit=5).hits
+        }
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+
+        created = root_a / "after-trim-reopen.txt"
+        created.write_text("trimmed reopen live alpha update\n", encoding="utf-8")
+        elapsed = wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "trimmed reopen live alpha update",
+            created,
+            deadline_seconds=0.5,
+        )
+        all_hits = {
+            hit.file.path for hit in search(reopened, "trimmed reopen live alpha update", limit=5).hits
+        }
+        alpha_hits = {
+            hit.file.path
+            for hit in search(reopened, "trimmed reopen live alpha update", limit=5, root=root_a).hits
+        }
+        beta_hits = {
+            hit.file.path
+            for hit in search(reopened, "trimmed reopen live alpha update", limit=5, root=root_b).hits
+        }
+        stored_roots = {
+            Path(row[0]) for row in reopened.execute("SELECT path FROM roots ORDER BY id").fetchall()
+        }
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == {survivor}
+    assert elapsed <= 0.5
+    assert all_hits == {created}
+    assert alpha_hits == {created}
+    assert beta_hits == set()
+    assert stored_roots == {root_a}
+
+
 def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updates(
     tmp_path: Path,
 ) -> None:
@@ -371,6 +436,133 @@ def test_hot_restart_resumes_interrupted_multi_root_build_with_root_scoped_queri
     assert all_hits == {alpha, beta}
     assert alpha_hits == {alpha}
     assert beta_hits == {beta}
+    assert not staged_db.exists()
+
+
+def test_hot_restart_resumed_multi_root_build_accepts_root_scoped_live_updates(
+    tmp_path: Path,
+) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    target_db = tmp_path / "database" / "index.db"
+    staged_db = tmp_path / "database" / ".index.db.next"
+    root_a.mkdir()
+    root_b.mkdir()
+    alpha = root_a / "alpha-recovered.txt"
+    beta = root_b / "beta-recovered.txt"
+    alpha.write_text("resumed live alpha survivor\n", encoding="utf-8")
+    beta.write_text("resumed live beta survivor\n", encoding="utf-8")
+
+    rebuild_index(
+        staged_db,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+    assert staged_db.exists()
+
+    reopened = open_index(target_db)
+    service = WatchService()
+    try:
+        initial_hits = {hit.file.path for hit in search(reopened, "resumed live", limit=5).hits}
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        created = root_b / "after-resume-beta.txt"
+        created.write_text("resumed staged beta update\n", encoding="utf-8")
+        elapsed = wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "resumed staged beta update",
+            created,
+            deadline_seconds=0.5,
+        )
+        global_hits = {
+            hit.file.path for hit in search(reopened, "resumed staged beta update", limit=5).hits
+        }
+        alpha_hits = {
+            hit.file.path
+            for hit in search(reopened, "resumed staged beta update", limit=5, root=root_a).hits
+        }
+        beta_hits = {
+            hit.file.path
+            for hit in search(reopened, "resumed staged beta update", limit=5, root=root_b).hits
+        }
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == {alpha, beta}
+    assert elapsed <= 0.5
+    assert global_hits == {created}
+    assert alpha_hits == set()
+    assert beta_hits == {created}
+    assert not staged_db.exists()
+
+
+def test_hot_restart_resumed_trimmed_build_accepts_remaining_root_live_updates(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    target_db = tmp_path / "database" / "index.db"
+    staged_db = tmp_path / "database" / ".index.db.next"
+    root_a.mkdir()
+    root_b.mkdir()
+    alpha = root_a / "alpha-trimmed.txt"
+    beta = root_b / "beta-pruned.txt"
+    alpha.write_text("resumed trimmed alpha survivor\n", encoding="utf-8")
+    beta.write_text("resumed trimmed beta pruned\n", encoding="utf-8")
+
+    rebuild_index(
+        staged_db,
+        [RootConfig(path=root_a)],
+        content_enabled=True,
+    )
+    assert staged_db.exists()
+
+    reopened = open_index(target_db)
+    service = WatchService()
+    try:
+        initial_hits = {
+            hit.file.path for hit in search(reopened, "resumed trimmed alpha survivor", limit=5).hits
+        }
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+
+        created = root_a / "after-resume-trim.txt"
+        created.write_text("resumed trimmed alpha update\n", encoding="utf-8")
+        elapsed = wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "resumed trimmed alpha update",
+            created,
+            deadline_seconds=0.5,
+        )
+        global_hits = {
+            hit.file.path for hit in search(reopened, "resumed trimmed alpha update", limit=5).hits
+        }
+        alpha_hits = {
+            hit.file.path
+            for hit in search(reopened, "resumed trimmed alpha update", limit=5, root=root_a).hits
+        }
+        beta_hits = {
+            hit.file.path
+            for hit in search(reopened, "resumed trimmed alpha update", limit=5, root=root_b).hits
+        }
+        stored_roots = {
+            Path(row[0]) for row in reopened.execute("SELECT path FROM roots ORDER BY id").fetchall()
+        }
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == {alpha}
+    assert elapsed <= 0.5
+    assert global_hits == {created}
+    assert alpha_hits == {created}
+    assert beta_hits == set()
+    assert stored_roots == {root_a}
     assert not staged_db.exists()
 
 
