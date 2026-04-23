@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.267 - 2026-04-23
+## 0.1.269 - 2026-04-23
 
 - Expanded `docs/DSL.md` with operator precedence, regex and escaping examples, an operator input matrix, and query-shape troubleshooting so the shared search language is easier to use accurately.
 - Tightened `docs/CONTRIBUTING.md`, `docs/RELEASE.md`, and `docs/ACCEPTANCE.md` around concurrent worktree sync, patch-version/tag collision handling, and minimal docs-only validation bundles.
