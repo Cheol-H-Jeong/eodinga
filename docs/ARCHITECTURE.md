@@ -139,6 +139,26 @@ user / startup
 | `index.db-wal` | live WAL sidecar with uncheckpointed SQLite work | let storage replay/checkpoint it through staged recovery rather than deleting it |
 | `crash-<ts>.log` | top-level runtime failure report | inspect the exception plus the recent runtime snapshot before rerunning commands |
 
+## Hot Restart Path
+
+Hot restart is intentionally simple in `0.1.x`: the runtime reopens the same config path and live SQLite index instead of rebuilding from scratch on every process start.
+
+```text
+process exits / UI closes
+    |
+    +--> config.toml and index.db stay on disk
+    |
+next process start
+    |
+    +--> load config
+    +--> resume staged recovery artifacts if present
+    +--> reopen live DB
+    +--> queries work without a fresh filesystem walk
+```
+
+- This is why launcher reopen, GUI restart, and CLI search all behave like thin clients over the same persisted local state.
+- If hot restart does not behave that way, first inspect the resolved config and database paths before blaming the query engine itself.
+
 ## Rebuild Sequence
 
 ```text
@@ -204,6 +224,15 @@ query term or operator
 - Root scoping, regex fallback, duplicate detection, and date/size operators are therefore release-contract behavior, not UI-only affordances.
 - When operators report a mismatch between CLI and launcher results, treat it as one shared engine bug unless there is direct evidence the surfaces are reading different databases.
 
+## Surface Consistency Checklist
+
+Use this checklist when one surface appears to disagree with another:
+
+1. Confirm both surfaces point at the same config and DB paths with `eodinga doctor` or `eodinga stats --json`.
+2. Reproduce the same query in `eodinga search --json` before debugging the UI shell.
+3. Check whether the mismatch is really a ranking/presentation issue rather than a candidate-set issue.
+4. Only after that, inspect launcher or GUI-only state such as focus, pinned queries, or preview rendering.
+
 ## Observability Flow
 
 ```text
@@ -225,6 +254,28 @@ index / watch / search command
 | launcher/hotkey mismatch | `eodinga doctor` plus config path | confirms backend detection and launcher-specific settings before blaming query logic |
 | release-doc drift | `tests/unit/test_docs_assets.py` and `packaging/dist/` | catches mismatches between runtime docs, generated assets, and packaged payloads |
 
+## Debug Decision Tree
+
+```text
+symptom reported
+    |
+    +--> stats --json / doctor
+    |       |
+    |       +--> wrong DB or config path? fix state selection first
+    |
+    +--> query reproduction in CLI
+    |       |
+    |       +--> mismatch reproduced? inspect compiler / executor / ranker
+    |
+    +--> watcher or rebuild path
+    |       |
+    |       +--> stale live index? repair watch flow or rebuild once
+    |
+    +--> packaging/docs evidence
+            |
+            +--> dry-run manifests + docs assets disagree? treat as release-input failure
+```
+
 ## Documentation Asset Flow
 
 ```text
@@ -238,6 +289,25 @@ runtime surface changes
     |
     +--> tests/unit/test_docs_assets.py
 ```
+
+## Release Evidence Flow
+
+```text
+runtime or docs change
+    |
+    +--> README / docs/*.md
+    +--> generated man page / screenshots
+    +--> packaging dry-run manifests
+    +--> acceptance gate
+    +--> version bump + local tag
+```
+
+The release pipeline is designed so evidence narrows from broad runtime checks to exact shipped artifacts:
+
+1. `pytest`, `ruff`, and `pyright` prove repo health.
+2. `tests/unit/test_docs_assets.py` proves the docs contract matches checked-in derived assets.
+3. Packaging dry runs under `packaging/dist/` prove the staged release inputs match the docs.
+4. Only then should the changelog/version/tag move.
 
 - `README.md` is the short contract; the deeper guides under `docs/` explain why the runtime is shaped the way it is.
 - `scripts/generate_manpage.py` derives the shipped man page from `eodinga.__main__._build_parser()` so CLI help and packaged docs stay aligned.
