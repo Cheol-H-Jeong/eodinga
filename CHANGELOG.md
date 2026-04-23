@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.441 - 2026-04-23
+## 0.1.445 - 2026-04-23
 
 - Hardened Loguru file-sink setup so an unwritable log target degrades to stderr-only mode with explicit failure counters instead of raising a secondary startup failure.
 - Expanded `stats --json` with log and crash inventory fields, including current log file presence and size, rotated-log count, crash-log count, and the newest crash artifact path and size.
