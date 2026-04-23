@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.210 - 2026-04-23
+## 0.1.213 - 2026-04-23
 
 - Taught the Linux AppImage packaging path to emit a real `.AppImage` artifact when `appimagetool` is available, while preserving the existing dry-run AppDir staging flow and surfacing the build attempt, tool path, and artifact status in the packaging audit JSON.
 - Tightened `packaging/build.py --target linux-appimage` validation so a discovered `appimagetool` now becomes an enforceable contract: the non-dry-run build must attempt the AppImage step, finish successfully, and leave the `.AppImage` artifact behind.
