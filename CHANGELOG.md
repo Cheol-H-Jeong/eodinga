@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.231 - 2026-04-23
+
+- Preserved the full undelivered watcher flush tail when queue enqueue aborts, eliminating a silent event-loss path under backpressure or shutdown races.
+- Treated command interrupts as an explicit reliability path: `main()` now returns exit code `130`, records interrupt/failure metrics, and skips crash-report generation for expected user aborts.
+- Hardened staged index cleanup against `FileNotFoundError` races so transient `.wal`, `.shm`, or staged database disappearance during recovery cleanup does not derail startup or swap paths.
+
 ## 0.1.224 - 2026-04-23
 
 - Installed global crash hooks for top-level and thread failures so background or early CLI crashes now emit the same `crash-<ts>.log` artifacts as the main exception path.
