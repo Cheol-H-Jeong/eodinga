@@ -944,6 +944,98 @@ def test_open_index_resumes_interrupted_recovery_with_staged_wal(tmp_path: Path)
     assert not staged.with_name(".index.db.recover-shm").exists()
 
 
+def test_open_index_prefers_interrupted_recovery_over_stale_staged_build(tmp_path: Path) -> None:
+    source = tmp_path / "source.db"
+    target = tmp_path / "index.db"
+    recovery_stage = tmp_path / ".index.db.recover"
+    build_stage = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    source_conn = sqlite3.connect(source)
+    apply_schema(source_conn)
+    source_conn.execute("PRAGMA wal_autocheckpoint=0;")
+    source_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/recovered", "[]", "[]", 1),
+    )
+    source_conn.commit()
+    _make_recovery_snapshot(source, recovery_stage)
+    source_conn.close()
+
+    build_conn = sqlite3.connect(build_stage)
+    apply_schema(build_conn)
+    build_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/stale-build", "[]", "[]", 1),
+    )
+    build_conn.commit()
+    build_conn.close()
+
+    reopened = open_index(target)
+    try:
+        rows = reopened.execute("SELECT path FROM roots ORDER BY path").fetchall()
+        assert [str(row[0]) for row in rows] == ["/recovered"]
+    finally:
+        reopened.close()
+
+    assert not recovery_stage.exists()
+    assert not build_stage.exists()
+
+
+def test_open_index_durably_discards_stale_staged_build_when_recovery_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.db"
+    target = tmp_path / "index.db"
+    recovery_stage = tmp_path / ".index.db.recover"
+    build_stage = tmp_path / ".index.db.next"
+    build_partial = tmp_path / ".index.db.next.partial"
+
+    source_conn = sqlite3.connect(source)
+    apply_schema(source_conn)
+    source_conn.execute("PRAGMA wal_autocheckpoint=0;")
+    source_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/recovered", "[]", "[]", 1),
+    )
+    source_conn.commit()
+    _make_recovery_snapshot(source, recovery_stage)
+    source_conn.close()
+
+    build_conn = sqlite3.connect(build_stage)
+    apply_schema(build_conn)
+    build_conn.close()
+    build_partial.write_bytes(b"orphaned")
+    build_partial.with_name(".index.db.next.partial-wal").write_bytes(b"orphaned")
+    build_partial.with_name(".index.db.next.partial-shm").write_bytes(b"orphaned")
+
+    calls: list[Path] = []
+    original_fsync_directory = storage_module._fsync_directory
+
+    def record_directory(directory: Path) -> None:
+        calls.append(directory)
+        original_fsync_directory(directory)
+
+    monkeypatch.setattr("eodinga.index.storage._fsync_directory", record_directory)
+
+    reopened = open_index(target)
+    reopened.close()
+
+    assert calls.count(tmp_path) >= 2
+    assert not build_stage.exists()
+    assert not build_partial.exists()
+    assert not build_partial.with_name(".index.db.next.partial-wal").exists()
+    assert not build_partial.with_name(".index.db.next.partial-shm").exists()
+
+
 def test_open_index_raises_when_interrupted_recovery_resume_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
