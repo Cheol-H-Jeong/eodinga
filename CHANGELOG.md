@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.867 - 2026-04-23
+## 0.1.868 - 2026-04-23
 
 - Preserved negated query filters in launcher summaries, so grouped filters like `-(ext:pdf | date:today)` no longer show misleading positive chips.
 - Fixed result highlighting to honor negated and last-wins `case:` operators, keeping visual matches aligned with the compiled query behavior.
