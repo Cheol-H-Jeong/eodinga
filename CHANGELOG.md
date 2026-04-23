@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.154 - 2026-04-23
+## 0.1.155 - 2026-04-23
 
 - Fixed the default observability paths on macOS so rotating logs now land under `~/Library/Logs/eodinga` and crash reports follow the same platform-native log root instead of falling back to Linux-style state directories.
 - Expanded `eodinga stats --json` to emit the full in-memory metrics registry, exposing all runtime counters and histograms alongside the existing summary fields and persisted index snapshot.
