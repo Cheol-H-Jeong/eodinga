@@ -116,6 +116,8 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
         "version": version,
         "package_version": package_version,
         "version_matches_package": version == package_version,
+        "platform": sys.platform,
+        "platform_supported": sys.platform == "win32",
         "pyinstaller_spec": {
             "path": str(WINDOWS_SPEC),
             "exists": WINDOWS_SPEC.exists(),
@@ -227,6 +229,8 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     if not payload.get("version_matches_package"):
         errors.append("project and package versions do not match")
+    if payload.get("target") == "windows" and not payload.get("platform_supported"):
+        errors.append("Windows build target must run on a Windows host")
     spec_payload = payload.get("pyinstaller_spec", {})
     if not spec_payload.get("exists"):
         errors.append("PyInstaller spec is missing")
