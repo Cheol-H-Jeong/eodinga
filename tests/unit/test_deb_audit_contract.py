@@ -24,3 +24,5 @@ def test_linux_deb_dry_run_preserves_assets_and_reproducible_changelog() -> None
     assert payload["launcher"]["has_strict_shell"] is True
     assert payload["launcher"]["uses_bundled_runtime"] is True
     assert payload["docs"]["changelog_gzip_mtime_zero"] is True
+    assert payload["archive_artifact"]["gzip_mtime_zero"] is True
+    assert payload["archive_artifact"]["gzip_filename_empty"] is True

@@ -475,6 +475,8 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (archive_artifact.get("exists"), "Debian archive is missing"),
         (isinstance(archive_artifact.get("size_bytes"), int) and archive_artifact.get("size_bytes", 0) > 0, "Debian archive size is missing"),
         (bool(archive_artifact.get("sha256")), "Debian archive digest is missing"),
+        (archive_artifact.get("gzip_mtime_zero"), "Debian archive gzip header timestamp is no longer reproducible"),
+        (archive_artifact.get("gzip_filename_empty"), "Debian archive gzip header now leaks the source filename"),
         (
             deb_artifact.get("path") == payload.get("deb_path"),
             "Debian package artifact path drifted from the planned output path",

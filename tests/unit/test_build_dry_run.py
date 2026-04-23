@@ -583,6 +583,8 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert len(payload["archive_artifact"]["sha256"]) == 64
     assert payload["archive_artifact"]["gzip_mtime_zero"] is True
     assert payload["archive_artifact"]["gzip_filename_empty"] is True
+    assert payload["archive_artifact"]["gzip_mtime_zero"] is True
+    assert payload["archive_artifact"]["gzip_filename_empty"] is True
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
@@ -837,6 +839,8 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["archive_artifact"]["exists"] is True
     assert payload["archive_artifact"]["size_bytes"] > 0
     assert len(payload["archive_artifact"]["sha256"]) == 64
+    assert payload["archive_artifact"]["gzip_mtime_zero"] is True
+    assert payload["archive_artifact"]["gzip_filename_empty"] is True
     assert payload["deb_artifact"]["path"] == payload["deb_path"]
     assert payload["deb_artifact"]["exists"] is False
     assert payload["deb_artifact"]["size_bytes"] is None
@@ -1075,6 +1079,8 @@ def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
             "exists": True,
             "size_bytes": 0,
             "sha256": "",
+            "gzip_mtime_zero": False,
+            "gzip_filename_empty": False,
         },
         "deb_artifact": {
             "path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
@@ -1135,6 +1141,8 @@ def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
 
     assert "Debian archive size is missing" in errors
     assert "Debian archive digest is missing" in errors
+    assert "Debian archive gzip header timestamp is no longer reproducible" in errors
+    assert "Debian archive gzip header now leaks the source filename" in errors
     assert "Debian package is missing" in errors
     assert "Debian package size is missing" in errors
     assert "Debian package digest is missing" in errors
