@@ -119,6 +119,7 @@ class WatchService:
             return
         if self._stop.is_set():
             self._stop = Event()
+            self._clear_queue()
         if self._flush_thread is None or not self._flush_thread.is_alive():
             self._flush_thread = _spawn_thread(self._flush_loop)
             self._flush_thread.start()
@@ -129,18 +130,19 @@ class WatchService:
         increment_counter("watcher_observers_started", root=str(root))
 
     def stop(self) -> None:
-        self._stop.set()
         for observer in self._observers.values():
             observer.stop()
         if self._observers:
             increment_counter("watcher_observers_stopped", len(self._observers))
         for observer in self._observers.values():
             observer.join(timeout=1)
+        self._flush_ready(force=True)
+        self._stop.set()
         if self._flush_thread is not None and self._flush_thread.is_alive():
             self._flush_thread.join(timeout=1)
         self._flush_thread = None
         self._observers.clear()
-        self._reset_state()
+        self._clear_pending_state()
 
     def record(self, event: WatchEvent) -> None:
         increment_counter("watcher_events", event_type=event.event_type)
@@ -306,12 +308,14 @@ class WatchService:
                 lag_ms = max((now - event.happened_at) * 1000, 0.0)
                 record_histogram("watch_event_lag_ms", lag_ms, event_type=event.event_type)
 
-    def _reset_state(self) -> None:
+    def _clear_pending_state(self) -> None:
         with self._lock:
             self._pending.clear()
             self._retired_sources.clear()
             self._flushed_retired_sources.clear()
             self._timestamps.clear()
+
+    def _clear_queue(self) -> None:
         while True:
             try:
                 self.queue.get_nowait()

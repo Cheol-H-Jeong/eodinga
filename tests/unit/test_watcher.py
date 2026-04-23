@@ -700,6 +700,86 @@ def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path)
     assert second_event.path == second
 
 
+def test_watcher_stop_flushes_events_emitted_during_observer_shutdown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import eodinga.core.watcher as watcher_module
+
+    service = WatchService()
+    shutdown_path = tmp_path / "shutdown.txt"
+
+    class FakeObserver:
+        def schedule(self, _handler: object, _root_text: str, recursive: bool = True) -> None:
+            assert recursive is True
+
+        def start(self) -> None:
+            return None
+
+        def stop(self) -> None:
+            service.record(
+                WatchEvent(
+                    event_type="created",
+                    path=shutdown_path,
+                    root_path=tmp_path,
+                    happened_at=1.0,
+                )
+            )
+
+        def join(self, timeout: float | None = None) -> None:
+            assert timeout == 1
+
+    monkeypatch.setattr(watcher_module, "Observer", FakeObserver)
+
+    service.start(tmp_path)
+    service.stop()
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "created"
+    assert event.path == shutdown_path
+
+
+def test_watcher_start_clears_flushed_queue_from_previous_stop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import eodinga.core.watcher as watcher_module
+
+    service = WatchService()
+    shutdown_path = tmp_path / "shutdown.txt"
+
+    class FakeObserver:
+        def schedule(self, _handler: object, _root_text: str, recursive: bool = True) -> None:
+            assert recursive is True
+
+        def start(self) -> None:
+            return None
+
+        def stop(self) -> None:
+            service.record(
+                WatchEvent(
+                    event_type="created",
+                    path=shutdown_path,
+                    root_path=tmp_path,
+                    happened_at=1.0,
+                )
+            )
+
+        def join(self, timeout: float | None = None) -> None:
+            assert timeout == 1
+
+    monkeypatch.setattr(watcher_module, "Observer", FakeObserver)
+
+    service.start(tmp_path)
+    service.stop()
+    assert service.queue.get_nowait().path == shutdown_path
+
+    service.start(tmp_path)
+    try:
+        with pytest.raises(Empty):
+            service.queue.get_nowait()
+    finally:
+        service.stop()
+
+
 def test_watcher_flush_restores_undelivered_tail_when_enqueue_aborts(tmp_path: Path) -> None:
     service = WatchService()
     first = tmp_path / "first.txt"
