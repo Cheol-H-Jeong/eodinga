@@ -252,3 +252,34 @@ def test_signal_stop_does_not_replace_existing_exception_with_pending_signal() -
     result = stop.__exit__(RuntimeError, RuntimeError("boom"), None)
 
     assert result is False
+
+
+def test_signal_stop_clears_pending_state_after_exit() -> None:
+    stop = build_module._SignalStop()
+    stop._active = True
+    stop._handlers = {}
+    stop._handle_signal(signal.SIGTERM, None)
+
+    with pytest.raises(KeyboardInterrupt):
+        stop.__exit__(None, None, None)
+
+    assert stop._requested is False
+    assert stop._received_signal is None
+
+
+def test_signal_stop_enter_resets_stale_pending_signal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    previous_handlers: dict[signal.Signals, object] = {
+        signal.SIGINT: object(),
+        signal.SIGTERM: object(),
+    }
+    stop = build_module._SignalStop()
+    stop._requested = True
+    stop._received_signal = signal.SIGTERM
+
+    monkeypatch.setattr(build_module.signal, "getsignal", lambda signum: previous_handlers[signum])
+    monkeypatch.setattr(build_module.signal, "signal", lambda _signum, handler: handler)
+
+    with stop:
+        pass

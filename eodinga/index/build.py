@@ -33,6 +33,8 @@ class _SignalStop(AbstractContextManager["_SignalStop"]):
         self._active = False
 
     def __enter__(self) -> _SignalStop:
+        self._requested = False
+        self._received_signal = None
         if threading.current_thread() is not threading.main_thread():
             return self
         installed: list[signal.Signals] = []
@@ -60,6 +62,8 @@ class _SignalStop(AbstractContextManager["_SignalStop"]):
                 signal.signal(signum, handler)
         self._active = False
         self._handlers.clear()
+        self._requested = False
+        self._received_signal = None
         if pending_signal is not None:
             raise KeyboardInterrupt(pending_signal)
         return False
