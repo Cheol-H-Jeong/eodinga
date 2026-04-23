@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.109 - 2026-04-23
+
+- Fixed multi-root watcher ingestion so incremental updates now restore the correct persisted `root_id` from the watched root instead of defaulting new and renamed files into root 1 during live indexing.
+- Added end-to-end multi-root live-update regressions that create and rename files under a secondary watched root, then verify search visibility, root-scoped isolation, and on-disk root ownership after watcher event application.
+- Added a hot-restart multi-root regression that reopens an existing index, proves preexisting scoped queries still work, and verifies fresh watcher updates from another root are visible without a full rebuild.
+
 ## 0.1.104 - 2026-04-23
 
 - Added a multi-root integration regression that rebuilds one index from two configured roots, proves both roots are persisted, and pins `search(..., root=...)` scoping against cross-root result leakage.
