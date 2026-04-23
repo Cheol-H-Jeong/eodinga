@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.981 - 2026-04-24
+
+- Added an `Alt+P` launcher shortcut to pin and unpin the current query, and surfaced that workflow through the empty state and keyboard guidance so saved searches are easier to discover without leaving the keyboard.
+- Persisted pinned queries through the shared launcher state, so the popup launcher and embedded search tab stay synchronized and saved pins survive config reloads.
+- Trimmed the main launcher panel module back under the repository size guardrail while preserving the existing keyboard-navigation behavior and launcher/app accessibility coverage.
+
 ## 0.1.979 - 2026-04-24
 
 - Hardened the Windows packaging dry-run audit so it now rejects missing CLI/GUI entrypoints, missing required hidden imports, dropped runtime modules, and staged data drift before those regressions can leak into a release build.
