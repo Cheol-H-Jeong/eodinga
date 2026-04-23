@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.857 - 2026-04-23
+
+- Added CLI end-to-end integration coverage for `index`, `search`, and `stats`, including multi-root root-scoped queries and rebuilds that trim removed roots from the search surface.
+- Added longer round-trip integration sequences that verify live updates can create, replace, move, and delete results without leaving stale global or root-scoped hits behind.
+- Exercised CLI-driven restart recovery against stale WAL snapshots and interrupted staged builds, proving the public `search` command recovers persisted state before serving results.
+
 ## 0.1.855 - 2026-04-23
 
 - Avoided redundant stylesheet reapplication on the shared Qt application instance, eliminating the test-mode launcher relaunch crash path seen under the offscreen backend.
