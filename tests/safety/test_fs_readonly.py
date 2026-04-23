@@ -24,6 +24,31 @@ def _dotted_name(node: ast.AST) -> str | None:
     return None
 
 
+def _collect_aliases(tree: ast.AST) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                local_name = alias.asname or alias.name.split(".", maxsplit=1)[0]
+                aliases[local_name] = alias.name
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            for alias in node.names:
+                local_name = alias.asname or alias.name
+                aliases[local_name] = f"{module}.{alias.name}" if module else alias.name
+    return aliases
+
+
+def _canonicalize_dotted_name(name: str | None, aliases: dict[str, str]) -> str | None:
+    if name is None:
+        return None
+    head, *tail = name.split(".")
+    target = aliases.get(head)
+    if target is None:
+        return name
+    return ".".join((target, *tail))
+
+
 def _literal_string(node: ast.AST) -> str | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
@@ -33,6 +58,7 @@ def _literal_string(node: ast.AST) -> str | None:
 def test_fs_module_avoids_write_capable_calls() -> None:
     source = Path(fs.__file__).read_text(encoding="utf-8")
     tree = ast.parse(source, filename=fs.__file__ or "eodinga/core/fs.py")
+    aliases = _collect_aliases(tree)
     forbidden_methods = {
         "chmod",
         "mkdir",
@@ -47,6 +73,8 @@ def test_fs_module_avoids_write_capable_calls() -> None:
         "write_text",
     }
     forbidden_calls = {
+        "builtins.open",
+        "io.open",
         "open",
         "os.remove",
         "os.rename",
@@ -58,7 +86,7 @@ def test_fs_module_avoids_write_capable_calls() -> None:
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
-        dotted = _dotted_name(node.func)
+        dotted = _canonicalize_dotted_name(_dotted_name(node.func), aliases)
         assert dotted not in forbidden_calls
         if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, (ast.Name, ast.Attribute)):
             assert node.func.attr not in forbidden_methods

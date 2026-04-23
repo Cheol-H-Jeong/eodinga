@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import shlex
 from pathlib import Path
 
 
@@ -62,20 +63,58 @@ def _dotted_name(node: ast.AST) -> str | None:
     return None
 
 
+def _collect_aliases(tree: ast.AST) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                local_name = alias.asname or alias.name.split(".", maxsplit=1)[0]
+                aliases[local_name] = alias.name
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            for alias in node.names:
+                local_name = alias.asname or alias.name
+                aliases[local_name] = f"{module}.{alias.name}" if module else alias.name
+    return aliases
+
+
+def _canonicalize_dotted_name(name: str | None, aliases: dict[str, str]) -> str | None:
+    if name is None:
+        return None
+    head, *tail = name.split(".")
+    target = aliases.get(head)
+    if target is None:
+        return name
+    return ".".join((target, *tail))
+
+
 def _string_literal(node: ast.AST) -> str | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
     return None
 
 
-def _subprocess_command_name(node: ast.AST) -> str | None:
+def _subprocess_command_name(node: ast.AST, *, shell: bool) -> str | None:
     if isinstance(node, (ast.List, ast.Tuple)) and node.elts:
-        return _string_literal(node.elts[0])
-    return _string_literal(node)
+        command = _string_literal(node.elts[0])
+    else:
+        command = _string_literal(node)
+    if command is None:
+        return None
+    if shell:
+        try:
+            parts = shlex.split(command)
+        except ValueError:
+            return None
+        if not parts:
+            return None
+        command = parts[0]
+    return Path(command).name or None
 
 
 def _scan_python_source(path: Path, root: Path) -> list[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    aliases = _collect_aliases(tree)
     violations: list[str] = []
 
     for node in ast.walk(tree):
@@ -89,17 +128,29 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                 imported = ", ".join(alias.name for alias in node.names)
                 violations.append(f"{path.relative_to(root)}:{node.lineno}:from {module} import {imported}")
         elif isinstance(node, ast.Call):
-            dotted = _dotted_name(node.func)
+            dotted = _canonicalize_dotted_name(_dotted_name(node.func), aliases)
             if dotted in _BANNED_CALLS:
                 violations.append(f"{path.relative_to(root)}:{node.lineno}:{dotted}")
             if dotted in {
+                "os.system",
                 "subprocess.run",
                 "subprocess.call",
                 "subprocess.check_call",
                 "subprocess.check_output",
                 "subprocess.Popen",
-            } and node.args:
-                command = _subprocess_command_name(node.args[0])
+            }:
+                shell = any(
+                    keyword.arg == "shell"
+                    and isinstance(keyword.value, ast.Constant)
+                    and bool(keyword.value.value)
+                    for keyword in node.keywords
+                )
+                command_arg: ast.AST | None = node.args[0] if node.args else None
+                for keyword in node.keywords:
+                    if keyword.arg == "args":
+                        command_arg = keyword.value
+                        break
+                command = None if command_arg is None else _subprocess_command_name(command_arg, shell=shell)
                 if command in _BANNED_SUBPROCESS_COMMANDS:
                     violations.append(
                         f"{path.relative_to(root)}:{node.lineno}:subprocess {command}"
