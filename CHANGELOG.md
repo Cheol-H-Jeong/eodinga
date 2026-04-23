@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.444 - 2026-04-23
+
+- Made `eodinga stats --json` read-only when the index database is missing or unreadable, returning explicit `db_exists` and `db_error` fields instead of creating or mutating local state during inspection.
+- Exposed process identity in the stats payload and reused the same runtime snapshot in crash logs, so `stats --json` and `crash-*.log` now agree on pid, version, executable, cwd, argv, and process start time.
+- Surfaced index rebuild latency and batch-size histograms directly in the typed stats payload, with unit coverage for missing-db, broken-db, and indexed-runtime cases.
+
 ## 0.1.442 - 2026-04-23
 
 - Added a dedicated `.[packaging]` extra for Windows release tooling and wired the Windows release workflow to install it explicitly instead of relying on ambient build dependencies.
