@@ -252,6 +252,7 @@ def _validate_linux_deb_audit(payload: dict[str, Any], package_version: str) -> 
     icon_payload = payload.get("icon", {})
     launcher_payload = payload.get("launcher", {})
     docs_payload = payload.get("docs", {})
+    deb_payload = payload.get("deb", {})
     if control_payload.get("package") != "eodinga":
         errors.append("Debian control package name drifted from eodinga")
     if control_payload.get("version") != package_version:
@@ -267,6 +268,23 @@ def _validate_linux_deb_audit(payload: dict[str, Any], package_version: str) -> 
     for ok, message in required_flags:
         if not ok:
             errors.append(message)
+    if payload.get("target") == "linux-deb":
+        members = set(deb_payload.get("members", []))
+        deb_required = {
+            "./usr/bin/eodinga",
+            "./usr/share/applications/eodinga.desktop",
+            "./usr/share/doc/eodinga/LICENSE",
+            "./usr/share/doc/eodinga/changelog.gz",
+            "./usr/share/icons/hicolor/scalable/apps/eodinga.svg",
+        }
+        if not deb_payload.get("exists"):
+            errors.append("Debian build did not produce a .deb artifact")
+        if deb_payload.get("control", {}).get("Package") != "eodinga":
+            errors.append("Built Debian package control metadata drifted from eodinga")
+        if deb_payload.get("control", {}).get("Version") != package_version:
+            errors.append("Built Debian package version does not match the package version")
+        if not deb_required.issubset(members):
+            errors.append("Built Debian package is missing required launcher or document payloads")
     return errors
 
 

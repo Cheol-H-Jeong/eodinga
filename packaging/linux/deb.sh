@@ -29,6 +29,7 @@ if [[ "${1:-}" == "--dry-run" ]]; then
 fi
 
 rm -rf "${PACKAGE_DIR}"
+rm -f "${DEB_PATH}"
 mkdir -p "${PACKAGE_DIR}/DEBIAN" "${PACKAGE_DIR}/usr/bin" "${PACKAGE_DIR}/usr/share/applications" "${PACKAGE_DIR}/usr/share/doc/eodinga"
 mkdir -p "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps"
 
@@ -64,9 +65,14 @@ with source.open("rb") as src, gzip.GzipFile(filename="", mode="wb", fileobj=tar
 PY
 
 tar -czf "${ARCHIVE_PATH}" -C "${BUILD_ROOT}" "$(basename "${PACKAGE_DIR}")"
+if [[ "${DRY_RUN}" -eq 0 ]]; then
+  dpkg-deb --build "${PACKAGE_DIR}" "${DEB_PATH}"
+fi
+
 python3 - <<PY
 import json
 import os
+import subprocess
 from pathlib import Path
 
 desktop_path = Path("${PACKAGE_DIR}/usr/share/applications/eodinga.desktop")
@@ -89,6 +95,28 @@ launcher_path = Path("${PACKAGE_DIR}/usr/bin/eodinga")
 icon_path = Path("${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 license_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE")
 changelog_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
+deb_path = Path("${DEB_PATH}")
+deb_members = []
+deb_control = {}
+if deb_path.exists():
+    listing = subprocess.run(
+        ["dpkg-deb", "-c", str(deb_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    deb_members = [line.split()[-1] for line in listing.stdout.splitlines() if line.strip()]
+    control = subprocess.run(
+        ["dpkg-deb", "-f", str(deb_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    for line in control.stdout.splitlines():
+        if not line or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        deb_control[key] = value.strip()
 payload = {
     "target": "linux-deb-dry-run" if ${DRY_RUN} else "linux-deb",
     "version": "${VERSION}",
@@ -129,6 +157,12 @@ payload = {
         "changelog_path": str(changelog_path),
         "changelog_exists": changelog_path.exists(),
     },
+    "deb": {
+        "path": str(deb_path),
+        "exists": deb_path.exists(),
+        "members": deb_members,
+        "control": deb_control,
+    },
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 PY
@@ -138,5 +172,4 @@ if [[ "${DRY_RUN}" -eq 1 ]]; then
   exit 0
 fi
 
-dpkg-deb --build "${PACKAGE_DIR}" "${DEB_PATH}"
 echo "built Debian package at ${DEB_PATH}"

@@ -297,6 +297,8 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["launcher"]["executes_python_module"] is True
     assert payload["docs"]["license_exists"] is True
     assert payload["docs"]["changelog_exists"] is True
+    assert payload["deb"]["exists"] is False
+    assert payload["deb"]["members"] == []
 
 
 def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
@@ -318,3 +320,13 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert Path(payload["deb_path"]).exists()
     assert payload["icon"]["exists"] is True
     assert payload["docs"]["changelog_exists"] is True
+    assert payload["deb"]["exists"] is True
+    assert payload["deb"]["control"]["Package"] == "eodinga"
+    assert payload["deb"]["control"]["Version"] == __version__
+    assert {
+        "./usr/bin/eodinga",
+        "./usr/share/applications/eodinga.desktop",
+        "./usr/share/doc/eodinga/LICENSE",
+        "./usr/share/doc/eodinga/changelog.gz",
+        "./usr/share/icons/hicolor/scalable/apps/eodinga.svg",
+    } <= set(payload["deb"]["members"])
