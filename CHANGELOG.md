@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.522 - 2026-04-23
+## 0.1.526 - 2026-04-23
 
 - Cached repeated executor regex compilation, root-scope clause shaping, and content-text SQL templates so repeated searches spend less time rebuilding the same query machinery.
 - Reused normalized path-term needles across the executor's Python-side fallback loops, cutting repeated NFC and casefold work during candidate filtering and ranking.
