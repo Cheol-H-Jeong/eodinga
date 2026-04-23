@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.525 - 2026-04-23
+## 0.1.527 - 2026-04-23
 
 - Hardened watcher startup so a failed schedule or observer boot no longer leaves the flush thread running or the service stuck half-started.
 - Made watcher shutdown teardown resilient to individual observer stop/join failures, while logging shutdown-time event drops that previously had no explicit operator signal.
