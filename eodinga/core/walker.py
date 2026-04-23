@@ -6,12 +6,18 @@ from pathlib import Path
 from os import stat_result
 from stat import S_ISDIR, S_ISLNK
 from time import time
+from typing import NamedTuple
 
 from eodinga.common import FileRecord, PathRules
-from eodinga.core.fs import resolve_safe, scandir_safe, stat_follow_safe, stat_safe
+from eodinga.core.fs import ScandirEntry, resolve_safe, scandir_safe, stat_follow_safe, stat_safe
 from eodinga.core.rules import should_index
 
 BATCH_SIZE = 8192
+
+
+class _QueuedPath(NamedTuple):
+    path: Path
+    stat_result: stat_result | None = None
 
 
 def _to_record(root_id: int, path: Path, stat_result: stat_result) -> FileRecord:
@@ -49,15 +55,24 @@ def _should_descend(path: Path, root: Path, stat_result: stat_result) -> bool:
         return False
 
 
+def _queued_path(entry: Path | ScandirEntry | _QueuedPath) -> _QueuedPath:
+    if isinstance(entry, _QueuedPath):
+        return entry
+    if isinstance(entry, ScandirEntry):
+        return _QueuedPath(path=entry.path, stat_result=entry.stat_result)
+    return _QueuedPath(path=entry)
+
+
 def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[list[FileRecord]]:
-    queue: deque[Path] = deque([root])
+    queue: deque[_QueuedPath] = deque([_QueuedPath(root)])
     visited_dirs: set[tuple[int, int]] = set()
     visited_resolved_dirs: set[Path] = set()
     batch: list[FileRecord] = []
     while queue:
-        current = queue.popleft()
+        queued = queue.popleft()
+        current = queued.path
         try:
-            stat_result = stat_safe(current)
+            stat_result = queued.stat_result or stat_safe(current)
         except OSError:
             continue
         if not should_index(current, rules):
@@ -83,6 +98,6 @@ def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[lis
             children = scandir_safe(current)
         except OSError:
             continue
-        queue.extend(children)
+        queue.extend(_queued_path(child) for child in children)
     if batch:
         yield batch

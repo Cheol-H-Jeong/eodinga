@@ -8,6 +8,7 @@ import pytest
 
 import eodinga.core.walker as walker_module
 from eodinga.common import PathRules
+from eodinga.core.fs import ScandirEntry
 from eodinga.core.walker import walk_batched
 
 
@@ -59,8 +60,42 @@ def test_walk_batched_reuses_discovery_stat_result(
 
     assert {record.path for record in records} == {root, nested, sample}
     assert stat_calls.count(root) == 1
-    assert stat_calls.count(nested) == 1
-    assert stat_calls.count(sample) == 1
+    assert nested not in stat_calls
+    assert sample not in stat_calls
+
+
+def test_walk_batched_reuses_scandir_lstat_results(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "tree"
+    nested = root / "nested"
+    nested.mkdir(parents=True)
+    sample = nested / "sample.txt"
+    sample.write_text("sample", encoding="utf-8")
+
+    original_stat_safe = walker_module.stat_safe
+    nested_stat = original_stat_safe(nested)
+    sample_stat = original_stat_safe(sample)
+
+    def selective_stat(path: Path) -> os.stat_result:
+        if path in {nested, sample}:
+            raise AssertionError(f"walker restatted discovered child {path}")
+        return original_stat_safe(path)
+
+    def fake_scandir(path: Path) -> list[ScandirEntry]:
+        children = {
+            root: [ScandirEntry(nested, nested_stat)],
+            nested: [ScandirEntry(sample, sample_stat)],
+        }
+        return children.get(path, [])
+
+    monkeypatch.setattr(walker_module, "stat_safe", selective_stat)
+    monkeypatch.setattr(walker_module, "scandir_safe", fake_scandir)
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+
+    assert {record.path for record in records} == {root, nested, sample}
 
 
 def test_walk_batched_uses_fs_wrapper_to_detect_symlinked_directories(
