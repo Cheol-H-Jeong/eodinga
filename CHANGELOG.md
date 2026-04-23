@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.971 - 2026-04-24
+## 0.1.972 - 2026-04-24
 
 - Expanded the README with surface-to-evidence shortcuts, an operator decision matrix, and review-focused FAQ entries so docs-heavy rounds have a shorter proof path.
 - Clarified the architecture guide around symptom-to-subsystem routing, evidence ownership, and docs-versus-artifact debug flow for release-facing issues.
