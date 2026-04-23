@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from time import perf_counter, time
 
+import pytest
+
 from eodinga.content.base import ParsedContent
 from eodinga.common import FileRecord, WatchEvent
-from eodinga.index.writer import IndexWriter
+from eodinga.index.writer import BULK_UPSERT_CHUNK_SIZE, IndexWriter
 from tests.conftest import make_record
 
 
@@ -321,6 +324,49 @@ def test_writer_bulk_upsert_skips_next_rowid_probe_for_unchanged_content(
         conn.set_trace_callback(None)
 
     assert not any("SELECT COALESCE(MAX(rowid), 0) + 1 FROM content_fts" in statement for statement in statements)
+
+
+def test_writer_bulk_upsert_streams_large_iterables_in_fixed_chunks(
+    tmp_db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    writer = IndexWriter(conn)
+    total = BULK_UPSERT_CHUNK_SIZE * 2 + 17
+    chunk_sizes: list[int] = []
+    original_upsert_records = writer._upsert_records
+
+    def counting_upsert_records(records: Sequence[FileRecord]) -> None:
+        chunk_sizes.append(len(records))
+        original_upsert_records(records)
+
+    monkeypatch.setattr(writer, "_upsert_records", counting_upsert_records)
+
+    def record_stream() -> Iterator[FileRecord]:
+        for index in range(total):
+            yield _synthetic_record(index, tmp_path)
+
+    assert writer.bulk_upsert(record_stream()) == total
+    assert chunk_sizes == [BULK_UPSERT_CHUNK_SIZE, BULK_UPSERT_CHUNK_SIZE, 17]
+
+
+def test_writer_bulk_upsert_restores_previous_synchronous_mode(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    conn.commit()
+    conn.execute("PRAGMA synchronous=FULL;")
+    writer = IndexWriter(conn)
+
+    assert writer.bulk_upsert((_synthetic_record(index, tmp_path) for index in range(2))) == 2
+
+    row = conn.execute("PRAGMA synchronous;").fetchone()
+    assert row == (2,)
 
 
 def test_writer_bulk_upsert_preserves_existing_content_hash_when_record_has_none(

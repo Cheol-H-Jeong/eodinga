@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from time import time
 from typing import NamedTuple, TypeVar
@@ -12,6 +13,8 @@ from eodinga.index.schema import apply_schema, current_schema_version
 ParserCallback = Callable[[Path], ParsedContent | None]
 RecordLoader = Callable[[Path], FileRecord | None]
 T = TypeVar("T")
+BULK_UPSERT_CHUNK_SIZE = 2_000
+SQLITE_SYNCHRONOUS_NORMAL = 1
 
 
 class ExistingContentRow(NamedTuple):
@@ -43,10 +46,18 @@ def _chunked(values: Sequence[T], size: int = 500) -> Iterable[Sequence[T]]:
         yield values[start : start + size]
 
 
-def _materialize_records(records: Iterable[FileRecord]) -> Sequence[FileRecord]:
-    if isinstance(records, (list, tuple)):
-        return records
-    return tuple(records)
+def _iter_chunks(values: Iterable[T], size: int) -> Iterable[Sequence[T]]:
+    if isinstance(values, (list, tuple)):
+        yield from _chunked(values, size=size)
+        return
+    batch: list[T] = []
+    for value in values:
+        batch.append(value)
+        if len(batch) >= size:
+            yield tuple(batch)
+            batch = []
+    if batch:
+        yield tuple(batch)
 
 
 class IndexWriter:
@@ -59,13 +70,14 @@ class IndexWriter:
             apply_schema(self._conn)
 
     def bulk_upsert(self, records: Iterable[FileRecord]) -> int:
-        buffered = _materialize_records(records)
-        if not buffered:
-            return 0
-        with self._conn:
-            self._upsert_records(buffered)
-            self._upsert_content(buffered)
-        return len(buffered)
+        processed = 0
+        with self._bulk_write_mode():
+            with self._conn:
+                for chunk in _iter_chunks(records, size=BULK_UPSERT_CHUNK_SIZE):
+                    self._upsert_records(chunk)
+                    self._upsert_content(chunk)
+                    processed += len(chunk)
+        return processed
 
     def apply_events(self, events: Sequence[WatchEvent], record_loader: RecordLoader) -> int:
         processed = 0
@@ -146,6 +158,22 @@ class IndexWriter:
             )
             deleted += cursor.rowcount
         return deleted
+
+    @contextmanager
+    def _bulk_write_mode(self) -> Iterator[None]:
+        if self._conn.in_transaction:
+            yield
+            return
+        row = self._conn.execute("PRAGMA synchronous;").fetchone()
+        previous = int(row[0]) if row is not None else SQLITE_SYNCHRONOUS_NORMAL
+        changed = previous != SQLITE_SYNCHRONOUS_NORMAL
+        if changed:
+            self._conn.execute("PRAGMA synchronous=NORMAL;")
+        try:
+            yield
+        finally:
+            if changed:
+                self._conn.execute(f"PRAGMA synchronous={previous};")
 
     def _upsert_content(self, records: Sequence[FileRecord]) -> None:
         if self._parser_callback is None:
