@@ -301,6 +301,18 @@ class _Parser:
     def _maybe_extend_range_value(self, name: str, value: str) -> str:
         if name not in _RANGE_OP_NAMES:
             return value
+        if value.endswith("..") and value != "..":
+            checkpoint = self.index
+            self._skip_ws()
+            char = self._peek()
+            if char is None or char in {"|", ")"}:
+                self.index = checkpoint
+                return value
+            suffix = self._read_token()
+            if not suffix:
+                self.index = checkpoint
+                return value
+            return f"{value}{suffix}"
         if value == "..":
             checkpoint = self.index
             self._skip_ws()

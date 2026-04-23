@@ -552,9 +552,14 @@ def test_execute_spaced_date_and_size_ranges(tmp_db: sqlite3.Connection) -> None
         hit.file.name
         for hit in search(tmp_db, "date:2026-01-01 .. 2026-01-02 size:100 .. 500K", limit=10).hits
     ]
+    inline_suffix_hits = [
+        hit.file.name
+        for hit in search(tmp_db, "date:2026-01-01.. 2026-01-02 size:100.. 500K", limit=10).hits
+    ]
     open_ended_hits = [hit.file.name for hit in search(tmp_db, "date:.. 2026-01-02", limit=10).hits]
 
     assert ranged_hits == ["jan-1.txt", "jan-2.txt"]
+    assert inline_suffix_hits == ["jan-1.txt", "jan-2.txt"]
     assert open_ended_hits == ["jan-1.txt", "jan-2.txt"]
 
 
