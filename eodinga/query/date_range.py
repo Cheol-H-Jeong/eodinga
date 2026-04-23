@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, tzinfo
+import re
 
 from eodinga.query.dsl import QuerySyntaxError
 
@@ -38,6 +39,22 @@ def _parse_iso_day(value: str) -> date:
         raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
 
 
+def _parse_iso_period(value: str) -> DateRange | None:
+    if re.fullmatch(r"\d{4}", value):
+        start_day = date(int(value), 1, 1)
+        return DateRange(start=_day_bounds(start_day).start, end=_day_bounds(date(int(value) + 1, 1, 1)).start)
+    match = re.fullmatch(r"(\d{4})-(\d{2})", value)
+    if match is None:
+        return None
+    year = int(match.group(1))
+    month = int(match.group(2))
+    try:
+        start_day = date(year, month, 1)
+    except ValueError as error:
+        raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
+    return DateRange(start=_day_bounds(start_day).start, end=_day_bounds(_next_month_start(start_day)).start)
+
+
 def _instant_bounds(moment: datetime) -> DateRange:
     localized = moment if moment.tzinfo is not None else moment.replace(tzinfo=_local_tzinfo())
     start = int(localized.timestamp())
@@ -45,6 +62,9 @@ def _instant_bounds(moment: datetime) -> DateRange:
 
 
 def _parse_iso_endpoint(value: str) -> DateRange:
+    period = _parse_iso_period(value)
+    if period is not None:
+        return period
     try:
         return _day_bounds(_parse_iso_day(value))
     except QuerySyntaxError:

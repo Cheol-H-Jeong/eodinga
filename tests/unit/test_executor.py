@@ -248,6 +248,49 @@ def test_execute_previous_period_date_queries_use_local_boundaries(
     assert last_month_hits == ["last-month.txt"]
 
 
+def test_execute_iso_period_queries_match_month_and_year_ranges(tmp_db: sqlite3.Connection) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    april_hit = int(datetime(2026, 4, 15, 12, 0, tzinfo=seoul).timestamp())
+    may_hit = int(datetime(2026, 5, 2, 12, 0, tzinfo=seoul).timestamp())
+    year_hit = int(datetime(2026, 12, 31, 12, 0, tzinfo=seoul).timestamp())
+    prior_year_hit = int(datetime(2025, 12, 31, 12, 0, tzinfo=seoul).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/april.txt", 512, april_hit, "txt", body_text="april note")
+    _insert_file(tmp_db, 2, "/workspace/may.txt", 512, may_hit, "txt", body_text="may note")
+    _insert_file(tmp_db, 3, "/workspace/year-end.txt", 512, year_hit, "txt", body_text="year end note")
+    _insert_file(tmp_db, 4, "/workspace/prior-year.txt", 512, prior_year_hit, "txt", body_text="prior year note")
+    tmp_db.commit()
+
+    april_hits = [hit.file.name for hit in search(tmp_db, "date:2026-04", limit=10).hits]
+    year_hits = [hit.file.name for hit in search(tmp_db, "date:2026", limit=10).hits]
+
+    assert april_hits == ["april.txt"]
+    assert "prior-year.txt" not in year_hits
+    assert set(year_hits) == {"april.txt", "may.txt", "year-end.txt"}
+
+
+def test_execute_iso_period_ranges_support_open_ended_and_reversed_bounds(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    march_hit = int(datetime(2026, 3, 15, 12, 0, tzinfo=seoul).timestamp())
+    april_hit = int(datetime(2026, 4, 15, 12, 0, tzinfo=seoul).timestamp())
+    june_hit = int(datetime(2026, 6, 15, 12, 0, tzinfo=seoul).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/march.txt", 512, march_hit, "txt", body_text="march note")
+    _insert_file(tmp_db, 2, "/workspace/april.txt", 512, april_hit, "txt", body_text="april note")
+    _insert_file(tmp_db, 3, "/workspace/june.txt", 512, june_hit, "txt", body_text="june note")
+    tmp_db.commit()
+
+    from_april_hits = [hit.file.name for hit in search(tmp_db, "date:2026-04..", limit=10).hits]
+    through_april_hits = [hit.file.name for hit in search(tmp_db, "date:..2026-04", limit=10).hits]
+    reversed_hits = [hit.file.name for hit in search(tmp_db, "date:2026-06..2026-04", limit=10).hits]
+
+    assert from_april_hits == ["april.txt", "june.txt"]
+    assert set(through_april_hits) == {"march.txt", "april.txt"}
+    assert reversed_hits == ["april.txt", "june.txt"]
+
+
 def test_execute_negated_case_true_restores_case_insensitive_matching(
     tmp_db: sqlite3.Connection,
 ) -> None:

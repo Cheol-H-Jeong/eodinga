@@ -96,6 +96,26 @@ def test_compile_previous_period_date_aliases_use_mtime_ranges(query: str) -> No
     assert branch.where_params[0] < branch.where_params[1]
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_sql", "expected_delta"),
+    [
+        ("date:2026-04", "files.mtime >= ? AND files.mtime < ?", 30 * 86_400),
+        ("created:2026", "files.ctime >= ? AND files.ctime < ?", 365 * 86_400),
+    ],
+)
+def test_compile_iso_period_literals_expand_to_bounded_ranges(
+    query: str, expected_sql: str, expected_delta: int
+) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+    start, end = branch.where_params
+
+    assert branch.where_sql == expected_sql
+    assert isinstance(start, int)
+    assert isinstance(end, int)
+    assert end - start == expected_delta
+
+
 def test_compile_reversed_date_range_normalizes_bounds() -> None:
     compiled = compile_query(parse("date:2026-01-03..2026-01-01"))
     branch = compiled.branches[0]
@@ -106,6 +126,22 @@ def test_compile_reversed_date_range_normalizes_bounds() -> None:
     assert isinstance(start, int)
     assert isinstance(end, int)
     assert start < end
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_sql"),
+    [
+        ("date:2026-04..", "files.mtime >= ?"),
+        ("created:..2026", "files.ctime < ?"),
+    ],
+)
+def test_compile_open_ended_iso_period_ranges(query: str, expected_sql: str) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == expected_sql
+    assert len(branch.where_params) == 1
+    assert isinstance(branch.where_params[0], int)
 
 
 @pytest.mark.parametrize(
