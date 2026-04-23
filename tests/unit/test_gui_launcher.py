@@ -669,6 +669,10 @@ def test_launcher_alt_number_quick_picks_results(qapp) -> None:
     assert launcher.result_list.currentIndex().row() == 2
     assert "Alt+1..9 quick-picks" in launcher.shortcut_label.text()
     assert "Home/End and PgUp/PgDn jump" in launcher.shortcut_label.text()
+    first_row_html = launcher.model.data(launcher.model.index(0, 0), Qt.ItemDataRole.DisplayRole)
+    third_row_html = launcher.model.data(launcher.model.index(2, 0), Qt.ItemDataRole.DisplayRole)
+    assert "Alt+1" in first_row_html
+    assert "Alt+3" in third_row_html
 
 
 def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:

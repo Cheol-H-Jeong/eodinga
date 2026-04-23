@@ -223,9 +223,18 @@ def _highlight_fts_snippet(snippet: str) -> str:
     return "".join(parts)
 
 
-def format_hit_html(hit: SearchHit, query: str) -> str:
+def format_hit_html(hit: SearchHit, query: str, *, rank: int | None = None) -> str:
     primary = hit.highlighted_name or highlight_text(hit.name, query, target="name")
     secondary = hit.highlighted_path or highlight_text(str(hit.parent_path), query, target="path")
+    quick_pick_badge = ""
+    if rank is not None and 0 <= rank < 9:
+        quick_pick_badge = (
+            "<span style='display:inline-block; min-width:18px; margin-right:8px; padding:1px 6px; "
+            "border-radius:999px; font-size:10px; font-weight:700; letter-spacing:0.08em; "
+            "text-align:center; color:#1D4ED8; background:#DBEAFE'>"
+            f"Alt+{rank + 1}"
+            "</span>"
+        )
     snippet_html = ""
     if hit.snippet:
         rendered_snippet = (
@@ -245,7 +254,7 @@ def format_hit_html(hit: SearchHit, query: str) -> str:
             "</span>"
         )
     return (
-        f"<div style='font-size:15px; font-weight:600'>{primary}{ext_badge}</div>"
+        f"<div style='font-size:15px; font-weight:600'>{quick_pick_badge}{primary}{ext_badge}</div>"
         f"<div style='font-size:11px; color:#6B7280'>{secondary}</div>"
         f"{snippet_html}"
     )
