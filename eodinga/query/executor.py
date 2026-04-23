@@ -15,6 +15,7 @@ from eodinga.common import FileRecord
 from eodinga.observability import increment_counter, record_histogram
 from eodinga.query.compiler import CompiledBranch, CompiledQuery
 from eodinga.query.ranker import rank_results
+from eodinga.query.sqlite_cache import statement_cache_for
 
 
 class SearchHit(BaseModel):
@@ -332,7 +333,7 @@ def _fetch_record_batch(
     offset: int,
 ) -> dict[int, FileRecord]:
     sql = _record_batch_sql(bool(where_sql)).format(where_sql=where_sql)
-    rows = conn.execute(sql, (*where_params, limit, offset)).fetchall()
+    rows = statement_cache_for(conn).fetchall(sql, (*where_params, limit, offset))
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
@@ -437,7 +438,7 @@ def _fetch_path_candidates_fts(
         where_sql=branch.where_sql,
     )
     params.append(_prefix_like_param(prefix_term))
-    rows = conn.execute(sql, (*params, limit)).fetchall()
+    rows = statement_cache_for(conn).fetchall(sql, (*params, limit))
     records = {row["id"]: _row_to_record(row) for row in rows}
     return [row["id"] for row in rows], records
 
@@ -463,7 +464,7 @@ def _fetch_path_candidates_scan(
         branch.case_sensitive,
     ).format(where_sql=branch.where_sql)
     params.append(_prefix_like_param(prefix_term))
-    rows = conn.execute(sql, (*params, limit)).fetchall()
+    rows = statement_cache_for(conn).fetchall(sql, (*params, limit))
     records = {row["id"]: _row_to_record(row) for row in rows}
     return [row["id"] for row in rows], records
 
@@ -514,7 +515,7 @@ def _fetch_content_candidates(
         content_match_sql=branch.content_match_sql,
         where_sql=branch.where_sql,
     )
-    rows = conn.execute(sql, (*params, limit)).fetchall()
+    rows = statement_cache_for(conn).fetchall(sql, (*params, limit))
     records = {row["id"]: _row_to_record(row) for row in rows}
     snippets = {row["id"]: row["snippet"] for row in rows}
     ids = [row["id"] for row in rows]
@@ -543,7 +544,7 @@ def _fetch_auto_content_candidates(
     if branch.where_sql:
         params.extend(branch.where_params)
     sql = _auto_content_candidates_sql(bool(branch.where_sql)).format(where_sql=branch.where_sql)
-    rows = conn.execute(sql, (*params, limit)).fetchall()
+    rows = statement_cache_for(conn).fetchall(sql, (*params, limit))
     records = {row["id"]: _row_to_record(row) for row in rows}
     snippets = {row["id"]: row["snippet"] for row in rows}
     ids = [row["id"] for row in rows]
@@ -587,7 +588,9 @@ def _has_indexed_content(conn: sqlite3.Connection) -> bool:
     cached = _CONTENT_PRESENCE_BY_CONNECTION.get(id(conn))
     if cached is not None and cached.total_changes == conn.total_changes:
         return cached.has_indexed_content
-    has_indexed_content = conn.execute("SELECT 1 FROM content_map LIMIT 1").fetchone() is not None
+    has_indexed_content = (
+        statement_cache_for(conn).fetchone("SELECT 1 FROM content_map LIMIT 1") is not None
+    )
     _CONTENT_PRESENCE_BY_CONNECTION[id(conn)] = _ContentPresenceCache(
         total_changes=conn.total_changes,
         has_indexed_content=has_indexed_content,
@@ -599,7 +602,7 @@ def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[i
     id_list = tuple(dict.fromkeys(ids))
     if not id_list:
         return {}
-    rows = conn.execute(_content_texts_sql(len(id_list)), id_list).fetchall()
+    rows = statement_cache_for(conn).fetchall(_content_texts_sql(len(id_list)), id_list)
     return {
         row["file_id"]: " ".join(
             part for part in (row["title"], row["head_text"], row["body_text"]) if part
@@ -624,7 +627,7 @@ def _fetch_content_backfill_batch(
     if branch.where_sql:
         params.extend(branch.where_params)
     sql = _content_backfill_sql(bool(branch.where_sql)).format(where_sql=branch.where_sql)
-    rows = conn.execute(sql, (*params, limit, offset)).fetchall()
+    rows = statement_cache_for(conn).fetchall(sql, (*params, limit, offset))
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
@@ -762,10 +765,10 @@ def _metadata_only_total_estimate(
             params.extend(branch.where_params)
         selects.append(select_sql)
     union_sql = " UNION ".join(selects)
-    row = conn.execute(
+    row = statement_cache_for(conn).fetchone(
         f"SELECT COUNT(*) FROM ({union_sql} LIMIT {int(cap)}) AS metadata_matches",
         tuple(params),
-    ).fetchone()
+    )
     return int(row[0]) if row is not None else 0
 
 

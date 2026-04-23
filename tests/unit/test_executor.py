@@ -4,6 +4,7 @@ import sqlite3
 import unicodedata
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -178,6 +179,43 @@ def test_content_snippet_is_present(populated_db: sqlite3.Connection) -> None:
     result = search(populated_db, "content:launch", limit=5)
     assert result.hits[0].snippet is not None
     assert "launch" in result.hits[0].snippet.lower()
+
+
+def test_execute_uses_statement_cache_for_hot_read_queries(
+    populated_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen_sql: list[tuple[str, str]] = []
+    caches: dict[int, Any] = {}
+    real_factory = executor_module.statement_cache_for
+
+    class RecordingCache:
+        def __init__(self, inner: Any) -> None:
+            self._inner = inner
+
+        def fetchall(self, sql: str, params: tuple[object, ...] = ()) -> list[sqlite3.Row]:
+            seen_sql.append(("all", sql))
+            return self._inner.fetchall(sql, params)
+
+        def fetchone(
+            self, sql: str, params: tuple[object, ...] = ()
+        ) -> sqlite3.Row | tuple[object, ...] | None:
+            seen_sql.append(("one", sql))
+            return self._inner.fetchone(sql, params)
+
+    def recording_factory(conn: sqlite3.Connection) -> RecordingCache:
+        cache = caches.get(id(conn))
+        if cache is None:
+            cache = RecordingCache(real_factory(conn))
+            caches[id(conn)] = cache
+        return cache
+
+    monkeypatch.setattr(executor_module, "statement_cache_for", recording_factory)
+
+    result = search(populated_db, "report-055 ext:pdf", limit=10)
+
+    assert result.hits
+    assert any(kind == "one" and "content_map" in sql for kind, sql in seen_sql)
+    assert any(kind == "all" and "FROM paths_fts" in sql for kind, sql in seen_sql)
 
 
 def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
