@@ -181,6 +181,16 @@ def test_parse_slash_prefixed_path_literal_as_word_value(query: str) -> None:
     assert node.value_kind == "word"
 
 
+@pytest.mark.parametrize("query", ["path: /workspace/projects", "path: /tmp/log", "path: /a/b/"])
+def test_parse_spaced_slash_prefixed_path_literal_as_word_value(query: str) -> None:
+    node = parse(query)
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "path"
+    assert node.value == query.removeprefix("path: ").strip()
+    assert node.value_kind == "word"
+
+
 @pytest.mark.parametrize("query", ["path:/tmp/ms", "path:/tmp/ims", "path:/tmp/is"])
 def test_parse_slash_prefixed_path_literal_does_not_treat_short_basename_as_regex_flags(
     query: str,
@@ -193,8 +203,30 @@ def test_parse_slash_prefixed_path_literal_does_not_treat_short_basename_as_rege
     assert node.value_kind == "word"
 
 
+@pytest.mark.parametrize("query", ["path: /tmp/ms", "path: /tmp/ims", "path: /tmp/is"])
+def test_parse_spaced_slash_prefixed_path_literal_does_not_treat_short_basename_as_regex_flags(
+    query: str,
+) -> None:
+    node = parse(query)
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "path"
+    assert node.value == query.removeprefix("path: ").strip()
+    assert node.value_kind == "word"
+
+
 def test_parse_slash_prefixed_path_regex_with_valid_flags() -> None:
     node = parse("path:/tmp/log/i")
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "path"
+    assert node.value == "tmp/log"
+    assert node.value_kind == "regex"
+    assert node.regex_flags == "i"
+
+
+def test_parse_spaced_slash_prefixed_path_regex_with_valid_flags() -> None:
+    node = parse("path: /tmp/log/i")
 
     assert isinstance(node, OperatorNode)
     assert node.name == "path"

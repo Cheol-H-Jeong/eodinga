@@ -644,6 +644,19 @@ def test_execute_path_filter_with_short_unix_basename_literal(tmp_db: sqlite3.Co
     assert hits == ["/tmp/log"]
 
 
+def test_execute_spaced_path_filter_with_short_unix_basename_literal(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/tmp/log", 512, now, "", body_text="system log")
+    _insert_file(tmp_db, 2, "/tmp/lag", 512, now - 60, "", body_text="other log")
+    tmp_db.commit()
+
+    hits = [hit.file.path.as_posix() for hit in search(tmp_db, "path: /tmp/log", limit=5).hits]
+
+    assert hits == ["/tmp/log"]
+
+
 def test_execute_path_filter_with_regex_like_short_unix_basename_literal(
     tmp_db: sqlite3.Connection,
 ) -> None:
@@ -657,6 +670,19 @@ def test_execute_path_filter_with_regex_like_short_unix_basename_literal(
     assert hits == ["/tmp/ms"]
 
 
+def test_execute_spaced_path_filter_with_regex_like_short_unix_basename_literal(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/tmp/ms", 512, now, "", body_text="literal path")
+    _insert_file(tmp_db, 2, "/tmp/notes", 512, now - 60, "", body_text="other path")
+    tmp_db.commit()
+
+    hits = [hit.file.path.as_posix() for hit in search(tmp_db, "path: /tmp/ms", limit=5).hits]
+
+    assert hits == ["/tmp/ms"]
+
+
 def test_execute_path_filter_with_escaped_slash_regex(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/tmp/logs/app.log", 512, now, "log", body_text="app")
@@ -664,6 +690,17 @@ def test_execute_path_filter_with_escaped_slash_regex(tmp_db: sqlite3.Connection
     tmp_db.commit()
 
     hits = [hit.file.path.as_posix() for hit in search(tmp_db, r"path:/tmp\/logs/i", limit=5).hits]
+
+    assert hits == ["/tmp/logs/app.log"]
+
+
+def test_execute_spaced_path_filter_with_regex(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/tmp/logs/app.log", 512, now, "log", body_text="app")
+    _insert_file(tmp_db, 2, "/tmp/notes/app.log", 512, now - 60, "log", body_text="notes")
+    tmp_db.commit()
+
+    hits = [hit.file.path.as_posix() for hit in search(tmp_db, "path: /tmp/log/i", limit=5).hits]
 
     assert hits == ["/tmp/logs/app.log"]
 

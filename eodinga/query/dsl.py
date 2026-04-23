@@ -176,6 +176,23 @@ class _Parser:
             phrase = self._parse_phrase()
             return OperatorNode(name=name, value=phrase.value, value_kind="phrase", negated=negated)
         if char == "/":
+            if name == "path":
+                checkpoint = self.index
+                token = self._read_token()
+                if token:
+                    try:
+                        value, value_kind, regex_flags = self._decode_inline_value(name, token)
+                        if "\\" not in token or value_kind == "regex":
+                            return OperatorNode(
+                                name=name,
+                                value=value,
+                                value_kind=value_kind,
+                                regex_flags=regex_flags,
+                                negated=negated,
+                            )
+                    except QuerySyntaxError:
+                        pass
+                self.index = checkpoint
             regex = self._parse_regex()
             return OperatorNode(
                 name=name,
