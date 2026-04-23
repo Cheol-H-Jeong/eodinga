@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.917 - 2026-04-24
+
+- Added flagged global regex mode for plain terms, so `regex:i`, `regex:m`, `regex:s`, and mixed combinations like `regex:ims` now compile cleanly and validate patterns before execution.
+- Made regex-mode plain terms preserve the normal path-or-content search scope instead of silently narrowing to path-only matches, including multiline and dotall evaluation against indexed content.
+- Restored stable ranking for regex-mode matches by sorting channel hits deterministically and added CLI regression coverage for flagged regex searches and path-versus-content ordering.
+
 ## 0.1.911 - 2026-04-24
 
 - Normalized list-form subprocess command matching in the no-network source audit, so absolute-path invocations like `['/usr/bin/curl', ...]` and `wget.exe` tuples are rejected the same way as bare command names.
