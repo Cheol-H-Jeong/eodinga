@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.205 - 2026-04-23
+## 0.1.206 - 2026-04-23
 
 - Made quoted phrase matching separator-aware in query scan paths, so content and path phrases can now match across newlines, hyphens, underscores, and path separators instead of requiring a raw substring.
 - Preserved phrase semantics for `path:"..."` by routing phrase filters through the executor scan path rather than compiling them into SQL `LIKE` clauses with stricter literal-space behavior.
