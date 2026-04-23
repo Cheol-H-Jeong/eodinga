@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.128 - 2026-04-23
+
+- Normalized Windows root-scope matching across drive-letter case variants, so scoped searches now include exact-root records even when the caller passes `c:` and the index stored `C:`.
+- Made equal-score query results deterministic by sorting duplicate basenames by normalized full path before row id, removing insertion-order drift from metadata-only result sets.
+- Applied `node_modules` and other path deboost markers case-insensitively, keeping ranking behavior consistent on Windows-style paths.
+
 ## 0.1.120 - 2026-04-23
 
 - Centralized SQLite connection setup behind a shared helper that keeps the runtime PRAGMA profile consistent while explicitly reserving a 128-statement cache for index rebuilds, stale-WAL recovery, normal opens, and the opt-in perf harness.
