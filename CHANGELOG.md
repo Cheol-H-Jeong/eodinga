@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.180 - 2026-04-23
+## 0.1.182 - 2026-04-23
 
 - Reused cached `os.scandir()` `lstat` results throughout the filesystem walker, which removes a second `stat()` round-trip for discovered children while preserving the existing symlink-loop and alias-handling rules.
 - Kept `IndexWriter.bulk_upsert()` and `apply_events()` inside a caller-owned transaction instead of committing nested batches early, so staged rebuilds can stay one SQLite transaction from root insert through final swap.
