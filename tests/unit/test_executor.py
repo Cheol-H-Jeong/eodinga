@@ -1114,6 +1114,57 @@ def test_execute_regex_true_query(tmp_db: sqlite3.Connection) -> None:
     assert hits == ["report-011.py"]
 
 
+def test_execute_regex_mode_with_flags_matches_multiline_content(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/notes.txt",
+        1024,
+        now,
+        "txt",
+        body_text="Launch plan\nchecklist ready",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/report.txt",
+        1024,
+        now - 60,
+        "txt",
+        body_text="Launch plan checklist ready",
+    )
+    tmp_db.commit()
+
+    hits = [
+        hit.file.name
+        for hit in search(tmp_db, r"regex:ims launch plan\s+^checklist", limit=10).hits
+    ]
+
+    assert hits == ["notes.txt"]
+
+
+def test_execute_regex_mode_preserves_plain_term_path_or_content_scope(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/report-7.txt", 512, now, "txt")
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/notes.txt",
+        512,
+        now - 60,
+        "txt",
+        body_text="report-22 shipped",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, r"regex:i report-\d+", limit=10).hits]
+
+    assert hits == ["report-7.txt", "notes.txt"]
+
+
 def test_execute_regex_only_query_scans_beyond_initial_window(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     for index in range(1, 1501):

@@ -235,6 +235,20 @@ def _term_ok(text: str, term_value: str, kind: str, case_sensitive: bool, negate
     return not matched if negated else matched
 
 
+def _regex_matches_record(
+    record: FileRecord,
+    content_text: str,
+    pattern: str,
+    *,
+    flags: str,
+    case_sensitive: bool,
+) -> bool:
+    target_text = f"{record.name} {record.parent_path} {record.path}"
+    return _regex_ok(target_text, pattern, flags, False, case_sensitive) or (
+        bool(content_text) and _regex_ok(content_text, pattern, flags, False, case_sensitive)
+    )
+
+
 def _regex_ok(
     text: str,
     pattern: str,
@@ -267,13 +281,22 @@ def _plain_term_matches_record(
 
 def _filter_record(branch: CompiledBranch, record: FileRecord, content_text: str) -> bool:
     for term in branch.path_terms:
-        matched = _plain_term_matches_record(
-            record,
-            content_text,
-            term.value,
-            term.kind,
-            branch.case_sensitive,
-        )
+        if branch.regex_mode:
+            matched = _regex_matches_record(
+                record,
+                content_text,
+                term.value,
+                flags=branch.regex_mode_flags,
+                case_sensitive=branch.case_sensitive,
+            )
+        else:
+            matched = _plain_term_matches_record(
+                record,
+                content_text,
+                term.value,
+                term.kind,
+                branch.case_sensitive,
+            )
         if term.negated and matched:
             return False
         if not term.negated and not matched:
@@ -406,6 +429,8 @@ def _fetch_path_candidates(
 
 
 def _should_scan_path_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
+    if branch.regex_mode:
+        return False
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return False
@@ -420,6 +445,8 @@ def _should_scan_path_candidates(branch: CompiledBranch, fts_ids: list[int]) -> 
 def _fetch_path_candidates_fts(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
 ) -> tuple[list[int], dict[int, FileRecord]]:
+    if branch.regex_mode:
+        return [], {}
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return [], {}
@@ -445,6 +472,8 @@ def _fetch_path_candidates_fts(
 def _fetch_path_candidates_scan(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
 ) -> tuple[list[int], dict[int, FileRecord]]:
+    if branch.regex_mode:
+        return [], {}
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return [], {}
@@ -536,7 +565,7 @@ def _fetch_auto_content_candidates(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
 ) -> tuple[list[int], dict[int, FileRecord], dict[int, str]]:
     positive_terms = [term for term in branch.path_terms if not term.negated]
-    if branch.content_required or not positive_terms:
+    if branch.content_required or not positive_terms or branch.regex_mode:
         return [], {}, {}
     query = " ".join(f'"{term.value.replace(chr(34), chr(34) * 2)}"' for term in positive_terms)
     params: list[object] = [query]
@@ -573,6 +602,8 @@ def _should_scan_content_candidates(branch: CompiledBranch, fts_ids: list[int]) 
 
 
 def _should_scan_auto_content_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
+    if branch.regex_mode:
+        return False
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return False
@@ -717,6 +748,8 @@ def _scan_auto_content_candidates(
 
 
 def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> list[int]:
+    if branch.regex_mode:
+        return []
     positives = [term.value for term in branch.path_terms if not term.negated]
     if not positives:
         return []
@@ -733,7 +766,8 @@ def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> l
 
 def _needs_record_filter(branch: CompiledBranch) -> bool:
     return bool(
-        branch.path_filters
+        branch.regex_mode
+        or branch.path_filters
         or branch.path_regex_terms
         or branch.content_terms
         or branch.content_regex_terms
@@ -810,6 +844,47 @@ def _derive_name_path_hits(
     return name_hits, path_hits
 
 
+def _derive_regex_mode_hits(
+    records: Mapping[int, FileRecord],
+    branch: CompiledBranch,
+    content_texts: Mapping[int, str],
+) -> tuple[list[int], list[int], list[int]]:
+    positive_terms = [term for term in branch.path_terms if not term.negated]
+    name_hits: list[int] = []
+    path_hits: list[int] = []
+    content_hits: list[int] = []
+    if not positive_terms:
+        return name_hits, path_hits, content_hits
+    ordered_records = sorted(
+        records.values(),
+        key=lambda item: _record_order_key(item, case_sensitive=branch.case_sensitive),
+    )
+    for record in ordered_records:
+        if record.id is None:
+            continue
+        content_text = content_texts.get(record.id, "")
+        if any(
+            _regex_ok(record.name, term.value, branch.regex_mode_flags, False, branch.case_sensitive)
+            for term in positive_terms
+        ):
+            name_hits.append(record.id)
+        if any(
+            _regex_ok(
+                str(record.path), term.value, branch.regex_mode_flags, False, branch.case_sensitive
+            )
+            for term in positive_terms
+        ):
+            path_hits.append(record.id)
+        if content_text and any(
+            _regex_ok(
+                content_text, term.value, branch.regex_mode_flags, False, branch.case_sensitive
+            )
+            for term in positive_terms
+        ):
+            content_hits.append(record.id)
+    return name_hits, path_hits, content_hits
+
+
 def _execute_branch(
     conn: sqlite3.Connection,
     branch: CompiledBranch,
@@ -860,6 +935,7 @@ def _execute_branch(
         )
     if not candidate_ids and not branch.path_match_sql and not branch.content_required:
         candidate_ids = set(records)
+    content_texts: dict[int, str] = {}
     if _needs_record_filter(branch):
         content_texts = _fetch_content_texts(conn, candidate_ids)
         filtered_records = {
@@ -872,8 +948,15 @@ def _execute_branch(
         filtered_records = {
             file_id: records[file_id] for file_id in candidate_ids if file_id in records
         }
-    name_hits, path_hits = _derive_name_path_hits(filtered_records, branch)
-    content_hits = [file_id for file_id in content_ids if file_id in filtered_records]
+    if branch.regex_mode:
+        name_hits, path_hits, content_hits = _derive_regex_mode_hits(
+            filtered_records,
+            branch,
+            content_texts,
+        )
+    else:
+        name_hits, path_hits = _derive_name_path_hits(filtered_records, branch)
+        content_hits = [file_id for file_id in content_ids if file_id in filtered_records]
     prefix_hits = _prefix_hits(filtered_records, branch)
     scores = rank_results(
         name_hits=name_hits,

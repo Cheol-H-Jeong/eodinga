@@ -46,10 +46,24 @@ def test_compile_regex_mode_promotes_plain_terms_to_regex() -> None:
     branch = compiled.branches[0]
 
     assert branch.path_match_sql is None
-    assert branch.path_terms == ()
-    assert branch.path_regex_terms == (branch.path_regex_terms[0],)
-    assert branch.path_regex_terms[0].pattern == "report-[0-9]+"
-    assert branch.path_regex_terms[0].negated is False
+    assert branch.regex_mode is True
+    assert branch.regex_mode_flags == ""
+    assert branch.path_terms == (branch.path_terms[0],)
+    assert branch.path_terms[0].value == "report-[0-9]+"
+    assert branch.path_terms[0].negated is False
+    assert branch.path_regex_terms == ()
+
+
+def test_compile_regex_mode_accepts_global_flags() -> None:
+    compiled = compile_query(parse("case:true regex:ms report.*checklist"))
+    branch = compiled.branches[0]
+
+    assert branch.case_sensitive is True
+    assert branch.regex_mode is True
+    assert branch.regex_mode_flags == "ms"
+    assert branch.path_match_sql is None
+    assert branch.path_terms == (branch.path_terms[0],)
+    assert branch.path_terms[0].value == "report.*checklist"
 
 
 def test_compile_regex_operator_accepts_explicit_pattern_alias() -> None:
@@ -92,6 +106,8 @@ def test_compile_regex_operator_accepts_word_pattern_alias() -> None:
         ("-regex:true alpha", False, False),
         ("regex:false alpha", False, False),
         ("-regex:false alpha", False, True),
+        ("regex:im alpha", False, True),
+        ("-regex:im alpha", False, False),
     ],
 )
 def test_compile_negated_boolean_operators_invert_requested_mode(
@@ -104,6 +120,10 @@ def test_compile_negated_boolean_operators_invert_requested_mode(
 
     assert branch.case_sensitive is expected_case_sensitive
     assert branch.regex_mode is expected_regex_mode
+    if query == "regex:im alpha":
+        assert branch.regex_mode_flags == "im"
+    if query == "-regex:im alpha":
+        assert branch.regex_mode_flags == ""
 
 
 def test_compile_date_alias_uses_mtime_range() -> None:

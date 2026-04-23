@@ -49,6 +49,7 @@ class CompiledBranch(BaseModel):
     where_params: tuple[object, ...] = ()
     case_sensitive: bool = False
     regex_mode: bool = False
+    regex_mode_flags: str = ""
     path_terms: tuple[CompiledTextTerm, ...] = ()
     content_terms: tuple[CompiledTextTerm, ...] = ()
     path_regex_terms: tuple[CompiledRegexTerm, ...] = ()
@@ -150,6 +151,17 @@ def _try_parse_bool(value: str) -> bool | None:
         return _parse_bool(value)
     except QuerySyntaxError:
         return None
+
+
+def _try_parse_regex_mode_flags(value: str) -> str | None:
+    normalized = value.strip().lower()
+    if not normalized:
+        return None
+    if any(flag not in {"i", "m", "s"} for flag in normalized):
+        return None
+    if len(set(normalized)) != len(normalized):
+        return None
+    return normalized
 
 
 def _regex_flags(flags: str) -> int:
@@ -295,6 +307,7 @@ def _compile_branch(
     path_filters: list[CompiledTextTerm] = []
     case_sensitive = False
     regex_mode = False
+    regex_mode_flags = ""
 
     for term in terms:
         if isinstance(term, WordNode):
@@ -434,8 +447,18 @@ def _compile_branch(
             )
             if bool_value is not None:
                 regex_mode = bool_value
+                regex_mode_flags = ""
                 if term.negated:
                     regex_mode = not regex_mode
+                continue
+            flag_value = (
+                _try_parse_regex_mode_flags(term.value)
+                if term.value_kind == "word"
+                else None
+            )
+            if flag_value is not None:
+                regex_mode = not term.negated
+                regex_mode_flags = "" if term.negated else flag_value
                 continue
             _validate_regex_pattern(term.value, term.regex_flags)
             path_regex_terms.append(
@@ -448,19 +471,12 @@ def _compile_branch(
             continue
         raise QuerySyntaxError(f"unsupported operator: {term.name}", 0)
 
-    if regex_mode and path_terms:
-        regex_terms = []
-        for term in path_terms:
-            _validate_regex_pattern(term.value)
-            regex_terms.append(
-                CompiledRegexTerm(pattern=term.value, flags="", negated=term.negated)
-            )
-        path_regex_terms.extend(regex_terms)
-        path_terms = []
-
     positive_path_terms = tuple(term for term in path_terms if not term.negated)
     positive_content_terms = tuple(term for term in content_terms if not term.negated)
-    path_match_sql = "paths_fts MATCH ?" if positive_path_terms else None
+    if regex_mode:
+        for term in path_terms:
+            _validate_regex_pattern(term.value, regex_mode_flags)
+    path_match_sql = "paths_fts MATCH ?" if positive_path_terms and not regex_mode else None
     content_match_sql = "content_fts MATCH ?" if positive_content_terms else None
     path_query = " ".join(_fts_literal(term.value, term.kind) for term in positive_path_terms)
     content_query = " ".join(_fts_literal(term.value, term.kind) for term in positive_content_terms)
@@ -473,6 +489,7 @@ def _compile_branch(
         where_params=tuple(where_params),
         case_sensitive=case_sensitive,
         regex_mode=regex_mode,
+        regex_mode_flags=regex_mode_flags,
         path_terms=tuple(path_terms),
         content_terms=tuple(content_terms),
         path_regex_terms=tuple(path_regex_terms),
