@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.932 - 2026-04-24
+
+- Skipped redundant SQLite PRAGMA reads and rewrites for nested fast-write scopes, trimming per-batch rebuild and watcher-write overhead when an outer bulk-write context already holds the requested settings.
+- Chunked large executor content-text fetches into fixed-size batches so SQLite can reuse a small set of prepared statement shapes instead of compiling one oversized `IN (...)` query per scan batch.
+- Added unit coverage for both optimizations, pinning the nested-PRAGMA fast path and the executor's large content-text chunking behavior.
+
 ## 0.1.926 - 2026-04-24
 
 - Batched the query executor's Python fallback scan for phrase and Unicode path searches, avoiding the previous one-shot `100000`-row materialization and keeping the slower correctness path bounded in memory.
