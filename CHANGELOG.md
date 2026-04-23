@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.118 - 2026-04-23
+
+- Expanded the live-update integration coverage to prove modified files replace stale content hits and deleted files disappear from search within the existing 500 ms watcher budget.
+- Added multi-root watchdog regressions that require one `WatchService` to surface fresh hits from two indexed roots, closing a gap between rebuild coverage and real incremental updates.
+- Added a reopened multi-root index regression that preserves root-scoped queries and accepts new watcher events after restart without forcing a full rebuild.
+
 ## 0.1.115 - 2026-04-23
 
 - Expanded the shipped README with an explicit feature inventory, a compact DSL cheatsheet, generated-screenshot provenance, and direct links to contributor and release workflows so the top-level product contract is easier to audit.
