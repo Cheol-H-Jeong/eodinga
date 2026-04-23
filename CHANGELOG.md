@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.110 - 2026-04-23
+## 0.1.114 - 2026-04-23
 
 - Fixed multi-root watcher ingestion so incremental updates now restore the correct persisted `root_id` from the watched root instead of defaulting new and renamed files into root 1 during live indexing.
 - Added end-to-end multi-root live-update regressions that create and rename files under a secondary watched root, then verify search visibility, root-scoped isolation, and on-disk root ownership after watcher event application.
