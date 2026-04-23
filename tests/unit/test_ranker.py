@@ -20,6 +20,13 @@ def test_prefix_boost_increases_score() -> None:
     assert scores[2] == 0.3
 
 
+def test_prefix_boost_ignores_duplicate_hits() -> None:
+    scores = apply_prefix_boost({1: 0.2, 2: 0.3}, [1, 1, 2], RankingWeights(prefix_boost=0.5))
+
+    assert scores[1] == 0.7
+    assert scores[2] == 0.8
+
+
 def test_deboost_applies_to_vendor_dirs() -> None:
     scores = apply_path_deboost(
         {1: 1.0, 2: 1.0},
@@ -57,3 +64,11 @@ def test_rank_results_combines_rrf_boost_and_deboost() -> None:
         paths={1: "/repo/src/app.py", 2: "/repo/node_modules/app.js"},
     )
     assert scores[1] > scores[2]
+
+
+def test_rrf_ignores_duplicate_file_ids_within_same_channel() -> None:
+    weights = RankingWeights(name=1.0, path=0.0, content=0.0, k=0)
+
+    scores = reciprocal_rank_fusion({"name": [7, 7, 11]}, weights=weights)
+
+    assert scores == {7: 1.0, 11: 1 / 3}

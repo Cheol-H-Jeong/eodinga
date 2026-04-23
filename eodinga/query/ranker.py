@@ -37,7 +37,11 @@ def reciprocal_rank_fusion(
     }
     for channel, ranking in rank_sets.items():
         channel_weight = channel_weights.get(channel, 0.0)
+        seen: set[int] = set()
         for index, file_id in enumerate(ranking, start=1):
+            if file_id in seen:
+                continue
+            seen.add(file_id)
             score_map[file_id] = score_map.get(file_id, 0.0) + channel_weight / (weights.k + index)
     return score_map
 
@@ -49,7 +53,11 @@ def apply_prefix_boost(
 ) -> dict[int, float]:
     weights = weights or RankingWeights()
     boosted = dict(scores)
+    seen: set[int] = set()
     for file_id in prefix_hits:
+        if file_id in seen:
+            continue
+        seen.add(file_id)
         boosted[file_id] = boosted.get(file_id, 0.0) + weights.prefix_boost
     return boosted
 
