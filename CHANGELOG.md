@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.550 - 2026-04-23
+## 0.1.554 - 2026-04-23
 
 - Tightened the Windows packaging audit so `windows-dry-run` now fails if the Inno Setup template stops referencing `LicenseFile=LICENSE`, instead of only checking that the repository still contains a `LICENSE` file.
 - Expanded PyInstaller hidden-import discovery to include parent packages for dynamic and source-derived submodule imports, reducing the chance of frozen builds missing package roots such as `Xlib`, `pynput`, `ebooklib`, or `charset_normalizer`.
