@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.305 - 2026-04-23
+
+- Accepted spaced range literals for `date:`, `modified:`, `created:`, and `size:` so queries like `date: 2026-04-01 .. 2026-04-23` and `size: 100 .. 500K` now parse the same as their compact forms.
+- Added open-ended `size:` ranges, including `size:100..` and `size:..500K`, with compiler and executor coverage for both direct and negated forms.
+- Expanded CLI query regressions to cover spaced ISO date ranges and open-ended size filters against a real SQLite index.
+
 ## 0.1.287 - 2026-04-23
 
 - Expanded the tray controller so it now exposes explicit `Open eodinga`, `Show launcher`, and `Hide launcher` actions while keeping the launcher toggle text synchronized with the popup window state.
