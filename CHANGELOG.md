@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.441 - 2026-04-23
+## 0.1.442 - 2026-04-23
 
 - Tightened slash-delimited operator parsing so `content:/.../` and `regex:/.../` now reject invalid flag suffixes instead of silently degrading into plain word literals, while `path:/...` keeps its literal-path fallback.
 - Broadened query root scoping on Windows-style paths to match drive-letter case variants and `\\?\\` long-path aliases consistently, including end-to-end coverage against indexed backslash paths.
