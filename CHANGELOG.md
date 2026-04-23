@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.353 - 2026-04-23
+
+- Expanded the README with packaging artifact, stats-snapshot, and reference-matrix sections so operators can map symptoms and release artifacts to the right command or guide without reading the full docs tree first.
+- Deepened the architecture guide with explicit persistence boundaries, observability-driven stats surface notes, and a debug decision matrix that ties stale-result and packaging incidents back to the owning runtime layers.
+- Tightened contributor and release docs around derived-asset ownership, docs review expectations, and first-failure gate handling so docs-heavy rounds stay reproducible under concurrent worker handoff.
+
 ## 0.1.302 - 2026-04-23
 
 - Normalized query fallback phrase matching so quoted phrases still match across separators such as newlines and punctuation in path and content scans.
