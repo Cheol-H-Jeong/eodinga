@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.590 - 2026-04-23
+
+- Cached compiled regex patterns in the query executor, eliminating repeated `re.compile()` work during regex-heavy searches while preserving existing match semantics.
+- Reduced executor hot-path overhead by decoding SQLite rows directly into `FileRecord` objects and reusing normalized query needles across prefix, scan, and ranking passes.
+- Added perf-only regex query latency coverage behind `EODINGA_RUN_PERF=1`, so the optimized executor path now has a measurable regression guard alongside existing name and content query benchmarks.
+
 ## 0.1.585 - 2026-04-23
 
 - Tightened scoped-search root matching so wildcard characters in root paths no longer leak results from sibling roots, and Windows drive-letter case variants now keep exact-root records in scope.
