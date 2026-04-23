@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.287 - 2026-04-23
+## 0.1.288 - 2026-04-23
 
 - Fixed the PyInstaller hidden-import source scan so relative imports inside `eodinga` packages no longer leak bogus top-level modules like `about` or `button` into Windows packaging audits.
 - Switched the PyInstaller data list to discover locale JSON assets from `eodinga/i18n/`, reducing the chance that future translations ship in source but get omitted from packaged builds.
