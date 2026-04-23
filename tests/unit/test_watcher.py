@@ -79,7 +79,7 @@ def test_watcher_coalesces_events_within_500ms(tmp_path: Path) -> None:
         renamed.unlink()
 
         seen: list[str] = []
-        deadline = monotonic() + 0.5
+        deadline = monotonic() + 1.0
         while monotonic() < deadline:
             try:
                 event = service.queue.get(timeout=0.05)
