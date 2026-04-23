@@ -106,6 +106,7 @@ def rebuild_index(
         if content_enabled
         else (lambda _path: None)
     )
+    connection_closed = False
     try:
         writer = IndexWriter(conn, parser_callback=parser_callback)
         with _SignalStop() as stop:
@@ -144,17 +145,17 @@ def rebuild_index(
                         increment_counter("files_indexed", indexed, root=str(root.path))
                     stop.raise_if_requested()
             stop.raise_if_requested()
+            conn.close()
+            connection_closed = True
+            atomic_replace_index(staged_path, target_path)
+            stop.raise_if_requested()
     except KeyboardInterrupt:
-        conn.close()
+        if not connection_closed:
+            conn.close()
         raise
     except Exception:
-        conn.close()
-        _cleanup_index_files(staged_path)
-        raise
-    conn.close()
-    try:
-        atomic_replace_index(staged_path, target_path)
-    except Exception:
+        if not connection_closed:
+            conn.close()
         _cleanup_index_files(staged_path)
         raise
     elapsed_ms = (perf_counter() - started) * 1000
