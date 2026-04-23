@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.247 - 2026-04-23
+
+- Added visible launcher chip rows for active DSL filters plus clickable recent and pinned query shortcuts, so query context stays on-screen instead of being buried in the empty state copy.
+- Strengthened launcher result emphasis by rendering matched substrings with a heavier highlighted treatment across names, paths, snippets, and extension badges.
+- Filled in launcher accessibility names for status, empty-state, and preview surfaces so screen-reader output covers the full keyboard-driven search flow.
+
 ## 0.1.242 - 2026-04-23
 
 - Hardened crash observability so same-second failures no longer overwrite prior `crash-*.log` files, unraisable exceptions now flow through the same crash-report path, and crash counters are visible in runtime stats.
