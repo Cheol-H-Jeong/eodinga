@@ -21,6 +21,7 @@ def test_config_round_trip_save_and_load(temp_config_path: Path, tmp_path: Path)
                 "window_y": 64,
                 "window_width": 800,
                 "window_height": 520,
+                "recent_queries": ["budget", "release notes"],
                 "pinned_queries": ["ext:md", "date:this-week"],
             }
         ),
@@ -43,6 +44,20 @@ pinned_queries = ["ext:pdf", "size:>10M"]
     config = load(temp_config_path)
 
     assert config.launcher.pinned_queries == ["ext:pdf", "size:>10M"]
+
+
+def test_load_accepts_recent_launcher_queries(temp_config_path: Path) -> None:
+    temp_config_path.write_text(
+        """
+[launcher]
+recent_queries = ["budget", "release notes", "budget"]
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load(temp_config_path)
+
+    assert config.launcher.recent_queries == ["budget", "release notes", "budget"]
 
 
 def test_load_ignores_unknown_config_fields(temp_config_path: Path) -> None:

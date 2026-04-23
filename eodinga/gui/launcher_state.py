@@ -52,9 +52,15 @@ class LauncherState(QObject):
     pinned_queries_changed = Signal(list)
     indexing_status_changed = Signal(object)
 
-    def __init__(self, parent: QObject | None = None, pinned_queries: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        parent: QObject | None = None,
+        *,
+        recent_queries: list[str] | None = None,
+        pinned_queries: list[str] | None = None,
+    ) -> None:
         super().__init__(parent)
-        self._recent_queries: deque[str] = deque(maxlen=5)
+        self._recent_queries: deque[str] = deque(self._normalize_queries(recent_queries or [])[:5], maxlen=5)
         self._pinned_queries = self._normalize_queries(pinned_queries or [])
         self._indexing_status = IndexingStatus()
 
@@ -77,6 +83,13 @@ class LauncherState(QObject):
         items = [item for item in self._recent_queries if item != normalized]
         items.insert(0, normalized)
         self._recent_queries = deque(items[: self._recent_queries.maxlen], maxlen=self._recent_queries.maxlen)
+        self.recent_queries_changed.emit(self.recent_queries)
+
+    def set_recent_queries(self, queries: list[str]) -> None:
+        normalized = self._normalize_queries(queries)[: self._recent_queries.maxlen]
+        if normalized == self.recent_queries:
+            return
+        self._recent_queries = deque(normalized, maxlen=self._recent_queries.maxlen)
         self.recent_queries_changed.emit(self.recent_queries)
 
     def set_pinned_queries(self, queries: list[str]) -> None:
