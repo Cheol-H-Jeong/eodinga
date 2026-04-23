@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.368 - 2026-04-23
+## 0.1.369 - 2026-04-23
 
 - Expanded live-update integration coverage to prove in-place content rewrites and cross-root moves both converge in search within the 500ms watcher budget, including root-scoped query visibility.
 - Added multi-root rebuild coverage showing that removing a root from the configured rebuild set drops its indexed files and root scope instead of leaving stale cross-root results behind.
