@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.747 - 2026-04-23
+## 0.1.748 - 2026-04-23
 
 - Extracted shared integration watcher/query wait helpers so live-update and hot-restart coverage can exercise identical timing and query assertions without duplicating queue-drain logic.
 - Added sequential integration flows that prove search refreshes correctly across create, modify, delete, and cross-root moves within a single live watcher session.
