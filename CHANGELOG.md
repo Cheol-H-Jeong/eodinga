@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.961 - 2026-04-24
+
+- Scoped Windows search roots case-insensitively across the full path, so mixed-case directory segments now match indexed files for both plain and extended-length Windows paths instead of only tolerating drive-letter case changes.
+- Added executor regressions for mixed-case plain and `\\?\` Windows root filters to keep the search engine pinned on the corrected scoping behavior.
+- Added CLI coverage for mixed-case Windows root arguments so the command entrypoint preserves the same root-filter correctness as the lower-level executor.
+
 ## 0.1.953 - 2026-04-24
 
 - Fixed open-ended relative date filters so queries like `date:today..` and `date:..yesterday` work the same way as closed relative ranges instead of falling through the ISO-only parser.
