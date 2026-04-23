@@ -24,6 +24,7 @@ def _build_fixture_tree(root: Path) -> None:
     yesterday = today - timedelta(days=1)
     files = {
         "docs/launch-plan.md": "# Launch Plan\nAlpha launch checklist for spring release.\n",
+        "docs/launch_review.txt": "launch.review approved for release.\n",
         "docs/invoice-budget.txt": "Invoice budget for the alpha launch.\n",
         "archive/retro-notes.txt": "Archive retrospective notes from last quarter.\n",
         "src/hot_restart.py": "def reopen_index():\n    return 'restart ready'\n",
@@ -75,6 +76,7 @@ def _index_tree(root: Path, db_path: Path) -> None:
     ("query", "expected_name"),
     [
         ("launch-plan", "launch-plan.md"),
+        ('"launch review"', "launch_review.txt"),
         ('content:"launch checklist"', "launch-plan.md"),
         ("ext:md launch", "launch-plan.md"),
         ("path:archive retro", "retro-notes.txt"),
@@ -86,6 +88,7 @@ def _index_tree(root: Path, db_path: Path) -> None:
         ("invoice budget", "invoice-budget.txt"),
         ("date:today size:>10M is:duplicate -path:archive", "today-alpha-copy.txt"),
         ("date:yesterday -is:duplicate", "yesterday-beta.txt"),
+        ("path:archive size:..10M", "yesterday-beta.txt"),
     ],
 )
 def test_e2e_index_search_returns_expected_file_in_top_three(
