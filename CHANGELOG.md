@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.816 - 2026-04-23
+## 0.1.818 - 2026-04-23
 
 - Added a query-planning guide and release-evidence bundle to the README so operators can pick the right DSL/operator family and verify docs-only release inputs faster.
 - Documented surface state resolution and the release evidence loop in the architecture guide, making config/index-path debugging and docs-to-packaging review easier to follow.
