@@ -303,6 +303,86 @@ def test_execute_escaped_phrase_query_matches_literal_quotes_and_backslashes(
     assert content_hits == ['release "candidate" notes.txt']
 
 
+def test_execute_phrase_query_matches_hyphenated_path_tokens(tmp_db: sqlite3.Connection) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/release-candidate-notes.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="launch prep",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/release-summary.txt",
+        512,
+        1_713_527_940,
+        "txt",
+        body_text="launch prep",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, '"release candidate"', limit=5).hits]
+
+    assert hits == ["release-candidate-notes.txt"]
+
+
+def test_execute_phrase_content_query_matches_separator_boundaries(tmp_db: sqlite3.Connection) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/checklist.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="launch\nchecklist ready",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/other.txt",
+        512,
+        1_713_527_940,
+        "txt",
+        body_text="launch agenda",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, 'content:"launch checklist"', limit=5).hits]
+
+    assert hits == ["checklist.txt"]
+
+
+def test_execute_plain_phrase_query_can_fall_back_to_content_separator_matches(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/checklist.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="launch-checklist ready",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/agenda.txt",
+        512,
+        1_713_527_940,
+        "txt",
+        body_text="launch agenda",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, '"launch checklist"', limit=5).hits]
+
+    assert hits == ["checklist.txt"]
+
+
 def test_execute_relative_date_queries_use_local_day_boundaries(
     tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:
