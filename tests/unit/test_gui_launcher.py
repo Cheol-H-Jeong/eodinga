@@ -313,6 +313,12 @@ def test_launcher_shows_clickable_pinned_and_recent_query_chips(qapp) -> None:
 
     assert [button.text() for button in launcher.pinned_queries_row.buttons] == ["ext:pdf", "date:this-week"]
     assert [button.text() for button in launcher.recent_queries_row.buttons] == ["budget", "release notes"]
+    assert [button.text() for button in launcher.filter_suggestions_row.buttons] == [
+        "ext:pdf",
+        "date:this-week",
+        "size:>10M",
+        'content:"release notes"',
+    ]
 
 
 def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
@@ -331,6 +337,45 @@ def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
 
     assert launcher.query_field.text() == "ext:pdf"
     assert calls == ["ext:pdf"]
+
+
+def test_launcher_filter_chip_appends_to_query_and_runs_search(qapp) -> None:
+    calls: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        calls.append(query)
+        return QueryResult(items=[], total=0, elapsed_ms=1.0)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("report")
+    _wait(60)
+    launcher.filter_suggestions_row.buttons[0].click()
+
+    assert launcher.query_field.text() == "report ext:pdf"
+    assert calls == ["report", "report ext:pdf"]
+
+
+def test_launcher_filter_chip_list_updates_after_query_changes(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    assert [button.text() for button in launcher.filter_suggestions_row.buttons] == [
+        "ext:pdf",
+        "date:this-week",
+        "size:>10M",
+        'content:"release notes"',
+    ]
+
+    launcher.query_field.setText("report ext:pdf")
+    _wait(60)
+
+    assert [button.text() for button in launcher.filter_suggestions_row.buttons] == [
+        "date:this-week",
+        "size:>10M",
+        "path:docs",
+    ]
 
 
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:
@@ -399,13 +444,16 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
 
     assert launcher.empty_state.title_label.text() == "Type to search"
     assert "No recent queries yet" in launcher.empty_state.body_label.text()
+    assert "filter suggestion" in launcher.empty_state.body_label.text()
     assert "Alt+Up" in launcher.empty_state.body_label.text()
     assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
     assert "(20%)" in launcher.empty_state.details_label.text()
     assert launcher.status_chip.text() == "Indexing"
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
-    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Alt+Up recalls recent queries."
+    assert launcher.shortcut_label.text() == (
+        "Type a filename, path, or content term, or click a filter chip to start. Alt+Up recalls recent queries."
+    )
 
     launcher.query_field.setText("missing")
     _wait(60)
@@ -415,7 +463,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "date:this-week" in launcher.empty_state.body_label.text()
     assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
-    assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
+    assert "filter chips" in launcher.shortcut_label.text()
     assert "Alt+Up recalls recent queries" in launcher.shortcut_label.text()
 
 
