@@ -16,6 +16,7 @@ WINDOWS_SPEC = PROJECT_ROOT / "packaging" / "pyinstaller.spec"
 INNO_SCRIPT = PROJECT_ROOT / "packaging" / "windows" / "eodinga.iss"
 PACKAGE_INIT = PROJECT_ROOT / "eodinga" / "__init__.py"
 PYPROJECT = PROJECT_ROOT / "pyproject.toml"
+LICENSE_FILE = PROJECT_ROOT / "LICENSE"
 APPIMAGE_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "appimage.sh"
 DEB_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "deb.sh"
 APPIMAGE_DESKTOP = PROJECT_ROOT / "packaging" / "linux" / "eodinga.desktop"
@@ -78,7 +79,9 @@ def _macro_value(text: str, macro_name: str) -> str | None:
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     spec_namespace = _load_windows_spec_namespace()
     inno_text = INNO_SCRIPT.read_text(encoding="utf-8")
+    app_name = _macro_value(inno_text, "AppName")
     app_id = _macro_value(inno_text, "AppId")
+    app_publisher = _macro_value(inno_text, "AppPublisher")
     app_version = _macro_value(inno_text, "AppVersion")
     cli_dist_name = str(spec_namespace.get("CLI_DIST_NAME", "eodinga-cli"))
     gui_dist_name = str(spec_namespace.get("GUI_DIST_NAME", "eodinga-gui"))
@@ -125,12 +128,17 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
         "inno_setup": {
             "path": str(INNO_SCRIPT),
             "exists": INNO_SCRIPT.exists(),
+            "app_name": app_name,
             "app_id": app_id,
             "app_id_is_guid_macro": app_id is not None and bool(_INNO_APP_ID_PATTERN.fullmatch(app_id)),
+            "app_publisher": app_publisher,
             "app_version_macro": app_version,
             "app_version_uses_template": app_version == INNO_VERSION_TOKEN,
             "source_entries": source_entries,
             "source_entries_match_pyinstaller_dist": source_entries == expected_source_entries,
+            "license_file": str(LICENSE_FILE),
+            "license_file_exists": LICENSE_FILE.exists(),
+            "contains_license_file_directive": _inno_contains(inno_text, "LicenseFile=LICENSE"),
             "contains_app_version_template": INNO_VERSION_TOKEN in inno_text,
             "rendered_path": str(rendered_path),
             "output_base_filename": output_base_filename,
@@ -198,9 +206,13 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         errors.append("PyInstaller data files are empty")
     inno_payload = payload.get("inno_setup", {})
     required_flags = {
+        "app_name_is_expected": "Inno AppName macro drifted from eodinga",
         "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
+        "app_publisher_is_expected": "Inno AppPublisher macro drifted from the expected publisher",
         "app_version_uses_template": "Inno AppVersion macro no longer uses the template token",
         "source_entries_match_pyinstaller_dist": "Inno source entries drifted from PyInstaller dist names",
+        "license_file_exists": "Inno license file is missing",
+        "contains_license_file_directive": "Inno license file directive is missing",
         "rendered_source_entries_match_pyinstaller_dist": "Rendered Inno source entries drifted from PyInstaller dist names",
         "contains_rendered_uninstall_display_icon": "Rendered Inno uninstall icon does not point at the GUI executable",
         "contains_start_menu_shortcut": "Rendered Inno start menu shortcut is missing",
@@ -211,6 +223,8 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         "purge_prompt_is_opt_in": "Inno uninstall purge prompt is no longer opt-in",
         "purge_targets_local_data_dir_only": "Inno uninstall purge path no longer preserves roaming config by default",
     }
+    inno_payload["app_name_is_expected"] = inno_payload.get("app_name") == "eodinga"
+    inno_payload["app_publisher_is_expected"] = inno_payload.get("app_publisher") == "Cheol-H-Jeong"
     for key, message in required_flags.items():
         if not inno_payload.get(key):
             errors.append(message)
