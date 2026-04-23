@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.371 - 2026-04-23
+
+- Hardened the frameless launcher restore path so saved popup geometry is clamped back onto an available screen instead of reopening completely off-screen after display layout changes.
+- Applied a minimum visible restore floor for launcher geometry and added launcher regressions around off-screen restores and undersized persisted dimensions.
+- Preserved popup geometry when toggling the always-on-top flag at runtime, including coverage that hidden-state toggles stay hidden and visible windows do not jump or resize.
+
 ## 0.1.369 - 2026-04-23
 
 - Expanded live-update integration coverage to prove in-place content rewrites and cross-root moves both converge in search within the 500ms watcher budget, including root-scoped query visibility.
