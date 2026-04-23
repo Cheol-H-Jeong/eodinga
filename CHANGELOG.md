@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.875 - 2026-04-23
+
+- Made the Linux AppImage packaging script emit and audit a versioned `.AppImage` payload on non-dry-run builds instead of stopping at the staged AppDir tarball.
+- Added direct AppImage build coverage with an injected fake `appimagetool`, keeping the Linux packaging contract testable without depending on host-only packaging binaries.
+- Hardened `packaging/build.py` so the Linux AppImage build target preflights the configured build tool path and rejects missing or non-executable `.AppImage` payload metadata in release audits.
+
 ## 0.1.874 - 2026-04-23
 
 - Added a README release-evidence matrix and safe asset-refresh guidance so docs-only and release-facing rounds can pick the smallest proof command without guessing.
