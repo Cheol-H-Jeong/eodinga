@@ -135,6 +135,12 @@ def test_parse_inline_operator_empty_regex_errors(query: str) -> None:
         parse(query)
 
 
+@pytest.mark.parametrize("query", ['""', 'content:""', 'path: ""'])
+def test_parse_empty_phrase_errors(query: str) -> None:
+    with pytest.raises(QuerySyntaxError, match="empty phrase"):
+        parse(query)
+
+
 @pytest.mark.parametrize("query", ["/todo/x", "content:/todo/mii", "regex:/todo/ix"])
 def test_parse_regex_flags_must_be_supported_and_unique(query: str) -> None:
     with pytest.raises(QuerySyntaxError, match="regex flag"):
@@ -176,6 +182,16 @@ def test_parse_slash_prefixed_path_regex_with_valid_flags() -> None:
     assert node.value == "tmp/log"
     assert node.value_kind == "regex"
     assert node.regex_flags == "i"
+
+
+def test_parse_content_regex_with_escaped_slash_and_korean_text() -> None:
+    node = parse(r"content:/회의록\/초안/ms")
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "content"
+    assert node.value == r"회의록\/초안"
+    assert node.value_kind == "regex"
+    assert node.regex_flags == "ms"
 
 
 @pytest.mark.parametrize(
