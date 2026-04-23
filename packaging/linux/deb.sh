@@ -21,6 +21,7 @@ PY
 )"
 ARCH="${TARGET_ARCH:-amd64}"
 PACKAGE_DIR="${BUILD_ROOT}/eodinga_${VERSION}_${ARCH}"
+SOURCE_BUNDLE_DIR="${PACKAGE_DIR}/usr/lib/eodinga"
 ARCHIVE_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}_debroot.tar.gz"
 DEB_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}.deb"
 DRY_RUN=0
@@ -32,6 +33,7 @@ fi
 rm -rf "${PACKAGE_DIR}"
 mkdir -p "${PACKAGE_DIR}/DEBIAN" "${PACKAGE_DIR}/usr/bin" "${PACKAGE_DIR}/usr/share/applications" "${PACKAGE_DIR}/usr/share/doc/eodinga"
 mkdir -p "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps"
+mkdir -p "${SOURCE_BUNDLE_DIR}"
 
 cat > "${PACKAGE_DIR}/DEBIAN/control" <<EOF
 Package: eodinga
@@ -47,10 +49,12 @@ EOF
 cat > "${PACKAGE_DIR}/usr/bin/eodinga" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
+export PYTHONPATH="/usr/lib/eodinga${PYTHONPATH:+:${PYTHONPATH}}"
 exec python3 -m eodinga "$@"
 EOF
 chmod 0755 "${PACKAGE_DIR}/usr/bin/eodinga"
 
+cp -R "${ROOT_DIR}/eodinga" "${SOURCE_BUNDLE_DIR}/eodinga"
 install -m 0644 "${DESKTOP_ENTRY}" "${PACKAGE_DIR}/usr/share/applications/eodinga.desktop"
 install -m 0644 "${ICON_ASSET}" "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg"
 install -m 0644 "${ROOT_DIR}/LICENSE" "${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE"
@@ -88,6 +92,8 @@ for line in control_path.read_text(encoding="utf-8").splitlines():
     control_entries[key] = value.strip()
 
 launcher_path = Path("${PACKAGE_DIR}/usr/bin/eodinga")
+source_bundle_path = Path("${SOURCE_BUNDLE_DIR}")
+bundled_package_path = source_bundle_path / "eodinga"
 icon_path = Path("${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 license_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE")
 changelog_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
@@ -138,10 +144,18 @@ payload = {
         "exists": icon_path.exists(),
         "desktop_icon_matches_asset": desktop_entries.get("Icon") == icon_path.stem,
     },
+    "source_bundle": {
+        "path": str(source_bundle_path),
+        "exists": source_bundle_path.exists(),
+        "package_path": str(bundled_package_path),
+        "package_exists": bundled_package_path.exists(),
+        "contains_init": (bundled_package_path / "__init__.py").exists(),
+    },
     "launcher": {
         "path": str(launcher_path),
         "is_executable": os.access(launcher_path, os.X_OK),
         "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
+        "uses_bundled_source": "/usr/lib/eodinga" in launcher_path.read_text(encoding="utf-8"),
     },
     "docs": {
         "license_path": str(license_path),

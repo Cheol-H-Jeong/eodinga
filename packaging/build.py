@@ -268,6 +268,7 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
     control_template_payload = payload.get("debian_control_template", {})
     desktop_payload = payload.get("desktop_entry", {})
     icon_payload = payload.get("icon", {})
+    source_bundle_payload = payload.get("source_bundle", {})
     launcher_payload = payload.get("launcher", {})
     docs_payload = payload.get("docs", {})
     arch = payload.get("arch")
@@ -299,8 +300,12 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (desktop_payload.get("icon_matches_package"), "Debian desktop entry icon no longer matches the packaged asset"),
         (icon_payload.get("exists"), "Debian icon asset is missing from the package tree"),
         (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),
+        (source_bundle_payload.get("exists"), "Debian package source bundle directory is missing"),
+        (source_bundle_payload.get("package_exists"), "Debian package no longer ships the eodinga source bundle"),
+        (source_bundle_payload.get("contains_init"), "Debian source bundle is missing eodinga/__init__.py"),
         (launcher_payload.get("is_executable"), "Debian launcher shim is not executable"),
         (launcher_payload.get("executes_python_module"), "Debian launcher shim no longer executes the Python module"),
+        (launcher_payload.get("uses_bundled_source"), "Debian launcher shim no longer points at the bundled source tree"),
         (docs_payload.get("license_exists"), "Debian package no longer ships the license"),
         (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),
         (docs_payload.get("changelog_has_current_release_heading"), "Debian package changelog no longer starts with the current release heading"),

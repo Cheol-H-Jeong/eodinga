@@ -364,6 +364,9 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
     module = _load_build_module()
     payload = {
         "version": __version__,
+        "arch": "amd64",
+        "archive": f"packaging/dist/eodinga_{__version__}_amd64_debroot.tar.gz",
+        "deb_path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
         "control": {
             "package": "eodinga",
             "version": __version__,
@@ -382,9 +385,15 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
             "exists": True,
             "desktop_icon_matches_asset": True,
         },
+        "source_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "contains_init": True,
+        },
         "launcher": {
             "is_executable": True,
             "executes_python_module": True,
+            "uses_bundled_source": True,
         },
         "docs": {
             "license_exists": True,
@@ -423,9 +432,15 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
             "exists": True,
             "desktop_icon_matches_asset": True,
         },
+        "source_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "contains_init": True,
+        },
         "launcher": {
             "is_executable": True,
             "executes_python_module": True,
+            "uses_bundled_source": True,
         },
         "docs": {
             "license_exists": True,
@@ -438,6 +453,102 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
 
     assert "Debian dry-run archive filename does not match the package version and arch" in errors
     assert "Debian package filename does not match the package version and arch" in errors
+
+
+def test_linux_deb_audit_validator_rejects_missing_source_bundle() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "amd64",
+        "archive": f"packaging/dist/eodinga_{__version__}_amd64_debroot.tar.gz",
+        "deb_path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+        },
+        "debian_control_template": {
+            "exists": True,
+            "source": "eodinga",
+            "binary_package": "eodinga",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "launches_gui": True,
+            "icon_matches_package": True,
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+        },
+        "source_bundle": {
+            "exists": False,
+            "package_exists": False,
+            "contains_init": False,
+        },
+        "launcher": {
+            "is_executable": True,
+            "executes_python_module": True,
+            "uses_bundled_source": True,
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": True,
+            "changelog_has_current_release_heading": True,
+        },
+    }
+
+    errors = module._validate_linux_deb_audit(payload, __version__, __version__)
+
+    assert "Debian package source bundle directory is missing" in errors
+    assert "Debian package no longer ships the eodinga source bundle" in errors
+    assert "Debian source bundle is missing eodinga/__init__.py" in errors
+
+
+def test_linux_deb_audit_validator_rejects_unbundled_launcher() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "amd64",
+        "archive": f"packaging/dist/eodinga_{__version__}_amd64_debroot.tar.gz",
+        "deb_path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+        },
+        "debian_control_template": {
+            "exists": True,
+            "source": "eodinga",
+            "binary_package": "eodinga",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "launches_gui": True,
+            "icon_matches_package": True,
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+        },
+        "source_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "contains_init": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "executes_python_module": True,
+            "uses_bundled_source": False,
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": True,
+            "changelog_has_current_release_heading": True,
+        },
+    }
+
+    errors = module._validate_linux_deb_audit(payload, __version__, __version__)
+
+    assert "Debian launcher shim no longer points at the bundled source tree" in errors
 
 
 def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
@@ -500,8 +611,12 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["desktop_entry"]["icon_matches_package"] is True
     assert payload["icon"]["exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True
+    assert payload["source_bundle"]["exists"] is True
+    assert payload["source_bundle"]["package_exists"] is True
+    assert payload["source_bundle"]["contains_init"] is True
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["executes_python_module"] is True
+    assert payload["launcher"]["uses_bundled_source"] is True
     assert payload["docs"]["license_exists"] is True
     assert payload["docs"]["changelog_exists"] is True
     assert payload["docs"]["changelog_has_current_release_heading"] is True
