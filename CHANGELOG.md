@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.243 - 2026-04-23
+## 0.1.244 - 2026-04-23
 
 - Cached executor content-text lookup SQL by `IN (...)` shape and normalized positive query terms once per branch so repeated query scoring does less per-hit string work.
 - Switched top-level index-writer batches to `BEGIN IMMEDIATE` while preserving nested savepoint semantics, reducing lock-escalation churn for bulk upserts and watcher event application.
