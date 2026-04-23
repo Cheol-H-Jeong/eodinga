@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.956 - 2026-04-24
+
+- Made staged-index cleanup tolerate unlink races, so startup and failed-swap artifact cleanup no longer crashes if another process already removed the same database sidecar.
+- Hardened the no-network safety audit to catch `curl` and `wget` launched through wrappers such as `/usr/bin/env`, `bash -lc`, `powershell -Command`, or `cmd /c`.
+- Tightened `open_readonly()` so binary reads reject text encodings explicitly, keeping the readonly filesystem helper fail-fast and predictable.
+
 ## 0.1.951 - 2026-04-24
 
 - Expanded query date parsing so `date:2026`, `date:2026-02`, and matching `modified:`/`created:` forms resolve to full ISO year and month spans instead of requiring day-level literals.
