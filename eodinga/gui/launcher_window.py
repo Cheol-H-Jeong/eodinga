@@ -151,7 +151,7 @@ class LauncherWindow(LauncherPanel):
             self.resize(width, height)
             return
         saved_rect = available.__class__(x, y, saved_width, saved_height)
-        if saved_rect.intersects(available):
+        if saved_rect.intersects(available) and x >= available.x() and y >= available.y():
             self.setGeometry(x, y, width, height)
             return
         max_x = available.x() + max(available.width() - width, 0)
