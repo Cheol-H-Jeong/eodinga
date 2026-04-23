@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.147 - 2026-04-23
+
+- Expanded the Windows PyInstaller packaging spec so hidden imports now include third-party modules discovered directly from real `import` and `from ... import ...` usage across the `eodinga/` source tree, reducing dependence on a hand-maintained list.
+- Surfaced the source-derived hidden-import set in the Windows packaging audit and made `packaging/build.py --target windows-dry-run` fail if that derived contract goes empty or drops out of the final hidden-import payload.
+- Added focused packaging regressions that pin the new source-derived modules, including `charset_normalizer`, `pathspec`, and `ebooklib.epub`, alongside the existing Windows dry-run coverage.
+
 ## 0.1.142 - 2026-04-23
 
 - Expanded the Windows PyInstaller spec so packaging now auto-discovers real `eodinga.*` module imports from the source tree, including relative imports, instead of relying only on a hand-maintained runtime list.
