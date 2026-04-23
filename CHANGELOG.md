@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.843 - 2026-04-23
+
+- Rejected `case:` and boolean `regex:` mode switches inside `OR` branches or negated groups, closing a compiler hole that could previously turn queries like `-(case:false alpha beta)` into match-all searches.
+- Added executor-level boolean truth-table regression coverage for supported predicate operators so De Morgan rewrites stay stable across grouped `AND`/`OR` negation.
+- Added multi-root watcher regression coverage for cross-root move handoff and foreign-root move suppression so delete/create splitting stays correct when two watched roots see the same rename.
+
 ## 0.1.840 - 2026-04-23
 
 - Preserved the launcher popup geometry when toggling `always_on_top` or `frameless` while the window is hidden, so the next show no longer jumps back to a default Qt position.
