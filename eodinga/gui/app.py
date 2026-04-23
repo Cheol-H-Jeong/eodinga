@@ -38,6 +38,10 @@ class TrayIndicatorController:
         self.icon_state = "idle"
         self._status_action = QAction(self.status_text, parent)
         self._status_action.setEnabled(False)
+        self._progress_action = QAction("", parent)
+        self._progress_action.setEnabled(False)
+        self._root_action = QAction("", parent)
+        self._root_action.setEnabled(False)
         self.open_app_action = QAction("Open eodinga", parent)
         self.open_app_action.triggered.connect(self.show_main_window)
         self.toggle_launcher_action = QAction("", parent)
@@ -52,6 +56,8 @@ class TrayIndicatorController:
         tray = QSystemTrayIcon(icon, parent)
         menu = QMenu(parent)
         menu.addAction(self._status_action)
+        menu.addAction(self._progress_action)
+        menu.addAction(self._root_action)
         menu.addSeparator()
         menu.addAction(self.open_app_action)
         menu.addAction(self.toggle_launcher_action)
@@ -61,6 +67,7 @@ class TrayIndicatorController:
         tray.activated.connect(self._handle_activation)
         tray.show()
         self._tray = tray
+        self.set_indexing_status(IndexingStatus())
 
     @property
     def visible(self) -> bool:
@@ -75,11 +82,29 @@ class TrayIndicatorController:
         self.tooltip = format_indexing_status(status)
         self.status_text = self.tooltip
         self.icon_state = "indexing" if status.phase == "indexing" else "idle"
+        progress_text, root_text = self._tray_progress_details(status)
         if hasattr(self, "_status_action"):
             self._status_action.setText(self.status_text)
+        if hasattr(self, "_progress_action"):
+            self._progress_action.setText(progress_text)
+            self._progress_action.setVisible(True)
+        if hasattr(self, "_root_action"):
+            self._root_action.setText(root_text)
+            self._root_action.setVisible(bool(root_text))
         if self._tray is not None:
             self._tray.setIcon(self._icon_for_state(self.icon_state))
             self._tray.setToolTip(self.tooltip)
+
+    def _tray_progress_details(self, status: IndexingStatus) -> tuple[str, str]:
+        if status.phase != "indexing":
+            return ("Progress: idle", "")
+        total = str(status.total_files) if status.total_files > 0 else "?"
+        progress_text = f"Progress: {status.processed_files}/{total} files"
+        if status.total_files > 0:
+            percent = round((status.processed_files / status.total_files) * 100)
+            progress_text = f"{progress_text} ({percent}%)"
+        root_text = f"Root: {status.current_root}" if status.current_root is not None else ""
+        return progress_text, root_text
 
     def show_main_window(self) -> None:
         self._main_window.show()

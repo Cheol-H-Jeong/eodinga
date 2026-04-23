@@ -90,10 +90,15 @@ def test_app_updates_index_status_in_tab_and_tray(qapp) -> None:
     assert "/tmp/docs" in window.tray_indicator.tooltip
     assert "(30%)" in window.tray_indicator.status_text
     assert window.tray_indicator.icon_state == "indexing"
+    assert window.tray_indicator._progress_action.text() == "Progress: 12/40 files (30%)"
+    assert window.tray_indicator._root_action.text() == "Root: /tmp/docs"
+    assert window.tray_indicator._root_action.isVisible()
 
     window.set_indexing_status(IndexingStatus())
 
     assert window.tray_indicator.icon_state == "idle"
+    assert window.tray_indicator._progress_action.text() == "Progress: idle"
+    assert not window.tray_indicator._root_action.isVisible()
 
 
 def test_launcher_state_is_shared_between_popup_and_search_tab(qapp) -> None:
