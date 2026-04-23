@@ -355,11 +355,21 @@ def _root_variants(root_text: str) -> tuple[str, ...]:
     )
     variants: dict[str, None] = {}
     for candidate in candidates:
-        variants[candidate] = None
-        if len(candidate) >= 2 and candidate[1] == ":" and candidate[0].isalpha():
-            variants[f"{candidate[0].lower()}{candidate[1:]}"] = None
-            variants[f"{candidate[0].upper()}{candidate[1:]}"] = None
+        _add_root_variant(variants, candidate)
     return tuple(variants)
+
+
+def _add_root_variant(variants: dict[str, None], candidate: str) -> None:
+    variants[candidate] = None
+    normalized = candidate
+    if normalized.startswith("\\\\?\\"):
+        normalized = normalized[4:]
+        variants[normalized] = None
+    if len(normalized) >= 2 and normalized[1] == ":" and normalized[0].isalpha():
+        for drive in (normalized[0].lower(), normalized[0].upper()):
+            drive_variant = f"{drive}{normalized[1:]}"
+            variants[drive_variant] = None
+            variants[f"\\\\?\\{drive_variant.replace('/', '\\')}"] = None
 
 
 def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:
