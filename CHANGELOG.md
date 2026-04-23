@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.418 - 2026-04-23
+## 0.1.419 - 2026-04-23
 
 - Expanded the shipped operator docs with clearer troubleshooting, package-artifact expectations, platform state-path guidance, and worker-round recovery steps across `README.md`, `docs/ARCHITECTURE.md`, `docs/CONTRIBUTING.md`, and `docs/RELEASE.md`.
 - Enriched the generated CLI man page with live-update and duplicate-audit examples plus dedicated query-language and output-format sections so packaged CLI help better mirrors the real runtime contract.
