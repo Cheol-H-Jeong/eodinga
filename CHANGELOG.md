@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.986 - 2026-04-24
+
+- Ignored late watcher callbacks after `WatchService.stop()` begins, preventing shutdown races from re-queueing stale filesystem events into the next watcher session.
+- Changed startup recovery precedence so an interrupted WAL-recovery stage now wins over any older interrupted staged-build artifact, and stale `.next` artifacts are durably discarded instead of overwriting recovered data on reopen.
+
 ## 0.1.981 - 2026-04-24
 
 - Expanded integration coverage for reopened indexes after multi-root rebuild pruning, pinning that removed roots stay absent after reopen while the surviving root still accepts live watcher-driven updates within the existing latency budget.
