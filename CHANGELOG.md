@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.431 - 2026-04-23
+
+- Expanded the shipped query documentation with a search playbook, query-triage guidance, and a DSL decision table so operators can choose between structured filters, content terms, and regex forms without trial and error.
+- Deepened the architecture and release guides with command-to-module ownership, recovery artifact mapping, release-input flow, and metadata-commit layout rules tailored to parallel worker rounds.
+- Refreshed `docs/PERFORMANCE.md` with current-HEAD benchmark numbers plus the captured summary lines from the live perf run, replacing the stale historical baseline note.
+
 ## 0.1.415 - 2026-04-23
 
 - Accepted spaced range syntax in query operators, so filters like `date:2026-01-01 .. 2026-01-03`, `date:.. 2026-01-03`, and `size:100 .. 500K` compile as intended instead of breaking into stray terms.
