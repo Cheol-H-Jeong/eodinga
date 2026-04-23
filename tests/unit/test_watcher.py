@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from queue import Empty
 from time import monotonic, sleep
+from typing import cast
 
 import pytest
 from watchdog.events import FileMovedEvent
@@ -234,7 +235,7 @@ def test_watcher_backpressure_flush_is_counted(tmp_path: Path) -> None:
             )
         )
 
-    counters = snapshot_metrics()["counters"]
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
     assert counters["watcher_backpressure_flushes"] == 1
     assert counters["watcher_flushes"] == 1
     assert counters["watcher_forced_flushes"] == 1

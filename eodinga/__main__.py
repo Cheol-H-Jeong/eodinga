@@ -7,7 +7,7 @@ import re
 import sys
 from contextlib import closing
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from eodinga import __version__
 from eodinga.common import SearchResult, StatsSnapshot
@@ -163,6 +163,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     with closing(open_index(db_path)) as conn:
         index_snapshot = read_index_stats(conn)
     metrics_snapshot = snapshot_metrics()
+    runtime_counters = cast(dict[str, int], metrics_snapshot["counters"])
+    runtime_histograms = cast(dict[str, dict[str, object]], metrics_snapshot["histograms"])
     snapshot = StatsSnapshot(
         files_indexed=index_snapshot.file_count,
         documents_indexed=index_snapshot.content_count,
@@ -170,8 +172,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         parser_errors=counter_value("parser_errors"),
         watcher_events=counter_value("watcher_events"),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
-        runtime_counters=metrics_snapshot["counters"],
-        runtime_histograms=metrics_snapshot["histograms"],
+        runtime_counters=runtime_counters,
+        runtime_histograms=runtime_histograms,
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
     ).model_dump(mode="json")
