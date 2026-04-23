@@ -98,6 +98,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     )
     rendered_text = rendered_path.read_text(encoding="utf-8")
     output_base_filename = f"eodinga-{version}-win-x64-setup"
+    setup_path = rendered_path.parent / f"{output_base_filename}.exe"
     source_entries = _source_entries(inno_text)
     expected_source_entries = [
         f"dist\\\\{INNO_GUI_DIST_TOKEN}\\\\*",
@@ -160,6 +161,8 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "contains_app_version_template": INNO_VERSION_TOKEN in inno_text,
             "rendered_path": str(rendered_path),
             "output_base_filename": output_base_filename,
+            "setup_path": str(setup_path),
+            "setup_exists": setup_path.exists(),
             "rendered_source_entries": _source_entries(rendered_text),
             "rendered_source_entries_match_pyinstaller_dist": _source_entries(rendered_text) == rendered_source_entries,
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
@@ -251,6 +254,8 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         if not exe_exists.get("cli"):
             errors.append("Windows build is missing the staged CLI executable")
     inno_payload = payload.get("inno_setup", {})
+    if payload.get("target") == "windows" and not inno_payload.get("setup_exists"):
+        errors.append("Windows build is missing the versioned installer payload")
     required_flags = {
         "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
         "app_version_uses_template": "Inno AppVersion macro no longer uses the template token",

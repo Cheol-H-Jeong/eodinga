@@ -66,6 +66,10 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert "@@CLI_DIST_NAME@@" not in rendered_text
     assert "@@GUI_EXE_NAME@@" not in rendered_text
     assert payload["inno_setup"]["output_base_filename"] == f"eodinga-{__version__}-win-x64-setup"
+    assert payload["inno_setup"]["setup_path"] == str(
+        (Path("packaging/dist/windows") / f"eodinga-{__version__}-win-x64-setup.exe").resolve()
+    )
+    assert payload["inno_setup"]["setup_exists"] is False
     assert payload["inno_setup"]["app_id"] == "{{B4D25A04-71A1-45A2-A0BB-7B3F612E9E68}"
     assert payload["inno_setup"]["app_id_is_guid_macro"] is True
     assert payload["inno_setup"]["app_version_macro"] == "@@APP_VERSION@@"
@@ -114,12 +118,14 @@ def test_windows_audit_validator_rejects_missing_built_artifacts_for_release_tar
     payload["target"] = "windows"
     payload["pyinstaller_spec"]["dist_exists"] = {"cli": False, "gui": True}
     payload["pyinstaller_spec"]["exe_exists"] = {"cli": False, "gui": False}
+    payload["inno_setup"]["setup_exists"] = False
 
     errors = module._validate_windows_audit(payload)
 
     assert "Windows build is missing the staged CLI dist directory" in errors
     assert "Windows build is missing the staged GUI executable" in errors
     assert "Windows build is missing the staged CLI executable" in errors
+    assert "Windows build is missing the versioned installer payload" in errors
 
 
 def test_windows_audit_validator_rejects_missing_source_hidden_import_contract() -> None:
