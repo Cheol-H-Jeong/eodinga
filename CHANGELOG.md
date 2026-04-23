@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.717 - 2026-04-23
+
+- Templated the Debian source changelog version and audited the rendered file so Linux package metadata can no longer drift silently from the release version.
+- Staged the `eodinga/` package tree into Debian packages under `/usr/lib/eodinga` and rewired the launcher to use that packaged library path instead of ambient source state.
+- Staged the same `eodinga/` package tree into AppImage bundles, updated the launcher shim to execute against the bundled library path, and tightened packaging audits around the shipped source tree.
+
 ## 0.1.714 - 2026-04-23
 
 - Clarified the README around surface selection, launcher keyboard flow, live-update expectations, and launcher-specific config so operators can pick the right entry point faster.
