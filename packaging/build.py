@@ -159,6 +159,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "rendered_source_entries_match_pyinstaller_dist": _source_entries(rendered_text) == rendered_source_entries,
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
             "license_file_exists": (PROJECT_ROOT / "LICENSE").exists(),
+            "references_license_file": _inno_contains(inno_text, "LicenseFile=LICENSE"),
             "contains_user_install_dir": _inno_contains(rendered_text, r"DefaultDirName={userappdata}\eodinga"),
             "contains_rendered_uninstall_display_icon": _inno_contains(
                 rendered_text,
@@ -241,7 +242,8 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     required_flags = {
         "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
         "app_version_uses_template": "Inno AppVersion macro no longer uses the template token",
-        "license_file_exists": "Inno setup no longer references a shipped LICENSE file",
+        "license_file_exists": "Project LICENSE is missing from the packaging inputs",
+        "references_license_file": "Inno setup no longer references a shipped LICENSE file",
         "source_entries_match_pyinstaller_dist": "Inno source entries drifted from PyInstaller dist names",
         "rendered_source_entries_match_pyinstaller_dist": "Rendered Inno source entries drifted from PyInstaller dist names",
         "contains_rendered_uninstall_display_icon": "Rendered Inno uninstall icon does not point at the GUI executable",

@@ -70,6 +70,8 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["app_version_macro"] == "@@APP_VERSION@@"
     assert payload["inno_setup"]["app_version_uses_template"] is True
     assert payload["inno_setup"]["contains_versioned_output_macro"] is True
+    assert payload["inno_setup"]["license_file_exists"] is True
+    assert payload["inno_setup"]["references_license_file"] is True
     assert payload["inno_setup"]["contains_user_install_dir"] is True
     assert payload["inno_setup"]["contains_rendered_uninstall_display_icon"] is True
     assert payload["inno_setup"]["contains_start_menu_shortcut"] is True
@@ -139,6 +141,16 @@ def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -
     errors = module._validate_windows_audit(payload)
 
     assert "Inno uninstall purge no longer targets both local data and roaming config" in errors
+
+
+def test_windows_audit_validator_rejects_missing_license_reference() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["inno_setup"]["references_license_file"] = False
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "Inno setup no longer references a shipped LICENSE file" in errors
 
 
 def test_build_preflight_reports_missing_windows_tool(monkeypatch) -> None:
