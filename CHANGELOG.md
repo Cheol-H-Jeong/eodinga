@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.810 - 2026-04-23
+## 0.1.814 - 2026-04-23
 
 - Hardened packaging dry-run checks so Windows release-target validation no longer depends on whatever `dist/` artifacts happen to already exist in the worktree, and Debian control staging now creates its parent directories before writing.
 - Added integration coverage proving a reopened multi-root index still accepts live updates after one root is pruned away, without leaking results back into the removed root scope.
