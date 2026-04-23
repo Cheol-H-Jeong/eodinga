@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.171 - 2026-04-23
+## 0.1.175 - 2026-04-23
 
 - Made `open_index()` fail fast when an interrupted staged build or staged recovery is present but cannot be resumed, instead of silently continuing from an ambiguous on-disk state.
 - Bounded the watcher event queue and turned saturation into explicit blocking backpressure, so a slow consumer no longer causes silent event loss or unbounded queue growth.
