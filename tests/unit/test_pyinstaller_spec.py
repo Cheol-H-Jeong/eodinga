@@ -53,8 +53,8 @@ def test_pyinstaller_spec_exposes_expected_windows_dist_names() -> None:
     assert namespace["GUI_DIST_NAME"] == "eodinga-gui"
     assert namespace["CLI_EXE_NAME"] == "eodinga-cli.exe"
     assert namespace["GUI_EXE_NAME"] == "eodinga-gui.exe"
-    assert Path(namespace["ENTRY_CLI"]).as_posix().endswith("packaging/windows/cli_entry.py")
-    assert Path(namespace["ENTRY_GUI"]).as_posix().endswith("packaging/windows/gui_entry.py")
+    assert Path(cast(str, namespace["ENTRY_CLI"])).as_posix().endswith("packaging/windows/cli_entry.py")
+    assert Path(cast(str, namespace["ENTRY_GUI"])).as_posix().endswith("packaging/windows/gui_entry.py")
 
 
 def test_pyinstaller_runtime_modules_map_to_real_sources() -> None:
@@ -152,7 +152,7 @@ def test_pyinstaller_spec_defines_dual_collect_targets_when_pyinstaller_globals_
     exe_calls = [payload for name, payload in calls if name == "EXE"]
     collect_calls = [payload for name, payload in calls if name == "COLLECT"]
 
-    assert [Path(payload["scripts"][0]).name for payload in analysis_calls] == ["cli_entry.py", "gui_entry.py"]
-    assert [payload["name"] for payload in exe_calls] == ["eodinga-cli", "eodinga-gui"]
-    assert [payload["console"] for payload in exe_calls] == [True, False]
-    assert [payload["name"] for payload in collect_calls] == ["eodinga-cli", "eodinga-gui"]
+    assert [Path(cast(list[str], payload["scripts"])[0]).name for payload in analysis_calls] == ["cli_entry.py", "gui_entry.py"]
+    assert [cast(str, payload["name"]) for payload in exe_calls] == ["eodinga-cli", "eodinga-gui"]
+    assert [cast(bool, payload["console"]) for payload in exe_calls] == [True, False]
+    assert [cast(str, payload["name"]) for payload in collect_calls] == ["eodinga-cli", "eodinga-gui"]
