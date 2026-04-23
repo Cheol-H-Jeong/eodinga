@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.165 - 2026-04-23
+## 0.1.166 - 2026-04-23
 
 - Audited the Linux AppImage packaging path so `linux-appimage` now records whether it produced a real `.AppImage` artifact and only requires that artifact when `appimagetool` is actually available on the build host.
 - Hardened the Debian packaging target to inspect the built `.deb` itself, validating shipped launcher, desktop entry, icon, license, changelog, and control metadata instead of trusting only the staging directory.
