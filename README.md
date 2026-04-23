@@ -219,6 +219,16 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - Validate Linux AppImage packaging with `python packaging/build.py --target linux-appimage-dry-run`.
 - Validate Linux Debian packaging with `python packaging/build.py --target linux-deb-dry-run`.
 
+## Package Artifacts
+
+| Artifact | Entry point after install | What ships with it |
+| --- | --- | --- |
+| Windows installer | Start Menu shortcut or `eodinga gui` | PyInstaller bundle, Inno Setup installer flow, optional auto-start, uninstall that preserves `%LOCALAPPDATA%\\eodinga\\` unless purge is selected |
+| Linux AppImage | launch the AppImage directly | self-contained GUI build for desktop launch without system package installation |
+| Linux `.deb` | desktop menu entry or `eodinga gui` | packaged launcher shim, desktop file, SVG icon, compressed changelog, and generated man page/docs payload |
+
+Treat the packaging dry runs as shipped-doc validation, not just build smoke tests: they verify the artifact naming, included metadata, and uninstall/preserve-state expectations documented in this README and in `docs/RELEASE.md`.
+
 ## Operator References
 
 - `docs/DSL.md` is the complete query reference.
@@ -265,6 +275,21 @@ The doctor command checks Python compatibility, importable dependencies, databas
 
 If search looks stale, run `eodinga stats` to confirm the active database path, then either `eodinga watch` for live updates or `eodinga index --rebuild` to rebuild once.
 
+## Stats Snapshot
+
+`eodinga stats --json` is the fastest way to see what the current process thinks is true.
+
+| Field group | What it tells you |
+| --- | --- |
+| `db_path`, `roots` | which index file and roots the active surface is using |
+| `files_indexed`, `documents_indexed` | current indexed corpus size |
+| `queries_served`, `watcher_events`, `parser_errors` | whether the current process is actively serving searches, seeing filesystem events, or failing parsers |
+| `query_latency_histogram`, `command_latency_histogram` | coarse runtime latency picture without opening logs |
+| `log_path`, `crash_dir`, `file_logging_enabled` | where to inspect rotating logs and `crash-<ts>.log` artifacts |
+| `commands`, `exit_codes`, `counters` | per-command and low-level observability counters useful for operator triage |
+
+If these fields do not line up with the user-visible symptom, the shortest next step is usually `eodinga doctor`, not a rebuild.
+
 ## Operator Checklist
 
 Use this short sequence when you need a high-signal local health check without opening the full acceptance guide:
@@ -285,6 +310,16 @@ If those are clean but the packaged app still looks wrong, continue with the rel
 - [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, current baselines, and profiling workflow.
 - [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md): local workflow, guardrails, and doc/screenshot expectations for contributors.
 - [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md): release-candidate workflow, tagging, packaging validation, and handoff.
+
+## Reference Matrix
+
+| If you need... | Start here | Then check |
+| --- | --- | --- |
+| Query syntax and examples | `docs/DSL.md` | `README.md` quick examples for the shortest working form |
+| Release gate commands | `docs/ACCEPTANCE.md` | `docs/RELEASE.md` for version bump, tagging, and handoff order |
+| Runtime/storage behavior | `docs/ARCHITECTURE.md` | `README.md` recovery and troubleshooting notes |
+| Contributor workflow | `docs/CONTRIBUTING.md` | `CHANGELOG.md` for the latest shipped round summary |
+| Packaged CLI help | `docs/man/eodinga.1` | `eodinga --help` to confirm the live parser surface |
 
 ## Contributing
 

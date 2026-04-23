@@ -47,17 +47,24 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
     assert "## Config and Data Paths" in readme
+    assert "## Stats Snapshot" in readme
     assert "## Operator Checklist" in readme
     assert "## Recovery and Troubleshooting" in readme
     assert "### Quick Runbook" in readme
     assert "## Limitations" in readme
     assert "## Packaging" in readme
+    assert "## Package Artifacts" in readme
+    assert "## Reference Matrix" in readme
     assert "## Contributing" in readme
     assert "## Release Process" in readme
     assert "linux-deb-dry-run" in readme
     assert "Launcher | global hotkey" in readme
     assert "Packaging audit failed" in readme
     assert "eodinga search 'date:this-week ext:md' --limit 10" in readme
+    assert "Treat the packaging dry runs as shipped-doc validation" in readme
+    assert "`eodinga stats --json` is the fastest way" in readme
+    assert "| `db_path`, `roots` |" in readme
+    assert "Packaged CLI help" in readme
     assert "docs/DSL.md" in readme
     assert "docs/ACCEPTANCE.md" in readme
     assert "docs/ARCHITECTURE.md" in readme
