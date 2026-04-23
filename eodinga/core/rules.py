@@ -5,11 +5,18 @@ from pathlib import Path
 from pathspec import PathSpec
 
 from eodinga.common import PathRules
-from eodinga.core.fs import DENYLIST, absolute_safe, resolve_safe
+from eodinga.core.fs import DENYLIST, absolute_safe, normalize_path_text, resolve_safe
+
+
+def _normalize_text(value: str) -> str:
+    normalized = normalize_path_text(value)
+    if normalized.startswith("//") or (len(normalized) >= 2 and normalized[1] == ":"):
+        return normalized.casefold()
+    return normalized
 
 
 def _normalize(path: Path) -> str:
-    return str(path).replace("\\", "/")
+    return _normalize_text(str(path))
 
 
 def _compile(patterns: tuple[str, ...]) -> PathSpec:
@@ -23,11 +30,11 @@ def _expanded_denylist() -> tuple[str, ...]:
     expanded: list[str] = []
     for raw in DENYLIST:
         if raw == "%SystemRoot%":
-            expanded.append(system_root)
+            expanded.append(_normalize_text(system_root))
         elif raw.startswith("~/"):
             expanded.append(_normalize(home / raw[2:]))
         else:
-            expanded.append(raw)
+            expanded.append(_normalize_text(raw))
     return tuple(expanded)
 
 

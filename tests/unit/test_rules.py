@@ -15,6 +15,8 @@ def test_default_denylist_blocks_linux_system_paths() -> None:
 def test_default_denylist_blocks_windows_system_paths() -> None:
     rules = PathRules()
     assert not should_index(Path("C:/Windows/System32/kernel32.dll"), rules)
+    assert not should_index(Path("c:/windows/system32/kernel32.dll"), rules)
+    assert not should_index(Path(r"\\?\C:\Windows\System32\kernel32.dll"), rules)
 
 
 def test_user_exclude_glob_applies(tmp_path: Path) -> None:
@@ -61,3 +63,9 @@ def test_explicit_root_overrides_default_denylist(tmp_path: Path) -> None:
 
     assert should_index(root, rules)
     assert should_index(target, rules)
+
+
+def test_windows_extended_root_include_matches_normalized_child_path() -> None:
+    rules = PathRules(root=Path(r"\\?\C:\workspace"), include=("**/*",), exclude=("**/ignored/**",))
+
+    assert should_index(Path(r"C:\workspace\notes.txt"), rules)

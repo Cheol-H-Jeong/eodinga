@@ -25,11 +25,25 @@ DENYLIST = (
 
 _HIDDEN_NAMES = {".git", ".hg", ".svn", ".cache", "__pycache__"}
 _WINDOWS_ABS_RE = re.compile(r"^[A-Za-z]:[\\/]")
+_WINDOWS_EXTENDED_DRIVE_PREFIX = "\\\\?\\"
+_WINDOWS_EXTENDED_UNC_PREFIX = "\\\\?\\UNC\\"
 
 
 class ScanEntry(NamedTuple):
     path: Path
     stat_result: os.stat_result | None
+
+
+def normalize_path_text(value: str) -> str:
+    text = value
+    if text.startswith(_WINDOWS_EXTENDED_UNC_PREFIX):
+        text = f"\\\\{text.removeprefix(_WINDOWS_EXTENDED_UNC_PREFIX)}"
+    elif text.startswith(_WINDOWS_EXTENDED_DRIVE_PREFIX):
+        text = text.removeprefix(_WINDOWS_EXTENDED_DRIVE_PREFIX)
+    normalized = text.replace("\\", "/")
+    if _WINDOWS_ABS_RE.match(normalized):
+        return f"{normalized[0].upper()}{normalized[1:]}"
+    return normalized
 
 
 def open_readonly(path: Path, mode: str = "rb", encoding: str | None = None) -> IO[str] | IO[bytes]:
@@ -48,14 +62,14 @@ def file_size(path: Path) -> int:
 
 
 def resolve_safe(path: Path) -> Path:
-    raw = str(path).replace("\\", "/")
+    raw = normalize_path_text(str(path))
     if _WINDOWS_ABS_RE.match(raw):
         return Path(raw)
     return path.expanduser().resolve(strict=False)
 
 
 def absolute_safe(path: Path) -> Path:
-    raw = str(path).replace("\\", "/")
+    raw = normalize_path_text(str(path))
     if _WINDOWS_ABS_RE.match(raw):
         return Path(raw)
     expanded = path.expanduser()
