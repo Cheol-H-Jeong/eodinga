@@ -16,6 +16,10 @@ def _sidecar(path: Path, suffix: str) -> Path:
     return path.with_name(f"{path.name}{suffix}")
 
 
+def _sidecar_backup(path: Path, suffix: str) -> Path:
+    return path.with_name(f".{path.name}{suffix}.bak")
+
+
 def configure_connection(
     conn: sqlite3.Connection, *, row_factory: type[sqlite3.Row] | None = sqlite3.Row
 ) -> sqlite3.Connection:
@@ -50,6 +54,32 @@ def _cleanup_sidecars(path: Path) -> None:
         sidecar = _sidecar(path, suffix)
         if sidecar.exists():
             sidecar.unlink()
+
+
+def _quarantine_target_sidecars(path: Path) -> list[tuple[Path, Path]]:
+    quarantined: list[tuple[Path, Path]] = []
+    for suffix in ("-wal", "-shm"):
+        sidecar = _sidecar(path, suffix)
+        if not sidecar.exists():
+            continue
+        backup = _sidecar_backup(path, suffix)
+        if backup.exists():
+            backup.unlink()
+        os.replace(sidecar, backup)
+        quarantined.append((sidecar, backup))
+    return quarantined
+
+
+def _restore_quarantined_sidecars(quarantined: list[tuple[Path, Path]]) -> None:
+    for sidecar, backup in quarantined:
+        if backup.exists():
+            os.replace(backup, sidecar)
+
+
+def _cleanup_quarantined_sidecars(quarantined: list[tuple[Path, Path]]) -> None:
+    for _, backup in quarantined:
+        if backup.exists():
+            backup.unlink()
 
 
 def _cleanup_index_files(path: Path) -> None:
@@ -274,12 +304,22 @@ def atomic_replace_index(staged_path: Path, target_path: Path) -> None:
     target_dir.mkdir(parents=True, exist_ok=True)
     _checkpoint_wal(staged_path)
     _fsync_file(staged_path)
+    quarantined_sidecars = _quarantine_target_sidecars(target_path)
     _fsync_directory(target_dir)
-    os.replace(staged_path, target_path)
-    _fsync_file(target_path)
-    _cleanup_sidecars(target_path)
-    _cleanup_sidecars(staged_path)
-    _fsync_directory(target_dir)
+    swapped = False
+    try:
+        os.replace(staged_path, target_path)
+        swapped = True
+        _fsync_file(target_path)
+        _cleanup_sidecars(target_path)
+        _cleanup_sidecars(staged_path)
+        _cleanup_quarantined_sidecars(quarantined_sidecars)
+        _fsync_directory(target_dir)
+    except Exception:
+        if not swapped:
+            _restore_quarantined_sidecars(quarantined_sidecars)
+            _fsync_directory(target_dir)
+        raise
 
 
 __all__ = [
