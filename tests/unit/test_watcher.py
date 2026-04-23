@@ -801,6 +801,69 @@ def test_watcher_start_cleans_up_flush_thread_after_observer_failure(
     }
 
 
+def test_watcher_start_cleans_up_flush_thread_when_observer_construction_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import eodinga.core.watcher as watcher_module
+
+    class FakeThread:
+        def __init__(self) -> None:
+            self.started = False
+            self.joined = False
+
+        def start(self) -> None:
+            self.started = True
+
+        def is_alive(self) -> bool:
+            return self.started and not self.joined
+
+        def join(self, timeout: float | None = None) -> None:
+            assert timeout == 1
+            self.joined = True
+
+    flush_thread = FakeThread()
+    monkeypatch.setattr(watcher_module, "_spawn_thread", lambda _target: flush_thread)
+    monkeypatch.setattr(watcher_module, "Observer", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
+
+    service = WatchService()
+
+    with pytest.raises(RuntimeError, match="boom"):
+        service.start(tmp_path)
+
+    assert flush_thread.started is True
+    assert flush_thread.joined is True
+    assert service._flush_thread is None
+    assert service._observers == {}
+    assert service._stop.is_set() is True
+
+
+def test_watcher_start_clears_state_when_flush_thread_start_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import eodinga.core.watcher as watcher_module
+
+    class FakeThread:
+        def start(self) -> None:
+            raise RuntimeError("thread start failed")
+
+        def is_alive(self) -> bool:
+            return False
+
+        def join(self, timeout: float | None = None) -> None:
+            raise AssertionError("join should not be called when thread never started")
+
+    monkeypatch.setattr(watcher_module, "_spawn_thread", lambda _target: FakeThread())
+
+    service = WatchService()
+
+    with pytest.raises(RuntimeError, match="thread start failed"):
+        service.start(tmp_path)
+
+    assert service._flush_thread is None
+    assert service._observers == {}
+    assert service._stop.is_set() is True
+
+
 def test_watcher_stop_continues_cleanup_when_observer_teardown_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
