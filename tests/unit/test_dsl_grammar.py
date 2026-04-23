@@ -505,6 +505,28 @@ PHRASE_TEXT = st.text(
     max_size=24,
 )
 
+SIZE_NUMBER = st.one_of(
+    st.integers(min_value=1, max_value=4_096).map(str),
+    st.tuples(
+        st.integers(min_value=1, max_value=4_095),
+        st.integers(min_value=1, max_value=9),
+    ).map(lambda parts: f"{parts[0]}.{parts[1]}"),
+)
+
+SIZE_UNIT = st.sampled_from(
+    [
+        "B",
+        "KB",
+        "KiB",
+        "MB",
+        "MiB",
+        "GB",
+        "GiB",
+        "TB",
+        "TiB",
+    ]
+)
+
 
 @given(PHRASE_TEXT)
 def test_phrase_escape_round_trip_fuzz(value: str) -> None:
@@ -515,6 +537,51 @@ def test_phrase_escape_round_trip_fuzz(value: str) -> None:
     assert node.name == "content"
     assert node.value_kind == "phrase"
     assert node.value == value
+
+
+@given(
+    st.sampled_from([">", ">=", "<", "<=", "="]),
+    SIZE_NUMBER,
+    SIZE_UNIT,
+)
+def test_spaced_size_literal_parses_like_compact_form(
+    comparator: str,
+    number: str,
+    unit: str,
+) -> None:
+    compact = parse(f"size:{comparator}{number}{unit}")
+    spaced = parse(f"size:{comparator} {number} {unit}")
+
+    assert compact == spaced
+
+
+@given(
+    SIZE_NUMBER,
+    SIZE_UNIT,
+    SIZE_NUMBER,
+    SIZE_UNIT,
+)
+def test_spaced_size_range_parses_like_compact_form(
+    left_number: str,
+    left_unit: str,
+    right_number: str,
+    right_unit: str,
+) -> None:
+    compact = parse(f"size:{left_number}{left_unit}..{right_number}{right_unit}")
+    spaced = parse(f"size:{left_number} {left_unit} .. {right_number} {right_unit}")
+
+    assert compact == spaced
+
+
+@given(SIZE_NUMBER, SIZE_UNIT)
+def test_spaced_open_ended_size_ranges_parse_like_compact_form(number: str, unit: str) -> None:
+    compact_upper = parse(f"size:..{number}{unit}")
+    spaced_upper = parse(f"size:.. {number} {unit}")
+    compact_lower = parse(f"size:{number}{unit}..")
+    spaced_lower = parse(f"size:{number} {unit} ..")
+
+    assert compact_upper == spaced_upper
+    assert compact_lower == spaced_lower
 
 
 REGEX_BODY_TEXT = st.text(
