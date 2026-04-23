@@ -502,7 +502,16 @@ def _ensure_metrics_loaded() -> None:
         _METRICS_LOADED = True
         if path is None or not path.exists():
             return
-        persisted = load_metrics_state(path)
+        try:
+            persisted = load_metrics_state(path)
+        except Exception as error:
+            _COUNTERS["metrics_store_load_failures"] = _COUNTERS.get("metrics_store_load_failures", 0) + 1
+            quarantined_path = _quarantine_metrics_store(path)
+            logger.bind(
+                metrics_path=str(path),
+                quarantined_path=str(quarantined_path) if quarantined_path is not None else None,
+            ).warning("failed to load persisted metrics: {error}", error=error)
+            return
         _COUNTERS.update(persisted.counters)
         _HISTOGRAMS.update(
             {
@@ -517,12 +526,29 @@ def _persist_metrics_unlocked() -> None:
     path = resolve_metrics_path()
     if path is None:
         return
-    save_metrics_state(
-        path,
-        counters=dict(sorted(_COUNTERS.items())),
-        histograms={name: state.snapshot() for name, state in sorted(_HISTOGRAMS.items())},
-        recent_snapshots=cast(list[dict[str, object]], list(_RECENT_SNAPSHOTS)),
-    )
+    try:
+        save_metrics_state(
+            path,
+            counters=dict(sorted(_COUNTERS.items())),
+            histograms={name: state.snapshot() for name, state in sorted(_HISTOGRAMS.items())},
+            recent_snapshots=cast(list[dict[str, object]], list(_RECENT_SNAPSHOTS)),
+        )
+    except Exception as error:
+        _COUNTERS["metrics_store_write_failures"] = _COUNTERS.get("metrics_store_write_failures", 0) + 1
+        logger.bind(metrics_path=str(path)).warning(
+            "failed to persist metrics: {error}",
+            error=error,
+        )
+
+
+def _quarantine_metrics_store(path: Path) -> Path | None:
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+    quarantined_path = path.with_name(f"{path.name}.corrupt-{timestamp}")
+    try:
+        path.replace(quarantined_path)
+    except OSError:
+        return None
+    return quarantined_path
 
 
 def _rss_bytes() -> int | None:

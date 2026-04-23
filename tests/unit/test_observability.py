@@ -106,6 +106,22 @@ def test_metrics_persistence_can_be_disabled(monkeypatch) -> None:
     assert metrics_persistence_enabled() is False
 
 
+def test_metrics_persist_write_failures_are_counted(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(tmp_path / "metrics.json"))
+    reset_metrics()
+
+    def _fail_save(*_args: object, **_kwargs: object) -> None:
+        raise OSError("read only")
+
+    monkeypatch.setattr("eodinga.observability.save_metrics_state", _fail_save)
+
+    increment_counter("queries_served")
+
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["queries_served"] == 1
+    assert counters["metrics_store_write_failures"] == 1
+
+
 def test_log_policy_resolution_respects_runtime_overrides(monkeypatch) -> None:
     monkeypatch.setenv("EODINGA_LOG_ROTATION", "12 MB")
     monkeypatch.setenv("EODINGA_LOG_RETENTION", "7")

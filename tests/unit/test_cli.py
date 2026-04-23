@@ -495,6 +495,28 @@ def test_stats_json_persists_metrics_across_cli_processes(
     assert metrics_path.exists()
 
 
+def test_stats_json_recovers_from_corrupt_metrics_store(
+    cli_runner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db_path = tmp_path / "index.db"
+    metrics_path = tmp_path / "metrics.json"
+    _build_search_db(db_path)
+    metrics_path.write_text("{not-json", encoding="utf-8")
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+
+    stats_result = cli_runner("--db", str(db_path), "stats", "--json")
+
+    assert stats_result.returncode == 0
+    payload = json.loads(stats_result.stdout)
+    assert payload["metrics_path"] == str(metrics_path)
+    assert payload["counters"]["metrics_store_load_failures"] == 1
+    assert payload["logging_configurations"] == 1
+    assert payload["crash_handlers_installed"] == 1
+    quarantined = sorted(tmp_path.glob("metrics.json.corrupt-*"))
+    assert len(quarantined) == 1
+    assert metrics_path.exists()
+
+
 def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
