@@ -43,8 +43,10 @@ from eodinga.stats_summary import (
     log_sink_file_disabled_reason_summary,
     log_sink_file_source_summary,
     parser_activity_summary,
+    watcher_enqueue_aborted_summary,
     watcher_failure_summary,
     watcher_event_type_summary,
+    watcher_queue_full_summary,
 )
 
 
@@ -264,6 +266,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         parser_activity=parser_activity_summary(counters),
         watcher_event_types=watcher_event_type_summary(counters),
         watcher_failures=watcher_failure_summary(counters),
+        watcher_queue_full_event_types=watcher_queue_full_summary(counters),
+        watcher_enqueue_aborted_event_types=watcher_enqueue_aborted_summary(counters),
         log_sink_file_sources=log_sink_file_source_summary(counters),
         log_sink_file_disabled_reasons=log_sink_file_disabled_reason_summary(counters),
         counters=counters,

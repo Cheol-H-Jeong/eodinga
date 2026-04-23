@@ -74,6 +74,14 @@ def watcher_failure_summary(counters: dict[str, int]) -> dict[str, dict[str, int
     }
 
 
+def watcher_queue_full_summary(counters: dict[str, int]) -> dict[str, int]:
+    return _suffix_summary(counters, "watcher_queue_full.")
+
+
+def watcher_enqueue_aborted_summary(counters: dict[str, int]) -> dict[str, int]:
+    return _suffix_summary(counters, "watcher_enqueue_aborted.")
+
+
 def log_sink_file_source_summary(counters: dict[str, int]) -> dict[str, int]:
     return _suffix_summary(counters, "log_sinks.file.source.")
 

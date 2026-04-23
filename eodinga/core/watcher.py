@@ -498,6 +498,7 @@ class WatchService:
                 if blocked_at is None:
                     blocked_at = monotonic()
                     increment_counter("watcher_queue_full", event_type=event.event_type)
+                    increment_counter(f"watcher_queue_full.{event.event_type}")
                     record_snapshot(
                         "watcher.backpressure",
                         {
@@ -510,6 +511,7 @@ class WatchService:
                         "watch queue full; applying backpressure for {}", event.path
                     )
         increment_counter("watcher_enqueue_aborted", event_type=event.event_type)
+        increment_counter(f"watcher_enqueue_aborted.{event.event_type}")
         record_snapshot(
             "watcher.enqueue_aborted",
             {

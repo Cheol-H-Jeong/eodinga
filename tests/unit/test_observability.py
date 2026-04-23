@@ -463,6 +463,7 @@ def test_watcher_backpressure_metrics_increment(tmp_path: Path) -> None:
     counters = cast(dict[str, int], metrics["counters"])
     histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
     assert counters["watcher_queue_full"] == 1
+    assert counters["watcher_queue_full.created"] == 1
     assert histograms["watcher_queue_backpressure_ms"]["count"] == 1
     snapshots = recent_snapshots()
     assert snapshots[1]["name"] == "watcher.backpressure"
@@ -521,6 +522,7 @@ def test_watcher_enqueue_abort_records_snapshot_when_stopped(tmp_path: Path) -> 
     counters = cast(dict[str, int], snapshot_metrics()["counters"])
     assert enqueued is False
     assert counters["watcher_enqueue_aborted"] == 1
+    assert counters["watcher_enqueue_aborted.deleted"] == 1
     snapshot = recent_snapshots()[-1]
     assert snapshot["name"] == "watcher.enqueue_aborted"
     assert snapshot["payload"] == {

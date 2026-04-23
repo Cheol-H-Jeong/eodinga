@@ -690,6 +690,8 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
         "observer_start": {},
         "observer_startup_cleanup": {},
     }
+    assert payload["watcher_queue_full_event_types"] == {"modified": 1}
+    assert payload["watcher_enqueue_aborted_event_types"] == {}
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_path_source"] is None
     assert payload["log_path_disabled_reason"] == "disabled_pytest"
@@ -708,6 +710,9 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["index_batch_size_histogram"]["count"] >= 1
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
         "command.index",
+        "watcher.flush",
+        "watcher.backpressure",
+        "watcher.flush",
         "command.search",
     ]
 
@@ -906,8 +911,68 @@ def test_stats_json_structures_watcher_failure_and_log_sink_summaries(
         "observer_start": {"schedule": 1, "start": 1},
         "observer_startup_cleanup": {"join": 1, "stop": 1},
     }
+    assert payload["watcher_queue_full_event_types"] == {}
+    assert payload["watcher_enqueue_aborted_event_types"] == {}
     assert payload["log_sink_file_sources"] == {"env_override": 1}
     assert payload["log_sink_file_disabled_reasons"] == {}
+
+
+def test_stats_json_structures_watcher_queue_pressure_by_event_type(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    service = WatchService(queue_maxsize=1)
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "queued.txt",
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service._flush_ready(force=True)
+    service._stop.set()
+    service._enqueue_event(
+        WatchEvent(
+            event_type="deleted",
+            path=tmp_path / "dropped.txt",
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    blocked = Thread(
+        target=lambda: (
+            service.record(
+                WatchEvent(
+                    event_type="modified",
+                    path=tmp_path / "blocked.txt",
+                    root_path=tmp_path,
+                    happened_at=3.0,
+                )
+            ),
+            service._flush_ready(force=True),
+        ),
+        daemon=True,
+    )
+    service._stop.clear()
+    blocked.start()
+    sleep(0.1)
+    first_event = service.queue.get_nowait()
+    assert first_event.path == tmp_path / "queued.txt"
+    blocked.join(timeout=1)
+    assert not blocked.is_alive()
+    second_event = service.queue.get_nowait()
+    assert second_event.path == tmp_path / "blocked.txt"
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["watcher_queue_full"] == 1
+    assert payload["watcher_enqueue_aborted"] == 1
+    assert payload["watcher_queue_full_event_types"] == {"modified": 1}
+    assert payload["watcher_enqueue_aborted_event_types"] == {"deleted": 1}
 
 
 def test_stats_json_exposes_crash_log_write_failures(tmp_path: Path, capsys, monkeypatch) -> None:
