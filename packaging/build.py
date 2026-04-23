@@ -231,8 +231,11 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         errors.append("project and package versions do not match")
     if payload.get("version") != package_version:
         errors.append("AppImage audit version does not match the package version")
+    arch = payload.get("arch")
+    if not arch:
+        errors.append("AppImage audit architecture is missing")
     archive_path = payload.get("archive")
-    expected_archive_name = f"eodinga-{package_version}-linux-appdir.tar.gz"
+    expected_archive_name = f"eodinga-{package_version}-linux-{arch}-appdir.tar.gz"
     if Path(str(archive_path)).name != expected_archive_name:
         errors.append("AppImage archive filename does not match the package version")
     recipe_payload = payload.get("recipe", {})

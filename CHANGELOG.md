@@ -3,6 +3,7 @@
 ## 0.1.432 - 2026-04-23
 
 - Added a dedicated `.[packaging]` extra for Windows release tooling and wired the Windows release workflow to install it explicitly instead of relying on ambient build dependencies.
+- Qualified staged AppImage archive names with the target architecture and pinned that contract in the packaging audit so Linux release artifacts no longer collide across architectures.
 
 ## 0.1.431 - 2026-04-23
 

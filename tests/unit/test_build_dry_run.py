@@ -223,6 +223,7 @@ def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> Non
     module = _load_build_module()
     payload = {
         "version": __version__,
+        "arch": "x86_64",
         "archive": "packaging/dist/eodinga-linux-appdir.tar.gz",
         "recipe": {
             "exists": True,
@@ -267,8 +268,10 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-appimage-dry-run"
     assert payload["version"] == __version__
+    assert payload["arch"]
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
+    assert Path(payload["archive"]).name == f"eodinga-{__version__}-linux-{payload['arch']}-appdir.tar.gz"
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
@@ -415,8 +418,10 @@ def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-appimage"
     assert payload["dry_run"] is False
+    assert payload["arch"]
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
+    assert Path(payload["archive"]).name == f"eodinga-{__version__}-linux-{payload['arch']}-appdir.tar.gz"
 
 
 def test_linux_deb_dry_run_stages_recipe() -> None:

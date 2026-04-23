@@ -20,7 +20,8 @@ if match is None:
 print(match.group(1))
 PY
 )"
-ARCHIVE_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-appdir.tar.gz"
+ARCH="${TARGET_ARCH:-$(uname -m)}"
+ARCHIVE_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-${ARCH}-appdir.tar.gz"
 DRY_RUN=0
 
 if [[ "${1:-}" == "--dry-run" ]]; then
@@ -85,6 +86,7 @@ rendered_recipe_text = rendered_recipe_path.read_text(encoding="utf-8")
 payload = {
     "target": "linux-appimage-dry-run" if ${DRY_RUN} else "linux-appimage",
     "version": "${VERSION}",
+    "arch": "${ARCH}",
     "appdir": "${APPDIR}",
     "archive": "${ARCHIVE_PATH}",
     "dry_run": bool(${DRY_RUN}),
