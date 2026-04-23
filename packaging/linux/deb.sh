@@ -28,6 +28,39 @@ ARCHIVE_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}_debroot.tar.gz"
 DEB_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}.deb"
 DRY_RUN=0
 
+create_reproducible_tar_gz() {
+  local input_dir="$1"
+  local output_path="$2"
+  ARCHIVE_INPUT_DIR="${input_dir}" ARCHIVE_OUTPUT_PATH="${output_path}" python3 - <<'PY'
+import gzip
+import os
+import tarfile
+from pathlib import Path
+
+input_dir = Path(os.environ["ARCHIVE_INPUT_DIR"])
+output_path = Path(os.environ["ARCHIVE_OUTPUT_PATH"])
+members = [input_dir, *sorted(input_dir.rglob("*"))]
+
+with output_path.open("wb") as raw, gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as zipped:
+    with tarfile.open(fileobj=zipped, mode="w") as archive:
+        for member_path in members:
+            if not member_path.exists():
+                continue
+            arcname = Path(input_dir.name) if member_path == input_dir else Path(input_dir.name) / member_path.relative_to(input_dir)
+            tar_info = archive.gettarinfo(str(member_path), arcname=str(arcname))
+            tar_info.uid = 0
+            tar_info.gid = 0
+            tar_info.uname = ""
+            tar_info.gname = ""
+            tar_info.mtime = 0
+            if tar_info.isfile():
+                with member_path.open("rb") as handle:
+                    archive.addfile(tar_info, handle)
+            else:
+                archive.addfile(tar_info)
+PY
+}
+
 if [[ "${1:-}" == "--dry-run" ]]; then
   DRY_RUN=1
 fi
@@ -75,7 +108,7 @@ with source.open("rb") as src, gzip.GzipFile(filename="", mode="wb", fileobj=tar
     dst.write(src.read())
 PY
 
-tar -czf "${ARCHIVE_PATH}" -C "${BUILD_ROOT}" "$(basename "${PACKAGE_DIR}")"
+create_reproducible_tar_gz "${PACKAGE_DIR}" "${ARCHIVE_PATH}"
 python3 - <<PY
 import gzip
 import json
