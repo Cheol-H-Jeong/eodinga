@@ -200,8 +200,12 @@ def open_index(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     _cleanup_orphan_recovery_sidecars(path)
     _cleanup_orphan_build_sidecars(path)
-    recover_interrupted_recovery(path)
-    recover_interrupted_build(path)
+    recovery_staged = _staged_recovery_path(path).exists()
+    if recovery_staged and not recover_interrupted_recovery(path):
+        raise RuntimeError(f"failed to resume interrupted recovery for {path}")
+    build_staged = _staged_build_path(path).exists()
+    if build_staged and not recover_interrupted_build(path):
+        raise RuntimeError(f"failed to resume interrupted staged build for {path}")
     if has_stale_wal(path) and not recover_stale_wal(path):
         raise RuntimeError(f"failed to recover stale WAL for {path}")
     conn = connect_database(path)

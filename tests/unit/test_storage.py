@@ -476,6 +476,38 @@ def test_open_index_resumes_interrupted_recovery_with_staged_wal(tmp_path: Path)
     assert not staged.with_name(".index.db.recover-shm").exists()
 
 
+def test_open_index_raises_when_interrupted_recovery_resume_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+
+    conn = sqlite3.connect(staged)
+    apply_schema(conn)
+    conn.close()
+
+    monkeypatch.setattr("eodinga.index.storage.recover_interrupted_recovery", lambda _path: False)
+
+    with pytest.raises(RuntimeError, match="failed to resume interrupted recovery"):
+        open_index(path)
+
+
+def test_open_index_raises_when_interrupted_build_resume_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    conn = sqlite3.connect(staged)
+    apply_schema(conn)
+    conn.close()
+
+    monkeypatch.setattr("eodinga.index.storage.recover_interrupted_build", lambda _path: False)
+
+    with pytest.raises(RuntimeError, match="failed to resume interrupted staged build"):
+        open_index(path)
+
+
 def test_open_index_cleans_orphaned_recovery_sidecars_before_open(tmp_path: Path) -> None:
     path = tmp_path / "index.db"
     staged = tmp_path / ".index.db.recover"
