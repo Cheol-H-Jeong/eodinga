@@ -106,6 +106,33 @@ def test_compile_negated_boolean_operators_invert_requested_mode(
     assert branch.regex_mode is expected_regex_mode
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "case:true | ext:txt",
+        "regex:true | ext:txt",
+        "-(case:false alpha beta)",
+        "-(regex:false alpha beta)",
+        "alpha | (case:true beta)",
+        "-(alpha regex:true)",
+    ],
+)
+def test_compile_rejects_mode_operators_inside_boolean_contexts(query: str) -> None:
+    with pytest.raises(
+        QuerySyntaxError,
+        match="case/regex mode operators cannot appear inside OR branches or negated groups",
+    ):
+        compile_query(parse(query))
+
+
+def test_compile_allows_mode_operator_to_scope_over_grouped_or_branch() -> None:
+    compiled = compile_query(parse("case:true (alpha | beta)"))
+
+    assert len(compiled.branches) == 2
+    assert all(branch.case_sensitive is True for branch in compiled.branches)
+    assert [branch.path_terms[0].value for branch in compiled.branches] == ["alpha", "beta"]
+
+
 def test_compile_date_alias_uses_mtime_range() -> None:
     compiled = compile_query(parse("date:this-week"))
     branch = compiled.branches[0]

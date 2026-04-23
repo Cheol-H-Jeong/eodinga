@@ -10,6 +10,7 @@ import pytest
 
 from eodinga.query import executor as executor_module
 from eodinga.query import search
+from eodinga.query.dsl import QuerySyntaxError
 
 
 def _insert_file(
@@ -441,6 +442,24 @@ def test_execute_negated_regex_true_restores_literal_term_matching(
 
     assert "report-7.txt" in regex_hits
     assert literal_hits == ["report-[0-9]+.txt"]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "-(case:false alpha beta)",
+        "-(regex:false alpha beta)",
+    ],
+)
+def test_execute_rejects_mode_operators_inside_negated_boolean_groups(
+    populated_db: sqlite3.Connection,
+    query: str,
+) -> None:
+    with pytest.raises(
+        QuerySyntaxError,
+        match="case/regex mode operators cannot appear inside OR branches or negated groups",
+    ):
+        search(populated_db, query, limit=10)
 
 
 def test_execute_escaped_phrase_query_matches_literal_quotes_and_backslashes(

@@ -83,6 +83,40 @@ def _to_dnf(node: AstNode) -> list[list[WordNode | PhraseNode | RegexNode | Oper
     raise TypeError(f"unsupported node: {type(node)!r}")
 
 
+def _is_mode_operator(node: AstNode) -> bool:
+    if not isinstance(node, OperatorNode):
+        return False
+    if node.name == "case":
+        return True
+    if node.name != "regex" or node.value_kind != "word":
+        return False
+    return _try_parse_bool(node.value) is not None
+
+
+def _validate_mode_operator_context(node: AstNode, *, inside_or: bool = False, inside_not: bool = False) -> None:
+    if _is_mode_operator(node):
+        if inside_or or inside_not:
+            raise QuerySyntaxError(
+                "case/regex mode operators cannot appear inside OR branches or negated groups",
+                0,
+            )
+        return
+    if isinstance(node, (WordNode, PhraseNode, RegexNode, OperatorNode)):
+        return
+    if isinstance(node, AndNode):
+        for child in node.clauses:
+            _validate_mode_operator_context(child, inside_or=inside_or, inside_not=inside_not)
+        return
+    if isinstance(node, OrNode):
+        for child in node.clauses:
+            _validate_mode_operator_context(child, inside_or=True, inside_not=inside_not)
+        return
+    if isinstance(node, NotNode):
+        _validate_mode_operator_context(node.clause, inside_or=inside_or, inside_not=not inside_not)
+        return
+    raise TypeError(f"unsupported node: {type(node)!r}")
+
+
 def _negate_term(node: WordNode | PhraseNode | RegexNode | OperatorNode) -> AstNode:
     if isinstance(node, WordNode):
         return WordNode(value=node.value, negated=not node.negated)
@@ -473,6 +507,7 @@ def _compile_branch(
 
 
 def compile_query(ast: AstNode) -> CompiledQuery:
+    _validate_mode_operator_context(ast)
     normalized = _to_nnf(ast)
     branches = tuple(_compile_branch(branch) for branch in _to_dnf(normalized))
     return CompiledQuery(branches=branches)
