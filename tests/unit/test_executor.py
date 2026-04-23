@@ -1114,6 +1114,30 @@ def test_execute_regex_true_query(tmp_db: sqlite3.Connection) -> None:
     assert hits == ["report-011.py"]
 
 
+def test_execute_regex_query_caches_compiled_patterns(tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/report-011.py", 1024, now, "py", body_text="launch")
+    _insert_file(tmp_db, 2, "/workspace/report-012.py", 1024, now - 60, "py", body_text="launch")
+    tmp_db.commit()
+
+    compile_calls: list[tuple[str, int]] = []
+    original_compile = executor_module.re.compile
+
+    def counting_compile(pattern: str, flags: int = 0) -> executor_module.re.Pattern[str]:
+        compile_calls.append((pattern, flags))
+        return original_compile(pattern, flags)
+
+    executor_module._compiled_regex.cache_clear()
+    monkeypatch.setattr(executor_module.re, "compile", counting_compile)
+
+    hits = [hit.file.name for hit in search(tmp_db, "regex:true report-[0-9]+", limit=10).hits]
+    repeat_hits = [hit.file.name for hit in search(tmp_db, "regex:true report-[0-9]+", limit=10).hits]
+
+    assert hits == ["report-011.py", "report-012.py"]
+    assert repeat_hits == hits
+    assert compile_calls == [("report-[0-9]+", executor_module.re.IGNORECASE)]
+
+
 def test_execute_regex_only_query_scans_beyond_initial_window(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     for index in range(1, 1501):

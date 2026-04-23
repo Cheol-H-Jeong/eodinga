@@ -242,13 +242,22 @@ def _regex_ok(
     negated: bool,
     default_case_sensitive: bool,
 ) -> bool:
-    compiled = re.compile(
+    compiled = _compiled_regex(
+        pattern,
+        flags,
+        default_case_sensitive=default_case_sensitive,
+    )
+    matched = bool(compiled.search(text))
+    return not matched if negated else matched
+
+
+@lru_cache(maxsize=256)
+def _compiled_regex(pattern: str, flags: str, *, default_case_sensitive: bool) -> re.Pattern[str]:
+    return re.compile(
         pattern,
         _make_flags(flags)
         | (0 if default_case_sensitive or "i" in flags.lower() else re.IGNORECASE),
     )
-    matched = bool(compiled.search(text))
-    return not matched if negated else matched
 
 
 def _plain_term_matches_record(
