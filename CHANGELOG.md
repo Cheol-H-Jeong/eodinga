@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.146 - 2026-04-23
+## 0.1.151 - 2026-04-23
 
 - Fixed DSL regex parsing so a closing `/` is still recognized after an even run of backslashes, which keeps literals like trailing escaped separators from being rejected as unterminated regexes.
 - Normalized Windows search-root variants in query execution, covering slash direction, drive-letter case, and `\\?\` long-path prefixes so scoped searches no longer miss matching files under equivalent roots.
