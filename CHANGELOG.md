@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.356 - 2026-04-23
+
+- Fixed bare `/.../flags` regex parsing when the pattern ends with an escaped backslash before the closing delimiter, keeping bare-regex behavior aligned with operator regex parsing.
+- Added grouped-negation compiler regressions that pin De Morgan normalization for `AND`, `OR`, and double-negated query groups.
+- Added watcher regressions for shared-prefix sibling roots so moves between `watched` and `watched-*` paths stay classified as cross-root create/delete events.
+
 ## 0.1.353 - 2026-04-23
 
 - Expanded the README with an install matrix, a fuller feature inventory, task-focused command recipes, and a packaged-artifacts summary so the shipped operator contract is easier to audit from one page.
