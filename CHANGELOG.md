@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.200 - 2026-04-23
+
+- Reworked the filesystem walker to carry `os.scandir()` stat data forward into traversal, avoiding redundant `lstat()` calls for discovered children while preserving the existing symlink-loop and alias handling.
+- Moved SQLite durability tuning to the staged rebuild path so rebuilds run with `PRAGMA synchronous=NORMAL` before the bulk transaction starts, while ordinary opens and post-rebuild idle state return to `FULL`.
+- Added unit coverage that pins both the cached-stat walker behavior and the rebuild-time durability downshift plus restoration contract.
+
 ## 0.1.195 - 2026-04-23
 
 - Split the launcher popup window into its own module so the launcher surface stays under the repository's module-size cap while preserving the existing geometry, topmost, and hotkey behavior.
