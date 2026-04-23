@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.149 - 2026-04-23
+
+- Reworked the filesystem walker to reuse `os.scandir()` child metadata, cutting redundant `lstat()` calls during deep tree walks while preserving the existing symlink-loop and alias-handling rules.
+- Optimized large `IndexWriter.bulk_upsert()` batches by temporarily lowering SQLite `synchronous` to `NORMAL` only when the connection is transaction-idle, then restoring the prior durability mode after the batch or any raised error.
+- Added regressions for the new walker metadata fast path, the guarded bulk-write sync downgrade, and the restored FS export contract so the performance changes stay pinned under unit and type checks.
+
 ## 0.1.142 - 2026-04-23
 
 - Expanded the Windows PyInstaller spec so packaging now auto-discovers real `eodinga.*` module imports from the source tree, including relative imports, instead of relying only on a hand-maintained runtime list.
