@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import sqlite3
 import shutil
+from contextlib import contextmanager
+from collections.abc import Iterator
 from pathlib import Path
 
 from eodinga.index.migrations import migrate
@@ -33,6 +35,26 @@ def connect_database(
         sqlite3.connect(path, cached_statements=SQLITE_CACHED_STATEMENTS),
         row_factory=row_factory,
     )
+
+
+def _read_pragma_int(conn: sqlite3.Connection, name: str) -> int:
+    row = conn.execute(f"PRAGMA {name};").fetchone()
+    if row is None:
+        raise sqlite3.DatabaseError(f"PRAGMA {name} returned no value")
+    return int(row[0])
+
+
+@contextmanager
+def bulk_write_mode(conn: sqlite3.Connection) -> Iterator[None]:
+    original_wal_autocheckpoint = _read_pragma_int(conn, "wal_autocheckpoint")
+    original_cache_spill = _read_pragma_int(conn, "cache_spill")
+    conn.execute("PRAGMA wal_autocheckpoint=0;")
+    conn.execute("PRAGMA cache_spill=0;")
+    try:
+        yield
+    finally:
+        conn.execute(f"PRAGMA cache_spill={original_cache_spill};")
+        conn.execute(f"PRAGMA wal_autocheckpoint={original_wal_autocheckpoint};")
 
 
 def _checkpoint_wal(path: Path) -> None:

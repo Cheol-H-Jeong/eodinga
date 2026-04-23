@@ -99,6 +99,36 @@ def test_rebuild_index_records_runtime_metrics(tmp_path: Path) -> None:
     assert cast(int, batch_histogram["count"]) >= 1
 
 
+def test_rebuild_index_uses_bulk_write_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    entered: list[Path] = []
+
+    class RecordingBulkWriteMode:
+        def __init__(self, conn: sqlite3.Connection) -> None:
+            self._conn = conn
+
+        def __enter__(self) -> RecordingBulkWriteMode:
+            pragma = self._conn.execute("PRAGMA wal_autocheckpoint;").fetchone()
+            assert pragma is not None
+            entered.append(db_path)
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> bool:
+            return False
+
+    monkeypatch.setattr(build_module, "bulk_write_mode", RecordingBulkWriteMode)
+
+    result = rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    assert result.files_indexed == 2
+    assert entered == [db_path]
+
+
 def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

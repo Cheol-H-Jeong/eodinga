@@ -12,6 +12,7 @@ from eodinga.index.schema import apply_schema
 from eodinga.index.storage import (
     SQLITE_CACHED_STATEMENTS,
     atomic_replace_index,
+    bulk_write_mode,
     connect_database,
     has_stale_wal,
     open_index,
@@ -287,6 +288,30 @@ def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, m
     try:
         assert seen["database"] == path
         assert seen["cached_statements"] == SQLITE_CACHED_STATEMENTS
+    finally:
+        conn.close()
+
+
+def test_bulk_write_mode_restores_connection_pragmas(tmp_path: Path) -> None:
+    conn = connect_database(tmp_path / "bulk-mode.db")
+    try:
+        original_wal_autocheckpoint = conn.execute("PRAGMA wal_autocheckpoint;").fetchone()
+        original_cache_spill = conn.execute("PRAGMA cache_spill;").fetchone()
+        assert original_wal_autocheckpoint is not None
+        assert original_cache_spill is not None
+
+        with bulk_write_mode(conn):
+            tuned_wal_autocheckpoint = conn.execute("PRAGMA wal_autocheckpoint;").fetchone()
+            tuned_cache_spill = conn.execute("PRAGMA cache_spill;").fetchone()
+            assert tuned_wal_autocheckpoint is not None
+            assert tuned_cache_spill is not None
+            assert int(tuned_wal_autocheckpoint[0]) == 0
+            assert int(tuned_cache_spill[0]) == 0
+
+        restored_wal_autocheckpoint = conn.execute("PRAGMA wal_autocheckpoint;").fetchone()
+        restored_cache_spill = conn.execute("PRAGMA cache_spill;").fetchone()
+        assert restored_wal_autocheckpoint == original_wal_autocheckpoint
+        assert restored_cache_spill == original_cache_spill
     finally:
         conn.close()
 
