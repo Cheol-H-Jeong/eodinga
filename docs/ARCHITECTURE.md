@@ -241,6 +241,22 @@ runtime code / CLI / UI changes
 - Query fallback failures must not mutate state; they only affect one search invocation and are observable through `eodinga stats --json` and runtime logs.
 - Docs or packaging drift is treated as a release-input failure, caught by `tests/unit/test_docs_assets.py` and the packaging dry-run audits before a tag is cut.
 
+| Symptom | Likely boundary | First check | Why that check comes first |
+| --- | --- | --- | --- |
+| Missing or stale search results | watcher or active DB selection | `eodinga stats --json` | Confirms the surface is reading the expected database before you rebuild anything. |
+| Recovery message on startup | storage promotion or WAL replay | `eodinga doctor` | Confirms the writable DB path and shows the same storage boundary recovery depends on. |
+| Query matches differ between CLI and GUI | query compiler or fallback evaluation | repeat the query with `eodinga search --json` | Both surfaces share the executor, so the CLI is the fastest neutral comparison point. |
+| Packaged app behavior differs from local editable run | packaging manifest drift | inspect `packaging/dist/` after the matching dry run | The staged payload is the release review surface; guessing from the installer UI is slower and less exact. |
+
+## Failure Containment Matrix
+
+| Layer | Failure should be contained to | Evidence surface |
+| --- | --- | --- |
+| Walker | one unreadable path or root subtree | skipped-file behavior during `index` / `watch` plus runtime logs |
+| Storage promotion | database directory only | `.next`, `.recover`, `-wal`, and `-shm` sidecars plus `doctor` output |
+| Query fallback | one search invocation | `search --json`, `stats --json`, and rank/output comparison across surfaces |
+| Docs or packaging drift | release inputs only | `tests/unit/test_docs_assets.py` and `packaging/dist/` dry-run manifests |
+
 ## Live Update Sequence
 
 ```text
@@ -296,6 +312,24 @@ startup
 3. Compare the staged docs payload with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 4. Cut the local tag only after the dry-run output and shipped docs agree.
 
+## Packaging Decision Path
+
+```text
+packaging or installer symptom
+    |
+    +--> can the matching dry run reproduce it?
+    |       |
+    |       +--> no: inspect editable runtime and docs contract first
+    |       |
+    |       +--> yes: inspect packaging/dist/ manifest or staged payload
+    |
+    +--> docs payload aligned with README / ACCEPTANCE / man page?
+            |
+            +--> no: refresh docs assets before retesting
+            |
+            +--> yes: fix the packaging recipe or audit
+```
+
 ## Platform Surface Summary
 
 | Surface | Entry point | Purpose |
@@ -328,3 +362,12 @@ When an operator reports stale or surprising results, the shortest architecture-
 3. `eodinga watch` or `eodinga index --rebuild` depending on whether the issue is live-update lag or a one-shot recovery need.
 
 That sequence mirrors the architecture itself: active DB selection, environment validation, then either watcher-driven incremental repair or staged rebuild.
+
+## Operator Symptom Map
+
+| Report | Architecture slice to inspect | Preferred command |
+| --- | --- | --- |
+| "The launcher shows old results." | launcher -> shared executor -> active DB | `eodinga stats --json` |
+| "Rebuild finished but search is still wrong." | staged swap -> live DB promotion | `eodinga doctor` then `eodinga search 'query' --json` |
+| "The packaged app differs from editable install." | packaging recipe -> staged manifest -> shipped docs | `python packaging/build.py --target ...-dry-run` |
+| "Docs say one thing, release artifact shows another." | generated assets -> docs contract | `pytest -q tests/unit/test_docs_assets.py` plus the relevant dry run |
