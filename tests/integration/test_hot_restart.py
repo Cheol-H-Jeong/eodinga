@@ -385,3 +385,78 @@ def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updat
     assert initial_hits == [existing]
     assert elapsed <= 0.5
     assert not staged_db.exists()
+
+
+def test_hot_restart_resume_interrupted_multi_root_build_handles_cross_root_move(
+    tmp_path: Path,
+) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    target_db = tmp_path / "database" / "index.db"
+    staged_db = tmp_path / "database" / ".index.db.next"
+    root_a.mkdir()
+    root_b.mkdir()
+    source = root_a / "resume-alpha.txt"
+    destination = root_b / "resume-beta.txt"
+    source.write_text("resumed staged cross root move\n", encoding="utf-8")
+
+    rebuild_index(
+        target_db,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+    rebuild_index(
+        staged_db,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+    target_db.unlink()
+    assert staged_db.exists()
+
+    reopened = open_index(target_db)
+    service = WatchService()
+    try:
+        initial_hits = {
+            hit.file.path for hit in search(reopened, "resumed staged cross root move", limit=5).hits
+        }
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        source.rename(destination)
+        elapsed = _wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "resumed staged cross root move",
+            destination,
+            deadline_seconds=0.5,
+        )
+        deadline = monotonic() + 0.5
+        while monotonic() < deadline:
+            try:
+                event = service.queue.get(timeout=0.05)
+            except Empty:
+                break
+            writer.apply_events([event], record_loader=make_record)
+        alpha_hits = {
+            hit.file.path
+            for hit in search(reopened, "resumed staged cross root move", limit=5, root=root_a).hits
+        }
+        beta_hits = {
+            hit.file.path
+            for hit in search(reopened, "resumed staged cross root move", limit=5, root=root_b).hits
+        }
+        global_hits = {
+            hit.file.path for hit in search(reopened, "resumed staged cross root move", limit=5).hits
+        }
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == {source}
+    assert elapsed <= 0.5
+    assert alpha_hits == set()
+    assert beta_hits == {destination}
+    assert global_hits == {destination}
+    assert not staged_db.exists()
