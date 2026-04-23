@@ -220,6 +220,12 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         watcher_enqueue_aborted=counter_value("watcher_enqueue_aborted"),
         watcher_observers_started=counter_value("watcher_observers_started"),
         watcher_observers_stopped=counter_value("watcher_observers_stopped"),
+        watcher_observer_failures=counter_value("watcher_observer_failures"),
+        watcher_startup_rollbacks=counter_value("watcher_startup_rollbacks"),
+        watcher_observer_cleanup_failures=counter_value("watcher_observer_cleanup_failures"),
+        watcher_observer_startup_cleanup_failures=counter_value(
+            "watcher_observer_startup_cleanup_failures"
+        ),
         index_rebuilds_completed=counter_value("index_rebuilds_completed"),
         commands_started=counter_value("commands_started"),
         commands_completed=counter_value("commands_completed"),
@@ -246,6 +252,15 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         crash_types=_crash_type_summary(counters),
         parser_activity=_parser_activity_summary(counters),
         watcher_event_types=_watcher_event_type_summary(counters),
+        watcher_observer_failure_stages=_prefixed_counter_summary(
+            counters, "watcher_observer_failures."
+        ),
+        watcher_observer_cleanup_failure_stages=_prefixed_counter_summary(
+            counters, "watcher_observer_cleanup_failures."
+        ),
+        watcher_observer_startup_cleanup_failure_stages=_prefixed_counter_summary(
+            counters, "watcher_observer_startup_cleanup_failures."
+        ),
         counters=counters,
         histograms=metrics["histograms"],
         recent_snapshots=[dict(entry) for entry in recent_snapshots()],
@@ -407,13 +422,12 @@ def _parser_activity_summary(counters: dict[str, int]) -> dict[str, dict[str, in
 
 
 def _watcher_event_type_summary(counters: dict[str, int]) -> dict[str, int]:
-    prefix = "watcher_events."
-    event_types = {
-        name[len(prefix) :]: value
-        for name, value in counters.items()
-        if name.startswith(prefix)
-    }
-    return dict(sorted(event_types.items()))
+    return _prefixed_counter_summary(counters, "watcher_events.")
+
+
+def _prefixed_counter_summary(counters: dict[str, int], prefix: str) -> dict[str, int]:
+    summary = {name[len(prefix) :]: value for name, value in counters.items() if name.startswith(prefix)}
+    return dict(sorted(summary.items()))
 
 
 def main(argv: list[str] | None = None) -> int:

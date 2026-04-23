@@ -116,6 +116,10 @@ class StatsSnapshot(BaseModel):
     watcher_enqueue_aborted: int = 0
     watcher_observers_started: int = 0
     watcher_observers_stopped: int = 0
+    watcher_observer_failures: int = 0
+    watcher_startup_rollbacks: int = 0
+    watcher_observer_cleanup_failures: int = 0
+    watcher_observer_startup_cleanup_failures: int = 0
     index_rebuilds_completed: int = 0
     commands_started: int = 0
     commands_completed: int = 0
@@ -142,6 +146,11 @@ class StatsSnapshot(BaseModel):
     crash_types: dict[str, int] = Field(default_factory=dict)
     parser_activity: dict[str, dict[str, int]] = Field(default_factory=dict)
     watcher_event_types: dict[str, int] = Field(default_factory=dict)
+    watcher_observer_failure_stages: dict[str, int] = Field(default_factory=dict)
+    watcher_observer_cleanup_failure_stages: dict[str, int] = Field(default_factory=dict)
+    watcher_observer_startup_cleanup_failure_stages: dict[str, int] = Field(
+        default_factory=dict
+    )
     counters: dict[str, int] = Field(default_factory=dict)
     histograms: dict[str, dict[str, object]] = Field(default_factory=dict)
     recent_snapshots: list[dict[str, object]] = Field(default_factory=list)

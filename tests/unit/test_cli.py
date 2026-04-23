@@ -496,6 +496,10 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["watcher_events_flushed"] == 0
     assert payload["watcher_queue_full"] == 0
     assert payload["watcher_enqueue_aborted"] == 0
+    assert payload["watcher_observer_failures"] == 0
+    assert payload["watcher_startup_rollbacks"] == 0
+    assert payload["watcher_observer_cleanup_failures"] == 0
+    assert payload["watcher_observer_startup_cleanup_failures"] == 0
     assert payload["index_rebuilds_completed"] == 0
     assert payload["commands_started"] == 2
     assert payload["commands_completed"] == 1
@@ -522,6 +526,9 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["crash_types"] == {}
     assert payload["parser_activity"] == {}
     assert payload["watcher_event_types"] == {}
+    assert payload["watcher_observer_failure_stages"] == {}
+    assert payload["watcher_observer_cleanup_failure_stages"] == {}
+    assert payload["watcher_observer_startup_cleanup_failure_stages"] == {}
     assert len(payload["recent_snapshots"]) == 1
     assert payload["recent_snapshots"][0]["name"] == "command.search"
     assert payload["recent_snapshots"][0]["payload"]["query"] == "duplicate"
@@ -635,6 +642,10 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["watcher_events_flushed"] == 2
     assert payload["watcher_queue_full"] == 1
     assert payload["watcher_enqueue_aborted"] == 0
+    assert payload["watcher_observer_failures"] == 0
+    assert payload["watcher_startup_rollbacks"] == 0
+    assert payload["watcher_observer_cleanup_failures"] == 0
+    assert payload["watcher_observer_startup_cleanup_failures"] == 0
     assert payload["process_started_at"].endswith("Z")
     assert payload["pid"] > 0
     assert payload["thread_count"] >= 1
@@ -666,6 +677,9 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["parser_activity"]["broken"]["errors"] == 1
     assert payload["parser_activity"]["text"]["parsed"] >= 2
     assert payload["watcher_event_types"] == {"created": 1, "modified": 1}
+    assert payload["watcher_observer_failure_stages"] == {}
+    assert payload["watcher_observer_cleanup_failure_stages"] == {}
+    assert payload["watcher_observer_startup_cleanup_failure_stages"] == {}
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_path_source"] is None
     assert payload["log_path_disabled_reason"] == "disabled_pytest"
@@ -935,3 +949,59 @@ def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> 
     assert payload["recent_snapshots"][0]["name"] == "command.failure"
     assert payload["recent_snapshots"][0]["payload"]["command"] == "search"
     assert payload["recent_snapshots"][0]["payload"]["reason"] == "nonzero_exit"
+
+
+def test_stats_json_exposes_watcher_observer_failure_metrics(
+    tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    import eodinga.core.watcher as watcher_module
+
+    class FailingScheduleObserver:
+        def schedule(self, _handler: object, _root_text: str, recursive: bool = True) -> None:
+            assert recursive is True
+            raise RuntimeError("simulated schedule failure")
+
+        def start(self) -> None:
+            raise AssertionError("start should not run after schedule failure")
+
+        def stop(self) -> None:
+            return None
+
+        def join(self, timeout: float | None = None) -> None:
+            assert timeout == 1
+
+    class CleanupFailingObserver:
+        def start(self) -> None:
+            return None
+
+        def stop(self) -> None:
+            raise RuntimeError("simulated stop failure")
+
+        def join(self, timeout: float | None = None) -> None:
+            assert timeout == 1
+            raise RuntimeError("simulated join failure")
+
+    service = WatchService()
+    monkeypatch.setattr(watcher_module, "Observer", FailingScheduleObserver)
+    with pytest.raises(RuntimeError, match="simulated schedule failure"):
+        service.start(tmp_path / "watched")
+
+    cleanup_service = WatchService()
+    cleanup_service._observers = {tmp_path / "cleanup": CleanupFailingObserver()}
+    cleanup_service.stop()
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["watcher_observer_failures"] == 1
+    assert payload["watcher_startup_rollbacks"] == 1
+    assert payload["watcher_observer_cleanup_failures"] == 2
+    assert payload["watcher_observer_startup_cleanup_failures"] == 0
+    assert payload["watcher_observer_failure_stages"] == {"schedule": 1}
+    assert payload["watcher_observer_cleanup_failure_stages"] == {"join": 1, "stop": 1}
+    assert payload["watcher_observer_startup_cleanup_failure_stages"] == {}
