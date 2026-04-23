@@ -213,6 +213,7 @@ def recover_interrupted_recovery(path: Path) -> bool:
         return False
     logger = get_logger("index.storage")
     logger.warning("resuming interrupted recovery for {}", path)
+    cleanup_stage = True
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
             return False
@@ -220,11 +221,17 @@ def recover_interrupted_recovery(path: Path) -> bool:
             logger.warning("skipping interrupted recovery swap with uninitialized stage {}", staged_path)
             return False
         atomic_replace_index(staged_path, path)
-    except (OSError, sqlite3.DatabaseError):
+        cleanup_stage = False
+    except OSError:
+        logger.exception("failed interrupted recovery resume for {}", path)
+        cleanup_stage = False
+        return False
+    except sqlite3.DatabaseError:
         logger.exception("failed interrupted recovery resume for {}", path)
         return False
     finally:
-        _cleanup_index_files(staged_path)
+        if cleanup_stage:
+            _cleanup_index_files(staged_path)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
 
@@ -234,6 +241,7 @@ def recover_interrupted_build(path: Path) -> bool:
         return False
     logger = get_logger("index.storage")
     logger.warning("resuming interrupted staged build for {}", path)
+    cleanup_stage = True
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
             return False
@@ -241,11 +249,17 @@ def recover_interrupted_build(path: Path) -> bool:
             logger.warning("skipping interrupted staged build swap with uninitialized stage {}", staged_path)
             return False
         atomic_replace_index(staged_path, path)
-    except (OSError, sqlite3.DatabaseError):
+        cleanup_stage = False
+    except OSError:
+        logger.exception("failed interrupted staged build resume for {}", path)
+        cleanup_stage = False
+        return False
+    except sqlite3.DatabaseError:
         logger.exception("failed interrupted staged build resume for {}", path)
         return False
     finally:
-        _cleanup_index_files(staged_path)
+        if cleanup_stage:
+            _cleanup_index_files(staged_path)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
 

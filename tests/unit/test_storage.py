@@ -492,6 +492,40 @@ def test_recover_interrupted_recovery_rejects_uninitialized_stage(tmp_path: Path
     assert not staged.exists()
 
 
+def test_recover_interrupted_recovery_preserves_stage_when_swap_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/resumable", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    def fail_swap(_staged_path: Path, _target_path: Path) -> None:
+        raise OSError("simulated swap failure")
+
+    monkeypatch.setattr("eodinga.index.storage.atomic_replace_index", fail_swap)
+
+    assert recover_interrupted_recovery(target) is False
+    assert _read_root_paths(target) == ["/live"]
+    assert _read_root_paths(staged) == ["/resumable"]
+
+
 def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path) -> None:
     target = tmp_path / "index.db"
     staged = tmp_path / ".index.db.next"
@@ -537,6 +571,40 @@ def test_recover_interrupted_build_rejects_uninitialized_stage(tmp_path: Path) -
     assert recover_interrupted_build(target) is False
     assert _read_root_paths(target) == ["/live"]
     assert not staged.exists()
+
+
+def test_recover_interrupted_build_preserves_stage_when_swap_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/resumable-build", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    def fail_swap(_staged_path: Path, _target_path: Path) -> None:
+        raise OSError("simulated swap failure")
+
+    monkeypatch.setattr("eodinga.index.storage.atomic_replace_index", fail_swap)
+
+    assert recover_interrupted_build(target) is False
+    assert _read_root_paths(target) == ["/live"]
+    assert _read_root_paths(staged) == ["/resumable-build"]
 
 
 def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
