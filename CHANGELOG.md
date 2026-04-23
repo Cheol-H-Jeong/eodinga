@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.390 - 2026-04-23
+
+- Cached and chunked large `content_map` text fetches in the query executor, reducing repeated SQL-shape churn while keeping large filter and ranking passes on reusable prepared statements.
+- Normalized unicode path and content needles once per fallback scan instead of re-normalizing every term-match probe, trimming work on Korean and other non-ASCII query paths.
+- Added a dedicated unicode query latency benchmark so the performance suite now measures decomposed/NFC mixed-name searches behind `EODINGA_RUN_PERF=1`.
+
 ## 0.1.385 - 2026-04-23
 
 - Fixed slash-delimited query parsing so top-level regex literals and spaced operator regex values now close correctly when the pattern ends with an even run of backslashes before the delimiter.
