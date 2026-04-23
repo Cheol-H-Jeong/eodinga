@@ -25,7 +25,9 @@ PY
 ARCH="${TARGET_ARCH:-amd64}"
 PACKAGE_DIR="${BUILD_ROOT}/eodinga_${VERSION}_${ARCH}"
 ARCHIVE_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}_debroot.tar.gz"
+ARCHIVE_SHA256_PATH="${ARCHIVE_PATH}.sha256"
 DEB_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}.deb"
+DEB_SHA256_PATH="${DEB_PATH}.sha256"
 DRY_RUN=0
 
 if [[ "${1:-}" == "--dry-run" ]]; then
@@ -77,6 +79,7 @@ PY
 
 tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf "${ARCHIVE_PATH}" -C "${BUILD_ROOT}" "$(basename "${PACKAGE_DIR}")"
 python3 - <<PY
+import hashlib
 import gzip
 import json
 import os
@@ -111,6 +114,12 @@ for line in debian_control_template_path.read_text(encoding="utf-8").splitlines(
     key, value = line.split(":", 1)
     template_control_entries[key] = value.strip()
 changelog_text = gzip.decompress(changelog_path.read_bytes()).decode("utf-8")
+archive_path = Path("${ARCHIVE_PATH}")
+archive_sha256 = hashlib.sha256(archive_path.read_bytes()).hexdigest()
+archive_sha256_path = Path("${ARCHIVE_SHA256_PATH}")
+archive_sha256_path.write_text(f"{archive_sha256}  {archive_path.name}\n", encoding="utf-8")
+deb_path = Path("${DEB_PATH}")
+deb_sha256_path = Path("${DEB_SHA256_PATH}")
 with tarfile.open("${ARCHIVE_PATH}", mode="r:gz") as archive:
     members = archive.getmembers()
 payload = {
@@ -120,10 +129,18 @@ payload = {
     "package_dir": "${PACKAGE_DIR}",
     "control_path": str(control_path),
     "archive": "${ARCHIVE_PATH}",
+    "archive_sha256_path": str(archive_sha256_path),
     "archive_entries_sorted": [member.name for member in members] == sorted(member.name for member in members),
     "archive_mtime_zero": all(member.mtime == 0 for member in members),
     "archive_numeric_owner_zero": all(member.uid == 0 and member.gid == 0 for member in members),
+    "archive_sha256": archive_sha256,
+    "archive_sha256_file_exists": archive_sha256_path.exists(),
+    "archive_sha256_matches_file": archive_sha256_path.read_text(encoding="utf-8").strip() == f"{archive_sha256}  {archive_path.name}",
     "deb_path": "${DEB_PATH}",
+    "deb_sha256_path": str(deb_sha256_path),
+    "deb_sha256": None,
+    "deb_sha256_file_exists": False,
+    "deb_sha256_matches_file": False,
     "dry_run": bool(${DRY_RUN}),
     "control": {
         "package": control_entries.get("Package"),
@@ -185,4 +202,20 @@ if [[ "${DRY_RUN}" -eq 1 ]]; then
 fi
 
 dpkg-deb --build "${PACKAGE_DIR}" "${DEB_PATH}"
+python3 - <<PY
+import hashlib
+import json
+from pathlib import Path
+
+deb_path = Path("${DEB_PATH}")
+deb_sha256 = hashlib.sha256(deb_path.read_bytes()).hexdigest()
+deb_sha256_path = Path("${DEB_SHA256_PATH}")
+deb_sha256_path.write_text(f"{deb_sha256}  {deb_path.name}\n", encoding="utf-8")
+audit_path = Path("${AUDIT_PATH}")
+payload = json.loads(audit_path.read_text(encoding="utf-8"))
+payload["deb_sha256"] = deb_sha256
+payload["deb_sha256_file_exists"] = deb_sha256_path.exists()
+payload["deb_sha256_matches_file"] = deb_sha256_path.read_text(encoding="utf-8").strip() == f"{deb_sha256}  {deb_path.name}"
+audit_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+PY
 echo "built Debian package at ${DEB_PATH}"

@@ -409,10 +409,17 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (payload.get("archive_entries_sorted"), "Debian dry-run archive entries are no longer sorted"),
         (payload.get("archive_mtime_zero"), "Debian dry-run archive member mtimes are no longer reproducible"),
         (payload.get("archive_numeric_owner_zero"), "Debian dry-run archive ownership is no longer reproducible"),
+        (payload.get("archive_sha256_file_exists"), "Debian dry-run archive SHA-256 companion file is missing"),
+        (payload.get("archive_sha256_matches_file"), "Debian dry-run archive SHA-256 companion file no longer matches the staged archive"),
     ]
     for ok, message in required_flags:
         if not ok:
             errors.append(message)
+    if payload.get("target") == "linux-deb":
+        if not payload.get("deb_sha256_file_exists"):
+            errors.append("Debian package SHA-256 companion file is missing")
+        if not payload.get("deb_sha256_matches_file"):
+            errors.append("Debian package SHA-256 companion file no longer matches the built package")
     return errors
 
 

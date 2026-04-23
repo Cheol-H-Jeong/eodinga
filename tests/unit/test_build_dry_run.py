@@ -543,6 +543,70 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
     assert "Debian package filename does not match the package version and arch" in errors
 
 
+def test_linux_deb_audit_validator_rejects_checksum_drift() -> None:
+    module = _load_build_module()
+    payload = {
+        "target": "linux-deb",
+        "version": __version__,
+        "arch": "amd64",
+        "archive": f"packaging/dist/eodinga_{__version__}_amd64_debroot.tar.gz",
+        "deb_path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "archive_sha256_file_exists": True,
+        "archive_sha256_matches_file": False,
+        "deb_sha256_file_exists": True,
+        "deb_sha256_matches_file": False,
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+            "architecture": "amd64",
+            "depends": "python3 (>= 3.11)",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "debian_control_template": {
+            "exists": True,
+            "contains_version_template": True,
+            "contains_arch_template": True,
+            "rendered_exists": True,
+            "source": "eodinga",
+            "maintainer": "Cheol-H-Jeong",
+            "binary_package": "eodinga",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "launches_gui": True,
+            "icon_matches_package": True,
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "executes_python_module": True,
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": True,
+            "changelog_has_current_release_heading": True,
+            "changelog_gzip_mtime_zero": True,
+        },
+    }
+
+    errors = module._validate_linux_deb_audit(payload, __version__, __version__)
+
+    assert "Debian dry-run archive SHA-256 companion file no longer matches the staged archive" in errors
+    assert "Debian package SHA-256 companion file no longer matches the built package" in errors
+
+
 def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
     result = subprocess.run(
         [sys.executable, "packaging/build.py", "--target", "linux-appimage"],
@@ -584,9 +648,13 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert Path(payload["package_dir"]).exists()
     assert Path(payload["control_path"]).exists()
     assert Path(payload["archive"]).exists()
+    assert Path(payload["archive_sha256_path"]).exists()
     assert payload["archive_entries_sorted"] is True
     assert payload["archive_mtime_zero"] is True
     assert payload["archive_numeric_owner_zero"] is True
+    assert payload["archive_sha256"]
+    assert payload["archive_sha256_file_exists"] is True
+    assert payload["archive_sha256_matches_file"] is True
     assert payload["control"] == {
         "package": "eodinga",
         "version": __version__,
@@ -638,8 +706,15 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert Path(payload["package_dir"]).exists()
     assert Path(payload["control_path"]).exists()
     assert Path(payload["deb_path"]).exists()
+    assert Path(payload["archive_sha256_path"]).exists()
+    assert Path(payload["deb_sha256_path"]).exists()
     assert payload["archive_entries_sorted"] is True
     assert payload["archive_mtime_zero"] is True
     assert payload["archive_numeric_owner_zero"] is True
+    assert payload["archive_sha256_file_exists"] is True
+    assert payload["archive_sha256_matches_file"] is True
+    assert payload["deb_sha256"]
+    assert payload["deb_sha256_file_exists"] is True
+    assert payload["deb_sha256_matches_file"] is True
     assert payload["icon"]["exists"] is True
     assert payload["docs"]["changelog_exists"] is True
