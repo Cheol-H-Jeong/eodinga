@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.960 - 2026-04-24
+
+- Clarified the README’s release-proof workflow with a smallest-validation routing table and a docs-only FAQ entry, so docs rounds can stop at the first sufficient command instead of guessing at the full gate.
+- Added architecture and release-guide evidence routing that maps each surface change to its matching generated asset or dry-run manifest, keeping review paths tied to the subsystem that actually moved.
+- Added a contributor handoff note template for worker rounds, making the command bundle, inspected artifact, changed sections, and gate status explicit in docs-heavy handoffs.
+
 ## 0.1.953 - 2026-04-24
 
 - Fixed open-ended relative date filters so queries like `date:today..` and `date:..yesterday` work the same way as closed relative ranges instead of falling through the ISO-only parser.
