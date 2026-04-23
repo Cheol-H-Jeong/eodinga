@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.508 - 2026-04-23
+
+- Stopped watcher flush retries from silently dropping the tail of a ready batch when queue backpressure interrupts delivery, so deferred file events stay pending and are published on the next flush.
+- Made watcher startup transactional by tearing down the just-created flush thread when observer scheduling or startup fails, which avoids leaking background watcher state after a partial boot failure.
+
 ## 0.1.504 - 2026-04-23
 
 - Expanded `stats --json` with rebuild completion, rebuild latency, and batch-size summaries so operators can inspect indexing throughput without decoding raw metric keys.
