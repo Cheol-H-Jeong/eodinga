@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.871 - 2026-04-23
+## 0.1.872 - 2026-04-23
 
 - Added compact `stats --json` summaries for file log sink sources and disable reasons, so runtime sink selection is visible without spelunking raw counters.
 - Surfaced watcher observer failure totals, startup rollback counts, and per-stage cleanup failure summaries in stats output, making startup and teardown issues easier to diagnose.
