@@ -12,6 +12,7 @@ from eodinga.core.fs import resolve_safe, scandir_safe, stat_follow_safe, stat_s
 from eodinga.core.rules import should_index
 
 BATCH_SIZE = 8192
+_QueuedPath = Path | tuple[Path, stat_result | None]
 
 
 def _to_record(root_id: int, path: Path, stat_result: stat_result) -> FileRecord:
@@ -49,17 +50,32 @@ def _should_descend(path: Path, root: Path, stat_result: stat_result) -> bool:
         return False
 
 
+def _queue_path(item: _QueuedPath) -> Path:
+    if isinstance(item, Path):
+        return item
+    return item[0]
+
+
+def _queue_stat(item: _QueuedPath) -> stat_result | None:
+    if isinstance(item, Path):
+        return None
+    return item[1]
+
+
 def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[list[FileRecord]]:
-    queue: deque[Path] = deque([root])
+    queue: deque[_QueuedPath] = deque([root])
     visited_dirs: set[tuple[int, int]] = set()
     visited_resolved_dirs: set[Path] = set()
     batch: list[FileRecord] = []
     while queue:
-        current = queue.popleft()
-        try:
-            stat_result = stat_safe(current)
-        except OSError:
-            continue
+        current_item = queue.popleft()
+        current = _queue_path(current_item)
+        stat_result = _queue_stat(current_item)
+        if stat_result is None:
+            try:
+                stat_result = stat_safe(current)
+            except OSError:
+                continue
         if not should_index(current, rules):
             continue
         batch.append(_to_record(root_id=root_id, path=current, stat_result=stat_result))
@@ -83,6 +99,6 @@ def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[lis
             children = scandir_safe(current)
         except OSError:
             continue
-        queue.extend(children)
+        queue.extend((entry.path, entry.stat_result) if hasattr(entry, "stat_result") else entry for entry in children)
     if batch:
         yield batch

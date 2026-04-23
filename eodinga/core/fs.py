@@ -4,7 +4,7 @@ import os
 import re
 from collections.abc import Iterator
 from pathlib import Path
-from typing import IO, cast
+from typing import IO, NamedTuple, cast
 
 DENYLIST = (
     "/proc",
@@ -25,6 +25,11 @@ DENYLIST = (
 
 _HIDDEN_NAMES = {".git", ".hg", ".svn", ".cache", "__pycache__"}
 _WINDOWS_ABS_RE = re.compile(r"^[A-Za-z]:[\\/]")
+
+
+class _ScandirEntry(NamedTuple):
+    path: Path
+    stat_result: os.stat_result | None
 
 
 def open_readonly(path: Path, mode: str = "rb", encoding: str | None = None) -> IO[str] | IO[bytes]:
@@ -67,10 +72,14 @@ def stat_follow_safe(path: Path) -> os.stat_result:
     return path.stat()
 
 
-def scandir_safe(path: Path) -> Iterator[Path]:
+def scandir_safe(path: Path) -> Iterator[_ScandirEntry]:
     with os.scandir(path) as entries:
         for entry in entries:
-            yield Path(entry.path)
+            try:
+                stat_result = entry.stat(follow_symlinks=False)
+            except OSError:
+                stat_result = None
+            yield _ScandirEntry(Path(entry.path), stat_result)
 
 
 def is_hidden(path: Path) -> bool:

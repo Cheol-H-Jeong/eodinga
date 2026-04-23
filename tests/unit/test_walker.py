@@ -36,7 +36,7 @@ def test_walk_batched_visits_files_once_and_avoids_symlink_loop(tmp_path: Path) 
     assert before == after
 
 
-def test_walk_batched_reuses_discovery_stat_result(
+def test_walk_batched_uses_scandir_metadata_for_child_entries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = tmp_path / "tree"
@@ -59,8 +59,8 @@ def test_walk_batched_reuses_discovery_stat_result(
 
     assert {record.path for record in records} == {root, nested, sample}
     assert stat_calls.count(root) == 1
-    assert stat_calls.count(nested) == 1
-    assert stat_calls.count(sample) == 1
+    assert stat_calls.count(nested) == 0
+    assert stat_calls.count(sample) == 0
 
 
 def test_walk_batched_uses_fs_wrapper_to_detect_symlinked_directories(
