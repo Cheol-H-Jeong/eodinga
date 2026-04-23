@@ -73,6 +73,11 @@ def scandir_safe(path: Path) -> Iterator[Path]:
             yield Path(entry.path)
 
 
+def scandir_entries_safe(path: Path) -> Iterator[os.DirEntry[str]]:
+    with os.scandir(path) as entries:
+        yield from entries
+
+
 def is_hidden(path: Path) -> bool:
     return any(part.startswith(".") or part in _HIDDEN_NAMES for part in path.parts)
 
@@ -82,6 +87,7 @@ __all__ = [
     "is_hidden",
     "open_readonly",
     "resolve_safe",
+    "scandir_entries_safe",
     "scandir_safe",
     "stat_follow_safe",
     "stat_safe",
