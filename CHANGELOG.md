@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.745 - 2026-04-23
+## 0.1.746 - 2026-04-23
 
 - Reworked the launcher's keyboard focus flow so `Tab` and `Shift+Tab` can reach pinned queries, recent queries, results, and result actions without trapping keyboard users between only the search box and result list.
 - Updated launcher preview and action-bar accessibility descriptions to announce whether a result is selected and which file is currently being previewed.
