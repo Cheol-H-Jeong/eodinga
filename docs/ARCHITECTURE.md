@@ -244,6 +244,17 @@ runtime surface changes
 - `scripts/render_docs_screenshots.py` renders offscreen Qt widgets through `eodinga.gui.docs`, keeping screenshots tied to real UI state instead of mock assets.
 - `tests/unit/test_docs_assets.py` pins the presence of the shipped sections and checks that the derived man page still matches the checked-in artifact.
 
+## Derived Asset Ownership Matrix
+
+| Derived asset | Source of truth | Refresh command | Why it matters |
+| --- | --- | --- | --- |
+| `docs/man/eodinga.1` | `eodinga.__main__._build_parser()` | `python scripts/generate_manpage.py` | keeps the packaged CLI reference derived from argparse instead of hand-edited prose |
+| `docs/screenshots/*.png` | `eodinga.gui.docs` Qt surfaces | `python scripts/render_docs_screenshots.py` | proves the documented UI and keyboard flow still exist on real widgets |
+| `packaging/dist/*` audit outputs | `packaging/build.py` dry-run targets | `python packaging/build.py --target ...-dry-run` | turns installer and package claims into reviewable artifacts instead of assumptions |
+
+- The release workflow depends on these generated assets because prose alone cannot prove that the CLI, GUI, and packaging surfaces still match the current code.
+- Treating them as first-class architecture outputs keeps docs-only rounds aligned with the same derivation boundaries as runtime changes.
+
 ## Release Input Map
 
 ```text
@@ -260,6 +271,18 @@ runtime code / CLI / UI changes
 
 - The release flow treats documentation, generated assets, and packaging manifests as part of the same shipped surface.
 - This is why docs-only rounds still run `tests/unit/test_docs_assets.py` and the matching dry-run or GUI smoke command instead of stopping at markdown edits.
+
+## Release Failure Isolation
+
+| Failure signal | First owner to inspect | Typical repair scope |
+| --- | --- | --- |
+| `tests/unit/test_docs_assets.py` fails | README or `docs/*.md` contract | headings, links, stale examples, or missing generated-doc references |
+| GUI smoke no longer matches docs/screenshots | `eodinga.gui.*` plus `docs/screenshots/*.png` | refresh screenshots or fix the described UI path |
+| packaging dry run contradicts docs | `packaging/build.py`, `packaging/linux/*`, or `packaging/windows/*` | staged payload metadata, artifact naming, bundled docs list |
+| version or changelog mismatch | release metadata files only | final metadata commit and local tag retarget |
+
+- This keeps release debugging narrow: start at the contract that failed instead of re-running the entire gate blindly.
+- The same isolation rule applies to docs-only rounds, where the failing evidence usually points directly at one derived asset family.
 
 ## Docs-Only Change Path
 
