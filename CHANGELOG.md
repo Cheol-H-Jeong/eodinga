@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.379 - 2026-04-23
+## 0.1.385 - 2026-04-23
 
 - Fixed slash-delimited query parsing so top-level regex literals and spaced operator regex values now close correctly when the pattern ends with an even run of backslashes before the delimiter.
 - Normalized cross-token phrase fallback matching against the searched text before punctuation bridging, so decomposed Korean content still matches phrase queries such as `content:"회의록 초안"`.
