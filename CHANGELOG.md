@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.518 - 2026-04-23
+## 0.1.522 - 2026-04-23
 
 - Tightened unary `-` parsing so only directly attached terms are treated as negation, while dashed literals followed by whitespace no longer fail fuzzed parse and compile paths.
 - Stabilized equal-score query result ordering by breaking ties on normalized name, path, and then id, preventing rebuild-dependent shuffles when scores are identical.
