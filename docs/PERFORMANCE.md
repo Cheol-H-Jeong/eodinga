@@ -89,6 +89,16 @@ When you refresh this table, record:
 3. Any non-default env overrides that changed dataset size or gate thresholds.
 4. Whether the run was warm-cache or after a cold filesystem cache reset.
 
+## Repro Checklist
+
+Use this short checklist before replacing the baseline table:
+
+1. Reuse the same virtualenv and dependency set used for the current branch.
+2. Note whether the machine was otherwise idle and whether the filesystem cache was warm.
+3. Capture the exact stdout summary line from the perf test instead of paraphrasing the result.
+4. Record every non-default `EODINGA_PERF_*` override next to the benchmark output.
+5. Update the document only after a repeat run lands in the same range.
+
 ## Interpreting Results
 
 - `tests/perf/test_cold_start.py` exercises walker and bulk-upsert throughput. It is the best low-level proxy for first-index regressions.
@@ -120,3 +130,9 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 - Query latency benchmarks are most useful as relative comparisons across rounds; the absolute number depends heavily on cache warmth and SQLite page cache state.
 - Content-query numbers move with parser output volume as much as with ranking logic, so compare corpus shape before attributing a slowdown to the executor.
 - Watch-latency failures should be read as an end-to-end signal; check watchdog delivery, event batching, SQLite commit timing, and query visibility before assuming the bottleneck is filesystem notification latency itself.
+
+## Release Use
+
+- Perf results are informational for `0.1.x`; they do not replace the default acceptance gate.
+- A perf-table refresh belongs in the same round only when the benchmark was rerun at the current HEAD and the documented numbers come from that run.
+- If a code or docs round did not rerun the benchmark, leave the baseline table alone and avoid pretending the old numbers describe the new tip exactly.

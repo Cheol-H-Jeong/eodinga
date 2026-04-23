@@ -43,6 +43,8 @@ source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyri
 
 For worker rounds, keep the release pass single-shot and non-interactive so a pasted command either finishes cleanly or stops on the first failing stage.
 
+If the one-command pass fails, fix the first failing stage before rerunning. Later packaging or workflow failures are not actionable until the earlier repo-health checks are clean.
+
 Recommended order:
 
 1. `pytest -q tests/unit` after every logical commit.
@@ -78,6 +80,26 @@ pytest -q tests/unit/test_docs_assets.py
 ```
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
+
+## Tag Decision Path
+
+```text
+round changes assembled
+    |
+    +--> pytest / ruff / pyright / GUI smoke green?
+    |       |
+    |       +--> no: fix repo state first
+    |
+    +--> packaging dry-runs and workflow lint green?
+    |       |
+    |       +--> no: inspect packaging/dist/ and repair staged inputs
+    |
+    +--> shipped docs + derived assets match current runtime?
+    |       |
+    |       +--> no: refresh docs or regenerate assets
+    |
+    +--> cut metadata commit + local tag
+```
 
 ## Worker Handoff Rules
 
@@ -132,3 +154,4 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py` all agree on `0.1.N`.
 - The local tag points at the final commit for the round, not an earlier docs or feature commit.
 - The final release commit remains reviewable on its own and does not hide unrelated feature edits.
+- `packaging/dist/` has been reviewed for the dry-run targets touched by the round.

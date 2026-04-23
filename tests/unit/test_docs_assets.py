@@ -111,14 +111,17 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Search Decision Path" in architecture
     assert "## Live Update Sequence" in architecture
     assert "## Documentation Asset Flow" in architecture
+    assert "## Release Input Map" in architecture
     assert "## State Ownership" in architecture
     assert "## Failure Domains" in architecture
     assert "## Operator Debug Path" in architecture
     assert "## Packaging Surfaces" in architecture
+    assert "## Packaging Review Path" in architecture
     assert "compressed changelog" in architecture
     assert "scripts/generate_manpage.py" in architecture
     assert "scripts/render_docs_screenshots.py" in architecture
     assert "tests/unit/test_docs_assets.py" in architecture
+    assert "packaging/dist/" in architecture
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
@@ -165,7 +168,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "EODINGA_PERF_REBUILD_MIN_FPS" in performance
     assert "## Running the Suite" in performance
     assert "## Baseline" in performance
+    assert "## Repro Checklist" in performance
     assert "## Profiling Workflow" in performance
+    assert "## Release Use" in performance
     assert "Each benchmark prints a structured summary line to stdout." in performance
     assert "The defaults currently checked into the suite are:" in performance
     assert "The printed benchmark summary line." in performance
@@ -175,6 +180,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Run The Gate" in release
     assert "## Artifact Inventory" in release
     assert "## Verify Shipped Docs" in release
+    assert "## Tag Decision Path" in release
     assert "## Worker Handoff Rules" in release
     assert "## Docs-Only Rounds" in release
     assert "## Cut The Local Release" in release
@@ -185,6 +191,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "git tag -l \"v0.1.N\"" in release
     assert "Collision check example" in release
     assert "Do not push tags or release branches from a worker worktree." in release
+    assert "packaging/dist/" in release
 
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage

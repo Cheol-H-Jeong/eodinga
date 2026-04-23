@@ -200,6 +200,23 @@ runtime surface changes
 - `scripts/render_docs_screenshots.py` renders offscreen Qt widgets through `eodinga.gui.docs`, keeping screenshots tied to real UI state instead of mock assets.
 - `tests/unit/test_docs_assets.py` pins the presence of the shipped sections and checks that the derived man page still matches the checked-in artifact.
 
+## Release Input Map
+
+```text
+runtime code / CLI / UI changes
+    |
+    +--> README.md + docs/*.md
+    |
+    +--> generated man page / screenshots
+    |
+    +--> packaging dry-run manifests in packaging/dist/
+    |
+    +--> acceptance gate + local tag
+```
+
+- The release flow treats documentation, generated assets, and packaging manifests as part of the same shipped surface.
+- This is why docs-only rounds still run `tests/unit/test_docs_assets.py` and the matching dry-run or GUI smoke command instead of stopping at markdown edits.
+
 ## State Ownership
 
 | State | Owner | Why it lives there |
@@ -271,6 +288,13 @@ startup
 - Windows packaging uses `packaging/pyinstaller.spec`, `packaging/windows/eodinga.iss`, and `packaging/build.py --target windows-dry-run`.
 - Documentation screenshots are rendered from the real Qt surfaces through `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
 - Release docs also ship a generated CLI man page under `docs/man/` so packaged audits can verify the command surface without importing the project interactively.
+
+## Packaging Review Path
+
+1. Run the matching `packaging/build.py --target ...-dry-run` command.
+2. Inspect the emitted manifest or staged payload summary under `packaging/dist/`.
+3. Compare the staged docs payload with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
+4. Cut the local tag only after the dry-run output and shipped docs agree.
 
 ## Platform Surface Summary
 
