@@ -17,6 +17,7 @@ source .venv/bin/activate
 EODINGA_RUN_PERF=1 pytest -q tests/perf/test_cold_start.py -s
 EODINGA_RUN_PERF=1 pytest -q tests/perf/test_bulk_upsert.py -s
 EODINGA_RUN_PERF=1 pytest -q tests/perf/test_query_latency.py -s
+EODINGA_RUN_PERF=1 pytest -q tests/perf/test_query_fallback_latency.py -s
 EODINGA_RUN_PERF=1 pytest -q tests/perf/test_content_query.py -s
 EODINGA_RUN_PERF=1 pytest -q tests/perf/test_watch_latency.py -s
 ```
@@ -29,6 +30,7 @@ The current perf suite covers the SPEC §6.3 scenarios with smaller local-dev da
 - `tests/perf/test_cold_start.py::test_rebuild_cold_start_throughput`: staged rebuild throughput through the real `rebuild_index()` entry point.
 - `tests/perf/test_bulk_upsert.py`: isolated writer throughput for 50k synthetic records.
 - `tests/perf/test_query_latency.py`: name-only query latency against a 50k-file index.
+- `tests/perf/test_query_fallback_latency.py`: regex-only fallback scan latency against a 2k-file index.
 - `tests/perf/test_content_query.py`: content query latency against a 5k-document corpus.
 - `tests/perf/test_watch_latency.py`: file-create to query-visible latency through the watcher path.
 
@@ -54,6 +56,7 @@ Supported overrides:
 - `EODINGA_PERF_REBUILD_MIN_FPS`
 - `EODINGA_PERF_BULK_FILE_COUNT`, `EODINGA_PERF_BULK_MIN_RPS`
 - `EODINGA_PERF_QUERY_FILE_COUNT`, `EODINGA_PERF_QUERY_COUNT`, `EODINGA_PERF_QUERY_P95_MS`
+- `EODINGA_PERF_FALLBACK_QUERY_FILE_COUNT`, `EODINGA_PERF_FALLBACK_QUERY_COUNT`, `EODINGA_PERF_FALLBACK_QUERY_P95_MS`
 - `EODINGA_PERF_CONTENT_DOC_COUNT`, `EODINGA_PERF_CONTENT_QUERY_COUNT`, `EODINGA_PERF_CONTENT_P95_MS`
 - `EODINGA_PERF_WATCH_FILE_COUNT`, `EODINGA_PERF_WATCH_P99_SECONDS`
 
@@ -64,6 +67,7 @@ The defaults currently checked into the suite are:
 | Cold start | `EODINGA_PERF_COLD_START_FILE_COUNT=20000` | `EODINGA_PERF_COLD_START_MIN_FPS=4000`, `EODINGA_PERF_REBUILD_MIN_FPS=3500` |
 | Bulk upsert | `EODINGA_PERF_BULK_FILE_COUNT=50000` | `EODINGA_PERF_BULK_MIN_RPS=20000` |
 | Name query | `EODINGA_PERF_QUERY_FILE_COUNT=50000`, `EODINGA_PERF_QUERY_COUNT=2000` | `EODINGA_PERF_QUERY_P95_MS=30` |
+| Fallback query | `EODINGA_PERF_FALLBACK_QUERY_FILE_COUNT=2000`, `EODINGA_PERF_FALLBACK_QUERY_COUNT=100` | `EODINGA_PERF_FALLBACK_QUERY_P95_MS=80` |
 | Content query | `EODINGA_PERF_CONTENT_DOC_COUNT=5000`, `EODINGA_PERF_CONTENT_QUERY_COUNT=500` | `EODINGA_PERF_CONTENT_P95_MS=150` |
 | Watch latency | `EODINGA_PERF_WATCH_FILE_COUNT=25` | `EODINGA_PERF_WATCH_P99_SECONDS=2.0` |
 
@@ -126,6 +130,7 @@ Use this short checklist before replacing the baseline table:
 - `tests/perf/test_cold_start.py::test_rebuild_cold_start_throughput` measures the actual staged rebuild path, including temp-index creation and atomic swap.
 - `tests/perf/test_bulk_upsert.py` isolates the writer path when you want to distinguish SQLite insert churn from walker traversal cost.
 - `tests/perf/test_query_latency.py` isolates name/path lookup cost without parser noise.
+- `tests/perf/test_query_fallback_latency.py` isolates regex-only fallback scan cost when the executor has to leave the FTS fast path.
 - `tests/perf/test_content_query.py` tracks content-index ranking and snippet latency.
 - `tests/perf/test_watch_latency.py` measures file-create to query-visible lag through the watcher path.
 
