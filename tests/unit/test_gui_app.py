@@ -45,6 +45,13 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.settings_tab.system_theme_checkbox.accessibleName() == "Use system theme"
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
     assert window.about_tab.accessibleName() == "About tab"
+    if window.tray_indicator._tray is not None:
+        menu = window.tray_indicator._tray.contextMenu()
+        assert menu is not None
+        assert menu.objectName() == "Tray menu"
+        actions = menu.actions()
+        assert actions[0].objectName() == "Tray status"
+        assert actions[2].objectName() == "Tray show launcher"
 
 
 def test_app_updates_index_status_in_tab_and_tray(qapp) -> None:

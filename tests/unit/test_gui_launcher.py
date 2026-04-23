@@ -592,4 +592,12 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
 
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
+    assert launcher.filter_chip_label.accessibleName() == "Launcher active filters"
     assert launcher.result_list.accessibleName() == "Launcher results list"
+    assert launcher.status_chip.accessibleName() == "Launcher status chip"
+    assert launcher.shortcut_label.accessibleName() == "Launcher shortcut hint"
+    assert launcher.status_label.accessibleName() == "Launcher query status"
+    assert launcher.empty_state.accessibleName() == "Launcher empty state"
+    assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"
+    assert launcher.empty_state.body_label.accessibleName() == "Launcher empty state body"
+    assert launcher.empty_state.details_label.accessibleName() == "Launcher empty state details"
