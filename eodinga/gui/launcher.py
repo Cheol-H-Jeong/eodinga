@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.config import AppConfig
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
-from eodinga.gui.widgets import EmptyState, ResultItemDelegate, SearchField, StatusChip
+from eodinga.gui.widgets import EmptyState, LauncherPreviewPane, ResultItemDelegate, SearchField, StatusChip
 from eodinga.gui.widgets.result_item import format_hit_html
 from eodinga.observability import get_logger
 
@@ -155,6 +155,9 @@ class LauncherPanel(QWidget):
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
         self.result_list.setUniformItemSizes(False)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
+        self.result_list.setMouseTracking(True)
+        self.result_list.viewport().setMouseTracking(True)
+        self.preview_pane = LauncherPreviewPane(self)
         self.status_chip = StatusChip("Idle", self)
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
@@ -176,6 +179,7 @@ class LauncherPanel(QWidget):
         layout.addWidget(self.query_field)
         layout.addWidget(self.result_list, 1)
         layout.addWidget(self.empty_state)
+        layout.addWidget(self.preview_pane)
 
         footer = QHBoxLayout()
         footer.addWidget(self.status_chip)
@@ -186,8 +190,10 @@ class LauncherPanel(QWidget):
 
         self.query_field.textChanged.connect(self._schedule_query)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
+        self.result_list.entered.connect(self._preview_index)
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
+        self.result_list.selectionModel().currentChanged.connect(lambda current, _: self._preview_index(current))
 
         self._shortcuts = [
             QShortcut(QKeySequence(Qt.Key.Key_Return), self),
@@ -219,6 +225,7 @@ class LauncherPanel(QWidget):
 
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
+        self._refresh_preview()
 
     def set_search_fn(self, search_fn: SearchFn) -> None:
         self._search_fn = search_fn
@@ -317,6 +324,7 @@ class LauncherPanel(QWidget):
         self._restore_selection(previous_hit)
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
+        self._refresh_preview()
         self.results_updated.emit(self._latest_result)
         get_logger().debug("launcher query '{}' returned {}", query, self._latest_result.total)
 
@@ -355,6 +363,7 @@ class LauncherPanel(QWidget):
             )
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
+        self.preview_pane.setVisible(has_results)
 
     def _refresh_shortcut_hint(self) -> None:
         has_results = self.model.rowCount() > 0
@@ -451,6 +460,23 @@ class LauncherPanel(QWidget):
     def _set_selection(self, row: int) -> None:
         self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(row, 0)))
         self.result_list.scrollTo(self.result_list.currentIndex())
+
+    def _preview_index(self, index: QModelIndex) -> None:
+        if not index.isValid():
+            self.preview_pane.clear_preview()
+            return
+        hit = self.model.item_at(index.row())
+        if hit is None:
+            self.preview_pane.clear_preview()
+            return
+        self.preview_pane.set_hit(hit)
+
+    def _refresh_preview(self) -> None:
+        current = self.result_list.currentIndex()
+        if current.isValid():
+            self._preview_index(current)
+            return
+        self.preview_pane.clear_preview()
 
     def _navigate_recent_queries(self, direction: int) -> None:
         if not self._recent_queries:
@@ -566,4 +592,20 @@ class LauncherWindow(LauncherPanel):
         ):
             return
         self._config.launcher = self._config.launcher.model_copy(update=geometry)
+        self._config.save(self._config_path)
+
+    def set_always_on_top(self, enabled: bool) -> None:
+        current = bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
+        was_visible = self.isVisible()
+        if current != enabled:
+            self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, enabled)
+            if was_visible:
+                self.show()
+                self.raise_()
+                self.activateWindow()
+        if self._config is None or self._config_path is None:
+            return
+        if self._config.launcher.always_on_top == enabled:
+            return
+        self._config.launcher = self._config.launcher.model_copy(update={"always_on_top": enabled})
         self._config.save(self._config_path)

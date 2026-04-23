@@ -140,6 +140,34 @@ def test_launcher_respects_always_on_top_config(qapp, temp_config_path: Path) ->
     qapp.processEvents()
 
 
+def test_settings_tab_toggles_launcher_always_on_top_live_and_persists(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"always_on_top": False})
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    checkbox = window.settings_tab.controls.always_on_top_checkbox
+    assert checkbox.accessibleName() == "Launcher always-on-top checkbox"
+    assert not bool(launcher.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
+
+    checkbox.setChecked(True)
+    qapp.processEvents()
+
+    assert bool(launcher.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
+    assert load(temp_config_path).launcher.always_on_top is True
+
+    checkbox.setChecked(False)
+    qapp.processEvents()
+
+    assert not bool(launcher.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
+    assert load(temp_config_path).launcher.always_on_top is False
+
+    window.close()
+    qapp.processEvents()
+
+
 def test_tray_activation_toggles_launcher_visibility(qapp) -> None:
     window = EodingaWindow()
 

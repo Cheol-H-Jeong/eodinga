@@ -115,7 +115,7 @@ class EodingaWindow(QMainWindow):
         self.roots_tab = RootsTab(self)
         self.index_tab = IndexTab(self)
         self.search_tab = SearchTab(search_fn=search_fn, state=self.launcher_state, parent=self)
-        self.settings_tab = SettingsTab(self)
+        self.settings_tab = SettingsTab(config=config, config_path=config_path, launcher_window=self.launcher_window, parent=self)
         self.about_tab = AboutTab(self)
 
         self.tab_widget.addTab(self.roots_tab, "Roots")

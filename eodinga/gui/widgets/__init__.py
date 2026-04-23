@@ -2,16 +2,19 @@ from __future__ import annotations
 
 from .button import PrimaryButton, SecondaryButton
 from .empty_state import EmptyState
+from .preview_pane import LauncherPreviewPane
 from .result_item import ResultItemDelegate
 from .search_field import SearchField
+from .settings_controls import LauncherSettingsControls
 from .status_chip import StatusChip
 
 __all__ = [
     "EmptyState",
+    "LauncherPreviewPane",
+    "LauncherSettingsControls",
     "PrimaryButton",
     "ResultItemDelegate",
     "SearchField",
     "SecondaryButton",
     "StatusChip",
 ]
-
