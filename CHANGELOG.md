@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.550 - 2026-04-23
+
+- Hardened the Linux AppImage and Debian audits so desktop entries now fail if they stop declaring `Type=Application` or re-enable terminal launch, keeping staged GUI packages aligned with the shipped desktop asset contract.
+- Tightened the Windows installer audit to enforce the per-user install path, lowest-privilege mode, desktop/autostart tasks, Korean language pack, and other rendered Inno flags instead of merely reporting them.
+- Pinned staged Linux packaging file modes to explicit `0644` and `0755` values and taught the dry-run audits to reject mode drift for launchers, icons, `.DirIcon`, license, and changelog payloads.
+
 ## 0.1.540 - 2026-04-23
 
 - Normalized remapped launcher hotkeys into a stable canonical form, so spaced or alias-heavy input like `Control + Alt + K` now rebinds, persists, and displays as `ctrl+alt+k`.
