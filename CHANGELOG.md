@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.553 - 2026-04-23
+
+- Cached the executor's dynamic `content_map.file_id IN (...)` SQL templates by chunk size, reducing repeated statement construction during content backfill and record-filter scans.
+- Snapshotted walker `indexed_at` timestamps once per emitted batch instead of once per file, shaving a system clock call from every traversed record while preserving batch-level indexing semantics.
+- Added perf-only walker throughput coverage behind `EODINGA_RUN_PERF=1`, so traversal speed now has a dedicated regression check alongside the existing bulk-write and query latency suites.
+
 ## 0.1.552 - 2026-04-23
 
 - Stabilized tied search-result ordering by breaking equal-name and equal-score ties with the indexed path instead of insertion-order-dependent file ids, so duplicate filenames across directories now sort deterministically.
