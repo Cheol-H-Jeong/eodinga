@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.249 - 2026-04-23
+## 0.1.250 - 2026-04-23
 
 - Fixed slash-delimited regex parsing so patterns with an even run of trailing backslashes before the closing `/` now terminate correctly for plain regex terms and whitespace-separated operator regex values.
 - Fixed Windows root-scoped searches to include exact root records even when the indexed path and requested scope use different drive-letter casing like `c:` versus `C:`.
