@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QWidget
@@ -99,13 +99,14 @@ class StaticChipRow(QWidget):
             label = SecondaryButton(chip, self._chips_container)
             label.setAccessibleName(f"Edit active filter {chip}")
             label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-            if self._on_chip_clicked is not None:
-                label.clicked.connect(lambda checked=False, value=chip: self._on_chip_clicked(value))
+            on_chip_clicked = self._on_chip_clicked
+            if on_chip_clicked is not None:
+                label.clicked.connect(lambda checked=False, value=chip, callback=on_chip_clicked: callback(value))
             self._chips_layout.addWidget(label)
             self._labels.append(label)
 
         self.setVisible(bool(chips))
 
     @property
-    def labels(self) -> list[QLabel]:
-        return list(self._labels)
+    def labels(self) -> Sequence[SecondaryButton]:
+        return tuple(self._labels)
