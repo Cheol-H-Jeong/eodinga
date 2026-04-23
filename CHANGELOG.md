@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.141 - 2026-04-23
+
+- Hardened the PyInstaller hidden-import scan so packaging now catches aliased `importlib.import_module(...)`, direct imported `import_module(...)`, and aliased `__import__(...)` calls instead of relying on one narrow call shape.
+- Taught `packaging/build.py` to validate the Linux AppImage and Debian audit manifests it just produced, so successful dry runs and builds now fail fast if desktop metadata, launcher shims, version wiring, or expected artifacts drift out of contract.
+- Added packaging regressions that pin the stronger dynamic-import discovery and the new Linux audit validation failure paths.
+
 ## 0.1.136 - 2026-04-23
 
 - Added a dedicated launcher hotkey controller that binds the configured global shortcut at GUI startup, toggles the popup on the callback path, and shuts the backend down cleanly when the main window exits.
