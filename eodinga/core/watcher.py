@@ -31,7 +31,15 @@ def _event_type_for(event: FileSystemEvent) -> str:
     return "modified"
 
 
+def _is_within_windows_root(path: Path, root: Path) -> bool:
+    normalized_path = _normalize_windows_root_text(str(path))
+    normalized_root = _normalize_windows_root_text(str(root))
+    return normalized_path == normalized_root or normalized_path.startswith(f"{normalized_root}\\")
+
+
 def _is_within_root(path: Path, root: Path) -> bool:
+    if _is_windows_root_text(str(path)) or _is_windows_root_text(str(root)):
+        return _is_within_windows_root(path, root)
     try:
         path.relative_to(root)
     except ValueError:

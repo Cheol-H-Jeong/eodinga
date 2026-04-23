@@ -82,6 +82,40 @@ def test_watcher_handler_normalizes_same_path_move_to_modify(tmp_path: Path) -> 
     assert event.root_path == root
 
 
+def test_watcher_handler_matches_windows_drive_paths_case_insensitively() -> None:
+    service = WatchService()
+    root = Path(r"C:\watched")
+    source = Path(r"c:\watched\draft.txt")
+    destination = Path(r"c:\watched\report.txt")
+    handler = _Handler(service, root)
+
+    handler.on_any_event(FileMovedEvent(str(source), str(destination)))
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "moved"
+    assert event.path == destination
+    assert event.src_path == source
+    assert event.root_path == Path(r"C:\watched")
+
+
+def test_watcher_handler_matches_extended_unc_paths_case_insensitively() -> None:
+    service = WatchService()
+    root = Path(r"\\?\UNC\server\share\watched")
+    source = Path(r"\\?\unc\server\share\watched\draft.txt")
+    destination = Path(r"\\?\unc\server\share\watched\report.txt")
+    handler = _Handler(service, root)
+
+    handler.on_any_event(FileMovedEvent(str(source), str(destination)))
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "moved"
+    assert event.path == destination
+    assert event.src_path == source
+    assert event.root_path == Path(r"\\?\UNC\server\share\watched")
+
+
 def test_watcher_coalesces_events_within_500ms(tmp_path: Path) -> None:
     service = WatchService()
     service.start(tmp_path)
