@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.527 - 2026-04-23
+## 0.1.528 - 2026-04-23
 
 - Split SQLite connection tuning between steady-state and bulk-ingest profiles so normal opens now restore `PRAGMA synchronous=FULL` while rebuilds and perf fixtures keep `NORMAL` for faster staged writes.
 - Cached and chunked executor content-text lookups to reuse a small set of `IN (...)` SQL shapes instead of rebuilding an oversized statement for every candidate set.
