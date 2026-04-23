@@ -147,6 +147,17 @@ def test_compile_iso_month_literal_uses_full_month_range() -> None:
     assert branch.where_params[0] < branch.where_params[1]
 
 
+def test_compile_iso_week_literal_uses_full_week_range() -> None:
+    compiled = compile_query(parse("date:2026-W17"))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert len(branch.where_params) == 2
+    assert isinstance(branch.where_params[0], int)
+    assert isinstance(branch.where_params[1], int)
+    assert branch.where_params[0] < branch.where_params[1]
+
+
 def test_compile_reversed_date_range_normalizes_bounds() -> None:
     compiled = compile_query(parse("date:2026-01-03..2026-01-01"))
     branch = compiled.branches[0]
