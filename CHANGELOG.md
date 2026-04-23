@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.552 - 2026-04-23
+## 0.1.553 - 2026-04-23
 
 - Added open-ended size range support for queries such as `size:100..` and `size:..500K`, so lower-only and upper-only numeric filters compile and execute without fallback syntax workarounds.
 - Tightened `is:empty` semantics to ignore symlink records, keeping empty-file and empty-directory matches aligned with the stricter non-symlink `is:file` and `is:dir` behavior.
