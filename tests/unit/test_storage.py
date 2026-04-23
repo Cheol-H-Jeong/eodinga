@@ -487,6 +487,58 @@ def test_recover_interrupted_build_preserves_staged_copy_when_swap_fails(
     assert not staged_shm.exists() or staged_shm.read_bytes() == b"staged-shm"
 
 
+def test_recover_interrupted_recovery_preserves_staged_copy_when_wal_replay_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute("PRAGMA wal_autocheckpoint=0;")
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/retriable-recovery", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+    monkeypatch.setattr(
+        "eodinga.index.storage.has_stale_wal",
+        lambda candidate: candidate == staged,
+    )
+    monkeypatch.setattr("eodinga.index.storage._replay_stale_wal", lambda candidate: False)
+
+    assert recover_interrupted_recovery(target) is False
+    assert staged.exists()
+    assert _read_root_paths(staged) == ["/retriable-recovery"]
+
+
+def test_recover_interrupted_build_preserves_staged_copy_when_wal_replay_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute("PRAGMA wal_autocheckpoint=0;")
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/retriable-build", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+    monkeypatch.setattr(
+        "eodinga.index.storage.has_stale_wal",
+        lambda candidate: candidate == staged,
+    )
+    monkeypatch.setattr("eodinga.index.storage._replay_stale_wal", lambda candidate: False)
+
+    assert recover_interrupted_build(target) is False
+    assert staged.exists()
+    assert _read_root_paths(staged) == ["/retriable-build"]
+
+
 def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     target = tmp_path / "index.db"
     staged = tmp_path / ".index.db.next"
