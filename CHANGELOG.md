@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.138 - 2026-04-23
+
+- Expanded the Windows PyInstaller spec so packaging now auto-discovers real `eodinga.*` module imports from the source tree, including relative imports, instead of relying only on a hand-maintained runtime list.
+- Hardened `packaging/build.py` dry-run validation so Windows, AppImage, and Debian packaging audits now fail fast when version sync, installer metadata, launcher shims, or shipped-doc contracts drift.
+- Added packaging regressions that pin the new source-driven hidden-import discovery and the audit validators for Windows, AppImage, and Debian release inputs.
+
 ## 0.1.136 - 2026-04-23
 
 - Added a dedicated launcher hotkey controller that binds the configured global shortcut at GUI startup, toggles the popup on the callback path, and shuts the backend down cleanly when the main window exits.
