@@ -46,6 +46,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Surface Matrix" in readme
     assert "## Acceptance Quickcheck" in readme
     assert "## Validation Paths" in readme
+    assert "## One-Command Paths" in readme
+    assert "## Surface-to-Evidence Map" in readme
     assert "## DSL Cheatsheet" in readme
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
@@ -95,6 +97,15 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "What should I inspect before cutting a docs-only release?" in readme
     assert "How do I refresh screenshots and the man page without missing a validation step?" in readme
     assert "Minimum command" in readme
+    assert "Desktop-first evaluation" in readme
+    assert "Docs-only release proof" in readme
+    assert "Full release candidate gate" in readme
+    assert "What it proves" in readme
+    assert "CLI result mismatch" in readme
+    assert "Launcher or hotkey mismatch" in readme
+    assert "Packaged build claim mismatch" in readme
+    assert "How do I confirm the CLI, GUI, and launcher are using the same index?" in readme
+    assert "What should I inspect first when a packaged build disagrees with editable install?" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance

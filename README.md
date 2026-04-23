@@ -72,6 +72,17 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 6. Use `Alt+Up` to recall recent queries, `Ctrl+L` to jump back to the filter, and `PgUp` / `PgDn` to move through longer result sets without leaving the keyboard.
 7. Re-run `python scripts/render_docs_screenshots.py` if you update the Qt surfaces and want the shipped screenshots refreshed.
 
+## One-Command Paths
+
+Use the smallest single-shot command that matches the job you are doing:
+
+| Goal | Command | What it proves |
+| --- | --- | --- |
+| Desktop-first evaluation | `source .venv/bin/activate && eodinga gui` | the main window, roots workflow, and launcher settings surface boot cleanly |
+| CLI live-update loop | `source .venv/bin/activate && eodinga index --root ~/projects && eodinga watch` | one-shot crawl plus live filesystem updates without opening Qt |
+| Docs-only release proof | `source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run` | the written docs, GUI smoke path, and packaged payload claims still agree |
+| Full release candidate gate | `source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)" && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run && yamllint .github/workflows/release-windows.yml && yamllint .github/workflows/release-linux.yml` | repository gate, GUI smoke, packaging dry runs, and workflow lint in one pass |
+
 ## Feature Overview
 
 | Area | Included in `0.1.x` |
@@ -133,6 +144,18 @@ Use the smallest path that matches the work you changed:
 | query or indexing logic | `pytest -q tests/unit/test_compiler.py tests/unit/test_executor.py tests/unit/test_storage.py` | `pytest -q tests` before a release handoff |
 | launcher or GUI text/layout | `pytest -q tests/unit/test_gui_app.py tests/unit/test_gui_launcher.py tests/unit/test_docs_assets.py` | `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
 | packaging docs or recipes | `python packaging/build.py --target windows-dry-run` | the matching Linux dry run plus workflow lint from `docs/ACCEPTANCE.md` |
+
+## Surface-to-Evidence Map
+
+When a surface looks wrong, start with the shortest proof tied to that exact boundary:
+
+| Surface | First proof | Why this is the shortest path |
+| --- | --- | --- |
+| CLI result mismatch | `eodinga search 'query' --json` | confirms parser/compiler/executor behavior without launcher or GUI state |
+| Launcher or hotkey mismatch | `eodinga doctor` | confirms backend detection, config path, and launcher-related environment before UI guessing |
+| Main GUI looks stale | `eodinga stats --json` | confirms the database path and counters the GUI should be reading |
+| Docs or screenshot drift | `pytest -q tests/unit/test_docs_assets.py` | catches checked-in docs contract changes before rerendering everything |
+| Packaged build claim mismatch | `python packaging/build.py --target windows-dry-run` or the matching Linux dry run | puts the review surface in `packaging/dist/` instead of relying on prose |
 
 ## CLI
 
@@ -467,6 +490,10 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
 
+### How do I confirm the CLI, GUI, and launcher are using the same index?
+
+Check `eodinga stats --json` from the CLI first, then compare the database path and counters with what `eodinga doctor` reports for the desktop surface. All three surfaces share one query engine, so a mismatch usually means config or database selection drift instead of different ranking logic.
+
 ### Where do logs and crash reports go?
 
 By default they stay under the platform app-data area next to the local index. Use `EODINGA_LOG_PATH` to redirect the rotating runtime log and `EODINGA_CRASH_DIR` to redirect `crash-<ts>.log` artifacts.
@@ -482,6 +509,10 @@ From the `launcher.pinned_queries` list in `config.toml`. The launcher also keep
 ### Where do I inspect packaging outputs before a release?
 
 Use `packaging/dist/`. Each packaging dry run writes its audit manifests or staged output summary there so the release review can inspect generated inputs without running the installer.
+
+### What should I inspect first when a packaged build disagrees with editable install?
+
+Run the matching packaging dry run, inspect the staged payload under `packaging/dist/`, and compare it with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`. That usually isolates whether the drift is in the packaged payload, the written docs, or only the local editable environment.
 
 ### What should I inspect before cutting a docs-only release?
 
