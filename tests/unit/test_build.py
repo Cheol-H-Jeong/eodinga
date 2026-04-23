@@ -211,3 +211,44 @@ def test_signal_stop_restores_installed_handlers_if_setup_fails(
     assert installed == [signal.SIGINT]
     assert restored == [signal.SIGINT]
     assert stop._active is False
+
+
+def test_signal_stop_raises_pending_signal_on_context_exit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    previous_handlers: dict[signal.Signals, object] = {
+        signal.SIGINT: object(),
+        signal.SIGTERM: object(),
+    }
+    restored: list[signal.Signals] = []
+    stop = build_module._SignalStop()
+
+    def fake_getsignal(signum: signal.Signals) -> object:
+        return previous_handlers[signum]
+
+    def fake_signal(signum: signal.Signals, handler: object) -> object:
+        if handler == previous_handlers[signum]:
+            restored.append(signum)
+        return handler
+
+    monkeypatch.setattr(build_module.signal, "getsignal", fake_getsignal)
+    monkeypatch.setattr(build_module.signal, "signal", fake_signal)
+
+    with pytest.raises(KeyboardInterrupt):
+        with stop:
+            stop._handle_signal(signal.SIGTERM, None)
+
+    assert restored == [signal.SIGINT, signal.SIGTERM]
+    assert stop._active is False
+    assert stop._handlers == {}
+
+
+def test_signal_stop_does_not_replace_existing_exception_with_pending_signal() -> None:
+    stop = build_module._SignalStop()
+    stop._active = True
+    stop._handlers = {}
+    stop._handle_signal(signal.SIGINT, None)
+
+    result = stop.__exit__(RuntimeError, RuntimeError("boom"), None)
+
+    assert result is False

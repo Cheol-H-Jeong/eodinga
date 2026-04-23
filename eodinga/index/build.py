@@ -50,9 +50,18 @@ class _SignalStop(AbstractContextManager["_SignalStop"]):
         return self
 
     def __exit__(self, exc_type, exc, tb) -> bool:
+        pending_signal = None
+        if exc_type is None and self._requested:
+            pending_signal = (
+                signal.SIGINT if self._received_signal is None else self._received_signal
+            )
         if self._active:
             for signum, handler in self._handlers.items():
                 signal.signal(signum, handler)
+        self._active = False
+        self._handlers.clear()
+        if pending_signal is not None:
+            raise KeyboardInterrupt(pending_signal)
         return False
 
     def _handle_signal(self, signum: int, _frame) -> None:
