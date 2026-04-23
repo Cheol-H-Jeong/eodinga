@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.525 - 2026-04-23
+
+- Extracted shared integration polling helpers so hot-restart and live-update end-to-end tests assert query visibility transitions through one consistent path.
+- Added watchdog integration coverage for files moving into a watched root, proving that a real filesystem rename becomes query-visible within the existing 500ms budget.
+- Added hot-restart coverage for interrupted staged-build recovery when the staged index replaces the prior multi-root set, pinning that `open_index()` resumes the staged build and swaps root scope correctly.
+
 ## 0.1.524 - 2026-04-23
 
 - Retained a bounded in-memory timeline of recent command snapshots and exposed it through `stats --json`, so operators can see the last successful index/search/stats/doctor/version activity without scraping debug logs.
