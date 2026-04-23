@@ -18,6 +18,8 @@ WINDOWS_SPEC = PROJECT_ROOT / "packaging" / "pyinstaller.spec"
 INNO_SCRIPT = PROJECT_ROOT / "packaging" / "windows" / "eodinga.iss"
 PACKAGE_INIT = PROJECT_ROOT / "eodinga" / "__init__.py"
 PYPROJECT = PROJECT_ROOT / "pyproject.toml"
+ENTRY_CLI = PROJECT_ROOT / "eodinga" / "__main__.py"
+ENTRY_GUI = PROJECT_ROOT / "eodinga" / "__main__.py"
 APPIMAGE_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "appimage.sh"
 DEB_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "deb.sh"
 APPIMAGE_DESKTOP = PROJECT_ROOT / "packaging" / "linux" / "eodinga.desktop"
@@ -123,6 +125,14 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
         "pyinstaller_spec": {
             "path": str(WINDOWS_SPEC),
             "exists": WINDOWS_SPEC.exists(),
+            "entry_paths": {
+                "cli": str(ENTRY_CLI),
+                "gui": str(ENTRY_GUI),
+            },
+            "entry_exists": {
+                "cli": ENTRY_CLI.exists(),
+                "gui": ENTRY_GUI.exists(),
+            },
             "dist_names": {
                 "cli": cli_dist_name,
                 "gui": gui_dist_name,
@@ -148,8 +158,10 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
                 "gui": gui_exe_path.exists(),
             },
             "required_hiddenimports": spec_namespace.get("REQUIRED_HIDDEN_IMPORTS", []),
+            "discovered_runtime_modules": spec_namespace.get("DISCOVERED_RUNTIME_MODULES", []),
             "discovered_source_hiddenimports": spec_namespace.get("DISCOVERED_SOURCE_HIDDEN_IMPORTS", []),
             "hiddenimports": spec_namespace.get("HIDDEN_IMPORTS", []),
+            "discovered_datas": spec_namespace.get("DISCOVERED_PACKAGE_DATAS", []),
             "datas": spec_namespace.get("DATAS", []),
         },
         "inno_setup": {
@@ -251,8 +263,23 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     spec_payload = payload.get("pyinstaller_spec", {})
     if not spec_payload.get("exists"):
         errors.append("PyInstaller spec is missing")
+    entry_exists = spec_payload.get("entry_exists", {})
+    if not entry_exists.get("cli"):
+        errors.append("PyInstaller CLI entrypoint is missing")
+    if not entry_exists.get("gui"):
+        errors.append("PyInstaller GUI entrypoint is missing")
     if not spec_payload.get("hiddenimports"):
         errors.append("PyInstaller hidden imports are empty")
+    required_hiddenimports = spec_payload.get("required_hiddenimports", [])
+    if not required_hiddenimports:
+        errors.append("PyInstaller required hidden imports are empty")
+    elif not set(required_hiddenimports).issubset(set(spec_payload.get("hiddenimports", []))):
+        errors.append("PyInstaller hidden imports no longer include the required hidden imports")
+    discovered_runtime_modules = spec_payload.get("discovered_runtime_modules", [])
+    if not discovered_runtime_modules:
+        errors.append("PyInstaller discovered runtime modules are empty")
+    elif not set(discovered_runtime_modules).issubset(set(spec_payload.get("hiddenimports", []))):
+        errors.append("PyInstaller hidden imports no longer include the discovered runtime modules")
     discovered_source_hiddenimports = spec_payload.get("discovered_source_hiddenimports", [])
     if not discovered_source_hiddenimports:
         errors.append("PyInstaller source-derived hidden imports are empty")
@@ -260,6 +287,12 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         errors.append("PyInstaller hidden imports no longer include the source-derived modules")
     if not spec_payload.get("datas"):
         errors.append("PyInstaller data files are empty")
+    discovered_datas = {tuple(item) for item in spec_payload.get("discovered_datas", [])}
+    datas = {tuple(item) for item in spec_payload.get("datas", [])}
+    if not discovered_datas:
+        errors.append("PyInstaller discovered data files are empty")
+    elif not discovered_datas.issubset(datas):
+        errors.append("PyInstaller data files no longer include the discovered package data")
     if payload.get("target") == "windows":
         dist_exists = spec_payload.get("dist_exists", {})
         exe_exists = spec_payload.get("exe_exists", {})

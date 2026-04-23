@@ -64,9 +64,26 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
         "cli": str(Path("dist/eodinga-cli/eodinga-cli.exe").resolve()),
         "gui": str(Path("dist/eodinga-gui/eodinga-gui.exe").resolve()),
     }
+    assert payload["pyinstaller_spec"]["entry_paths"] == {
+        "cli": str(Path("eodinga/__main__.py").resolve()),
+        "gui": str(Path("eodinga/__main__.py").resolve()),
+    }
+    assert payload["pyinstaller_spec"]["entry_exists"] == {
+        "cli": True,
+        "gui": True,
+    }
+    required_hiddenimports = set(payload["pyinstaller_spec"]["required_hiddenimports"])
+    assert required_hiddenimports
+    assert required_hiddenimports <= set(payload["pyinstaller_spec"]["hiddenimports"])
+    discovered_runtime_modules = set(payload["pyinstaller_spec"]["discovered_runtime_modules"])
+    assert discovered_runtime_modules
+    assert discovered_runtime_modules <= set(payload["pyinstaller_spec"]["hiddenimports"])
     discovered_source_hiddenimports = set(payload["pyinstaller_spec"]["discovered_source_hiddenimports"])
     assert discovered_source_hiddenimports
     assert discovered_source_hiddenimports <= set(payload["pyinstaller_spec"]["hiddenimports"])
+    discovered_datas = {tuple(item) for item in payload["pyinstaller_spec"]["discovered_datas"]}
+    assert discovered_datas
+    assert discovered_datas <= {tuple(item) for item in payload["pyinstaller_spec"]["datas"]}
     datas = {tuple(item) for item in payload["pyinstaller_spec"]["datas"]}
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
     assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas
@@ -153,6 +170,46 @@ def test_windows_audit_validator_rejects_missing_source_hidden_import_contract()
     errors = module._validate_windows_audit(payload)
 
     assert "PyInstaller hidden imports no longer include the source-derived modules" in errors
+
+
+def test_windows_audit_validator_rejects_missing_required_hidden_import_contract() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["pyinstaller_spec"]["hiddenimports"] = payload["pyinstaller_spec"]["discovered_source_hiddenimports"]
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "PyInstaller hidden imports no longer include the required hidden imports" in errors
+
+
+def test_windows_audit_validator_rejects_missing_runtime_module_contract() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["pyinstaller_spec"]["hiddenimports"] = payload["pyinstaller_spec"]["required_hiddenimports"]
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "PyInstaller hidden imports no longer include the discovered runtime modules" in errors
+
+
+def test_windows_audit_validator_rejects_missing_package_data_contract() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["pyinstaller_spec"]["datas"] = []
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "PyInstaller data files no longer include the discovered package data" in errors
+
+
+def test_windows_audit_validator_rejects_missing_entrypoint_contract() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["pyinstaller_spec"]["entry_exists"] = {"cli": False, "gui": True}
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "PyInstaller CLI entrypoint is missing" in errors
 
 
 def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -> None:
