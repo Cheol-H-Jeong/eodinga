@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.953 - 2026-04-24
+
+- Fixed open-ended relative date filters so queries like `date:today..` and `date:..yesterday` work the same way as closed relative ranges instead of falling through the ISO-only parser.
+- Canonicalized regex flags to lowercase `ims` order at parse time, which keeps equivalent queries such as `/todo/MI` and `/todo/im` on the same compiled path.
+- Added compiler, DSL, and executor coverage for the new relative-range and regex-flag normalization behavior to keep the query surface pinned.
+
 ## 0.1.951 - 2026-04-24
 
 - Expanded query date parsing so `date:2026`, `date:2026-02`, and matching `modified:`/`created:` forms resolve to full ISO year and month spans instead of requiring day-level literals.
