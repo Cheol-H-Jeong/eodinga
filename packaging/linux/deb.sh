@@ -36,7 +36,7 @@ fi
 
 rm -rf "${PACKAGE_DIR}"
 mkdir -p "${PACKAGE_DIR}/DEBIAN" "${PACKAGE_DIR}/usr/bin" "${PACKAGE_DIR}/usr/share/applications" "${PACKAGE_DIR}/usr/share/doc/eodinga"
-mkdir -p "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps"
+mkdir -p "${PACKAGE_DIR}/usr/lib/eodinga" "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps"
 
 python3 - <<PY
 from pathlib import Path
@@ -70,10 +70,13 @@ PY
 cat > "${PACKAGE_DIR}/usr/bin/eodinga" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-exec python3 -m eodinga "$@"
+INSTALL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+APP_ROOT="${INSTALL_ROOT}/lib/eodinga"
+PYTHONPATH="${APP_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" exec python3 -m eodinga "$@"
 EOF
 chmod 0755 "${PACKAGE_DIR}/usr/bin/eodinga"
 
+cp -R "${ROOT_DIR}/eodinga" "${PACKAGE_DIR}/usr/lib/eodinga/eodinga"
 install -m 0644 "${DESKTOP_ENTRY}" "${PACKAGE_DIR}/usr/share/applications/eodinga.desktop"
 install -m 0644 "${ICON_ASSET}" "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg"
 install -m 0644 "${ROOT_DIR}/LICENSE" "${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE"
@@ -112,6 +115,7 @@ for line in control_path.read_text(encoding="utf-8").splitlines():
     control_entries[key] = value.strip()
 
 launcher_path = Path("${PACKAGE_DIR}/usr/bin/eodinga")
+source_tree_path = Path("${PACKAGE_DIR}/usr/lib/eodinga/eodinga")
 icon_path = Path("${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 license_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE")
 changelog_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
@@ -186,7 +190,14 @@ payload = {
         "path": str(launcher_path),
         "is_executable": os.access(launcher_path, os.X_OK),
         "has_strict_shell": "set -euo pipefail" in launcher_path.read_text(encoding="utf-8"),
+        "uses_packaged_lib_path": 'APP_ROOT="\${INSTALL_ROOT}/lib/eodinga"' in launcher_path.read_text(encoding="utf-8")
+        and 'PYTHONPATH="\${APP_ROOT}\${PYTHONPATH:+:\${PYTHONPATH}}"' in launcher_path.read_text(encoding="utf-8"),
         "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
+    },
+    "source_tree": {
+        "path": str(source_tree_path),
+        "exists": source_tree_path.exists(),
+        "package_init_exists": (source_tree_path / "__init__.py").exists(),
     },
     "docs": {
         "license_path": str(license_path),

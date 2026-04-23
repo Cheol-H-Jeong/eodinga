@@ -413,7 +413,12 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
         "launcher": {
             "is_executable": True,
             "has_strict_shell": True,
+            "uses_packaged_lib_path": False,
             "executes_python_module": True,
+        },
+        "source_tree": {
+            "exists": True,
+            "package_init_exists": True,
         },
         "docs": {
             "license_exists": True,
@@ -424,6 +429,7 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
 
     errors = module._validate_linux_deb_audit(payload, __version__, __version__)
 
+    assert "Debian launcher shim no longer uses the packaged library path" in errors
     assert "Debian package no longer ships the changelog" in errors
 
 
@@ -466,7 +472,12 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
         "launcher": {
             "is_executable": True,
             "has_strict_shell": True,
+            "uses_packaged_lib_path": True,
             "executes_python_module": True,
+        },
+        "source_tree": {
+            "exists": True,
+            "package_init_exists": True,
         },
         "docs": {
             "license_exists": True,
@@ -555,7 +566,10 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["icon"]["matches_source_asset"] is True
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["has_strict_shell"] is True
+    assert payload["launcher"]["uses_packaged_lib_path"] is True
     assert payload["launcher"]["executes_python_module"] is True
+    assert payload["source_tree"]["exists"] is True
+    assert payload["source_tree"]["package_init_exists"] is True
     assert payload["docs"]["license_exists"] is True
     assert payload["docs"]["changelog_exists"] is True
     assert payload["docs"]["changelog_has_current_release_heading"] is True
