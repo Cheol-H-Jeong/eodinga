@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.245 - 2026-04-23
+
+- Fixed slash-delimited regex parsing so patterns with an even run of trailing backslashes before the closing `/` now terminate correctly for plain regex terms and whitespace-separated operator regex values.
+- Fixed Windows root-scoped searches to include exact root records even when the indexed path and requested scope use different drive-letter casing like `c:` versus `C:`.
+- Added compiler and executor regressions that pin De Morgan truth tables for negated `AND` groups so future boolean changes keep the current semantics stable.
+
 ## 0.1.242 - 2026-04-23
 
 - Hardened crash observability so same-second failures no longer overwrite prior `crash-*.log` files, unraisable exceptions now flow through the same crash-report path, and crash counters are visible in runtime stats.
