@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.533 - 2026-04-23
+
+- Escaped literal `%` and `_` characters in ASCII `path:` SQL prefilters so negated path filters no longer drop false matches when users search for wildcard-looking filenames.
+- Taught the DSL parser to accept spaced `size:` comparators such as `size: > 10M` and `size: = 512B`, keeping the query language tolerant without changing comparator semantics.
+- Preserved snippets for content hits found through scan fallback paths, including regex and cross-boundary phrase matches that bypass SQLite FTS snippet generation.
+
 ## 0.1.525 - 2026-04-23
 
 - Counted successful parser runs alongside existing skip and error paths, so `stats --json` now reports fuller per-parser activity instead of only failures.
