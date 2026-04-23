@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.823 - 2026-04-23
+## 0.1.824 - 2026-04-23
 
 - Tightened the Windows release audit so checked-in `dist/` placeholders no longer satisfy the real build target without the versioned installer artifact, restoring a deterministic packaging gate on clean worktrees.
 - Added integration coverage that proves watcher-applied create, delete, and same-root move events survive a database reopen without requiring a rebuild.
