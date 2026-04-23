@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.822 - 2026-04-23
+
+- Hardened watcher lifecycle recovery so failed observer startup now rolls back the flush thread cleanly, and shutdown continues best-effort observer teardown even if one observer raises.
+- Resynced the checked-in generated manpage with the current package version so release and docs-asset verification stay green again.
+
 ## 0.1.821 - 2026-04-23
 
 - Added a bounded filesystem-backed launcher preview fallback for text results that do not yet have an indexed snippet, while still skipping binary content and preserving indexed snippets when they exist.
