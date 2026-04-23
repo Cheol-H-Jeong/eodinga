@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.410 - 2026-04-23
+## 0.1.413 - 2026-04-23
 
 - Added parser runtime metrics for attempts, successes, oversize skips, input bytes, and parse latency so slow or failing formats show up directly in `stats --json`.
 - Added watcher flush-duration and queue-depth histograms on top of the existing backpressure counters, making event-pipeline saturation easier to diagnose from runtime metrics alone.
