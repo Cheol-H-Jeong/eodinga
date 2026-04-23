@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.976 - 2026-04-24
+
+- Clamped launcher restores that reopen partially off the top or left edge, while keeping in-bounds saved geometry intact and stabilizing the geometry persistence regression coverage around reachable restores.
+- Surfaced the configured launcher hotkey directly in the tray toggle action and kept that label live when the hotkey is remapped or disabled without restart.
+- Hardened launcher hotkey remap rollback so failed rebinds restore the previous binding when possible and preserve the original remap error with rollback diagnostics when recovery also fails.
+
 ## 0.1.974 - 2026-04-24
 
 - Added a symptom-first README troubleshooting guide plus FAQ clarifications that point operators to the shortest command or audit artifact before they rerun broader release checks.
