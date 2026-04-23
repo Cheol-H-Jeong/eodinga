@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import sys
 from contextlib import closing
 from pathlib import Path
@@ -35,6 +34,7 @@ from eodinga.observability import (
     resolve_log_retention,
     resolve_log_rotation,
 )
+from eodinga.query.path_scope import is_windows_path_text
 from eodinga.query import QuerySyntaxError, search as run_search
 
 
@@ -102,7 +102,7 @@ def _normalize_search_root(root: Path | None) -> Path | None:
     if root is None:
         return None
     root_text = str(root)
-    if re.match(r"^[A-Za-z]:[\\/]", root_text) or root_text.startswith("\\\\"):
+    if is_windows_path_text(root_text):
         return Path(root_text)
     return root.resolve()
 
