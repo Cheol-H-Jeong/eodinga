@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.744 - 2026-04-23
+
+- Normalized Windows rule and denylist path matching so lowercase drive letters and extended-length `\\?\` paths are evaluated consistently instead of slipping past filtering.
+- Extended query root scoping to treat regular Windows paths and extended-length `\\?\` variants as equivalent, covering both the incoming `root=` value and already-indexed records.
+- Added unit coverage that locks in the Windows path normalization behavior for rules and root-scoped query execution.
+
 ## 0.1.738 - 2026-04-23
 
 - Added a `workflows-lint` packaging target and folded it into `release-dry-run`, so the packaging summary now proves the release workflow YAML stays lint-clean alongside the Windows and Linux dry-run audits.
