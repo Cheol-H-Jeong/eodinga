@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.365 - 2026-04-23
+
+- Removed the redundant outer SQLite transaction around rebuild batch writes, so staged index rebuilds no longer create an extra savepoint layer before every `bulk_upsert()` call.
+- Cached executor SQL shapes for `content_map` text backfills and chunked large file-id lookups, reducing repeated filtered-query overhead from rebuilding large `IN (...)` statements.
+- Reused a single `indexed_at` timestamp across each directory walk so rebuild scans stop paying a fresh clock read for every discovered path.
+
 ## 0.1.359 - 2026-04-23
 
 - Rendered the staged Debian `DEBIAN/control` file directly from the checked-in template, with version and architecture tokens enforced by the dry-run audit so package metadata no longer drifts from the Debian recipe.
