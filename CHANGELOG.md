@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.982 - 2026-04-24
+## 0.1.985 - 2026-04-24
 
 - Added filesystem-state observability helpers that can inspect the active log file target and crash-log inventory without assuming the files already exist.
 - Extended `eodinga stats --json` with a separate runtime `files_indexed` counter plus current log/crash file state, so operators can distinguish persisted index size from work completed in the current process.
