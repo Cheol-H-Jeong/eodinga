@@ -204,6 +204,24 @@ def test_compile_double_negated_group_restores_positive_branches() -> None:
     assert all(not branch.path_terms[0].negated for branch in compiled.branches)
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_branches"),
+    [
+        ("-(alpha beta)", [[("alpha", True)], [("beta", True)]]),
+        ("-(-(alpha beta))", [[("alpha", False), ("beta", False)]]),
+    ],
+)
+def test_compile_grouped_and_negation_pushes_to_leaf_terms(
+    query: str,
+    expected_branches: list[list[tuple[str, bool]]],
+) -> None:
+    compiled = compile_query(parse(query))
+
+    assert [
+        [(term.value, term.negated) for term in branch.path_terms] for branch in compiled.branches
+    ] == expected_branches
+
+
 def test_compile_reuses_cached_queries() -> None:
     first = compile("report ext:pdf")
     second = compile("report ext:pdf")

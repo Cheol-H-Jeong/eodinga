@@ -907,6 +907,33 @@ def test_search_root_scope_matches_windows_style_paths(tmp_db: sqlite3.Connectio
     assert hits == [Path(r"C:\workspace\reports\alpha.txt")]
 
 
+def test_search_root_scope_matches_windows_drive_letter_case_variants(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, r"C:\workspace\reports\alpha.txt", 1024, now, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, r"C:\workspace\archive\alpha.txt", 1024, now - 60, "txt", body_text="alpha")
+    tmp_db.commit()
+
+    hits = [hit.file.path for hit in search(tmp_db, "alpha", limit=10, root=Path("c:/workspace/reports")).hits]
+
+    assert hits == [Path(r"C:\workspace\reports\alpha.txt")]
+
+
+def test_search_root_scope_matches_windows_device_path_variants(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, r"C:\workspace\reports\alpha.txt", 1024, now, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, r"C:\workspace\archive\alpha.txt", 1024, now - 60, "txt", body_text="alpha")
+    tmp_db.commit()
+
+    hits = [
+        hit.file.path
+        for hit in search(tmp_db, "alpha", limit=10, root=Path(r"\\?\C:\workspace\reports")).hits
+    ]
+
+    assert hits == [Path(r"C:\workspace\reports\alpha.txt")]
+
+
 def test_plain_query_can_fall_back_to_content_matches(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/projects/alpha.txt", 1024, now, "txt", body_text="launch checklist")
@@ -927,3 +954,37 @@ def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:
 
     hits = [hit.file.name for hit in search(tmp_db, "-(-(alpha | beta))", limit=10).hits]
     assert hits == ["alpha.txt", "beta.txt"]
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_hits"),
+    [
+        ("alpha beta", ["alpha-beta.txt"]),
+        ("-(alpha beta)", ["alpha.txt", "beta.txt", "gamma.txt"]),
+        ("-(-(alpha beta))", ["alpha-beta.txt"]),
+        ("-(alpha | beta)", ["gamma.txt"]),
+    ],
+)
+def test_execute_grouped_boolean_truth_table(
+    tmp_db: sqlite3.Connection,
+    query: str,
+    expected_hits: list[str],
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/alpha.txt", 1024, now, "txt", body_text="alpha only")
+    _insert_file(tmp_db, 2, "/workspace/beta.txt", 1024, now - 60, "txt", body_text="beta only")
+    _insert_file(
+        tmp_db,
+        3,
+        "/workspace/alpha-beta.txt",
+        1024,
+        now - 120,
+        "txt",
+        body_text="alpha beta",
+    )
+    _insert_file(tmp_db, 4, "/workspace/gamma.txt", 1024, now - 180, "txt", body_text="gamma only")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, query, limit=10).hits]
+
+    assert hits == expected_hits
