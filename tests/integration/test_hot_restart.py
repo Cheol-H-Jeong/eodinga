@@ -385,6 +385,55 @@ def test_hot_restart_reopen_multi_root_modify_updates_root_scoped_queries(tmp_pa
     assert alpha_hits == {survivor}
 
 
+def test_hot_restart_reopen_same_root_move_updates_query_and_path_hits(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    source = root / "reopen-draft.txt"
+    source.write_text("reopen same root motion\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(reopened, "reopen same root motion", limit=5).hits]
+        destination = root / "reopen-renamed.txt"
+        source.rename(destination)
+
+        appeared_elapsed = _wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "reopen same root motion",
+            destination,
+            deadline_seconds=0.5,
+        )
+        removed_elapsed = _wait_for_query_miss(
+            reopened,
+            service,
+            writer,
+            "reopen same root motion",
+            source,
+            deadline_seconds=0.5,
+        )
+        source_path_hits = [hit.file.path for hit in search(reopened, "path:reopen-draft", limit=5).hits]
+        destination_path_hits = [
+            hit.file.path for hit in search(reopened, "path:reopen-renamed", limit=5).hits
+        ]
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == [source]
+    assert appeared_elapsed <= 0.5
+    assert removed_elapsed <= 0.5
+    assert source_path_hits == []
+    assert destination_path_hits == [destination]
+
+
 def test_hot_restart_reopen_cross_root_move_updates_scope_and_global_hits(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
