@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.269 - 2026-04-23
+## 0.1.270 - 2026-04-23
 
 - Added inline launcher query chips that summarize active free-text terms and DSL filters directly beneath the search field, making complex searches easier to scan before execution.
 - Strengthened launcher result highlighting with bold, higher-contrast match markers across names, paths, and snippets so top hits are easier to parse at a glance.
