@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.824 - 2026-04-23
+## 0.1.831 - 2026-04-23
 
 - Fixed the PyInstaller hidden-import source scan so relative package imports no longer leak local module aliases like `about` or `button` into the packaged hidden-import set.
 - Tightened the Windows installer audit to prove default uninstall still preserves `%LOCALAPPDATA%\\eodinga` and `%APPDATA%\\eodinga` unless the user explicitly opts into purge.
