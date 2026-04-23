@@ -390,6 +390,61 @@ def test_execute_date_keywords_are_case_insensitive_and_allow_underscores(
     assert this_month_hits == ["today.txt"]
 
 
+def test_execute_additional_relative_date_aliases(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    frozen_now = datetime(2026, 4, 23, 9, 0, tzinfo=seoul)
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+
+    timestamps = {
+        "today.txt": datetime(2026, 4, 23, 12, 0, tzinfo=seoul),
+        "yesterday.txt": datetime(2026, 4, 22, 12, 0, tzinfo=seoul),
+        "tomorrow.txt": datetime(2026, 4, 24, 12, 0, tzinfo=seoul),
+        "next-week.txt": datetime(2026, 4, 27, 12, 0, tzinfo=seoul),
+        "this-month.txt": datetime(2026, 4, 25, 12, 0, tzinfo=seoul),
+        "next-month.txt": datetime(2026, 5, 12, 12, 0, tzinfo=seoul),
+        "this-year.txt": datetime(2026, 8, 5, 12, 0, tzinfo=seoul),
+        "next-year.txt": datetime(2027, 2, 6, 12, 0, tzinfo=seoul),
+    }
+    for index, (name, moment) in enumerate(timestamps.items(), start=1):
+        _insert_file(
+            tmp_db,
+            index,
+            f"/workspace/{name}",
+            512,
+            int(moment.timestamp()),
+            "txt",
+            body_text=name,
+        )
+    tmp_db.commit()
+
+    assert [hit.file.name for hit in search(tmp_db, "date:day", limit=10).hits] == ["today.txt"]
+    assert [hit.file.name for hit in search(tmp_db, "date:previous_day", limit=10).hits] == [
+        "yesterday.txt"
+    ]
+    assert [hit.file.name for hit in search(tmp_db, "date:next-day", limit=10).hits] == [
+        "tomorrow.txt"
+    ]
+    assert [hit.file.name for hit in search(tmp_db, "date:next-week", limit=10).hits] == [
+        "next-week.txt"
+    ]
+    assert [hit.file.name for hit in search(tmp_db, "date:next-month", limit=10).hits] == [
+        "next-month.txt"
+    ]
+    assert [hit.file.name for hit in search(tmp_db, "date:next_year", limit=10).hits] == [
+        "next-year.txt"
+    ]
+
+
 def test_execute_date_ranges_accept_relative_keywords(
     tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:

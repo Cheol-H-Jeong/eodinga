@@ -385,10 +385,12 @@ OPERATOR_ATOMS = st.one_of(
             [
                 "today",
                 "yesterday",
+                "next-week",
                 "this-week",
                 "last-week",
                 "this-month",
                 "last-month",
+                "next-year",
                 "2026-01-01",
                 "2026-01-01..2026-01-03",
             ]

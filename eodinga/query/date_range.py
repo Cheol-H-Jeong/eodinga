@@ -96,14 +96,17 @@ def _parse_iso_endpoint(value: str) -> DateRange:
 def _relative_range(value: str) -> DateRange | None:
     today = datetime.now().astimezone().date()
     normalized = value.strip().casefold().replace("_", "-")
-    if normalized == "today":
+    if normalized in {"day", "this-day", "today"}:
         return _day_bounds(today)
-    if normalized == "yesterday":
+    if normalized in {"prev-day", "previous-day", "yesterday"}:
         return _day_bounds(today - timedelta(days=1))
-    if normalized == "tomorrow":
+    if normalized in {"next-day", "tomorrow"}:
         return _day_bounds(today + timedelta(days=1))
     if normalized in {"this-week", "week"}:
         start = today - timedelta(days=today.weekday())
+        return DateRange(start=_day_bounds(start).start, end=_day_bounds(start + timedelta(days=7)).start)
+    if normalized == "next-week":
+        start = today - timedelta(days=today.weekday()) + timedelta(days=7)
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(start + timedelta(days=7)).start)
     if normalized in {"last-week", "prev-week", "previous-week"}:
         end = today - timedelta(days=today.weekday())
@@ -113,6 +116,10 @@ def _relative_range(value: str) -> DateRange | None:
         start = _month_start(today)
         next_month = _next_month_start(start)
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(next_month).start)
+    if normalized == "next-month":
+        start = _next_month_start(today)
+        end = _next_month_start(start)
+        return DateRange(start=_day_bounds(start).start, end=_day_bounds(end).start)
     if normalized in {"last-month", "prev-month", "previous-month"}:
         this_month = _month_start(today)
         last_month = _month_start(this_month - timedelta(days=1))
@@ -121,6 +128,10 @@ def _relative_range(value: str) -> DateRange | None:
         start = _year_start(today)
         next_year = _next_year_start(start)
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(next_year).start)
+    if normalized == "next-year":
+        start = _next_year_start(today)
+        end = _next_year_start(start)
+        return DateRange(start=_day_bounds(start).start, end=_day_bounds(end).start)
     if normalized in {"last-year", "prev-year", "previous-year"}:
         this_year = _year_start(today)
         last_year = this_year.replace(year=this_year.year - 1)
