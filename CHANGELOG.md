@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.223 - 2026-04-23
+
+- Added a troubleshooting and release-artifact matrix to `README.md`, making the operator-facing contract easier to use directly for packaging checks and stale-index diagnosis.
+- Aligned `docs/ACCEPTANCE.md`, `docs/CONTRIBUTING.md`, and `docs/RELEASE.md` with the shipped Linux and Windows dry-run gates so the repository documents the same release workflow its tests and CI validate.
+- Expanded `docs/ARCHITECTURE.md` around hot-restart and multi-root live-update behavior, and refreshed `docs/PERFORMANCE.md` plus the README perf summary with current-head benchmark results.
+
 ## 0.1.216 - 2026-04-23
 
 - Clarified `README.md` as an operator-facing contract with a tighter at-a-glance summary, reference map, and FAQ coverage for local-only behavior, packaging, uninstall, and generated CLI docs.
