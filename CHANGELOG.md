@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.822 - 2026-04-23
+## 0.1.824 - 2026-04-23
 
 - Fixed one-sided date ranges so relative endpoints like `date:..yesterday` and `date:today..` use the same parser path as closed ranges instead of rejecting non-ISO keywords.
 - Added executor coverage for multiline and dotall regex behavior under explicit `case:true`, locking in the intended interaction between inline regex flags and the default case mode.
