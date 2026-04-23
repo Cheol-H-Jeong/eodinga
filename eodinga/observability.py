@@ -249,19 +249,34 @@ def reset_metrics() -> None:
 
 
 def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
+    dropped = False
     record: SnapshotRecord = {
         "name": name,
         "recorded_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         "payload": dict(payload),
     }
     with _METRICS_LOCK:
+        if len(_RECENT_SNAPSHOTS) == _RECENT_SNAPSHOT_LIMIT:
+            dropped = True
         _RECENT_SNAPSHOTS.append(record)
+    increment_counter("snapshots_recorded")
+    if dropped:
+        increment_counter("snapshots_dropped")
     logger.bind(metric=name, payload=record["payload"]).debug("snapshot recorded")
 
 
 def recent_snapshots() -> list[SnapshotRecord]:
     with _METRICS_LOCK:
         return list(_RECENT_SNAPSHOTS)
+
+
+def recent_snapshot_capacity() -> int:
+    return _RECENT_SNAPSHOT_LIMIT
+
+
+def recent_snapshot_count() -> int:
+    with _METRICS_LOCK:
+        return len(_RECENT_SNAPSHOTS)
 
 
 def counter_value(name: str) -> int:

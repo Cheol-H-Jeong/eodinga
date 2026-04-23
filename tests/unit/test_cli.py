@@ -541,6 +541,10 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["query_result_count"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 1
+    assert payload["recent_snapshot_count"] == 1
+    assert payload["recent_snapshot_capacity"] == 20
+    assert payload["snapshots_recorded"] == 1
+    assert payload["snapshots_dropped"] == 0
 
 
 def test_stats_json_exposes_end_to_end_runtime_metrics(
@@ -870,6 +874,29 @@ def test_stats_json_exposes_crash_log_write_failures(tmp_path: Path, capsys, mon
     assert payload["crash_log_write_failures"] == 1
     assert payload["crash_types"] == {"RuntimeError": 1}
     assert payload["recent_snapshots"][1]["payload"]["crash_path"] is None
+
+
+def test_stats_json_reports_recent_snapshot_ring_buffer_activity(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    for index in range(24):
+        exit_code = main(["--db", str(db_path), "version"])
+        assert exit_code == 0
+        capsys.readouterr()
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["recent_snapshot_count"] == 20
+    assert payload["recent_snapshot_capacity"] == 20
+    assert payload["snapshots_recorded"] == 24
+    assert payload["snapshots_dropped"] == 4
+    assert len(payload["recent_snapshots"]) == 20
+    assert payload["recent_snapshots"][0]["name"] == "command.version"
+    assert payload["recent_snapshots"][0]["payload"]["version"] == __version__
 
 
 def test_stats_json_structures_interrupted_command_counts(
