@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.555 - 2026-04-23
+## 0.1.560 - 2026-04-23
 
 - Added an atomic runtime metrics store with corruption quarantine, so persisted observability state survives normal CLI exits without leaving half-written JSON behind.
 - Persisted counters, histograms, and recent command snapshots across separate CLI processes, making `eodinga stats --json` reflect prior `search`, `version`, and failure activity instead of only the current process.
