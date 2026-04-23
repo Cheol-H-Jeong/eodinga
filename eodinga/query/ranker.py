@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -15,6 +16,10 @@ class RankingWeights(BaseModel):
     prefix_boost: float = 0.35
     deboost_factor: float = 0.4
     deboost_markers: tuple[str, ...] = Field(default=("node_modules", ".git"))
+
+
+def _path_parts_lower(path: str) -> tuple[str, ...]:
+    return tuple(part.casefold() for part in re.split(r"[\\/]+", path) if part)
 
 
 def reciprocal_rank_fusion(
@@ -53,8 +58,9 @@ def apply_path_deboost(
 ) -> dict[int, float]:
     weights = weights or RankingWeights()
     adjusted = dict(scores)
+    deboost_markers = {marker.casefold() for marker in weights.deboost_markers}
     for file_id, path in paths.items():
-        if any(marker in path for marker in weights.deboost_markers):
+        if deboost_markers.intersection(_path_parts_lower(path)):
             adjusted[file_id] = adjusted.get(file_id, 0.0) * weights.deboost_factor
     return adjusted
 
