@@ -44,8 +44,47 @@ modified:2026-04-23T09:15:30+00:00
 regex:true report-\d+
 -is:duplicate -path:node_modules
 (invoice | receipt) ext:pdf
+-(path:archive | path:backup) ext:pdf
 regex:/launch|ship/i path:docs
+regex:/^todo:/im content:"release checklist"
 ```
+
+## Negation Patterns
+
+```text
+-path:node_modules
+-(path:archive | path:backup)
+invoice -(ext:tmp | ext:bak)
+is:file -is:empty -path:.git
+```
+
+- A leading `-` before one term excludes only that term.
+- A leading `-` before a parenthesized group excludes the entire branch, which is the safest way to remove multiple noisy alternatives at once.
+- Negation is applied after parsing, so `-(a | b) c` means "match `c`, but reject hits that satisfy either `a` or `b`."
+
+## Regex Flags
+
+| Flag | Meaning | Example |
+| --- | --- | --- |
+| `i` | case-insensitive | `regex:/todo|fixme/i` |
+| `m` | multiline anchors | `regex:/^todo:/m` |
+| `s` | dot matches newlines | `regex:/release.*checklist/s` |
+| combined flags | stack behaviors in one literal | `regex:/^todo:.*ship/im` |
+
+- Explicit regex literals use `/pattern/flags`.
+- `regex:true` changes plain terms into regex path/name matches, but it does not replace explicit `/pattern/flags` literals when you need flags like `i`, `m`, or `s`.
+
+## Range Recipes
+
+| Goal | Query |
+| --- | --- |
+| Files at least 10 MiB | `size:>10M` |
+| Files smaller than 1 KiB | `size:<1K` |
+| Files in a bounded range | `size:100K..500K` |
+| From an ISO date onward | `date:2026-04-01..` |
+| Up to an ISO date | `modified:..2026-04-23` |
+| Previous calendar week | `date:last-week ext:md` |
+| Previous calendar month | `date:last-month ext:pdf` |
 
 ## Operator Notes
 
