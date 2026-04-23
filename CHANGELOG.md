@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.985 - 2026-04-24
+
+- Added a launcher result context menu that exposes the same open, reveal, copy, and properties actions already available from shortcuts and the action bar, while keeping the main launcher module within the repo size budget by extracting menu/text helpers.
+- Persisted launcher recent-query history in config so both the popup launcher and embedded search panel restore the same query chips after restart.
+- Added an explicit launcher query pin/unpin control that updates shared pinned chips live across launcher surfaces and saves the pinned list back to config.
+
 ## 0.1.981 - 2026-04-24
 
 - Expanded integration coverage for reopened indexes after multi-root rebuild pruning, pinning that removed roots stay absent after reopen while the surviving root still accepts live watcher-driven updates within the existing latency budget.
