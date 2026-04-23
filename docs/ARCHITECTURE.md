@@ -46,6 +46,26 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 - `content_map` keeps the FTS row IDs stable across updates so incremental reindexing does not balloon the content index.
 - `eodinga.index.storage` owns WAL replay on startup and atomic staged-index replacement.
 
+## Storage Sketch
+
+```text
+files
+  id, root, path, name, ext, size_bytes,
+  created_ts, modified_ts, is_dir, content_hash
+    |
+    +--> paths_fts(rowid=id, name, path)
+    |
+    +--> content_map(file_id -> content_rowid)
+             |
+             +--> content_fts(rowid=content_rowid, content)
+```
+
+Practical consequences:
+
+- Root scoping is carried by `files.root`, so `search(..., root=...)` can narrow results without building separate indexes per root.
+- Path/name search uses the `files` to `paths_fts` rowid pairing for stable metadata lookups after ranking.
+- Content updates can rewrite only the affected `content_fts` rows because `content_map` preserves the row identity across incremental changes.
+
 ## Index Lifecycle Sequence
 
 ```text
@@ -83,12 +103,47 @@ eodinga index --rebuild
     +--> remove stale sidecars
 ```
 
+## Hot-Restart Sequence
+
+```text
+existing index.db
+    |
+close process / reopen process
+    |
+    +--> open_index()
+    +--> resume staged recovery if needed
+    +--> reopen SQLite handles
+    +--> reload configured roots
+    +--> optional WatchService reattaches to those roots
+    |
+next query and next watcher event use the same persisted index
+```
+
+This is the contract exercised by the hot-restart integration tests: queries must keep working against the persisted index immediately after reopen, and new watcher events must become visible without forcing a full rewalk first.
+
 ## Query Execution
 
 - The DSL supports terms, phrases, regex, grouped `|` branches, and negation.
 - Structured operators such as `ext:`, `path:`, `content:`, `size:`, `date:`, `modified:`, `created:`, and `is:` compile into SQLite predicates where possible.
 - Regex and mixed path/content terms are finalized in Python against the candidate set so the CLI and GUI share identical behavior.
 - `eodinga.query.ranker` applies reciprocal rank fusion, filename prefix boosts, and path deboosting for noisy trees such as `node_modules`.
+
+## Query Pipeline Sequence
+
+```text
+user query
+    |
+    +--> dsl.parse()
+    +--> compiler.compile_query()
+    +--> executor.search()
+            |
+            +--> SQLite candidate fetch from files + FTS
+            +--> Python fallback checks for regex / mixed predicates
+            +--> ranker reciprocal-rank fusion
+            +--> result items for CLI / GUI / launcher
+```
+
+The split matters because not every operator maps cleanly to SQL. SQLite does the broad candidate reduction, then Python applies the remaining exact semantics so every surface shares one truth table.
 
 ## Operational Model
 
@@ -115,6 +170,13 @@ IndexWriter.apply_events()
     v
 next query sees updated results
 ```
+
+## Multi-Root Semantics
+
+- A single database can index multiple configured roots at once.
+- Root-specific searches filter on persisted root membership instead of opening a separate database per root.
+- Moves within one watched root stay incremental; moves across root boundaries resolve as delete-plus-create so out-of-root paths never leak into the active result set.
+- Hot restart preserves the multi-root index on disk; only the live watcher attachment needs to be recreated when the process comes back.
 
 ## Packaging Surfaces
 
