@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.964 - 2026-04-24
+## 0.1.967 - 2026-04-24
 
 - Scoped Windows search roots case-insensitively across the full path, so mixed-case directory segments now match indexed files for both plain and extended-length Windows paths instead of only tolerating drive-letter case changes.
 - Added executor regressions for mixed-case plain and `\\?\` Windows root filters to keep the search engine pinned on the corrected scoping behavior.
