@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.974 - 2026-04-24
+
+- Added a symptom-first README troubleshooting guide plus FAQ clarifications that point operators to the shortest command or audit artifact before they rerun broader release checks.
+- Expanded the architecture guide with symptom-to-layer and command-to-subsystem maps so stale results, watcher drift, recovery loops, and packaging mismatches can be tied back to the owning runtime boundary.
+- Tightened release and contributor docs around evidence packets, failure narrowing, validation escalation, and proof-bundle expectations for parallel worker handoff.
+
 ## 0.1.970 - 2026-04-24
 
 - Hardened the Windows release audit so the non-dry-run packaging target now fails on non-Windows hosts instead of going green from whatever stale staged artifacts happen to be present locally.
