@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.401 - 2026-04-23
+## 0.1.404 - 2026-04-23
 
 - Reduced query fallback overhead by scanning unicode/path fallback candidates with lightweight ID-first batches and hydrating full records only for matches.
 - Chunked content-text lookups behind cached SQL shapes so large record-filter passes reuse prepared statement forms instead of rebuilding oversized `IN (...)` queries.
