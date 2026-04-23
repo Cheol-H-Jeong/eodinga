@@ -461,10 +461,12 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["apprun"]["is_executable"] is True
     assert payload["apprun"]["launches_gui"] is True
     assert payload["apprun"]["has_strict_shell"] is True
+    assert payload["apprun"]["forwards_arguments"] is True
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["has_strict_shell"] is True
     assert payload["launcher"]["changes_to_project_root"] is True
     assert payload["launcher"]["executes_python_module"] is True
+    assert payload["launcher"]["forwards_arguments"] is True
 
 
 def test_linux_deb_dry_run_renders_control_template() -> None:
@@ -529,6 +531,7 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
             "is_executable": True,
             "has_strict_shell": True,
             "executes_python_module": True,
+            "forwards_arguments": True,
         },
         "docs": {
             "license_exists": True,
@@ -582,6 +585,7 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
             "is_executable": True,
             "has_strict_shell": True,
             "executes_python_module": True,
+            "forwards_arguments": True,
         },
         "docs": {
             "license_exists": True,
@@ -674,6 +678,7 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["has_strict_shell"] is True
     assert payload["launcher"]["executes_python_module"] is True
+    assert payload["launcher"]["forwards_arguments"] is True
     assert payload["docs"]["license_exists"] is True
     assert payload["docs"]["changelog_exists"] is True
     assert payload["docs"]["changelog_has_current_release_heading"] is True
@@ -752,12 +757,14 @@ def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadat
             "is_executable": True,
             "launches_gui": True,
             "has_strict_shell": True,
+            "forwards_arguments": True,
         },
         "launcher": {
             "is_executable": True,
             "has_strict_shell": True,
             "changes_to_project_root": True,
             "executes_python_module": True,
+            "forwards_arguments": True,
         },
     }
 
@@ -765,6 +772,64 @@ def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadat
 
     assert "AppImage archive size is missing" in errors
     assert "AppImage archive digest is missing" in errors
+
+
+def test_linux_appimage_audit_validator_rejects_missing_launcher_argument_forwarding() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "x86_64",
+        "archive": f"packaging/dist/eodinga-{__version__}-linux-x86_64-appdir.tar.gz",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "archive_artifact": {
+            "exists": True,
+            "size_bytes": 1,
+            "sha256": "a" * 64,
+        },
+        "recipe": {
+            "exists": True,
+            "contains_version_template": True,
+            "rendered_exists": True,
+            "rendered_version_matches_package": True,
+            "references_desktop_entry": True,
+            "references_icon_asset": True,
+            "launches_gui": True,
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "exec": "eodinga gui",
+            "icon": "eodinga",
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "diricon_exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "apprun": {
+            "is_executable": True,
+            "launches_gui": True,
+            "has_strict_shell": True,
+            "forwards_arguments": False,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "changes_to_project_root": True,
+            "executes_python_module": True,
+            "forwards_arguments": False,
+        },
+    }
+
+    errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
+
+    assert "AppImage AppRun no longer forwards launcher arguments" in errors
+    assert "AppImage launcher shim no longer forwards launcher arguments" in errors
 
 
 def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
@@ -823,6 +888,7 @@ def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
             "is_executable": True,
             "has_strict_shell": True,
             "executes_python_module": True,
+            "forwards_arguments": True,
         },
         "docs": {
             "license_exists": True,
@@ -839,3 +905,74 @@ def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
     assert "Debian package is missing" in errors
     assert "Debian package size is missing" in errors
     assert "Debian package digest is missing" in errors
+
+
+def test_linux_deb_audit_validator_rejects_missing_launcher_argument_forwarding() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "amd64",
+        "archive": f"packaging/dist/eodinga_{__version__}_amd64_debroot.tar.gz",
+        "deb_path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "archive_artifact": {
+            "exists": True,
+            "size_bytes": 1,
+            "sha256": "a" * 64,
+        },
+        "deb_artifact": {
+            "path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+            "exists": False,
+            "size_bytes": None,
+            "sha256": None,
+        },
+        "dry_run": True,
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+            "architecture": "amd64",
+            "depends": "python3 (>= 3.11)",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "debian_control_template": {
+            "exists": True,
+            "contains_version_template": True,
+            "contains_arch_template": True,
+            "rendered_exists": True,
+            "source": "eodinga",
+            "maintainer": "Cheol-H-Jeong",
+            "binary_package": "eodinga",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "launches_gui": True,
+            "icon_matches_package": True,
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "executes_python_module": True,
+            "forwards_arguments": False,
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": True,
+            "changelog_has_current_release_heading": True,
+            "changelog_gzip_mtime_zero": True,
+        },
+    }
+
+    errors = module._validate_linux_deb_audit(payload, __version__, __version__)
+
+    assert "Debian launcher shim no longer forwards launcher arguments" in errors

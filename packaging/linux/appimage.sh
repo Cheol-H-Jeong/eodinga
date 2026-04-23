@@ -137,6 +137,7 @@ payload = {
         "is_executable": os.access(apprun_path, os.X_OK),
         "launches_gui": 'usr/bin/eodinga" gui ' in apprun_path.read_text(encoding="utf-8"),
         "has_strict_shell": "set -euo pipefail" in apprun_path.read_text(encoding="utf-8"),
+        "forwards_arguments": '"\$@"' in apprun_path.read_text(encoding="utf-8"),
     },
     "launcher": {
         "path": str(launcher_path),
@@ -144,6 +145,7 @@ payload = {
         "has_strict_shell": "set -euo pipefail" in launcher_path.read_text(encoding="utf-8"),
         "changes_to_project_root": 'cd "\${ROOT_DIR}"' in launcher_path.read_text(encoding="utf-8"),
         "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
+        "forwards_arguments": '"\$@"' in launcher_path.read_text(encoding="utf-8"),
     },
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")
