@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.186 - 2026-04-23
+
+- Added a launcher preview pane that follows the current result selection, shows the indexed snippet when available, and falls back to path context when content snippets are absent.
+- Kept the popup launcher implementation split into its own module while adding the preview surface, preserving the repository's per-module size guard for the main launcher panel.
+- Added a live `Keep launcher on top` setting that updates the frameless popup immediately and persists the flag back to config without requiring a restart.
+
 ## 0.1.184 - 2026-04-23
 
 - Wired `launcher.debounce_ms` and `launcher.max_results` into both launcher surfaces, so the popup and embedded search panel now respect the configured debounce window and result cap instead of hard-coded defaults.
