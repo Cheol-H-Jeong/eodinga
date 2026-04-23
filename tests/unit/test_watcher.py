@@ -65,6 +65,40 @@ def test_watcher_handler_preserves_move_within_root(tmp_path: Path) -> None:
     assert event.root_path == root
 
 
+def test_watcher_handler_treats_shared_prefix_sibling_as_outside_on_move_out(tmp_path: Path) -> None:
+    service = WatchService()
+    root = tmp_path / "watched"
+    sibling = tmp_path / "watched-archive"
+    source = root / "draft.txt"
+    destination = sibling / "draft.txt"
+    handler = _Handler(service, root)
+
+    handler.on_any_event(FileMovedEvent(str(source), str(destination)))
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "deleted"
+    assert event.path == source
+    assert event.root_path == root
+
+
+def test_watcher_handler_treats_shared_prefix_sibling_as_outside_on_move_in(tmp_path: Path) -> None:
+    service = WatchService()
+    root = tmp_path / "watched"
+    sibling = tmp_path / "watched-archive"
+    source = sibling / "draft.txt"
+    destination = root / "draft.txt"
+    handler = _Handler(service, root)
+
+    handler.on_any_event(FileMovedEvent(str(source), str(destination)))
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "created"
+    assert event.path == destination
+    assert event.root_path == root
+
+
 def test_watcher_coalesces_events_within_500ms(tmp_path: Path) -> None:
     service = WatchService()
     service.start(tmp_path)
