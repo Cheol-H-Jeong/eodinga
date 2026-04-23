@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.122 - 2026-04-23
+
+- Hardened observability defaults on macOS by routing file logs and crash artifacts into `~/Library/Logs/eodinga`, while enriching crash logs with platform, Python, cwd, and argv context for faster post-mortems.
+- Expanded `eodinga stats --json` so it now emits the full in-process counter and histogram snapshots in addition to the stable top-level summary fields, making ad hoc diagnostics and tests inspect the same runtime metrics registry.
+- Added an end-to-end observability regression that exercises rebuild indexing, parser failure capture, query execution, and watcher ingress together so the shipped counters and query-latency histogram stay pinned as an integrated contract.
+
 ## 0.1.120 - 2026-04-23
 
 - Centralized SQLite connection setup behind a shared helper that keeps the runtime PRAGMA profile consistent while explicitly reserving a 128-statement cache for index rebuilds, stale-WAL recovery, normal opens, and the opt-in perf harness.
