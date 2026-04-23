@@ -710,6 +710,55 @@ def test_execute_datetime_query_accepts_lowercase_utc_suffix(tmp_db: sqlite3.Con
     assert hits == ["exact-second.txt"]
 
 
+def test_execute_iso_year_and_month_queries(tmp_db: sqlite3.Connection) -> None:
+    jan_2026 = int(datetime(2026, 1, 10, 12, tzinfo=UTC).timestamp())
+    feb_2026 = int(datetime(2026, 2, 15, 12, tzinfo=UTC).timestamp())
+    jan_2027 = int(datetime(2027, 1, 5, 12, tzinfo=UTC).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/jan-2026.txt", 512, jan_2026, "txt", body_text="jan")
+    _insert_file(tmp_db, 2, "/workspace/feb-2026.txt", 512, feb_2026, "txt", body_text="feb")
+    _insert_file(tmp_db, 3, "/workspace/jan-2027.txt", 512, jan_2027, "txt", body_text="next year")
+    tmp_db.commit()
+
+    year_hits = [hit.file.name for hit in search(tmp_db, "date:2026", limit=10).hits]
+    month_hits = [hit.file.name for hit in search(tmp_db, "date:2026-02", limit=10).hits]
+
+    assert year_hits == ["feb-2026.txt", "jan-2026.txt"]
+    assert month_hits == ["feb-2026.txt"]
+
+
+def test_execute_iso_week_and_weekday_queries(tmp_db: sqlite3.Connection) -> None:
+    monday = int(datetime(2026, 4, 20, 12, tzinfo=UTC).timestamp())
+    wednesday = int(datetime(2026, 4, 22, 12, tzinfo=UTC).timestamp())
+    next_week = int(datetime(2026, 4, 27, 12, tzinfo=UTC).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/week-monday.txt", 512, monday, "txt", body_text="monday")
+    _insert_file(tmp_db, 2, "/workspace/week-wednesday.txt", 512, wednesday, "txt", body_text="wednesday")
+    _insert_file(tmp_db, 3, "/workspace/next-week.txt", 512, next_week, "txt", body_text="next")
+    tmp_db.commit()
+
+    week_hits = [hit.file.name for hit in search(tmp_db, "date:2026-W17", limit=10).hits]
+    weekday_hits = [hit.file.name for hit in search(tmp_db, "date:2026-W17-3", limit=10).hits]
+
+    assert week_hits == ["week-monday.txt", "week-wednesday.txt"]
+    assert weekday_hits == ["week-wednesday.txt"]
+
+
+def test_execute_iso_period_ranges_mix_week_and_month_endpoints(tmp_db: sqlite3.Connection) -> None:
+    april = int(datetime(2026, 4, 30, 12, tzinfo=UTC).timestamp())
+    may = int(datetime(2026, 5, 5, 12, tzinfo=UTC).timestamp())
+    june = int(datetime(2026, 6, 1, 12, tzinfo=UTC).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/april.txt", 512, april, "txt", body_text="april")
+    _insert_file(tmp_db, 2, "/workspace/may.txt", 512, may, "txt", body_text="may")
+    _insert_file(tmp_db, 3, "/workspace/june.txt", 512, june, "txt", body_text="june")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "date:2026-W18..2026-05", limit=10).hits]
+
+    assert hits == ["april.txt", "may.txt"]
+
+
 def test_execute_decomposed_korean_path_filter_matches_nfc_paths(
     tmp_db: sqlite3.Connection,
 ) -> None:

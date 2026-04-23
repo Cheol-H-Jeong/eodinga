@@ -178,6 +178,40 @@ def test_compile_datetime_literals_accept_lowercase_utc_suffix() -> None:
     assert end - start == 1
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_seconds"),
+    [
+        ("date:2026", 365 * 86_400),
+        ("date:2026-02", 28 * 86_400),
+        ("date:2026-W17", 7 * 86_400),
+        ("date:2026-W17-3", 86_400),
+    ],
+)
+def test_compile_iso_period_literals_expand_to_expected_ranges(
+    query: str,
+    expected_seconds: int,
+) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+    start, end = branch.where_params
+
+    assert branch.where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert isinstance(start, int)
+    assert isinstance(end, int)
+    assert end - start == expected_seconds
+
+
+def test_compile_iso_period_ranges_can_mix_granularities() -> None:
+    compiled = compile_query(parse("created:2026-W17..2026-05"))
+    branch = compiled.branches[0]
+    start, end = branch.where_params
+
+    assert branch.where_sql == "files.ctime >= ? AND files.ctime < ?"
+    assert isinstance(start, int)
+    assert isinstance(end, int)
+    assert start < end
+
+
 def test_compile_datetime_ranges_preserve_exact_endpoints() -> None:
     compiled = compile_query(parse("created:2026-01-03T09:15:30..2026-01-03T09:16:00"))
     branch = compiled.branches[0]
@@ -351,6 +385,9 @@ def test_compile_is_empty_escapes_descendant_like_patterns() -> None:
         "regex:true [a-",
         "size:>tenM report",
         "date:2026-01-01..bogus report",
+        "date:2026-13 report",
+        "date:2026-W54 report",
+        "date:2026-W17-0 report",
         "is:bundle report",
     ],
 )
