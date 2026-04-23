@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.191 - 2026-04-23
+## 0.1.197 - 2026-04-23
 
 - Reworked the launcher empty state so recent and pinned queries stay readable while keyboard help lives in its own dedicated hint line instead of one dense paragraph.
 - Expanded launcher accessibility coverage with stable names for the main window, launcher status surfaces, and empty-state labels, and fixed `Home`/`End` so they keep normal text-editing behavior until the caret is already at the query boundary.
