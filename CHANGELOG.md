@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.959 - 2026-04-24
+## 0.1.966 - 2026-04-24
 
 - Let launcher typing and backspace fall through from the results list back into the search box, so keyboard users can refine a query without manually escaping focus first.
 - Added keyboard access for pinned and recent query chips, including `Tab`/`Shift+Tab` entry from the search field and left/right movement within each chip row.
