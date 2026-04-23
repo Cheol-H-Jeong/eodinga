@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.526 - 2026-04-23
+
+- Extended the launcher keyboard cycle so `Tab` now reaches pinned and recent query chips before search results, and continues from results into the action bar instead of skipping those controls entirely.
+- Added direct keyboard navigation across launcher chips and actions, with focus-aware shortcut guidance that explains what Enter, Tab, and Shift+Tab do on each surface.
+- Named the launcher chip labels, chip containers, preview heading, and chip buttons explicitly for assistive technologies, with UI tests pinning the expanded accessibility contract.
+
 ## 0.1.524 - 2026-04-23
 
 - Retained a bounded in-memory timeline of recent command snapshots and exposed it through `stats --json`, so operators can see the last successful index/search/stats/doctor/version activity without scraping debug logs.
