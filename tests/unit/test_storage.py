@@ -506,6 +506,38 @@ def test_open_index_recovers_from_staged_copy_and_cleans_recovery_files(tmp_path
     assert not staged_path.with_name(".snapshot.db.recover-shm").exists()
 
 
+def test_open_index_ignores_cleaned_invalid_recovery_stage(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    conn = sqlite3.connect(path)
+    apply_schema(conn)
+    conn.close()
+
+    staged_path = tmp_path / ".index.db.recover"
+    staged_path.write_bytes(b"not-a-database")
+
+    reopened = open_index(path)
+    reopened.close()
+
+    assert path.exists()
+    assert not staged_path.exists()
+
+
+def test_open_index_ignores_cleaned_invalid_build_stage(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    conn = sqlite3.connect(path)
+    apply_schema(conn)
+    conn.close()
+
+    staged_path = tmp_path / ".index.db.next"
+    staged_path.write_bytes(b"not-a-database")
+
+    reopened = open_index(path)
+    reopened.close()
+
+    assert path.exists()
+    assert not staged_path.exists()
+
+
 def test_recover_interrupted_recovery_swaps_existing_staged_database(tmp_path: Path) -> None:
     target = tmp_path / "index.db"
     staged = tmp_path / ".index.db.recover"
