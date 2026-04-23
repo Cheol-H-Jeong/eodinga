@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.574 - 2026-04-23
+
+- Hardened the no-network safety scan so aliased imports and `from parent import child` forms like `from urllib import request` or `from socket import create_connection` can no longer bypass the repository-wide source check.
+- Hardened the readonly-filesystem safety scan so aliased imports and imported `os.open` flag constants are still classified correctly as write-capable operations.
+- Preserved valid interrupted recovery/build stage databases when the final atomic swap fails, while still cleaning invalid stages and partial-copy debris so the next startup can retry from the staged index instead of starting over.
+
 ## 0.1.570 - 2026-04-23
 
 - Added visible `Alt+1` through `Alt+9` quick-pick badges to the first nine launcher results so keyboard shortcuts are discoverable directly in the result list.
