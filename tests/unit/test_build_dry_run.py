@@ -312,10 +312,16 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
         "control": {
             "package": "eodinga",
             "version": __version__,
+            "section": "utils",
+            "priority": "optional",
+            "maintainer": "Cheol-H-Jeong",
         },
         "debian_control_template": {
             "exists": True,
             "source": "eodinga",
+            "section": "utils",
+            "priority": "optional",
+            "maintainer": "Cheol-H-Jeong",
             "binary_package": "eodinga",
             "description": "Instant lexical file search for Windows and Linux",
         },
@@ -353,10 +359,16 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
         "control": {
             "package": "eodinga",
             "version": __version__,
+            "section": "utils",
+            "priority": "optional",
+            "maintainer": "Cheol-H-Jeong",
         },
         "debian_control_template": {
             "exists": True,
             "source": "eodinga",
+            "section": "utils",
+            "priority": "optional",
+            "maintainer": "Cheol-H-Jeong",
             "binary_package": "eodinga",
             "description": "Instant lexical file search for Windows and Linux",
         },
@@ -383,6 +395,54 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
 
     assert "Debian dry-run archive filename does not match the package version and arch" in errors
     assert "Debian package filename does not match the package version and arch" in errors
+
+
+def test_linux_deb_audit_validator_rejects_template_metadata_drift() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "amd64",
+        "archive": f"packaging/dist/eodinga_{__version__}_amd64_debroot.tar.gz",
+        "deb_path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+            "section": "utils",
+            "priority": "optional",
+            "maintainer": "Cheol-H-Jeong",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "debian_control_template": {
+            "exists": True,
+            "source": "eodinga",
+            "section": "utils",
+            "priority": "optional",
+            "maintainer": "Someone Else",
+            "binary_package": "eodinga",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "launches_gui": True,
+            "icon_matches_package": True,
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "executes_python_module": True,
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": True,
+            "changelog_has_current_release_heading": True,
+        },
+    }
+
+    errors = module._validate_linux_deb_audit(payload, __version__, __version__)
+
+    assert "Debian control template maintainer drifted from the staged package" in errors
 
 
 def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
@@ -424,7 +484,10 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["control"] == {
         "package": "eodinga",
         "version": __version__,
+        "section": "utils",
+        "priority": "optional",
         "architecture": "amd64",
+        "maintainer": "Cheol-H-Jeong",
         "depends": "python3 (>= 3.11)",
         "description": "Instant lexical file search for Windows and Linux",
     }
@@ -432,6 +495,8 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
         "path": str(Path("packaging/linux/debian/control").resolve()),
         "exists": True,
         "source": "eodinga",
+        "section": "utils",
+        "priority": "optional",
         "maintainer": "Cheol-H-Jeong",
         "binary_package": "eodinga",
         "description": "Instant lexical file search for Windows and Linux",
