@@ -6,7 +6,7 @@ from pathlib import Path
 from queue import Empty
 
 import pytest
-from watchdog.events import DirCreatedEvent, DirDeletedEvent, FileMovedEvent
+from watchdog.events import DirCreatedEvent, DirDeletedEvent, DirMovedEvent, FileMovedEvent
 
 from eodinga.common import PathRules, WatchEvent
 from eodinga.content.registry import parse
@@ -459,3 +459,34 @@ def test_e2e_watch_handler_directory_delete_removes_empty_directory_from_index(
         conn.close()
 
     assert doomed_dir not in indexed_paths
+
+
+def test_e2e_watch_handler_directory_move_updates_empty_directory_path(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    source = root / "draft-dir"
+    destination = root / "report-dir"
+    source.mkdir()
+    _index_tree(root, db_path)
+
+    conn = open_index(db_path)
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        handler = _Handler(WatchService(), root)
+
+        source.rename(destination)
+        handler.on_any_event(DirMovedEvent(str(source), str(destination)))
+        handler._service._flush_ready(force=True)
+
+        event = handler._service.queue.get_nowait()
+        assert event.event_type == "moved"
+        assert event.is_dir is True
+        assert writer.apply_events([event], record_loader=make_record) == 1
+
+        empty_hits = [hit.file.path for hit in search(conn, "is:empty", limit=10).hits]
+    finally:
+        conn.close()
+
+    assert source not in empty_hits
+    assert destination in empty_hits

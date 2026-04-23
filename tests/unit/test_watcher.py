@@ -6,7 +6,7 @@ from threading import Thread
 from time import monotonic, sleep
 
 import pytest
-from watchdog.events import DirCreatedEvent, DirDeletedEvent, FileMovedEvent
+from watchdog.events import DirCreatedEvent, DirDeletedEvent, DirMovedEvent, FileMovedEvent
 
 from eodinga.common import WatchEvent
 from eodinga.core.watcher import WatchService, _Handler
@@ -95,6 +95,24 @@ def test_watcher_handler_preserves_move_within_root(tmp_path: Path) -> None:
     assert event.event_type == "moved"
     assert event.path == destination
     assert event.src_path == source
+    assert event.root_path == root
+
+
+def test_watcher_handler_preserves_directory_move_within_root(tmp_path: Path) -> None:
+    service = WatchService()
+    root = tmp_path / "watched"
+    source = root / "draft-dir"
+    destination = root / "report-dir"
+    handler = _Handler(service, root)
+
+    handler.on_any_event(DirMovedEvent(str(source), str(destination)))
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "moved"
+    assert event.path == destination
+    assert event.src_path == source
+    assert event.is_dir is True
     assert event.root_path == root
 
 
