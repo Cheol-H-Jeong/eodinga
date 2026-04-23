@@ -77,6 +77,25 @@ def test_parse_operator_regex_value() -> None:
 
 
 @pytest.mark.parametrize(
+    ("query", "expected_pattern", "expected_flags"),
+    [
+        (r"/a\\/i", r"a\\", "i"),
+        (r"/a\\\\/ms", r"a\\\\", "ms"),
+    ],
+)
+def test_parse_regex_supports_trailing_backslashes_before_delimiter(
+    query: str,
+    expected_pattern: str,
+    expected_flags: str,
+) -> None:
+    node = parse(query)
+
+    assert isinstance(node, RegexNode)
+    assert node.pattern == expected_pattern
+    assert node.flags == expected_flags
+
+
+@pytest.mark.parametrize(
     ("query", "expected_name", "expected_value"),
     [
         ('"release \\"candidate\\""', None, 'release "candidate"'),
