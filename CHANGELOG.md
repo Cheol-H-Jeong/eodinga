@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.956 - 2026-04-24
+## 0.1.959 - 2026-04-24
 
 - Tightened the Windows packaging audit so the real `windows` target now requires the versioned installer artifact for the current release, preventing stale unversioned `dist/` leftovers from producing a false-green build result.
 - Added hot-restart integration coverage for trimmed multi-root rebuilds, proving a reopened index keeps the surviving root scoped correctly and still accepts watcher-driven updates after the root set changes.
