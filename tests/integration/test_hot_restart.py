@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from queue import Empty
-from time import monotonic
 
 from eodinga.config import RootConfig
 from eodinga.common import PathRules
@@ -15,50 +13,7 @@ from eodinga.index.writer import IndexWriter
 from eodinga.core.walker import walk_batched
 from eodinga.query import search
 from tests.conftest import make_record
-
-
-def _wait_for_query_hit(
-    conn,
-    service: WatchService,
-    writer: IndexWriter,
-    query: str,
-    expected_path: Path,
-    deadline_seconds: float,
-) -> float:
-    started = monotonic()
-    deadline = started + deadline_seconds
-    while monotonic() < deadline:
-        try:
-            event = service.queue.get(timeout=0.05)
-        except Empty:
-            continue
-        writer.apply_events([event], record_loader=make_record)
-        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
-        if expected_path in hits:
-            return min(monotonic() - started, deadline_seconds)
-    raise AssertionError(f"{expected_path} did not become query-visible within {deadline_seconds:.3f}s")
-
-
-def _wait_for_query_miss(
-    conn,
-    service: WatchService,
-    writer: IndexWriter,
-    query: str,
-    missing_path: Path,
-    deadline_seconds: float,
-) -> float:
-    started = monotonic()
-    deadline = started + deadline_seconds
-    while monotonic() < deadline:
-        try:
-            event = service.queue.get(timeout=0.05)
-        except Empty:
-            continue
-        writer.apply_events([event], record_loader=make_record)
-        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
-        if missing_path not in hits:
-            return min(monotonic() - started, deadline_seconds)
-    raise AssertionError(f"{missing_path} remained query-visible after {deadline_seconds:.3f}s")
+from tests.integration.helpers import query_hit_paths, wait_for_query_hit, wait_for_query_miss
 
 
 def test_hot_restart_recovers_stale_wal_and_preserves_queries(tmp_path: Path) -> None:
@@ -181,11 +136,8 @@ def test_hot_restart_reopen_multi_root_keeps_queries_and_accepts_live_updates(tm
 
     first_conn = open_index(db_path)
     try:
-        initial_hits = {hit.file.path for hit in search(first_conn, "persisted multi root", limit=5).hits}
-        initial_beta_hits = {
-            hit.file.path
-            for hit in search(first_conn, "persisted multi root", limit=5, root=root_b).hits
-        }
+        initial_hits = set(query_hit_paths(first_conn, "persisted multi root"))
+        initial_beta_hits = set(query_hit_paths(first_conn, "persisted multi root", root=root_b))
     finally:
         first_conn.close()
 
@@ -198,19 +150,17 @@ def test_hot_restart_reopen_multi_root_keeps_queries_and_accepts_live_updates(tm
 
         created = root_b / "after-reopen-beta.txt"
         created.write_text("post reopen beta update\n", encoding="utf-8")
-        elapsed = _wait_for_query_hit(
+        elapsed = wait_for_query_hit(
             reopened,
             service,
             writer,
-            "post reopen beta update",
-            created,
+            record_loader=make_record,
+            query="post reopen beta update",
+            expected_path=created,
             deadline_seconds=0.5,
         )
-        reopened_hits = {hit.file.path for hit in search(reopened, "persisted multi root", limit=5).hits}
-        reopened_beta_hits = {
-            hit.file.path
-            for hit in search(reopened, "persisted multi root", limit=5, root=root_b).hits
-        }
+        reopened_hits = set(query_hit_paths(reopened, "persisted multi root"))
+        reopened_beta_hits = set(query_hit_paths(reopened, "persisted multi root", root=root_b))
     finally:
         service.stop()
         reopened.close()
@@ -245,25 +195,18 @@ def test_hot_restart_reopen_multi_root_create_updates_global_and_root_scoped_que
 
         created = root_b / "reopen-created-beta.txt"
         created.write_text("reopen scoped beta creation\n", encoding="utf-8")
-        elapsed = _wait_for_query_hit(
+        elapsed = wait_for_query_hit(
             reopened,
             service,
             writer,
-            "reopen scoped beta creation",
-            created,
+            record_loader=make_record,
+            query="reopen scoped beta creation",
+            expected_path=created,
             deadline_seconds=0.5,
         )
-        global_hits = {
-            hit.file.path for hit in search(reopened, "reopen scoped beta creation", limit=5).hits
-        }
-        alpha_hits = {
-            hit.file.path
-            for hit in search(reopened, "reopen scoped beta creation", limit=5, root=root_a).hits
-        }
-        beta_hits = {
-            hit.file.path
-            for hit in search(reopened, "reopen scoped beta creation", limit=5, root=root_b).hits
-        }
+        global_hits = set(query_hit_paths(reopened, "reopen scoped beta creation"))
+        alpha_hits = set(query_hit_paths(reopened, "reopen scoped beta creation", root=root_a))
+        beta_hits = set(query_hit_paths(reopened, "reopen scoped beta creation", root=root_b))
     finally:
         service.stop()
         reopened.close()
@@ -292,7 +235,7 @@ def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) 
 
     first_conn = open_index(db_path)
     try:
-        initial_hits = {hit.file.path for hit in search(first_conn, "persisted reopen", limit=5).hits}
+        initial_hits = set(query_hit_paths(first_conn, "persisted reopen"))
     finally:
         first_conn.close()
 
@@ -304,23 +247,18 @@ def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) 
         service.start(root_b)
 
         target.unlink()
-        elapsed = _wait_for_query_miss(
+        elapsed = wait_for_query_miss(
             reopened,
             service,
             writer,
-            "persisted reopen alpha delete",
-            target,
+            record_loader=make_record,
+            query="persisted reopen alpha delete",
+            missing_path=target,
             deadline_seconds=0.5,
         )
-        alpha_hits = {
-            hit.file.path
-            for hit in search(reopened, "persisted reopen", limit=5, root=root_a).hits
-        }
-        beta_hits = {
-            hit.file.path
-            for hit in search(reopened, "persisted reopen", limit=5, root=root_b).hits
-        }
-        remaining_hits = {hit.file.path for hit in search(reopened, "persisted reopen", limit=5).hits}
+        alpha_hits = set(query_hit_paths(reopened, "persisted reopen", root=root_a))
+        beta_hits = set(query_hit_paths(reopened, "persisted reopen", root=root_b))
+        remaining_hits = set(query_hit_paths(reopened, "persisted reopen"))
     finally:
         service.stop()
         reopened.close()
@@ -350,18 +288,19 @@ def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updat
     reopened = open_index(target_db)
     service = WatchService()
     try:
-        initial_hits = [hit.file.path for hit in search(reopened, "staged build recovery", limit=3).hits]
+        initial_hits = query_hit_paths(reopened, "staged build recovery", limit=3)
         writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
         service.start(root)
 
         created = root / "after-build-resume.txt"
         created.write_text("live update after staged resume\n", encoding="utf-8")
-        elapsed = _wait_for_query_hit(
+        elapsed = wait_for_query_hit(
             reopened,
             service,
             writer,
-            "live update after staged resume",
-            created,
+            record_loader=make_record,
+            query="live update after staged resume",
+            expected_path=created,
             deadline_seconds=0.5,
         )
     finally:
@@ -402,15 +341,9 @@ def test_hot_restart_resumes_interrupted_multi_root_build_with_root_scoped_queri
 
     reopened = open_index(target_db)
     try:
-        all_hits = {hit.file.path for hit in search(reopened, "recovered interrupted", limit=5).hits}
-        alpha_hits = {
-            hit.file.path
-            for hit in search(reopened, "recovered interrupted", limit=5, root=root_a).hits
-        }
-        beta_hits = {
-            hit.file.path
-            for hit in search(reopened, "recovered interrupted", limit=5, root=root_b).hits
-        }
+        all_hits = set(query_hit_paths(reopened, "recovered interrupted"))
+        alpha_hits = set(query_hit_paths(reopened, "recovered interrupted", root=root_a))
+        beta_hits = set(query_hit_paths(reopened, "recovered interrupted", root=root_b))
     finally:
         reopened.close()
 
@@ -438,10 +371,7 @@ def test_hot_restart_reopen_multi_root_modify_updates_root_scoped_queries(tmp_pa
 
     first_conn = open_index(db_path)
     try:
-        initial_beta_hits = {
-            hit.file.path
-            for hit in search(first_conn, "beta original reopen marker", limit=5, root=root_b).hits
-        }
+        initial_beta_hits = set(query_hit_paths(first_conn, "beta original reopen marker", root=root_b))
     finally:
         first_conn.close()
 
@@ -453,26 +383,18 @@ def test_hot_restart_reopen_multi_root_modify_updates_root_scoped_queries(tmp_pa
         service.start(root_b)
 
         target.write_text("beta rewritten reopen marker\n", encoding="utf-8")
-        elapsed = _wait_for_query_hit(
+        elapsed = wait_for_query_hit(
             reopened,
             service,
             writer,
-            "beta rewritten reopen marker",
-            target,
+            record_loader=make_record,
+            query="beta rewritten reopen marker",
+            expected_path=target,
             deadline_seconds=0.5,
         )
-        stale_beta_hits = {
-            hit.file.path
-            for hit in search(reopened, "beta original reopen marker", limit=5, root=root_b).hits
-        }
-        current_beta_hits = {
-            hit.file.path
-            for hit in search(reopened, "beta rewritten reopen marker", limit=5, root=root_b).hits
-        }
-        alpha_hits = {
-            hit.file.path
-            for hit in search(reopened, "alpha stable reopen marker", limit=5, root=root_a).hits
-        }
+        stale_beta_hits = set(query_hit_paths(reopened, "beta original reopen marker", root=root_b))
+        current_beta_hits = set(query_hit_paths(reopened, "beta rewritten reopen marker", root=root_b))
+        alpha_hits = set(query_hit_paths(reopened, "alpha stable reopen marker", root=root_a))
     finally:
         service.stop()
         reopened.close()
@@ -498,30 +420,30 @@ def test_hot_restart_reopen_same_root_move_updates_query_and_path_hits(tmp_path:
         writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
         service.start(root)
 
-        initial_hits = [hit.file.path for hit in search(reopened, "reopen same root motion", limit=5).hits]
+        initial_hits = query_hit_paths(reopened, "reopen same root motion")
         destination = root / "reopen-renamed.txt"
         source.rename(destination)
 
-        appeared_elapsed = _wait_for_query_hit(
+        appeared_elapsed = wait_for_query_hit(
             reopened,
             service,
             writer,
-            "reopen same root motion",
-            destination,
+            record_loader=make_record,
+            query="reopen same root motion",
+            expected_path=destination,
             deadline_seconds=0.5,
         )
-        removed_elapsed = _wait_for_query_miss(
+        removed_elapsed = wait_for_query_miss(
             reopened,
             service,
             writer,
-            "reopen same root motion",
-            source,
+            record_loader=make_record,
+            query="reopen same root motion",
+            missing_path=source,
             deadline_seconds=0.5,
         )
-        source_path_hits = [hit.file.path for hit in search(reopened, "path:reopen-draft", limit=5).hits]
-        destination_path_hits = [
-            hit.file.path for hit in search(reopened, "path:reopen-renamed", limit=5).hits
-        ]
+        source_path_hits = query_hit_paths(reopened, "path:reopen-draft")
+        destination_path_hits = query_hit_paths(reopened, "path:reopen-renamed")
     finally:
         service.stop()
         reopened.close()
@@ -556,31 +478,27 @@ def test_hot_restart_reopen_cross_root_move_updates_scope_and_global_hits(tmp_pa
 
         destination = root_b / moved.name
         moved.rename(destination)
-        appeared_elapsed = _wait_for_query_hit(
+        appeared_elapsed = wait_for_query_hit(
             reopened,
             service,
             writer,
-            "reopen cross root motion",
-            destination,
+            record_loader=make_record,
+            query="reopen cross root motion",
+            expected_path=destination,
             deadline_seconds=0.5,
         )
-        removed_elapsed = _wait_for_query_miss(
+        removed_elapsed = wait_for_query_miss(
             reopened,
             service,
             writer,
-            "reopen cross root motion",
-            moved,
+            record_loader=make_record,
+            query="reopen cross root motion",
+            missing_path=moved,
             deadline_seconds=0.5,
         )
-        alpha_hits = {
-            hit.file.path
-            for hit in search(reopened, "reopen cross root motion", limit=5, root=root_a).hits
-        }
-        beta_hits = {
-            hit.file.path
-            for hit in search(reopened, "reopen cross root motion", limit=5, root=root_b).hits
-        }
-        all_hits = {hit.file.path for hit in search(reopened, "reopen cross root motion", limit=5).hits}
+        alpha_hits = set(query_hit_paths(reopened, "reopen cross root motion", root=root_a))
+        beta_hits = set(query_hit_paths(reopened, "reopen cross root motion", root=root_b))
+        all_hits = set(query_hit_paths(reopened, "reopen cross root motion"))
     finally:
         service.stop()
         reopened.close()

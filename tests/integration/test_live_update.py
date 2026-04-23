@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from queue import Empty
-from time import monotonic
 
 from eodinga.config import RootConfig
 from eodinga.content.registry import parse
@@ -10,52 +8,8 @@ from eodinga.core.watcher import WatchService
 from eodinga.index import open_index
 from eodinga.index.build import rebuild_index
 from eodinga.index.writer import IndexWriter
-from eodinga.query import search
 from tests.conftest import make_record
-
-
-def _wait_for_query_hit(
-    conn,
-    service: WatchService,
-    writer: IndexWriter,
-    query: str,
-    expected_path: Path,
-    deadline_seconds: float,
-) -> float:
-    started = monotonic()
-    deadline = started + deadline_seconds
-    while monotonic() < deadline:
-        try:
-            event = service.queue.get(timeout=0.05)
-        except Empty:
-            continue
-        writer.apply_events([event], record_loader=make_record)
-        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
-        if expected_path in hits:
-            return min(monotonic() - started, deadline_seconds)
-    raise AssertionError(f"{expected_path} did not become query-visible within {deadline_seconds:.3f}s")
-
-
-def _wait_for_query_miss(
-    conn,
-    service: WatchService,
-    writer: IndexWriter,
-    query: str,
-    missing_path: Path,
-    deadline_seconds: float,
-) -> float:
-    started = monotonic()
-    deadline = started + deadline_seconds
-    while monotonic() < deadline:
-        try:
-            event = service.queue.get(timeout=0.05)
-        except Empty:
-            continue
-        writer.apply_events([event], record_loader=make_record)
-        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
-        if missing_path not in hits:
-            return min(monotonic() - started, deadline_seconds)
-    raise AssertionError(f"{missing_path} remained query-visible after {deadline_seconds:.3f}s")
+from tests.integration.helpers import query_hit_paths, wait_for_query_hit, wait_for_query_miss
 
 
 def test_live_update_visible_to_search_within_500ms(tmp_path: Path) -> None:
@@ -73,12 +27,13 @@ def test_live_update_visible_to_search_within_500ms(tmp_path: Path) -> None:
         created = root / "live-update.txt"
         created.write_text("live update integration coverage\n", encoding="utf-8")
 
-        elapsed = _wait_for_query_hit(
+        elapsed = wait_for_query_hit(
             conn,
             service,
             writer,
-            "integration coverage",
-            created,
+            record_loader=make_record,
+            query="integration coverage",
+            expected_path=created,
             deadline_seconds=0.5,
         )
     finally:
@@ -102,15 +57,16 @@ def test_live_delete_removed_from_search_within_500ms(tmp_path: Path) -> None:
         writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
         service.start(root)
 
-        initial_hits = [hit.file.path for hit in search(conn, "delete integration coverage", limit=5).hits]
+        initial_hits = query_hit_paths(conn, "delete integration coverage")
         target.unlink()
 
-        elapsed = _wait_for_query_miss(
+        elapsed = wait_for_query_miss(
             conn,
             service,
             writer,
-            "delete integration coverage",
-            target,
+            record_loader=make_record,
+            query="delete integration coverage",
+            missing_path=target,
             deadline_seconds=0.5,
         )
     finally:
@@ -135,19 +91,20 @@ def test_live_modify_replaces_query_visibility_within_500ms(tmp_path: Path) -> N
         writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
         service.start(root)
 
-        initial_hits = [hit.file.path for hit in search(conn, "before live rewrite", limit=5).hits]
+        initial_hits = query_hit_paths(conn, "before live rewrite")
         target.write_text("after live rewrite marker\n", encoding="utf-8")
 
-        elapsed = _wait_for_query_hit(
+        elapsed = wait_for_query_hit(
             conn,
             service,
             writer,
-            "after live rewrite",
-            target,
+            record_loader=make_record,
+            query="after live rewrite",
+            expected_path=target,
             deadline_seconds=0.5,
         )
-        previous_hits = [hit.file.path for hit in search(conn, "before live rewrite", limit=5).hits]
-        current_hits = [hit.file.path for hit in search(conn, "after live rewrite", limit=5).hits]
+        previous_hits = query_hit_paths(conn, "before live rewrite")
+        current_hits = query_hit_paths(conn, "after live rewrite")
     finally:
         service.stop()
         conn.close()
@@ -174,20 +131,21 @@ def test_live_delete_then_recreate_same_path_replaces_query_visibility_within_50
         writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
         service.start(root)
 
-        initial_hits = [hit.file.path for hit in search(conn, "before recreate marker", limit=5).hits]
+        initial_hits = query_hit_paths(conn, "before recreate marker")
         target.unlink()
         target.write_text("after recreate marker\n", encoding="utf-8")
 
-        elapsed = _wait_for_query_hit(
+        elapsed = wait_for_query_hit(
             conn,
             service,
             writer,
-            "after recreate marker",
-            target,
+            record_loader=make_record,
+            query="after recreate marker",
+            expected_path=target,
             deadline_seconds=0.5,
         )
-        stale_hits = [hit.file.path for hit in search(conn, "before recreate marker", limit=5).hits]
-        current_hits = [hit.file.path for hit in search(conn, "after recreate marker", limit=5).hits]
+        stale_hits = query_hit_paths(conn, "before recreate marker")
+        current_hits = query_hit_paths(conn, "after recreate marker")
     finally:
         service.stop()
         conn.close()
@@ -212,28 +170,30 @@ def test_live_same_root_move_updates_search_visibility_within_500ms(tmp_path: Pa
         writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
         service.start(root)
 
-        initial_hits = [hit.file.path for hit in search(conn, "same root move integration", limit=5).hits]
+        initial_hits = query_hit_paths(conn, "same root move integration")
         destination = root / "renamed-note.txt"
         source.rename(destination)
 
-        appeared_elapsed = _wait_for_query_hit(
+        appeared_elapsed = wait_for_query_hit(
             conn,
             service,
             writer,
-            "same root move integration",
-            destination,
+            record_loader=make_record,
+            query="same root move integration",
+            expected_path=destination,
             deadline_seconds=0.5,
         )
-        removed_elapsed = _wait_for_query_miss(
+        removed_elapsed = wait_for_query_miss(
             conn,
             service,
             writer,
-            "same root move integration",
-            source,
+            record_loader=make_record,
+            query="same root move integration",
+            missing_path=source,
             deadline_seconds=0.5,
         )
-        source_path_hits = [hit.file.path for hit in search(conn, "path:draft-note", limit=5).hits]
-        destination_path_hits = [hit.file.path for hit in search(conn, "path:renamed-note", limit=5).hits]
+        source_path_hits = query_hit_paths(conn, "path:draft-note")
+        destination_path_hits = query_hit_paths(conn, "path:renamed-note")
     finally:
         service.stop()
         conn.close()
@@ -267,22 +227,17 @@ def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: P
         created = root_b / "beta-live-update.txt"
         created.write_text("beta scoped integration visibility\n", encoding="utf-8")
 
-        elapsed = _wait_for_query_hit(
+        elapsed = wait_for_query_hit(
             conn,
             service,
             writer,
-            "scoped integration visibility",
-            created,
+            record_loader=make_record,
+            query="scoped integration visibility",
+            expected_path=created,
             deadline_seconds=0.5,
         )
-        alpha_hits = [
-            hit.file.path
-            for hit in search(conn, "scoped integration visibility", limit=5, root=root_a).hits
-        ]
-        beta_hits = [
-            hit.file.path
-            for hit in search(conn, "scoped integration visibility", limit=5, root=root_b).hits
-        ]
+        alpha_hits = query_hit_paths(conn, "scoped integration visibility", root=root_a)
+        beta_hits = query_hit_paths(conn, "scoped integration visibility", root=root_b)
     finally:
         service.stop()
         conn.close()
@@ -313,35 +268,31 @@ def test_live_cross_root_move_updates_global_and_root_scoped_queries(tmp_path: P
         service.start(root_a)
         service.start(root_b)
 
-        initial_alpha_hits = [
-            hit.file.path for hit in search(conn, "cross root move integration", limit=5, root=root_a).hits
-        ]
+        initial_alpha_hits = query_hit_paths(conn, "cross root move integration", root=root_a)
         destination = root_b / moved.name
         moved.rename(destination)
 
-        appeared_elapsed = _wait_for_query_hit(
+        appeared_elapsed = wait_for_query_hit(
             conn,
             service,
             writer,
-            "cross root move integration",
-            destination,
+            record_loader=make_record,
+            query="cross root move integration",
+            expected_path=destination,
             deadline_seconds=0.5,
         )
-        removed_elapsed = _wait_for_query_miss(
+        removed_elapsed = wait_for_query_miss(
             conn,
             service,
             writer,
-            "cross root move integration",
-            moved,
+            record_loader=make_record,
+            query="cross root move integration",
+            missing_path=moved,
             deadline_seconds=0.5,
         )
-        alpha_hits = [
-            hit.file.path for hit in search(conn, "cross root move integration", limit=5, root=root_a).hits
-        ]
-        beta_hits = [
-            hit.file.path for hit in search(conn, "cross root move integration", limit=5, root=root_b).hits
-        ]
-        all_hits = [hit.file.path for hit in search(conn, "cross root move integration", limit=5).hits]
+        alpha_hits = query_hit_paths(conn, "cross root move integration", root=root_a)
+        beta_hits = query_hit_paths(conn, "cross root move integration", root=root_b)
+        all_hits = query_hit_paths(conn, "cross root move integration")
     finally:
         service.stop()
         conn.close()
@@ -377,29 +328,21 @@ def test_live_delete_removed_with_multi_root_watchers_and_root_scope(tmp_path: P
         service.start(root_a)
         service.start(root_b)
 
-        initial_hits = [hit.file.path for hit in search(conn, "scoped integration deletion", limit=5).hits]
-        initial_beta_hits = [
-            hit.file.path
-            for hit in search(conn, "scoped integration deletion", limit=5, root=root_b).hits
-        ]
+        initial_hits = query_hit_paths(conn, "scoped integration deletion")
+        initial_beta_hits = query_hit_paths(conn, "scoped integration deletion", root=root_b)
         target.unlink()
 
-        elapsed = _wait_for_query_miss(
+        elapsed = wait_for_query_miss(
             conn,
             service,
             writer,
-            "scoped integration deletion",
-            target,
+            record_loader=make_record,
+            query="scoped integration deletion",
+            missing_path=target,
             deadline_seconds=0.5,
         )
-        alpha_hits = [
-            hit.file.path
-            for hit in search(conn, "scoped integration retention", limit=5, root=root_a).hits
-        ]
-        beta_hits = [
-            hit.file.path
-            for hit in search(conn, "scoped integration deletion", limit=5, root=root_b).hits
-        ]
+        alpha_hits = query_hit_paths(conn, "scoped integration retention", root=root_a)
+        beta_hits = query_hit_paths(conn, "scoped integration deletion", root=root_b)
     finally:
         service.stop()
         conn.close()
@@ -421,7 +364,7 @@ def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Pat
 
     first_conn = open_index(db_path)
     try:
-        initial_hits = [hit.file.path for hit in search(first_conn, "persisted restart", limit=3).hits]
+        initial_hits = query_hit_paths(first_conn, "persisted restart", limit=3)
     finally:
         first_conn.close()
 
@@ -433,15 +376,16 @@ def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Pat
 
         created = root / "after-reopen.txt"
         created.write_text("post reopen live update\n", encoding="utf-8")
-        _wait_for_query_hit(
+        wait_for_query_hit(
             reopened,
             service,
             writer,
-            "post reopen",
-            created,
+            record_loader=make_record,
+            query="post reopen",
+            expected_path=created,
             deadline_seconds=0.5,
         )
-        reopened_hits = [hit.file.path for hit in search(reopened, "persisted restart", limit=3).hits]
+        reopened_hits = query_hit_paths(reopened, "persisted restart", limit=3)
     finally:
         service.stop()
         reopened.close()
