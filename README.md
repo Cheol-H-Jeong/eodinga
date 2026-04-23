@@ -102,6 +102,8 @@ eodinga stats --json
 eodinga doctor
 ```
 
+A generated Unix man page for the current CLI surface ships at [docs/eodinga.1](/home/cheol/projects/eodinga/docs/eodinga.1). Refresh it with `python scripts/render_man_page.py` whenever the argparse contract changes.
+
 ## Query DSL
 
 - `report` : plain lexical term
@@ -235,6 +237,7 @@ If search looks stale, run `eodinga stats` to confirm the active database path, 
 - [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, current baselines, and profiling workflow.
 - [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md): local workflow, guardrails, and doc/screenshot expectations for contributors.
 - [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md): release-candidate workflow, tagging, packaging validation, and handoff.
+- [docs/eodinga.1](/home/cheol/projects/eodinga/docs/eodinga.1): generated Unix man page derived from the argparse CLI surface.
 
 ## Contributing
 

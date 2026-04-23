@@ -1,0 +1,135 @@
+.TH "EODINGA" "1" "2026-04-23" "eodinga eodinga manual"
+.SH NAME
+eodinga \- everything-class instant file search for Windows and Linux
+.SH SYNOPSIS
+.B eodinga
+[\fIglobal options\fR] \fIcommand\fR [\fIcommand options\fR]
+.SH DESCRIPTION
+\fBeodinga\fR indexes local filesystem metadata and optional parsed document content, then exposes the same lexical search engine through the CLI, GUI, and launcher surfaces. The runtime is local-only; indexed roots are treated as read-only inputs.
+.SH GLOBAL OPTIONS
+.TP
+\fB\-h, \-\-help\fR
+show this help message and exit
+.TP
+\fB\-\-log\-level LOG_LEVEL\fR
+
+.TP
+\fB\-\-config CONFIG\fR
+
+.TP
+\fB\-\-db DB\fR
+
+.SH COMMANDS
+.TP
+\fBindex\fR
+build or rebuild the local search index. Usage: eodinga index [\-h] [\-\-root ROOT] [\-\-rebuild]
+.TP
+\fBwatch\fR
+report the configured watch surface for live index updates. Usage: eodinga watch [\-h]
+.TP
+\fBsearch\fR
+run a lexical query against the local index. Usage: eodinga search [\-h] [\-\-json] [\-\-limit LIMIT] [\-\-root ROOT] query
+.TP
+\fBstats\fR
+print index and in\-process observability counters. Usage: eodinga stats [\-h] [\-\-json]
+.TP
+\fBgui\fR
+launch the Qt desktop UI and hotkey surface. Usage: eodinga gui [\-h] [\-\-test\-mode]
+.TP
+\fBdoctor\fR
+run local environment and index diagnostics. Usage: eodinga doctor [\-h]
+.TP
+\fBversion\fR
+print the current eodinga version. Usage: eodinga version [\-h]
+.SH "INDEX COMMAND"
+.PP
+build or rebuild the local search index
+.SS OPTIONS
+.TP
+\fB\-h, \-\-help\fR
+show this help message and exit
+.TP
+\fB\-\-root ROOT\fR
+
+.TP
+\fB\-\-rebuild\fR
+
+.SH "WATCH COMMAND"
+.PP
+report the configured watch surface for live index updates
+.SS OPTIONS
+.TP
+\fB\-h, \-\-help\fR
+show this help message and exit
+.SH "SEARCH COMMAND"
+.PP
+run a lexical query against the local index
+.SS POSITIONAL ARGUMENTS
+.TP
+\fBquery\fR
+
+.SS OPTIONS
+.TP
+\fB\-h, \-\-help\fR
+show this help message and exit
+.TP
+\fB\-\-json\fR
+
+.TP
+\fB\-\-limit LIMIT\fR
+
+.TP
+\fB\-\-root ROOT\fR
+
+.SH "STATS COMMAND"
+.PP
+print index and in\-process observability counters
+.SS OPTIONS
+.TP
+\fB\-h, \-\-help\fR
+show this help message and exit
+.TP
+\fB\-\-json\fR
+
+.SH "GUI COMMAND"
+.PP
+launch the Qt desktop UI and hotkey surface
+.SS OPTIONS
+.TP
+\fB\-h, \-\-help\fR
+show this help message and exit
+.TP
+\fB\-\-test\-mode\fR
+
+.SH "DOCTOR COMMAND"
+.PP
+run local environment and index diagnostics
+.SS OPTIONS
+.TP
+\fB\-h, \-\-help\fR
+show this help message and exit
+.SH "VERSION COMMAND"
+.PP
+print the current eodinga version
+.SS OPTIONS
+.TP
+\fB\-h, \-\-help\fR
+show this help message and exit
+.SH EXAMPLES
+.nf
+eodinga index \-\-root ~/projects \-\-root ~/docs
+eodinga search 'date:this\-week ext:md roadmap' \-\-limit 20
+eodinga search 'regex:/todo|fixme/i path:src' \-\-json
+eodinga stats \-\-json
+eodinga doctor
+.fi
+.SH FILES
+Linux config: ~/.config/eodinga/config.toml
+.br
+Linux index: ~/.local/share/eodinga/index.db
+.br
+Windows config: %APPDATA%\\eodinga\\config.toml
+.br
+Windows index: %LOCALAPPDATA%\\eodinga\\index.db
+.SH SEE ALSO
+README.md, docs/DSL.md, docs/ACCEPTANCE.md, docs/RELEASE.md

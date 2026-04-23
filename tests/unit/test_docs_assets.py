@@ -29,6 +29,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     architecture = (root / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
     contributing = (root / "docs" / "CONTRIBUTING.md").read_text(encoding="utf-8")
     dsl = (root / "docs" / "DSL.md").read_text(encoding="utf-8")
+    man_page = (root / "docs" / "eodinga.1").read_text(encoding="utf-8")
     performance = (root / "docs" / "PERFORMANCE.md").read_text(encoding="utf-8")
     release = (root / "docs" / "RELEASE.md").read_text(encoding="utf-8")
 
@@ -56,6 +57,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "docs/CONTRIBUTING.md" in readme
     assert "docs/PERFORMANCE.md" in readme
     assert "docs/RELEASE.md" in readme
+    assert "docs/eodinga.1" in readme
     assert "pytest -q tests && ruff check eodinga tests" in readme
     assert "python packaging/build.py --target windows-dry-run" in readme
     assert "yamllint .github/workflows/release-windows.yml" in readme
@@ -111,6 +113,15 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "-path:node_modules" in dsl
     assert "## Operator Notes" in dsl
 
+    assert '.TH "EODINGA" "1"' in man_page
+    assert ".SH NAME" in man_page
+    assert ".SH SYNOPSIS" in man_page
+    assert ".SH GLOBAL OPTIONS" in man_page
+    assert ".SH COMMANDS" in man_page
+    assert '.SH "SEARCH COMMAND"' in man_page
+    assert "eodinga search 'date:this\\-week ext:md roadmap' \\-\\-limit 20" in man_page
+    assert "docs/DSL.md, docs/ACCEPTANCE.md, docs/RELEASE.md" in man_page
+
     assert "SPEC §6.3" in performance
     assert "tests/perf/test_cold_start.py" in performance
     assert "test_rebuild_cold_start_throughput" in performance
@@ -126,3 +137,4 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Cut The Local Release" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release
+    assert "python scripts/render_man_page.py" in release
