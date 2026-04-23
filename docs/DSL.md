@@ -62,6 +62,24 @@ regex:/launch|ship/i path:docs
 - `regex:/pattern/flags` is an explicit alias for a path/name regex term when you want the query to read like an operator list.
 - Negation applies to the next term or the entire parenthesized group.
 
+## Evaluation Rules
+
+- Spaces mean `AND`, so `invoice ext:pdf` requires both conditions.
+- `|` is `OR` inside the current group, so wrap mixed logic in parentheses when precedence matters.
+- A leading `-` negates the next term unless the next token is a parenthesized group.
+- Quoted phrases stay literal; use regex when you need pattern matching instead of exact spans.
+- `regex:true` changes only later plain terms, not existing quoted phrases or explicit `/pattern/flags` literals.
+
+## Query Troubleshooting
+
+| Symptom | Likely cause | Query to try next |
+| --- | --- | --- |
+| Too many matches from a broad regex | regex fallback is scanning a large candidate set | add `path:` or `ext:` first, for example `path:src /todo|fixme/i` |
+| No body-text hits in PDFs or Office files | parser extras or content indexing may be missing | confirm with `content:"phrase" ext:pdf`; if empty, verify `.[parsers]` and reindex |
+| Negation excludes the wrong branch | the `-` applied only to one term, not the whole group | rewrite as `-(draft | scratch) ext:pdf` |
+| Date filters feel off by one day | the query is using local date boundaries | compare `date:2026-04-01..2026-04-23` with `modified:2026-04-23T09:15:30+00:00` |
+| Duplicate search is missing expected files | duplicate detection depends on hashed content rows | try `is:duplicate ext:pdf` after a rebuild and confirm the files were parsed successfully |
+
 ## Practical Limits
 
 - Regex terms are evaluated against the candidate set after SQL filtering, so broad regex queries are naturally slower than indexed term searches.
