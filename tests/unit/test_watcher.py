@@ -737,8 +737,9 @@ def test_watcher_stop_continues_cleanup_when_observer_teardown_fails(
             if self.fail_join:
                 raise RuntimeError(f"{self.name} join failed")
 
-    class FakeThread:
+    class FakeThread(Thread):
         def __init__(self) -> None:
+            super().__init__(daemon=True)
             self.joined = False
 
         def is_alive(self) -> bool:
