@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.525 - 2026-04-23
+
+- Hardened watcher startup so a failed schedule or observer boot no longer leaves the flush thread running or the service stuck half-started.
+- Made watcher shutdown teardown resilient to individual observer stop/join failures, while logging shutdown-time event drops that previously had no explicit operator signal.
+- Ignored `FileNotFoundError` races during staged-index and orphan-sidecar cleanup so concurrent sidecar removal does not derail WAL recovery or atomic index promotion.
+
 ## 0.1.518 - 2026-04-23
 
 - Scoped the Windows installer desktop shortcut to the per-user desktop so it matches the existing lowest-privilege install model instead of targeting a machine-wide desktop alias.
