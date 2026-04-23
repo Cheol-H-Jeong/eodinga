@@ -57,6 +57,21 @@ For worker rounds, keep the release pass single-shot and non-interactive so a pa
 
 If the one-command pass fails, fix the first failing stage before rerunning. Later packaging or workflow failures are not actionable until the earlier repo-health checks are clean.
 
+## Failure-First Fix Order
+
+Use this ordering when the release pass breaks:
+
+| First red stage | Fix before looking at | Reason |
+| --- | --- | --- |
+| `pytest -q tests` | `ruff`, `pyright`, packaging, or workflow lint | runtime behavior is already untrusted |
+| `ruff check eodinga tests` | `pyright` or dry runs | style or static issues can hide later signal |
+| `pyright` | GUI smoke or packaging | typed surfaces are still inconsistent |
+| GUI smoke | packaging dry runs | visible/runtime docs evidence is already red |
+| packaging dry run | workflow lint | the staged release payload is already wrong |
+| workflow lint | retagging or changelog polish | release automation is still invalid |
+
+This keeps the repair loop factual: always fix the earliest failing surface instead of jumping to later release steps.
+
 Recommended order:
 
 1. `pytest -q tests/unit` after every logical commit.
@@ -106,6 +121,17 @@ Use this review table after each matching dry run:
 | Linux `.deb` | `python packaging/build.py --target linux-deb-dry-run` | staged desktop entry, icon, compressed changelog, docs payload |
 
 Treat `packaging/dist/` as the review surface. A green dry run without a reviewed manifest is not a completed release check.
+
+## Pre-Tag Evidence Bundle
+
+Before the metadata commit, collect one bundle that a reviewer can replay quickly:
+
+1. the exact command bundle you ran, such as the one-command release pass or the docs-only validation pass
+2. the first green docs/runtime proof, usually `tests/unit/test_docs_assets.py` plus any regenerated assets
+3. the matching dry-run manifest review under `packaging/dist/`
+4. the final patch number chosen after `git fetch origin main --tags`
+
+If any item is missing, the round is not ready for the local tag even if the branch currently builds.
 
 ## Tag Decision Path
 

@@ -136,6 +136,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Query Execution" in architecture
     assert "## Search Decision Path" in architecture
     assert "## Operator Evidence Sources" in architecture
+    assert "## Symptom-To-Boundary Map" in architecture
     assert "## Live Update Sequence" in architecture
     assert "## Documentation Asset Flow" in architecture
     assert "## Release Input Map" in architecture
@@ -145,6 +146,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Operator Debug Path" in architecture
     assert "## Packaging Surfaces" in architecture
     assert "## Packaging Review Path" in architecture
+    assert "## Release Evidence Surfaces" in architecture
     assert "## Release Evidence Sequence" in architecture
     assert "compressed changelog" in architecture
     assert "scripts/generate_manpage.py" in architecture
@@ -153,6 +155,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "packaging/dist/" in architecture
     assert "EODINGA_LOG_PATH" in architecture
     assert "crash-<ts>.log" in architecture
+    assert "Use the failing symptom to choose the subsystem boundary before editing code or docs:" in architecture
+    assert "Treat the release review as four separate surfaces that must agree:" in architecture
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
@@ -227,9 +231,11 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Version Collision Guard" in release
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
+    assert "## Failure-First Fix Order" in release
     assert "## Artifact Inventory" in release
     assert "## Verify Shipped Docs" in release
     assert "## Packaging Audit Checklist" in release
+    assert "## Pre-Tag Evidence Bundle" in release
     assert "## Tag Decision Path" in release
     assert "## Worker Handoff Rules" in release
     assert "## Docs-Only Rounds" in release
@@ -249,6 +255,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Single-shot metadata cut" in release
     assert "git fetch origin main --tags" in release
     assert "A green dry run without a reviewed manifest is not a completed release check." in release
+    assert "Use this ordering when the release pass breaks:" in release
+    assert "If any item is missing, the round is not ready for the local tag even if the branch currently builds." in release
 
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage

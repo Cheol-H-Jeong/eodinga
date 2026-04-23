@@ -225,6 +225,20 @@ index / watch / search command
 | launcher/hotkey mismatch | `eodinga doctor` plus config path | confirms backend detection and launcher-specific settings before blaming query logic |
 | release-doc drift | `tests/unit/test_docs_assets.py` and `packaging/dist/` | catches mismatches between runtime docs, generated assets, and packaged payloads |
 
+## Symptom-To-Boundary Map
+
+Use the failing symptom to choose the subsystem boundary before editing code or docs:
+
+| Symptom | Boundary to inspect first | Typical evidence |
+| --- | --- | --- |
+| result missing from every surface | query/compiler/executor | `eodinga search ... --json`, query tests, active DB path from `eodinga stats --json` |
+| result stale after filesystem change | watcher to writer handoff | `eodinga watch`, watcher tests, commit timing, active WAL state |
+| startup reports recovery or fails to open | storage lifecycle | `.next` / `.recover` / `-wal` sidecars and `eodinga doctor` |
+| packaged app disagrees with repo docs | packaging payload review | `packaging/dist/`, dry-run manifests, generated man page, shipped screenshots |
+| docs-only round feels risky | docs asset boundary | `tests/unit/test_docs_assets.py`, GUI smoke, matching packaging dry run |
+
+This keeps failure analysis aligned with the actual runtime split instead of bouncing between UI, query, and packaging layers without evidence.
+
 ## Documentation Asset Flow
 
 ```text
@@ -372,6 +386,19 @@ startup
 2. Inspect the emitted manifest or staged payload summary under `packaging/dist/`.
 3. Compare the staged docs payload with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 4. Cut the local tag only after the dry-run output and shipped docs agree.
+
+## Release Evidence Surfaces
+
+Treat the release review as four separate surfaces that must agree:
+
+| Surface | Source of truth | Failure mode when stale |
+| --- | --- | --- |
+| prose contract | `README.md` and `docs/*.md` | tells operators to use commands or artifacts that no longer exist |
+| derived docs assets | `docs/man/eodinga.1`, `docs/screenshots/*.png` | packaged help or screenshots drift from the actual runtime |
+| packaged payload manifests | `packaging/dist/` dry-run output | release notes claim files or docs that the bundle does not ship |
+| runtime smoke evidence | GUI smoke, CLI help, unit tests | Markdown is updated but the real surface still behaves differently |
+
+Keeping these surfaces separate makes docs-only release work auditable: a green markdown diff alone is not enough to justify the tag.
 
 ## Release Evidence Sequence
 
