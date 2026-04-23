@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from pathlib import Path
 from typing import NamedTuple
 
@@ -9,7 +8,7 @@ from eodinga.common import PathRules
 from eodinga.config import RootConfig
 from eodinga.content.registry import parse
 from eodinga.core.walker import walk_batched
-from eodinga.index.storage import _cleanup_index_files, atomic_replace_index
+from eodinga.index.storage import _cleanup_index_files, atomic_replace_index, connect_database
 from eodinga.index.writer import IndexWriter
 from eodinga.observability import increment_counter
 
@@ -46,7 +45,7 @@ def rebuild_index(
     staged_path = _staged_build_path(target_path)
     _cleanup_index_files(staged_path)
 
-    conn = sqlite3.connect(staged_path)
+    conn = connect_database(staged_path)
     files_indexed = 0
     parser_callback = (
         (lambda path: parse(path, max_body_chars=max_body_chars))

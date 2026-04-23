@@ -8,7 +8,9 @@ import pytest
 
 from eodinga.index.schema import apply_schema
 from eodinga.index.storage import (
+    SQLITE_CACHED_STATEMENTS,
     atomic_replace_index,
+    connect_database,
     has_stale_wal,
     open_index,
     recover_interrupted_build,
@@ -205,6 +207,49 @@ def test_recover_stale_wal_returns_false_without_sidecars(tmp_path: Path) -> Non
     conn.close()
 
     assert recover_stale_wal(path) is False
+
+
+def test_connect_database_applies_row_factory_and_pragmas(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+
+    conn = connect_database(path)
+    try:
+        assert conn.row_factory is sqlite3.Row
+        cache_size = conn.execute("PRAGMA cache_size;").fetchone()
+        assert cache_size is not None
+        assert int(cache_size[0]) == -64000
+    finally:
+        conn.close()
+
+
+def test_connect_database_accepts_disabled_row_factory(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+
+    conn = connect_database(path, row_factory=None)
+    try:
+        assert conn.row_factory is None
+    finally:
+        conn.close()
+
+
+def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, monkeypatch) -> None:
+    path = tmp_path / "index.db"
+    seen: dict[str, object] = {}
+    original_connect = sqlite3.connect
+
+    def fake_connect(database: str | bytes | Path, *args: object, **kwargs: object) -> sqlite3.Connection:
+        seen["database"] = database
+        seen["cached_statements"] = kwargs.get("cached_statements")
+        return original_connect(database, *args, **kwargs)
+
+    monkeypatch.setattr(sqlite3, "connect", fake_connect)
+
+    conn = connect_database(path)
+    try:
+        assert seen["database"] == path
+        assert seen["cached_statements"] == SQLITE_CACHED_STATEMENTS
+    finally:
+        conn.close()
 
 
 def test_recover_stale_wal_returns_false_when_nonempty_sidecar_survives(

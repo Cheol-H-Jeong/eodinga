@@ -10,6 +10,7 @@ import pytest
 from eodinga.common import FileRecord, PathRules
 from eodinga.content.base import ParsedContent
 from eodinga.index.schema import apply_schema
+from eodinga.index.storage import connect_database
 
 RUN_PERF = os.getenv("EODINGA_RUN_PERF") == "1"
 perf_only = pytest.mark.skipif(not RUN_PERF, reason="set EODINGA_RUN_PERF=1 to run perf tests")
@@ -36,8 +37,7 @@ def perf_float_env(name: str, default: float) -> float:
 
 
 def open_perf_db(path: Path) -> sqlite3.Connection:
-    conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row
+    conn = connect_database(path)
     apply_schema(conn)
     return conn
 

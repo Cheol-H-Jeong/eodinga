@@ -9,22 +9,36 @@ from eodinga.index.migrations import migrate
 from eodinga.index.schema import PRAGMAS
 from eodinga.observability import get_logger
 
+SQLITE_CACHED_STATEMENTS = 128
+
 
 def _sidecar(path: Path, suffix: str) -> Path:
     return path.with_name(f"{path.name}{suffix}")
 
 
-def _configure_connection(conn: sqlite3.Connection) -> sqlite3.Connection:
-    conn.row_factory = sqlite3.Row
+def configure_connection(
+    conn: sqlite3.Connection, *, row_factory: type[sqlite3.Row] | None = sqlite3.Row
+) -> sqlite3.Connection:
+    if row_factory is not None:
+        conn.row_factory = row_factory
     for pragma in PRAGMAS:
         conn.execute(pragma)
     return conn
 
 
+def connect_database(
+    path: Path, *, row_factory: type[sqlite3.Row] | None = sqlite3.Row
+) -> sqlite3.Connection:
+    return configure_connection(
+        sqlite3.connect(path, cached_statements=SQLITE_CACHED_STATEMENTS),
+        row_factory=row_factory,
+    )
+
+
 def _checkpoint_wal(path: Path) -> None:
     if not path.exists():
         return
-    conn = _configure_connection(sqlite3.connect(path))
+    conn = connect_database(path)
     try:
         conn.execute("PRAGMA wal_checkpoint(TRUNCATE);").fetchall()
     finally:
@@ -112,7 +126,7 @@ def _copy_index_with_sidecars(source_path: Path, target_path: Path) -> None:
 
 
 def _replay_stale_wal(path: Path) -> bool:
-    conn = _configure_connection(sqlite3.connect(path))
+    conn = connect_database(path)
     try:
         migrate(conn)
     finally:
@@ -190,7 +204,7 @@ def open_index(path: Path) -> sqlite3.Connection:
     recover_interrupted_build(path)
     if has_stale_wal(path) and not recover_stale_wal(path):
         raise RuntimeError(f"failed to recover stale WAL for {path}")
-    conn = _configure_connection(sqlite3.connect(path))
+    conn = connect_database(path)
     migrate(conn)
     return conn
 
@@ -212,6 +226,8 @@ def atomic_replace_index(staged_path: Path, target_path: Path) -> None:
 
 __all__ = [
     "atomic_replace_index",
+    "configure_connection",
+    "connect_database",
     "has_stale_wal",
     "open_index",
     "recover_interrupted_build",
