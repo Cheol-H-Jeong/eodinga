@@ -553,4 +553,33 @@ def test_stats_json_persists_metrics_across_cli_processes(
     payload = json.loads(stats_result.stdout)
     assert payload["counters"]["files_indexed"] == indexed_files
     assert payload["counters"]["queries_served"] == 1
+    assert payload["counters"]["commands_invoked"] == 3
+    assert payload["counters"]["commands.index.invoked"] == 1
+    assert payload["counters"]["commands.search.invoked"] == 1
+    assert payload["counters"]["commands.stats.invoked"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
+
+
+def test_unhandled_exception_records_crash_counters(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "index.db"
+    metrics_path = tmp_path / "metrics.json"
+    crash_dir = tmp_path / "crashes"
+    reset_metrics()
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    monkeypatch.setattr("eodinga.__main__.run_diagnostics", lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")))
+
+    exit_code = main(["--db", str(db_path), "doctor"])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "crash log written to" in captured.err
+    payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+    assert payload["counters"]["commands_invoked"] == 1
+    assert payload["counters"]["commands.doctor.invoked"] == 1
+    assert payload["counters"]["commands.doctor.crashed"] == 1
+    assert payload["counters"]["crashes_logged"] == 1

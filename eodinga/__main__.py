@@ -20,6 +20,7 @@ from eodinga.observability import (
     configure_logging,
     counter_value,
     histogram_snapshot,
+    increment_counter,
     snapshot_metrics,
     write_crash_log,
 )
@@ -209,6 +210,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     configure_logging(args.log_level)
+    increment_counter("commands_invoked")
+    increment_counter(f"commands.{args.command}.invoked")
     try:
         return args.handler(args)
     except KeyboardInterrupt:
@@ -221,6 +224,8 @@ def main(argv: list[str] | None = None) -> int:
             context=f"Unhandled exception while running: {command}",
             details={"argv": command_argv},
         )
+        increment_counter("crashes_logged")
+        increment_counter(f"commands.{args.command}.crashed")
         sys.stderr.write(f"unhandled exception; crash log written to {crash_path}\n")
         return 1
 
