@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.801 - 2026-04-23
+
+- Expanded the shipped operator docs with a packaging audit checklist, state-directory summary, and FAQ entries for logs, crash reports, docs-only release checks, and packaged payload review.
+- Added architecture guidance for runtime path ownership, recovery artifact meanings, and the shortest evidence sources for stale results, startup recovery, launcher drift, and docs/package mismatches.
+- Tightened contributor and release workflows with explicit metadata-retarget steps for parallel version collisions and a packaging review checklist that treats `packaging/dist/` as required release evidence.
+
 ## 0.1.744 - 2026-04-23
 
 - Extended query date macros with `tomorrow`, `year`, and previous-period aliases like `prev-week`, `previous_month`, and `previous_year`, keeping them on the existing local-time boundary rules.
