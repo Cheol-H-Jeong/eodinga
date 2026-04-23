@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt, Signal
-from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
+from PySide6.QtCore import QRect, QTimer, Qt, Signal
+from PySide6.QtGui import QCloseEvent, QGuiApplication, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
 
 from eodinga.config import AppConfig
 from eodinga.gui.design import MOTION_DEBOUNCE_MS
@@ -54,6 +54,7 @@ class LauncherWindow(LauncherPanel):
         if not self._geometry_restored and self._config is not None:
             if self._config.launcher.window_x is not None and self._config.launcher.window_y is not None:
                 self.move(self._config.launcher.window_x, self._config.launcher.window_y)
+            self._restore_visible_geometry()
             self._geometry_restored = True
         self.query_field.setFocus()
         self.query_field.selectAll()
@@ -87,6 +88,18 @@ class LauncherWindow(LauncherPanel):
             return
         self._geometry_save_timer.start()
 
+    def _restore_visible_geometry(self) -> None:
+        self.setGeometry(_clamp_geometry_to_screen(self.geometry(), self._available_screen_geometry()))
+
+    def _available_screen_geometry(self) -> QRect:
+        screen = self.screen()
+        if screen is not None:
+            return screen.availableGeometry()
+        primary = QGuiApplication.primaryScreen()
+        if primary is not None:
+            return primary.availableGeometry()
+        return QRect(0, 0, max(self.width(), 1), max(self.height(), 1))
+
     def _set_window_flag_preserving_visibility(self, flag: Qt.WindowType, enabled: bool) -> None:
         current = bool(self.windowFlags() & flag)
         if current == enabled:
@@ -119,3 +132,17 @@ class LauncherWindow(LauncherPanel):
             return
         self._config.launcher = self._config.launcher.model_copy(update=geometry)
         self._config.save(self._config_path)
+
+
+def _clamp_geometry_to_screen(geometry: QRect, available: QRect) -> QRect:
+    if not available.isValid():
+        return geometry
+    if geometry.intersects(available):
+        return geometry
+    width = min(geometry.width(), available.width())
+    height = min(geometry.height(), available.height())
+    max_x = available.left() + max(available.width() - width, 0)
+    max_y = available.top() + max(available.height() - height, 0)
+    x = min(max(geometry.x(), available.left()), max_x)
+    y = min(max(geometry.y(), available.top()), max_y)
+    return QRect(x, y, width, height)

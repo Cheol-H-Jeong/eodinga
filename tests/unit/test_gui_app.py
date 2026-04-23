@@ -4,7 +4,7 @@ from pathlib import Path
 import sqlite3
 from typing import cast
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRect, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QSystemTrayIcon
 
@@ -205,6 +205,41 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     assert restored_launcher.pos().y() == 96
 
     restored_window.close()
+    qapp.processEvents()
+
+
+def test_launcher_restores_offscreen_geometry_back_onto_screen(qapp, monkeypatch, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(
+        update={
+            "window_x": 4800,
+            "window_y": 3200,
+            "window_width": 640,
+            "window_height": 480,
+        }
+    )
+    monkeypatch.setattr(
+        LauncherWindow,
+        "_available_screen_geometry",
+        lambda self: QRect(0, 0, 1280, 720),
+    )
+
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher.show()
+    qapp.processEvents()
+
+    geometry = launcher.geometry()
+    assert geometry.x() >= 0
+    assert geometry.y() >= 0
+    assert geometry.right() <= 1279
+    assert geometry.bottom() <= 719
+    assert geometry.intersects(QRect(0, 0, 1280, 720))
+
+    window.close()
     qapp.processEvents()
 
 
