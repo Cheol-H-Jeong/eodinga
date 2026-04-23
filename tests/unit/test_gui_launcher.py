@@ -750,6 +750,19 @@ def test_launcher_action_bar_triggers_result_actions(qapp) -> None:
     assert properties == ["release-notes.txt"]
 
 
+def test_launcher_tooltips_expose_keyboard_shortcuts(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    assert "Alt+Up" in launcher.query_field.toolTip()
+    assert "Tab" in launcher.query_field.toolTip()
+    assert launcher.action_bar.open_button.toolTip() == "Open the selected result (Enter)"
+    assert launcher.action_bar.reveal_button.toolTip() == "Reveal the selected result in its folder (Ctrl+Enter)"
+    assert launcher.action_bar.copy_path_button.toolTip() == "Copy the selected path (Alt+C)"
+    assert launcher.action_bar.copy_name_button.toolTip() == "Copy the selected file name (Alt+N)"
+    assert launcher.action_bar.properties_button.toolTip() == "Show selected result properties (Shift+Enter)"
+
+
 def test_launcher_alt_number_quick_picks_results(qapp) -> None:
     activated: list[str] = []
 
