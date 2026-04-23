@@ -325,9 +325,14 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (recipe_payload.get("launches_gui"), "AppImage recipe no longer launches the GUI target"),
         (payload.get("desktop_entry", {}).get("matches_source_asset"), "AppImage desktop entry no longer matches the shipped asset"),
         (payload.get("desktop_entry", {}).get("name") == "eodinga", "AppImage desktop entry name drifted from eodinga"),
+        (payload.get("desktop_entry", {}).get("type") == "Application", "AppImage desktop entry type drifted from Application"),
         (
             payload.get("desktop_entry", {}).get("exec") == "eodinga gui",
             "AppImage desktop entry no longer launches the GUI command",
+        ),
+        (
+            payload.get("desktop_entry", {}).get("terminal") == "false",
+            "AppImage desktop entry terminal mode drifted from false",
         ),
         (
             payload.get("desktop_entry", {}).get("icon") == "eodinga",
@@ -420,7 +425,9 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         ),
         (desktop_payload.get("matches_source_asset"), "Debian desktop entry no longer matches the shipped asset"),
         (desktop_payload.get("name") == "eodinga", "Debian desktop entry name drifted from eodinga"),
+        (desktop_payload.get("type") == "Application", "Debian desktop entry type drifted from Application"),
         (desktop_payload.get("launches_gui"), "Debian desktop entry no longer launches the GUI command"),
+        (desktop_payload.get("terminal") == "false", "Debian desktop entry terminal mode drifted from false"),
         (desktop_payload.get("icon_matches_package"), "Debian desktop entry icon no longer matches the packaged asset"),
         (
             desktop_payload.get("categories") == "Utility;FileTools;",

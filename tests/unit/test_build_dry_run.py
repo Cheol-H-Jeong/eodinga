@@ -422,8 +422,10 @@ def test_linux_appimage_audit_validator_rejects_unresolved_rendered_recipe_token
         "desktop_entry": {
             "matches_source_asset": True,
             "name": "eodinga",
+            "type": "Application",
             "exec": "eodinga gui",
             "icon": "eodinga",
+            "terminal": "false",
             "categories": "Utility;FileTools;",
             "startup_notify": "true",
         },
@@ -515,8 +517,10 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["archive_artifact"]["size_bytes"] > 0
     assert len(payload["archive_artifact"]["sha256"]) == 64
     assert payload["desktop_entry"]["name"] == "eodinga"
+    assert payload["desktop_entry"]["type"] == "Application"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
+    assert payload["desktop_entry"]["terminal"] == "false"
     assert payload["desktop_entry"]["categories"] == "Utility;FileTools;"
     assert payload["desktop_entry"]["startup_notify"] == "true"
     assert payload["recipe"]["exists"] is True
@@ -590,8 +594,10 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
         },
         "desktop_entry": {
             "name": "eodinga",
+            "type": "Application",
             "launches_gui": True,
             "icon_matches_package": True,
+            "terminal": "false",
             "categories": "Utility;FileTools;",
             "startup_notify": "true",
         },
@@ -660,8 +666,10 @@ def test_linux_deb_audit_validator_rejects_unresolved_rendered_control_tokens() 
         "desktop_entry": {
             "matches_source_asset": True,
             "name": "eodinga",
+            "type": "Application",
             "launches_gui": True,
             "icon_matches_package": True,
+            "terminal": "false",
             "categories": "Utility;FileTools;",
             "startup_notify": "true",
         },
@@ -809,8 +817,10 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["debian_control_template"]["binary_package"] == "eodinga"
     assert payload["debian_control_template"]["description"] == "Instant lexical file search for Windows and Linux"
     assert payload["desktop_entry"]["name"] == "eodinga"
+    assert payload["desktop_entry"]["type"] == "Application"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
+    assert payload["desktop_entry"]["terminal"] == "false"
     assert payload["desktop_entry"]["categories"] == "Utility;FileTools;"
     assert payload["desktop_entry"]["startup_notify"] == "true"
     assert payload["desktop_entry"]["launches_gui"] is True

@@ -19,6 +19,8 @@ def test_appimage_icon_asset_matches_desktop_name() -> None:
     desktop = Path("packaging/linux/eodinga.desktop").read_text(encoding="utf-8")
     icon = Path("packaging/linux/eodinga.svg").read_text(encoding="utf-8")
 
+    assert "Type=Application" in desktop
     assert "Icon=eodinga" in desktop
+    assert "Terminal=false" in desktop
     assert "<svg" in icon
     assert "<title" in icon
