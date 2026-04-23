@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.187 - 2026-04-23
+## 0.1.189 - 2026-04-23
 
 - Expanded multi-root live-update coverage so a real watched delete in one root must disappear from both global and root-scoped search results within 500 ms without disturbing sibling-root hits.
 - Added a hot-restart regression that reopens a persisted multi-root index, deletes a file from one watched root, and proves the stale hit clears only from that root while the other root remains queryable.
