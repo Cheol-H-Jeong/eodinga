@@ -228,6 +228,49 @@ def test_hot_restart_reopen_multi_root_create_updates_global_and_root_scoped_que
     assert beta_hits == {created}
 
 
+def test_hot_restart_reopen_nested_create_updates_query_and_path_hits(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    existing = root / "existing.txt"
+    existing.write_text("persisted nested restart query\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    first_conn = open_index(db_path)
+    try:
+        initial_hits = [hit.file.path for hit in search(first_conn, "persisted nested restart", limit=3).hits]
+    finally:
+        first_conn.close()
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        nested = root / "incoming" / "batch"
+        nested.mkdir(parents=True)
+        created = nested / "after-reopen-nested.txt"
+        created.write_text("nested live update after reopen\n", encoding="utf-8")
+
+        elapsed = wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "nested live update after reopen",
+            created,
+            deadline_seconds=0.5,
+        )
+        path_hits = [hit.file.path for hit in search(reopened, "path:after-reopen-nested", limit=5).hits]
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == [existing]
+    assert elapsed <= 0.5
+    assert path_hits == [created]
+
+
 def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
@@ -284,6 +327,53 @@ def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) 
     assert alpha_hits == set()
     assert beta_hits == {survivor}
     assert remaining_hits == {survivor}
+
+
+def test_hot_restart_reopen_multi_root_nested_create_stays_root_scoped(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        nested = root_b / "incoming" / "batch"
+        nested.mkdir(parents=True)
+        created = nested / "reopen-nested-beta.txt"
+        created.write_text("nested beta reopen visibility\n", encoding="utf-8")
+
+        elapsed = wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "nested beta reopen visibility",
+            created,
+            deadline_seconds=0.5,
+        )
+        alpha_hits = [
+            hit.file.path for hit in search(reopened, "nested beta reopen visibility", limit=5, root=root_a).hits
+        ]
+        beta_hits = [
+            hit.file.path for hit in search(reopened, "nested beta reopen visibility", limit=5, root=root_b).hits
+        ]
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert elapsed <= 0.5
+    assert alpha_hits == []
+    assert beta_hits == [created]
 
 
 def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updates(
