@@ -786,6 +786,35 @@ def test_execute_regex_only_query_scans_beyond_initial_window(tmp_db: sqlite3.Co
     assert hits == ["needle-1500.txt"]
 
 
+def test_execute_regex_only_query_uses_cursor_batches_for_scan(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    for index in range(1, 1501):
+        name = f"alpha-{index:04d}.txt"
+        if index == 1500:
+            name = "needle-1500.txt"
+        _insert_file(
+            tmp_db,
+            index,
+            f"/workspace/{name}",
+            1024,
+            now - index,
+            "txt",
+            body_text="bulk",
+        )
+    tmp_db.commit()
+
+    statements: list[str] = []
+    tmp_db.set_trace_callback(statements.append)
+    try:
+        hits = [hit.file.name for hit in search(tmp_db, "/needle-[0-9]+/", limit=10).hits]
+    finally:
+        tmp_db.set_trace_callback(None)
+
+    assert hits == ["needle-1500.txt"]
+    assert any("FROM files WHERE files.id >" in statement for statement in statements)
+    assert not any("FROM files" in statement and "OFFSET" in statement for statement in statements)
+
+
 def test_execute_negated_group_query(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/alpha-plan.txt", 1024, now, "txt", body_text="alpha")

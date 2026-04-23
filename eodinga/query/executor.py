@@ -51,6 +51,17 @@ def _record_batch_sql(has_where: bool) -> str:
 
 
 @lru_cache(maxsize=256)
+def _record_scan_batch_sql(has_where: bool) -> str:
+    sql = "SELECT files.* FROM files"
+    filters = ["files.id > ?"]
+    if has_where:
+        filters.append("{where_sql}")
+    sql += " WHERE " + " AND ".join(filters)
+    sql += " ORDER BY files.id ASC LIMIT ?"
+    return sql
+
+
+@lru_cache(maxsize=256)
 def _path_candidates_fts_sql(
     has_path_match_sql: bool,
     has_where_sql: bool,
@@ -141,6 +152,32 @@ def _content_backfill_sql(has_where_sql: bool) -> str:
         sql += " WHERE {where_sql}"
     sql += " ORDER BY files.name_lower ASC LIMIT ? OFFSET ?"
     return sql
+
+
+@lru_cache(maxsize=256)
+def _content_backfill_scan_sql(has_where_sql: bool) -> str:
+    sql = """
+        SELECT files.*
+        FROM files
+        JOIN content_map ON content_map.file_id = files.id
+    """
+    filters = ["files.id > ?"]
+    if has_where_sql:
+        filters.append("{where_sql}")
+    sql += " WHERE " + " AND ".join(filters)
+    sql += " ORDER BY files.id ASC LIMIT ?"
+    return sql
+
+
+@lru_cache(maxsize=128)
+def _content_texts_sql(chunk_size: int) -> str:
+    placeholders = ", ".join("?" for _ in range(chunk_size))
+    return f"""
+        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
+        FROM content_map
+        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
+        WHERE content_map.file_id IN ({placeholders})
+    """
 
 
 def _row_to_record(row: Mapping[str, object]) -> FileRecord:
@@ -304,6 +341,18 @@ def _fetch_record_batch(
 ) -> dict[int, FileRecord]:
     sql = _record_batch_sql(bool(where_sql)).format(where_sql=where_sql)
     rows = conn.execute(sql, (*where_params, limit, offset)).fetchall()
+    return {row["id"]: _row_to_record(row) for row in rows}
+
+
+def _fetch_record_scan_batch(
+    conn: sqlite3.Connection,
+    where_sql: str,
+    where_params: tuple[object, ...],
+    after_id: int,
+    limit: int,
+) -> dict[int, FileRecord]:
+    sql = _record_scan_batch_sql(bool(where_sql)).format(where_sql=where_sql)
+    rows = conn.execute(sql, (after_id, *where_params, limit)).fetchall()
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
@@ -551,13 +600,7 @@ def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[i
     id_list = tuple(dict.fromkeys(ids))
     if not id_list:
         return {}
-    placeholders = ", ".join("?" for _ in id_list)
-    sql = f"""
-        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
-        FROM content_map
-        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
-        WHERE content_map.file_id IN ({placeholders})
-    """
+    sql = _content_texts_sql(len(id_list))
     rows = conn.execute(sql, id_list).fetchall()
     return {
         row["file_id"]: " ".join(
@@ -587,6 +630,20 @@ def _fetch_content_backfill_batch(
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
+def _fetch_content_backfill_scan_batch(
+    conn: sqlite3.Connection,
+    branch: CompiledBranch,
+    after_id: int,
+    limit: int,
+) -> dict[int, FileRecord]:
+    params: list[object] = [after_id]
+    if branch.where_sql:
+        params.extend(branch.where_params)
+    sql = _content_backfill_scan_sql(bool(branch.where_sql)).format(where_sql=branch.where_sql)
+    rows = conn.execute(sql, (*params, limit)).fetchall()
+    return {row["id"]: _row_to_record(row) for row in rows}
+
+
 def _scan_filtered_records(
     conn: sqlite3.Connection,
     branch: CompiledBranch,
@@ -594,25 +651,25 @@ def _scan_filtered_records(
 ) -> dict[int, FileRecord]:
     target = max(limit, 1)
     batch_size = max(min(target * 2, 2000), 500)
-    offset = 0
+    last_seen_id = 0
     matched: dict[int, FileRecord] = {}
     while len(matched) < target:
-        batch = _fetch_record_batch(
+        batch = _fetch_record_scan_batch(
             conn,
             branch.where_sql,
             branch.where_params,
+            after_id=last_seen_id,
             limit=batch_size,
-            offset=offset,
         )
         if not batch:
             break
+        last_seen_id = max(batch)
         content_texts = _fetch_content_texts(conn, batch) if _needs_record_filter(branch) else {}
         for file_id, record in batch.items():
             if _filter_record(branch, record, content_texts.get(file_id, "")):
                 matched[file_id] = record
                 if len(matched) >= target:
                     break
-        offset += batch_size
     return matched
 
 
@@ -623,19 +680,24 @@ def _scan_filtered_content_records(
 ) -> dict[int, FileRecord]:
     target = max(limit, 1)
     batch_size = max(min(target * 2, 2000), 500)
-    offset = 0
+    last_seen_id = 0
     matched: dict[int, FileRecord] = {}
     while len(matched) < target:
-        batch = _fetch_content_backfill_batch(conn, branch, limit=batch_size, offset=offset)
+        batch = _fetch_content_backfill_scan_batch(
+            conn,
+            branch,
+            after_id=last_seen_id,
+            limit=batch_size,
+        )
         if not batch:
             break
+        last_seen_id = max(batch)
         content_texts = _fetch_content_texts(conn, batch)
         for file_id, record in batch.items():
             if _filter_record(branch, record, content_texts.get(file_id, "")):
                 matched[file_id] = record
                 if len(matched) >= target:
                     break
-        offset += batch_size
     return matched
 
 
@@ -649,12 +711,18 @@ def _scan_auto_content_candidates(
         return {}
     target = max(limit, 1)
     batch_size = max(min(target * 2, 2000), 500)
-    offset = 0
+    last_seen_id = 0
     matched: dict[int, FileRecord] = {}
     while len(matched) < target:
-        batch = _fetch_content_backfill_batch(conn, branch, limit=batch_size, offset=offset)
+        batch = _fetch_content_backfill_scan_batch(
+            conn,
+            branch,
+            after_id=last_seen_id,
+            limit=batch_size,
+        )
         if not batch:
             break
+        last_seen_id = max(batch)
         content_texts = _fetch_content_texts(conn, batch)
         for file_id, record in batch.items():
             content_text = content_texts.get(file_id, "")
@@ -666,7 +734,6 @@ def _scan_auto_content_candidates(
             matched[file_id] = record
             if len(matched) >= target:
                 break
-        offset += batch_size
     return matched
 
 
