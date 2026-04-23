@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.927 - 2026-04-24
+
+- Added a practical query playbook to the README and DSL guide, including narrowing order, grouping examples, and regex-flag guidance so operators can build or debug queries without guesswork.
+- Expanded the architecture guide with release-evidence ownership, docs-to-asset decision paths, and documentation failure domains, making it clearer which proof command belongs to each symptom.
+- Tightened the contributing, acceptance, and release guides around gate selection, metadata retargeting, and docs-only evidence bundles so parallel worker rounds can cut reviewable release metadata without muddying runtime proof.
+
 ## 0.1.918 - 2026-04-24
 
 - Scoped Windows root filters across both plain and extended-length path spellings, so searches under `C:\...` and `\\?\C:\...` stay equivalent even when the index stores the other form.
