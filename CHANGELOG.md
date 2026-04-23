@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.706 - 2026-04-23
+
+- Skipped `content_fts` text loads for path-only metadata filters and path regex filters, keeping those queries on the lighter `files` path unless content semantics are actually required.
+- Cached normalized root-scope SQL clauses so repeated scoped searches reuse the same Windows/POSIX variant expansion instead of rebuilding equivalent `LIKE` predicates on every query.
+
 ## 0.1.592 - 2026-04-23
 
 - Reduced walker canonicalization overhead by resolving only the root and symlink-backed ancestry, keeping ordinary directory traversals off the `resolve_safe()` hot path while preserving alias-loop protection.
