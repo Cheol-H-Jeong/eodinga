@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.210 - 2026-04-23
+## 0.1.216 - 2026-04-23
 
 - Reused `os.scandir()` metadata inside the filesystem walker so discovered children no longer pay a second `lstat()` on the hot path, while preserving symlink-loop safety and alias handling.
 - Reduced query-executor overhead by caching branch-derived positive term sets and root-scope path variants instead of rebuilding the same Python structures across repeated searches.
