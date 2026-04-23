@@ -3,26 +3,26 @@ from __future__ import annotations
 from eodinga.query.dsl import AndNode, AstNode, NotNode, OperatorNode, OrNode, QuerySyntaxError, parse
 
 
-def _format_filter(node: OperatorNode) -> str:
+def _format_filter(node: OperatorNode, *, negated: bool = False) -> str:
     value = node.value
     if node.value_kind == "phrase":
         escaped = value.replace("\\", "\\\\").replace('"', '\\"')
         value = f'"{escaped}"'
     elif node.value_kind == "regex":
         value = f"/{value}/{node.regex_flags}"
-    prefix = "-" if node.negated else ""
+    prefix = "-" if negated or node.negated else ""
     return f"{prefix}{node.name}:{value}"
 
 
-def _collect_filters(node: AstNode) -> list[str]:
+def _collect_filters(node: AstNode, *, negated: bool = False) -> list[str]:
     if isinstance(node, OperatorNode):
-        return [_format_filter(node)]
+        return [_format_filter(node, negated=negated)]
     if isinstance(node, NotNode):
-        return _collect_filters(node.clause)
+        return _collect_filters(node.clause, negated=not negated)
     if isinstance(node, (AndNode, OrNode)):
         filters: list[str] = []
         for child in node.clauses:
-            filters.extend(_collect_filters(child))
+            filters.extend(_collect_filters(child, negated=negated))
         return filters
     return []
 

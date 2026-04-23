@@ -23,3 +23,9 @@ def test_summarize_active_filters_can_return_full_filter_list() -> None:
     filters = summarize_active_filters("ext:pdf date:today size:>10M path:reports is:file regex:true", limit=None)
 
     assert filters == ["ext:pdf", "date:today", "size:>10M", "path:reports", "is:file", "regex:true"]
+
+
+def test_summarize_active_filters_preserves_group_negation_for_operators() -> None:
+    filters = summarize_active_filters("-(ext:pdf is:file) created:last-year")
+
+    assert filters == ["-ext:pdf", "-is:file", "created:last-year"]
