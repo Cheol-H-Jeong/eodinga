@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.208 - 2026-04-23
+
+- Added a launcher chip row beneath the search field that shows active DSL filters while typing and falls back to pinned query macros when the field is idle, keeping query context visible without opening documentation.
+- Strengthened result highlight styling across names, paths, and snippets so matched terms read as deliberate emphasis instead of default browser-style `<mark>` output.
+- Completed the remaining launcher accessibility labels by naming the search clear button and main tab bar, and pinned those contracts in the offscreen GUI tests.
+
 ## 0.1.197 - 2026-04-23
 
 - Bounded watcher delivery with explicit backpressure, so a full consumer queue now blocks producers visibly instead of growing silently under load; added metrics and regressions for both the pressure path and its observability surface.
