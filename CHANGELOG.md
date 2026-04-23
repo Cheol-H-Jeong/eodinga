@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.508 - 2026-04-23
+
+- Added integration coverage for `WatchService` stop/start reuse so stale pending events are cleared before restart and multi-root watchers regain correct root-scoped visibility after live updates resume.
+- Added end-to-end regressions for source-path reuse during move flows, pinning that recreate/delete and modify/delete sequences do not leave ghost rows behind in the index.
+- Added multi-root hot-restart resume coverage for both interrupted staged builds and interrupted recovery, proving reopened indexes preserve scoped queries and still accept live watcher updates without a rebuild.
+
 ## 0.1.504 - 2026-04-23
 
 - Expanded `stats --json` with rebuild completion, rebuild latency, and batch-size summaries so operators can inspect indexing throughput without decoding raw metric keys.
