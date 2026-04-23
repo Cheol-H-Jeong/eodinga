@@ -25,6 +25,14 @@ def _sidecar(path: Path, suffix: str) -> Path:
     return path.with_name(f"{path.name}{suffix}")
 
 
+def _unlink_if_exists(path: Path) -> bool:
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return False
+    return True
+
+
 def configure_connection(
     conn: sqlite3.Connection, *, row_factory: type[sqlite3.Row] | None = sqlite3.Row
 ) -> sqlite3.Connection:
@@ -77,17 +85,12 @@ def _cleanup_sidecars(path: Path) -> bool:
     cleaned = False
     for suffix in ("-wal", "-shm"):
         sidecar = _sidecar(path, suffix)
-        if sidecar.exists():
-            sidecar.unlink()
-            cleaned = True
+        cleaned = _unlink_if_exists(sidecar) or cleaned
     return cleaned
 
 
 def _cleanup_index_files(path: Path) -> bool:
-    cleaned = False
-    if path.exists():
-        path.unlink()
-        cleaned = True
+    cleaned = _unlink_if_exists(path)
     cleaned = _cleanup_sidecars(path) or cleaned
     return cleaned
 

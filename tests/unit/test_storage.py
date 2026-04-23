@@ -209,6 +209,77 @@ def test_atomic_replace_index_preserves_live_sidecars_when_swap_fails(
     assert _read_root_paths(target) == ["/live"]
 
 
+def test_cleanup_index_files_ignores_missing_file_races(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    wal = path.with_name("index.db-wal")
+    shm = path.with_name("index.db-shm")
+    path.write_bytes(b"db")
+    wal.write_bytes(b"wal")
+    shm.write_bytes(b"shm")
+
+    original_unlink = Path.unlink
+    missing_once = {path, wal, shm}
+
+    def raced_unlink(self: Path, *args: Any, **kwargs: Any) -> None:
+        if self in missing_once:
+            missing_once.remove(self)
+            original_unlink(self, *args, **kwargs)
+            raise FileNotFoundError(self)
+        original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", raced_unlink)
+
+    assert storage_module._cleanup_index_files(path) is False
+    assert not path.exists()
+    assert not wal.exists()
+    assert not shm.exists()
+
+
+def test_atomic_replace_index_ignores_missing_target_sidecar_cleanup_races(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / "index.staged.db"
+    wal = target.with_name("index.db-wal")
+    shm = target.with_name("index.db-shm")
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.close()
+    wal.write_bytes(b"stale")
+    shm.write_bytes(b"stale")
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/replaced", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    original_cleanup_sidecars = storage_module._cleanup_sidecars
+    seen_paths: list[Path] = []
+
+    def flaky_cleanup(path: Path) -> bool:
+        seen_paths.append(path)
+        if path == target:
+            wal.unlink(missing_ok=True)
+            shm.unlink(missing_ok=True)
+        return original_cleanup_sidecars(path)
+
+    monkeypatch.setattr(storage_module, "_cleanup_sidecars", flaky_cleanup)
+
+    atomic_replace_index(staged, target)
+
+    assert _read_root_paths(target) == ["/replaced"]
+    assert not wal.exists()
+    assert not shm.exists()
+    assert target in seen_paths
+
+
 def test_open_index_replays_stale_wal_on_startup(tmp_path: Path) -> None:
     source = tmp_path / "source.db"
     snapshot = tmp_path / "snapshot.db"
