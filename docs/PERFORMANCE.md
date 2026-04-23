@@ -86,18 +86,29 @@ The defaults currently checked into the suite are:
 
 ## Baseline
 
-Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed on the branch that originally introduced the current no-parser indexing fast path:
+Measured on 2026-04-24 in this repository’s Linux dev environment with `.venv` dependencies installed, no non-default `EODINGA_PERF_*` overrides, and benchmark-specific captures taken from clean per-file runs:
 
 | Benchmark | Dataset | Result |
 | --- | --- | --- |
-| Cold start | 20,201 indexed entries | 6,059 files/sec |
-| Rebuild cold start | 20,201 indexed entries via `rebuild_index()` | 6,537 files/sec |
-| Bulk upsert | 50k synthetic records | 56,222 records/sec |
-| Name query latency | 2,000 queries / 50k files | p50 0.06 ms, p95 0.06 ms, p99 0.07 ms |
-| Content query latency | 500 queries / 5k docs | p50 0.60 ms, p95 0.63 ms, p99 0.67 ms |
+| Cold start | 20,201 indexed entries | 5,379 files/sec |
+| Rebuild cold start | 20,201 indexed entries via `rebuild_index()` | 5,506 files/sec |
+| Bulk upsert | 50k synthetic records | 44,828 records/sec |
+| Content bulk upsert | 10k parser-backed synthetic records | 23,720 records/sec |
+| Name query latency | 2,000 queries / 50k files | p50 0.12 ms, p95 0.14 ms, p99 0.18 ms |
+| Content query latency | 500 queries / 5k docs | p50 0.93 ms, p95 1.20 ms, p99 1.64 ms |
 | Watch latency | 25 created files | p99 0.133 s |
 
-These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. The benchmark set reflects the checked-in no-parser fast path, where metadata-only indexing avoids the guaranteed-empty content upsert pass when no parser callback is installed.
+Structured summary lines captured for this baseline:
+
+- `cold_start files=20201 elapsed=3.755s throughput=5379 files/s min_fps=4000`
+- `rebuild_cold_start files=20201 elapsed=3.669s throughput=5506 files/s min_fps=3500`
+- `bulk_upsert records=50000 elapsed=1.115s throughput=44828 records/s min_rps=20000`
+- `content_bulk_upsert records=10000 elapsed=0.422s throughput=23720 records/s min_rps=4000`
+- `query_latency files=50000 count=2000 p50=0.12ms p95=0.14ms p99=0.18ms limit_p95=30.00ms`
+- `content_query docs=5000 count=500 p50=0.93ms p95=1.20ms p99=1.64ms limit_p95=150.00ms`
+- `watch_latency count=25 p99=0.132s limit_p99=2.000s`
+
+These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. The benchmark set now includes both metadata-only and parser-backed writer samples so docs can distinguish content-index regressions from the no-parser fast path.
 
 When you refresh this table, record:
 
@@ -124,13 +135,13 @@ When you refresh this table, record:
 One-command capture example:
 
 ```bash
-source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s 2>&1 | tee /tmp/eodinga-perf.log && rg '^(bulk_upsert|cold_start|rebuild_cold_start|rebuild_index|walk_batched|query_latency|content_query_latency|watch_latency)' /tmp/eodinga-perf.log
+source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s 2>&1 | tee /tmp/eodinga-perf.log && rg '^(bulk_upsert|cold_start|rebuild_cold_start|content_bulk_upsert|query_latency|content_query|watch_latency)' /tmp/eodinga-perf.log
 ```
 
 Single-benchmark capture example:
 
 ```bash
-source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf/test_query_latency.py -s 2>&1 | tee /tmp/eodinga-query-perf.log && rg '^query_latency' /tmp/eodinga-query-perf.log
+source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf/test_query_latency.py -s 2>/dev/null | rg '^query_latency'
 ```
 
 ## Repro Checklist

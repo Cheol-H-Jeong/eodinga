@@ -193,6 +193,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Command Hygiene" in contributing
     assert "treat the requested module spec as a hard scope boundary" in contributing
     assert "The exact command bundle you ran." in contributing
+    assert "docs-ready baseline refresh" in contributing
+    assert "raw perf summary lines" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
     assert "The final release commit for a round should carry the version bump" in contributing
     assert "Do not rewrite earlier docs or feature commits" in contributing
@@ -223,6 +225,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "tests/perf/test_cold_start.py" in performance
     assert "test_rebuild_cold_start_throughput" in performance
     assert "EODINGA_PERF_REBUILD_MIN_FPS" in performance
+    assert "content_bulk_upsert" in performance
     assert "## Benchmark Families At A Glance" in performance
     assert "## Running the Suite" in performance
     assert "## Baseline" in performance
@@ -237,6 +240,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "The defaults currently checked into the suite are:" in performance
     assert "The printed benchmark summary line." in performance
     assert "current checked-in baseline" in performance
+    assert "Structured summary lines captured for this baseline:" in performance
+    assert "query_latency files=50000 count=2000" in performance
     assert "Use this lookup when you want the shortest perf signal for one subsystem:" in performance
     assert "Single-benchmark capture example:" in performance
 

@@ -91,6 +91,14 @@ EODINGA_RUN_PERF=1 pytest -q tests/perf -s
 
 Treat the perf suite as separate diagnostic evidence. If it fails, record the summary lines and the failing threshold instead of overwriting `docs/PERFORMANCE.md` with numbers from a red run.
 
+When you need a docs-ready baseline refresh, prefer one benchmark per command so the captured summary line stays readable:
+
+```bash
+source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf/test_query_latency.py -s 2>/dev/null | rg '^query_latency'
+```
+
+That same pattern works for `cold_start`, `rebuild_cold_start`, `bulk_upsert`, `content_bulk_upsert`, `content_query`, and `watch_latency`.
+
 Commit-level minimum:
 
 ```bash
@@ -183,6 +191,8 @@ Collect the smallest reviewable evidence set that matches the docs you changed:
 | Pure prose or workflow guidance | `pytest -q tests/unit/test_docs_assets.py`, and the nearest matching dry run if the text names shipped artifacts |
 
 Prefer one explicit evidence bundle over ad-hoc retries. The handoff should show why the docs match the runtime, not just that Markdown changed.
+
+If the round refreshes `docs/PERFORMANCE.md`, include the raw perf summary lines in that same evidence bundle so each recorded number still points back to one command.
 
 ## Metadata Commit Discipline
 
