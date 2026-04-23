@@ -625,7 +625,7 @@ def _run_windows() -> int:
 
 
 def _run_linux_appimage_dry_run() -> int:
-    preflight = _preflight_required_commands("linux-appimage-dry-run", ["bash", "python3", "tar"])
+    preflight = _preflight_required_commands("linux-appimage-dry-run", ["bash", "chmod", "cp", "python3", "tar"])
     if preflight != 0:
         return preflight
     result = subprocess.run(
@@ -645,7 +645,10 @@ def _run_linux_appimage_dry_run() -> int:
 
 
 def _run_linux_appimage() -> int:
-    preflight = _preflight_required_commands("linux-appimage", ["bash", "python3", "tar", _linux_appimage_tool()])
+    preflight = _preflight_required_commands(
+        "linux-appimage",
+        ["bash", "chmod", "cp", "python3", "tar", _linux_appimage_tool()],
+    )
     if preflight != 0:
         return preflight
     result = subprocess.run(
@@ -665,7 +668,7 @@ def _run_linux_appimage() -> int:
 
 
 def _run_linux_deb_dry_run() -> int:
-    preflight = _preflight_required_commands("linux-deb-dry-run", ["bash", "python3", "tar"])
+    preflight = _preflight_required_commands("linux-deb-dry-run", ["bash", "gzip", "install", "python3", "tar"])
     if preflight != 0:
         return preflight
     result = subprocess.run(
@@ -685,7 +688,10 @@ def _run_linux_deb_dry_run() -> int:
 
 
 def _run_linux_deb() -> int:
-    preflight = _preflight_required_commands("linux-deb", ["bash", "dpkg-deb", "python3", "tar"])
+    preflight = _preflight_required_commands(
+        "linux-deb",
+        ["bash", "dpkg-deb", "gzip", "install", "python3", "tar"],
+    )
     if preflight != 0:
         return preflight
     result = subprocess.run(
