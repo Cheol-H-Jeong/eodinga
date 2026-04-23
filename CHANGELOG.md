@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.550 - 2026-04-23
+## 0.1.551 - 2026-04-23
 
 - Surfaced active launcher filter chips directly under the query field, so typed `ext:`, `date:`, `size:`, and other DSL operators stay visible and reusable while refining a search.
 - Carried query highlighting into the launcher preview pane, keeping the selected file's name, path, and snippet visually aligned with the result list instead of dropping match context on selection.
