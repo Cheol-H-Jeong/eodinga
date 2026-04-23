@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.835 - 2026-04-23
+## 0.1.837 - 2026-04-23
 
 - Bundled the `eodinga/` runtime tree into the staged Linux AppImage and Debian package roots so packaged launchers no longer depend on the source checkout being present at runtime.
 - Tightened the Linux packaging audits to prove the embedded runtime payload, module entrypoint, and i18n assets are shipped, and to reject launcher regressions back to checkout-backed execution.
