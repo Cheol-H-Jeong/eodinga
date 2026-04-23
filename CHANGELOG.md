@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.360 - 2026-04-23
+## 0.1.364 - 2026-04-23
 
 - Fixed bare and whitespace-separated `/regex/flags` parsing so closing delimiters after an even run of backslashes are no longer misread as escaped, keeping direct regex queries and `path:` or `content:` regex operators compilable.
 - Stabilized metadata-only query ordering for duplicate filenames by breaking same-name ties with the full path before row id, so filters like `ext:txt` stop depending on insertion order.
