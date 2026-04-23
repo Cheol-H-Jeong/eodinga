@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from contextlib import closing
 import sys
-from typing import Literal, Protocol, cast, overload
+from typing import Callable, Literal, Protocol, cast, overload
 
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QStyle, QSystemTrayIcon, QTabWidget, QVBoxLayout, QWidget
 
@@ -15,6 +16,8 @@ from eodinga.gui.launcher import LauncherPanel
 from eodinga.gui.tabs import AboutTab, IndexTab, RootsTab, SearchTab, SettingsTab
 from eodinga.gui.theme import apply_theme
 from eodinga.index.storage import open_index
+from eodinga.launcher.hotkey import HotkeyService
+from eodinga.observability import get_logger
 from eodinga.query import QuerySyntaxError, search as run_search
 
 
@@ -24,6 +27,62 @@ class _DesktopActionsLike(Protocol):
     def show_properties(self, hit: SearchHit) -> None: ...
     def copy_hit_path(self, hit: SearchHit) -> None: ...
     def copy_hit_name(self, hit: SearchHit) -> None: ...
+
+
+class _HotkeyServiceLike(Protocol):
+    def register(self, combo: str, callback) -> None: ...
+    def start(self) -> None: ...
+    def stop(self) -> None: ...
+
+
+class LauncherHotkeyController:
+    def __init__(
+        self,
+        launcher_window: LauncherWindow,
+        combo: str,
+        service_factory: Callable[[], _HotkeyServiceLike] = HotkeyService,
+    ) -> None:
+        self._launcher_window = launcher_window
+        self._combo = combo.strip().lower()
+        self._service_factory = service_factory
+        self._service: _HotkeyServiceLike | None = None
+        self._start()
+
+    def set_hotkey(self, combo: str) -> None:
+        normalized = combo.strip().lower()
+        if not normalized:
+            raise ValueError("launcher hotkey cannot be empty")
+        self._combo = normalized
+        if self._service is None:
+            self._start()
+            return
+        self._service.register(self._combo, self.toggle_launcher)
+
+    def stop(self) -> None:
+        if self._service is None:
+            return
+        self._service.stop()
+        self._service = None
+
+    def toggle_launcher(self) -> None:
+        if self._launcher_window.isVisible():
+            self._launcher_window.hide()
+            return
+        self._launcher_window.show()
+        self._launcher_window.raise_()
+        self._launcher_window.activateWindow()
+        self._launcher_window.query_field.setFocus()
+        self._launcher_window.query_field.selectAll()
+
+    def _start(self) -> None:
+        try:
+            service = self._service_factory()
+            service.register(self._combo, self.toggle_launcher)
+            service.start()
+        except (ModuleNotFoundError, OSError, RuntimeError, ValueError) as error:
+            get_logger().warning("launcher hotkey unavailable: {}", error)
+            return
+        self._service = service
 
 
 class TrayIndicatorController:
@@ -96,17 +155,20 @@ class EodingaWindow(QMainWindow):
         desktop_actions: _DesktopActionsLike | None = None,
         config: AppConfig | None = None,
         config_path=None,
+        hotkey_service_factory: Callable[[], _HotkeyServiceLike] = HotkeyService,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("eodinga")
         self.resize(960, 640)
+        self._config = config
+        self._config_path = config_path.expanduser() if config_path is not None else None
         self.launcher_state = LauncherState(self)
         self.launcher_window = LauncherWindow(
             search_fn=search_fn,
             state=self.launcher_state,
             config=config,
-            config_path=config_path,
+            config_path=self._config_path,
         )
 
         container = QWidget(self)
@@ -133,6 +195,12 @@ class EodingaWindow(QMainWindow):
         self._connect_launcher_actions(self.launcher_window)
         self._connect_launcher_actions(self.search_tab.launcher_panel)
         self.tray_indicator = TrayIndicatorController(app, self.launcher_window, self)
+        combo = self._config.launcher.hotkey if self._config is not None else "ctrl+shift+space"
+        self.hotkey_controller = LauncherHotkeyController(
+            self.launcher_window,
+            combo,
+            service_factory=hotkey_service_factory,
+        )
         self.launcher_state.indexing_status_changed.connect(self.index_tab.set_indexing_status)
         self.launcher_state.indexing_status_changed.connect(self.tray_indicator.set_indexing_status)
         self.set_indexing_status(IndexingStatus())
@@ -146,6 +214,20 @@ class EodingaWindow(QMainWindow):
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self.launcher_state.set_indexing_status(status)
+
+    def set_launcher_hotkey(self, combo: str) -> None:
+        self.hotkey_controller.set_hotkey(combo)
+        if self._config is None or self._config_path is None:
+            return
+        normalized = combo.strip().lower()
+        if self._config.launcher.hotkey == normalized:
+            return
+        self._config.launcher = self._config.launcher.model_copy(update={"hotkey": normalized})
+        self._config.save(self._config_path)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self.hotkey_controller.stop()
+        super().closeEvent(event)
 
 
 def build_index_search_fn(db_path) -> SearchFn:
@@ -199,12 +281,18 @@ def launch_gui(
     db_path=None,
     config: AppConfig | None = None,
     config_path=None,
+    hotkey_service_factory: Callable[[], _HotkeyServiceLike] = HotkeyService,
 ) -> tuple[QApplication, EodingaWindow, LauncherWindow] | int:
     app = cast(QApplication, QApplication.instance() or QApplication(sys.argv))
     apply_theme(app, "light")
     if search_fn is None and db_path is not None:
         search_fn = build_index_search_fn(db_path)
-    window = EodingaWindow(search_fn=search_fn, config=config, config_path=config_path)
+    window = EodingaWindow(
+        search_fn=search_fn,
+        config=config,
+        config_path=config_path,
+        hotkey_service_factory=hotkey_service_factory,
+    )
     window.show()
     window.launcher_window.hide()
     if test_mode:

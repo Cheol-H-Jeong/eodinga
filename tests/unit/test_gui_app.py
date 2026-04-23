@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sqlite3
+from typing import Callable
 from typing import cast
 
 from PySide6.QtCore import Qt
@@ -138,6 +139,53 @@ def test_launcher_respects_always_on_top_config(qapp, temp_config_path: Path) ->
 
     top_window.close()
     qapp.processEvents()
+
+
+class _HotkeyServiceSpy:
+    def __init__(self) -> None:
+        self.registrations: list[tuple[str, Callable[[], None]]] = []
+        self.started = 0
+        self.stopped = 0
+
+    def register(self, combo: str, callback) -> None:
+        self.registrations.append((combo, callback))
+
+    def start(self) -> None:
+        self.started += 1
+
+    def stop(self) -> None:
+        self.stopped += 1
+
+
+def test_launcher_hotkey_rebinds_without_restart(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    service = _HotkeyServiceSpy()
+    window = EodingaWindow(
+        config=config,
+        config_path=temp_config_path,
+        hotkey_service_factory=lambda: service,
+    )
+
+    assert service.started == 1
+    assert service.registrations[0][0] == "ctrl+shift+space"
+
+    callback = service.registrations[0][1]
+    callback()
+    qapp.processEvents()
+    assert window.launcher_window.isVisible()
+
+    callback()
+    qapp.processEvents()
+    assert not window.launcher_window.isVisible()
+
+    window.set_launcher_hotkey("Ctrl+Alt+K")
+
+    assert service.registrations[-1][0] == "ctrl+alt+k"
+    assert load(temp_config_path).launcher.hotkey == "ctrl+alt+k"
+
+    window.close()
+    qapp.processEvents()
+    assert service.stopped == 1
 
 
 def test_tray_activation_toggles_launcher_visibility(qapp) -> None:
