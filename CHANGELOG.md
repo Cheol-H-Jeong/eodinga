@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.556 - 2026-04-23
+## 0.1.557 - 2026-04-23
 
 - Cached the executor's dynamic `content_map.file_id IN (...)` SQL templates by chunk size, reducing repeated statement construction during content backfill and record-filter scans.
 - Snapshotted walker `indexed_at` timestamps once per emitted batch instead of once per file, shaving a system clock call from every traversed record while preserving batch-level indexing semantics.
