@@ -5,10 +5,12 @@ from pathlib import Path
 from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QAbstractButton, QListView, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.launcher import LauncherState
 from eodinga.gui.launcher_window import LauncherWindow
+from eodinga.gui.tabs.settings import SettingsTab
 
 
 def _wait(milliseconds: int) -> None:
@@ -527,6 +529,23 @@ def test_launcher_alt_up_and_down_recall_recent_queries(qapp) -> None:
     assert launcher.query_field.text() == ""
 
 
+def test_interactive_launcher_and_settings_widgets_have_accessible_names(qapp) -> None:
+    launcher = LauncherWindow()
+    settings = SettingsTab()
+    launcher.show()
+    settings.show()
+    qapp.processEvents()
+
+    interactive_types = (QAbstractButton, QListView)
+    launcher_widgets = [widget for widget in launcher.findChildren(QWidget) if isinstance(widget, interactive_types)]
+    settings_widgets = [widget for widget in settings.findChildren(QWidget) if isinstance(widget, interactive_types)]
+    widgets = launcher_widgets + settings_widgets + [launcher.query_field, settings.system_theme_checkbox]
+
+    unnamed = [widget for widget in widgets if not widget.accessibleName().strip()]
+
+    assert unnamed == []
+
+
 def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
     properties: list[str] = []
     copied: list[str] = []
@@ -658,14 +677,23 @@ def test_launcher_alt_number_quick_picks_results(qapp) -> None:
     launcher = LauncherWindow(search_fn=search_fn)
     launcher.result_activated.connect(lambda hit: activated.append(hit.name))
     launcher.show()
+    launcher.activateWindow()
+    _wait(10)
 
     launcher.query_field.setText("item")
-    _wait(60)
     launcher.query_field.setFocus()
 
+    third_result_html = launcher.model.data(launcher.model.index(2, 0), Qt.ItemDataRole.DisplayRole)
+    assert third_result_html is None
+
     QTest.keyClick(launcher.query_field, Qt.Key.Key_3, Qt.KeyboardModifier.AltModifier)
+    _wait(10)
+
+    third_result_html = launcher.model.data(launcher.model.index(2, 0), Qt.ItemDataRole.DisplayRole)
+    assert "Alt+3" in third_result_html
 
     assert activated == ["item-2.txt"]
+    assert launcher.model.rowCount() == 5
     assert launcher.result_list.currentIndex().row() == 2
     assert "Alt+1..9 quick-picks" in launcher.shortcut_label.text()
     assert "Home/End and PgUp/PgDn jump" in launcher.shortcut_label.text()

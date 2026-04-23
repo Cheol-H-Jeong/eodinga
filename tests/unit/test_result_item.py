@@ -84,6 +84,22 @@ def test_format_hit_html_renders_extension_badge() -> None:
     assert ">/tmp</div>" in rendered
 
 
+def test_format_hit_html_renders_quick_pick_badge_for_top_results() -> None:
+    rendered = format_hit_html(
+        SearchHit(
+            path=Path("/tmp/report.pdf"),
+            parent_path=Path("/tmp"),
+            name="report.pdf",
+            ext="pdf",
+        ),
+        "report",
+        quick_pick_rank=3,
+    )
+
+    assert ">Alt+3</span>" in rendered
+    assert "background:#DBEAFE" in rendered
+
+
 def test_format_hit_html_renders_highlighted_snippet() -> None:
     rendered = format_hit_html(
         SearchHit(
