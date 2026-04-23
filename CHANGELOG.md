@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.415 - 2026-04-23
+
+- Fixed the default `pyright` repository gate in worker worktrees by teaching the repo config to resolve the local `.venv` automatically instead of requiring an explicit `--pythonpath`.
+- Expanded the README with a command-roles table and a `stats --json` operator guide so the intended use of each surface and the meaning of the runtime snapshot are visible from the shipped front page.
+- Added acceptance, architecture, contributing, and release maps for surface smoke checks, command ownership, docs source-of-truth, and artifact-to-command validation, with docs-asset tests pinning the new guidance.
+
 ## 0.1.410 - 2026-04-23
 
 - Expanded `stats --json` so the typed payload now exposes watcher flush/backpressure metrics and logging sink counters directly, without forcing operators to decode raw counter keys.
