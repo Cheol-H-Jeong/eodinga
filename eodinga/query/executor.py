@@ -39,6 +39,7 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+_WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:[\\/]")
 
 
 @lru_cache(maxsize=256)
@@ -332,14 +333,17 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
     root_text = str(root)
-    normalized = root_text.rstrip("/\\") or root_text
+    normalized = _normalize_root_scope_text(root_text)
     variants = _root_variants(normalized)
-    exact_params = variants
-    like_params = tuple(f"{_escape_like_pattern(variant)}/%" for variant in variants) + tuple(
-        f"{_escape_like_pattern(variant)}\\%" for variant in variants
+    windows_drive = _is_windows_drive_root(normalized)
+    column = "lower(files.path)" if windows_drive else "files.path"
+    exact_params = tuple(variant.lower() for variant in variants) if windows_drive else variants
+    like_variants = tuple(_escape_like_pattern(variant) for variant in exact_params)
+    like_params = tuple(f"{variant}/%" for variant in like_variants) + tuple(
+        f"{variant}\\%" for variant in like_variants
     )
-    exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
-    like_clause = " OR ".join("files.path LIKE ? ESCAPE '^'" for _ in like_params)
+    exact_clause = " OR ".join(f"{column} = ?" for _ in exact_params)
+    like_clause = " OR ".join(f"{column} LIKE ? ESCAPE '^'" for _ in like_params)
     return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
 
 
@@ -360,6 +364,22 @@ def _root_variants(root_text: str) -> tuple[str, ...]:
             variants[f"{candidate[0].lower()}{candidate[1:]}"] = None
             variants[f"{candidate[0].upper()}{candidate[1:]}"] = None
     return tuple(variants)
+
+
+def _normalize_root_scope_text(root_text: str) -> str:
+    normalized = _strip_windows_extended_prefix(root_text)
+    return normalized.rstrip("/\\") or normalized
+
+
+def _strip_windows_extended_prefix(root_text: str) -> str:
+    windows_text = root_text.replace("/", "\\")
+    if windows_text.startswith("\\\\?\\") and _WINDOWS_DRIVE_RE.match(windows_text[4:]):
+        return windows_text[4:]
+    return root_text
+
+
+def _is_windows_drive_root(root_text: str) -> bool:
+    return bool(_WINDOWS_DRIVE_RE.match(root_text))
 
 
 def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:
