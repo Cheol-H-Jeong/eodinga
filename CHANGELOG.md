@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.385 - 2026-04-23
+## 0.1.390 - 2026-04-23
 
 - Normalized quoted phrase boundary matching against NFC-folded text so decomposed Korean content still matches across punctuation and separator boundaries.
 - Made the non-ASCII path and auto-content scan fallbacks phrase-aware, preserving quoted query semantics when FTS tokenization does not recover the candidate set.
