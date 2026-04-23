@@ -376,11 +376,14 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     root_text = str(root)
     normalized = root_text.rstrip("/\\") or root_text
     variants = _root_variants(normalized)
-    exact_params = variants
+    exact_params = tuple(_escape_like_pattern(variant) for variant in variants)
     like_params = tuple(f"{_escape_like_pattern(variant)}/%" for variant in variants) + tuple(
         f"{_escape_like_pattern(variant)}\\%" for variant in variants
     )
-    exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
+    exact_operator = (
+        "files.path LIKE ? ESCAPE '^'" if _is_windows_root_text(normalized) else "files.path = ?"
+    )
+    exact_clause = " OR ".join(exact_operator for _ in exact_params)
     like_clause = " OR ".join("files.path LIKE ? ESCAPE '^'" for _ in like_params)
     return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
 
@@ -417,6 +420,10 @@ def _root_variants(root_text: str) -> tuple[str, ...]:
             variants[f"{candidate[:drive_index]}{candidate[drive_index].lower()}{candidate[drive_index + 1 :]}"] = None
             variants[f"{candidate[:drive_index]}{candidate[drive_index].upper()}{candidate[drive_index + 1 :]}"] = None
     return tuple(variants)
+
+
+def _is_windows_root_text(root_text: str) -> bool:
+    return bool(re.match(r"^[A-Za-z]:[\\/]", root_text) or root_text.startswith("\\\\"))
 
 
 def _strip_windows_extended_prefix(root_text: str) -> str:
