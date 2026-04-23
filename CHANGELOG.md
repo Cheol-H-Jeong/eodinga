@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.909 - 2026-04-24
+## 0.1.917 - 2026-04-24
 
 - Bypassed the cached query compiler path for relative date filters like `date:today` and `date:tomorrow`, so dynamic local-time ranges now recompile against the current boundary instead of reusing stale timestamps.
 - Reworked launcher keyboard traversal so `Tab` and `Shift+Tab` can move through pinned queries, recent queries, search results, and enabled action buttons without dropping keyboard users back to the mouse.
