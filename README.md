@@ -271,6 +271,16 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, and compressed changelog into the package root.
 - The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
 
+## Release Audit Map
+
+| If this changed | Review here first | Matching command |
+| --- | --- | --- |
+| CLI flags, subcommands, or help text | `docs/man/eodinga.1` and `docs/ACCEPTANCE.md` | `python scripts/generate_manpage.py && pytest -q tests/unit/test_docs_assets.py` |
+| Visible GUI copy or screenshots | `docs/screenshots/` and this README | `python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` |
+| Packaging behavior or installer payload | `packaging/dist/` plus `docs/RELEASE.md` | `python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run` |
+| Query syntax or operator behavior | `docs/DSL.md` and the examples below | `pytest -q tests/unit/test_docs_assets.py` plus the matching DSL/query slice |
+| Release or contributor workflow | `docs/CONTRIBUTING.md` and `docs/RELEASE.md` | `pytest -q tests/unit/test_docs_assets.py` |
+
 ## Release Handoff
 
 1. Finish the docs, code, or packaging slice and keep each logical commit green with `pytest -q tests/unit`.
@@ -326,6 +336,18 @@ eodinga search 'date:this-week ext:md' --limit 10
 
 If those are clean but the packaged app still looks wrong, continue with the release-gate commands in `docs/ACCEPTANCE.md`.
 
+## Validation Ladder
+
+Use the smallest clean check that proves the surface you touched before escalating to the full gate:
+
+1. `pytest -q tests/unit/test_docs_assets.py` for README or guide-only edits.
+2. `python scripts/generate_manpage.py` when CLI help or parser docs changed.
+3. `python scripts/render_docs_screenshots.py` when visible Qt text or layout changed.
+4. `python packaging/build.py --target ...-dry-run` when install, packaging, or release docs changed.
+5. The one-command acceptance pass from `docs/ACCEPTANCE.md` before the final version bump and tag.
+
+This keeps docs rounds fast while still treating generated assets and packaging audits as part of the shipped contract.
+
 ## Docs Map
 
 - [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md): query cheatsheet and operator notes.
@@ -360,6 +382,10 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 ### Which commands are most useful for a quick health check?
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
+
+### What should I rerun after a docs-only change?
+
+At minimum, run `pytest -q tests/unit/test_docs_assets.py`. Add `python scripts/generate_manpage.py` if CLI help changed, `python scripts/render_docs_screenshots.py` if visible Qt surfaces changed, and the matching `packaging/build.py --target ...-dry-run` command if the docs describe packaged artifacts differently.
 
 ### Where do I inspect packaging outputs before a release?
 
