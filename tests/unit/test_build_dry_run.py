@@ -245,6 +245,42 @@ def test_windows_dry_run_discovers_pyinstaller_datas_from_project_metadata() -> 
     }
 
 
+def test_release_dry_run_runs_all_packaging_audits() -> None:
+    result = subprocess.run(
+        [sys.executable, "packaging/build.py", "--target", "release-dry-run"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    audit_path = Path("packaging/dist/release-dry-run-audit.json")
+    assert audit_path.exists()
+    payload = json.loads(audit_path.read_text(encoding="utf-8"))
+
+    assert payload["target"] == "release-dry-run"
+    assert payload["version"] == __version__
+    assert payload["package_version"] == __version__
+    assert payload["all_passed"] is True
+    assert payload["results"] == {
+        "windows-dry-run": {
+            "path": str(Path("packaging/dist/windows-dry-run-audit.json").resolve()),
+            "exists": True,
+            "result": 0,
+        },
+        "linux-appimage-dry-run": {
+            "path": str(Path("packaging/dist/linux-appimage-audit.json").resolve()),
+            "exists": True,
+            "result": 0,
+        },
+        "linux-deb-dry-run": {
+            "path": str(Path("packaging/dist/linux-deb-audit.json").resolve()),
+            "exists": True,
+            "result": 0,
+        },
+    }
+
+
 def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> None:
     module = _load_build_module()
     payload = {

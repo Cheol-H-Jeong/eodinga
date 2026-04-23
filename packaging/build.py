@@ -25,6 +25,7 @@ INNO_GUI_DIST_TOKEN = "@@GUI_DIST_NAME@@"
 INNO_CLI_DIST_TOKEN = "@@CLI_DIST_NAME@@"
 INNO_GUI_EXE_TOKEN = "@@GUI_EXE_NAME@@"
 _INNO_APP_ID_PATTERN = re.compile(r"^\{\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$")
+RELEASE_DRY_RUN_AUDIT = DIST_DIR / "release-dry-run-audit.json"
 
 
 def _read_project_version() -> str:
@@ -208,6 +209,14 @@ def _write_audit(payload: dict[str, Any]) -> Path:
 
 def _load_audit(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _audit_status(path: Path, result: int) -> dict[str, Any]:
+    return {
+        "path": str(path),
+        "exists": path.exists(),
+        "result": result,
+    }
 
 
 def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
@@ -530,11 +539,33 @@ def _run_linux_deb() -> int:
     )
 
 
+def _run_release_dry_run() -> int:
+    results = [
+        ("windows-dry-run", DIST_DIR / "windows-dry-run-audit.json", _run_windows_dry_run()),
+        ("linux-appimage-dry-run", DIST_DIR / "linux-appimage-audit.json", _run_linux_appimage_dry_run()),
+        ("linux-deb-dry-run", DIST_DIR / "linux-deb-audit.json", _run_linux_deb_dry_run()),
+    ]
+    summary = {
+        "target": "release-dry-run",
+        "version": _read_project_version(),
+        "package_version": _read_package_version(),
+        "results": {
+            target: _audit_status(path, result)
+            for target, path, result in results
+        },
+    }
+    summary["all_passed"] = all(result == 0 for _, _, result in results)
+    RELEASE_DRY_RUN_AUDIT.parent.mkdir(parents=True, exist_ok=True)
+    RELEASE_DRY_RUN_AUDIT.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    return 0 if summary["all_passed"] else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--target",
         choices=(
+            "release-dry-run",
             "linux-appimage-dry-run",
             "linux-appimage",
             "linux-deb-dry-run",
@@ -545,6 +576,8 @@ def main(argv: list[str] | None = None) -> int:
         required=True,
     )
     args = parser.parse_args(argv)
+    if args.target == "release-dry-run":
+        return _run_release_dry_run()
     if args.target == "linux-appimage-dry-run":
         return _run_linux_appimage_dry_run()
     if args.target == "linux-appimage":
