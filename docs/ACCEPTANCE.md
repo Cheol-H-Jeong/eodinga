@@ -39,7 +39,9 @@ Run the packaging and workflow checks:
 
 ```bash
 python packaging/build.py --target windows-dry-run
-yamllint .github/workflows/release-windows.yml
+python packaging/build.py --target linux-appimage-dry-run
+python packaging/build.py --target linux-deb-dry-run
+yamllint .github/workflows/release-windows.yml .github/workflows/release-linux.yml
 ```
 
 ## What The Gate Covers
@@ -49,13 +51,15 @@ yamllint .github/workflows/release-windows.yml
 - `pyright --outputjson` must report `errorCount: 0`.
 - The offscreen GUI smoke command must instantiate the main window and launcher without a display server.
 - `windows-dry-run` must render the PyInstaller and Inno Setup inputs and write the audit manifest under `packaging/dist/`.
-- `yamllint` validates the release workflow YAML shipped in `.github/workflows/release-windows.yml`.
+- `linux-appimage-dry-run` and `linux-deb-dry-run` must validate the Linux packaging inputs without requiring a release build.
+- `yamllint` validates both shipped release workflow YAML files: `.github/workflows/release-windows.yml` and `.github/workflows/release-linux.yml`.
 
 ## Documentation Contract
 
 The README is part of the acceptance surface. Before tagging a release, confirm it still documents:
 
 - installation on Linux and Windows
+- the release artifact forms and their validation commands
 - the default launcher hotkey and keyboard actions
 - the DSL entry points and a link to `docs/DSL.md`
 - current limitations for lexical-only search, parser coverage, and watcher behavior

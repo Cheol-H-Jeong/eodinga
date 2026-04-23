@@ -28,14 +28,13 @@ QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; lau
 python packaging/build.py --target windows-dry-run
 python packaging/build.py --target linux-appimage-dry-run
 python packaging/build.py --target linux-deb-dry-run
-yamllint .github/workflows/release-windows.yml
-yamllint .github/workflows/release-linux.yml
+yamllint .github/workflows/release-windows.yml .github/workflows/release-linux.yml
 ```
 
 One-command local release pass:
 
 ```bash
-source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)" && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run && yamllint .github/workflows/release-windows.yml && yamllint .github/workflows/release-linux.yml
+source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)" && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run && yamllint .github/workflows/release-windows.yml .github/workflows/release-linux.yml
 ```
 
 Recommended order:
@@ -53,6 +52,7 @@ Before tagging, confirm:
 - `docs/PERFORMANCE.md` numbers come from a rerun at the documented HEAD.
 - `docs/man/eodinga.1` has been regenerated if `eodinga.__main__` changed.
 - Screenshot assets under `docs/screenshots/` still match the current UI, or have been refreshed with `python scripts/render_docs_screenshots.py`.
+- `docs/ACCEPTANCE.md`, `docs/CONTRIBUTING.md`, and `README.md` still agree on dry-run packaging commands and workflow lint coverage.
 
 Documentation refresh commands:
 

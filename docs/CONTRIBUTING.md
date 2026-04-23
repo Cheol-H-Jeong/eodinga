@@ -15,6 +15,7 @@ python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]
 3. Keep each commit independently green with `pytest -q tests/unit`.
 4. Run the full local gate before handing off a release candidate.
 5. Update docs and screenshots when the visible or operator-facing contract changes.
+6. Keep README, acceptance, and release docs aligned when packaging commands or shipped artifacts change.
 
 ## Suggested Command Order
 
@@ -48,8 +49,7 @@ Packaging and workflow validation:
 python packaging/build.py --target windows-dry-run
 python packaging/build.py --target linux-appimage-dry-run
 python packaging/build.py --target linux-deb-dry-run
-yamllint .github/workflows/release-windows.yml
-yamllint .github/workflows/release-linux.yml
+yamllint .github/workflows/release-windows.yml .github/workflows/release-linux.yml
 ```
 
 ## Scope Guardrails
@@ -84,6 +84,7 @@ When a change affects the shipped contract, refresh docs in this order:
 - GUI/launcher changes: `pytest -q tests/unit/test_gui_app.py tests/unit/test_gui_launcher.py tests/unit/test_docs_assets.py`
 - Index/storage/watcher changes: `pytest -q tests/unit/test_storage.py tests/unit/test_writer.py tests/unit/test_watcher.py`
 - Packaging changes: `pytest -q tests/unit/test_build.py tests/unit/test_build_dry_run.py tests/unit/test_inno_script.py tests/unit/test_pyinstaller_spec.py`
+- Docs/release-guide changes: `pytest -q tests/unit/test_docs_assets.py tests/unit/test_release_workflows.py`
 
 ## Commit and Release Notes
 
