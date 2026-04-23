@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.290 - 2026-04-23
+## 0.1.351 - 2026-04-23
 
 - Restored the launcher preview pane to the actively selected result when a hover-only preview ends, so the sidebar no longer stays stuck on a stale hovered item.
 - Clamped restored frameless launcher geometry back onto a visible screen origin and persisted the corrected bounds, preventing saved popup positions from reopening off-screen after display changes.
