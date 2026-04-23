@@ -920,12 +920,26 @@ def test_launcher_query_chips_expose_accessible_context(qapp) -> None:
     recent_chip = launcher.recent_queries_row.buttons[0]
 
     assert pinned_chip.accessibleName() == "Use query ext:pdf"
-    assert pinned_chip.accessibleDescription() == "Apply the pinned launcher query"
+    assert pinned_chip.accessibleDescription() == (
+        "Apply the pinned launcher query. Use Left and Right to move between launcher chips."
+    )
     assert recent_chip.accessibleName() == "Use query budget"
-    assert recent_chip.accessibleDescription() == "Apply the recent launcher query"
+    assert recent_chip.accessibleDescription() == (
+        "Apply the recent launcher query. Use Left and Right to move between launcher chips."
+    )
     assert launcher.pinned_queries_row.accessibleDescription() == "1 pinned launcher queries are available: ext:pdf."
     assert launcher.recent_queries_row.accessibleDescription() == "1 recent launcher queries are available: budget."
     assert launcher.pinned_queries_row.overflow_label.accessibleDescription() == "No hidden launcher queries are available."
+
+
+def test_launcher_query_chips_expose_full_query_in_tooltip(qapp) -> None:
+    state = LauncherState(pinned_queries=['content:"release notes"'])
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    pinned_chip = launcher.pinned_queries_row.buttons[0]
+
+    assert pinned_chip.toolTip() == 'content:"release notes"'
 
 
 def test_launcher_query_chip_overflow_exposes_accessible_summary(qapp) -> None:
