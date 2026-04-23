@@ -16,6 +16,16 @@ python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]
 4. Run the full local gate before handing off a release candidate.
 5. Update docs and screenshots when the visible or operator-facing contract changes.
 
+## Parallel Worktree Flow
+
+When multiple improvement workers are active at once, keep your slice merge-friendly:
+
+1. Pick one theme and stay inside files that belong to that theme.
+2. Start with `git fetch origin main && git reset --hard origin/main`.
+3. Treat a red gate as the current priority; do not add new work on top of failing tests or lint.
+4. Keep each logical change in its own commit so release notes can describe measurable progress accurately.
+5. Leave pushing and any final rebase to the orchestrator or release owner.
+
 ## Suggested Command Order
 
 Use one clean pass instead of ad-hoc retries:
@@ -52,6 +62,12 @@ yamllint .github/workflows/release-windows.yml
 yamllint .github/workflows/release-linux.yml
 ```
 
+Docs-heavy rounds should also run:
+
+```bash
+pytest -q tests/unit/test_docs_assets.py
+```
+
 ## Scope Guardrails
 
 - Do not edit `SPEC.md`.
@@ -68,6 +84,7 @@ yamllint .github/workflows/release-linux.yml
 - Regenerate the shipped screenshots with `python scripts/render_docs_screenshots.py` after visible GUI changes.
 - Regenerate `docs/man/eodinga.1` with `python scripts/generate_manpage.py` after CLI parser changes.
 - Keep `CHANGELOG.md` aligned with landed behavior only; avoid speculative release notes.
+- Call out docs-only rounds explicitly in the changelog and release handoff so reviewers know runtime behavior is unchanged.
 
 ## Docs Refresh Order
 

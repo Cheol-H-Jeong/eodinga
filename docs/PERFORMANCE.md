@@ -23,6 +23,16 @@ EODINGA_RUN_PERF=1 pytest -q tests/perf/test_watch_latency.py -s
 
 The individual commands are useful when you are changing one subsystem and want a narrower regression signal before running the whole suite.
 
+## Repro Checklist
+
+Before recording or updating baseline numbers, keep the run conditions stable:
+
+1. Sync to the exact commit you plan to document.
+2. Reuse one warmed virtualenv instead of reinstalling dependencies between runs.
+3. Close other heavy local workloads that would distort filesystem or CPU timings.
+4. Capture the dataset-size overrides you used, if any, alongside the reported numbers.
+5. Update this document only after the measured run, never from an older notebook or shell history.
+
 The current perf suite covers the SPEC §6.3 scenarios with smaller local-dev datasets:
 
 - `tests/perf/test_cold_start.py`: walker + bulk index throughput on a real tmp tree.
@@ -86,6 +96,16 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 - Re-run the same benchmark at least twice if the first sample is noisy; filesystem cache warmth heavily affects cold-start throughput.
 - Treat query p95/p99 shifts as more meaningful than p50 for launcher responsiveness.
 - Watch latency is end-to-end, so a regression there can come from debounce, event coalescing, or index commit timing rather than raw filesystem speed.
+
+## Recording Results
+
+When you refresh the baseline table, include:
+
+- the date of measurement
+- the repository state or round you measured
+- the dataset size for each benchmark
+- whether parser extras and GUI extras were installed
+- whether any env overrides changed the default perf-test workload
 
 ## Profiling Workflow
 
