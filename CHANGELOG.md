@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.357 - 2026-04-23
+
+- Persisted launcher recent-query history in config and restored it into the shared popup/search-tab launcher state on startup, so query chips and Alt+Up/Alt+Down recall survive restarts.
+- Updated the tray launcher toggle action to show the active global hotkey and keep that label synchronized when the hotkey is rebound from Settings without restarting the app.
+- Restored the preview pane to the keyboard-selected result after transient mouse hover ends, preventing the preview from getting stuck on a stale hovered row.
+
 ## 0.1.353 - 2026-04-23
 
 - Expanded the README with an install matrix, a fuller feature inventory, task-focused command recipes, and a packaged-artifacts summary so the shipped operator contract is easier to audit from one page.
