@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.961 - 2026-04-24
+## 0.1.962 - 2026-04-24
 
 - Made Linux AppImage dry-run archives reproducible at the gzip-wrapper level, not just the tar-member level, and extended the packaging audit to verify the gzip timestamp and filename fields stay deterministic.
 - Applied the same reproducible gzip-header contract to Linux Debian dry-run archives so both audited Linux packaging paths now produce stable review artifacts.
