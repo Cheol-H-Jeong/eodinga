@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.736 - 2026-04-23
+## 0.1.738 - 2026-04-23
 
 - Added a `workflows-lint` packaging target and folded it into `release-dry-run`, so the packaging summary now proves the release workflow YAML stays lint-clean alongside the Windows and Linux dry-run audits.
 - Recorded stable Linux package artifact metadata in the AppImage and Debian audits, including archive size and SHA-256 digests for reviewable staged outputs.
