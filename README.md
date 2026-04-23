@@ -62,6 +62,16 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 | script search or diagnostics in CI-like flows | `eodinga search`, `stats --json`, `doctor` | keeps the same query and index engine available without Qt |
 | jump into files from anywhere with the keyboard | launcher hotkey | opens the popup search surface directly on the shared local index |
 
+## Surface Decision Guide
+
+| Situation | Use first | Why |
+| --- | --- | --- |
+| first-time setup on a new machine | `eodinga gui` | root configuration, indexing status, and diagnostics live in one place |
+| shell-only workstation with a known-good config | `eodinga index` then `eodinga watch` | builds once, then keeps the same local index fresh without Qt |
+| suspiciously stale or empty results | `eodinga stats --json` then `eodinga doctor` | confirms the active DB path before you rebuild blindly |
+| packaging or release review | `docs/ACCEPTANCE.md` plus `packaging/dist/` | keeps validation commands and dry-run review surfaces together |
+| quick reuse of recurring filters | launcher pinned queries | avoids retyping common `ext:`, `date:`, and `size:` combinations |
+
 ## Quick Start
 
 1. Install with `pip install -e .[all]`.
@@ -162,6 +172,18 @@ eodinga stats --json
 eodinga doctor
 ```
 
+## Command Matrix
+
+| Command | What it answers | Typical next step |
+| --- | --- | --- |
+| `eodinga index` | "Build the current root set into a searchable index." | start `eodinga watch` if you want live updates |
+| `eodinga watch` | "Keep the existing index in sync with filesystem changes." | rerun `eodinga search` or reopen the launcher |
+| `eodinga search` | "What matches this query right now?" | add `--json` for scripting or `--root` for scoped checks |
+| `eodinga stats --json` | "Which DB and counters is this process actually using?" | compare with your expected config and root set |
+| `eodinga doctor` | "Is the environment, config, DB path, and hotkey backend sane?" | repair the named issue before rebuilding |
+| `eodinga gui` | "Can I manage roots, settings, and diagnostics interactively?" | use after first install or when launcher state looks wrong |
+| `eodinga version` | "Which build am I actually running?" | confirm before packaging or release investigations |
+
 ## Query DSL
 
 - `report` : plain lexical term
@@ -249,6 +271,13 @@ eodinga doctor
 eodinga stats --json
 eodinga index --rebuild
 ```
+
+### Fast Triage Order
+
+1. `eodinga stats --json` to confirm the active database path and counters.
+2. `eodinga doctor` to catch writable-path, dependency, or hotkey-backend problems.
+3. `eodinga search 'known query' --json` to separate DSL/result issues from UI issues.
+4. `eodinga index --rebuild` only after the earlier commands show you are inspecting the right state.
 
 ## Task Recipes
 
@@ -383,6 +412,14 @@ If those are clean but the packaged app still looks wrong, continue with the rel
 - [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, current baselines, and profiling workflow.
 - [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md): local workflow, guardrails, and doc/screenshot expectations for contributors.
 - [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md): release-candidate workflow, tagging, packaging validation, and handoff.
+
+## How The Docs Fit Together
+
+- `README.md` is the short contract for install, surfaces, keyboard flow, and first-response troubleshooting.
+- `docs/DSL.md` is the operator reference when the query itself is the question.
+- `docs/ARCHITECTURE.md` explains rebuild, recovery, watcher, storage, and packaging behavior in more detail.
+- `docs/ACCEPTANCE.md` and `docs/RELEASE.md` are the pre-tag checklists when you need evidence instead of prose.
+- `docs/CONTRIBUTING.md` is the worker loop for test selection, docs asset refresh, and metadata-cut hygiene.
 
 ## Contributing
 
