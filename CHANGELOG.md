@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.160 - 2026-04-23
+## 0.1.167 - 2026-04-23
 
 - Split the launcher popup shell into its own module so the main launcher panel stays within the repository's module-size limit while keeping the existing geometry persistence and always-on-top behavior unchanged.
 - Added an explicit launcher action bar with `Open`, `Reveal`, `Copy path`, `Copy name`, and `Properties` buttons, wired to the current hit and covered by GUI regressions for enablement and click behavior.
