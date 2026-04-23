@@ -44,10 +44,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Surface Matrix" in readme
     assert "## Acceptance Quickcheck" in readme
     assert "## DSL Cheatsheet" in readme
+    assert "## Dependency Profiles" in readme
+    assert "## Query Recipes" in readme
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
     assert "## Config and Data Paths" in readme
     assert "## Operator Checklist" in readme
+    assert "## Packaging Outputs" in readme
     assert "## Recovery and Troubleshooting" in readme
     assert "### Quick Runbook" in readme
     assert "## Limitations" in readme
@@ -55,6 +58,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Contributing" in readme
     assert "## Release Process" in readme
     assert "linux-deb-dry-run" in readme
+    assert "pip install -e .[dev,gui]" in readme
+    assert "is:symlink" in readme
+    assert "-(ext:log | ext:tmp) invoice" in readme
     assert "Launcher | global hotkey" in readme
     assert "Packaging audit failed" in readme
     assert "eodinga search 'date:this-week ext:md' --limit 10" in readme
@@ -95,6 +101,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Runtime Flow" in architecture
     assert "## Data Flow Diagram" in architecture
     assert "## Module Map" in architecture
+    assert "## Runtime Artifact Map" in architecture
     assert "## Index Storage" in architecture
     assert "## SQLite Schema Snapshot" in architecture
     assert "## Index Lifecycle Sequence" in architecture
@@ -103,6 +110,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Query Execution" in architecture
     assert "## Live Update Sequence" in architecture
     assert "## Documentation Asset Flow" in architecture
+    assert "## Surface Ownership" in architecture
     assert "## Operator Debug Path" in architecture
     assert "## Packaging Surfaces" in architecture
     assert "compressed changelog" in architecture
@@ -115,6 +123,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Quality Gates" in contributing
     assert "## Scope Guardrails" in contributing
     assert "## Documentation Expectations" in contributing
+    assert "## Docs Scope Guide" in contributing
     assert "## Derived Asset Matrix" in contributing
     assert "scripts/generate_manpage.py" in contributing
     assert "scripts/render_docs_screenshots.py" in contributing
@@ -124,6 +133,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
 
     assert "modified:today" in dsl
+    assert "date:last-week" in dsl
+    assert "date:last-month" in dsl
     assert "created:2026-04-23" in dsl
     assert "date:this-week" in dsl
     assert "date:yesterday" in dsl
@@ -131,9 +142,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "created:..2026-04-23" in dsl
     assert "modified:2026-04-23T09:15:30+00:00" in dsl
     assert "size:>10M" in dsl
+    assert "size:100..500K" in dsl
     assert "is:duplicate" in dsl
+    assert "is:symlink" in dsl
     assert "regex:true" in dsl
+    assert "regex:/^todo.*release$/im" in dsl
     assert "-path:node_modules" in dsl
+    assert "## Operator Precedence" in dsl
     assert "## Operator Notes" in dsl
 
     assert "SPEC §6.3" in performance
@@ -148,6 +163,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
     assert "## Verify Shipped Docs" in release
+    assert "## Docs-To-Tag Flow" in release
     assert "## Docs-Only Rounds" in release
     assert "## Cut The Local Release" in release
     assert "## Handoff Checklist" in release

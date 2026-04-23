@@ -66,6 +66,16 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Docs-To-Tag Flow
+
+Use this when the round is docs-heavy but still changes the shipped contract:
+
+1. Refresh `README.md` first so the top-level contract states the final behavior.
+2. Update the deeper guide (`docs/DSL.md`, `docs/ARCHITECTURE.md`, `docs/CONTRIBUTING.md`, or `docs/PERFORMANCE.md`) that explains the same behavior in detail.
+3. Regenerate derived docs assets only if the underlying parser or visible UI changed.
+4. Run `pytest -q tests/unit/test_docs_assets.py` before `pytest -q tests/unit`.
+5. Keep the version bump and local tag creation in the last commit only.
+
 ## Docs-Only Rounds
 
 Use the same release discipline for docs-only changes when the shipped operator contract moved:

@@ -53,6 +53,19 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 | Content extraction | `eodinga.content.*` | Parse supported document formats into searchable text. |
 | UI + CLI | `eodinga.__main__`, `eodinga.gui.*`, `eodinga.launcher.*` | Expose the same engine through commands, the main window, and the hotkey launcher. |
 
+## Runtime Artifact Map
+
+| Artifact | Typical location | Owned by | Notes |
+| --- | --- | --- | --- |
+| config | Linux `~/.config/eodinga/config.toml`, Windows `%APPDATA%\\eodinga\\config.toml` | config loader + CLI/GUI settings | stores roots, UI state, and operator preferences |
+| live index | Linux `~/.local/share/eodinga/index.db`, Windows `%LOCALAPPDATA%\\eodinga\\index.db` | `eodinga.index.storage` | SQLite database read by CLI, GUI, and launcher |
+| staged rebuild | alongside the live DB as `.index.db.next` | `rebuild_index()` / storage promotion | fully built replacement promoted atomically |
+| staged recovery | alongside the live DB as `.index.db.recover*` | stale-WAL and interrupted-swap recovery | temporary only; cleaned after successful promotion |
+| runtime logs | platform log path under the observability sink | observability subsystem | rotating local logs only; no network sink |
+| crash logs | `crash-<ts>.log` in the same platform log root | crash handler | captures top-level and thread failures |
+| docs screenshots | `docs/screenshots/*.png` in the repo | `scripts/render_docs_screenshots.py` | versioned assets rendered from real Qt surfaces |
+| generated man page | `docs/man/eodinga.1` in the repo | `scripts/generate_manpage.py` | derived from the real argparse parser |
+
 ## Why The Pieces Are Split This Way
 
 - `core.*` owns contact with the real filesystem so read-only guarantees stay centralized.
@@ -163,6 +176,13 @@ index / watch / search command
             +--> rotating runtime logs / crash-<ts>.log
 ```
 
+## Surface Ownership
+
+- `eodinga search`, `eodinga stats`, and `eodinga doctor` are thin CLI shells over the shared query, storage, and observability layers.
+- The main GUI owns root configuration, indexing progress, and embedded search, but it still reads the same SQLite index and emits the same counters.
+- The launcher is intentionally lighter: fast query entry, recent or pinned searches, quick result actions, and hover preview over the already-open index.
+- Packaging is not a separate runtime mode. AppImage, `.deb`, and Windows installer artifacts all launch the same application surfaces documented above.
+
 ## Documentation Asset Flow
 
 ```text
@@ -258,6 +278,7 @@ startup
 
 - No runtime network access is allowed; `tests/safety/test_no_network.py` enforces that at source level.
 - Filesystem writes are limited to the application database/config area; the read-only wrappers prevent mutating indexed user roots.
+- Runtime logs and crash reports live beside the local app state; indexed roots remain read-only inputs even during recovery and rebuild flows.
 - Performance tests exist under `tests/perf`, but they stay opt-in for v0.1 so the default gate remains deterministic on developer machines.
 
 ## Operator Debug Path

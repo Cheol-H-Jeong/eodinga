@@ -8,6 +8,8 @@ This repository favors small, verifiable improvements. Keep each change scoped, 
 python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]
 ```
 
+If you are touching docs only, `pip install -e .[dev,gui]` is usually enough unless you are updating parser-specific examples.
+
 ## Daily Workflow
 
 1. Sync your branch or worktree from the latest `main`.
@@ -69,6 +71,15 @@ yamllint .github/workflows/release-linux.yml
 - Regenerate `docs/man/eodinga.1` with `python scripts/generate_manpage.py` after CLI parser changes.
 - Keep `CHANGELOG.md` aligned with landed behavior only; avoid speculative release notes.
 
+## Docs Scope Guide
+
+| If the change is mainly about... | Update first | Then update |
+| --- | --- | --- |
+| operator behavior or query examples | `README.md` | `docs/DSL.md` and `docs/man/eodinga.1` if CLI help changed |
+| rebuild, recovery, packaging, or storage flow | `docs/ARCHITECTURE.md` | `README.md` and `docs/RELEASE.md` if the shipped contract moved |
+| contributor or release procedure | `docs/CONTRIBUTING.md` | `docs/RELEASE.md` and `CHANGELOG.md` if the handoff changed |
+| visible GUI screenshots or labels | `README.md` | screenshot assets plus `tests/unit/test_docs_assets.py` |
+
 ## Derived Asset Matrix
 
 | If you changed... | Refresh or rerun... |
@@ -103,3 +114,4 @@ When a change affects the shipped contract, refresh docs in this order:
 - Local tags are created during the release-cut handoff flow documented in [RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md).
 - Docs-only rounds still require a changelog entry and local tag when the shipped contract changed.
 - If a change cannot stay inside one theme or one logical commit, stop and split it before proceeding.
+- In concurrent worktrees, sync from `origin/main` before starting and keep the release metadata bump isolated to the final commit for the round.
