@@ -361,6 +361,8 @@ def _compile_branch(
                 clause = "files.is_dir = 0"
             elif normalized == "symlink":
                 clause = "files.is_symlink = 1"
+            elif normalized == "empty":
+                clause = "files.is_dir = 0 AND files.size = 0"
             elif normalized == "duplicate":
                 clause = _duplicate_clause(term.negated)
                 where_parts.append(clause)

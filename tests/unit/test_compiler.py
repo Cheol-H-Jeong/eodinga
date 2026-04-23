@@ -114,6 +114,14 @@ def test_compile_duplicate_filter_shape() -> None:
     assert "NOT (files.is_symlink = 1)" in branch.where_sql
 
 
+def test_compile_empty_filter_shape() -> None:
+    compiled = compile_query(parse("is:empty"))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == "files.is_dir = 0 AND files.size = 0"
+    assert branch.where_params == ()
+
+
 @pytest.mark.parametrize(
     ("query", "expected_params"),
     [

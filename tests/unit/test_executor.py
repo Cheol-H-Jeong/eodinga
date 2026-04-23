@@ -469,6 +469,20 @@ def test_execute_size_range_queries(tmp_db: sqlite3.Connection) -> None:
     assert negated_hits == ["large.txt", "tiny.txt"]
 
 
+def test_execute_empty_file_queries(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/empty.txt", 0, now, "txt")
+    _insert_file(tmp_db, 2, "/workspace/full.txt", 512, now - 60, "txt", body_text="full")
+    _insert_file(tmp_db, 3, "/workspace/folder", 0, now - 120, "", is_dir=1)
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "is:empty", limit=10).hits]
+    negated_hits = [hit.file.name for hit in search(tmp_db, "-is:empty", limit=10).hits]
+
+    assert hits == ["empty.txt"]
+    assert negated_hits == ["folder", "full.txt"]
+
+
 def test_execute_metadata_only_query_reports_uncapped_total_estimate(
     tmp_db: sqlite3.Connection,
 ) -> None:
