@@ -38,6 +38,7 @@ class LauncherPanel(QWidget):
         self._max_results = max_results
         self._latest_result = QueryResult()
         self._recent_queries: list[str] = []
+        self._pinned_queries: list[str] = []
         self._indexing_status = IndexingStatus()
         self._state = state
         self._history_index: int | None = None
@@ -112,8 +113,10 @@ class LauncherPanel(QWidget):
 
         if self._state is not None:
             self._state.recent_queries_changed.connect(self.set_recent_queries)
+            self._state.pinned_queries_changed.connect(self.set_pinned_queries)
             self._state.indexing_status_changed.connect(self.set_indexing_status)
             self.set_recent_queries(self._state.recent_queries)
+            self.set_pinned_queries(self._state.pinned_queries)
             self.set_indexing_status(self._state.indexing_status)
 
         self._refresh_empty_state()
@@ -125,6 +128,12 @@ class LauncherPanel(QWidget):
     def set_recent_queries(self, queries: list[str]) -> None:
         self._recent_queries = queries
         self._refresh_empty_state()
+        self._refresh_shortcut_hint()
+
+    def set_pinned_queries(self, queries: list[str]) -> None:
+        self._pinned_queries = queries
+        self._refresh_empty_state()
+        self._refresh_shortcut_hint()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
@@ -244,15 +253,26 @@ class LauncherPanel(QWidget):
         details = format_indexing_status(self._indexing_status)
         if not query:
             recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
+            pinned_queries = ", ".join(self._pinned_queries[:3]) if self._pinned_queries else "No pinned filters yet."
             self.empty_state.set_content(
                 "Type to search",
-                f"Recent: {recent_queries} Press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
+                (
+                    f"Pinned: {pinned_queries} Recent: {recent_queries} "
+                    "Press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, "
+                    "Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder."
+                ),
                 details,
             )
         else:
+            pinned_hint = ""
+            if self._pinned_queries:
+                pinned_hint = f" Try pinned filters like {', '.join(self._pinned_queries[:2])}."
             self.empty_state.set_content(
                 f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Tab to jump back to the filter or Esc to hide the launcher.",
+                (
+                    "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M."
+                    f"{pinned_hint} Press Tab to jump back to the filter or Esc to hide the launcher."
+                ),
                 details,
             )
         self.empty_state.setVisible(not has_results)
@@ -260,11 +280,14 @@ class LauncherPanel(QWidget):
 
     def _refresh_shortcut_hint(self) -> None:
         has_results = self.model.rowCount() > 0
+        pinned_suffix = ""
+        if self._pinned_queries:
+            pinned_suffix = f" Pinned: {', '.join(self._pinned_queries[:2])}."
         if not has_results:
             if self.query_field.text().strip():
-                hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries."
+                hint = f"Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries.{pinned_suffix}"
             else:
-                hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
+                hint = f"Type a filename, path, or content term. Alt+Up recalls recent queries.{pinned_suffix}"
         elif self.result_list.hasFocus():
             hint = (
                 "Enter opens. Alt+1..9 quick-picks. Up/Down wraps. "

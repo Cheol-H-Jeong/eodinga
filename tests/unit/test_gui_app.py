@@ -105,6 +105,18 @@ def test_launcher_state_is_shared_between_popup_and_search_tab(qapp) -> None:
     assert "release" in window.search_tab.launcher_panel.empty_state.body_label.text()
 
 
+def test_app_seeds_pinned_queries_into_shared_launcher_state(qapp) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"pinned_queries": ["ext:pdf", "date:this-week"]})
+
+    window = EodingaWindow(config=config)
+    window.show()
+
+    assert window.launcher_state.pinned_queries == ["ext:pdf", "date:this-week"]
+    assert "Pinned: ext:pdf, date:this-week" in window.launcher_window.empty_state.body_label.text()
+    assert "Pinned: ext:pdf, date:this-week" in window.search_tab.launcher_panel.empty_state.body_label.text()
+
+
 def test_tray_indicator_can_show_launcher_without_tray_backend(qapp) -> None:
     window = EodingaWindow()
 

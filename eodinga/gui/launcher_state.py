@@ -49,16 +49,22 @@ def format_indexing_footer(status: IndexingStatus) -> str:
 
 class LauncherState(QObject):
     recent_queries_changed = Signal(list)
+    pinned_queries_changed = Signal(list)
     indexing_status_changed = Signal(object)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._recent_queries: deque[str] = deque(maxlen=5)
+        self._pinned_queries: list[str] = []
         self._indexing_status = IndexingStatus()
 
     @property
     def recent_queries(self) -> list[str]:
         return list(self._recent_queries)
+
+    @property
+    def pinned_queries(self) -> list[str]:
+        return list(self._pinned_queries)
 
     @property
     def indexing_status(self) -> IndexingStatus:
@@ -72,6 +78,21 @@ class LauncherState(QObject):
         items.insert(0, normalized)
         self._recent_queries = deque(items[: self._recent_queries.maxlen], maxlen=self._recent_queries.maxlen)
         self.recent_queries_changed.emit(self.recent_queries)
+
+    def set_pinned_queries(self, queries: list[str]) -> None:
+        normalized: list[str] = []
+        seen: set[str] = set()
+        for raw in queries:
+            query = raw.strip()
+            if not query:
+                continue
+            folded = query.casefold()
+            if folded in seen:
+                continue
+            seen.add(folded)
+            normalized.append(query)
+        self._pinned_queries = normalized
+        self.pinned_queries_changed.emit(self.pinned_queries)
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status

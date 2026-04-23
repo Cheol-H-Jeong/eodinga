@@ -399,6 +399,17 @@ def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> No
     assert "budget, report" in launcher.empty_state.body_label.text()
 
 
+def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    state.set_pinned_queries(["ext:pdf", "date:this-week", "size:>10M"])
+
+    assert "Pinned: ext:pdf, date:this-week, size:>10M" in launcher.empty_state.body_label.text()
+    assert "Pinned: ext:pdf, date:this-week." in launcher.shortcut_label.text()
+
+
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
@@ -552,6 +563,22 @@ def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     launcher.show()
 
     assert "Alt+1 through Alt+9" in launcher.empty_state.body_label.text()
+
+
+def test_launcher_no_results_hint_mentions_pinned_queries_when_available(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(items=[], total=0, elapsed_ms=2.0)
+
+    state = LauncherState()
+    state.set_pinned_queries(["ext:md", "date:this-month"])
+    launcher = LauncherWindow(search_fn=search_fn, state=state)
+    launcher.show()
+
+    launcher.query_field.setText("missing")
+    _wait(60)
+
+    assert "Try pinned filters like ext:md, date:this-month." in launcher.empty_state.body_label.text()
+    assert "Pinned: ext:md, date:this-month." in launcher.shortcut_label.text()
 
 
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
