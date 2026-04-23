@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.951 - 2026-04-24
+
+- Treated contradictory boolean query toggles like `case:true case:false` and `regex:true regex:false` as unsatisfiable branches instead of silently letting the last term win, so grouped negation and executor results now obey boolean logic.
+- Added compiler and executor regressions for those contradictory mode combinations, including the previously broken `-(case:true | case:false)` form.
+- Made path deboost markers match case-insensitively across path segments, so Windows-style `NODE_MODULES` and `.GIT` spellings still receive the intended ranking penalty without deboosting lookalike segment names.
+
 ## 0.1.936 - 2026-04-24
 
 - Reused nested SQLite temporary PRAGMA overrides per connection, which cuts redundant PRAGMA reads and rewrites when rebuild and writer code stack the same fast-write mode.
