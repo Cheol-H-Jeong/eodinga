@@ -145,8 +145,11 @@ def resolve_log_compression() -> str | None:
 def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
     logger.remove()
     logger.add(sys.stderr, level=level.upper())
+    increment_counter("logging_configurations")
+    increment_counter("log_sinks.stderr.configured")
     target = resolve_log_path(log_path)
     if target is None:
+        increment_counter("log_sinks.file.disabled")
         return
     target.parent.mkdir(parents=True, exist_ok=True)
     logger.add(
@@ -160,6 +163,7 @@ def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None
         diagnose=False,
         level=level.upper(),
     )
+    increment_counter("log_sinks.file.configured")
 
 
 def get_logger(name: str | None = None) -> Any:
