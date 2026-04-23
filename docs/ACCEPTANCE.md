@@ -84,6 +84,25 @@ These commands are required when CLI help, visible Qt surfaces, or operator-faci
 
 Treat the generated man page, screenshots, and dry-run manifests as shipped release inputs. Review them after regeneration instead of assuming the derived assets are correct because the command exited cleanly.
 
+## Docs-Only Acceptance Path
+
+When the round changes shipped docs but not runtime code, keep the acceptance pass smaller but still artifact-aware:
+
+```bash
+source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run
+```
+
+Use that path only when the runtime surface itself did not change. If the docs describe new behavior, return to the full acceptance pass instead of treating a docs-only shortcut as sufficient evidence.
+
+## Evidence Review Order
+
+Review release evidence in this order so the tag always points at a justified tree:
+
+1. `tests/unit/test_docs_assets.py` for the written contract.
+2. offscreen GUI smoke for any documented Qt surface.
+3. matching packaging dry runs plus manifest review under `packaging/dist/`.
+4. metadata cut: version bump, changelog entry, local tag.
+
 ## Documentation Contract
 
 The README is part of the acceptance surface. Before tagging a release, confirm it still documents:

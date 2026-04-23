@@ -113,6 +113,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "git tag v0.1.N" in acceptance
     assert "docs/man/eodinga.1" in acceptance
     assert "## Derived Docs Checks" in acceptance
+    assert "## Docs-Only Acceptance Path" in acceptance
+    assert "## Evidence Review Order" in acceptance
     assert "python scripts/render_docs_screenshots.py" in acceptance
     assert "One-command acceptance pass" in acceptance
 
@@ -205,6 +207,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Repro Checklist" in performance
     assert "## Profiling Workflow" in performance
     assert "## Release Use" in performance
+    assert "## Reporting Perf In Release Notes" in performance
+    assert "## Docs-Only Perf Edits" in performance
     assert "Each benchmark prints a structured summary line to stdout." in performance
     assert "The defaults currently checked into the suite are:" in performance
     assert "The printed benchmark summary line." in performance

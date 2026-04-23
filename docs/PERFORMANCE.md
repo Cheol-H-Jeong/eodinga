@@ -163,3 +163,20 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 - A perf-table refresh belongs in the same round only when the benchmark was rerun at the current HEAD and the documented numbers come from that run.
 - If a code or docs round did not rerun the benchmark, leave the baseline table alone and avoid pretending the old numbers describe the new tip exactly.
 - If a same-round perf run failed, report the failing summary lines separately and leave the checked-in baseline untouched until the regression is understood.
+
+## Reporting Perf In Release Notes
+
+- When a release note mentions perf, cite the exact benchmark family that moved, such as cold start, rebuild throughput, query latency, content query latency, or watch latency.
+- Tie any number in `CHANGELOG.md`, `README.md`, or `docs/RELEASE.md` back to the structured stdout lines captured from the perf run.
+- If the round was docs-only, avoid refreshing benchmark prose unless the perf suite was rerun in the same round and the output was clean.
+- If the suite stayed untouched, describe the table in this guide as the current checked-in baseline rather than as a fresh measurement of the release candidate.
+
+## Docs-Only Perf Edits
+
+Only update this guide in a docs-focused round when one of these is true:
+
+1. you reran the same benchmark and are replacing the table with same-round measurements
+2. you are clarifying how to run or interpret an existing benchmark without changing the recorded numbers
+3. you are documenting a new perf evidence workflow that does not claim fresh measurements
+
+That keeps docs-only performance edits factual instead of accidentally implying that old numbers were revalidated.
