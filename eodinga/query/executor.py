@@ -307,20 +307,29 @@ def _fetch_record_batch(
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
+def _path_variants(path_text: str) -> tuple[str, ...]:
+    base_variants = dict.fromkeys(
+        (
+            path_text,
+            path_text.replace("\\", "/"),
+            path_text.replace("/", "\\"),
+        )
+    )
+    variants: dict[str, None] = {}
+    for variant in base_variants:
+        variants[variant] = None
+        if len(variant) >= 2 and variant[1] == ":" and variant[0].isalpha():
+            variants[f"{variant[0].lower()}{variant[1:]}"] = None
+            variants[f"{variant[0].upper()}{variant[1:]}"] = None
+    return tuple(variants)
+
+
 def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
     root_text = str(root)
     normalized = root_text.rstrip("/\\") or root_text
-    variants = tuple(
-        dict.fromkeys(
-            (
-                normalized,
-                normalized.replace("\\", "/"),
-                normalized.replace("/", "\\"),
-            )
-        )
-    )
+    variants = _path_variants(normalized)
     exact_params = variants
     like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
         f"{variant}\\%" for variant in variants

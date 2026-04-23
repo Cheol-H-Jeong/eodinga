@@ -1033,6 +1033,21 @@ def test_search_root_scope_matches_windows_style_paths(tmp_db: sqlite3.Connectio
     assert hits == [Path(r"C:\workspace\reports\alpha.txt")]
 
 
+def test_search_root_scope_normalizes_windows_drive_letter_for_exact_root_record(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, r"C:\workspace\reports", 0, now, "", is_dir=1)
+    _insert_file(tmp_db, 2, r"C:\workspace\archive", 0, now - 60, "", is_dir=1)
+    tmp_db.commit()
+
+    hits = [
+        str(hit.file.path) for hit in search(tmp_db, "is:dir", limit=10, root=Path("c:/workspace/reports")).hits
+    ]
+
+    assert hits == [r"C:\workspace\reports"]
+
+
 def test_plain_query_can_fall_back_to_content_matches(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/projects/alpha.txt", 1024, now, "txt", body_text="launch checklist")
