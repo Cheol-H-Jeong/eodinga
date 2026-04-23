@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.569 - 2026-04-23
+
+- Added subprocess CLI integration coverage for multi-root indexing, root-scoped search, and rebuilds that remove dropped-root content from follow-up queries.
+- Added CLI-backed live-update integration coverage on real temporary directories, asserting that watcher-applied file creation becomes searchable within 500ms for both single-root and multi-root indexes.
+- Added a hot-restart integration path that reopens a CLI-built index, preserves existing query results, and accepts new live updates without forcing a rebuild.
+
 ## 0.1.562 - 2026-04-23
 
 - Expanded the top-level README with a validation-path matrix, release-input map, and docs-asset drift runbook entry so operators can pick the right verification path faster.
