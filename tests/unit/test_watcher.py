@@ -698,3 +698,68 @@ def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path)
 
     second_event = service.queue.get_nowait()
     assert second_event.path == second
+
+
+def test_watcher_flush_requeues_remaining_batch_when_enqueue_fails(tmp_path: Path) -> None:
+    service = WatchService()
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    third = tmp_path / "third.txt"
+
+    for index, path in enumerate((first, second, third), start=1):
+        service.record(
+            WatchEvent(
+                event_type="created",
+                path=path,
+                root_path=tmp_path,
+                happened_at=float(index),
+            )
+        )
+
+    calls = {"count": 0}
+
+    def flaky_enqueue(event: WatchEvent) -> bool:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            service.queue.put_nowait(event)
+            return True
+        return False
+
+    service._enqueue_event = flaky_enqueue  # type: ignore[method-assign]
+
+    service._flush_ready(force=True)
+
+    delivered = service.queue.get_nowait()
+    assert delivered.path == first
+    assert set(service._pending) == {second, third}
+
+
+def test_watcher_requeued_move_preserves_retired_source_suppression(tmp_path: Path) -> None:
+    service = WatchService()
+    source = tmp_path / "before.txt"
+    destination = tmp_path / "after.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="moved",
+            path=destination,
+            src_path=source,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+
+    service._enqueue_event = lambda _event: False  # type: ignore[method-assign]
+    service._flush_ready(force=True)
+
+    service.record(
+        WatchEvent(
+            event_type="deleted",
+            path=source,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()

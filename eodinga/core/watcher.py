@@ -268,7 +268,7 @@ class WatchService:
 
     def _flush_ready(self, force: bool) -> None:
         now = monotonic()
-        flushed: list[WatchEvent] = []
+        flushed: list[tuple[WatchEvent, set[Path]]] = []
         with self._lock:
             ready_paths = [
                 path
@@ -282,18 +282,27 @@ class WatchService:
                 if event is not None:
                     if event.event_type == "moved" and event.src_path is not None:
                         retired_sources = {event.src_path, *retired_sources}
-                    if retired_sources:
-                        self._flushed_retired_sources.update(retired_sources)
-                    if event.event_type in {"created", "modified", "deleted"}:
-                        self._flushed_retired_sources.discard(event.path)
-                    flushed.append(event)
+                    flushed.append((event, retired_sources))
         delivered: list[WatchEvent] = []
-        for event in flushed:
+        for index, (event, retired_sources) in enumerate(flushed):
             if not self._enqueue_event(event):
                 with self._lock:
                     self._pending[event.path] = event
+                    if retired_sources:
+                        self._retired_sources[event.path] = set(retired_sources)
                     self._timestamps[event.path] = now
+                    for remaining_event, remaining_retired_sources in flushed[index + 1 :]:
+                        self._pending[remaining_event.path] = remaining_event
+                        if remaining_retired_sources:
+                            self._retired_sources[remaining_event.path] = set(
+                                remaining_retired_sources
+                            )
+                        self._timestamps[remaining_event.path] = now
                 break
+            if retired_sources:
+                self._flushed_retired_sources.update(retired_sources)
+            if event.event_type in {"created", "modified", "deleted"}:
+                self._flushed_retired_sources.discard(event.path)
             delivered.append(event)
         if delivered:
             increment_counter("watcher_flushes")
