@@ -20,12 +20,16 @@ _DEFAULT_LOG_RETENTION: str | int = 5
 _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
+_COUNTER_SERIES: dict[str, dict[tuple[tuple[str, object], ...], int]] = {}
+_HISTOGRAM_SERIES: dict[str, dict[tuple[tuple[str, object], ...], _HistogramState]] = {}
 _PROCESS_STARTED_AT = datetime.now(UTC)
 
 
 class MetricsSnapshot(TypedDict):
     counters: dict[str, int]
     histograms: dict[str, dict[str, object]]
+    counter_series: dict[str, list[dict[str, object]]]
+    histogram_series: dict[str, list[dict[str, object]]]
     generated_at: str
     uptime_ms: float
 
@@ -171,8 +175,13 @@ def get_logger(name: str | None = None) -> Any:
 
 
 def increment_counter(name: str, value: int = 1, **fields: object) -> None:
+    normalized_fields = _normalize_metric_fields(fields)
     with _METRICS_LOCK:
         _COUNTERS[name] = _COUNTERS.get(name, 0) + value
+        if normalized_fields:
+            series = _COUNTER_SERIES.setdefault(name, {})
+            key = tuple(sorted(normalized_fields.items()))
+            series[key] = series.get(key, 0) + value
     logger.bind(metric=name, **fields).debug("counter +{value}", value=value)
 
 
@@ -187,12 +196,21 @@ def record_histogram(
     buckets_ms: tuple[float, ...] = _DEFAULT_HISTOGRAM_BUCKETS_MS,
     **fields: object,
 ) -> None:
+    normalized_fields = _normalize_metric_fields(fields)
     with _METRICS_LOCK:
         state = _HISTOGRAMS.get(name)
         if state is None:
             state = _HistogramState(buckets_ms=buckets_ms)
             _HISTOGRAMS[name] = state
         state.observe(value_ms)
+        if normalized_fields:
+            series = _HISTOGRAM_SERIES.setdefault(name, {})
+            key = tuple(sorted(normalized_fields.items()))
+            labeled_state = series.get(key)
+            if labeled_state is None:
+                labeled_state = _HistogramState(buckets_ms=buckets_ms)
+                series[key] = labeled_state
+            labeled_state.observe(value_ms)
     logger.bind(metric=name, **fields).debug("histogram {value_ms:.3f}ms", value_ms=value_ms)
 
 
@@ -202,10 +220,14 @@ def snapshot_metrics() -> MetricsSnapshot:
         histograms: dict[str, dict[str, object]] = {
             name: state.snapshot() for name, state in sorted(_HISTOGRAMS.items())
         }
+        counter_series = _snapshot_counter_series()
+        histogram_series = _snapshot_histogram_series()
     now = datetime.now(UTC)
     return {
         "counters": counters,
         "histograms": histograms,
+        "counter_series": counter_series,
+        "histogram_series": histogram_series,
         "generated_at": now.isoformat().replace("+00:00", "Z"),
         "uptime_ms": round((now - _PROCESS_STARTED_AT).total_seconds() * 1000, 3),
     }
@@ -215,6 +237,8 @@ def reset_metrics() -> None:
     with _METRICS_LOCK:
         _COUNTERS.clear()
         _HISTOGRAMS.clear()
+        _COUNTER_SERIES.clear()
+        _HISTOGRAM_SERIES.clear()
 
 
 def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
@@ -232,6 +256,16 @@ def histogram_snapshot(name: str) -> dict[str, object]:
         if state is None:
             return {}
         return state.snapshot()
+
+
+def counter_series_snapshot(name: str) -> list[dict[str, object]]:
+    with _METRICS_LOCK:
+        return _serialize_counter_series_entries(_COUNTER_SERIES.get(name, {}))
+
+
+def histogram_series_snapshot(name: str) -> list[dict[str, object]]:
+    with _METRICS_LOCK:
+        return _serialize_histogram_series_entries(_HISTOGRAM_SERIES.get(name, {}))
 
 
 def write_crash_log(
@@ -270,6 +304,8 @@ def write_crash_log(
         "metrics_generated_at": metrics["generated_at"],
         "metrics_counters": metrics["counters"],
         "metrics_histograms": metrics["histograms"],
+        "metrics_counter_series": metrics["counter_series"],
+        "metrics_histogram_series": metrics["histogram_series"],
     }
     if details:
         metadata.update(details)
@@ -358,6 +394,51 @@ def _format_detail_value(value: object) -> str:
     if isinstance(value, (str, int, float, bool)) or value is None:
         return str(value)
     return json_dumps(value, sort_keys=True)
+
+
+def _normalize_metric_fields(fields: Mapping[str, object]) -> dict[str, object]:
+    normalized: dict[str, object] = {}
+    for key, value in fields.items():
+        if isinstance(value, Path):
+            normalized[key] = str(value)
+            continue
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            normalized[key] = value
+            continue
+        normalized[key] = str(value)
+    return normalized
+
+
+def _snapshot_counter_series() -> dict[str, list[dict[str, object]]]:
+    return {
+        name: _serialize_counter_series_entries(series)
+        for name, series in sorted(_COUNTER_SERIES.items())
+    }
+
+
+def _snapshot_histogram_series() -> dict[str, list[dict[str, object]]]:
+    return {
+        name: _serialize_histogram_series_entries(series)
+        for name, series in sorted(_HISTOGRAM_SERIES.items())
+    }
+
+
+def _serialize_counter_series_entries(
+    series: Mapping[tuple[tuple[str, object], ...], int]
+) -> list[dict[str, object]]:
+    return [{"labels": dict(labels), "value": value} for labels, value in sorted(series.items())]
+
+
+def _serialize_histogram_series_entries(
+    series: Mapping[tuple[tuple[str, object], ...], _HistogramState]
+) -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    for labels, state in sorted(series.items()):
+        entry: dict[str, object] = {"labels": dict(labels)}
+        for key, value in state.snapshot().items():
+            entry[key] = value
+        entries.append(entry)
+    return entries
 
 
 def _parse_log_policy_value(raw: str) -> str | int:

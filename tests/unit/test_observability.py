@@ -273,9 +273,11 @@ def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path:
 
     parse(broken, max_body_chars=128)
 
-    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
     assert counters["parser_errors"] == 1
     assert counters["parsers.broken.error"] == 1
+    assert metrics["counter_series"]["parser_errors"] == [{"labels": {"parser": "broken"}, "value": 1}]
 
 
 def test_watcher_event_counter_increments() -> None:
@@ -284,8 +286,12 @@ def test_watcher_event_counter_increments() -> None:
 
     service.record(WatchEvent(event_type="created", path=Path("/tmp/report.txt")))
 
-    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
     assert counters["watcher_events"] == 1
+    assert metrics["counter_series"]["watcher_events"] == [
+        {"labels": {"event_type": "created"}, "value": 1}
+    ]
 
 
 def test_watcher_flush_metrics_increment(tmp_path: Path) -> None:
@@ -309,6 +315,7 @@ def test_watcher_flush_metrics_increment(tmp_path: Path) -> None:
     assert counters["watcher_events_flushed"] == 1
     assert histograms["watch_flush_batch_size"]["count"] == 1
     assert histograms["watch_event_lag_ms"]["count"] == 1
+    assert metrics["histogram_series"]["watch_event_lag_ms"][0]["labels"] == {"event_type": "modified"}
 
 
 def test_watcher_backpressure_metrics_increment(tmp_path: Path) -> None:
@@ -362,3 +369,28 @@ def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:
 
     assert metrics["generated_at"].endswith("Z")
     assert metrics["uptime_ms"] >= 0
+
+
+def test_snapshot_metrics_tracks_labeled_counter_and_histogram_series() -> None:
+    reset_metrics()
+
+    increment_counter("files_indexed", 2, root="/tmp/docs")
+    increment_counter("files_indexed", 1, root="/tmp/docs")
+    record_histogram("command_latency_ms", 12.5, command="search")
+    record_histogram("command_latency_ms", 7.5, command="search")
+
+    metrics = snapshot_metrics()
+
+    assert metrics["counter_series"]["files_indexed"] == [
+        {"labels": {"root": "/tmp/docs"}, "value": 3}
+    ]
+    assert metrics["histogram_series"]["command_latency_ms"] == [
+        {
+            "labels": {"command": "search"},
+            "count": 2,
+            "sum_ms": 20.0,
+            "min_ms": 7.5,
+            "max_ms": 12.5,
+            "buckets": {"<= 10ms": 1, "<= 25ms": 1},
+        }
+    ]
