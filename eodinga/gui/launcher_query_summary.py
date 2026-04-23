@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 from eodinga.query.dsl import AndNode, AstNode, NotNode, OperatorNode, OrNode, QuerySyntaxError, parse
+from eodinga.query.normalize import canonicalize_operator
 
 
 def _format_filter(node: OperatorNode, *, negated: bool = False) -> str:
-    value = node.value
-    if node.value_kind == "phrase":
+    canonical = canonicalize_operator(node)
+    value = canonical.value
+    if canonical.value_kind == "phrase":
         escaped = value.replace("\\", "\\\\").replace('"', '\\"')
         value = f'"{escaped}"'
-    elif node.value_kind == "regex":
-        value = f"/{value}/{node.regex_flags}"
-    prefix = "-" if (node.negated ^ negated) else ""
-    return f"{prefix}{node.name}:{value}"
+    elif canonical.value_kind == "regex":
+        value = f"/{value}/{canonical.regex_flags}"
+    prefix = "-" if (canonical.negated ^ negated) else ""
+    return f"{prefix}{canonical.name}:{value}"
 
 
 def _collect_filters(node: AstNode, *, negated: bool = False) -> list[str]:

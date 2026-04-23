@@ -35,3 +35,15 @@ def test_summarize_active_filters_can_return_full_filter_list() -> None:
     filters = summarize_active_filters("ext:pdf date:today size:>10M path:reports is:file regex:true", limit=None)
 
     assert filters == ["ext:pdf", "date:today", "size:>10M", "path:reports", "is:file", "regex:true"]
+
+
+def test_summarize_active_filters_canonicalizes_alias_values() -> None:
+    filters = summarize_active_filters("date:Previous_Month is:Folder regex:ON case:Yes")
+
+    assert filters == ["date:last-month", "is:dir", "regex:true", "case:true"]
+
+
+def test_summarize_active_filters_sorts_regex_flags_for_equivalent_filters() -> None:
+    filters = summarize_active_filters(r"path:/quarterly\/2026/smi regex:/todo|fixme/mi")
+
+    assert filters == [r"path:/quarterly\/2026/ims", r"regex:/todo|fixme/im"]
