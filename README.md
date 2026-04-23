@@ -29,11 +29,33 @@ python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]
 Use `.[all]` for the full v0.1 local-dev surface, including GUI, parser, hotkey, lint, and test dependencies. For packaged builds, use the AppImage or `.deb` artifacts produced by CI.
 The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs the desktop entry, SVG icon, and packaged changelog under `/usr/share/doc/eodinga/`.
 
+Dependency profiles:
+
+- `pip install -e .[gui]`: GUI plus live-watch support.
+- `pip install -e .[parsers]`: document-content parsing without the GUI stack.
+- `pip install -e .[dev,parsers,gui]`: repository gate and docs/screenshot workflow.
+
 ### Windows
 
 - Download the latest `eodinga-0.1.x-win-x64-setup.exe` release asset.
 - Install per-user with the Inno Setup wizard.
 - Optionally enable auto-start at login during install.
+
+## Verify The Install
+
+Use these quick checks before you start indexing a larger corpus:
+
+```bash
+eodinga version
+eodinga doctor
+eodinga search test --limit 5
+```
+
+If the GUI dependencies are installed, you can also validate the offscreen surface:
+
+```bash
+QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"
+```
 
 ## First Run
 
@@ -51,6 +73,22 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 5. Use `Enter` to open the selected result or `Ctrl+Enter` to reveal it in the file manager.
 6. Use `Alt+Up` to recall recent queries, `Ctrl+L` to jump back to the filter, and `PgUp` / `PgDn` to move through longer result sets without leaving the keyboard.
 7. Re-run `python scripts/render_docs_screenshots.py` if you update the Qt surfaces and want the shipped screenshots refreshed.
+
+## Typical Flows
+
+Index one or more roots, keep a watcher running, then query the shared index from either CLI or launcher:
+
+```bash
+eodinga index --root ~/projects --root ~/docs
+eodinga watch
+eodinga search 'content:"release checklist" ext:md' --limit 20
+```
+
+Rebuild once after a larger config or parser change:
+
+```bash
+eodinga index --rebuild
+```
 
 ## Feature Overview
 
@@ -147,6 +185,8 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 - `Up` / `Down` wraps through the result list once focus is in the list
 - `PgUp` / `PgDn` jumps through longer result sets
 - `Ctrl+L` returns focus to the filter field
+- `Home` / `End` jump to the first or last visible result
+- `Alt+1` through `Alt+9` open the top nine visible results directly
 
 ## Architecture
 
@@ -193,6 +233,16 @@ eodinga doctor
 The doctor command checks Python compatibility, importable dependencies, database writability, readable roots, the detectable hotkey backend, and the default safe excludes.
 
 If search looks stale, run `eodinga stats` to confirm the active database path, then either `eodinga watch` for live updates or `eodinga index --rebuild` to rebuild once.
+
+## Release Validation
+
+The shortest local release gate is:
+
+```bash
+pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)"
+```
+
+The full release checklist, packaging dry runs, and local-tag handoff flow are documented in [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md) and [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md).
 
 ## Docs Map
 
