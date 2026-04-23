@@ -67,6 +67,8 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
     assert window.about_tab.accessibleName() == "About tab"
+    assert window.launcher_window.preview_pane.accessibleName() == "Launcher preview pane"
+    assert window.search_tab.launcher_panel.action_bar.accessibleName() == "Launcher action bar"
 
 
 def test_app_updates_index_status_in_tab_and_tray(qapp) -> None:

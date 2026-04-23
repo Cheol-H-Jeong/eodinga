@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
-from eodinga.gui.widgets import EmptyState, ResultItemDelegate, SearchField, StatusChip
+from eodinga.gui.widgets import EmptyState, LauncherActionBar, LauncherPreviewPane, ResultItemDelegate, SearchField, StatusChip
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
@@ -52,15 +52,21 @@ class LauncherPanel(QWidget):
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
         self.result_list.setUniformItemSizes(False)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
+        self.result_list.setMouseTracking(True)
         self.status_chip = StatusChip("Idle", self)
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
         self.empty_state = EmptyState("Type to search", "Recent queries and indexing progress will appear here.", self)
+        self.preview_pane = LauncherPreviewPane(self)
+        self.preview_pane.setMinimumWidth(240)
+        self.action_bar = LauncherActionBar(self)
 
         self.model = ResultListModel(self)
         self.result_list.setModel(self.model)
+        self.result_list.selectionModel().currentChanged.connect(self._sync_preview_to_current_index)
+        self.result_list.entered.connect(self._sync_preview_to_index)
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -71,8 +77,23 @@ class LauncherPanel(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
-        layout.addWidget(self.result_list, 1)
-        layout.addWidget(self.empty_state)
+
+        content = QHBoxLayout()
+        content.setSpacing(SPACE_16)
+        content_column = QVBoxLayout()
+        content_column.setContentsMargins(0, 0, 0, 0)
+        content_column.setSpacing(SPACE_8)
+        content_column.addWidget(self.result_list, 1)
+        content_column.addWidget(self.empty_state)
+        content.addLayout(content_column, 3)
+
+        sidebar = QVBoxLayout()
+        sidebar.setContentsMargins(0, 0, 0, 0)
+        sidebar.setSpacing(SPACE_8)
+        sidebar.addWidget(self.preview_pane, 1)
+        sidebar.addWidget(self.action_bar)
+        content.addLayout(sidebar, 2)
+        layout.addLayout(content, 1)
 
         footer = QHBoxLayout()
         footer.addWidget(self.status_chip)
@@ -106,6 +127,11 @@ class LauncherPanel(QWidget):
         self._shortcuts[6].activated.connect(self.focus_query_field)
         self._shortcuts[7].activated.connect(self.recall_previous_query)
         self._shortcuts[8].activated.connect(self.recall_next_query)
+        self.action_bar.open_button.clicked.connect(self.activate_current_result)
+        self.action_bar.reveal_button.clicked.connect(self.emit_open_containing_folder)
+        self.action_bar.copy_path_button.clicked.connect(self.emit_copy_path)
+        self.action_bar.copy_name_button.clicked.connect(self.emit_copy_name)
+        self.action_bar.properties_button.clicked.connect(self.emit_show_properties)
         self._quick_pick_shortcuts: list[QShortcut] = []
         for index in range(9):
             shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
@@ -121,6 +147,7 @@ class LauncherPanel(QWidget):
 
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
+        self._refresh_preview()
 
     def set_search_fn(self, search_fn: SearchFn) -> None:
         self._search_fn = search_fn
@@ -231,6 +258,7 @@ class LauncherPanel(QWidget):
         self._restore_selection(previous_hit)
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
+        self._refresh_preview()
         self.results_updated.emit(self._latest_result)
         get_logger().debug("launcher query '{}' returned {}", query, self._latest_result.total)
 
@@ -378,6 +406,17 @@ class LauncherPanel(QWidget):
     def _set_selection(self, row: int) -> None:
         self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(row, 0)))
         self.result_list.scrollTo(self.result_list.currentIndex())
+
+    def _sync_preview_to_current_index(self, current: QModelIndex, previous: QModelIndex) -> None:
+        del previous
+        self._sync_preview_to_index(current)
+
+    def _sync_preview_to_index(self, index: QModelIndex) -> None:
+        self.preview_pane.set_hit(self.model.item_at(index.row()) if index.isValid() else None)
+        self.action_bar.set_enabled(index.isValid())
+
+    def _refresh_preview(self) -> None:
+        self._sync_preview_to_index(self.result_list.currentIndex())
 
     def _navigate_recent_queries(self, direction: int) -> None:
         if not self._recent_queries:
