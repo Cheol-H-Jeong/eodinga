@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.171 - 2026-04-23
+
+- Prevented incomplete `.next` staged databases from being promoted on startup by requiring an explicit build-complete marker before interrupted-build recovery swaps a staged index into place.
+- Made `eodinga index` stop cooperatively on `SIGINT` and `SIGTERM`, finishing the current batch before exiting with code `130` and preserving the live index instead of swapping ambiguous partial state.
+- Added reliability regressions covering incomplete staged-build discard, safe interrupted rebuild cleanup, and CLI signal-handler restoration for cooperative shutdown.
+
 ## 0.1.163 - 2026-04-23
 
 - Added open-ended ISO date windows to `date:`, `modified:`, and `created:`, so queries like `date:2026-04-01..` and `created:..2026-04-23` now compile directly into one-sided timestamp predicates.
