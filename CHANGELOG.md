@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.918 - 2026-04-24
+## 0.1.919 - 2026-04-24
 
 - Canonicalized launcher filter chips for alias-heavy queries, so `date:Previous_Month`, `is:Folder`, boolean aliases, and mixed-order regex flags now present one stable query shape instead of multiple variants.
 - Reused the compiled-query cache across equivalent non-relative filter spellings, collapsing aliases like `is:Folder` and `is:dir` plus regex-flag permutations onto the same cached plan.
