@@ -70,6 +70,18 @@ Run it as written. If it fails, investigate the first failing stage before rerun
 3. Packaging dry-run failure: review the generated manifest or staged payload summary under `packaging/dist/`.
 4. Workflow lint failure: fix the shipped workflow YAML before cutting the local tag.
 
+## Docs-Only Validation Slice
+
+When a round changes only shipped docs or derived docs assets, start with this narrower slice before rerunning the full gate:
+
+```bash
+pytest -q tests/unit/test_docs_assets.py
+QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"
+python packaging/build.py --target windows-dry-run
+```
+
+Use the full acceptance pass again if the docs now describe Linux packaging, a CLI surface, or any runtime behavior that could have drifted outside this smaller slice.
+
 ## Derived Docs Checks
 
 Before tagging, re-run the doc-asset checks that pin shipped documentation against the real runtime surface:
@@ -83,6 +95,15 @@ pytest -q tests/unit/test_docs_assets.py
 These commands are required when CLI help, visible Qt surfaces, or operator-facing docs change.
 
 Treat the generated man page, screenshots, and dry-run manifests as shipped release inputs. Review them after regeneration instead of assuming the derived assets are correct because the command exited cleanly.
+
+## Artifact Review Matrix
+
+| If you changed... | Review at minimum |
+| --- | --- |
+| README or guide wording only | `pytest -q tests/unit/test_docs_assets.py` and the affected markdown diff |
+| CLI help or command surface | regenerated `docs/man/eodinga.1`, `eodinga --help`, and docs-assets test |
+| Visible GUI docs screenshots or screenshot claims | regenerated `docs/screenshots/*.png`, the offscreen GUI smoke path, and docs-assets test |
+| Packaging or release instructions | the matching `packaging/dist/` dry-run manifest plus workflow lint if release automation wording changed |
 
 ## Documentation Contract
 
@@ -109,3 +130,5 @@ For docs-only rounds, the changelog entry still needs to say which shipped guide
 The acceptance pass should be green before the version bump and local tag. Keep the metadata cut as the last step so the tag points at a fully validated tree.
 
 Publishing the GitHub Release stays outside this repository-local checklist, but the local tag and changelog entry are required before handing off to the orchestrator.
+
+If another worker lands the same patch number first, rerun the tag check, pick the next unused `0.1.N`, and retarget only the metadata commit rather than rewriting the earlier docs commits.

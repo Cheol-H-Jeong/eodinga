@@ -133,6 +133,18 @@ Use the same release discipline for docs-only changes when the shipped operator 
 4. Add a changelog entry that names the docs surface changed and why it matters.
 5. If you also ran the opt-in perf suite, only refresh `docs/PERFORMANCE.md` when the benchmark completed cleanly and the new table comes from that same commit.
 
+## Metadata Retarget Flow
+
+Use this when the round is already green but the candidate patch version was taken by another worker:
+
+1. `git fetch origin main --tags`
+2. Confirm the newest local tags again with `git tag -l | sort -V | tail -5`.
+3. Update only `pyproject.toml`, `eodinga/__init__.py`, and `CHANGELOG.md` to the next unused `0.1.N`.
+4. Re-run `pytest -q tests/unit`.
+5. Recreate the local tag on the new metadata commit only after the unit slice is green again.
+
+This keeps the earlier feature or docs commits stable while making the release cut cheap to retarget.
+
 ## Cut The Local Release
 
 1. Commit the release metadata changes.
@@ -166,6 +178,15 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - Never move or delete an existing local release tag just to reuse the version number.
 - If another worker landed the same candidate version first, fetch tags again, pick the next unused patch number, and update the release metadata commit instead of force-retagging.
 - If the final gate fails after the metadata commit, fix the issue in a new commit and recreate the local tag on the new tip only after the gate is green again.
+
+## Artifact Review Order
+
+When the gate is green, review release inputs in this order so the highest-signal diffs stay first:
+
+1. `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py` for version agreement.
+2. `README.md` and the affected `docs/*.md` guides for shipped-contract wording.
+3. `docs/man/eodinga.1` and `docs/screenshots/*.png` if the round touched CLI or UI docs.
+4. `packaging/dist/` dry-run manifests for the packaging targets mentioned by the round.
 
 ## Handoff Checklist
 
