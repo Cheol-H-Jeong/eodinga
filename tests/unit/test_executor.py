@@ -683,6 +683,22 @@ def test_execute_unicode_python_path_scan_breaks_equal_name_ties_stably(
     assert [hit.file.id for hit in hits] == [1, 2, 3]
 
 
+def test_execute_unicode_python_path_scan_reads_past_old_window_limit(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    for index in range(1, 100_052):
+        path = f"/workspace/archive/file-{index:06d}.txt"
+        if index == 100_051:
+            path = "/workspace/회의록/final-match.txt"
+        _insert_file(tmp_db, index, path, 512, now - index, "txt", body_text="scan coverage")
+    tmp_db.commit()
+
+    hits = search(tmp_db, "회의록", limit=10).hits
+
+    assert [hit.file.path.as_posix() for hit in hits] == ["/workspace/회의록/final-match.txt"]
+
+
 def test_execute_decomposed_korean_content_query_keeps_snippets(
     tmp_db: sqlite3.Connection,
 ) -> None:

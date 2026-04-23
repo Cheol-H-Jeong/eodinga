@@ -433,21 +433,38 @@ def _fetch_path_candidates_python_scan(
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return [], {}
-    records = _fetch_records(conn, branch.where_sql, branch.where_params, limit=100_000)
-    matched = {
-        file_id: record
-        for file_id, record in records.items()
-        if all(
-            _term_matches(record.name, term.value, kind=term.kind, case_sensitive=branch.case_sensitive)
-            or _term_matches(
-                str(record.path),
-                term.value,
-                kind=term.kind,
-                case_sensitive=branch.case_sensitive,
-            )
-            for term in positive_terms
+    target = max(limit, 1)
+    batch_size = max(min(target * 2, 2000), 500)
+    offset = 0
+    matched: dict[int, FileRecord] = {}
+    while True:
+        batch = _fetch_record_batch(
+            conn,
+            branch.where_sql,
+            branch.where_params,
+            limit=batch_size,
+            offset=offset,
         )
-    }
+        if not batch:
+            break
+        for file_id, record in batch.items():
+            if all(
+                _term_matches(
+                    record.name,
+                    term.value,
+                    kind=term.kind,
+                    case_sensitive=branch.case_sensitive,
+                )
+                or _term_matches(
+                    str(record.path),
+                    term.value,
+                    kind=term.kind,
+                    case_sensitive=branch.case_sensitive,
+                )
+                for term in positive_terms
+            ):
+                matched[file_id] = record
+        offset += batch_size
     ordered = sorted(
         matched.values(),
         key=lambda record: (
