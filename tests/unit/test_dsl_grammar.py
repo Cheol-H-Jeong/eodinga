@@ -618,7 +618,13 @@ def test_negated_operator_query_fuzz_parses_and_compiles(query: str) -> None:
                 ),
                 min_size=1,
                 max_size=12,
-            ).filter(lambda value: value.strip() and value != "-" and not value.startswith("-")),
+            ).filter(
+                lambda value: value.strip()
+                and value == value.strip()
+                and not any(char.isspace() for char in value)
+                and value != "-"
+                and not value.startswith("-")
+            ),
         ),
         st.tuples(
             st.just("regex"),

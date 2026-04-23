@@ -295,6 +295,7 @@ def test_execute_previous_period_date_queries_use_local_boundaries(
             return frozen_now.astimezone(tz)
 
     monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+    monkeypatch.setattr("eodinga.query.date_range._local_tzinfo", lambda: seoul)
 
     _insert_file(
         tmp_db,
@@ -358,6 +359,7 @@ def test_execute_extended_relative_date_aliases_use_local_boundaries(
             return frozen_now.astimezone(tz)
 
     monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+    monkeypatch.setattr("eodinga.query.date_range._local_tzinfo", lambda: seoul)
 
     _insert_file(tmp_db, 1, "/workspace/tomorrow.txt", 512, tomorrow_hit, "txt", body_text="tomorrow note")
     _insert_file(tmp_db, 2, "/workspace/this-year.txt", 512, this_year_hit, "txt", body_text="year note")
@@ -405,6 +407,7 @@ def test_execute_date_ranges_accept_relative_keywords(
             return frozen_now.astimezone(tz)
 
     monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+    monkeypatch.setattr("eodinga.query.date_range._local_tzinfo", lambda: seoul)
 
     _insert_file(tmp_db, 1, "/workspace/yesterday.txt", 512, yesterday_hit, "txt", body_text="yesterday note")
     _insert_file(tmp_db, 2, "/workspace/today.txt", 512, today_hit, "txt", body_text="today note")
@@ -588,6 +591,7 @@ def test_execute_relative_date_queries_use_local_day_boundaries(
             return frozen_now.astimezone(tz)
 
     monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+    monkeypatch.setattr("eodinga.query.date_range._local_tzinfo", lambda: seoul)
 
     _insert_file(
         tmp_db,

@@ -65,7 +65,8 @@ def _parse_iso_endpoint(value: str) -> DateRange:
 
 
 def _relative_range(value: str) -> DateRange | None:
-    today = datetime.now().astimezone().date()
+    local_tz = _local_tzinfo()
+    today = datetime.now(local_tz).date() if local_tz is not None else datetime.now().date()
     normalized = value.strip().casefold().replace("_", "-")
     if normalized == "today":
         return _day_bounds(today)
