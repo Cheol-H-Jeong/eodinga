@@ -645,6 +645,10 @@ def test_launcher_active_filter_row_shows_overflow_count_for_many_filters(qapp) 
 
     assert "+1 more" in launcher.active_filter_row.chips_label.text()
     assert launcher.active_filter_row.accessibleDescription() == "Showing 5 of 6 active launcher filters."
+    assert (
+        launcher.active_filter_row.chips_label.accessibleDescription()
+        == "Visible launcher filters: ext:pdf, date:today, size:>10M, path:reports, is:file."
+    )
 
 
 def test_launcher_hovered_result_becomes_action_target(qapp) -> None:
@@ -753,16 +757,27 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     launcher.show()
 
     assert launcher.accessibleName() == "Launcher window"
+    assert (
+        launcher.accessibleDescription()
+        == "Search files and content, inspect matches, and trigger launcher result actions."
+    )
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.query_field.accessibleDescription() == "Type a filename, path, or content term to search the index."
     assert launcher.result_list.accessibleName() == "Launcher results list"
+    assert (
+        launcher.result_list.accessibleDescription()
+        == "Browse matching launcher results. Enter opens, Ctrl+Enter reveals, and Shift+Enter shows properties."
+    )
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
+    assert "Type to search." in launcher.empty_state.accessibleDescription()
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"
     assert launcher.empty_state.body_label.accessibleName() == "Launcher empty state guidance"
     assert launcher.empty_state.details_label.accessibleName() == "Launcher indexing details"
     assert launcher.pinned_queries_row.accessibleName() == "Pinned launcher queries"
+    assert launcher.pinned_queries_row.accessibleDescription() == "No pinned launcher queries are available."
     assert launcher.pinned_queries_row.buttons == []
     assert launcher.recent_queries_row.accessibleName() == "Recent launcher queries"
+    assert launcher.recent_queries_row.accessibleDescription() == "No recent launcher queries are available."
     assert launcher.preview_pane.accessibleName() == "Launcher preview pane"
     assert launcher.preview_pane.title_label.accessibleName() == "Previewed result name"
     assert launcher.preview_pane.path_label.accessibleName() == "Previewed result path"
@@ -779,7 +794,9 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.action_bar.properties_button.accessibleName() == "Show selected properties"
     assert launcher.action_bar.properties_button.accessibleDescription() == "Open selected result properties with Shift+Enter."
     assert launcher.shortcut_label.accessibleName() == "Launcher shortcut guidance"
+    assert launcher.shortcut_label.accessibleDescription().startswith("Current keyboard guidance for the launcher.")
     assert launcher.status_label.accessibleName() == "Launcher result summary"
+    assert launcher.status_label.accessibleDescription() == "Launcher result summary: 0 results · 0.0 ms."
     assert launcher.status_chip.accessibleName() == "Launcher status"
 
 
@@ -793,9 +810,11 @@ def test_launcher_query_chips_expose_accessible_context(qapp) -> None:
     recent_chip = launcher.recent_queries_row.buttons[0]
 
     assert pinned_chip.accessibleName() == "Use query ext:pdf"
-    assert pinned_chip.accessibleDescription() == "Apply the pinned launcher query"
+    assert pinned_chip.accessibleDescription() == "Apply the pinned launcher query ext:pdf"
     assert recent_chip.accessibleName() == "Use query budget"
-    assert recent_chip.accessibleDescription() == "Apply the recent launcher query"
+    assert recent_chip.accessibleDescription() == "Apply the recent launcher query budget"
+    assert launcher.pinned_queries_row.accessibleDescription() == "1 pinned launcher queries available: ext:pdf."
+    assert launcher.recent_queries_row.accessibleDescription() == "1 recent launcher queries available: budget."
 
 
 def test_launcher_result_markup_surfaces_top_nine_quick_pick_badges(qapp) -> None:

@@ -29,9 +29,14 @@ class EmptyState(QWidget):
         layout.addWidget(self.title_label)
         layout.addWidget(self.body_label)
         layout.addWidget(self.details_label)
+        self.set_content(title, body)
 
     def set_content(self, title: str, body: str, details: str = "") -> None:
         self.title_label.setText(title)
         self.body_label.setText(body)
         self.details_label.setText(details)
         self.details_label.setVisible(bool(details))
+        description = f"{title}. {body}"
+        if details:
+            description = f"{description} {details}"
+        self.setAccessibleDescription(description)

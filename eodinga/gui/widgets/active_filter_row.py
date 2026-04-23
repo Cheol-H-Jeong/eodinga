@@ -56,6 +56,7 @@ class ActiveFilterRow(QWidget):
             html += f"<span style='{_OVERFLOW_STYLE}'>+{hidden_count} more</span>"
         self.chips_label.setText(html)
         self.setAccessibleDescription(f"Showing {len(visible_filters)} of {len(filters)} active launcher filters.")
+        self.chips_label.setAccessibleDescription(f"Visible launcher filters: {', '.join(visible_filters)}.")
 
 
 __all__ = ["ActiveFilterRow"]

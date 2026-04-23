@@ -17,6 +17,7 @@ class QueryChipRow(QWidget):
         self._on_chip_clicked = on_chip_clicked
         self._label_text = label
         self.setAccessibleName(accessible_name)
+        self.setAccessibleDescription(f"No {label.lower()} launcher queries are available.")
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -30,6 +31,7 @@ class QueryChipRow(QWidget):
 
         self._chips_container = QWidget(self)
         self._chips_container.setAccessibleName(f"{label} query chips")
+        self._chips_container.setAccessibleDescription(f"Clickable {label.lower()} launcher queries.")
         chips_layout = QHBoxLayout(self._chips_container)
         chips_layout.setContentsMargins(0, 0, 0, 0)
         chips_layout.setSpacing(SPACE_4)
@@ -48,12 +50,19 @@ class QueryChipRow(QWidget):
         for query in queries:
             button = SecondaryButton(query, self._chips_container)
             button.setAccessibleName(f"Use query {query}")
-            button.setAccessibleDescription(f"Apply the {self._label_text.lower()} launcher query")
+            button.setAccessibleDescription(f"Apply the {self._label_text.lower()} launcher query {query}")
             button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             button.clicked.connect(lambda checked=False, value=query: self._on_chip_clicked(value))
             self._chips_layout.addWidget(button)
             self._buttons.append(button)
 
+        if queries:
+            summary = ", ".join(queries[:3])
+            if len(queries) > 3:
+                summary += f", and {len(queries) - 3} more"
+            self.setAccessibleDescription(f"{len(queries)} {self._label_text.lower()} launcher queries available: {summary}.")
+        else:
+            self.setAccessibleDescription(f"No {self._label_text.lower()} launcher queries are available.")
         self.setVisible(bool(queries))
 
     @property

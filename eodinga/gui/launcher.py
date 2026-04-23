@@ -42,6 +42,7 @@ class LauncherPanel(QWidget):
     ) -> None:
         super().__init__(parent)
         self.setAccessibleName("Launcher panel")
+        self.setAccessibleDescription("Search files and content, inspect matches, and trigger launcher result actions.")
         self._search_fn = search_fn or default_search
         self._max_results = max_results
         self._latest_result = QueryResult()
@@ -71,6 +72,9 @@ class LauncherPanel(QWidget):
         )
         self.result_list = QListView(self)
         self.result_list.setAccessibleName("Launcher results list")
+        self.result_list.setAccessibleDescription(
+            "Browse matching launcher results. Enter opens, Ctrl+Enter reveals, and Shift+Enter shows properties."
+        )
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
         self.result_list.setUniformItemSizes(False)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
@@ -79,9 +83,11 @@ class LauncherPanel(QWidget):
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
         self.shortcut_label.setAccessibleName("Launcher shortcut guidance")
+        self.shortcut_label.setAccessibleDescription("Current keyboard guidance for the launcher.")
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
         self.status_label.setAccessibleName("Launcher result summary")
+        self.status_label.setAccessibleDescription("Current launcher result count and search latency.")
         self.empty_state = EmptyState("Type to search", "Recent queries and indexing progress will appear here.", self)
         self.preview_pane = LauncherPreviewPane(self)
         self.preview_pane.setMinimumWidth(240)
@@ -176,6 +182,7 @@ class LauncherPanel(QWidget):
 
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
+        self._refresh_status_footer()
         self.active_filter_row.set_query(self.query_field.text())
         self._refresh_preview()
 
@@ -304,12 +311,14 @@ class LauncherPanel(QWidget):
             else:
                 self.status_chip.setText("Idle")
                 self.status_label.setText("0 results · 0.0 ms")
+            self.status_label.setAccessibleDescription(f"Launcher result summary: {self.status_label.text()}.")
             return
         self.status_label.setText(f"{self._latest_result.total} results · {self._latest_result.elapsed_ms:.1f} ms")
         if self._latest_result.total > 0:
             self.status_chip.setText("Ready")
         else:
             self.status_chip.setText("No results")
+        self.status_label.setAccessibleDescription(f"Launcher result summary: {self.status_label.text()}.")
 
     def _refresh_empty_state(self) -> None:
         has_results = self.model.rowCount() > 0
@@ -344,6 +353,7 @@ class LauncherPanel(QWidget):
         else:
             hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
+        self.shortcut_label.setAccessibleDescription(f"Current keyboard guidance for the launcher. {hint}")
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()
