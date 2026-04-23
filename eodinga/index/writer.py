@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
@@ -161,7 +161,7 @@ class IndexWriter:
         )
 
     @contextmanager
-    def _temporary_bulk_sync_mode(self, record_count: int) -> Iterable[None]:
+    def _temporary_bulk_sync_mode(self, record_count: int) -> Iterator[None]:
         if record_count < BULK_UPSERT_SYNC_THRESHOLD or self._conn.in_transaction:
             yield
             return
