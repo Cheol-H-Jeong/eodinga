@@ -47,7 +47,7 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 1. Install with `pip install -e .[all]`.
 2. Open `eodinga gui`, add your project or document roots, and let the first index finish.
 3. Hit `Ctrl+Shift+Space` to open the launcher anywhere.
-4. Start with plain terms, then narrow with operators like `ext:pdf`, `path:docs`, `date:this-week`, or `size:>10M`.
+4. Start with plain terms, then narrow with operators like `ext:pdf`, `path:docs`, `date:last-week`, or `size:100K..500K`.
 5. Use `Enter` to open the selected result or `Ctrl+Enter` to reveal it in the file manager.
 6. Use `Alt+Up` to recall recent queries, `Ctrl+L` to jump back to the filter, and `PgUp` / `PgDn` to move through longer result sets without leaving the keyboard.
 7. Re-run `python scripts/render_docs_screenshots.py` if you update the Qt surfaces and want the shipped screenshots refreshed.
@@ -105,8 +105,8 @@ eodinga doctor
 - `report` : plain lexical term
 - `ext:pdf invoice` : extension filter plus term
 - `path:projects content:"design review"` : path and content filters
-- `size:>10M modified:today` : size and date filters
-- `date:yesterday is:duplicate` : relative date plus duplicate detection
+- `size:100K..500K modified:today` : size range and date filters
+- `date:last-month is:duplicate` : relative date plus duplicate detection
 - `created:2026-04-23` : creation-time filter
 - `regex:true report-\\d+` : treat plain terms as regex
 - `regex:/todo|fixme/i` : regex search
@@ -123,7 +123,7 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Search by plain term | `roadmap` |
 | Restrict by extension | `ext:pdf invoice` |
 | Restrict by path | `path:projects content:"design review"` |
-| Find recent files | `date:this-week` |
+| Find recent files | `date:last-week` |
 | Find size ranges | `size:100K..500K` |
 | Find duplicates | `is:duplicate` |
 | Exclude noisy trees | `-path:node_modules` |

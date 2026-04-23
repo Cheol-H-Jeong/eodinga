@@ -10,8 +10,8 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 | extension | Restrict by file extension | `ext:pdf invoice` |
 | path filter | Restrict to a path substring | `path:projects release` |
 | content filter | Require parsed document text | `content:"launch checklist"` |
-| size filter | Compare byte size with `B/K/M/G/T` suffixes | `size:>10M` |
-| date filter | Relative or ISO date windows | `date:this-week` |
+| size filter | Compare byte size or constrain inclusive ranges with `B/K/M/G/T` suffixes | `size:100K..500K` |
+| date filter | Relative or ISO date windows | `date:last-week` |
 | timestamp alias | Target modified or created timestamps directly | `modified:today`, `created:2026-04-23` |
 | type filter | File, dir, symlink, or duplicate | `is:duplicate` |
 | case mode | Toggle case-sensitive matching | `case:true README` |
@@ -24,7 +24,9 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 - `date:today`
 - `date:yesterday`
 - `date:this-week`
+- `date:last-week`
 - `date:this-month`
+- `date:last-month`
 - `date:2026-04-23`
 - `date:2026-04-01..2026-04-23`
 
@@ -32,7 +34,7 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 
 ```text
 ext:pdf content:"release notes"
-size:>10M date:this-month
+size:100K..500K date:last-month
 modified:today created:2026-04-23
 regex:true report-\d+
 -is:duplicate -path:node_modules
@@ -44,8 +46,8 @@ regex:/launch|ship/i path:docs
 
 - Path/name terms are case-insensitive unless `case:true` is set.
 - Content operators only match indexed document text; unsupported files fall back to filename/path search.
-- `date:`, `modified:`, and `created:` accept `today`, `yesterday`, `this-week`, `this-month`, a single ISO date, or an ISO date range.
-- `size:` comparisons use binary suffixes, so `10M` means `10 * 1024 * 1024` bytes.
+- `date:`, `modified:`, and `created:` accept `today`, `yesterday`, `this-week`, `last-week`, `this-month`, `last-month`, a single ISO date, or an ISO date range.
+- `size:` comparisons use binary suffixes, so `size:>10M` means bigger than `10 * 1024 * 1024` bytes, and `size:100K..500K` keeps hits inclusively inside the range.
 - `is:duplicate` matches entries that share a content hash with at least one other indexed file.
 - `regex:true` only changes how plain terms are interpreted; explicit `/pattern/flags` literals still work without it.
 - Negation applies to the next term or the entire parenthesized group.
