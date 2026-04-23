@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.857 - 2026-04-23
+
+- Surfaced watcher observer lifecycle failures in `stats --json`, including startup rollbacks plus cleanup and startup-cleanup stage breakdowns, so watcher startup/teardown faults no longer disappear behind raw counters.
+- Added log sink source and disable-reason summaries to `stats --json`, making runtime logging resolution auditable without post-processing the full counter map.
+
 ## 0.1.849 - 2026-04-23
 
 - Tightened the Linux packaging audits so staged AppImage and Debian launchers must execute `--help` successfully from outside the repo, proving the bundled runtime can boot headlessly.
