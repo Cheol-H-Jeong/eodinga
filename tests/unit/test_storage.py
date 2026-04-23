@@ -129,6 +129,32 @@ def test_atomic_replace_index_fsyncs_staged_file_and_target_directory(
     ]
 
 
+def test_storage_fsync_directory_is_best_effort_when_directory_open_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(storage_module.os, "open", lambda _path, _flags: (_ for _ in ()).throw(OSError))
+
+    storage_module._fsync_directory(tmp_path)
+
+
+def test_storage_fsync_directory_closes_fd_when_fsync_is_unsupported(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    closed: list[int] = []
+
+    monkeypatch.setattr(storage_module.os, "open", lambda _path, _flags: 7)
+    monkeypatch.setattr(
+        storage_module.os,
+        "fsync",
+        lambda _fd: (_ for _ in ()).throw(OSError("simulated unsupported directory fsync")),
+    )
+    monkeypatch.setattr(storage_module.os, "close", closed.append)
+
+    storage_module._fsync_directory(tmp_path)
+
+    assert closed == [7]
+
+
 def test_copy_index_with_sidecars_fsyncs_promoted_sidecars(tmp_path: Path, monkeypatch) -> None:
     source = tmp_path / "source.db"
     target = tmp_path / ".index.db.recover"
