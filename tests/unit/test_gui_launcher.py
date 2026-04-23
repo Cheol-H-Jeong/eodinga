@@ -404,6 +404,8 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
     assert "(20%)" in launcher.empty_state.details_label.text()
+    assert "Type to search." in launcher.empty_state.accessibleDescription()
+    assert "Indexing 24/120 files" in launcher.empty_state.accessibleDescription()
     assert launcher.status_chip.text() == "Indexing"
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
     assert (
@@ -420,6 +422,8 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
     assert "Alt+Down" in launcher.empty_state.body_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
+    assert launcher.empty_state.body_label.accessibleDescription() == launcher.empty_state.body_label.text()
+    assert "/tmp/archive" in launcher.empty_state.accessibleDescription()
     assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
     assert "Alt+Up and Alt+Down browse recent queries" in launcher.shortcut_label.text()
 
@@ -809,6 +813,9 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"
     assert launcher.empty_state.body_label.accessibleName() == "Launcher empty state guidance"
     assert launcher.empty_state.details_label.accessibleName() == "Launcher indexing details"
+    assert launcher.empty_state.accessibleDescription().startswith("Type to search.")
+    assert launcher.empty_state.body_label.accessibleDescription() == launcher.empty_state.body_label.text()
+    assert launcher.empty_state.details_label.accessibleDescription() == launcher.empty_state.details_label.text()
     assert launcher.pinned_queries_row.accessibleName() == "Pinned launcher queries"
     assert launcher.pinned_queries_row.buttons == []
     assert launcher.pinned_queries_row.accessibleDescription() == "No pinned launcher queries are available."
