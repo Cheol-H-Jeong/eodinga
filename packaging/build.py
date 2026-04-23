@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -66,6 +67,72 @@ def _render_inno_script(version: str, *, gui_dist_name: str, cli_dist_name: str,
     return rendered_path
 
 
+def _spec_path(spec_namespace: dict[str, Any], key: str) -> str | None:
+    value = spec_namespace.get(key)
+    if value is None:
+        return None
+    return str(Path(str(value)).resolve())
+
+
+def _artifact_metadata(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {
+            "path": str(path),
+            "exists": False,
+            "size_bytes": None,
+            "sha256": None,
+        }
+    return {
+        "path": str(path),
+        "exists": True,
+        "size_bytes": path.stat().st_size,
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+
+
+def _windows_pyinstaller_command(
+    *,
+    entry_path: Path,
+    dist_name: str,
+    windowed: bool,
+    hiddenimports: list[str],
+    datas: list[tuple[str, str]],
+) -> list[str]:
+    command = [
+        "pyinstaller",
+        "--noconfirm",
+        "--clean",
+        "--onedir",
+        "--distpath",
+        str(PROJECT_ROOT / "dist"),
+        "--workpath",
+        str(DIST_DIR / "pyinstaller" / "build"),
+        "--specpath",
+        str(DIST_DIR / "pyinstaller" / "spec"),
+        "--paths",
+        str(PROJECT_ROOT),
+        "--name",
+        dist_name,
+    ]
+    if windowed:
+        command.append("--windowed")
+    for hidden_import in hiddenimports:
+        command.extend(["--hidden-import", hidden_import])
+    for source_path, destination in datas:
+        command.extend(["--add-data", f"{source_path};{destination}"])
+    command.append(str(entry_path))
+    return command
+
+
+def _windows_iscc_command(rendered_script: Path) -> list[str]:
+    return ["iscc", f"/O{DIST_DIR}", str(rendered_script)]
+
+
+def _run_command(command: list[str]) -> int:
+    result = subprocess.run(command, cwd=PROJECT_ROOT, check=False)
+    return int(result.returncode)
+
+
 def _inno_contains(text: str, needle: str) -> bool:
     return needle in text
 
@@ -111,6 +178,11 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     cli_dist_path = PROJECT_ROOT / "dist" / cli_dist_name
     gui_exe_path = gui_dist_path / gui_exe_name
     cli_exe_path = cli_dist_path / cli_exe_name
+    entry_cli = Path(str(spec_namespace["ENTRY_CLI"])).resolve()
+    entry_gui = Path(str(spec_namespace["ENTRY_GUI"])).resolve()
+    hiddenimports = list(spec_namespace.get("HIDDEN_IMPORTS", []))
+    datas = [tuple(item) for item in spec_namespace.get("DATAS", [])]
+    installer_path = DIST_DIR / f"{output_base_filename}.exe"
     return {
         "target": "windows-dry-run",
         "version": version,
@@ -119,6 +191,10 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
         "pyinstaller_spec": {
             "path": str(WINDOWS_SPEC),
             "exists": WINDOWS_SPEC.exists(),
+            "entry_paths": {
+                "cli": str(entry_cli),
+                "gui": str(entry_gui),
+            },
             "dist_names": {
                 "cli": cli_dist_name,
                 "gui": gui_dist_name,
@@ -145,8 +221,24 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             },
             "required_hiddenimports": spec_namespace.get("REQUIRED_HIDDEN_IMPORTS", []),
             "discovered_source_hiddenimports": spec_namespace.get("DISCOVERED_SOURCE_HIDDEN_IMPORTS", []),
-            "hiddenimports": spec_namespace.get("HIDDEN_IMPORTS", []),
-            "datas": spec_namespace.get("DATAS", []),
+            "hiddenimports": hiddenimports,
+            "datas": datas,
+            "build_commands": {
+                "cli": _windows_pyinstaller_command(
+                    entry_path=entry_cli,
+                    dist_name=cli_dist_name,
+                    windowed=False,
+                    hiddenimports=hiddenimports,
+                    datas=datas,
+                ),
+                "gui": _windows_pyinstaller_command(
+                    entry_path=entry_gui,
+                    dist_name=gui_dist_name,
+                    windowed=True,
+                    hiddenimports=hiddenimports,
+                    datas=datas,
+                ),
+            },
         },
         "inno_setup": {
             "path": str(INNO_SCRIPT),
@@ -200,6 +292,8 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "purge_targets_local_and_roaming_user_state": r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);" in rendered_text
             and r"DelTree(ExpandConstant('{userappdata}\\eodinga'), True, True, True);" in rendered_text
             and "{commonappdata}" not in rendered_text,
+            "build_command": _windows_iscc_command(rendered_path),
+            "installer_artifact": _artifact_metadata(installer_path),
         },
     }
 
@@ -230,6 +324,11 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     spec_payload = payload.get("pyinstaller_spec", {})
     if not spec_payload.get("exists"):
         errors.append("PyInstaller spec is missing")
+    entry_paths = spec_payload.get("entry_paths", {})
+    if not entry_paths.get("cli") or not Path(str(entry_paths.get("cli"))).exists():
+        errors.append("PyInstaller CLI entry script is missing")
+    if not entry_paths.get("gui") or not Path(str(entry_paths.get("gui"))).exists():
+        errors.append("PyInstaller GUI entry script is missing")
     if not spec_payload.get("hiddenimports"):
         errors.append("PyInstaller hidden imports are empty")
     discovered_source_hiddenimports = spec_payload.get("discovered_source_hiddenimports", [])
@@ -239,6 +338,11 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         errors.append("PyInstaller hidden imports no longer include the source-derived modules")
     if not spec_payload.get("datas"):
         errors.append("PyInstaller data files are empty")
+    build_commands = spec_payload.get("build_commands", {})
+    if not build_commands.get("cli"):
+        errors.append("PyInstaller CLI build command is missing")
+    if not build_commands.get("gui"):
+        errors.append("PyInstaller GUI build command is missing")
     if payload.get("target") == "windows":
         dist_exists = spec_payload.get("dist_exists", {})
         exe_exists = spec_payload.get("exe_exists", {})
@@ -271,6 +375,16 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     for key, message in required_flags.items():
         if not inno_payload.get(key):
             errors.append(message)
+    if not inno_payload.get("build_command"):
+        errors.append("Inno build command is missing")
+    if payload.get("target") == "windows":
+        installer_artifact = inno_payload.get("installer_artifact", {})
+        if not installer_artifact.get("exists"):
+            errors.append("Windows build is missing the versioned installer artifact")
+        if not isinstance(installer_artifact.get("size_bytes"), int) or installer_artifact.get("size_bytes", 0) <= 0:
+            errors.append("Windows installer size is missing")
+        if not installer_artifact.get("sha256"):
+            errors.append("Windows installer digest is missing")
     return errors
 
 
@@ -512,6 +626,15 @@ def _run_windows() -> int:
         return preflight
     version = _read_project_version()
     package_version = _read_package_version()
+    dry_run_payload = _audit_windows_inputs(version, package_version)
+    for command in (
+        dry_run_payload["pyinstaller_spec"]["build_commands"]["cli"],
+        dry_run_payload["pyinstaller_spec"]["build_commands"]["gui"],
+        dry_run_payload["inno_setup"]["build_command"],
+    ):
+        result = _run_command(list(command))
+        if result != 0:
+            return result
     payload = _audit_windows_inputs(version, package_version)
     payload["target"] = "windows"
     payload["platform_tools"] = ["pyinstaller", "iscc"]

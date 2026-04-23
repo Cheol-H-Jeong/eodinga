@@ -7,8 +7,8 @@ import tomllib
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-ENTRY_CLI = PROJECT_ROOT / "eodinga" / "__main__.py"
-ENTRY_GUI = PROJECT_ROOT / "eodinga" / "__main__.py"
+ENTRY_CLI = PROJECT_ROOT / "packaging" / "windows" / "cli_entry.py"
+ENTRY_GUI = PROJECT_ROOT / "packaging" / "windows" / "gui_entry.py"
 CLI_DIST_NAME = "eodinga-cli"
 GUI_DIST_NAME = "eodinga-gui"
 CLI_EXE_NAME = f"{CLI_DIST_NAME}.exe"
