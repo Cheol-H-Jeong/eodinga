@@ -35,6 +35,7 @@ yamllint .github/workflows/release-linux.yml
 Before tagging, confirm:
 
 - `README.md` still matches the current install, CLI, launcher, and DSL behavior.
+- `docs/eodinga.1` has been regenerated if the CLI surface changed.
 - `docs/ARCHITECTURE.md` still matches the index lifecycle and packaging surfaces.
 - `docs/PERFORMANCE.md` numbers come from a rerun at the documented HEAD.
 - Screenshot assets under `docs/screenshots/` still match the current UI, or have been refreshed with `python scripts/render_docs_screenshots.py`.

@@ -194,6 +194,14 @@ The doctor command checks Python compatibility, importable dependencies, databas
 
 If search looks stale, run `eodinga stats` to confirm the active database path, then either `eodinga watch` for live updates or `eodinga index --rebuild` to rebuild once.
 
+## Man Page
+
+The CLI contract is also published as a generated man page at [docs/eodinga.1](/home/cheol/projects/eodinga/docs/eodinga.1). Refresh it with:
+
+```bash
+source .venv/bin/activate && python scripts/generate_man_page.py
+```
+
 ## Docs Map
 
 - [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md): query cheatsheet and operator notes.
@@ -202,6 +210,7 @@ If search looks stale, run `eodinga stats` to confirm the active database path, 
 - [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, current baselines, and profiling workflow.
 - [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md): local workflow, guardrails, and doc/screenshot expectations for contributors.
 - [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md): release-candidate workflow, tagging, packaging validation, and handoff.
+- [docs/eodinga.1](/home/cheol/projects/eodinga/docs/eodinga.1): generated man page for the CLI surface.
 
 ## Contributing
 

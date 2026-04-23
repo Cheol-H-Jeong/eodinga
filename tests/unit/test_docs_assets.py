@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import runpy
 from pathlib import Path
 
 from eodinga.gui.docs import render_doc_screenshots
@@ -29,6 +30,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     architecture = (root / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
     contributing = (root / "docs" / "CONTRIBUTING.md").read_text(encoding="utf-8")
     dsl = (root / "docs" / "DSL.md").read_text(encoding="utf-8")
+    man_page = (root / "docs" / "eodinga.1").read_text(encoding="utf-8")
     performance = (root / "docs" / "PERFORMANCE.md").read_text(encoding="utf-8")
     release = (root / "docs" / "RELEASE.md").read_text(encoding="utf-8")
 
@@ -56,10 +58,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "docs/CONTRIBUTING.md" in readme
     assert "docs/PERFORMANCE.md" in readme
     assert "docs/RELEASE.md" in readme
+    assert "docs/eodinga.1" in readme
     assert "pytest -q tests && ruff check eodinga tests" in readme
     assert "python packaging/build.py --target windows-dry-run" in readme
     assert "yamllint .github/workflows/release-windows.yml" in readme
     assert "rendered offscreen from the real Qt surfaces" in readme
+    assert "## Man Page" in readme
+    assert "python scripts/generate_man_page.py" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance
@@ -80,20 +85,28 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Runtime Flow" in architecture
     assert "## Data Flow Diagram" in architecture
     assert "## Module Map" in architecture
+    assert "## Command Surface Map" in architecture
     assert "## Index Storage" in architecture
+    assert "## Storage Objects" in architecture
     assert "## Index Lifecycle Sequence" in architecture
     assert "## Startup Recovery" in architecture
     assert "## Rebuild Sequence" in architecture
     assert "## Query Execution" in architecture
+    assert "## Query Request Sequence" in architecture
     assert "## Live Update Sequence" in architecture
     assert "## Packaging Surfaces" in architecture
+    assert "## Packaging Artifact Matrix" in architecture
     assert "compressed changelog" in architecture
+    assert "query.executor.search()" in architecture
+    assert ".index.db.next" in architecture
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
     assert "## Quality Gates" in contributing
     assert "## Scope Guardrails" in contributing
     assert "## Documentation Expectations" in contributing
+    assert "docs/eodinga.1" in contributing
+    assert "generate_man_page.py" in contributing
     assert "scripts/render_docs_screenshots.py" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
@@ -112,9 +125,11 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "tests/perf/test_cold_start.py" in performance
     assert "test_rebuild_cold_start_throughput" in performance
     assert "EODINGA_PERF_REBUILD_MIN_FPS" in performance
+    assert "## Baseline Environment" in performance
     assert "## Running the Suite" in performance
     assert "## Baseline" in performance
     assert "## Profiling Workflow" in performance
+    assert "## Updating This Document" in performance
 
     assert "## Pick The Version" in release
     assert "## Refresh Release Notes" in release
@@ -123,3 +138,25 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Cut The Local Release" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release
+    assert "docs/eodinga.1" in release
+
+    assert ".SH NAME" in man_page
+    assert ".SH SYNOPSIS" in man_page
+    assert ".SH COMMANDS" in man_page
+    assert "eodinga index" in man_page
+    assert "eodinga watch" in man_page
+    assert "eodinga search" in man_page
+    assert "eodinga stats" in man_page
+    assert "eodinga gui" in man_page
+    assert "eodinga doctor" in man_page
+    assert "eodinga version" in man_page
+    assert ".SH FILES" in man_page
+
+
+def test_generated_man_page_matches_committed_copy(tmp_path: Path) -> None:
+    root = _repo_root()
+    namespace = runpy.run_path(str(root / "scripts" / "generate_man_page.py"))
+    rendered = namespace["build_man_page"]()
+    committed = (root / "docs" / "eodinga.1").read_text(encoding="utf-8")
+
+    assert rendered == committed

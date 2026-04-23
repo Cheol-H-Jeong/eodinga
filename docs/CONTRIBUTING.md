@@ -49,6 +49,7 @@ yamllint .github/workflows/release-linux.yml
 - Update `README.md` when installation, query syntax, keyboard behavior, supported formats, packaging, or recovery behavior changes.
 - Refresh `docs/ARCHITECTURE.md` when data flow, rebuild/recovery, or packaging surfaces change materially.
 - Refresh `docs/PERFORMANCE.md` only after rerunning the benchmark you are documenting in the same local environment.
+- Regenerate `docs/eodinga.1` with `python scripts/generate_man_page.py` after changing CLI flags, subcommands, or examples.
 - Regenerate the shipped screenshots with `python scripts/render_docs_screenshots.py` after visible GUI changes.
 
 ## Test Selection Guide

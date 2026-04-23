@@ -1,0 +1,59 @@
+.TH EODINGA 1
+.SH NAME
+eodinga \- everything-class instant file search for Windows and Linux
+.SH SYNOPSIS
+\fBeodinga\fR eodinga [-h] [--log-level LOG_LEVEL] [--config CONFIG] [--db DB]
+               {index,watch,search,stats,gui,doctor,version} ...
+.SH DESCRIPTION
+eodinga indexes local filesystem metadata and optional document text, keeps the index fresh through filesystem notifications, and exposes the same lexical query engine through CLI, GUI, and launcher surfaces.
+.SH GLOBAL OPTIONS
+.TP
+\fB--log-level\fR LEVEL
+Set the runtime log level. Defaults to INFO.
+.TP
+\fB--config\fR PATH
+Load configuration from PATH instead of the platform default.
+.TP
+\fB--db\fR PATH
+Open the SQLite index at PATH instead of the configured default.
+.SH COMMANDS
+.TP
+\fBeodinga index\fR
+eodinga index [-h] [--root ROOT] [--rebuild]
+.TP
+\fBeodinga watch\fR
+eodinga watch [-h]
+.TP
+\fBeodinga search\fR
+eodinga search [-h] [--json] [--limit LIMIT] [--root ROOT] query
+.TP
+\fBeodinga stats\fR
+eodinga stats [-h] [--json]
+.TP
+\fBeodinga gui\fR
+eodinga gui [-h] [--test-mode]
+.TP
+\fBeodinga doctor\fR
+eodinga doctor [-h]
+.TP
+\fBeodinga version\fR
+eodinga version [-h]
+.SH EXAMPLES
+.TP
+\fBeodinga index --root ~/projects --root ~/docs\fR
+Build or rebuild the local index for two roots.
+.TP
+\fBeodinga search 'ext:pdf content:"release checklist"' --limit 20\fR
+Run a lexical search with path/content filters and a result limit.
+.TP
+\fBeodinga stats --json\fR
+Emit index counts plus in-process observability counters as JSON.
+.TP
+\fBeodinga doctor\fR
+Run the local diagnostics surface for config, dependencies, and index state.
+.SH FILES
+\fI~/.config/eodinga/config.toml\fR on Linux or \fI%APPDATA%\\eodinga\\config.toml\fR on Windows.
+.br
+\fI~/.local/share/eodinga/index.db\fR on Linux or \fI%LOCALAPPDATA%\\eodinga\\index.db\fR on Windows.
+.SH SEE ALSO
+\fIREADME.md\fR, \fIdocs/DSL.md\fR, \fIdocs/ARCHITECTURE.md\fR, \fIdocs/RELEASE.md\fR
