@@ -134,6 +134,10 @@ def test_pyinstaller_spec_exposes_real_build_targets_when_pyinstaller_symbols_ex
     gui_exe = cast(dict[str, object], namespace["gui_exe"])
     cli_collect = cast(dict[str, object], namespace["cli_collect"])
     gui_collect = cast(dict[str, object], namespace["gui_collect"])
+    cli_exe_kwargs = cast(dict[str, object], cli_exe["kwargs"])
+    gui_exe_kwargs = cast(dict[str, object], gui_exe["kwargs"])
+    cli_collect_kwargs = cast(dict[str, object], cli_collect["kwargs"])
+    gui_collect_kwargs = cast(dict[str, object], gui_collect["kwargs"])
 
     assert cli_analysis.scripts == [str(Path("eodinga/__main__.py").resolve())]
     assert gui_analysis.scripts == [str(Path("packaging/windows/gui_entry.py").resolve())]
@@ -141,9 +145,9 @@ def test_pyinstaller_spec_exposes_real_build_targets_when_pyinstaller_symbols_ex
     assert gui_analysis.kwargs["hiddenimports"] == namespace["HIDDEN_IMPORTS"]
     assert cli_analysis.kwargs["datas"] == namespace["DATAS"]
     assert gui_analysis.kwargs["datas"] == namespace["DATAS"]
-    assert cli_exe["kwargs"]["name"] == "eodinga-cli"
-    assert cli_exe["kwargs"]["console"] is True
-    assert gui_exe["kwargs"]["name"] == "eodinga-gui"
-    assert gui_exe["kwargs"]["console"] is False
-    assert cli_collect["kwargs"]["name"] == "eodinga-cli"
-    assert gui_collect["kwargs"]["name"] == "eodinga-gui"
+    assert cli_exe_kwargs["name"] == "eodinga-cli"
+    assert cli_exe_kwargs["console"] is True
+    assert gui_exe_kwargs["name"] == "eodinga-gui"
+    assert gui_exe_kwargs["console"] is False
+    assert cli_collect_kwargs["name"] == "eodinga-cli"
+    assert gui_collect_kwargs["name"] == "eodinga-gui"

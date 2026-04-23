@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.933 - 2026-04-24
+
+- Fixed the rendered Windows Inno script so its staged `LICENSE` and PyInstaller payload paths resolve from `packaging/dist/windows/`, matching the actual installer compile location.
+- Turned `packaging/pyinstaller.spec` into a real dual-bundle spec with separate CLI and GUI entrypoints, so the Windows release workflow now has executable build targets instead of audit-only metadata.
+- Made `python packaging/build.py --target windows` invoke `pyinstaller` and `iscc`, then verify the staged installer artifact alongside the existing dist-directory and executable checks.
+
 ## 0.1.932 - 2026-04-24
 
 - Added contributor guidance for orchestrated module-worker rounds, including strict scope handling and a compact docs review packet for handoff evidence.
