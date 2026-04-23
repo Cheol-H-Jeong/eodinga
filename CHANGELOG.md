@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.731 - 2026-04-23
+## 0.1.735 - 2026-04-23
 
 - Taught phrase matching to treat underscores as token boundaries, so queries like `"launch checklist"` and `content:"launch checklist"` now match `launch_checklist` variants instead of requiring literal spaces.
 - Kept content phrase searches scanning after partial FTS hits, preventing exact literal matches from hiding underscore-delimited content variants in the same result set.
