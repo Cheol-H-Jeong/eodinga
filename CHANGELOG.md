@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.285 - 2026-04-23
+## 0.1.287 - 2026-04-23
 
 - Expanded the tray controller so it now exposes explicit `Open eodinga`, `Show launcher`, and `Hide launcher` actions while keeping the launcher toggle text synchronized with the popup window state.
 - Filled in missing launcher accessibility labels for the empty state, preview pane fields, shortcut guidance, and status summary so screen-reader coverage extends beyond the top-level widgets and action buttons.
