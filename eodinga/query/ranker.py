@@ -53,8 +53,10 @@ def apply_path_deboost(
 ) -> dict[int, float]:
     weights = weights or RankingWeights()
     adjusted = dict(scores)
+    markers = tuple(marker.casefold() for marker in weights.deboost_markers)
     for file_id, path in paths.items():
-        if any(marker in path for marker in weights.deboost_markers):
+        normalized_path = path.casefold()
+        if any(marker in normalized_path for marker in markers):
             adjusted[file_id] = adjusted.get(file_id, 0.0) * weights.deboost_factor
     return adjusted
 

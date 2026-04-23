@@ -30,6 +30,16 @@ def test_deboost_applies_to_vendor_dirs() -> None:
     assert scores[2] == 1.0
 
 
+def test_deboost_applies_case_insensitively_for_windows_style_vendor_dirs() -> None:
+    scores = apply_path_deboost(
+        {1: 1.0, 2: 1.0},
+        {1: r"C:\Repo\NODE_MODULES\pkg\index.js", 2: r"C:\Repo\Src\main.py"},
+        RankingWeights(deboost_factor=0.25),
+    )
+    assert scores[1] == 0.25
+    assert scores[2] == 1.0
+
+
 def test_rank_results_combines_rrf_boost_and_deboost() -> None:
     scores = rank_results(
         name_hits=[1, 2],
