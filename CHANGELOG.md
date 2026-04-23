@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.840 - 2026-04-23
+
+- Checkpoint staged rebuild databases before aborting on `SIGINT` or `SIGTERM`, so interrupted indexing rounds leave a clean `.next` resume snapshot instead of depending on stale WAL sidecars.
+- Relaxed startup recovery for interrupted `.next` and `.recover` files that have already been cleaned as invalid or uninitialized, preventing harmless zero-byte leftovers from blocking the app at open time.
+
 ## 0.1.837 - 2026-04-23
 
 - Bundled the `eodinga/` runtime tree into the staged Linux AppImage and Debian package roots so packaged launchers no longer depend on the source checkout being present at runtime.
