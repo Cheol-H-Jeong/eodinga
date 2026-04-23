@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.167 - 2026-04-23
+## 0.1.172 - 2026-04-23
 
 - Expanded runtime observability so rebuilds now report `index_rebuilds`, `roots_indexed`, `index_rebuild_ms`, per-event watcher counters, and query result volume counters alongside the existing search latency metrics.
 - Enriched crash diagnostics with command, version, platform, Python, cwd, and in-memory metric snapshots, and counted successful crash-log writes through a `crashes_written` runtime counter.
