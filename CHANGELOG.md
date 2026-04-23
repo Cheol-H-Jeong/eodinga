@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.219 - 2026-04-23
+
+- Added a single-root integration regression that applies live create and delete watcher updates, closes the index, reopens it, and proves the on-disk search view still reflects those changes without a rebuild.
+- Expanded the multi-root integration coverage so live create and delete events in one watched root survive a close/reopen cycle while preserving both global result sets and `search(..., root=...)` scoping.
+
 ## 0.1.216 - 2026-04-23
 
 - Clarified `README.md` as an operator-facing contract with a tighter at-a-glance summary, reference map, and FAQ coverage for local-only behavior, packaging, uninstall, and generated CLI docs.
