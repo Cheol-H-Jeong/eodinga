@@ -229,6 +229,7 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         errors.append("AppImage archive filename does not match the package version")
     recipe_payload = payload.get("recipe", {})
     icon_payload = payload.get("icon", {})
+    package_payload = payload.get("package", {})
     apprun_payload = payload.get("apprun", {})
     launcher_payload = payload.get("launcher", {})
     required_flags = [
@@ -242,9 +243,14 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (icon_payload.get("exists"), "AppImage icon asset is missing from the staged AppDir"),
         (icon_payload.get("diricon_exists"), "AppImage .DirIcon is missing"),
         (icon_payload.get("desktop_icon_matches_asset"), "AppImage desktop icon no longer matches the shipped asset"),
+        (package_payload.get("exists"), "AppImage no longer stages the eodinga package tree"),
+        (package_payload.get("main_exists"), "AppImage package tree is missing eodinga/__main__.py"),
+        (package_payload.get("i18n_en_exists"), "AppImage package tree is missing eodinga/i18n/en.json"),
+        (package_payload.get("i18n_ko_exists"), "AppImage package tree is missing eodinga/i18n/ko.json"),
         (apprun_payload.get("is_executable"), "AppImage AppRun is not executable"),
         (apprun_payload.get("launches_gui"), "AppImage AppRun no longer launches the GUI target"),
         (launcher_payload.get("is_executable"), "AppImage launcher shim is not executable"),
+        (launcher_payload.get("sets_pythonpath"), "AppImage launcher shim no longer exposes the packaged Python path"),
         (launcher_payload.get("executes_python_module"), "AppImage launcher shim no longer executes the Python module"),
     ]
     for ok, message in required_flags:

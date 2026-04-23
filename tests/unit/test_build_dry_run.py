@@ -174,18 +174,26 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
             "diricon_exists": True,
             "desktop_icon_matches_asset": True,
         },
+        "package": {
+            "exists": True,
+            "main_exists": True,
+            "i18n_en_exists": True,
+            "i18n_ko_exists": True,
+        },
         "apprun": {
             "is_executable": True,
             "launches_gui": True,
         },
         "launcher": {
             "is_executable": True,
+            "sets_pythonpath": False,
             "executes_python_module": False,
         },
     }
 
     errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
 
+    assert "AppImage launcher shim no longer exposes the packaged Python path" in errors
     assert "AppImage launcher shim no longer executes the Python module" in errors
 
 
@@ -255,9 +263,14 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["icon"]["exists"] is True
     assert payload["icon"]["diricon_exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True
+    assert payload["package"]["exists"] is True
+    assert payload["package"]["main_exists"] is True
+    assert payload["package"]["i18n_en_exists"] is True
+    assert payload["package"]["i18n_ko_exists"] is True
     assert payload["apprun"]["is_executable"] is True
     assert payload["apprun"]["launches_gui"] is True
     assert payload["launcher"]["is_executable"] is True
+    assert payload["launcher"]["sets_pythonpath"] is True
     assert payload["launcher"]["executes_python_module"] is True
 
 
