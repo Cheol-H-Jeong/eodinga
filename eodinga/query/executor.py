@@ -143,6 +143,48 @@ def _content_backfill_sql(has_where_sql: bool) -> str:
     return sql
 
 
+@lru_cache(maxsize=128)
+def _content_texts_sql(chunk_size: int) -> str:
+    placeholders = ", ".join("?" for _ in range(chunk_size))
+    return f"""
+        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
+        FROM content_map
+        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
+        WHERE content_map.file_id IN ({placeholders})
+    """
+
+
+@lru_cache(maxsize=256)
+def _compile_regex(pattern: str, flags: str, default_case_sensitive: bool) -> re.Pattern[str]:
+    return re.compile(
+        pattern,
+        _make_flags(flags)
+        | (0 if default_case_sensitive or "i" in flags.lower() else re.IGNORECASE),
+    )
+
+
+@lru_cache(maxsize=128)
+def _root_scope_clause_cached(root_key: str) -> tuple[str, tuple[object, ...]]:
+    variants = tuple(
+        sorted(
+            dict.fromkeys(
+                (
+                    root_key,
+                    root_key.replace("\\", "/"),
+                    root_key.replace("/", "\\"),
+                )
+            )
+        )
+    )
+    exact_params = variants
+    like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
+        f"{variant}\\%" for variant in variants
+    )
+    exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
+    like_clause = " OR ".join("files.path LIKE ?" for _ in like_params)
+    return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
+
+
 def _row_to_record(row: Mapping[str, object]) -> FileRecord:
     payload = {key: row[key] for key in row.keys()}  # type: ignore[arg-type]
     payload["is_dir"] = bool(payload["is_dir"])
@@ -214,11 +256,7 @@ def _regex_ok(
     negated: bool,
     default_case_sensitive: bool,
 ) -> bool:
-    compiled = re.compile(
-        pattern,
-        _make_flags(flags)
-        | (0 if default_case_sensitive or "i" in flags.lower() else re.IGNORECASE),
-    )
+    compiled = _compile_regex(pattern, flags, default_case_sensitive)
     matched = bool(compiled.search(text))
     return not matched if negated else matched
 
@@ -312,23 +350,8 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
     root_text = str(root)
-    normalized = root_text.rstrip("/\\") or root_text
-    variants = tuple(
-        dict.fromkeys(
-            (
-                normalized,
-                normalized.replace("\\", "/"),
-                normalized.replace("/", "\\"),
-            )
-        )
-    )
-    exact_params = variants
-    like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
-        f"{variant}\\%" for variant in variants
-    )
-    exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
-    like_clause = " OR ".join("files.path LIKE ?" for _ in like_params)
-    return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
+    root_key = root_text.replace("\\", "/").rstrip("/") or root_text.replace("\\", "/")
+    return _root_scope_clause_cached(root_key)
 
 
 def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:
@@ -552,14 +575,7 @@ def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[i
     id_list = tuple(dict.fromkeys(ids))
     if not id_list:
         return {}
-    placeholders = ", ".join("?" for _ in id_list)
-    sql = f"""
-        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
-        FROM content_map
-        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
-        WHERE content_map.file_id IN ({placeholders})
-    """
-    rows = conn.execute(sql, id_list).fetchall()
+    rows = conn.execute(_content_texts_sql(len(id_list)), id_list).fetchall()
     return {
         row["file_id"]: " ".join(
             part for part in (row["title"], row["head_text"], row["body_text"]) if part

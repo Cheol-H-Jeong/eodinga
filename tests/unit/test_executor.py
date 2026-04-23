@@ -1172,3 +1172,44 @@ def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:
 
     hits = [hit.file.name for hit in search(tmp_db, "-(-(alpha | beta))", limit=10).hits]
     assert hits == ["alpha.txt", "beta.txt"]
+
+
+def test_executor_caches_regex_compilation() -> None:
+    executor_module._compile_regex.cache_clear()
+
+    assert executor_module._regex_ok(
+        "release-123",
+        r"release-\d+",
+        "",
+        negated=False,
+        default_case_sensitive=False,
+    )
+    assert executor_module._regex_ok(
+        "release-456",
+        r"release-\d+",
+        "",
+        negated=False,
+        default_case_sensitive=False,
+    )
+
+    assert executor_module._compile_regex.cache_info().hits >= 1
+
+
+def test_executor_caches_content_text_sql_by_batch_shape() -> None:
+    executor_module._content_texts_sql.cache_clear()
+
+    sql_a = executor_module._content_texts_sql(2)
+    sql_b = executor_module._content_texts_sql(2)
+
+    assert sql_a == sql_b
+    assert executor_module._content_texts_sql.cache_info().hits >= 1
+
+
+def test_executor_caches_root_scope_clause_variants() -> None:
+    executor_module._root_scope_clause_cached.cache_clear()
+
+    clause_a = executor_module._root_scope_clause(Path(r"C:\workspace\reports"))
+    clause_b = executor_module._root_scope_clause(Path("C:/workspace/reports"))
+
+    assert clause_a == clause_b
+    assert executor_module._root_scope_clause_cached.cache_info().hits >= 1
