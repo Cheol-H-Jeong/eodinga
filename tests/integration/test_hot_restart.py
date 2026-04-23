@@ -321,6 +321,53 @@ def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updat
     assert not staged_db.exists()
 
 
+def test_hot_restart_resumes_interrupted_multi_root_build_with_root_scoped_queries(
+    tmp_path: Path,
+) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    target_db = tmp_path / "database" / "index.db"
+    staged_db = tmp_path / "database" / ".index.db.next"
+    root_a.mkdir()
+    root_b.mkdir()
+    alpha = root_a / "alpha-recovered.txt"
+    beta = root_b / "beta-recovered.txt"
+    alpha.write_text("recovered interrupted alpha root\n", encoding="utf-8")
+    beta.write_text("recovered interrupted beta root\n", encoding="utf-8")
+
+    rebuild_index(
+        target_db,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+    rebuild_index(
+        staged_db,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+    target_db.unlink()
+    assert staged_db.exists()
+
+    reopened = open_index(target_db)
+    try:
+        all_hits = {hit.file.path for hit in search(reopened, "recovered interrupted", limit=5).hits}
+        alpha_hits = {
+            hit.file.path
+            for hit in search(reopened, "recovered interrupted", limit=5, root=root_a).hits
+        }
+        beta_hits = {
+            hit.file.path
+            for hit in search(reopened, "recovered interrupted", limit=5, root=root_b).hits
+        }
+    finally:
+        reopened.close()
+
+    assert all_hits == {alpha, beta}
+    assert alpha_hits == {alpha}
+    assert beta_hits == {beta}
+    assert not staged_db.exists()
+
+
 def test_hot_restart_reopen_multi_root_modify_updates_root_scoped_queries(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
