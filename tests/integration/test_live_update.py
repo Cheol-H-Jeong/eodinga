@@ -121,6 +121,43 @@ def test_live_delete_removed_from_search_within_500ms(tmp_path: Path) -> None:
     assert elapsed <= 0.5
 
 
+def test_live_modify_replaces_query_visibility_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    target = root / "live-modify.txt"
+    target.write_text("before live rewrite marker\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(conn, "before live rewrite", limit=5).hits]
+        target.write_text("after live rewrite marker\n", encoding="utf-8")
+
+        elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "after live rewrite",
+            target,
+            deadline_seconds=0.5,
+        )
+        previous_hits = [hit.file.path for hit in search(conn, "before live rewrite", limit=5).hits]
+        current_hits = [hit.file.path for hit in search(conn, "after live rewrite", limit=5).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_hits == [target]
+    assert elapsed <= 0.5
+    assert previous_hits == []
+    assert current_hits == [target]
+
+
 def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
@@ -166,6 +203,68 @@ def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: P
     assert elapsed <= 0.5
     assert alpha_hits == []
     assert beta_hits == [created]
+
+
+def test_live_cross_root_move_updates_global_and_root_scoped_queries(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    moved = root_a / "moved-note.txt"
+    moved.write_text("cross root move integration\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        initial_alpha_hits = [
+            hit.file.path for hit in search(conn, "cross root move integration", limit=5, root=root_a).hits
+        ]
+        destination = root_b / moved.name
+        moved.rename(destination)
+
+        appeared_elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "cross root move integration",
+            destination,
+            deadline_seconds=0.5,
+        )
+        removed_elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "cross root move integration",
+            moved,
+            deadline_seconds=0.5,
+        )
+        alpha_hits = [
+            hit.file.path for hit in search(conn, "cross root move integration", limit=5, root=root_a).hits
+        ]
+        beta_hits = [
+            hit.file.path for hit in search(conn, "cross root move integration", limit=5, root=root_b).hits
+        ]
+        all_hits = [hit.file.path for hit in search(conn, "cross root move integration", limit=5).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_alpha_hits == [moved]
+    assert appeared_elapsed <= 0.5
+    assert removed_elapsed <= 0.5
+    assert alpha_hits == []
+    assert beta_hits == [destination]
+    assert all_hits == [destination]
 
 
 def test_live_delete_removed_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
