@@ -80,6 +80,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     inno_text = INNO_SCRIPT.read_text(encoding="utf-8")
     app_id = _macro_value(inno_text, "AppId")
     app_version = _macro_value(inno_text, "AppVersion")
+    app_publisher = _macro_value(inno_text, "AppPublisher")
     cli_dist_name = str(spec_namespace.get("CLI_DIST_NAME", "eodinga-cli"))
     gui_dist_name = str(spec_namespace.get("GUI_DIST_NAME", "eodinga-gui"))
     cli_exe_name = str(spec_namespace.get("CLI_EXE_NAME", f"{cli_dist_name}.exe"))
@@ -129,6 +130,8 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "app_id_is_guid_macro": app_id is not None and bool(_INNO_APP_ID_PATTERN.fullmatch(app_id)),
             "app_version_macro": app_version,
             "app_version_uses_template": app_version == INNO_VERSION_TOKEN,
+            "app_publisher_macro": app_publisher,
+            "app_publisher_present": bool(app_publisher),
             "source_entries": source_entries,
             "source_entries_match_pyinstaller_dist": source_entries == expected_source_entries,
             "contains_app_version_template": INNO_VERSION_TOKEN in inno_text,
@@ -138,6 +141,8 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "rendered_source_entries_match_pyinstaller_dist": _source_entries(rendered_text) == rendered_source_entries,
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
             "contains_user_install_dir": _inno_contains(rendered_text, r"DefaultDirName={userappdata}\eodinga"),
+            "contains_license_file": _inno_contains(rendered_text, "LicenseFile=LICENSE"),
+            "contains_modern_wizard_style": _inno_contains(rendered_text, "WizardStyle=modern"),
             "contains_rendered_uninstall_display_icon": _inno_contains(
                 rendered_text,
                 f"UninstallDisplayIcon={{app}}\\{gui_exe_name}",
@@ -197,11 +202,22 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     required_flags = {
         "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
         "app_version_uses_template": "Inno AppVersion macro no longer uses the template token",
+        "app_publisher_present": "Inno AppPublisher macro is missing",
         "source_entries_match_pyinstaller_dist": "Inno source entries drifted from PyInstaller dist names",
         "rendered_source_entries_match_pyinstaller_dist": "Rendered Inno source entries drifted from PyInstaller dist names",
+        "contains_versioned_output_macro": "Rendered Inno output filename no longer uses the version macro",
+        "contains_user_install_dir": "Rendered Inno install directory drifted from the per-user application path",
+        "contains_license_file": "Rendered Inno installer no longer ships the project license",
+        "contains_modern_wizard_style": "Rendered Inno installer no longer uses the modern wizard style",
         "contains_rendered_uninstall_display_icon": "Rendered Inno uninstall icon does not point at the GUI executable",
         "contains_start_menu_shortcut": "Rendered Inno start menu shortcut is missing",
+        "contains_desktop_shortcut_task": "Inno desktop shortcut task is missing",
         "contains_postinstall_launch": "Rendered Inno postinstall launch action is missing",
+        "privileges_lowest": "Rendered Inno installer no longer runs with lowest privileges",
+        "disables_program_group_page": "Rendered Inno installer no longer hides the program group page",
+        "disables_dir_page": "Rendered Inno installer no longer hides the directory page",
+        "includes_korean_language": "Rendered Inno installer no longer ships the Korean language pack",
+        "contains_autostart_task": "Inno autostart task is missing",
         "contains_autostart_registry": "Inno autostart registry entry is missing",
         "rendered_autostart_registry_matches_gui_exe": "Rendered Inno autostart registry entry does not point at the GUI executable",
         "contains_uninstall_purge_prompt": "Inno uninstall purge prompt is missing",

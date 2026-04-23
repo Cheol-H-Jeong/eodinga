@@ -62,8 +62,12 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["app_id_is_guid_macro"] is True
     assert payload["inno_setup"]["app_version_macro"] == "@@APP_VERSION@@"
     assert payload["inno_setup"]["app_version_uses_template"] is True
+    assert payload["inno_setup"]["app_publisher_macro"] == "Cheol-H-Jeong"
+    assert payload["inno_setup"]["app_publisher_present"] is True
     assert payload["inno_setup"]["contains_versioned_output_macro"] is True
     assert payload["inno_setup"]["contains_user_install_dir"] is True
+    assert payload["inno_setup"]["contains_license_file"] is True
+    assert payload["inno_setup"]["contains_modern_wizard_style"] is True
     assert payload["inno_setup"]["contains_rendered_uninstall_display_icon"] is True
     assert payload["inno_setup"]["contains_start_menu_shortcut"] is True
     assert payload["inno_setup"]["contains_desktop_shortcut_task"] is True
@@ -105,6 +109,18 @@ def test_windows_audit_validator_rejects_missing_source_hidden_import_contract()
     errors = module._validate_windows_audit(payload)
 
     assert "PyInstaller hidden imports no longer include the source-derived modules" in errors
+
+
+def test_windows_audit_validator_rejects_missing_installer_contract() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["inno_setup"]["contains_license_file"] = False
+    payload["inno_setup"]["contains_autostart_task"] = False
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "Rendered Inno installer no longer ships the project license" in errors
+    assert "Inno autostart task is missing" in errors
 
 
 def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
