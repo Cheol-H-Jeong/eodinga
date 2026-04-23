@@ -8,7 +8,12 @@ from stat import S_ISDIR, S_ISLNK
 from time import time
 
 from eodinga.common import FileRecord, PathRules
-from eodinga.core.fs import resolve_safe, scandir_safe, stat_follow_safe, stat_safe
+from eodinga.core.fs import (
+    resolve_safe,
+    scandir_with_stat_safe,
+    stat_follow_safe,
+    stat_safe,
+)
 from eodinga.core.rules import should_index
 
 BATCH_SIZE = 8192
@@ -49,17 +54,27 @@ def _should_descend(path: Path, root: Path, stat_result: stat_result) -> bool:
         return False
 
 
+def _iter_children(current: Path) -> Iterator[tuple[Path, stat_result | None]]:
+    try:
+        for entry in scandir_with_stat_safe(current):
+            yield entry.path, entry.stat_result
+    except OSError:
+        return
+
+
 def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[list[FileRecord]]:
-    queue: deque[Path] = deque([root])
+    queue: deque[tuple[Path, stat_result | None]] = deque([(root, None)])
     visited_dirs: set[tuple[int, int]] = set()
     visited_resolved_dirs: set[Path] = set()
     batch: list[FileRecord] = []
     while queue:
-        current = queue.popleft()
-        try:
-            stat_result = stat_safe(current)
-        except OSError:
-            continue
+        current, cached_stat = queue.popleft()
+        stat_result = cached_stat
+        if stat_result is None:
+            try:
+                stat_result = stat_safe(current)
+            except OSError:
+                continue
         if not should_index(current, rules):
             continue
         batch.append(_to_record(root_id=root_id, path=current, stat_result=stat_result))
@@ -79,10 +94,6 @@ def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[lis
             continue
         visited_dirs.add(inode_key)
         visited_resolved_dirs.add(resolved_dir)
-        try:
-            children = scandir_safe(current)
-        except OSError:
-            continue
-        queue.extend(children)
+        queue.extend(_iter_children(current))
     if batch:
         yield batch
