@@ -9,7 +9,12 @@ from eodinga.common import PathRules
 from eodinga.config import RootConfig
 from eodinga.content.registry import parse
 from eodinga.core.walker import walk_batched
-from eodinga.index.storage import _cleanup_index_files, atomic_replace_index, connect_database
+from eodinga.index.storage import (
+    _cleanup_index_files,
+    atomic_replace_index,
+    bulk_write_pragmas,
+    connect_database,
+)
 from eodinga.index.writer import IndexWriter
 from eodinga.observability import increment_counter, record_histogram
 
@@ -56,36 +61,37 @@ def rebuild_index(
     )
     try:
         writer = IndexWriter(conn, parser_callback=parser_callback)
-        with conn:
-            for root_id, root in enumerate(effective_roots, start=1):
-                conn.execute(
-                    """
-                    INSERT INTO roots(id, path, include, exclude, added_at)
-                    VALUES (?, ?, ?, ?, strftime('%s', 'now'))
-                    """,
-                    (
-                        root_id,
-                        str(root.path),
-                        json.dumps(root.include),
-                        json.dumps(root.exclude),
-                    ),
-                )
-                rules = PathRules(
-                    root=root.path,
-                    include=tuple(root.include),
-                    exclude=tuple(root.exclude),
-                )
-                for batch in walk_batched(root.path, rules, root_id=root_id):
-                    indexed = writer.bulk_upsert(batch)
-                    if batch:
-                        record_histogram(
-                            "index_batch_size",
-                            float(len(batch)),
-                            root=str(root.path),
-                        )
-                    files_indexed += indexed
-                    if indexed:
-                        increment_counter("files_indexed", indexed, root=str(root.path))
+        with bulk_write_pragmas(conn):
+            with conn:
+                for root_id, root in enumerate(effective_roots, start=1):
+                    conn.execute(
+                        """
+                        INSERT INTO roots(id, path, include, exclude, added_at)
+                        VALUES (?, ?, ?, ?, strftime('%s', 'now'))
+                        """,
+                        (
+                            root_id,
+                            str(root.path),
+                            json.dumps(root.include),
+                            json.dumps(root.exclude),
+                        ),
+                    )
+                    rules = PathRules(
+                        root=root.path,
+                        include=tuple(root.include),
+                        exclude=tuple(root.exclude),
+                    )
+                    for batch in walk_batched(root.path, rules, root_id=root_id):
+                        indexed = writer.bulk_upsert(batch)
+                        if batch:
+                            record_histogram(
+                                "index_batch_size",
+                                float(len(batch)),
+                                root=str(root.path),
+                            )
+                        files_indexed += indexed
+                        if indexed:
+                            increment_counter("files_indexed", indexed, root=str(root.path))
     except Exception:
         conn.close()
         _cleanup_index_files(staged_path)

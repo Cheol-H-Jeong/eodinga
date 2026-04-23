@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sqlite3
 import shutil
+from contextlib import contextmanager
 from pathlib import Path
 
 from eodinga.index.migrations import migrate
@@ -10,6 +11,8 @@ from eodinga.index.schema import PRAGMAS
 from eodinga.observability import get_logger
 
 SQLITE_CACHED_STATEMENTS = 128
+SQLITE_SYNCHRONOUS_NORMAL = 1
+SQLITE_SYNCHRONOUS_FULL = 2
 
 
 def _sidecar(path: Path, suffix: str) -> Path:
@@ -33,6 +36,34 @@ def connect_database(
         sqlite3.connect(path, cached_statements=SQLITE_CACHED_STATEMENTS),
         row_factory=row_factory,
     )
+
+
+def _pragma_int(conn: sqlite3.Connection, name: str) -> int:
+    row = conn.execute(f"PRAGMA {name};").fetchone()
+    assert row is not None
+    return int(row[0])
+
+
+def _pragma_synchronous_name(value: int) -> str:
+    if value == SQLITE_SYNCHRONOUS_NORMAL:
+        return "NORMAL"
+    if value == SQLITE_SYNCHRONOUS_FULL:
+        return "FULL"
+    return str(value)
+
+
+@contextmanager
+def bulk_write_pragmas(conn: sqlite3.Connection):
+    previous_synchronous = _pragma_int(conn, "synchronous")
+    if previous_synchronous != SQLITE_SYNCHRONOUS_NORMAL:
+        conn.execute("PRAGMA synchronous=NORMAL;")
+    try:
+        yield
+    finally:
+        if previous_synchronous != SQLITE_SYNCHRONOUS_NORMAL:
+            conn.execute(
+                f"PRAGMA synchronous={_pragma_synchronous_name(previous_synchronous)};"
+            )
 
 
 def _checkpoint_wal(path: Path) -> None:

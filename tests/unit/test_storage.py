@@ -10,7 +10,9 @@ import pytest
 from eodinga.index.schema import apply_schema
 from eodinga.index.storage import (
     SQLITE_CACHED_STATEMENTS,
+    SQLITE_SYNCHRONOUS_FULL,
     atomic_replace_index,
+    bulk_write_pragmas,
     connect_database,
     has_stale_wal,
     open_index,
@@ -223,6 +225,18 @@ def test_connect_database_applies_row_factory_and_pragmas(tmp_path: Path) -> Non
         conn.close()
 
 
+def test_connect_database_defaults_to_full_synchronous_mode(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+
+    conn = connect_database(path)
+    try:
+        synchronous = conn.execute("PRAGMA synchronous;").fetchone()
+        assert synchronous is not None
+        assert int(synchronous[0]) == SQLITE_SYNCHRONOUS_FULL
+    finally:
+        conn.close()
+
+
 def test_connect_database_accepts_disabled_row_factory(tmp_path: Path) -> None:
     path = tmp_path / "index.db"
 
@@ -249,6 +263,24 @@ def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, m
     try:
         assert seen["database"] == path
         assert seen["cached_statements"] == SQLITE_CACHED_STATEMENTS
+    finally:
+        conn.close()
+
+
+def test_bulk_write_pragmas_restore_previous_synchronous_mode(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    conn = connect_database(path)
+    try:
+        before = conn.execute("PRAGMA synchronous;").fetchone()
+        assert before is not None
+        assert int(before[0]) == SQLITE_SYNCHRONOUS_FULL
+        with bulk_write_pragmas(conn):
+            during = conn.execute("PRAGMA synchronous;").fetchone()
+            assert during is not None
+            assert int(during[0]) == 1
+        after = conn.execute("PRAGMA synchronous;").fetchone()
+        assert after is not None
+        assert int(after[0]) == SQLITE_SYNCHRONOUS_FULL
     finally:
         conn.close()
 

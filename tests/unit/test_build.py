@@ -10,6 +10,7 @@ import eodinga.index.build as build_module
 from eodinga.config import RootConfig
 from eodinga.index.build import rebuild_index
 from eodinga.index.schema import apply_schema
+from eodinga.index.storage import SQLITE_SYNCHRONOUS_FULL, connect_database
 from eodinga.observability import reset_metrics, snapshot_metrics
 
 
@@ -96,3 +97,33 @@ def test_rebuild_index_records_runtime_metrics(tmp_path: Path) -> None:
     assert metrics["counters"]["files_indexed"] == 3
     assert metrics["histograms"]["index_rebuild_latency_ms"]["count"] == 1
     assert cast(int, batch_histogram["count"]) >= 1
+
+
+def test_rebuild_index_temporarily_relaxes_synchronous_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    seen: list[int] = []
+    original_writer = build_module.IndexWriter
+
+    class CheckingWriter(original_writer):
+        def bulk_upsert(self, records):  # type: ignore[override]
+            row = self._conn.execute("PRAGMA synchronous;").fetchone()
+            assert row is not None
+            seen.append(int(row[0]))
+            return super().bulk_upsert(records)
+
+    monkeypatch.setattr(build_module, "IndexWriter", CheckingWriter)
+
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    assert seen
+    assert all(value == 1 for value in seen)
+    conn = connect_database(db_path)
+    try:
+        row = conn.execute("PRAGMA synchronous;").fetchone()
+        assert row is not None
+        assert int(row[0]) == SQLITE_SYNCHRONOUS_FULL
+    finally:
+        conn.close()
