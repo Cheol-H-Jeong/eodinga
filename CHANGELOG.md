@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.919 - 2026-04-24
+## 0.1.923 - 2026-04-24
 
 - Restored the full undelivered watcher flush tail when queue backpressure interrupts a batch, preventing later ready events from disappearing after the first blocked enqueue.
 - Made index and sidecar cleanup unlink operations race-safe with `missing_ok=True`, so crash recovery and startup cleanup do not fail if another process removes the files between existence checks and deletion.
