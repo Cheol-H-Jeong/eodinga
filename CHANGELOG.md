@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.415 - 2026-04-23
+## 0.1.416 - 2026-04-23
 
 - Extended phrase fallback matching so quoted queries now bridge underscore-separated path and content tokens, not just whitespace and punctuation.
 - Allowed relative `date:` aliases such as `today`, `last-week`, and `last-month` to participate inside bounded and open-ended date ranges.
