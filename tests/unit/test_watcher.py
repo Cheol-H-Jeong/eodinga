@@ -10,6 +10,7 @@ from watchdog.events import FileMovedEvent
 
 from eodinga.common import WatchEvent
 from eodinga.core.watcher import WatchService, _Handler
+from eodinga.observability import reset_metrics, snapshot_metrics
 
 
 def test_watcher_handler_maps_move_leaving_root_to_delete(tmp_path: Path) -> None:
@@ -642,12 +643,16 @@ def test_watcher_start_ignores_duplicate_root_registration(
     monkeypatch.setattr(watcher_module, "Observer", FakeObserver)
 
     service = WatchService()
+    reset_metrics()
     service.start(tmp_path)
     service.start(tmp_path)
     service.stop()
 
+    metrics = snapshot_metrics()
     assert started == [tmp_path]
     assert stopped == [tmp_path]
+    assert metrics["counters"]["watcher_observers_started"] == 1
+    assert metrics["counters"]["watcher_observers_stopped"] == 1
 
 
 def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path) -> None:

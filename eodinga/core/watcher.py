@@ -126,11 +126,14 @@ class WatchService:
         observer.schedule(_Handler(self, root), str(root), recursive=True)
         observer.start()
         self._observers[root] = observer
+        increment_counter("watcher_observers_started", root=str(root))
 
     def stop(self) -> None:
         self._stop.set()
         for observer in self._observers.values():
             observer.stop()
+        if self._observers:
+            increment_counter("watcher_observers_stopped", len(self._observers))
         for observer in self._observers.values():
             observer.join(timeout=1)
         if self._flush_thread is not None and self._flush_thread.is_alive():
