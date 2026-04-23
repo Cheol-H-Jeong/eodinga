@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.818 - 2026-04-23
+## 0.1.819 - 2026-04-23
 
 - Persisted observability counters, histograms, and recent command snapshots to an atomic state-file path, so metrics survive process restarts instead of resetting to the current process only.
 - Updated `eodinga stats --json` to read from the persisted metrics store when enabled and to report the metrics-path and persistence status alongside the existing runtime metadata.
