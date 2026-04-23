@@ -693,3 +693,102 @@ def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path)
 
     second_event = service.queue.get_nowait()
     assert second_event.path == second
+
+
+def test_watcher_immediate_move_emit_retries_after_backpressure(tmp_path: Path) -> None:
+    service = WatchService(queue_maxsize=1)
+    source = tmp_path / "before.txt"
+    destination = tmp_path / "after.txt"
+    finished = False
+
+    service.queue.put_nowait(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "occupied.txt",
+            root_path=tmp_path,
+            happened_at=0.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="moved",
+            path=destination,
+            src_path=source,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+
+    def emit_delete() -> None:
+        nonlocal finished
+        service.record(
+            WatchEvent(
+                event_type="deleted",
+                path=destination,
+                root_path=tmp_path,
+                happened_at=2.0,
+            )
+        )
+        finished = True
+
+    thread = Thread(target=emit_delete, daemon=True)
+    thread.start()
+    sleep(0.1)
+
+    assert finished is False
+
+    assert list(service.queue.queue)[0].path == tmp_path / "occupied.txt"
+
+    first_event = service.queue.get_nowait()
+    assert first_event.path == tmp_path / "occupied.txt"
+
+    moved = service.queue.get(timeout=1)
+    assert moved.event_type == "moved"
+    assert moved.path == destination
+    assert moved.src_path == source
+
+    thread.join(timeout=1)
+    assert finished is True
+
+    deleted = service.queue.get(timeout=1)
+    assert deleted.event_type == "deleted"
+    assert deleted.path == destination
+
+
+def test_watcher_flush_backpressure_requeues_all_undelivered_events(tmp_path: Path) -> None:
+    service = WatchService(queue_maxsize=1)
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    third = tmp_path / "third.txt"
+
+    for happened_at, path in enumerate((first, second, third), start=1):
+        service.record(
+            WatchEvent(
+                event_type="created",
+                path=path,
+                root_path=tmp_path,
+                happened_at=float(happened_at),
+            )
+        )
+
+    finished = False
+
+    def flush() -> None:
+        nonlocal finished
+        service._flush_ready(force=True)
+        finished = True
+
+    thread = Thread(target=flush, daemon=True)
+    thread.start()
+    sleep(0.1)
+
+    assert finished is False
+    assert service.queue.get_nowait().path == first
+
+    assert service.queue.get(timeout=1).path == second
+
+    thread.join(timeout=1)
+    assert finished is True
+
+    third_event = service.queue.get(timeout=1)
+    assert third_event.path == third

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 from collections.abc import Callable
 from os import fsdecode
 from pathlib import Path
@@ -104,6 +105,7 @@ class _Handler(FileSystemEventHandler):
 class WatchService:
     def __init__(self, *, queue_maxsize: int = _DEFAULT_QUEUE_MAXSIZE) -> None:
         self.queue: Queue[WatchEvent] = Queue(maxsize=max(1, queue_maxsize))
+        self._immediate: deque[WatchEvent] = deque()
         self._pending: dict[Path, WatchEvent] = {}
         self._retired_sources: dict[Path, set[Path]] = {}
         self._flushed_retired_sources: set[Path] = set()
@@ -141,7 +143,7 @@ class WatchService:
 
     def record(self, event: WatchEvent) -> None:
         increment_counter("watcher_events", event_type=event.event_type)
-        immediate_emit: WatchEvent | None = None
+        immediate_emit = False
         flush_now = False
         with self._lock:
             if event.event_type in {"created", "modified"}:
@@ -165,7 +167,8 @@ class WatchService:
                 and existing.event_type == "moved"
                 and event.event_type == "deleted"
             ):
-                immediate_emit = existing
+                self._immediate.append(existing)
+                immediate_emit = True
                 self._pending[event.path] = event
                 self._timestamps[event.path] = monotonic()
             else:
@@ -181,8 +184,8 @@ class WatchService:
                         self._retired_sources[event.path] = moved_retired_sources
                     self._timestamps[event.path] = monotonic()
                 flush_now = len(self._pending) >= _FLUSH_LIMIT
-        if immediate_emit is not None:
-            self._enqueue_event(immediate_emit)
+        if immediate_emit:
+            self._flush_ready(force=False)
             return
         if flush_now:
             self._flush_ready(force=True)
@@ -263,8 +266,10 @@ class WatchService:
         self._flush_ready(force=True)
 
     def _flush_ready(self, force: bool) -> None:
+        if not self._drain_immediate_events():
+            return
         now = monotonic()
-        flushed: list[WatchEvent] = []
+        flushed: list[tuple[WatchEvent, set[Path]]] = []
         with self._lock:
             ready_paths = [
                 path
@@ -278,29 +283,38 @@ class WatchService:
                 if event is not None:
                     if event.event_type == "moved" and event.src_path is not None:
                         retired_sources = {event.src_path, *retired_sources}
+                    flushed.append((event, retired_sources))
+        delivered: list[tuple[WatchEvent, set[Path]]] = []
+        for index, (event, retired_sources) in enumerate(flushed):
+            if not self._enqueue_event(event):
+                with self._lock:
+                    for pending_event, pending_retired_sources in flushed[index:]:
+                        self._pending[pending_event.path] = pending_event
+                        if pending_retired_sources:
+                            pending_sources = self._retired_sources.setdefault(
+                                pending_event.path, set()
+                            )
+                            pending_sources.update(pending_retired_sources)
+                        self._timestamps[pending_event.path] = now
+                break
+            delivered.append((event, retired_sources))
+        if delivered:
+            with self._lock:
+                for event, retired_sources in delivered:
                     if retired_sources:
                         self._flushed_retired_sources.update(retired_sources)
                     if event.event_type in {"created", "modified", "deleted"}:
                         self._flushed_retired_sources.discard(event.path)
-                    flushed.append(event)
-        delivered: list[WatchEvent] = []
-        for event in flushed:
-            if not self._enqueue_event(event):
-                with self._lock:
-                    self._pending[event.path] = event
-                    self._timestamps[event.path] = now
-                break
-            delivered.append(event)
-        if delivered:
             increment_counter("watcher_flushes")
             increment_counter("watcher_events_flushed", len(delivered))
             record_histogram("watch_flush_batch_size", float(len(delivered)))
-            for event in delivered:
+            for event, _retired_sources in delivered:
                 lag_ms = max((now - event.happened_at) * 1000, 0.0)
                 record_histogram("watch_event_lag_ms", lag_ms, event_type=event.event_type)
 
     def _reset_state(self) -> None:
         with self._lock:
+            self._immediate.clear()
             self._pending.clear()
             self._retired_sources.clear()
             self._flushed_retired_sources.clear()
@@ -332,3 +346,15 @@ class WatchService:
                     )
         increment_counter("watcher_enqueue_aborted", event_type=event.event_type)
         return False
+
+    def _drain_immediate_events(self) -> bool:
+        while True:
+            with self._lock:
+                if not self._immediate:
+                    return True
+                event = self._immediate[0]
+            if not self._enqueue_event(event):
+                return False
+            with self._lock:
+                if self._immediate and self._immediate[0] == event:
+                    self._immediate.popleft()
