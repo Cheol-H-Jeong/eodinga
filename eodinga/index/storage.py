@@ -64,6 +64,13 @@ def _cleanup_index_files(path: Path) -> bool:
     return cleaned
 
 
+def _cleanup_index_files_durable(path: Path) -> bool:
+    cleaned = _cleanup_index_files(path)
+    if cleaned:
+        _fsync_directory(path.parent)
+    return cleaned
+
+
 def _fsync_file(path: Path) -> None:
     if not path.exists():
         return
@@ -228,27 +235,27 @@ def recover_interrupted_recovery(path: Path) -> bool:
     logger.warning("resuming interrupted recovery for {}", path)
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
-            _cleanup_index_files(staged_path)
-            _cleanup_partial_copy_artifacts(staged_path)
+            _cleanup_index_files_durable(staged_path)
+            _cleanup_partial_copy_artifacts(staged_path, durable=True)
             return False
         if not _has_initialized_schema(staged_path):
             logger.warning("skipping interrupted recovery swap with uninitialized stage {}", staged_path)
-            _cleanup_index_files(staged_path)
-            _cleanup_partial_copy_artifacts(staged_path)
+            _cleanup_index_files_durable(staged_path)
+            _cleanup_partial_copy_artifacts(staged_path, durable=True)
             return False
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted recovery preparation for {}", path)
-        _cleanup_index_files(staged_path)
-        _cleanup_partial_copy_artifacts(staged_path)
+        _cleanup_index_files_durable(staged_path)
+        _cleanup_partial_copy_artifacts(staged_path, durable=True)
         return False
     try:
         atomic_replace_index(staged_path, path)
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted recovery swap for {}", path)
-        _cleanup_partial_copy_artifacts(staged_path)
+        _cleanup_partial_copy_artifacts(staged_path, durable=True)
         return False
-    _cleanup_index_files(staged_path)
-    _cleanup_partial_copy_artifacts(staged_path)
+    _cleanup_index_files_durable(staged_path)
+    _cleanup_partial_copy_artifacts(staged_path, durable=True)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
 
@@ -260,27 +267,27 @@ def recover_interrupted_build(path: Path) -> bool:
     logger.warning("resuming interrupted staged build for {}", path)
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
-            _cleanup_index_files(staged_path)
-            _cleanup_partial_copy_artifacts(staged_path)
+            _cleanup_index_files_durable(staged_path)
+            _cleanup_partial_copy_artifacts(staged_path, durable=True)
             return False
         if not _has_initialized_schema(staged_path):
             logger.warning("skipping interrupted staged build swap with uninitialized stage {}", staged_path)
-            _cleanup_index_files(staged_path)
-            _cleanup_partial_copy_artifacts(staged_path)
+            _cleanup_index_files_durable(staged_path)
+            _cleanup_partial_copy_artifacts(staged_path, durable=True)
             return False
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted staged build preparation for {}", path)
-        _cleanup_index_files(staged_path)
-        _cleanup_partial_copy_artifacts(staged_path)
+        _cleanup_index_files_durable(staged_path)
+        _cleanup_partial_copy_artifacts(staged_path, durable=True)
         return False
     try:
         atomic_replace_index(staged_path, path)
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted staged build swap for {}", path)
-        _cleanup_partial_copy_artifacts(staged_path)
+        _cleanup_partial_copy_artifacts(staged_path, durable=True)
         return False
-    _cleanup_index_files(staged_path)
-    _cleanup_partial_copy_artifacts(staged_path)
+    _cleanup_index_files_durable(staged_path)
+    _cleanup_partial_copy_artifacts(staged_path, durable=True)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
 

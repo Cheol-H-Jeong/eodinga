@@ -492,6 +492,30 @@ def test_recover_interrupted_recovery_rejects_uninitialized_stage(tmp_path: Path
     assert not staged.exists()
 
 
+def test_recover_interrupted_recovery_fsyncs_parent_after_cleaning_invalid_stage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.close()
+    staged.write_bytes(b"")
+
+    calls: list[Path] = []
+    original_fsync_directory = storage_module._fsync_directory
+
+    def record_directory(directory: Path) -> None:
+        calls.append(directory)
+        original_fsync_directory(directory)
+
+    monkeypatch.setattr("eodinga.index.storage._fsync_directory", record_directory)
+
+    assert recover_interrupted_recovery(target) is False
+    assert calls == [tmp_path]
+
+
 def test_recover_interrupted_recovery_cleans_partial_stage_artifacts(tmp_path: Path) -> None:
     target = tmp_path / "index.db"
     staged = tmp_path / ".index.db.recover"
@@ -691,6 +715,30 @@ def test_recover_interrupted_build_rejects_uninitialized_stage(tmp_path: Path) -
     assert recover_interrupted_build(target) is False
     assert _read_root_paths(target) == ["/live"]
     assert not staged.exists()
+
+
+def test_recover_interrupted_build_fsyncs_parent_after_cleaning_invalid_stage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.close()
+    staged.write_bytes(b"")
+
+    calls: list[Path] = []
+    original_fsync_directory = storage_module._fsync_directory
+
+    def record_directory(directory: Path) -> None:
+        calls.append(directory)
+        original_fsync_directory(directory)
+
+    monkeypatch.setattr("eodinga.index.storage._fsync_directory", record_directory)
+
+    assert recover_interrupted_build(target) is False
+    assert calls == [tmp_path]
 
 
 def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
