@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QEventLoop, QTimer
+from PySide6.QtCore import QEvent, QEventLoop, QTimer
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 
@@ -603,6 +603,45 @@ def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
 
     assert launcher.preview_pane.title_label.text() == "beta.txt"
     assert "Beta launch checklist" in launcher.preview_pane.snippet_label.text()
+
+
+def test_launcher_preview_returns_to_selected_result_when_hover_leaves_list(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/alpha.txt"),
+                    parent_path=Path("/tmp"),
+                    name="alpha.txt",
+                    snippet="Alpha release notes",
+                ),
+                SearchHit(
+                    path=Path("/tmp/beta.txt"),
+                    parent_path=Path("/tmp"),
+                    name="beta.txt",
+                    snippet="Beta launch checklist",
+                ),
+            ][:limit],
+            total=2,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("notes")
+    _wait(60)
+
+    assert launcher.result_list.currentIndex().row() == 0
+    launcher._sync_preview_to_index(launcher.model.index(1, 0))
+    assert launcher.preview_pane.title_label.text() == "beta.txt"
+
+    QTest.qWaitForWindowExposed(launcher)
+    QTest.mouseMove(launcher.result_list.viewport())
+    qapp.sendEvent(launcher.result_list.viewport(), QEvent(QEvent.Type.Leave))
+
+    assert launcher.preview_pane.title_label.text() == "alpha.txt"
+    assert "Alpha release notes" in launcher.preview_pane.snippet_label.text()
 
 
 def test_launcher_action_bar_triggers_result_actions(qapp) -> None:

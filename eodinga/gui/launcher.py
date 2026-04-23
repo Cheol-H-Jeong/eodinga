@@ -89,6 +89,7 @@ class LauncherPanel(QWidget):
         self.result_list.setModel(self.model)
         self.result_list.selectionModel().currentChanged.connect(self._sync_preview_to_current_index)
         self.result_list.entered.connect(self._sync_preview_to_index)
+        self.result_list.viewport().installEventFilter(self)
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -243,6 +244,9 @@ class LauncherPanel(QWidget):
         self._navigate_recent_queries(1)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if watched is self.result_list.viewport() and event.type() == QEvent.Type.Leave:
+            self._refresh_preview()
+            return False
         if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusIn:
             self._refresh_shortcut_hint()
         if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusOut:
