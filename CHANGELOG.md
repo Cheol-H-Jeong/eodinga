@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.154 - 2026-04-23
+
+- Expanded `eodinga stats --json` so it now emits the full in-process counter and histogram snapshots alongside the existing summary fields, making ad hoc diagnostics less dependent on debug logging.
+- Instrumented watcher flush behavior with dedicated counters for forced flushes, backpressure-triggered flushes, and the number of debounced events that were actually enqueued after coalescing.
+- Enriched `crash-<ts>.log` reports with runtime context including app version, Python runtime, platform, executable, working directory, and the command being executed at the time of failure.
+
 ## 0.1.149 - 2026-04-23
 
 - Expanded the Windows PyInstaller packaging spec so hidden imports now include third-party modules discovered directly from real `import` and `from ... import ...` usage across the `eodinga/` source tree, reducing dependence on a hand-maintained list.
