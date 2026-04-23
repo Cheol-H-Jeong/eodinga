@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.264 - 2026-04-23
+
+- Added clickable pinned and recent query chips to both launcher surfaces, so shared launcher history is now directly reusable without retyping or relying only on keyboard recall.
+- Added a persisted always-on-top checkbox in Settings that updates the popup launcher window live, keeping the runtime flag and saved launcher config in sync.
+
 ## 0.1.262 - 2026-04-23
 
 - Restricted ranking deboost markers like `node_modules` and `.git` to full path segments, preventing unrelated paths such as `node_modules_backup` or `git-cache` from being unfairly pushed down.
