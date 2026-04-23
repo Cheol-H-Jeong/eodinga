@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from json import loads
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from functools import lru_cache
@@ -8,7 +9,8 @@ from pathlib import Path
 from time import time
 from typing import NamedTuple, TypeVar
 
-from eodinga.common import FileRecord, ParsedContent, WatchEvent
+from eodinga.common import FileRecord, ParsedContent, PathRules, WatchEvent
+from eodinga.core.walker import walk_batched
 from eodinga.index.schema import apply_schema, current_schema_version
 
 ParserCallback = Callable[[Path], ParsedContent | None]
@@ -20,6 +22,11 @@ class ExistingContentRow(NamedTuple):
     file_id: int
     rowid: int | None
     content_sha: bytes | None
+
+
+class RootRow(NamedTuple):
+    root_id: int
+    rules: PathRules
 
 
 def _record_tuple(record: FileRecord) -> tuple[object, ...]:
@@ -68,6 +75,34 @@ def _delete_files_sql(chunk_size: int) -> str:
     return f"DELETE FROM files WHERE path IN ({placeholders})"
 
 
+def _path_like_prefix(path_text: str) -> str:
+    escaped = (
+        path_text.replace("\\", "\\\\")
+        .replace("%", "\\%")
+        .replace("_", "\\_")
+    )
+    return f"{escaped}/%"
+
+
+def _subtree_clause(chunk_size: int) -> str:
+    return " OR ".join("(files.path = ? OR files.path LIKE ? ESCAPE '\\')" for _ in range(chunk_size))
+
+
+@lru_cache(maxsize=16)
+def _select_deleted_subtree_content_rowids_sql(chunk_size: int) -> str:
+    return f"""
+        SELECT content_map.fts_rowid
+        FROM files
+        JOIN content_map ON content_map.file_id = files.id
+        WHERE {_subtree_clause(chunk_size)}
+        """
+
+
+@lru_cache(maxsize=16)
+def _delete_subtree_files_sql(chunk_size: int) -> str:
+    return f"DELETE FROM files WHERE {_subtree_clause(chunk_size)}"
+
+
 @lru_cache(maxsize=16)
 def _select_existing_content_rows_sql(chunk_size: int) -> str:
     placeholders = ", ".join("?" for _ in range(chunk_size))
@@ -107,12 +142,21 @@ class IndexWriter:
 
     def apply_events(self, events: Sequence[WatchEvent], record_loader: RecordLoader) -> int:
         processed = 0
-        content_deletes: list[int] = []
         deleted_paths: list[Path] = []
+        deleted_subtrees: list[Path] = []
         retired_paths: list[Path] = []
+        retired_subtrees: list[Path] = []
         pending_records: list[FileRecord] = []
         with self._transaction():
             for event in events:
+                if event.is_dir:
+                    if event.event_type == "deleted":
+                        deleted_subtrees.append(event.path)
+                        continue
+                    if event.event_type == "moved" and event.src_path is not None:
+                        retired_subtrees.append(event.src_path)
+                    pending_records.extend(self._records_for_directory_event(event))
+                    continue
                 if event.event_type == "deleted":
                     deleted_paths.append(event.path)
                     continue
@@ -123,10 +167,15 @@ class IndexWriter:
                     continue
                 pending_records.append(record)
                 processed += 1
+            content_deletes: list[int] = []
             if deleted_paths:
                 processed += self._delete_paths(deleted_paths, content_deletes)
+            if deleted_subtrees:
+                processed += self._delete_subtrees(deleted_subtrees, content_deletes)
             if retired_paths:
                 self._delete_paths(retired_paths, content_deletes)
+            if retired_subtrees:
+                self._delete_subtrees(retired_subtrees, content_deletes)
             if pending_records:
                 self._upsert_records(pending_records)
                 self._upsert_content(pending_records)
@@ -195,6 +244,59 @@ class IndexWriter:
             )
             deleted += cursor.rowcount
         return deleted
+
+    def _delete_subtrees(self, paths: Sequence[Path], content_deletes: list[int]) -> int:
+        unique_paths = tuple(dict.fromkeys(str(path) for path in paths))
+        if not unique_paths:
+            return 0
+        deleted = 0
+        for chunk in _chunked(unique_paths):
+            bindings = tuple(
+                value
+                for path_text in chunk
+                for value in (path_text, _path_like_prefix(path_text))
+            )
+            rows = self._conn.execute(
+                _select_deleted_subtree_content_rowids_sql(len(chunk)),
+                bindings,
+            ).fetchall()
+            content_deletes.extend(int(row[0]) for row in rows)
+            cursor = self._conn.execute(
+                _delete_subtree_files_sql(len(chunk)),
+                bindings,
+            )
+            deleted += cursor.rowcount
+        return deleted
+
+    def _root_row_for(self, root_path: Path | None) -> RootRow | None:
+        if root_path is None:
+            return None
+        row = self._conn.execute(
+            "SELECT id, include, exclude FROM roots WHERE path = ?",
+            (str(root_path),),
+        ).fetchone()
+        if row is None:
+            return None
+        return RootRow(
+            root_id=int(row[0]),
+            rules=PathRules(
+                root=root_path,
+                include=tuple(loads(row[1] or "[]")) or ("**/*",),
+                exclude=tuple(loads(row[2] or "[]")),
+            ),
+        )
+
+    def _records_for_directory_event(self, event: WatchEvent) -> list[FileRecord]:
+        if event.event_type == "deleted" or not event.path.exists():
+            return []
+        root_row = self._root_row_for(event.root_path)
+        if root_row is None:
+            return []
+        return [
+            record
+            for batch in walk_batched(event.path, root_row.rules, root_id=root_row.root_id)
+            for record in batch
+        ]
 
     def _upsert_content(self, records: Sequence[FileRecord]) -> None:
         if self._parser_callback is None:

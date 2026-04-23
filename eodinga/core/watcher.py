@@ -54,7 +54,7 @@ class _Handler(FileSystemEventHandler):
         self._root = root
 
     def on_any_event(self, event: FileSystemEvent) -> None:
-        if event.is_directory:
+        if event.is_directory and event.event_type not in {"created", "deleted", "moved"}:
             return
         src_path = Path(fsdecode(event.src_path))
         if event.event_type == "moved":

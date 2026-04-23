@@ -255,6 +255,78 @@ def test_writer_apply_events_batches_moved_source_cleanup(tmp_db: Path, tmp_path
     assert remaining_paths == {str(path) for path in moved_paths}
 
 
+def test_writer_apply_events_directory_delete_removes_subtree_rows(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    docs = tmp_path / "docs"
+    nested = docs / "nested"
+    nested.mkdir(parents=True)
+    survivor = tmp_path / "survivor.txt"
+    targets = [docs, nested, nested / "guide.txt", docs / "notes.txt", survivor]
+    for path in (nested / "guide.txt", docs / "notes.txt", survivor):
+        path.write_text(path.name, encoding="utf-8")
+    writer = IndexWriter(conn)
+    assert writer.bulk_upsert(make_record(path) for path in targets) == len(targets)
+
+    processed = writer.apply_events(
+        [WatchEvent(event_type="deleted", path=docs, is_dir=True, root_path=tmp_path)],
+        record_loader=lambda _path: None,
+    )
+
+    assert processed == 4
+    remaining_paths = [row[0] for row in conn.execute("SELECT path FROM files ORDER BY path").fetchall()]
+    assert remaining_paths == [str(survivor)]
+
+
+def test_writer_apply_events_directory_move_reindexes_destination_subtree(
+    tmp_db: Path, tmp_path: Path
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), '["**/*"]', "[]", 1),
+    )
+    source = tmp_path / "drafts"
+    nested = source / "nested"
+    nested.mkdir(parents=True)
+    first = source / "guide.txt"
+    second = nested / "notes.txt"
+    first.write_text("guide", encoding="utf-8")
+    second.write_text("notes", encoding="utf-8")
+    writer = IndexWriter(conn)
+    source_records = [
+        make_record(source),
+        make_record(nested),
+        make_record(first),
+        make_record(second),
+    ]
+    assert writer.bulk_upsert(source_records) == len(source_records)
+
+    destination = tmp_path / "published"
+    source.rename(destination)
+    moved_event = WatchEvent(
+        event_type="moved",
+        path=destination,
+        src_path=source,
+        is_dir=True,
+        root_path=tmp_path,
+    )
+
+    processed = writer.apply_events([moved_event], record_loader=lambda _path: None)
+
+    assert processed == 0
+    rows = conn.execute("SELECT path, parent_path FROM files ORDER BY path").fetchall()
+    assert rows == [
+        (str(destination), str(tmp_path)),
+        (str(destination / "guide.txt"), str(destination)),
+        (str(destination / "nested"), str(destination)),
+        (str(destination / "nested" / "notes.txt"), str(destination / "nested")),
+    ]
+
+
 def test_writer_bulk_upsert_reuses_existing_content_rowids(tmp_db: Path, tmp_path: Path) -> None:
     conn = sqlite3.connect(tmp_db)
     conn.execute(

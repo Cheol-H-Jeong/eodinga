@@ -66,6 +66,26 @@ def test_watcher_handler_preserves_move_within_root(tmp_path: Path) -> None:
     assert event.root_path == root
 
 
+def test_watcher_handler_preserves_directory_move_within_root(tmp_path: Path) -> None:
+    service = WatchService()
+    root = tmp_path / "watched"
+    source = root / "drafts"
+    destination = root / "published"
+    handler = _Handler(service, root)
+
+    moved = FileMovedEvent(str(source), str(destination))
+    moved.is_directory = True
+    handler.on_any_event(moved)
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "moved"
+    assert event.path == destination
+    assert event.src_path == source
+    assert event.is_dir is True
+    assert event.root_path == root
+
+
 def test_watcher_coalesces_events_within_500ms(tmp_path: Path) -> None:
     service = WatchService()
     service.start(tmp_path)
