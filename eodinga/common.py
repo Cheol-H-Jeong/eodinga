@@ -108,6 +108,7 @@ class StatsSnapshot(BaseModel):
     queries_served: int = 0
     queries_zero_results: int = 0
     queries_truncated: int = 0
+    query_errors: int = 0
     parser_errors: int = 0
     watcher_events: int = 0
     watcher_flushes: int = 0
@@ -141,6 +142,7 @@ class StatsSnapshot(BaseModel):
     exit_codes: dict[str, int] = Field(default_factory=dict)
     crash_types: dict[str, int] = Field(default_factory=dict)
     parser_activity: dict[str, dict[str, int]] = Field(default_factory=dict)
+    query_error_types: dict[str, int] = Field(default_factory=dict)
     watcher_event_types: dict[str, int] = Field(default_factory=dict)
     counters: dict[str, int] = Field(default_factory=dict)
     histograms: dict[str, dict[str, object]] = Field(default_factory=dict)

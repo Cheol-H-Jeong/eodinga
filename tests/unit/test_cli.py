@@ -490,6 +490,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["queries_served"] == 1
     assert payload["queries_zero_results"] == 0
     assert payload["queries_truncated"] == 0
+    assert payload["query_errors"] == 0
     assert payload["parser_errors"] == 0
     assert payload["watcher_events"] == 0
     assert payload["watcher_flushes"] == 0
@@ -521,6 +522,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["exit_codes"]["0"] == 1
     assert payload["crash_types"] == {}
     assert payload["parser_activity"] == {}
+    assert payload["query_error_types"] == {}
     assert payload["watcher_event_types"] == {}
     assert len(payload["recent_snapshots"]) == 1
     assert payload["recent_snapshots"][0]["name"] == "command.search"
@@ -658,6 +660,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["index_rebuilds_completed"] == 1
     assert payload["queries_zero_results"] == 0
     assert payload["queries_truncated"] == 1
+    assert payload["query_errors"] == 0
     assert payload["commands"]["index"]["completed"] == 1
     assert payload["commands"]["search"]["completed"] == 1
     assert payload["commands"]["stats"]["started"] == 1
@@ -665,6 +668,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["crash_types"] == {}
     assert payload["parser_activity"]["broken"]["errors"] == 1
     assert payload["parser_activity"]["text"]["parsed"] >= 2
+    assert payload["query_error_types"] == {}
     assert payload["watcher_event_types"] == {"created": 1, "modified": 1}
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_path_source"] is None
@@ -734,11 +738,13 @@ def test_stats_json_exposes_zero_result_query_metrics(tmp_path: Path, capsys) ->
     assert payload["queries_served"] == 1
     assert payload["queries_zero_results"] == 1
     assert payload["queries_truncated"] == 0
+    assert payload["query_errors"] == 0
     assert payload["query_result_count_histogram"]["count"] == 1
     assert payload["query_result_count_histogram"]["min_ms"] == 0.0
     assert payload["counters"]["queries_zero_results"] == 1
     assert "queries_truncated" not in payload["counters"]
     assert payload["parser_activity"] == {}
+    assert payload["query_error_types"] == {}
     assert payload["watcher_event_types"] == {}
 
 
@@ -810,6 +816,8 @@ def test_nonzero_command_exit_counts_as_failed_without_crash_metrics(
     assert metrics["counters"]["commands.search.started"] == 1
     assert metrics["counters"]["commands_failed"] == 1
     assert metrics["counters"]["commands.search.failed"] == 1
+    assert metrics["counters"]["query_errors"] == 1
+    assert metrics["counters"]["query_errors.syntax"] == 1
     assert "commands_completed" not in metrics["counters"]
     assert "crashes_reported" not in metrics["counters"]
     assert metrics["counters"]["commands.exit_code.2"] == 1
@@ -927,11 +935,16 @@ def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> 
     stats_output = capsys.readouterr()
     assert stats_exit == 0
     payload = json.loads(stats_output.out)
+    assert payload["query_errors"] == 1
+    assert payload["query_error_types"] == {"syntax": 1}
     assert payload["commands_failed"] == 1
     assert payload["commands"]["search"]["failed"] == 1
     assert payload["commands"]["search"]["started"] == 1
     assert payload["exit_codes"]["2"] == 1
-    assert len(payload["recent_snapshots"]) == 1
-    assert payload["recent_snapshots"][0]["name"] == "command.failure"
-    assert payload["recent_snapshots"][0]["payload"]["command"] == "search"
-    assert payload["recent_snapshots"][0]["payload"]["reason"] == "nonzero_exit"
+    assert [entry["name"] for entry in payload["recent_snapshots"]] == [
+        "query.error",
+        "command.failure",
+    ]
+    assert payload["recent_snapshots"][0]["payload"]["error_type"] == "syntax"
+    assert payload["recent_snapshots"][1]["payload"]["command"] == "search"
+    assert payload["recent_snapshots"][1]["payload"]["reason"] == "nonzero_exit"

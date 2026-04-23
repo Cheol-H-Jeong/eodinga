@@ -156,7 +156,12 @@ def _cmd_search(args: argparse.Namespace) -> int:
     try:
         with closing(open_index(args.db or _resolve_config(args).index.db_path)) as conn:
             query_result = run_search(conn, args.query, limit=limit, root=root)
-    except (QuerySyntaxError, ValueError) as error:
+    except QuerySyntaxError as error:
+        _record_query_error(error_type="syntax", query=args.query, root=root)
+        sys.stderr.write(f"{error}\n")
+        return 2
+    except ValueError as error:
+        _record_query_error(error_type="validation", query=args.query, root=root)
         sys.stderr.write(f"{error}\n")
         return 2
 
@@ -212,6 +217,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         queries_served=counter_value("queries_served"),
         queries_zero_results=counter_value("queries_zero_results"),
         queries_truncated=counter_value("queries_truncated"),
+        query_errors=counter_value("query_errors"),
         parser_errors=counter_value("parser_errors"),
         watcher_events=counter_value("watcher_events"),
         watcher_flushes=counter_value("watcher_flushes"),
@@ -245,6 +251,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         exit_codes=_exit_code_summary(counters),
         crash_types=_crash_type_summary(counters),
         parser_activity=_parser_activity_summary(counters),
+        query_error_types=_query_error_summary(counters),
         watcher_event_types=_watcher_event_type_summary(counters),
         counters=counters,
         histograms=metrics["histograms"],
@@ -406,6 +413,16 @@ def _parser_activity_summary(counters: dict[str, int]) -> dict[str, dict[str, in
     )
 
 
+def _query_error_summary(counters: dict[str, int]) -> dict[str, int]:
+    prefix = "query_errors."
+    query_errors = {
+        name[len(prefix) :]: value
+        for name, value in counters.items()
+        if name.startswith(prefix)
+    }
+    return dict(sorted(query_errors.items()))
+
+
 def _watcher_event_type_summary(counters: dict[str, int]) -> dict[str, int]:
     prefix = "watcher_events."
     event_types = {
@@ -414,6 +431,19 @@ def _watcher_event_type_summary(counters: dict[str, int]) -> dict[str, int]:
         if name.startswith(prefix)
     }
     return dict(sorted(event_types.items()))
+
+
+def _record_query_error(*, error_type: str, query: str, root: Path | None) -> None:
+    increment_counter("query_errors", error_type=error_type)
+    increment_counter(f"query_errors.{error_type}")
+    record_snapshot(
+        "query.error",
+        {
+            "error_type": error_type,
+            "query": query,
+            "root": str(root) if root is not None else None,
+        },
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
