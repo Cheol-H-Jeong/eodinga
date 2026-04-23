@@ -7,12 +7,14 @@ This document expands the short checklist in [ACCEPTANCE.md](/home/cheol/project
 1. Inspect existing tags with `git tag -l | sort -V | tail -3`.
 2. Choose the next unused patch version as `0.1.N`.
 3. Bump both `pyproject.toml` and `eodinga/__init__.py` to that version.
+4. Keep that version bump isolated to the release metadata commit for the round.
 
 ## Refresh Release Notes
 
 1. Add a new top entry in `CHANGELOG.md`.
 2. Summarize only the measurable user-facing or operator-facing changes that landed in the round.
 3. Keep the changelog entry aligned with the final commit set instead of speculative future work.
+4. Mention docs-only rounds explicitly when the shipped contract changed but runtime code did not.
 
 ## Run The Gate
 
@@ -30,6 +32,12 @@ yamllint .github/workflows/release-windows.yml
 yamllint .github/workflows/release-linux.yml
 ```
 
+Recommended order:
+
+1. `pytest -q tests/unit` after every logical commit.
+2. `pytest -q tests` once the candidate release branch is assembled.
+3. `ruff`, `pyright`, GUI smoke, packaging dry-runs, and workflow lint after the full test pass.
+
 ## Verify Shipped Docs
 
 Before tagging, confirm:
@@ -45,9 +53,18 @@ Before tagging, confirm:
 2. Create the local tag with `git tag v0.1.N`.
 3. Stop after the local tag; the orchestrator owns any later rebase, push, and publication steps.
 
+Example:
+
+```bash
+git add CHANGELOG.md pyproject.toml eodinga/__init__.py
+git commit -m "chore(release): bump to v0.1.N"
+git tag v0.1.N
+```
+
 ## Handoff Checklist
 
 - Working tree clean except for intended release artifacts.
 - `pytest -q tests/unit` green at minimum for each intermediate commit.
 - Full repository gate green before final handoff.
 - `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py` all agree on `0.1.N`.
+- The local tag points at the final commit for the round, not an earlier docs or feature commit.

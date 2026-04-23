@@ -12,8 +12,24 @@ python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]
 
 1. Sync your branch or worktree from the latest `main`.
 2. Run the smallest relevant test slice first.
-3. Run the full local gate before handing off a release candidate.
-4. Update docs and screenshots when the visible or operator-facing contract changes.
+3. Keep each commit independently green with `pytest -q tests/unit`.
+4. Run the full local gate before handing off a release candidate.
+5. Update docs and screenshots when the visible or operator-facing contract changes.
+
+## Suggested Command Order
+
+Use one clean pass instead of ad-hoc retries:
+
+```bash
+git fetch origin main && git reset --hard origin/main
+source .venv/bin/activate 2>/dev/null || python3 -m venv .venv && source .venv/bin/activate
+pip install -e .[dev,parsers,gui]
+pytest -q tests/unit
+ruff check eodinga tests
+pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)"
+```
+
+After the focused slice is green, run the broader acceptance gate before release handoff.
 
 ## Quality Gates
 
@@ -50,6 +66,7 @@ yamllint .github/workflows/release-linux.yml
 - Refresh `docs/ARCHITECTURE.md` when data flow, rebuild/recovery, or packaging surfaces change materially.
 - Refresh `docs/PERFORMANCE.md` only after rerunning the benchmark you are documenting in the same local environment.
 - Regenerate the shipped screenshots with `python scripts/render_docs_screenshots.py` after visible GUI changes.
+- Keep `CHANGELOG.md` aligned with landed behavior only; avoid speculative release notes.
 
 ## Test Selection Guide
 
@@ -64,3 +81,4 @@ yamllint .github/workflows/release-linux.yml
 - Keep `CHANGELOG.md` append-only with the newest round at the top.
 - Patch releases use `0.1.N`; bump `pyproject.toml` and `eodinga/__init__.py` together.
 - Local tags are created during the release-cut handoff flow documented in [RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md).
+- If a change cannot stay inside one theme or one logical commit, stop and split it before proceeding.
