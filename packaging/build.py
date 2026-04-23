@@ -105,6 +105,8 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
         f"dist\\\\{gui_dist_name}\\\\*",
         f"dist\\\\{cli_dist_name}\\\\*",
     ]
+    purge_local_state = r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);"
+    roaming_config_reference = r"{appdata}\\eodinga"
     return {
         "target": "windows-dry-run",
         "version": version,
@@ -167,7 +169,12 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             and f'ValueData: """{{app}}\\\\{INNO_GUI_EXE_TOKEN}"""' in inno_text
             and 'Tasks: autostart' in inno_text,
             "rendered_autostart_registry_matches_gui_exe": f'ValueData: """{{app}}\\\\{gui_exe_name}"""' in rendered_text,
-            "contains_uninstall_purge_prompt": _inno_contains(rendered_text, r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);"),
+            "contains_uninstall_purge_prompt": _inno_contains(rendered_text, purge_local_state),
+            "purges_local_state_only": _inno_contains(rendered_text, purge_local_state)
+            and roaming_config_reference not in rendered_text
+            and "config.toml" not in rendered_text,
+            "preserves_roaming_config_by_default": roaming_config_reference not in rendered_text
+            and "config.toml" not in rendered_text,
         },
     }
 

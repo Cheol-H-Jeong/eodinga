@@ -93,6 +93,8 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["contains_autostart_registry"] is True
     assert payload["inno_setup"]["rendered_autostart_registry_matches_gui_exe"] is True
     assert payload["inno_setup"]["contains_uninstall_purge_prompt"] is True
+    assert payload["inno_setup"]["purges_local_state_only"] is True
+    assert payload["inno_setup"]["preserves_roaming_config_by_default"] is True
 
 
 def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
