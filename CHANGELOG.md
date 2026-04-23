@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.903 - 2026-04-23
+## 0.1.907 - 2026-04-23
 
 - Added keyboard-only access to pinned and recent launcher query chips when the result list is empty, with updated empty-state and shortcut guidance so the path is discoverable without a mouse.
 - Merged overlapping launcher highlight spans so combined query terms render as one continuous emphasis block instead of dropping later overlaps.
