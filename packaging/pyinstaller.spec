@@ -65,6 +65,59 @@ REQUIRED_HIDDEN_IMPORTS = [
 ]
 
 
+def _module_name_for_path(source_path: Path, source_root: Path) -> str:
+    relative = source_path.relative_to(source_root.parent)
+    parts = list(relative.parts)
+    if parts[-1] == "__init__.py":
+        parts = parts[:-1]
+    else:
+        parts[-1] = source_path.stem
+    return ".".join(parts)
+
+
+def _module_exists(module_name: str, project_root: Path) -> bool:
+    module_path = project_root.joinpath(*module_name.split("."))
+    return module_path.with_suffix(".py").exists() or (module_path / "__init__.py").exists()
+
+
+def _resolve_imported_module(module_name: str | None, level: int, current_package: str) -> str | None:
+    if level == 0:
+        return module_name
+    package_parts = current_package.split(".")
+    if level > len(package_parts) + 1:
+        return None
+    anchor = package_parts[: len(package_parts) - level + 1]
+    if module_name:
+        anchor.append(module_name)
+    return ".".join(anchor)
+
+
+def _discover_runtime_modules(source_root: Path) -> list[str]:
+    discovered: set[str] = set()
+    for source_path in source_root.rglob("*.py"):
+        module_name = _module_name_for_path(source_path, source_root)
+        current_package = module_name if source_path.name == "__init__.py" else module_name.rpartition(".")[0]
+        module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+        for node in ast.walk(module):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name.startswith("eodinga.") and _module_exists(alias.name, PROJECT_ROOT):
+                        discovered.add(alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                resolved = _resolve_imported_module(node.module, node.level, current_package)
+                if not resolved or not resolved.startswith("eodinga"):
+                    continue
+                if _module_exists(resolved, PROJECT_ROOT):
+                    discovered.add(resolved)
+                for alias in node.names:
+                    if alias.name == "*":
+                        continue
+                    candidate = f"{resolved}.{alias.name}"
+                    if _module_exists(candidate, PROJECT_ROOT):
+                        discovered.add(candidate)
+    return sorted(discovered)
+
+
 def _discover_hidden_imports(source_root: Path) -> list[str]:
     discovered: set[str] = set()
     for source_path in source_root.rglob("*.py"):
@@ -82,12 +135,14 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
     return sorted(discovered)
 
 
+DISCOVERED_RUNTIME_MODULES = _discover_runtime_modules(SOURCE_ROOT)
 DISCOVERED_HIDDEN_IMPORTS = _discover_hidden_imports(SOURCE_ROOT)
 
 HIDDEN_IMPORTS = sorted(
     {
         *REQUIRED_HIDDEN_IMPORTS,
         *RUNTIME_MODULES,
+        *DISCOVERED_RUNTIME_MODULES,
         *DISCOVERED_HIDDEN_IMPORTS,
     }
 )

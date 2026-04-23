@@ -10,6 +10,7 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     namespace["__file__"] = str(spec_path.resolve())
     exec(spec_path.read_text(encoding="utf-8"), namespace)
     hiddenimports = cast(list[str], namespace["HIDDEN_IMPORTS"])
+    discovered_runtime_modules = cast(list[str], namespace["DISCOVERED_RUNTIME_MODULES"])
     discovered_hiddenimports = cast(list[str], namespace["DISCOVERED_HIDDEN_IMPORTS"])
     required_hiddenimports = cast(list[str], namespace["REQUIRED_HIDDEN_IMPORTS"])
     runtime_modules = cast(list[str], namespace["RUNTIME_MODULES"])
@@ -23,6 +24,9 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     assert "eodinga.gui.app" in hiddenimports
     assert "eodinga.content.registry" in hiddenimports
     assert "eodinga.launcher.hotkey_win" in hiddenimports
+    assert "eodinga.gui.hotkey_controller" in discovered_runtime_modules
+    assert "eodinga.gui.widgets" in discovered_runtime_modules
+    assert "eodinga.index.storage" in discovered_runtime_modules
     assert discovered_hiddenimports == [
         "Xlib.X",
         "Xlib.XK",
@@ -31,6 +35,7 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     ]
     assert set(required_hiddenimports).issubset(set(hiddenimports))
     assert set(runtime_modules).issubset(set(hiddenimports))
+    assert set(discovered_runtime_modules).issubset(set(hiddenimports))
     assert set(discovered_hiddenimports).issubset(set(hiddenimports))
     assert {"eodinga.launcher.hotkey_linux", "eodinga.launcher.hotkey_win"} <= set(runtime_modules)
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
@@ -55,7 +60,12 @@ def test_pyinstaller_runtime_modules_map_to_real_sources() -> None:
     namespace["__file__"] = str(spec_path.resolve())
     exec(spec_path.read_text(encoding="utf-8"), namespace)
     runtime_modules = cast(list[str], namespace["RUNTIME_MODULES"])
+    discovered_runtime_modules = cast(list[str], namespace["DISCOVERED_RUNTIME_MODULES"])
 
     for module_name in runtime_modules:
         module_path = Path(*module_name.split(".")).with_suffix(".py")
         assert module_path.exists(), module_name
+
+    for module_name in discovered_runtime_modules:
+        module_path = Path(*module_name.split("."))
+        assert module_path.with_suffix(".py").exists() or (module_path / "__init__.py").exists(), module_name
