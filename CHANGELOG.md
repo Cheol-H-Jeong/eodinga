@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.867 - 2026-04-23
+
+- Added a shared launcher result-action menu for the selected hit, exposed from the keyboard with `Shift+F10` or the `Menu` key and from both the results list and preview pane, so open/reveal/copy/properties actions no longer depend on memorizing shortcuts or the action bar.
+- Kept launcher right-click behavior aligned with pointer intent by retargeting the context menu to the row under the cursor before the menu opens.
+- Extended launcher accessibility narration to mention the new result menu path in both the selected-result summary and the action bar description, making the menu discoverable to screen-reader and keyboard-only users.
+
 ## 0.1.863 - 2026-04-23
 
 - Expanded the launcher’s inline and empty-state keyboard guidance to cover both `Alt+Up` and `Alt+Down`, so recent-query browsing is explained consistently anywhere the user can get stuck.
