@@ -39,6 +39,7 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+_WINDOWS_EXTENDED_DRIVE_PREFIX_RE = re.compile(r"^(?:\\\\\?\\|//\\?/)([A-Za-z]:[\\/].*)$")
 
 
 @lru_cache(maxsize=256)
@@ -360,6 +361,9 @@ def _prefix_like_param(value: str) -> str:
 
 
 def _root_variants(root_text: str) -> tuple[str, ...]:
+    match = _WINDOWS_EXTENDED_DRIVE_PREFIX_RE.match(root_text)
+    if match is not None:
+        root_text = match.group(1)
     candidates = (
         root_text,
         root_text.replace("\\", "/"),
