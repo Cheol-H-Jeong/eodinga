@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.749 - 2026-04-23
+## 0.1.805 - 2026-04-23
 
 - Added a live launcher preview fallback that reads safe text snippets directly from the selected file when the index has no stored snippet, while reporting empty, folder, and binary cases explicitly.
 - Added right-click launcher result menus for `Open`, `Reveal`, `Copy Path`, `Copy Name`, and `Properties`, so the popup and embedded launcher expose the same actions without memorizing shortcuts first.
