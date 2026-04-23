@@ -35,6 +35,17 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 - Install per-user with the Inno Setup wizard.
 - Optionally enable auto-start at login during install.
 
+## Dependency Profiles
+
+| Install target | Command | Includes | Use when |
+| --- | --- | --- | --- |
+| core CLI/runtime | `pip install -e .` | base runtime only | you only need indexing and search without parsers or GUI |
+| docs + contributor gate | `pip install -e .[dev,gui]` | lint, tests, pyright, Qt surface | you are editing docs, screenshots, or GUI text and need the local gate |
+| parser coverage | `pip install -e .[parsers]` | document-content extractors | you want content search for Office, PDF, EPUB, HTML, or HWP |
+| full local-dev surface | `pip install -e .[all]` | runtime, parsers, GUI, hotkey, and dev tools | you are validating the whole shipped `0.1.x` contract locally |
+
+`.[parsers]` expands document-body extraction only. Filename and path indexing still work with the base install.
+
 ## First Run
 
 1. Launch `eodinga gui` or start the installed app.
@@ -158,6 +169,23 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Exclude noisy trees | `-path:node_modules` |
 | Run regex | `regex:/todo|fixme/i` |
 
+## Query Recipes
+
+| Task | Query | Why it helps |
+| --- | --- | --- |
+| Review files changed this week | `date:this-week` | start from recent activity before narrowing by type or path |
+| Audit large files from last month | `date:last-month size:>10M` | combines calendar and size filters without regex |
+| Find likely duplicates outside build output | `is:duplicate -path:dist -path:node_modules` | keeps hash-based duplicate checks focused on meaningful trees |
+| Search only directories | `is:dir path:projects` | useful when using `eodinga` as a folder launcher |
+| Search only symlinks | `is:symlink` | surfaces redirect-heavy roots quickly |
+| Search only empty files | `is:empty -is:dir` | isolates placeholder files and zero-byte artifacts |
+| Match TODOs case-insensitively with regex flags | `regex:/todo|fixme/i path:src` | explicit regex literals support `i`, `m`, and `s` flags |
+| Exclude a whole branch of logic | `-(ext:log | ext:tmp) invoice` | group negation removes noisy branches cleanly |
+| Search within an ISO range | `date:2026-04-01..2026-04-23 ext:md` | precise reporting window without manual timestamp math |
+| Constrain by exact timestamp | `modified:2026-04-23T09:15:30+00:00` | useful for comparing one known file event |
+
+For the full operator reference, precedence notes, and more examples, see [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md).
+
 ## Supported Content Types
 
 - Plain text and source code: `.txt`, `.md`, `.py`, and similar text-first formats.
@@ -276,6 +304,15 @@ eodinga search 'date:this-week ext:md' --limit 10
 ```
 
 If those are clean but the packaged app still looks wrong, continue with the release-gate commands in `docs/ACCEPTANCE.md`.
+
+## Packaging Outputs
+
+| Artifact | Primary validation command | What it proves |
+| --- | --- | --- |
+| Windows installer metadata | `python packaging/build.py --target windows-dry-run` | version sync, PyInstaller payload, Inno Setup inputs |
+| Linux AppImage recipe | `python packaging/build.py --target linux-appimage-dry-run` | staged AppImage inputs and launcher wiring |
+| Linux Debian package | `python packaging/build.py --target linux-deb-dry-run` | launcher shim, desktop file, icon, packaged changelog |
+| Release workflows | `yamllint .github/workflows/release-windows.yml` and `yamllint .github/workflows/release-linux.yml` | workflow syntax stays valid alongside packaging docs |
 
 ## Docs Map
 
