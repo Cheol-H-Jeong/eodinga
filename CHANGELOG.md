@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.584 - 2026-04-23
+## 0.1.585 - 2026-04-23
 
 - Tightened scoped-search root matching so wildcard characters in root paths no longer leak results from sibling roots, and Windows drive-letter case variants now keep exact-root records in scope.
 - Locked in parser regressions for Korean and escaped-slash regex queries, including fuzz coverage that round-trips inline regex bodies with embedded delimiters.
