@@ -4,7 +4,7 @@ from pathlib import Path
 import sqlite3
 from typing import cast
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRect, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QSystemTrayIcon
 
@@ -35,6 +35,18 @@ class _HotkeyServiceSpy:
 
     def stop(self) -> None:
         self.calls.append(("stop", ""))
+
+
+class _FakeScreen:
+    def __init__(self, name: str, rect: QRect) -> None:
+        self._name = name
+        self._rect = rect
+
+    def name(self) -> str:
+        return self._name
+
+    def availableGeometry(self) -> QRect:
+        return QRect(self._rect)
 
 
 def test_app_window_has_expected_tabs_and_launcher(qapp) -> None:
@@ -204,6 +216,88 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     assert restored_launcher.pos().y() == 96
 
     restored_window.close()
+    qapp.processEvents()
+
+
+def test_launcher_persists_restored_geometry_on_first_show(monkeypatch, qapp, temp_config_path: Path) -> None:
+    primary = _FakeScreen("primary", QRect(0, 0, 1280, 800))
+    secondary = _FakeScreen("secondary", QRect(1280, 120, 1440, 900))
+    monkeypatch.setattr(LauncherWindow, "_screens", lambda self: [primary, secondary])
+    monkeypatch.setattr(LauncherWindow, "_primary_screen", lambda self: primary)
+    monkeypatch.setattr(LauncherWindow, "_screen_at_cursor", lambda self: secondary)
+    config = AppConfig()
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher.show()
+    qapp.processEvents()
+
+    stored = load(temp_config_path)
+    assert stored.launcher.window_screen == "secondary"
+    assert stored.launcher.window_x == launcher.pos().x()
+    assert stored.launcher.window_y == launcher.pos().y()
+    assert stored.launcher.window_width == launcher.width()
+    assert stored.launcher.window_height == launcher.height()
+
+    window.close()
+    qapp.processEvents()
+
+
+def test_launcher_centers_unsaved_geometry_on_cursor_screen(monkeypatch, qapp, temp_config_path: Path) -> None:
+    primary = _FakeScreen("primary", QRect(0, 0, 1280, 800))
+    secondary = _FakeScreen("secondary", QRect(1280, 120, 1440, 900))
+    monkeypatch.setattr(LauncherWindow, "_screens", lambda self: [primary, secondary])
+    monkeypatch.setattr(LauncherWindow, "_primary_screen", lambda self: primary)
+    monkeypatch.setattr(LauncherWindow, "_screen_at_cursor", lambda self: secondary)
+    config = AppConfig()
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher.show()
+    qapp.processEvents()
+
+    expected_x = 1280 + (1440 - launcher.width()) // 2
+    expected_y = 120 + (900 - launcher.height()) // 2
+    assert launcher.pos().x() == expected_x
+    assert launcher.pos().y() == expected_y
+
+    window.close()
+    qapp.processEvents()
+
+
+def test_launcher_restores_to_saved_screen_when_available(monkeypatch, qapp, temp_config_path: Path) -> None:
+    primary = _FakeScreen("primary", QRect(0, 0, 1280, 800))
+    secondary = _FakeScreen("secondary", QRect(1280, 0, 1280, 800))
+    monkeypatch.setattr(LauncherWindow, "_screens", lambda self: [primary, secondary])
+    monkeypatch.setattr(LauncherWindow, "_primary_screen", lambda self: primary)
+    monkeypatch.setattr(LauncherWindow, "_screen_at_cursor", lambda self: primary)
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(
+        update={
+            "window_screen": "secondary",
+            "window_x": 1500,
+            "window_y": 140,
+            "window_width": 720,
+            "window_height": 520,
+        }
+    )
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher.show()
+    qapp.processEvents()
+
+    assert secondary.availableGeometry().contains(launcher.frameGeometry())
+    assert launcher.pos().x() == 1500
+    assert launcher.pos().y() == 140
+
+    window.close()
     qapp.processEvents()
 
 
@@ -433,6 +527,30 @@ def test_launcher_flag_toggles_preserve_geometry(qapp, temp_config_path: Path) -
     launcher.set_frameless(False)
     qapp.processEvents()
     assert launcher.geometry() == before
+
+
+def test_launcher_visible_flag_toggles_persist_geometry_immediately(monkeypatch, qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    launcher = window.launcher_window
+    launcher.show()
+    qapp.processEvents()
+
+    persisted: list[str] = []
+    original_persist = launcher._persist_geometry
+
+    def tracked_persist() -> None:
+        persisted.append("persist")
+        original_persist()
+
+    monkeypatch.setattr(launcher, "_persist_geometry", tracked_persist)
+
+    launcher.set_always_on_top(True)
+    qapp.processEvents()
+    launcher.set_frameless(False)
+    qapp.processEvents()
+
+    assert len(persisted) >= 2
 
 
 class _ActionSpy:

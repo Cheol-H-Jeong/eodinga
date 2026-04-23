@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QTimer, Qt, Signal
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QCursor, QGuiApplication
 from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
 
 from eodinga.config import AppConfig
@@ -28,6 +28,7 @@ class LauncherWindow(LauncherPanel):
         self._config = config
         self._config_path = config_path.expanduser() if config_path is not None else None
         self._geometry_restored = False
+        self._last_screen_name: str | None = None
         self._geometry_save_timer = QTimer(self)
         self._geometry_save_timer.setSingleShot(True)
         self._geometry_save_timer.setInterval(150)
@@ -55,6 +56,7 @@ class LauncherWindow(LauncherPanel):
         if not self._geometry_restored and self._config is not None:
             self._restore_visible_geometry()
             self._geometry_restored = True
+            self._persist_geometry()
         self.query_field.setFocus()
         self.query_field.selectAll()
         self.visibility_changed.emit(True)
@@ -100,17 +102,23 @@ class LauncherWindow(LauncherPanel):
         self.setGeometry(geometry)
         self.raise_()
         self.activateWindow()
+        self._persist_geometry()
 
     def _persist_geometry(self) -> None:
         if self._config is None or self._config_path is None or not self._geometry_restored:
             return
+        screen = self.screen()
+        screen_name = screen.name() if screen is not None and screen.name() else self._last_screen_name
         geometry = {
+            "window_screen": screen_name,
             "window_x": self.x(),
             "window_y": self.y(),
             "window_width": self.width(),
             "window_height": self.height(),
         }
         if (
+            self._config.launcher.window_screen == geometry["window_screen"]
+            and
             self._config.launcher.window_x == geometry["window_x"]
             and self._config.launcher.window_y == geometry["window_y"]
             and self._config.launcher.window_width == geometry["window_width"]
@@ -123,9 +131,10 @@ class LauncherWindow(LauncherPanel):
     def _restore_visible_geometry(self) -> None:
         if self._config is None:
             return
-        screen = self.screen() or QGuiApplication.primaryScreen()
+        screen = self._screen_for_restore()
         if screen is None:
             return
+        self._last_screen_name = screen.name() or self._config.launcher.window_screen
         available = screen.availableGeometry()
         saved_width = max(self.width(), 1)
         saved_height = max(self.height(), 1)
@@ -134,14 +143,73 @@ class LauncherWindow(LauncherPanel):
         x = self._config.launcher.window_x
         y = self._config.launcher.window_y
         if x is None or y is None:
-            self.resize(width, height)
+            self.setGeometry(self._centered_rect(available, width, height))
             return
         saved_rect = available.__class__(x, y, saved_width, saved_height)
-        if saved_rect.intersects(available):
-            self.setGeometry(x, y, width, height)
+        target_available = self._available_geometry_for_saved_rect(saved_rect) or available
+        if saved_rect.intersects(target_available):
+            self.setGeometry(x, y, min(saved_width, target_available.width()), min(saved_height, target_available.height()))
             return
-        max_x = available.x() + max(available.width() - width, 0)
-        max_y = available.y() + max(available.height() - height, 0)
-        clamped_x = min(max(x, available.x()), max_x)
-        clamped_y = min(max(y, available.y()), max_y)
+        max_x = target_available.x() + max(target_available.width() - width, 0)
+        max_y = target_available.y() + max(target_available.height() - height, 0)
+        clamped_x = min(max(x, target_available.x()), max_x)
+        clamped_y = min(max(y, target_available.y()), max_y)
         self.setGeometry(clamped_x, clamped_y, width, height)
+
+    def _screen_for_restore(self):
+        if self._config is None:
+            return self.screen() or self._primary_screen()
+        if self._config.launcher.window_x is None or self._config.launcher.window_y is None:
+            return self._screen_at_cursor() or self.screen() or self._primary_screen()
+        saved_name = self._config.launcher.window_screen
+        if saved_name:
+            for screen in self._screens():
+                if screen.name() == saved_name:
+                    return screen
+        saved_rect = self.geometry().__class__(
+            self._config.launcher.window_x,
+            self._config.launcher.window_y,
+            max(self.width(), 1),
+            max(self.height(), 1),
+        )
+        return self._screen_for_saved_rect(saved_rect) or self.screen() or self._primary_screen()
+
+    def _available_geometry_for_saved_rect(self, saved_rect):
+        screen = self._screen_for_saved_rect(saved_rect)
+        if screen is not None:
+            return screen.availableGeometry()
+        saved_name = self._config.launcher.window_screen if self._config is not None else None
+        if saved_name:
+            for candidate in self._screens():
+                if candidate.name() == saved_name:
+                    return candidate.availableGeometry()
+        current = self._screen_for_restore()
+        return current.availableGeometry() if current is not None else None
+
+    def _screen_for_saved_rect(self, saved_rect):
+        best_screen = None
+        best_area = -1
+        for candidate in self._screens():
+            intersection = candidate.availableGeometry().intersected(saved_rect)
+            area = intersection.width() * intersection.height()
+            if area > best_area:
+                best_area = area
+                best_screen = candidate
+        if best_area <= 0:
+            return None
+        return best_screen
+
+    @staticmethod
+    def _centered_rect(available, width: int, height: int):
+        x = available.x() + max((available.width() - width) // 2, 0)
+        y = available.y() + max((available.height() - height) // 2, 0)
+        return available.__class__(x, y, width, height)
+
+    def _screens(self):
+        return list(QGuiApplication.screens())
+
+    def _primary_screen(self):
+        return QGuiApplication.primaryScreen()
+
+    def _screen_at_cursor(self):
+        return QGuiApplication.screenAt(QCursor.pos())
