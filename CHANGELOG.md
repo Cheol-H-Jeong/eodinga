@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.929 - 2026-04-24
+## 0.1.930 - 2026-04-24
 
 - Added lateral `Left` and `Right` plus `Home` and `End` keyboard movement for focused launcher query chips, so pinned suggestions are faster to scan without returning to the search box.
 - Stopped truncating pinned query rows silently by surfacing a `+N more` overflow summary with full-query tooltip and accessibility text for the hidden suggestions.
