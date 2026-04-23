@@ -9,17 +9,7 @@ APPIMAGE_RECIPE="${ROOT_DIR}/packaging/linux/appimage-builder.yml"
 RENDERED_RECIPE="${DIST_DIR}/appimage-builder.yml"
 APPIMAGE_ICON="${ROOT_DIR}/packaging/linux/eodinga.svg"
 APPIMAGE_VERSION_TOKEN="@@APP_VERSION@@"
-VERSION="$(python3 - <<'PY'
-import pathlib
-import re
-
-text = pathlib.Path("eodinga/__init__.py").read_text(encoding="utf-8")
-match = re.search(r'^__version__\s*=\s*"([^"]+)"', text, re.MULTILINE)
-if match is None:
-    raise SystemExit("missing __version__")
-print(match.group(1))
-PY
-)"
+VERSION="$(python3 "${ROOT_DIR}/packaging/metadata.py" version)"
 ARCHIVE_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-appdir.tar.gz"
 DRY_RUN=0
 

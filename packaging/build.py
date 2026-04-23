@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import importlib.util
 import re
 import subprocess
 import sys
@@ -19,6 +20,7 @@ PYPROJECT = PROJECT_ROOT / "pyproject.toml"
 APPIMAGE_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "appimage.sh"
 DEB_SCRIPT = PROJECT_ROOT / "packaging" / "linux" / "deb.sh"
 APPIMAGE_DESKTOP = PROJECT_ROOT / "packaging" / "linux" / "eodinga.desktop"
+METADATA_SCRIPT = PROJECT_ROOT / "packaging" / "metadata.py"
 INNO_VERSION_TOKEN = "@@APP_VERSION@@"
 INNO_GUI_DIST_TOKEN = "@@GUI_DIST_NAME@@"
 INNO_CLI_DIST_TOKEN = "@@CLI_DIST_NAME@@"
@@ -40,6 +42,15 @@ def _read_package_version() -> str:
     if match is None:
         raise ValueError(f"could not determine package version from {PACKAGE_INIT}")
     return match.group("version")
+
+
+def _load_metadata_namespace() -> dict[str, Any]:
+    spec = importlib.util.spec_from_file_location("packaging_metadata", METADATA_SCRIPT)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"could not load packaging metadata helper from {METADATA_SCRIPT}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.__dict__
 
 
 def _load_windows_spec_namespace() -> dict[str, Any]:

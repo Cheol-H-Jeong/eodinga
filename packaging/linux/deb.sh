@@ -8,18 +8,8 @@ AUDIT_PATH="${DIST_DIR}/linux-deb-audit.json"
 DESKTOP_ENTRY="${ROOT_DIR}/packaging/linux/eodinga.desktop"
 ICON_ASSET="${ROOT_DIR}/packaging/linux/eodinga.svg"
 DEBIAN_CONTROL_TEMPLATE="${ROOT_DIR}/packaging/linux/debian/control"
-VERSION="$(python3 - <<'PY'
-import pathlib
-import re
-
-text = pathlib.Path("eodinga/__init__.py").read_text(encoding="utf-8")
-match = re.search(r'^__version__\s*=\s*"([^"]+)"', text, re.MULTILINE)
-if match is None:
-    raise SystemExit("missing __version__")
-print(match.group(1))
-PY
-)"
 ARCH="${TARGET_ARCH:-amd64}"
+VERSION="$(python3 "${ROOT_DIR}/packaging/metadata.py" version)"
 PACKAGE_DIR="${BUILD_ROOT}/eodinga_${VERSION}_${ARCH}"
 ARCHIVE_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}_debroot.tar.gz"
 DEB_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}.deb"
@@ -33,16 +23,7 @@ rm -rf "${PACKAGE_DIR}"
 mkdir -p "${PACKAGE_DIR}/DEBIAN" "${PACKAGE_DIR}/usr/bin" "${PACKAGE_DIR}/usr/share/applications" "${PACKAGE_DIR}/usr/share/doc/eodinga"
 mkdir -p "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps"
 
-cat > "${PACKAGE_DIR}/DEBIAN/control" <<EOF
-Package: eodinga
-Version: ${VERSION}
-Section: utils
-Priority: optional
-Architecture: ${ARCH}
-Maintainer: Cheol-H-Jeong
-Depends: python3 (>= 3.11)
-Description: Instant lexical file search for Windows and Linux
-EOF
+python3 "${ROOT_DIR}/packaging/metadata.py" debian-control --arch "${ARCH}" > "${PACKAGE_DIR}/DEBIAN/control"
 
 cat > "${PACKAGE_DIR}/usr/bin/eodinga" <<'EOF'
 #!/usr/bin/env bash
