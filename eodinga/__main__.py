@@ -20,6 +20,7 @@ from eodinga.observability import (
     configure_logging,
     counter_value,
     histogram_snapshot,
+    session_snapshot,
     snapshot_metrics,
     write_crash_log,
 )
@@ -163,6 +164,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     with closing(open_index(db_path)) as conn:
         index_snapshot = read_index_stats(conn)
     metrics = snapshot_metrics()
+    session = session_snapshot()
     snapshot = StatsSnapshot(
         files_indexed=index_snapshot.file_count,
         documents_indexed=index_snapshot.content_count,
@@ -174,6 +176,11 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         histograms=metrics["histograms"],
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
+        session_started_at=session["started_at"],
+        uptime_ms=float(session["uptime_ms"]),
+        pid=int(session["pid"]),
+        log_path=Path(session["log_path"]) if session["log_path"] is not None else None,
+        crash_dir=Path(session["crash_dir"]),
     ).model_dump(mode="json")
     return _emit(snapshot, as_json=bool(args.json))
 

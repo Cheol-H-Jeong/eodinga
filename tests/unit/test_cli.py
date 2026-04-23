@@ -474,6 +474,10 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["counters"]["queries_served"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
+    assert payload["session_started_at"].endswith("Z")
+    assert payload["uptime_ms"] >= 0
+    assert payload["pid"] > 0
+    assert payload["crash_dir"]
 
 
 def test_stats_json_exposes_end_to_end_runtime_metrics(

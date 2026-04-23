@@ -14,6 +14,7 @@ from eodinga.observability import (
     default_crash_dir,
     default_log_path,
     reset_metrics,
+    session_snapshot,
     snapshot_metrics,
     write_crash_log,
 )
@@ -48,6 +49,23 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     configure_logging("INFO")
     assert log_path.parent.exists()
+
+
+def test_session_snapshot_reports_active_log_and_crash_targets(tmp_path: Path, monkeypatch) -> None:
+    log_path = tmp_path / "logs" / "session.log"
+    crash_dir = tmp_path / "crashes"
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    configure_logging("INFO")
+
+    snapshot = session_snapshot()
+    assert snapshot["pid"] > 0
+    assert snapshot["log_path"] == str(log_path)
+    assert snapshot["crash_dir"] == str(crash_dir)
+    assert snapshot["started_at"].endswith("Z")
+    assert snapshot["uptime_ms"] >= 0
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:

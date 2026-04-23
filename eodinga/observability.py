@@ -17,11 +17,21 @@ _DEFAULT_HISTOGRAM_BUCKETS_MS = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0
 _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
+_SESSION_STARTED_AT = datetime.now(UTC)
+_ACTIVE_LOG_PATH: Path | None = None
 
 
 class MetricsSnapshot(TypedDict):
     counters: dict[str, int]
     histograms: dict[str, dict[str, object]]
+
+
+class SessionSnapshot(TypedDict):
+    started_at: str
+    uptime_ms: float
+    pid: int
+    log_path: str | None
+    crash_dir: str
 
 
 @dataclass
@@ -89,9 +99,11 @@ def default_crash_dir() -> Path:
 
 
 def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
+    global _ACTIVE_LOG_PATH
     logger.remove()
     logger.add(sys.stderr, level=level.upper())
     if os.environ.get("EODINGA_DISABLE_FILE_LOGGING") == "1":
+        _ACTIVE_LOG_PATH = None
         return
     effective_log_path = log_path
     if effective_log_path is None:
@@ -100,10 +112,12 @@ def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None
             effective_log_path = Path(override_path)
         else:
             if "PYTEST_CURRENT_TEST" in os.environ:
+                _ACTIVE_LOG_PATH = None
                 return
             effective_log_path = default_log_path()
     target = effective_log_path.expanduser()
     target.parent.mkdir(parents=True, exist_ok=True)
+    _ACTIVE_LOG_PATH = target
     logger.add(target, rotation="5 MB", retention=5, level=level.upper())
 
 
@@ -167,6 +181,19 @@ def histogram_snapshot(name: str) -> dict[str, object]:
         if state is None:
             return {}
         return state.snapshot()
+
+
+def session_snapshot() -> SessionSnapshot:
+    override_crash_dir = os.environ.get("EODINGA_CRASH_DIR")
+    crash_dir = (Path(override_crash_dir) if override_crash_dir else default_crash_dir()).expanduser()
+    uptime_ms = max((datetime.now(UTC) - _SESSION_STARTED_AT).total_seconds() * 1000, 0.0)
+    return {
+        "started_at": _SESSION_STARTED_AT.isoformat().replace("+00:00", "Z"),
+        "uptime_ms": round(uptime_ms, 3),
+        "pid": os.getpid(),
+        "log_path": str(_ACTIVE_LOG_PATH) if _ACTIVE_LOG_PATH is not None else None,
+        "crash_dir": str(crash_dir),
+    }
 
 
 def write_crash_log(
