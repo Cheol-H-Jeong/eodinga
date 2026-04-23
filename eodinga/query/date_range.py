@@ -44,14 +44,14 @@ def _next_year_start(day: date) -> date:
     return day.replace(year=day.year + 1, month=1, day=1)
 
 
-def _parse_iso_day(value: str) -> date:
+def _parse_iso_day(value: str, *, position: int = 0) -> date:
     try:
         return date.fromisoformat(value)
     except ValueError as error:
-        raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
+        raise QuerySyntaxError(f"invalid date literal: {value}", position) from error
 
 
-def _parse_iso_span(value: str) -> DateRange | None:
+def _parse_iso_span(value: str, *, position: int = 0) -> DateRange | None:
     if re.fullmatch(r"\d{4}", value):
         start = date(int(value), 1, 1)
         return _span_bounds(start, _next_year_start(start))
@@ -60,7 +60,7 @@ def _parse_iso_span(value: str) -> DateRange | None:
         try:
             start = date(int(month_match.group("year")), int(month_match.group("month")), 1)
         except ValueError as error:
-            raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
+            raise QuerySyntaxError(f"invalid date literal: {value}", position) from error
         return _span_bounds(start, _next_month_start(start))
     week_match = re.fullmatch(r"(?P<year>\d{4})-[Ww](?P<week>\d{2})", value)
     if week_match is None:
@@ -68,7 +68,7 @@ def _parse_iso_span(value: str) -> DateRange | None:
     try:
         start = date.fromisocalendar(int(week_match.group("year")), int(week_match.group("week")), 1)
     except ValueError as error:
-        raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
+        raise QuerySyntaxError(f"invalid date literal: {value}", position) from error
     return _span_bounds(start, start + timedelta(days=7))
 
 
@@ -78,19 +78,19 @@ def _instant_bounds(moment: datetime) -> DateRange:
     return DateRange(start=start, end=start + 1)
 
 
-def _parse_iso_endpoint(value: str) -> DateRange:
-    span = _parse_iso_span(value)
+def _parse_iso_endpoint(value: str, *, position: int = 0) -> DateRange:
+    span = _parse_iso_span(value, position=position)
     if span is not None:
         return span
     try:
-        return _day_bounds(_parse_iso_day(value))
+        return _day_bounds(_parse_iso_day(value, position=position))
     except QuerySyntaxError:
         pass
     normalized = value[:-1] + "+00:00" if value.endswith(("Z", "z")) else value
     try:
         return _instant_bounds(datetime.fromisoformat(normalized))
     except ValueError as error:
-        raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
+        raise QuerySyntaxError(f"invalid date literal: {value}", position) from error
 
 
 def _relative_range(value: str) -> DateRange | None:
@@ -128,7 +128,7 @@ def _relative_range(value: str) -> DateRange | None:
     return None
 
 
-def parse_date_range(value: str) -> DateRange:
+def parse_date_range(value: str, *, position: int = 0) -> DateRange:
     stripped = value.strip()
     relative = _relative_range(stripped)
     if relative is not None:
@@ -136,14 +136,16 @@ def parse_date_range(value: str) -> DateRange:
     if ".." in stripped:
         left, right = (part.strip() for part in stripped.split("..", 1))
         if not left and not right:
-            raise QuerySyntaxError(f"invalid date literal: {stripped}", 0)
+            raise QuerySyntaxError(f"invalid date literal: {stripped}", position)
+        separator = stripped.index("..")
+        right_position = position + separator + 2
         if not left:
-            return DateRange(end=parse_date_range(right).end)
+            return DateRange(end=parse_date_range(right, position=right_position).end)
         if not right:
-            return DateRange(start=parse_date_range(left).start)
-        left_range = parse_date_range(left)
-        right_range = parse_date_range(right)
+            return DateRange(start=parse_date_range(left, position=position).start)
+        left_range = parse_date_range(left, position=position)
+        right_range = parse_date_range(right, position=right_position)
         if (right_range.start or 0) < (left_range.start or 0):
             left_range, right_range = right_range, left_range
         return DateRange(start=left_range.start, end=right_range.end)
-    return _parse_iso_endpoint(stripped)
+    return _parse_iso_endpoint(stripped, position=position)

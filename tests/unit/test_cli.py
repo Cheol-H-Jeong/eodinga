@@ -410,17 +410,17 @@ def test_search_reports_invalid_query_cleanly(cli_runner, tmp_path: Path) -> Non
 
 
 @pytest.mark.parametrize(
-    ("query", "expected_message"),
+    ("query", "expected_message", "expected_position"),
     [
-        ("case:maybe duplicate", "invalid boolean value"),
-        ("date:2026-01-01..bogus duplicate", "invalid date literal"),
-        ("size:>100..500K duplicate", "invalid size literal"),
-        ("/[a-/", "invalid regex"),
-        ("content:/todo/ii", "duplicate regex flag"),
+        ("case:maybe duplicate", "invalid boolean value", 5),
+        ("date:2026-01-01..bogus duplicate", "invalid date literal", 17),
+        ("size:>100..500K duplicate", "invalid size literal", 5),
+        ("/[a-/", "invalid regex", 1),
+        ("content:/todo/ii", "duplicate regex flag", 15),
     ],
 )
 def test_search_reports_invalid_semantic_query_cleanly(
-    cli_runner, tmp_path: Path, query: str, expected_message: str
+    cli_runner, tmp_path: Path, query: str, expected_message: str, expected_position: int
 ) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
@@ -429,6 +429,7 @@ def test_search_reports_invalid_semantic_query_cleanly(
 
     assert result.returncode == 2
     assert expected_message in result.stderr
+    assert f"at position {expected_position}" in result.stderr
 
 
 def test_search_accepts_is_aliases(cli_runner, tmp_path: Path) -> None:

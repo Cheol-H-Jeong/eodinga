@@ -28,6 +28,7 @@ class CompiledTextTerm(BaseModel):
     value: str
     kind: Literal["word", "phrase"] = "word"
     negated: bool = False
+    position: int = 0
 
 
 class CompiledRegexTerm(BaseModel):
@@ -85,17 +86,25 @@ def _to_dnf(node: AstNode) -> list[list[WordNode | PhraseNode | RegexNode | Oper
 
 def _negate_term(node: WordNode | PhraseNode | RegexNode | OperatorNode) -> AstNode:
     if isinstance(node, WordNode):
-        return WordNode(value=node.value, negated=not node.negated)
+        return WordNode(value=node.value, negated=not node.negated, position=node.position)
     if isinstance(node, PhraseNode):
-        return PhraseNode(value=node.value, negated=not node.negated)
+        return PhraseNode(value=node.value, negated=not node.negated, position=node.position)
     if isinstance(node, RegexNode):
-        return RegexNode(pattern=node.pattern, flags=node.flags, negated=not node.negated)
+        return RegexNode(
+            pattern=node.pattern,
+            flags=node.flags,
+            negated=not node.negated,
+            position=node.position,
+            pattern_position=node.pattern_position,
+        )
     return OperatorNode(
         name=node.name,
         value=node.value,
         value_kind=node.value_kind,
         regex_flags=node.regex_flags,
         negated=not node.negated,
+        position=node.position,
+        value_position=node.value_position,
     )
 
 
@@ -136,18 +145,18 @@ def _has_non_ascii(value: str) -> bool:
     return any(ord(char) > 127 for char in value)
 
 
-def _parse_bool(value: str) -> bool:
+def _parse_bool(value: str, *, position: int = 0) -> bool:
     normalized = value.lower()
     if normalized in {"1", "true", "yes", "on"}:
         return True
     if normalized in {"0", "false", "no", "off"}:
         return False
-    raise QuerySyntaxError(f"invalid boolean value: {value}", 0)
+    raise QuerySyntaxError(f"invalid boolean value: {value}", position)
 
 
-def _try_parse_bool(value: str) -> bool | None:
+def _try_parse_bool(value: str, *, position: int = 0) -> bool | None:
     try:
-        return _parse_bool(value)
+        return _parse_bool(value, position=position)
     except QuerySyntaxError:
         return None
 
@@ -164,14 +173,14 @@ def _regex_flags(flags: str) -> int:
     return compiled_flags
 
 
-def _validate_regex_pattern(pattern: str, flags: str = "") -> None:
+def _validate_regex_pattern(pattern: str, flags: str = "", *, position: int = 0) -> None:
     try:
         re.compile(pattern, _regex_flags(flags))
     except re.error as error:
-        raise QuerySyntaxError(f"invalid regex: {error}", 0) from error
+        raise QuerySyntaxError(f"invalid regex: {error}", position) from error
 
 
-def _parse_size_number(number_text: str, unit: str, original: str) -> int:
+def _parse_size_number(number_text: str, unit: str, original: str, *, position: int = 0) -> int:
     normalized_unit = unit.strip().casefold()
     factor = {
         "": 1,
@@ -192,45 +201,54 @@ def _parse_size_number(number_text: str, unit: str, original: str) -> int:
         "tib": 1024**4,
     }.get(normalized_unit)
     if factor is None:
-        raise QuerySyntaxError(f"invalid size literal: {original}", 0)
+        raise QuerySyntaxError(f"invalid size literal: {original}", position)
     try:
         return int(float(number_text) * factor)
     except ValueError as error:
-        raise QuerySyntaxError(f"invalid size literal: {original}", 0) from error
+        raise QuerySyntaxError(f"invalid size literal: {original}", position) from error
 
 
-def _size_to_bytes(value: str) -> tuple[str, int]:
+def _size_to_bytes(value: str, *, position: int = 0) -> tuple[str, int]:
     text = value.strip()
     comparator = "="
+    number_position = position
     for prefix in (">=", "<=", ">", "<", "="):
         if text.startswith(prefix):
             comparator = prefix
             text = text[len(prefix) :]
+            number_position += len(prefix)
             break
     match = re.fullmatch(r"(?P<number>\d+(?:\.\d+)?)(?P<unit>[A-Za-z]*)", text)
     if match is None:
-        raise QuerySyntaxError(f"invalid size literal: {value}", 0)
-    return comparator, _parse_size_number(match.group("number"), match.group("unit"), value)
+        raise QuerySyntaxError(f"invalid size literal: {value}", position)
+    return comparator, _parse_size_number(
+        match.group("number"),
+        match.group("unit"),
+        value,
+        position=number_position,
+    )
 
 
-def _size_endpoint_to_bytes(value: str, original: str) -> int:
+def _size_endpoint_to_bytes(value: str, original: str, *, position: int = 0) -> int:
     text = value.strip()
     if any(text.startswith(prefix) for prefix in (">=", "<=", ">", "<", "=")):
-        raise QuerySyntaxError(f"invalid size literal: {original}", 0)
+        raise QuerySyntaxError(f"invalid size literal: {original}", position)
     match = re.fullmatch(r"(?P<number>\d+(?:\.\d+)?)(?P<unit>[A-Za-z]*)", text)
     if match is None:
-        raise QuerySyntaxError(f"invalid size literal: {original}", 0)
-    return _parse_size_number(match.group("number"), match.group("unit"), original)
+        raise QuerySyntaxError(f"invalid size literal: {original}", position)
+    return _parse_size_number(match.group("number"), match.group("unit"), original, position=position)
 
 
-def _size_to_range(value: str) -> tuple[int | None, int | None] | None:
+def _size_to_range(value: str, *, position: int = 0) -> tuple[int | None, int | None] | None:
     if ".." not in value:
         return None
     left, right = (part.strip() for part in value.split("..", 1))
     if not left and not right:
-        raise QuerySyntaxError(f"invalid size literal: {value}", 0)
-    start = _size_endpoint_to_bytes(left, value) if left else None
-    end = _size_endpoint_to_bytes(right, value) if right else None
+        raise QuerySyntaxError(f"invalid size literal: {value}", position)
+    left_position = position
+    right_position = position + value.index("..") + 2
+    start = _size_endpoint_to_bytes(left, value, position=left_position) if left else None
+    end = _size_endpoint_to_bytes(right, value, position=right_position) if right else None
     if start is not None and end is not None and end < start:
         start, end = end, start
     return start, end
@@ -246,7 +264,7 @@ def _duplicate_clause(negated: bool) -> str:
     return f"NOT ({clause})" if negated else clause
 
 
-def _normalize_is_value(value: str) -> str:
+def _normalize_is_value(value: str, *, position: int = 0) -> str:
     normalized = value.strip().casefold().replace("_", "-")
     aliases = {
         "dir": "dir",
@@ -262,7 +280,7 @@ def _normalize_is_value(value: str) -> str:
     try:
         return aliases[normalized]
     except KeyError as error:
-        raise QuerySyntaxError(f"invalid is: value: {value}", 0) from error
+        raise QuerySyntaxError(f"invalid is: value: {value}", position) from error
 
 
 def _empty_clause(negated: bool) -> str:
@@ -303,6 +321,7 @@ def _compile_branch(
                     value=_normalize_literal(term.value),
                     kind="word",
                     negated=term.negated,
+                    position=term.position,
                 )
             )
             continue
@@ -312,18 +331,19 @@ def _compile_branch(
                     value=_normalize_literal(term.value),
                     kind="phrase",
                     negated=term.negated,
+                    position=term.position,
                 )
             )
             continue
         if isinstance(term, RegexNode):
-            _validate_regex_pattern(term.pattern, term.flags)
+            _validate_regex_pattern(term.pattern, term.flags, position=term.pattern_position)
             path_regex_terms.append(
                 CompiledRegexTerm(pattern=term.pattern, flags=term.flags, negated=term.negated)
             )
             continue
         if term.name == "content":
             if term.value_kind == "regex":
-                _validate_regex_pattern(term.value, term.regex_flags)
+                _validate_regex_pattern(term.value, term.regex_flags, position=term.value_position + 1)
                 content_regex_terms.append(
                     CompiledRegexTerm(
                         pattern=term.value, flags=term.regex_flags, negated=term.negated
@@ -335,12 +355,13 @@ def _compile_branch(
                         value=_normalize_literal(term.value),
                         kind=term.value_kind,
                         negated=term.negated,
+                        position=term.value_position,
                     )
                 )
             continue
         if term.name == "path":
             if term.value_kind == "regex":
-                _validate_regex_pattern(term.value, term.regex_flags)
+                _validate_regex_pattern(term.value, term.regex_flags, position=term.value_position + 1)
                 path_regex_terms.append(
                     CompiledRegexTerm(
                         pattern=term.value, flags=term.regex_flags, negated=term.negated
@@ -353,6 +374,7 @@ def _compile_branch(
                         value=normalized_value,
                         kind=term.value_kind,
                         negated=term.negated,
+                        position=term.value_position,
                     )
                 )
                 if not _has_non_ascii(normalized_value):
@@ -366,7 +388,7 @@ def _compile_branch(
             where_params.append(term.value.lower())
             continue
         if term.name in {"date", "modified", "created"}:
-            range_bounds = parse_date_range(term.value)
+            range_bounds = parse_date_range(term.value, position=term.value_position)
             column = "ctime" if term.name == "created" else "mtime"
             clauses: list[str] = []
             if range_bounds.start is not None:
@@ -376,12 +398,12 @@ def _compile_branch(
                 clauses.append(f"files.{column} < ?")
                 where_params.append(range_bounds.end)
             if not clauses:
-                raise QuerySyntaxError(f"invalid date literal: {term.value}", 0)
+                raise QuerySyntaxError(f"invalid date literal: {term.value}", term.value_position)
             clause_sql = " AND ".join(clauses)
             where_parts.append(f"NOT ({clause_sql})" if term.negated else clause_sql)
             continue
         if term.name == "size":
-            size_range = _size_to_range(term.value)
+            size_range = _size_to_range(term.value, position=term.value_position)
             if size_range is not None:
                 start, end = size_range
                 clauses: list[str] = []
@@ -397,7 +419,7 @@ def _compile_branch(
                 else:
                     where_parts.append(clause_sql)
                 continue
-            comparator, size_bytes = _size_to_bytes(term.value)
+            comparator, size_bytes = _size_to_bytes(term.value, position=term.value_position)
             if term.negated:
                 where_parts.append(f"NOT (files.size {comparator} ?)")
             else:
@@ -405,7 +427,7 @@ def _compile_branch(
             where_params.append(size_bytes)
             continue
         if term.name == "is":
-            normalized = _normalize_is_value(term.value)
+            normalized = _normalize_is_value(term.value, position=term.value_position)
             if normalized == "dir":
                 clause = "files.is_dir = 1 AND files.is_symlink = 0"
             elif normalized == "file":
@@ -422,13 +444,13 @@ def _compile_branch(
             where_parts.append(f"NOT ({clause})" if term.negated else clause)
             continue
         if term.name == "case":
-            case_sensitive = _parse_bool(term.value)
+            case_sensitive = _parse_bool(term.value, position=term.value_position)
             if term.negated:
                 case_sensitive = not case_sensitive
             continue
         if term.name == "regex":
             bool_value = (
-                _try_parse_bool(term.value)
+                _try_parse_bool(term.value, position=term.value_position)
                 if term.value_kind == "word"
                 else None
             )
@@ -437,7 +459,7 @@ def _compile_branch(
                 if term.negated:
                     regex_mode = not regex_mode
                 continue
-            _validate_regex_pattern(term.value, term.regex_flags)
+            _validate_regex_pattern(term.value, term.regex_flags, position=term.value_position + 1)
             path_regex_terms.append(
                 CompiledRegexTerm(
                     pattern=term.value,
@@ -451,7 +473,7 @@ def _compile_branch(
     if regex_mode and path_terms:
         regex_terms = []
         for term in path_terms:
-            _validate_regex_pattern(term.value)
+            _validate_regex_pattern(term.value, position=term.position)
             regex_terms.append(
                 CompiledRegexTerm(pattern=term.value, flags="", negated=term.negated)
             )

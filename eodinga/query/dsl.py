@@ -26,6 +26,7 @@ class QueryNode(BaseModel):
 
 class TermNode(QueryNode):
     negated: bool = False
+    position: int = 0
 
 
 class WordNode(TermNode):
@@ -42,6 +43,7 @@ class RegexNode(TermNode):
     kind: Literal["regex"] = "regex"
     pattern: str
     flags: str = ""
+    pattern_position: int = 0
 
 
 class OperatorNode(TermNode):
@@ -50,6 +52,7 @@ class OperatorNode(TermNode):
     value: str
     value_kind: Literal["word", "phrase", "regex"] = "word"
     regex_flags: str = ""
+    value_position: int = 0
 
 
 class AndNode(QueryNode):
@@ -151,13 +154,14 @@ class _Parser:
                     raw.startswith("/") and raw.count("/") < 2
                 ):
                     self.index = token_start + len(name) + 1
-                    return self._parse_operator(name, "", negated)
-                return self._parse_operator(name, raw, negated)
-        return WordNode(value=token, negated=negated)
+                    return self._parse_operator(name, "", negated, position=token_start)
+                return self._parse_operator(name, raw, negated, position=token_start)
+        return WordNode(value=token, negated=negated, position=token_start)
 
-    def _parse_operator(self, name: str, initial_value: str, negated: bool) -> OperatorNode:
+    def _parse_operator(self, name: str, initial_value: str, negated: bool, *, position: int) -> OperatorNode:
         if initial_value:
-            value, value_kind, regex_flags = self._decode_inline_value(name, initial_value)
+            value_start = self.index - len(initial_value)
+            value, value_kind, regex_flags = self._decode_inline_value(name, initial_value, value_start)
             if value_kind == "word":
                 value = self._maybe_extend_range_value(name, value)
                 value = self._maybe_extend_operator_value(name, value)
@@ -167,14 +171,24 @@ class _Parser:
                 value_kind=value_kind,
                 regex_flags=regex_flags,
                 negated=negated,
+                position=position,
+                value_position=value_start,
             )
         self._skip_ws()
         char = self._peek()
         if char is None:
             raise QuerySyntaxError("expected operator value", self.index)
+        value_start = self.index
         if char == '"':
             phrase = self._parse_phrase()
-            return OperatorNode(name=name, value=phrase.value, value_kind="phrase", negated=negated)
+            return OperatorNode(
+                name=name,
+                value=phrase.value,
+                value_kind="phrase",
+                negated=negated,
+                position=position,
+                value_position=value_start,
+            )
         if char == "/":
             regex = self._parse_regex()
             return OperatorNode(
@@ -183,13 +197,22 @@ class _Parser:
                 value_kind="regex",
                 regex_flags=regex.flags,
                 negated=negated,
+                position=position,
+                value_position=value_start,
             )
         value = self._read_token()
         if not value:
             raise QuerySyntaxError("expected operator value", self.index)
         value = self._maybe_extend_range_value(name, value)
         value = self._maybe_extend_operator_value(name, value)
-        return OperatorNode(name=name, value=value, value_kind="word", negated=negated)
+        return OperatorNode(
+            name=name,
+            value=value,
+            value_kind="word",
+            negated=negated,
+            position=position,
+            value_position=value_start,
+        )
 
     def _parse_phrase(self) -> PhraseNode:
         start = self.index
@@ -203,7 +226,7 @@ class _Parser:
         self.index += 1
         if not value:
             raise QuerySyntaxError("empty phrase", phrase_start)
-        return PhraseNode(value=value)
+        return PhraseNode(value=value, position=start)
 
     def _parse_regex(self) -> RegexNode:
         start = self.index
@@ -231,13 +254,12 @@ class _Parser:
         if not pattern:
             raise QuerySyntaxError("empty regex", pattern_start)
         flags = self._normalize_regex_flags(self.source[flags_start:self.index], flags_start)
-        return RegexNode(pattern=pattern, flags=flags)
+        return RegexNode(pattern=pattern, flags=flags, position=start, pattern_position=pattern_start)
 
     def _decode_inline_value(
-        self, name: str, value: str
+        self, name: str, value: str, start: int
     ) -> tuple[str, Literal["word", "phrase", "regex"], str]:
         if value.startswith('"'):
-            start = self.index - len(value)
             if not value.endswith('"') or len(value) == 1:
                 raise QuerySyntaxError("unterminated phrase", start)
             decoded = self._decode_phrase_text(value[1:-1], start + 1)
@@ -247,11 +269,11 @@ class _Parser:
         if value.startswith("/"):
             delimiters = self._regex_delimiters(value)
             if len(delimiters) < 2 or value.endswith("\\"):
-                raise QuerySyntaxError("unterminated regex", self.index - len(value))
+                raise QuerySyntaxError("unterminated regex", start)
             last = delimiters[-1]
             pattern = value[1:last]
             if not pattern:
-                raise QuerySyntaxError("empty regex", self.index - len(value) + 1)
+                raise QuerySyntaxError("empty regex", start + 1)
             suffix = value[last + 1 :]
             if suffix and (len(suffix) > 3 or not suffix.isalpha()):
                 return value, "word", ""
@@ -266,11 +288,11 @@ class _Parser:
                 try:
                     suffix = self._normalize_regex_flags(
                         suffix,
-                        self.index - len(value) + last + 1,
+                        start + last + 1,
                     )
                 except QuerySyntaxError:
                     return value, "word", ""
-            flags = self._normalize_regex_flags(suffix, self.index - len(value) + last + 1)
+            flags = self._normalize_regex_flags(suffix, start + last + 1)
             return pattern, "regex", flags
         return value, "word", ""
 
@@ -290,8 +312,14 @@ class _Parser:
         if not negated:
             return node
         if isinstance(node, PhraseNode):
-            return PhraseNode(value=node.value, negated=True)
-        return RegexNode(pattern=node.pattern, flags=node.flags, negated=True)
+            return PhraseNode(value=node.value, negated=True, position=node.position)
+        return RegexNode(
+            pattern=node.pattern,
+            flags=node.flags,
+            negated=True,
+            position=node.position,
+            pattern_position=node.pattern_position,
+        )
 
     def _read_token(self) -> str:
         start = self.index
