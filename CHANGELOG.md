@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.249 - 2026-04-23
+## 0.1.250 - 2026-04-23
 
 - Added inline launcher filter chips so active `ext:`, `date:`, `size:`, `content:`, and similar operators stay visible while typing.
 - Named the launcher's status, hint, empty-state, and preview landmarks more completely so screen readers can identify the same UI regions keyboard users navigate.
