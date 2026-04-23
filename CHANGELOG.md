@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.415 - 2026-04-23
+## 0.1.418 - 2026-04-23
 
 - Fixed the default `pyright` repository gate in worker worktrees by teaching the repo config to resolve the local `.venv` automatically instead of requiring an explicit `--pythonpath`.
 - Expanded the README with a command-roles table and a `stats --json` operator guide so the intended use of each surface and the meaning of the runtime snapshot are visible from the shipped front page.
