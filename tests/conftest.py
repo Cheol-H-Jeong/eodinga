@@ -14,6 +14,12 @@ from time import time
 from typing import cast
 
 import pytest
+
+# The full test gate imports this module before any Qt fixture runs.
+# Default to the headless backend before importing PySide so GUI tests do not
+# bind to a platform plugin that is unavailable in CI or worker shells.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 from PySide6.QtWidgets import QApplication
 
 from eodinga.common import FileRecord
@@ -129,6 +135,8 @@ def qapp() -> Iterator[QApplication]:
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     app = cast(QApplication, QApplication.instance() or QApplication([]))
     yield app
+    app.closeAllWindows()
+    app.processEvents()
 
 
 @pytest.fixture()
