@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.587 - 2026-04-23
+
+- Reduced walker canonicalization overhead by resolving only the root and symlink-backed ancestry, keeping ordinary directory traversals off the `resolve_safe()` hot path while preserving alias-loop protection.
+- Removed redundant outer rebuild transactions around `IndexWriter.bulk_upsert()` and batched root metadata inserts once up front, cutting avoidable savepoint and commit work during staged index builds.
+- Added a perf-only rebuild-throughput benchmark behind `EODINGA_RUN_PERF=1`, giving staged rebuild speed an explicit regression check alongside existing walk/query/bulk-upsert perf coverage.
+
 ## 0.1.585 - 2026-04-23
 
 - Tightened scoped-search root matching so wildcard characters in root paths no longer leak results from sibling roots, and Windows drive-letter case variants now keep exact-root records in scope.
