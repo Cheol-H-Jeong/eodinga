@@ -16,6 +16,7 @@ from eodinga.index.storage import (
     _cleanup_index_files,
     atomic_replace_index,
     connect_database,
+    optimize_connection,
     temporary_pragmas,
 )
 from eodinga.index.writer import IndexWriter
@@ -156,8 +157,9 @@ def rebuild_index(
                         files_indexed += indexed
                         if indexed:
                             increment_counter("files_indexed", indexed, root=str(root.path))
-                        stop.raise_if_requested()
                 stop.raise_if_requested()
+                stop.raise_if_requested()
+        optimize_connection(conn)
     except KeyboardInterrupt:
         conn.close()
         raise

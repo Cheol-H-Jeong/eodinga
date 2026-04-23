@@ -174,6 +174,28 @@ def test_rebuild_index_uses_fast_bulk_write_pragmas(
     assert cache_sizes == [-128000]
 
 
+def test_rebuild_index_optimizes_staged_database_before_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    optimize_calls: list[int] = []
+
+    def record_optimize(conn: sqlite3.Connection) -> None:
+        row = conn.execute("SELECT COUNT(*) FROM files").fetchone()
+        assert row is not None
+        optimize_calls.append(int(row[0]))
+
+    monkeypatch.setattr(build_module, "optimize_connection", record_optimize)
+
+    result = rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    assert result.files_indexed == 2
+    assert optimize_calls == [2]
+
+
 def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

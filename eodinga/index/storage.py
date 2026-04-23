@@ -69,6 +69,10 @@ def connect_database(
     )
 
 
+def optimize_connection(conn: sqlite3.Connection) -> None:
+    conn.execute("PRAGMA optimize;").fetchall()
+
+
 @contextmanager
 def temporary_pragmas(
     conn: sqlite3.Connection,
@@ -398,6 +402,7 @@ __all__ = [
     "connect_database",
     "has_stale_wal",
     "open_index",
+    "optimize_connection",
     "recover_interrupted_build",
     "recover_interrupted_recovery",
     "recover_stale_wal",
