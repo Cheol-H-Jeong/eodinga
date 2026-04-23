@@ -35,9 +35,17 @@ class _SignalStop(AbstractContextManager["_SignalStop"]):
     def __enter__(self) -> _SignalStop:
         if threading.current_thread() is not threading.main_thread():
             return self
-        for signum in (signal.SIGINT, signal.SIGTERM):
-            self._handlers[signum] = signal.getsignal(signum)
-            signal.signal(signum, self._handle_signal)
+        installed: list[signal.Signals] = []
+        try:
+            for signum in (signal.SIGINT, signal.SIGTERM):
+                self._handlers[signum] = signal.getsignal(signum)
+                signal.signal(signum, self._handle_signal)
+                installed.append(signum)
+        except Exception:
+            for signum in installed:
+                signal.signal(signum, self._handlers[signum])
+            self._handlers.clear()
+            raise
         self._active = True
         return self
 

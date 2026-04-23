@@ -176,3 +176,38 @@ def test_rebuild_index_installs_sigint_and_sigterm_handlers_on_main_thread(
 
     assert installed == [signal.SIGINT, signal.SIGTERM]
     assert restored == [signal.SIGINT, signal.SIGTERM]
+
+
+def test_signal_stop_restores_installed_handlers_if_setup_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    previous_handlers: dict[signal.Signals, object] = {
+        signal.SIGINT: object(),
+        signal.SIGTERM: object(),
+    }
+    installed: list[signal.Signals] = []
+    restored: list[signal.Signals] = []
+
+    def fake_getsignal(signum: signal.Signals) -> object:
+        return previous_handlers[signum]
+
+    def fake_signal(signum: signal.Signals, handler: object) -> object:
+        if signum == signal.SIGTERM and handler == stop._handle_signal:
+            raise RuntimeError("simulated signal install failure")
+        if handler == stop._handle_signal:
+            installed.append(signum)
+        elif handler == previous_handlers[signum]:
+            restored.append(signum)
+        return handler
+
+    monkeypatch.setattr(build_module.signal, "getsignal", fake_getsignal)
+    monkeypatch.setattr(build_module.signal, "signal", fake_signal)
+
+    stop = build_module._SignalStop()
+
+    with pytest.raises(RuntimeError, match="simulated signal install failure"):
+        stop.__enter__()
+
+    assert installed == [signal.SIGINT]
+    assert restored == [signal.SIGINT]
+    assert stop._active is False
