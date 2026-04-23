@@ -67,6 +67,20 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 - `docs/man/eodinga.1` is generated from `eodinga.__main__._build_parser()` so packaged CLI help can be audited against the real argparse surface.
 - `docs/screenshots/*.png` are rendered from real Qt widgets via `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
 
+## On-Disk Runtime State
+
+| Path or artifact | Owned by | Purpose |
+| --- | --- | --- |
+| config path (`~/.config/eodinga/config.toml` or `%APPDATA%\\eodinga\\config.toml`) | `eodinga.config` | persisted roots, launcher settings, and user preferences |
+| live index (`index.db`) | `eodinga.index.storage` | canonical SQLite database used by CLI, GUI, and launcher |
+| staged rebuild (`index.db.next`) | `rebuild_index()` / `open_index()` | fully built replacement index waiting for atomic promotion |
+| staged recovery (`index.db.recover`) | `open_index()` | temporary database used while recovering stale WAL state |
+| `index.db-wal` / `index.db-shm` | SQLite | transactional sidecars checkpointed or replayed during startup recovery |
+| rotating runtime log | `eodinga.observability` | command, warning, and diagnostics output in the platform log root |
+| `crash-<ts>.log` | crash handler | preserved unhandled exception report with runtime metadata |
+
+All runtime writes stay inside config, database, and log/crash paths. Indexed roots remain read-only inputs even during rebuild and watch flows.
+
 ## Index Storage
 
 - `files` is the source-of-truth table for root membership, timestamps, size, extension, and duplicate detection via `content_hash`.
@@ -259,6 +273,16 @@ startup
 - No runtime network access is allowed; `tests/safety/test_no_network.py` enforces that at source level.
 - Filesystem writes are limited to the application database/config area; the read-only wrappers prevent mutating indexed user roots.
 - Performance tests exist under `tests/perf`, but they stay opt-in for v0.1 so the default gate remains deterministic on developer machines.
+
+## Failure Surfaces
+
+| Symptom | Likely layer | Why | First command |
+| --- | --- | --- | --- |
+| Query returns no expected hits | `query.*` or stale `files` / FTS rows | filter shape, stale watcher state, or missing parser content | `eodinga search 'query' --json` |
+| Files changed but search did not | `core.watcher` or writer commit path | debounce backlog, disabled watch flow, or failed event apply | `eodinga stats --json` |
+| Startup reports recovery or WAL issues | `index.storage` | interrupted staged swap or stale sidecars | `eodinga doctor` |
+| Packaged CLI help or screenshots drift | generated docs assets | checked-in docs no longer match runtime/parser surface | `pytest -q tests/unit/test_docs_assets.py` |
+| Packaged artifact audit fails | packaging templates or docs inputs | version, installer metadata, or shipped docs mismatch | `python packaging/build.py --target windows-dry-run` |
 
 ## Operator Debug Path
 

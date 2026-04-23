@@ -100,6 +100,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Runtime Flow" in architecture
     assert "## Data Flow Diagram" in architecture
     assert "## Module Map" in architecture
+    assert "## On-Disk Runtime State" in architecture
     assert "## Index Storage" in architecture
     assert "## SQLite Schema Snapshot" in architecture
     assert "## Index Lifecycle Sequence" in architecture
@@ -109,8 +110,11 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Live Update Sequence" in architecture
     assert "## Documentation Asset Flow" in architecture
     assert "## Operator Debug Path" in architecture
+    assert "## Failure Surfaces" in architecture
     assert "## Packaging Surfaces" in architecture
     assert "compressed changelog" in architecture
+    assert "crash-<ts>.log" in architecture
+    assert "index.db.next" in architecture
     assert "scripts/generate_manpage.py" in architecture
     assert "scripts/render_docs_screenshots.py" in architecture
     assert "tests/unit/test_docs_assets.py" in architecture
