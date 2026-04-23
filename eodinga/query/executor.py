@@ -39,9 +39,10 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+EXECUTOR_SQL_CACHE_SIZE = 128
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=EXECUTOR_SQL_CACHE_SIZE)
 def _record_batch_sql(has_where: bool) -> str:
     sql = "SELECT files.* FROM files"
     if has_where:
@@ -50,7 +51,7 @@ def _record_batch_sql(has_where: bool) -> str:
     return sql
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=EXECUTOR_SQL_CACHE_SIZE)
 def _path_candidates_fts_sql(
     has_path_match_sql: bool,
     has_where_sql: bool,
@@ -77,7 +78,7 @@ def _path_candidates_fts_sql(
     return sql
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=EXECUTOR_SQL_CACHE_SIZE)
 def _path_candidates_scan_sql(
     positive_term_count: int,
     has_where_sql: bool,
@@ -100,7 +101,7 @@ def _path_candidates_scan_sql(
     return sql
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=EXECUTOR_SQL_CACHE_SIZE)
 def _content_candidates_sql(has_where_sql: bool) -> str:
     sql = """
         SELECT files.*, snippet(content_fts, 2, '[', ']', '...', 12) AS snippet
@@ -115,7 +116,7 @@ def _content_candidates_sql(has_where_sql: bool) -> str:
     return sql
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=EXECUTOR_SQL_CACHE_SIZE)
 def _auto_content_candidates_sql(has_where_sql: bool) -> str:
     sql = """
         SELECT files.*, snippet(content_fts, 2, '[', ']', '...', 12) AS snippet
@@ -130,7 +131,7 @@ def _auto_content_candidates_sql(has_where_sql: bool) -> str:
     return sql
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=EXECUTOR_SQL_CACHE_SIZE)
 def _content_backfill_sql(has_where_sql: bool) -> str:
     sql = """
         SELECT files.*
@@ -141,6 +142,17 @@ def _content_backfill_sql(has_where_sql: bool) -> str:
         sql += " WHERE {where_sql}"
     sql += " ORDER BY files.name_lower ASC LIMIT ? OFFSET ?"
     return sql
+
+
+@lru_cache(maxsize=EXECUTOR_SQL_CACHE_SIZE)
+def _content_texts_sql(chunk_size: int) -> str:
+    placeholders = ", ".join("?" for _ in range(chunk_size))
+    return f"""
+        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
+        FROM content_map
+        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
+        WHERE content_map.file_id IN ({placeholders})
+    """
 
 
 def _row_to_record(row: Mapping[str, object]) -> FileRecord:
@@ -511,14 +523,7 @@ def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[i
     id_list = tuple(dict.fromkeys(ids))
     if not id_list:
         return {}
-    placeholders = ", ".join("?" for _ in id_list)
-    sql = f"""
-        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
-        FROM content_map
-        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
-        WHERE content_map.file_id IN ({placeholders})
-    """
-    rows = conn.execute(sql, id_list).fetchall()
+    rows = conn.execute(_content_texts_sql(len(id_list)), id_list).fetchall()
     return {
         row["file_id"]: " ".join(
             part for part in (row["title"], row["head_text"], row["body_text"]) if part

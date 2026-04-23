@@ -452,6 +452,29 @@ def test_execute_reuses_cached_sql_shapes_for_content_queries(
     assert executor_module._content_candidates_sql.cache_info().hits >= 1
 
 
+def test_execute_reuses_cached_sql_shape_for_content_text_fetches() -> None:
+    executor_module._content_texts_sql.cache_clear()
+
+    first = executor_module._content_texts_sql(3)
+    second = executor_module._content_texts_sql(3)
+
+    assert "WHERE content_map.file_id IN (?, ?, ?)" in first
+    assert first == second
+    assert executor_module._content_texts_sql.cache_info().hits >= 1
+    assert executor_module._content_texts_sql.cache_info().hits >= 1
+
+
+def test_executor_sql_shape_caches_use_expected_budget() -> None:
+    assert executor_module.EXECUTOR_SQL_CACHE_SIZE == 128
+    assert executor_module._record_batch_sql.cache_info().maxsize == 128
+    assert executor_module._path_candidates_fts_sql.cache_info().maxsize == 128
+    assert executor_module._path_candidates_scan_sql.cache_info().maxsize == 128
+    assert executor_module._content_candidates_sql.cache_info().maxsize == 128
+    assert executor_module._auto_content_candidates_sql.cache_info().maxsize == 128
+    assert executor_module._content_backfill_sql.cache_info().maxsize == 128
+    assert executor_module._content_texts_sql.cache_info().maxsize == 128
+
+
 def test_execute_path_filter_with_short_unix_basename_literal(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/tmp/log", 512, now, "", body_text="system log")
