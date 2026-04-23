@@ -417,9 +417,26 @@ def _compile_branch(
     )
 
 
+def _branch_is_constraining(branch: CompiledBranch) -> bool:
+    return any(
+        (
+            branch.path_match_sql,
+            branch.content_match_sql,
+            branch.where_sql,
+            branch.path_terms,
+            branch.content_terms,
+            branch.path_regex_terms,
+            branch.content_regex_terms,
+            branch.path_filters,
+        )
+    )
+
+
 def compile_query(ast: AstNode) -> CompiledQuery:
     normalized = _to_nnf(ast)
     branches = tuple(_compile_branch(branch) for branch in _to_dnf(normalized))
+    if any(_branch_is_constraining(branch) for branch in branches):
+        branches = tuple(branch for branch in branches if _branch_is_constraining(branch))
     return CompiledQuery(branches=branches)
 
 

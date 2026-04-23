@@ -223,6 +223,36 @@ def test_compile_double_negated_group_restores_positive_branches() -> None:
     assert all(not branch.path_terms[0].negated for branch in compiled.branches)
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_value"),
+    [
+        ("-(case:true alpha)", "alpha"),
+        ("-(regex:true report-[0-9]+)", "report-[0-9]+"),
+    ],
+)
+def test_compile_negated_group_with_mode_operator_does_not_emit_match_all_branch(
+    query: str,
+    expected_value: str,
+) -> None:
+    compiled = compile_query(parse(query))
+
+    assert len(compiled.branches) == 1
+    branch = compiled.branches[0]
+    assert branch.where_sql == ""
+    assert branch.path_match_sql is None
+    assert [term.value for term in branch.path_terms] == [expected_value]
+    assert all(term.negated for term in branch.path_terms)
+
+
+@pytest.mark.parametrize("query", ["case:true | alpha", "regex:true | alpha"])
+def test_compile_mode_only_or_branch_is_ignored_when_other_branch_filters_results(query: str) -> None:
+    compiled = compile_query(parse(query))
+
+    assert len(compiled.branches) == 1
+    branch = compiled.branches[0]
+    assert branch.path_match_params == ('"alpha"',)
+
+
 def test_compile_reuses_cached_queries() -> None:
     first = compile("report ext:pdf")
     second = compile("report ext:pdf")
