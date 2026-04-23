@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.360 - 2026-04-23
+## 0.1.365 - 2026-04-23
 
 - Cleaned leftover `.recover.partial*` and `.next.partial*` artifacts during interrupted-stage resume and startup open, so crash residue no longer survives into the next reopen path.
 - Added storage regressions covering partial staged-build and partial staged-recovery cleanup, including orphaned `.next.partial*` files present before `open_index()`.
