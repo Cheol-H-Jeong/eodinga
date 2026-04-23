@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.903 - 2026-04-23
+
+- Added keyboard-only access to pinned and recent launcher query chips when the result list is empty, with updated empty-state and shortcut guidance so the path is discoverable without a mouse.
+- Merged overlapping launcher highlight spans so combined query terms render as one continuous emphasis block instead of dropping later overlaps.
+- Expanded accessibility descriptions for the main navigation tabs, root-management actions, index rebuild button, and launcher settings controls so assistive tech exposes what each control actually does.
+
 ## 0.1.901 - 2026-04-23
 
 - Made the Linux AppImage packaging script emit and audit a versioned `.AppImage` payload on non-dry-run builds instead of stopping at the staged AppDir tarball.

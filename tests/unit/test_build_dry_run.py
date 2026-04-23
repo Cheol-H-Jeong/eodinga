@@ -128,12 +128,14 @@ def test_windows_audit_validator_rejects_missing_built_artifacts_for_release_tar
     payload["target"] = "windows"
     payload["pyinstaller_spec"]["dist_exists"] = {"cli": False, "gui": True}
     payload["pyinstaller_spec"]["exe_exists"] = {"cli": False, "gui": False}
+    payload["inno_setup"]["installer_exists"] = False
 
     errors = module._validate_windows_audit(payload)
 
     assert "Windows build is missing the staged CLI dist directory" in errors
     assert "Windows build is missing the staged GUI executable" in errors
     assert "Windows build is missing the staged CLI executable" in errors
+    assert "Windows build is missing the generated installer payload" in errors
 
 
 def test_windows_audit_validator_rejects_missing_source_hidden_import_contract() -> None:
