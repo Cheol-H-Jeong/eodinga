@@ -1241,6 +1241,32 @@ def test_execute_boolean_truth_table_queries_return_expected_matches(
     assert hits == expected
 
 
+@pytest.mark.parametrize(
+    ("query", "equivalent"),
+    [
+        ('-(content:"alpha beta" | ext:md)', '-content:"alpha beta" -ext:md'),
+        ("-(path:alpha ext:txt)", "-path:alpha | -ext:txt"),
+        ('-((content:"alpha beta" | path:alpha) ext:txt)', '-ext:txt | (-content:"alpha beta" -path:alpha)'),
+    ],
+)
+def test_execute_grouped_boolean_equivalents_match_same_results(
+    tmp_db: sqlite3.Connection,
+    query: str,
+    equivalent: str,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/alpha/report.txt", 1024, now, "txt", body_text="alpha beta")
+    _insert_file(tmp_db, 2, "/workspace/alpha/readme.md", 1024, now - 60, "md", body_text="alpha beta")
+    _insert_file(tmp_db, 3, "/workspace/beta/notes.txt", 1024, now - 120, "txt", body_text="beta only")
+    _insert_file(tmp_db, 4, "/workspace/gamma/guide.md", 1024, now - 180, "md", body_text="neutral")
+    tmp_db.commit()
+
+    hits = [hit.file.path for hit in search(tmp_db, query, limit=10).hits]
+    equivalent_hits = [hit.file.path for hit in search(tmp_db, equivalent, limit=10).hits]
+
+    assert hits == equivalent_hits
+
+
 def test_execute_korean_filename_queries(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/문서/회의록-봄.txt", 1024, now, "txt", body_text="spring")
