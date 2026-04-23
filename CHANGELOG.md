@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.717 - 2026-04-23
+
+- Let `size:` filters accept comparator-separated values like `size:> 10M`, so spaced numeric input now parses the same way as the compact form.
+- Added open-ended size bounds with `size:..500K` and `size:100..`, matching the query engine's existing open-ended date range behavior.
+- Expanded accepted size suffix aliases to common binary forms like `KB`, `MB`, and `KiB`, with compiler and executor coverage locking in the new query shapes.
+
 ## 0.1.714 - 2026-04-23
 
 - Clarified the README around surface selection, launcher keyboard flow, live-update expectations, and launcher-specific config so operators can pick the right entry point faster.
