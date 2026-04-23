@@ -1411,6 +1411,48 @@ def test_plain_ascii_query_skips_substring_scan_when_fts_already_hits(
     assert not any("instr(lower(files.name)" in statement for statement in statements)
 
 
+def test_phrase_query_python_scan_reads_records_in_batches(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = 1_713_528_000
+    for index in range(1, 1201):
+        _insert_file(
+            tmp_db,
+            index,
+            f"/workspace/projects/project-notes-{index:04d}.txt",
+            1024,
+            now - index,
+            "txt",
+            body_text="meeting notes",
+        )
+    tmp_db.commit()
+
+    batch_limits: list[int] = []
+    original_fetch = executor_module._fetch_record_batch
+
+    def recording_fetch(
+        conn: sqlite3.Connection,
+        where_sql: str,
+        where_params: tuple[object, ...],
+        limit: int,
+        offset: int,
+    ) -> dict[int, object]:
+        batch_limits.append(limit)
+        return original_fetch(conn, where_sql, where_params, limit, offset)
+
+    monkeypatch.setattr(executor_module, "_fetch_record_batch", recording_fetch)
+
+    hits = [hit.file.name for hit in search(tmp_db, '"project notes"', limit=10).hits]
+
+    assert hits[:3] == [
+        "project-notes-0001.txt",
+        "project-notes-0002.txt",
+        "project-notes-0003.txt",
+    ]
+    assert batch_limits
+    assert max(batch_limits) < 100_000
+
+
 def test_search_root_scope_matches_windows_style_paths(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, r"C:\workspace\reports\alpha.txt", 1024, now, "txt", body_text="alpha")

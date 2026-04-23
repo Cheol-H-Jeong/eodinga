@@ -39,6 +39,7 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+_SCAN_BATCH_SIZE = 2_000
 
 
 @lru_cache(maxsize=256)
@@ -262,6 +263,34 @@ def _plain_term_matches_record(
     return _term_matches(target_text, term_value, kind=kind, case_sensitive=case_sensitive) or (
         bool(content_text)
         and _term_matches(content_text, term_value, kind=kind, case_sensitive=case_sensitive)
+    )
+
+
+def _record_matches_positive_path_terms(
+    record: FileRecord,
+    positive_terms: list[object],
+    *,
+    case_sensitive: bool,
+) -> bool:
+    return all(
+        _term_matches(record.name, term.value, kind=term.kind, case_sensitive=case_sensitive)
+        or _term_matches(str(record.path), term.value, kind=term.kind, case_sensitive=case_sensitive)
+        for term in positive_terms
+    )
+
+
+def _record_has_prefix_hit(
+    record: FileRecord,
+    positive_terms: list[object],
+    *,
+    case_sensitive: bool,
+) -> bool:
+    normalized_name = _normalize_search_text(record.name, case_sensitive=case_sensitive)
+    return any(
+        normalized_name.startswith(
+            _normalize_search_text(term.value, case_sensitive=case_sensitive)
+        )
+        for term in positive_terms
     )
 
 
@@ -510,30 +539,37 @@ def _fetch_path_candidates_python_scan(
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return [], {}
-    records = _fetch_records(conn, branch.where_sql, branch.where_params, limit=100_000)
-    matched = {
-        file_id: record
-        for file_id, record in records.items()
-        if all(
-            _term_matches(record.name, term.value, kind=term.kind, case_sensitive=branch.case_sensitive)
-            or _term_matches(str(record.path), term.value, kind=term.kind, case_sensitive=branch.case_sensitive)
-            for term in positive_terms
+    prefix_matches: dict[int, FileRecord] = {}
+    other_matches: dict[int, FileRecord] = {}
+    offset = 0
+    batch_size = max(min(max(limit, 1) * 4, _SCAN_BATCH_SIZE), 500)
+    while True:
+        batch = _fetch_record_batch(
+            conn,
+            branch.where_sql,
+            branch.where_params,
+            limit=batch_size,
+            offset=offset,
         )
-    }
-    ordered = sorted(
-        matched.values(),
-        key=lambda record: (
-            0
-            if any(
-                _normalize_search_text(record.name, case_sensitive=branch.case_sensitive).startswith(
-                    _normalize_search_text(term.value, case_sensitive=branch.case_sensitive)
-                )
-                for term in positive_terms
-            )
-            else 1,
-            *_record_order_key(record, case_sensitive=branch.case_sensitive),
-        ),
-    )[:limit]
+        if not batch:
+            break
+        for file_id, record in batch.items():
+            if not _record_matches_positive_path_terms(
+                record,
+                positive_terms,
+                case_sensitive=branch.case_sensitive,
+            ):
+                continue
+            if _record_has_prefix_hit(
+                record,
+                positive_terms,
+                case_sensitive=branch.case_sensitive,
+            ):
+                prefix_matches[file_id] = record
+            else:
+                other_matches[file_id] = record
+        offset += batch_size
+    ordered = [*prefix_matches.values(), *other_matches.values()][:limit]
     ids = [record.id for record in ordered if record.id is not None]
     return ids, {record.id: record for record in ordered if record.id is not None}
 
