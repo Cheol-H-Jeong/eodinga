@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.810 - 2026-04-23
+
+- Escaped literal `%`, `_`, and `^` characters in the query compiler's `path:` SQL fast path, so wildcard-like path fragments now stay literal without falling back to slower broad matches.
+- Escaped descendant path checks inside `is:empty`, preventing directories whose names contain SQL wildcard characters from being misclassified as non-empty by unrelated sibling paths.
+- Escaped wildcard-bearing prefix boosts in query candidate ordering, keeping literal wildcard characters from distorting plain-term ranking when the fast SQL path is used.
+
 ## 0.1.809 - 2026-04-23
 
 - Added a scoped SQLite pragma override helper so performance-sensitive write paths can raise cache budgets or relax sync policy temporarily without leaking connection state afterward.

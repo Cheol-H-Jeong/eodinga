@@ -249,7 +249,8 @@ def test_compile_empty_filter_shape() -> None:
 
     assert "files.size = 0" in branch.where_sql
     assert "files.is_dir = 1 AND NOT EXISTS" in branch.where_sql
-    assert "descendants.path LIKE (files.path || '/%')" in branch.where_sql
+    assert "descendants.path LIKE (" in branch.where_sql
+    assert "ESCAPE '^'" in branch.where_sql
     assert "NOT (files.is_symlink = 1)" in branch.where_sql
 
 
