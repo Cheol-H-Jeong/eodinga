@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.559 - 2026-04-23
+## 0.1.566 - 2026-04-23
 
 - Added parser observability histograms for input size, successful parse latency, and failed parse latency, and exposed them through `eodinga stats --json` with unit and CLI coverage.
 - Instrumented invalid search inputs with dedicated `query_errors` counters, typed error summaries, and `command.search.error` snapshots so malformed queries no longer disappear into generic command-failure metrics.
