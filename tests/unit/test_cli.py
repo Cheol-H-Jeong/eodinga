@@ -377,6 +377,8 @@ def test_search_reports_invalid_query_cleanly(cli_runner, tmp_path: Path) -> Non
         ("date:2026-01-01..bogus duplicate", "invalid date literal"),
         ("/[a-/", "invalid regex"),
         ("content:/todo/ii", "duplicate regex flag"),
+        ("content:/todo/imsi", "regex flag"),
+        ("regex:/todo/i1", "regex flag"),
     ],
 )
 def test_search_reports_invalid_semantic_query_cleanly(
