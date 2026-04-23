@@ -58,6 +58,8 @@ def default_state_dir() -> Path:
         if local_appdata:
             return Path(local_appdata) / "eodinga"
         return Path.home() / "AppData" / "Local" / "eodinga"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "eodinga"
     xdg_state = os.environ.get("XDG_STATE_HOME")
     if xdg_state:
         return Path(xdg_state) / "eodinga"
@@ -65,6 +67,8 @@ def default_state_dir() -> Path:
 
 
 def default_logs_dir() -> Path:
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Logs" / "eodinga"
     return default_state_dir() / "logs"
 
 
@@ -73,6 +77,8 @@ def default_log_path() -> Path:
 
 
 def default_crash_dir() -> Path:
+    if sys.platform == "darwin":
+        return default_logs_dir() / "crashes"
     return default_state_dir() / "crashes"
 
 
@@ -170,6 +176,10 @@ def write_crash_log(
         f"{context}\n",
         f"timestamp={timestamp}\n",
         f"pid={os.getpid()}\n",
+        f"platform={sys.platform}\n",
+        f"python={sys.version.split()[0]}\n",
+        f"cwd={Path.cwd()}\n",
+        f"argv={sys.argv}\n",
         f"{type(error).__name__}: {error}\n",
         "\n",
         *traceback.format_exception(type(error), error, error.__traceback__),

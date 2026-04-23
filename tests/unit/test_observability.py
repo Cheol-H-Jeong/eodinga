@@ -28,6 +28,10 @@ def test_default_log_and_crash_paths_follow_platform_state_dirs(monkeypatch) -> 
     monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\tester\AppData\Local")
     assert default_log_path() == Path(r"C:\Users\tester\AppData\Local/eodinga/logs/eodinga.log")
 
+    monkeypatch.setattr(sys, "platform", "darwin")
+    assert default_log_path() == Path.home() / "Library" / "Logs" / "eodinga" / "eodinga.log"
+    assert default_crash_dir() == Path.home() / "Library" / "Logs" / "eodinga" / "crashes"
+
 
 def test_configure_logging_respects_explicit_file_target(tmp_path: Path) -> None:
     log_path = tmp_path / "logs" / "app.log"
@@ -54,6 +58,10 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert "Traceback" in contents
     assert "timestamp=" in contents
     assert "pid=" in contents
+    assert "platform=" in contents
+    assert "python=" in contents
+    assert "cwd=" in contents
+    assert "argv=" in contents
 
 
 def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
