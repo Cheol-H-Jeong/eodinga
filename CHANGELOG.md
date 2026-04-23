@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.958 - 2026-04-24
+## 0.1.963 - 2026-04-24
 
 - Split the standalone launcher panel into smaller launcher-only helper modules, bringing the main launcher widget back under the repository's module-size cap without changing its existing query and accessibility surface.
 - Added a launcher result context menu with Open, Reveal, Copy path, Copy name, and Properties actions, plus keyboard coverage for the Menu key and `Shift+F10` so mouse-first and keyboard-first workflows share the same action set.
