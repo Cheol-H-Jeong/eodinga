@@ -524,6 +524,37 @@ def test_execute_reuses_cached_sql_shapes_for_content_queries(
     assert executor_module._content_candidates_sql.cache_info().hits >= 1
 
 
+def test_execute_reuses_cached_sql_shapes_for_python_path_scan_queries(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/projects/회의록-초안.txt", 512, now, "txt")
+    _insert_file(tmp_db, 2, "/workspace/projects/회의록-정리.txt", 256, now - 60, "txt")
+    tmp_db.commit()
+
+    executor_module._scan_candidate_batch_sql.cache_clear()
+    executor_module._record_ids_sql.cache_clear()
+
+    first = search(tmp_db, "회의록", limit=5)
+    second = search(tmp_db, "회의록", limit=5)
+
+    assert [hit.file.name for hit in first.hits] == ["회의록-초안.txt", "회의록-정리.txt"]
+    assert [hit.file.name for hit in second.hits] == ["회의록-초안.txt", "회의록-정리.txt"]
+    assert executor_module._scan_candidate_batch_sql.cache_info().hits >= 1
+    assert executor_module._record_ids_sql.cache_info().hits >= 1
+
+
+def test_fetch_content_texts_reuses_chunked_sql_shapes(populated_db: sqlite3.Connection) -> None:
+    executor_module._content_texts_sql.cache_clear()
+
+    first = executor_module._fetch_content_texts(populated_db, range(1, 601))
+    second = executor_module._fetch_content_texts(populated_db, range(1, 601))
+
+    assert first
+    assert second == first
+    assert executor_module._content_texts_sql.cache_info().hits >= 2
+
+
 def test_execute_path_filter_with_short_unix_basename_literal(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/tmp/log", 512, now, "", body_text="system log")

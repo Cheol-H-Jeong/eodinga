@@ -38,6 +38,13 @@ class _ContentPresenceCache(NamedTuple):
     has_indexed_content: bool
 
 
+class _ScanCandidateRow(NamedTuple):
+    id: int
+    name: str
+    name_lower: str
+    path: str
+
+
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
 
 
@@ -141,6 +148,32 @@ def _content_backfill_sql(has_where_sql: bool) -> str:
         sql += " WHERE {where_sql}"
     sql += " ORDER BY files.name_lower ASC LIMIT ? OFFSET ?"
     return sql
+
+
+@lru_cache(maxsize=256)
+def _scan_candidate_batch_sql(has_where_sql: bool) -> str:
+    sql = "SELECT files.id, files.name, files.name_lower, files.path FROM files"
+    if has_where_sql:
+        sql += " WHERE {where_sql}"
+    sql += " ORDER BY files.name_lower ASC, files.path ASC, files.id ASC LIMIT ? OFFSET ?"
+    return sql
+
+
+@lru_cache(maxsize=256)
+def _record_ids_sql(chunk_size: int) -> str:
+    placeholders = ", ".join("?" for _ in range(chunk_size))
+    return f"SELECT files.* FROM files WHERE files.id IN ({placeholders})"
+
+
+@lru_cache(maxsize=256)
+def _content_texts_sql(chunk_size: int) -> str:
+    placeholders = ", ".join("?" for _ in range(chunk_size))
+    return f"""
+        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
+        FROM content_map
+        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
+        WHERE content_map.file_id IN ({placeholders})
+    """
 
 
 def _row_to_record(row: Mapping[str, object]) -> FileRecord:
@@ -308,6 +341,39 @@ def _fetch_record_batch(
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
+def _fetch_scan_candidate_batch(
+    conn: sqlite3.Connection,
+    where_sql: str,
+    where_params: tuple[object, ...],
+    limit: int,
+    offset: int,
+) -> list[_ScanCandidateRow]:
+    sql = _scan_candidate_batch_sql(bool(where_sql)).format(where_sql=where_sql)
+    rows = conn.execute(sql, (*where_params, limit, offset)).fetchall()
+    return [
+        _ScanCandidateRow(
+            id=int(row["id"]),
+            name=str(row["name"]),
+            name_lower=str(row["name_lower"]),
+            path=str(row["path"]),
+        )
+        for row in rows
+    ]
+
+
+def _fetch_records_by_ids(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[int, FileRecord]:
+    id_list = tuple(dict.fromkeys(ids))
+    if not id_list:
+        return {}
+    records: dict[int, FileRecord] = {}
+    for start in range(0, len(id_list), 500):
+        chunk = id_list[start : start + 500]
+        rows = conn.execute(_record_ids_sql(len(chunk)), chunk).fetchall()
+        for row in rows:
+            records[row["id"]] = _row_to_record(row)
+    return records
+
+
 def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
@@ -429,18 +495,36 @@ def _fetch_path_candidates_python_scan(
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return [], {}
-    records = _fetch_records(conn, branch.where_sql, branch.where_params, limit=100_000)
-    matched = {
-        file_id: record
-        for file_id, record in records.items()
-        if all(
-            _text_matches(record.name, term.value, branch.case_sensitive)
-            or _text_matches(str(record.path), term.value, branch.case_sensitive)
-            for term in positive_terms
+    target = max(limit, 1)
+    batch_size = max(min(target * 4, 2000), 500)
+    offset = 0
+    matched_rows: list[_ScanCandidateRow] = []
+    matched_ids: list[int] = []
+    while len(matched_rows) < target:
+        batch = _fetch_scan_candidate_batch(
+            conn,
+            branch.where_sql,
+            branch.where_params,
+            limit=batch_size,
+            offset=offset,
         )
-    }
+        if not batch:
+            break
+        for row in batch:
+            if not all(
+                _text_matches(row.name, term.value, branch.case_sensitive)
+                or _text_matches(row.path, term.value, branch.case_sensitive)
+                for term in positive_terms
+            ):
+                continue
+            matched_rows.append(row)
+            matched_ids.append(row.id)
+            if len(matched_rows) >= target:
+                break
+        offset += batch_size
+    records = _fetch_records_by_ids(conn, matched_ids)
     ordered = sorted(
-        matched.values(),
+        (records[row.id] for row in matched_rows if row.id in records),
         key=lambda record: (
             0
             if any(
@@ -552,20 +636,15 @@ def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[i
     id_list = tuple(dict.fromkeys(ids))
     if not id_list:
         return {}
-    placeholders = ", ".join("?" for _ in id_list)
-    sql = f"""
-        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
-        FROM content_map
-        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
-        WHERE content_map.file_id IN ({placeholders})
-    """
-    rows = conn.execute(sql, id_list).fetchall()
-    return {
-        row["file_id"]: " ".join(
-            part for part in (row["title"], row["head_text"], row["body_text"]) if part
-        )
-        for row in rows
-    }
+    content_texts: dict[int, str] = {}
+    for start in range(0, len(id_list), 500):
+        chunk = id_list[start : start + 500]
+        rows = conn.execute(_content_texts_sql(len(chunk)), chunk).fetchall()
+        for row in rows:
+            content_texts[row["file_id"]] = " ".join(
+                part for part in (row["title"], row["head_text"], row["body_text"]) if part
+            )
+    return content_texts
 
 
 def _fetch_content_backfill(
