@@ -281,6 +281,33 @@ def test_launcher_preserves_selected_result_when_query_refines(qapp) -> None:
     assert result.name == "gamma.txt"
 
 
+def test_launcher_shows_inline_filter_chips_for_active_operator_terms(qapp) -> None:
+    launcher = LauncherWindow(search_fn=lambda query, limit: QueryResult(items=[], total=0, elapsed_ms=1.0))
+    launcher.show()
+
+    launcher.query_field.setText('report ext:pdf date:this-week size:>10M content:"release notes"')
+
+    assert launcher.filter_chips.isVisible()
+    chips = launcher.filter_chips.text()
+    assert "ext:pdf" in chips
+    assert "date:this-week" in chips
+    assert "size:&gt;10M" in chips
+    assert 'content:&quot;release notes&quot;' in chips
+
+
+def test_launcher_hides_inline_filter_chips_for_plain_text_or_invalid_query(qapp) -> None:
+    launcher = LauncherWindow(search_fn=lambda query, limit: QueryResult(items=[], total=0, elapsed_ms=1.0))
+    launcher.show()
+
+    launcher.query_field.setText("release notes")
+
+    assert not launcher.filter_chips.isVisible()
+
+    launcher.query_field.setText('ext:"')
+
+    assert not launcher.filter_chips.isVisible()
+
+
 def test_launcher_activation_flushes_debounced_query_before_opening(qapp) -> None:
     activated: list[str] = []
 
