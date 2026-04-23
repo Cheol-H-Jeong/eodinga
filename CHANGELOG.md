@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.368 - 2026-04-23
+## 0.1.369 - 2026-04-23
 
 - Preserved the correct `root_id` during watcher-driven upserts by resolving incremental events against the watched root path instead of trusting the record loader's fallback.
 - Added unit coverage for created and cross-root moved watcher events so multi-root incremental indexing keeps file ownership aligned with the `roots` table.
