@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.540 - 2026-04-23
+
+- Preserved valid interrupted `.next` and `.recover` stage databases when a resume-time atomic swap fails, so startup can retry recovery instead of deleting the only recoverable snapshot.
+- Preserved a fully replayed `.recover` stage when stale-WAL recovery fails at the final swap step, while still cleaning partial recovery artifacts from unsuccessful copy attempts.
+- Stopped watcher shutdown from requeueing an event after enqueue abort, preventing stop-time flush retries from resurrecting undeliverable work in `_pending`.
+
 ## 0.1.535 - 2026-04-23
 
 - Added live observer integration coverage for same-root renames, asserting that search hits move to the new path within 500ms and stale path filters disappear.
