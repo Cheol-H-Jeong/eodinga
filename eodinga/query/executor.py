@@ -7,6 +7,7 @@ from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from pathlib import Path
 from typing import NamedTuple
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -172,7 +173,7 @@ def _term_ok(
     term_value: str,
     case_sensitive: bool,
     negated: bool,
-    kind: str = "word",
+    kind: Literal["word", "phrase"] = "word",
 ) -> bool:
     matched = text_matches(text, term_value, case_sensitive=case_sensitive, kind=kind)
     return not matched if negated else matched
@@ -198,7 +199,7 @@ def _plain_term_matches_record(
     record: FileRecord,
     content_text: str,
     term_value: str,
-    term_kind: str,
+    term_kind: Literal["word", "phrase"],
     case_sensitive: bool,
 ) -> bool:
     target_text = f"{record.name} {record.parent_path} {record.path}"

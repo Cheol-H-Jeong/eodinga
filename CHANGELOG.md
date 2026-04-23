@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.199 - 2026-04-23
+
+- Made quoted phrase matching separator-aware in query scan paths, so content and path phrases can now match across newlines, hyphens, underscores, and path separators instead of requiring a raw substring.
+- Preserved phrase semantics for `path:"..."` by routing phrase filters through the executor scan path rather than compiling them into SQL `LIKE` clauses with stricter literal-space behavior.
+- Added unit, CLI, and integration regressions that pin separator-aware phrase matching end to end for `content:"..."`, `path:"..."`, and bare quoted phrases.
+
 ## 0.1.195 - 2026-04-23
 
 - Split the launcher popup window into its own module so the launcher surface stays under the repository's module-size cap while preserving the existing geometry, topmost, and hotkey behavior.
