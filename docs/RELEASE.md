@@ -109,6 +109,15 @@ round changes assembled
 4. Do not push tags or release branches from a worker worktree.
 5. Hand the orchestrator a clean branch plus the final local tag to rebase and publish.
 
+## Metadata Commit Inputs
+
+Before cutting the final `chore(release)` commit, confirm that:
+
+- the chosen `0.1.N` is still unused after a fresh tag check
+- `CHANGELOG.md` only describes the commits already present in the round
+- any README or guide claims about packaging, screenshots, or CLI help were validated against the current generated assets
+- no unrelated feature edits are mixed into the version/changelog diff
+
 ## Docs-Only Rounds
 
 Use the same release discipline for docs-only changes when the shipped operator contract moved:
@@ -155,3 +164,13 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - The local tag points at the final commit for the round, not an earlier docs or feature commit.
 - The final release commit remains reviewable on its own and does not hide unrelated feature edits.
 - `packaging/dist/` has been reviewed for the dry-run targets touched by the round.
+
+## Minimal Worker Closeout
+
+Use this short path when the round is ready and the tree is already green:
+
+1. Re-check the latest tags.
+2. Update `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py`.
+3. Re-run the smallest validation that proves those metadata edits did not disturb the tree, then the full release gate.
+4. Commit with `chore(release): bump to v0.1.N`.
+5. Create the local `v0.1.N` tag and stop.

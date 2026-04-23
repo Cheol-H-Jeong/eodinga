@@ -138,6 +138,18 @@ Use this when the round is docs-only but still release-bearing:
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
 
+## Round Closeout Matrix
+
+| If the round changed... | Required before the metadata commit |
+| --- | --- |
+| README or `docs/*.md` wording only | `pytest -q tests/unit/test_docs_assets.py` |
+| CLI reference or command help text | `python scripts/generate_manpage.py` plus `pytest -q tests/unit/test_docs_assets.py` |
+| Visible Qt screenshots or UI text used in docs | `python scripts/render_docs_screenshots.py`, `pytest -q tests/unit/test_docs_assets.py`, and the offscreen GUI smoke command |
+| Packaging or release instructions | matching `packaging/build.py --target ...-dry-run` command plus `pytest -q tests/unit/test_docs_assets.py` |
+| Final candidate handoff | full gate from `docs/ACCEPTANCE.md`, then the isolated metadata commit and local tag |
+
+This matrix is intentionally strict because docs rounds modify the shipped contract just as much as small runtime rounds do.
+
 ## Test Selection Guide
 
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`
@@ -154,6 +166,16 @@ Use this when the round is docs-only but still release-bearing:
 - Docs-only rounds still require a changelog entry and local tag when the shipped contract changed.
 - If a change cannot stay inside one theme or one logical commit, stop and split it before proceeding.
 - The final release commit for a round should carry the version bump, changelog entry, and local tag together so earlier feature or docs commits remain easy to review and rebase.
+
+## Version Cut Reminder
+
+Before the final metadata commit:
+
+1. Re-check tags with `git tag -l | sort -V | tail -3`.
+2. Pick the next unused `0.1.N`.
+3. Bump `pyproject.toml` and `eodinga/__init__.py` together.
+4. Add the top changelog entry for the current round.
+5. Create the local tag only after the final gate is green.
 
 ## Review Checklist
 
