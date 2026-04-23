@@ -10,6 +10,8 @@ import pytest
 from eodinga.index.schema import apply_schema
 from eodinga.index.storage import (
     SQLITE_CACHED_STATEMENTS,
+    _cleanup_index_files,
+    _cleanup_sidecars,
     atomic_replace_index,
     connect_database,
     has_stale_wal,
@@ -251,6 +253,55 @@ def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, m
         assert seen["cached_statements"] == SQLITE_CACHED_STATEMENTS
     finally:
         conn.close()
+
+
+def test_cleanup_sidecars_ignores_racy_missing_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    wal_path = path.with_name("index.db-wal")
+    shm_path = path.with_name("index.db-shm")
+    wal_path.write_bytes(b"wal")
+    shm_path.write_bytes(b"shm")
+
+    original_unlink = Path.unlink
+    seen: list[Path] = []
+
+    def flaky_unlink(target: Path, missing_ok: bool = False) -> None:
+        seen.append(target)
+        if target == wal_path:
+            original_unlink(wal_path, missing_ok=missing_ok)
+            raise FileNotFoundError(target)
+        return original_unlink(target, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+
+    _cleanup_sidecars(path)
+
+    assert wal_path in seen
+    assert shm_path in seen
+    assert not wal_path.exists()
+    assert not shm_path.exists()
+
+
+def test_cleanup_index_files_ignores_racy_missing_primary_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    path.write_bytes(b"db")
+    original_unlink = Path.unlink
+
+    def flaky_unlink(target: Path, missing_ok: bool = False) -> None:
+        if target == path:
+            original_unlink(path, missing_ok=missing_ok)
+            raise FileNotFoundError(target)
+        return original_unlink(target, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+
+    _cleanup_index_files(path)
+
+    assert not path.exists()
 
 
 def test_recover_stale_wal_returns_false_when_nonempty_sidecar_survives(
