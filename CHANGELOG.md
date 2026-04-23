@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.550 - 2026-04-23
+
+- Expanded the shipped README and DSL guide to cover launcher quick-pick and copy shortcuts, pinned-query and preview behavior, regex flags, and the `case:true` interaction so the documented query surface matches the current UI and parser behavior more closely.
+- Deepened the architecture guide with explicit launcher-query, stats-payload, and packaging dry-run sequences so operators can map stale-result or release-review issues back to the correct subsystem faster.
+- Tightened contributor and release docs for docs-only rounds with a docs-drift triage order, a docs-only validation matrix, and a version-collision recovery path for parallel worktree releases.
+
 ## 0.1.540 - 2026-04-23
 
 - Normalized remapped launcher hotkeys into a stable canonical form, so spaced or alias-heavy input like `Control + Alt + K` now rebinds, persists, and displays as `ctrl+alt+k`.
