@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
+from eodinga.gui.widgets.launcher_result_menu import LauncherResultContextMenu
 from eodinga.gui.widgets import (
     ActiveFilterRow,
     EmptyState,
@@ -91,6 +92,7 @@ class LauncherPanel(QWidget):
         self.result_list.setModel(self.model)
         self.result_list.selectionModel().currentChanged.connect(self._sync_preview_to_current_index)
         self.result_list.entered.connect(self._handle_hovered_index)
+        self._result_context_menu = LauncherResultContextMenu(self, self.result_list)
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
