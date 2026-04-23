@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.588 - 2026-04-23
+## 0.1.701 - 2026-04-23
 
 - Batched executor content-text hydration into fixed-size chunks, reducing one-off `IN (...)` statement shapes and improving statement-cache reuse during record filtering and content backfill.
 - Reduced repeated query-text normalization work when deriving name, path, and prefix hits, so the ranking pass now normalizes each positive term and each record field once instead of once per comparison.
