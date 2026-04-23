@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.902 - 2026-04-23
+## 0.1.905 - 2026-04-23
 
 - Moved CLI stats summarization into a dedicated observability helper so the command surface stays easier to evolve without bloating the main entrypoint.
 - Added typed watcher failure totals and grouped watcher failure summaries to `eodinga stats --json`, covering observer startup, cleanup, and rollback paths without forcing consumers to parse raw counter names.
