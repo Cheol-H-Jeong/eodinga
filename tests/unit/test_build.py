@@ -148,6 +148,35 @@ def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
         resumed.close()
 
 
+def test_rebuild_index_publish_failure_preserves_staged_database_for_startup_resume(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    staged_path = db_path.with_name(".index.db.next")
+
+    def fail_publish(_staged_path: Path, _target_path: Path) -> None:
+        raise OSError("simulated publish failure")
+
+    monkeypatch.setattr(build_module, "atomic_replace_index", fail_publish)
+
+    with pytest.raises(OSError, match="simulated publish failure"):
+        rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    assert staged_path.exists()
+    resumed = sqlite3.connect(staged_path)
+    try:
+        rows = resumed.execute("SELECT path FROM files ORDER BY path").fetchall()
+        assert [str(row[0]) for row in rows] == [
+            str(root),
+            str(root / "alpha.txt"),
+        ]
+    finally:
+        resumed.close()
+
+
 def test_rebuild_index_installs_sigint_and_sigterm_handlers_on_main_thread(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
