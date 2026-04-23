@@ -209,7 +209,11 @@ def load_metrics(metrics_path: Path | None = None) -> Path | None:
     target = resolve_metrics_path(metrics_path)
     if target is None or not target.exists():
         return target
-    raw = json_loads(target.read_text(encoding="utf-8"))
+    try:
+        raw = json_loads(target.read_text(encoding="utf-8"))
+    except ValueError:
+        logger.warning("failed to parse metrics snapshot {}", target)
+        return target
     counters = _coerce_counters(raw.get("counters"))
     histograms = _coerce_histograms(raw.get("histograms"))
     process_started_at = _coerce_process_started_at(raw.get("process_started_at"))

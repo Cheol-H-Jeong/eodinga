@@ -115,6 +115,7 @@ class StatsSnapshot(BaseModel):
     histograms: dict[str, dict[str, object]] = Field(default_factory=dict)
     roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None
+    metrics_path: Path | None = None
     log_path: Path | None = None
     crash_dir: Path | None = None
     file_logging_enabled: bool = True

@@ -21,11 +21,14 @@ from eodinga.observability import (
     configure_logging,
     counter_value,
     file_logging_enabled,
+    flush_metrics,
     histogram_snapshot,
     increment_counter,
     install_crash_handlers,
+    load_metrics,
     record_histogram,
     resolve_crash_dir,
+    resolve_metrics_path,
     resolve_log_path,
     snapshot_metrics,
     report_crash,
@@ -192,6 +195,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         histograms=metrics["histograms"],
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
+        metrics_path=resolve_metrics_path(),
         log_path=resolve_log_path(),
         crash_dir=resolve_crash_dir(),
         file_logging_enabled=file_logging_enabled(),
@@ -276,6 +280,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     configure_logging(args.log_level)
     install_crash_handlers()
+    load_metrics()
     try:
         return _run_command(args)
     except KeyboardInterrupt:
@@ -289,6 +294,8 @@ def main(argv: list[str] | None = None) -> int:
             details={"argv": command_argv},
         )
         return 1
+    finally:
+        flush_metrics()
 
 
 if __name__ == "__main__":
