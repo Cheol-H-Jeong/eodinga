@@ -171,7 +171,9 @@ eodinga doctor
 - `size:100K..500K date:last-month` : bounded range plus date macro
 - `date:2026-04-01.. modified:..2026-04-23` : open-ended ISO ranges
 - `modified:2026-04-23T09:15:30+00:00` : exact ISO datetime filter
+- `modified:2026-04-23T09:15:30+00:00..2026-04-23` : mixed datetime and day range
 - `date:yesterday is:duplicate` : relative date plus duplicate detection
+- `date:tomorrow | date:this-year` : extended relative date aliases
 - `is:empty -is:dir` : empty files only
 - `created:2026-04-23` : creation-time filter
 - `is:file -is:empty` : non-empty regular files only
@@ -193,9 +195,11 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Restrict by extension | `ext:pdf invoice` |
 | Restrict by path | `path:projects content:"design review"` |
 | Find recent files | `date:this-week` |
+| Find tomorrow's files | `date:tomorrow` |
 | Start from an ISO date | `date:2026-04-01..` |
 | Stop at an ISO date | `created:..2026-04-23` |
 | Match one instant | `modified:2026-04-23T09:15:30+00:00` |
+| Mix a datetime with a whole day | `modified:2026-04-23T09:15:30+00:00..2026-04-23` |
 | Find size ranges | `size:100K..500K` |
 | Find empty files only | `is:empty -is:dir` |
 | Find regular files only | `is:file` |

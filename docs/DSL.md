@@ -24,15 +24,19 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 
 - `date:today`
 - `date:yesterday`
+- `date:tomorrow`
 - `date:this-week`
 - `date:last-week`
 - `date:this-month`
 - `date:last-month`
+- `date:this-year`
+- `date:last-year`
 - `date:2026-04-23`
 - `date:2026-04-01..2026-04-23`
 - `date:2026-04-01..`
 - `created:..2026-04-23`
 - `modified:2026-04-23T09:15:30+00:00`
+- `modified:2026-04-23T09:15:30+00:00..2026-04-23`
 
 ## Common Combos
 
@@ -42,6 +46,7 @@ size:>10M date:this-month
 modified:today created:2026-04-23
 date:2026-04-01.. modified:..2026-04-23
 modified:2026-04-23T09:15:30+00:00
+modified:2026-04-23T09:15:30+00:00..2026-04-23
 regex:true report-\d+
 -is:duplicate -path:node_modules
 (invoice | receipt) ext:pdf
@@ -53,7 +58,8 @@ regex:/launch|ship/i path:docs
 
 - Path/name terms are case-insensitive unless `case:true` is set.
 - Content operators only match indexed document text; unsupported files fall back to filename/path search.
-- `date:`, `modified:`, and `created:` accept `today`, `yesterday`, `this-week`, `this-month`, a single ISO date, open-ended ISO ranges, full ISO ranges, and exact ISO datetimes.
+- `date:`, `modified:`, and `created:` accept `today`, `yesterday`, `tomorrow`, `this-week`, `this-month`, `this-year`, a single ISO date, open-ended ISO ranges, full ISO ranges, and exact ISO datetimes.
+- Mixed day and datetime endpoints use the outer bounds of both endpoints, so `modified:2026-04-23T09:15:30+00:00..2026-04-23` and the reversed order cover the same window.
 - `size:` comparisons use binary suffixes, so `10M` means `10 * 1024 * 1024` bytes.
 - `is:duplicate` matches entries that share a content hash with at least one other indexed file.
 - `is:file` matches regular files only, `is:dir` matches non-symlink directories only, and `is:symlink` remains available when you want the link entries themselves.
