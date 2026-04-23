@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.586 - 2026-04-23
+## 0.1.590 - 2026-04-23
 
 - Expanded PyInstaller hidden-import discovery so `__import__(..., fromlist=...)` patterns are captured during the Windows dry-run audit instead of silently dropping lazily imported submodules.
 - Hardened the Windows packaging audit to fail when the bundled `LICENSE` or either shipped i18n catalog drops out of the PyInstaller data payload, rather than only checking that some data files exist.
