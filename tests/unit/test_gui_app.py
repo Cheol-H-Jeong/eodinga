@@ -4,6 +4,7 @@ from pathlib import Path
 import sqlite3
 from typing import cast
 
+from PySide6.QtCore import QRect
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QSystemTrayIcon
@@ -186,6 +187,7 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     qapp.processEvents()
 
     stored = load(temp_config_path)
+    assert stored.launcher.window_screen == launcher.screen().name()
     assert stored.launcher.window_x == 180
     assert stored.launcher.window_y == 96
     assert stored.launcher.window_width == 720
@@ -229,6 +231,51 @@ def test_launcher_clamps_restored_geometry_to_available_screen(qapp, temp_config
     assert available.contains(launcher.frameGeometry())
     assert launcher.width() <= available.width()
     assert launcher.height() <= available.height()
+
+    window.close()
+    qapp.processEvents()
+
+
+def test_launcher_prefers_saved_screen_when_restoring_geometry(
+    monkeypatch,
+    qapp,
+    temp_config_path: Path,
+) -> None:
+    class _FakeScreen:
+        def __init__(self, name: str, geometry: QRect) -> None:
+            self._name = name
+            self._geometry = geometry
+
+        def name(self) -> str:
+            return self._name
+
+        def availableGeometry(self) -> QRect:
+            return QRect(self._geometry)
+
+    primary = _FakeScreen("primary", QRect(0, 0, 1280, 720))
+    secondary = _FakeScreen("secondary", QRect(1920, 0, 1440, 900))
+    monkeypatch.setattr("eodinga.gui.launcher_window.QGuiApplication.screens", staticmethod(lambda: [primary, secondary]))
+    monkeypatch.setattr("eodinga.gui.launcher_window.QGuiApplication.primaryScreen", staticmethod(lambda: primary))
+
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(
+        update={
+            "window_screen": "secondary",
+            "window_x": 2100,
+            "window_y": 120,
+            "window_width": 720,
+            "window_height": 500,
+        }
+    )
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher.show()
+    qapp.processEvents()
+
+    assert secondary.availableGeometry().contains(launcher.geometry())
 
     window.close()
     qapp.processEvents()

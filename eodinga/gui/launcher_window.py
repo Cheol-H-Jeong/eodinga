@@ -115,14 +115,17 @@ class LauncherWindow(LauncherPanel):
     def _persist_geometry(self) -> None:
         if self._config is None or self._config_path is None or not self._geometry_restored:
             return
+        screen = self.screen()
         geometry = {
+            "window_screen": screen.name() if screen is not None else None,
             "window_x": self.x(),
             "window_y": self.y(),
             "window_width": self.width(),
             "window_height": self.height(),
         }
         if (
-            self._config.launcher.window_x == geometry["window_x"]
+            self._config.launcher.window_screen == geometry["window_screen"]
+            and self._config.launcher.window_x == geometry["window_x"]
             and self._config.launcher.window_y == geometry["window_y"]
             and self._config.launcher.window_width == geometry["window_width"]
             and self._config.launcher.window_height == geometry["window_height"]
@@ -134,7 +137,7 @@ class LauncherWindow(LauncherPanel):
     def _restore_visible_geometry(self) -> None:
         if self._config is None:
             return
-        screen = self.screen() or QGuiApplication.primaryScreen()
+        screen = self._resolve_restore_screen()
         if screen is None:
             return
         available = screen.availableGeometry()
@@ -156,3 +159,10 @@ class LauncherWindow(LauncherPanel):
         clamped_x = min(max(x, available.x()), max_x)
         clamped_y = min(max(y, available.y()), max_y)
         self.setGeometry(clamped_x, clamped_y, width, height)
+
+    def _resolve_restore_screen(self):
+        if self._config is not None and self._config.launcher.window_screen:
+            for screen in QGuiApplication.screens():
+                if screen.name() == self._config.launcher.window_screen:
+                    return screen
+        return self.screen() or QGuiApplication.primaryScreen()
