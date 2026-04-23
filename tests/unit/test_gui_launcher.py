@@ -367,14 +367,16 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     launcher.show()
 
     assert launcher.empty_state.title_label.text() == "Type to search"
+    assert "No pinned queries yet" in launcher.empty_state.body_label.text()
     assert "No recent queries yet" in launcher.empty_state.body_label.text()
     assert "Alt+Up" in launcher.empty_state.body_label.text()
+    assert "Alt+P" in launcher.empty_state.body_label.text()
     assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
     assert "(20%)" in launcher.empty_state.details_label.text()
     assert launcher.status_chip.text() == "Indexing"
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
-    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Alt+Up recalls recent queries."
+    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Alt+P pins the current query. Alt+Up recalls saved queries."
 
     launcher.query_field.setText("missing")
     _wait(60)
@@ -383,9 +385,11 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.empty_state.title_label.text() == 'No results for "missing"'
     assert "date:this-week" in launcher.empty_state.body_label.text()
     assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
+    assert "Press Alt+P to pin this query" in launcher.empty_state.body_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
     assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
-    assert "Alt+Up recalls recent queries" in launcher.shortcut_label.text()
+    assert "Alt+P pins the current query" in launcher.shortcut_label.text()
+    assert "Alt+Up recalls saved queries" in launcher.shortcut_label.text()
 
 
 def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> None:
@@ -393,9 +397,11 @@ def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> No
     launcher = LauncherWindow(state=state)
     launcher.show()
 
+    state.set_pinned_queries(["ext:pdf"])
     state.remember_query("report")
     state.remember_query("budget")
 
+    assert "Pinned: ext:pdf" in launcher.empty_state.body_label.text()
     assert "budget, report" in launcher.empty_state.body_label.text()
 
 
@@ -487,6 +493,32 @@ def test_launcher_alt_up_and_down_recall_recent_queries(qapp) -> None:
     QTest.keyClick(launcher.query_field, Qt.Key.Key_Down, Qt.KeyboardModifier.AltModifier)
     _wait(60)
     assert launcher.query_field.text() == ""
+
+
+def test_launcher_alt_p_toggles_pinned_queries_and_recalls_them_first(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    launcher.query_field.setText("ext:pdf")
+    launcher.query_field.pin_requested.emit()
+
+    assert state.pinned_queries == ["ext:pdf"]
+    assert "Pinned query." in launcher.empty_state.body_label.text()
+
+    launcher.query_field.setText("budget")
+    _wait(60)
+    launcher.query_field.setText("")
+    _wait(60)
+
+    assert "Pinned: ext:pdf" in launcher.empty_state.body_label.text()
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Up, Qt.KeyboardModifier.AltModifier)
+    _wait(60)
+    assert launcher.query_field.text() == "ext:pdf"
+
+    launcher.query_field.pin_requested.emit()
+
+    assert state.pinned_queries == []
 
 
 def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:

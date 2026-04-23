@@ -38,6 +38,7 @@ class LauncherPanel(QWidget):
         self._max_results = max_results
         self._latest_result = QueryResult()
         self._recent_queries: list[str] = []
+        self._pinned_queries: list[str] = []
         self._indexing_status = IndexingStatus()
         self._state = state
         self._history_index: int | None = None
@@ -82,6 +83,9 @@ class LauncherPanel(QWidget):
         layout.addLayout(footer)
 
         self.query_field.textChanged.connect(self._schedule_query)
+        self.query_field.pin_requested.connect(self.toggle_current_query_pin)
+        self.query_field.recall_previous_requested.connect(self.recall_previous_query)
+        self.query_field.recall_next_requested.connect(self.recall_next_query)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
@@ -91,6 +95,7 @@ class LauncherPanel(QWidget):
             QShortcut(QKeySequence("Ctrl+Return"), self),
             QShortcut(QKeySequence("Shift+Return"), self),
             QShortcut(QKeySequence("Alt+C"), self),
+            QShortcut(QKeySequence("Alt+P"), self),
             QShortcut(QKeySequence(QKeySequence.StandardKey.SelectAll), self),
             QShortcut(QKeySequence("Ctrl+L"), self),
             QShortcut(QKeySequence("Alt+Up"), self),
@@ -100,10 +105,11 @@ class LauncherPanel(QWidget):
         self._shortcuts[1].activated.connect(self.emit_open_containing_folder)
         self._shortcuts[2].activated.connect(self.emit_show_properties)
         self._shortcuts[3].activated.connect(self.emit_copy_path)
-        self._shortcuts[4].activated.connect(self.select_query_text)
-        self._shortcuts[5].activated.connect(self.focus_query_field)
-        self._shortcuts[6].activated.connect(self.recall_previous_query)
-        self._shortcuts[7].activated.connect(self.recall_next_query)
+        self._shortcuts[4].activated.connect(self.toggle_current_query_pin)
+        self._shortcuts[5].activated.connect(self.select_query_text)
+        self._shortcuts[6].activated.connect(self.focus_query_field)
+        self._shortcuts[7].activated.connect(self.recall_previous_query)
+        self._shortcuts[8].activated.connect(self.recall_next_query)
         self._quick_pick_shortcuts: list[QShortcut] = []
         for index in range(9):
             shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
@@ -112,8 +118,10 @@ class LauncherPanel(QWidget):
 
         if self._state is not None:
             self._state.recent_queries_changed.connect(self.set_recent_queries)
+            self._state.pinned_queries_changed.connect(self.set_pinned_queries)
             self._state.indexing_status_changed.connect(self.set_indexing_status)
             self.set_recent_queries(self._state.recent_queries)
+            self.set_pinned_queries(self._state.pinned_queries)
             self.set_indexing_status(self._state.indexing_status)
 
         self._refresh_empty_state()
@@ -125,6 +133,12 @@ class LauncherPanel(QWidget):
     def set_recent_queries(self, queries: list[str]) -> None:
         self._recent_queries = queries
         self._refresh_empty_state()
+        self._refresh_shortcut_hint()
+
+    def set_pinned_queries(self, queries: list[str]) -> None:
+        self._pinned_queries = queries
+        self._refresh_empty_state()
+        self._refresh_shortcut_hint()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
@@ -151,6 +165,12 @@ class LauncherPanel(QWidget):
 
     def select_query_text(self) -> None:
         self.focus_query_field()
+
+    def toggle_current_query_pin(self) -> None:
+        query = self.query_field.text().strip()
+        if self._state is None or not query:
+            return
+        self._state.toggle_pinned_query(query)
 
     def emit_open_containing_folder(self) -> None:
         self._flush_pending_query()
@@ -243,16 +263,23 @@ class LauncherPanel(QWidget):
         query = self.query_field.text().strip()
         details = format_indexing_status(self._indexing_status)
         if not query:
+            pinned_queries = ", ".join(self._pinned_queries[:3]) if self._pinned_queries else "No pinned queries yet."
             recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
             self.empty_state.set_content(
                 "Type to search",
-                f"Recent: {recent_queries} Press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
+                "Pinned: "
+                f"{pinned_queries} Recent: {recent_queries} "
+                "Press Alt+P to pin the current query, Alt+Up to recall saved queries, "
+                "Alt+1 through Alt+9 to open a top hit, Tab to move to results, "
+                "Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
                 details,
             )
         else:
+            pin_hint = "Pinned query." if query in self._pinned_queries else "Press Alt+P to pin this query."
             self.empty_state.set_content(
                 f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Tab to jump back to the filter or Esc to hide the launcher.",
+                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. "
+                f"{pin_hint} Press Tab to jump back to the filter or Esc to hide the launcher.",
                 details,
             )
         self.empty_state.setVisible(not has_results)
@@ -262,18 +289,18 @@ class LauncherPanel(QWidget):
         has_results = self.model.rowCount() > 0
         if not has_results:
             if self.query_field.text().strip():
-                hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries."
+                hint = "Refine with ext:, date:, size:, or content: filters. Alt+P pins the current query. Alt+Up recalls saved queries."
             else:
-                hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
+                hint = "Type a filename, path, or content term. Alt+P pins the current query. Alt+Up recalls saved queries."
         elif self.result_list.hasFocus():
             hint = (
                 "Enter opens. Alt+1..9 quick-picks. Up/Down wraps. "
-                "Home/End and PgUp/PgDn jump. Ctrl+Enter reveals. Ctrl+A or Ctrl+L returns to filter."
+                "Home/End and PgUp/PgDn jump. Ctrl+Enter reveals. Alt+P pins the current query. Ctrl+A or Ctrl+L returns to filter."
             )
         else:
             hint = (
                 "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. "
-                "Enter opens the top hit. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
+                "Enter opens the top hit. Alt+1..9 quick-picks. Alt+P pins the current query. Alt+Up recalls saved queries."
             )
         self.shortcut_label.setText(hint)
 
@@ -377,14 +404,15 @@ class LauncherPanel(QWidget):
         self.result_list.scrollTo(self.result_list.currentIndex())
 
     def _navigate_recent_queries(self, direction: int) -> None:
-        if not self._recent_queries:
+        history = self._state.recallable_queries() if self._state is not None else self._recent_queries
+        if not history:
             return
         if direction < 0:
             if self._history_index is None:
                 self._history_draft = self.query_field.text()
                 next_index = 0
             else:
-                next_index = min(self._history_index + 1, len(self._recent_queries) - 1)
+                next_index = min(self._history_index + 1, len(history) - 1)
         else:
             if self._history_index is None:
                 return
@@ -395,7 +423,7 @@ class LauncherPanel(QWidget):
                 return
             next_index = self._history_index - 1
         self._history_index = next_index
-        self._set_query_from_history(self._recent_queries[next_index])
+        self._set_query_from_history(history[next_index])
 
     def _set_query_from_history(self, query: str) -> None:
         self._applying_history_query = True
