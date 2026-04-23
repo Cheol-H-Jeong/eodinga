@@ -811,6 +811,9 @@ def test_watcher_stop_resets_state_when_observer_stop_raises(tmp_path: Path) -> 
             self.name = name
             self.fail_stop = fail_stop
 
+        def start(self) -> None:
+            return None
+
         def stop(self) -> None:
             if self.fail_stop:
                 raise RuntimeError(f"stop failed for {self.name}")
