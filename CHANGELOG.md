@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.279 - 2026-04-23
+
+- Scoped SQLite bulk-write mode to indexing-heavy paths, keeping new connections at `FULL` durability by default while temporarily dropping rebuilds and writer batches to `NORMAL` until the bulk phase finishes.
+- Reused that bulk-write mode across full rebuilds and standalone writer entry points, with nested and in-transaction guards so indexed batches avoid redundant pragma churn without breaking caller-managed transactions.
+- Hoisted `indexed_at` timestamp generation out of per-record walker conversions and onto the batch boundary, trimming repeated `time()` calls from the cold-start traversal hot path.
+
 ## 0.1.277 - 2026-04-23
 
 - Reused `os.scandir()` metadata during tree walks so discovered children no longer pay an extra `lstat()` before indexing, while preserving the existing fallback path for entries whose metadata cannot be read during directory enumeration.
