@@ -8,6 +8,18 @@ source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
 
 The shipped datasets stay small enough for local developer runs, but each benchmark now accepts env overrides so you can scale toward the SPEC reference-box shapes without editing test code.
 
+## Baseline Environment
+
+The numbers in this document were collected on 2026-04-23 in the repository's Linux development environment with:
+
+| Input | Value |
+| --- | --- |
+| Python | local `.venv` on Python 3.11+ |
+| Install set | `pip install -e .[all]` |
+| Perf gate | `EODINGA_RUN_PERF=1` |
+| Worktree state | current `HEAD` only, no uncommitted runtime changes |
+| UI mode for doc checks | `QT_QPA_PLATFORM=offscreen` when GUI smoke is needed |
+
 ## Running the Suite
 
 Use a warm local virtualenv and run the perf tests on an otherwise idle machine when you want comparable numbers.
@@ -86,6 +98,13 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 - Re-run the same benchmark at least twice if the first sample is noisy; filesystem cache warmth heavily affects cold-start throughput.
 - Treat query p95/p99 shifts as more meaningful than p50 for launcher responsiveness.
 - Watch latency is end-to-end, so a regression there can come from debounce, event coalescing, or index commit timing rather than raw filesystem speed.
+
+## Updating This Document
+
+1. Rerun only the benchmark you changed first, then rerun the full perf suite if the result looks materially different.
+2. Copy the measured dataset size and headline latency or throughput into the baseline table above.
+3. Update the explanatory paragraph only after the benchmark is repeatable in the same local environment.
+4. Keep the thresholds discussion tied to developer-workstation expectations rather than speculative release hardware.
 
 ## Profiling Workflow
 

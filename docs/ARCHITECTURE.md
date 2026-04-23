@@ -38,6 +38,17 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 | Content extraction | `eodinga.content.*` | Parse supported document formats into searchable text. |
 | UI + CLI | `eodinga.__main__`, `eodinga.gui.*`, `eodinga.launcher.*` | Expose the same engine through commands, the main window, and the hotkey launcher. |
 
+## Command Surface Map
+
+| Surface | Entry point | Shared backend path |
+| --- | --- | --- |
+| CLI search | `eodinga.__main__::_cmd_search()` | `open_index()` -> `query.executor.search()` |
+| CLI stats | `eodinga.__main__::_cmd_stats()` | `open_index()` -> `index.reader.stats()` + observability counters |
+| GUI search tab | `eodinga.gui.tabs.search` | `query.executor.search()` through the same result model |
+| Launcher popup | `eodinga.gui.launcher.LauncherWindow` | shared query callback -> `query.executor.search()` |
+| Rebuild command | `eodinga.__main__::_cmd_index()` | `index.build.rebuild_index()` -> `IndexWriter.bulk_upsert()` |
+| Watch service | `eodinga.core.watcher.WatchService` | coalesced events -> `IndexWriter.apply_events()` |
+
 ## Index Storage
 
 - `files` is the source-of-truth table for root membership, timestamps, size, extension, and duplicate detection via `content_hash`.
@@ -45,6 +56,19 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 - `content_fts` stores parsed document text when parser extras are installed.
 - `content_map` keeps the FTS row IDs stable across updates so incremental reindexing does not balloon the content index.
 - `eodinga.index.storage` owns WAL replay on startup and atomic staged-index replacement.
+
+## Storage Objects
+
+| Object | Kind | Purpose |
+| --- | --- | --- |
+| `files` | SQLite table | Canonical metadata rows keyed by file id and root membership. |
+| `roots` | SQLite table | Configured root set persisted with include/exclude rules. |
+| `paths_fts` | FTS5 virtual table | Name and full-path lexical lookup. |
+| `content_fts` | FTS5 virtual table | Parsed document text search. |
+| `content_map` | SQLite table | Stable mapping between `files.id` and `content_fts.rowid`. |
+| `.index.db.next` | staged database file | Rebuild target promoted only after a successful full walk. |
+| `.index.db.recover` | staged database file | Recovery copy used for WAL replay and interrupted swap recovery. |
+| `index.db-wal` / `index.db-shm` | SQLite sidecars | WAL state replayed or checkpointed before final promotion. |
 
 ## Index Lifecycle Sequence
 
@@ -90,6 +114,26 @@ eodinga index --rebuild
 - Regex and mixed path/content terms are finalized in Python against the candidate set so the CLI and GUI share identical behavior.
 - `eodinga.query.ranker` applies reciprocal rank fusion, filename prefix boosts, and path deboosting for noisy trees such as `node_modules`.
 
+## Query Request Sequence
+
+```text
+user query
+    |
+    v
+DSL parse -> compiler lowers structured filters
+    |
+    v
+executor fetches candidates from files/FTS tables
+    |
+    +--> Python post-filter for regex / mixed predicates
+    |
+    v
+ranker applies RRF + filename/path boosts
+    |
+    v
+CLI JSON/plain output or GUI/launcher result model
+```
+
 ## Operational Model
 
 - Cold start is walker-driven: discover roots, write metadata in bulk, then parse supported documents for content rows.
@@ -123,6 +167,15 @@ next query sees updated results
 - The Debian recipe stages the launcher shim, desktop entry, SVG icon, license, and compressed changelog into the package root before emitting the audit manifest.
 - Windows packaging uses `packaging/pyinstaller.spec`, `packaging/windows/eodinga.iss`, and `packaging/build.py --target windows-dry-run`.
 - Documentation screenshots are rendered from the real Qt surfaces through `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
+
+## Packaging Artifact Matrix
+
+| Target | Primary inputs | Expected artifact |
+| --- | --- | --- |
+| Windows dry run | `packaging/build.py`, `packaging/pyinstaller.spec`, `packaging/windows/eodinga.iss` | validated installer input set and file audit output |
+| Linux AppImage dry run | `packaging/build.py`, `packaging/linux/appimage-builder.yml`, desktop/icon assets | staged AppImage recipe inputs |
+| Linux `.deb` dry run | `packaging/build.py`, `packaging/linux/debian/*`, desktop/icon assets | staged Debian package tree plus audit manifest |
+| Docs screenshots | `scripts/render_docs_screenshots.py`, `eodinga.gui.docs` | refreshed PNG assets under `docs/screenshots/` |
 
 ## UI Surfaces
 
