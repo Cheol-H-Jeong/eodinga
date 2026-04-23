@@ -133,6 +133,18 @@ def _cleanup_orphan_build_sidecars(path: Path) -> bool:
     return cleaned
 
 
+def _cleanup_orphan_live_sidecars(path: Path) -> bool:
+    if path.exists():
+        return False
+    cleaned = False
+    for suffix in ("-wal", "-shm"):
+        orphan = _sidecar(path, suffix)
+        if orphan.exists():
+            orphan.unlink()
+            cleaned = True
+    return cleaned
+
+
 def _copy_index_with_sidecars(source_path: Path, target_path: Path) -> None:
     target_path.parent.mkdir(parents=True, exist_ok=True)
     partial_path = _partial_copy_path(target_path)
@@ -255,6 +267,7 @@ def open_index(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     _cleanup_partial_copy_artifacts(_staged_recovery_path(path))
     _cleanup_partial_copy_artifacts(_staged_build_path(path))
+    _cleanup_orphan_live_sidecars(path)
     _cleanup_orphan_recovery_sidecars(path)
     _cleanup_orphan_build_sidecars(path)
     recovery_staged = _staged_recovery_path(path).exists()

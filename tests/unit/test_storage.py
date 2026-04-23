@@ -723,6 +723,23 @@ def test_open_index_cleans_orphaned_recovery_sidecars_before_open(tmp_path: Path
     assert not staged.with_name(".index.db.recover-shm").exists()
 
 
+def test_open_index_cleans_orphaned_live_sidecars_before_open(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    path.with_name("index.db-wal").write_bytes(b"orphaned")
+    path.with_name("index.db-shm").write_bytes(b"orphaned")
+
+    reopened = open_index(path)
+    try:
+        rows = reopened.execute("SELECT COUNT(*) FROM roots").fetchone()
+        assert rows is not None
+        assert int(rows[0]) == 0
+    finally:
+        reopened.close()
+
+    assert not path.with_name("index.db-wal").exists()
+    assert not path.with_name("index.db-shm").exists()
+
+
 def test_open_index_cleans_partial_recovery_copy_before_open(tmp_path: Path) -> None:
     path = tmp_path / "index.db"
     partial = tmp_path / ".index.db.recover.partial"
