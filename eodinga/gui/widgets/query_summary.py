@@ -64,7 +64,9 @@ class QuerySummaryRow(QWidget):
 
         self._label = QLabel("Active", self)
         self._label.setProperty("role", "secondary")
+        self._label.setAccessibleName("Launcher query summary label")
         self._chips_container = QWidget(self)
+        self._chips_container.setAccessibleName("Launcher query summary chips")
         self._chips_layout = QHBoxLayout(self._chips_container)
         self._chips_layout.setContentsMargins(0, 0, 0, 0)
         self._chips_layout.setSpacing(SPACE_4)
