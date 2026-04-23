@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.589 - 2026-04-23
+
+- Persisted observability counters, histograms, and recent command snapshots to a runtime state file so separate CLI invocations now accumulate into the same `stats --json` view instead of resetting to process-local memory.
+- Exposed the resolved metrics-state path and last persisted timestamp in `stats --json`, and embedded the same metadata into crash logs so operators can inspect or clean up the persisted observability state directly.
+- Added subprocess-level observability coverage that proves completed and failed command counts survive process boundaries, and fixed command-finalization flushing so terminal status counters are written after success or failure is recorded.
+
 ## 0.1.585 - 2026-04-23
 
 - Tightened scoped-search root matching so wildcard characters in root paths no longer leak results from sibling roots, and Windows drive-letter case variants now keep exact-root records in scope.
