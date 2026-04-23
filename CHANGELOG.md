@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.158 - 2026-04-23
+
+- Added a dedicated launcher preview pane that tracks the current result selection and hover target, showing the full path plus any extracted text snippet without leaving the popup.
+- Moved launcher result actions into the launcher surface itself, adding `Alt+N` copy-name handling and a full context menu with open, reveal, properties, copy-path, and copy-name actions.
+- Split the launcher window shell and shared result-menu wiring into dedicated modules so the launcher implementation stays under the repository's per-module size cap while preserving the existing geometry and hotkey behavior.
+
 ## 0.1.155 - 2026-04-23
 
 - Fixed the default observability paths on macOS so rotating logs now land under `~/Library/Logs/eodinga` and crash reports follow the same platform-native log root instead of falling back to Linux-style state directories.
