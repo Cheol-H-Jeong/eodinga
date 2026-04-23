@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.986 - 2026-04-24
+## 0.1.987 - 2026-04-24
 
 - Required a `.next.ready` marker before startup can publish an interrupted staged rebuild, so partial staged databases are discarded instead of replacing the live index after a crash or signal.
 - Added startup and doctor coverage for incomplete staged-build cleanup, plus one-shot watcher warnings when shutdown aborts queued event delivery under backpressure.
