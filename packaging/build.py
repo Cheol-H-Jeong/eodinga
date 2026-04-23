@@ -81,6 +81,10 @@ def _macro_value(text: str, macro_name: str) -> str | None:
     return match.group(1)
 
 
+def _has_inno_section(text: str, section_name: str) -> bool:
+    return re.search(rf"^\[{re.escape(section_name)}\]\s*$", text, flags=re.MULTILINE) is not None
+
+
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     spec_namespace = _load_windows_spec_namespace()
     inno_text = INNO_SCRIPT.read_text(encoding="utf-8")
@@ -193,10 +197,12 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             and f'ValueData: """{{app}}\\\\{INNO_GUI_EXE_TOKEN}"""' in inno_text
             and 'Tasks: autostart' in inno_text,
             "rendered_autostart_registry_matches_gui_exe": f'ValueData: """{{app}}\\\\{gui_exe_name}"""' in rendered_text,
+            "contains_uninstall_delete_section": _has_inno_section(rendered_text, "UninstallDelete"),
             "contains_uninstall_purge_prompt": _inno_contains(rendered_text, "procedure PurgeUserState();")
             and _inno_contains(rendered_text, r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);")
             and _inno_contains(rendered_text, r"DelTree(ExpandConstant('{userappdata}\\eodinga'), True, True, True);"),
             "purge_prompt_is_opt_in": "MB_YESNO" in rendered_text and "if MsgBox(" in rendered_text and "= IDYES then" in rendered_text,
+            "default_uninstall_preserves_user_state": not _has_inno_section(rendered_text, "UninstallDelete"),
             "purge_targets_local_and_roaming_user_state": r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);" in rendered_text
             and r"DelTree(ExpandConstant('{userappdata}\\eodinga'), True, True, True);" in rendered_text
             and "{commonappdata}" not in rendered_text,
@@ -266,6 +272,7 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         "rendered_autostart_registry_matches_gui_exe": "Rendered Inno autostart registry entry does not point at the GUI executable",
         "contains_uninstall_purge_prompt": "Inno uninstall purge prompt is missing",
         "purge_prompt_is_opt_in": "Inno uninstall purge prompt is no longer opt-in",
+        "default_uninstall_preserves_user_state": "Inno uninstall no longer preserves user state by default",
         "purge_targets_local_and_roaming_user_state": "Inno uninstall purge no longer targets both local data and roaming config",
     }
     for key, message in required_flags.items():

@@ -94,8 +94,10 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["contains_autostart_task"] is True
     assert payload["inno_setup"]["contains_autostart_registry"] is True
     assert payload["inno_setup"]["rendered_autostart_registry_matches_gui_exe"] is True
+    assert payload["inno_setup"]["contains_uninstall_delete_section"] is False
     assert payload["inno_setup"]["contains_uninstall_purge_prompt"] is True
     assert payload["inno_setup"]["purge_prompt_is_opt_in"] is True
+    assert payload["inno_setup"]["default_uninstall_preserves_user_state"] is True
     assert payload["inno_setup"]["purge_targets_local_and_roaming_user_state"] is True
 
 
@@ -140,6 +142,16 @@ def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -
     errors = module._validate_windows_audit(payload)
 
     assert "Inno uninstall purge no longer targets both local data and roaming config" in errors
+
+
+def test_windows_audit_validator_rejects_default_uninstall_state_purge() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["inno_setup"]["default_uninstall_preserves_user_state"] = False
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "Inno uninstall no longer preserves user state by default" in errors
 
 
 def test_build_preflight_reports_missing_windows_tool(monkeypatch) -> None:
