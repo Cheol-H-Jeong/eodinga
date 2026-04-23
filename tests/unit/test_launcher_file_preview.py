@@ -42,3 +42,25 @@ def test_filesystem_preview_snippet_preserves_indexed_snippet_priority(tmp_path:
     )
 
     assert snippet is None
+
+
+def test_filesystem_preview_snippet_reads_utf16le_bom_text(tmp_path: Path) -> None:
+    target = tmp_path / "release-notes-utf16le.txt"
+    target.write_bytes("Alpha release notes\nNext steps\n".encode("utf-16"))
+
+    snippet = filesystem_preview_snippet(
+        SearchHit(path=target, parent_path=tmp_path, name=target.name),
+    )
+
+    assert snippet == "Alpha release notes Next steps"
+
+
+def test_filesystem_preview_snippet_detects_utf16_without_bom(tmp_path: Path) -> None:
+    target = tmp_path / "release-notes-utf16be.txt"
+    target.write_bytes("Alpha release notes\nNext steps\n".encode("utf-16-be"))
+
+    snippet = filesystem_preview_snippet(
+        SearchHit(path=target, parent_path=tmp_path, name=target.name),
+    )
+
+    assert snippet == "Alpha release notes Next steps"
