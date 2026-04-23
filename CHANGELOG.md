@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.241 - 2026-04-23
+
+- Reused `os.scandir()` entry metadata inside the walker so directory traversal no longer pays an extra `lstat()` for every discovered child before indexing.
+- Bounded executor SQL-shape caching at 128 entries and added reuse for dynamic content-text fetch statements, reducing repeated SQL string construction on content-filtered scans.
+- Added an opt-in `tests/perf/test_walker_throughput.py` benchmark so raw traversal throughput is measured independently from SQLite bulk-upsert cost.
+
 ## 0.1.238 - 2026-04-23
 
 - Fixed inline quoted operator values so escaped quotes and backslashes decode consistently whether or not the phrase contains whitespace.
