@@ -157,6 +157,8 @@ def _cmd_search(args: argparse.Namespace) -> int:
         with closing(open_index(args.db or _resolve_config(args).index.db_path)) as conn:
             query_result = run_search(conn, args.query, limit=limit, root=root)
     except (QuerySyntaxError, ValueError) as error:
+        increment_counter("query_errors")
+        increment_counter(f"query_errors.{type(error).__name__}")
         sys.stderr.write(f"{error}\n")
         return 2
 
@@ -211,6 +213,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         queries_served=counter_value("queries_served"),
         queries_zero_results=counter_value("queries_zero_results"),
         queries_truncated=counter_value("queries_truncated"),
+        query_errors=counter_value("query_errors"),
         parser_errors=counter_value("parser_errors"),
         parser_documents_parsed=counter_value("parser_documents_parsed"),
         parser_bytes_parsed=counter_value("parser_bytes_parsed"),
@@ -239,6 +242,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         log_sinks_file_disabled=counter_value("log_sinks.file.disabled"),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
         query_result_count_histogram=histogram_snapshot("query_result_count"),
+        query_returned_count_histogram=histogram_snapshot("query_returned_count"),
         parser_latency_histogram=histogram_snapshot("parser_latency_ms"),
         parser_input_bytes_histogram=histogram_snapshot("parser_input_bytes"),
         parser_body_chars_histogram=histogram_snapshot("parser_body_chars"),
@@ -253,6 +257,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         commands=_command_summary(counters),
         exit_codes=_exit_code_summary(counters),
         crash_types=_crash_type_summary(counters),
+        query_error_types=_query_error_type_summary(counters),
         parser_activity=_parser_activity_summary(counters),
         parser_volume=_parser_volume_summary(counters),
         watcher_event_types=_watcher_event_type_summary(counters),
@@ -391,6 +396,16 @@ def _crash_type_summary(counters: dict[str, int]) -> dict[str, int]:
         if name.startswith(prefix)
     }
     return dict(sorted(crash_types.items()))
+
+
+def _query_error_type_summary(counters: dict[str, int]) -> dict[str, int]:
+    prefix = "query_errors."
+    query_errors = {
+        name[len(prefix) :]: value
+        for name, value in counters.items()
+        if name.startswith(prefix) and name != "query_errors"
+    }
+    return dict(sorted(query_errors.items()))
 
 
 def _parser_activity_summary(counters: dict[str, int]) -> dict[str, dict[str, int]]:

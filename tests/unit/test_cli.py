@@ -490,6 +490,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["queries_served"] == 1
     assert payload["queries_zero_results"] == 0
     assert payload["queries_truncated"] == 0
+    assert payload["query_errors"] == 0
     assert payload["parser_errors"] == 0
     assert payload["parser_documents_parsed"] == 0
     assert payload["parser_bytes_parsed"] == 0
@@ -514,6 +515,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_sinks_file_disabled"] == 2
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["query_result_count_histogram"]["count"] == 1
+    assert payload["query_returned_count_histogram"]["count"] == 1
     assert payload["parser_latency_histogram"] == {}
     assert payload["parser_input_bytes_histogram"] == {}
     assert payload["parser_body_chars_histogram"] == {}
@@ -530,6 +532,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 1
     assert payload["crash_types"] == {}
+    assert payload["query_error_types"] == {}
     assert payload["parser_activity"] == {}
     assert payload["parser_volume"] == {}
     assert payload["watcher_event_types"] == {}
@@ -551,6 +554,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["counters"]["commands.stats.started"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["query_result_count"]["count"] == 1
+    assert payload["histograms"]["query_returned_count"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 1
 
 
@@ -635,6 +639,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["parsers.text.bytes_parsed"] >= 35
     assert payload["counters"]["parsers.text.body_chars_indexed"] >= 35
     assert payload["counters"]["queries_served"] == 1
+    assert "query_errors" not in payload["counters"]
     assert "queries_zero_results" not in payload["counters"]
     assert payload["counters"]["queries_truncated"] == 1
     assert payload["counters"]["watcher_events"] == 2
@@ -674,11 +679,13 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["index_rebuilds_completed"] == 1
     assert payload["queries_zero_results"] == 0
     assert payload["queries_truncated"] == 1
+    assert payload["query_errors"] == 0
     assert payload["commands"]["index"]["completed"] == 1
     assert payload["commands"]["search"]["completed"] == 1
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 2
     assert payload["crash_types"] == {}
+    assert payload["query_error_types"] == {}
     assert payload["parser_activity"]["broken"]["errors"] == 1
     assert payload["parser_activity"]["text"]["parsed"] >= 2
     assert payload["parser_volume"]["text"]["bytes_parsed"] >= 35
@@ -689,11 +696,15 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["log_compression"] is None
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["query_result_count"]["count"] == 1
+    assert payload["histograms"]["query_returned_count"]["count"] == 1
     assert payload["histograms"]["parser_latency_ms"]["count"] >= 2
     assert payload["histograms"]["parser_input_bytes"]["count"] >= 2
     assert payload["histograms"]["parser_body_chars"]["count"] >= 2
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
     assert payload["query_result_count_histogram"]["count"] == 1
+    assert payload["query_result_count_histogram"]["min_ms"] == 2.0
+    assert payload["query_returned_count_histogram"]["count"] == 1
+    assert payload["query_returned_count_histogram"]["min_ms"] == 1.0
     assert payload["parser_latency_histogram"]["count"] >= 2
     assert payload["parser_input_bytes_histogram"]["count"] >= 2
     assert payload["parser_body_chars_histogram"]["count"] >= 2
@@ -773,8 +784,11 @@ def test_stats_json_exposes_zero_result_query_metrics(tmp_path: Path, capsys) ->
     assert payload["queries_truncated"] == 0
     assert payload["query_result_count_histogram"]["count"] == 1
     assert payload["query_result_count_histogram"]["min_ms"] == 0.0
+    assert payload["query_returned_count_histogram"]["count"] == 1
+    assert payload["query_returned_count_histogram"]["min_ms"] == 0.0
     assert payload["counters"]["queries_zero_results"] == 1
     assert "queries_truncated" not in payload["counters"]
+    assert "query_errors" not in payload["counters"]
     assert payload["parser_activity"] == {}
     assert payload["watcher_event_types"] == {}
 
@@ -968,6 +982,8 @@ def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> 
     assert payload["commands"]["search"]["failed"] == 1
     assert payload["commands"]["search"]["started"] == 1
     assert payload["exit_codes"]["2"] == 1
+    assert payload["query_errors"] == 1
+    assert payload["query_error_types"] == {"QuerySyntaxError": 1}
     assert len(payload["recent_snapshots"]) == 1
     assert payload["recent_snapshots"][0]["name"] == "command.failure"
     assert payload["recent_snapshots"][0]["payload"]["command"] == "search"

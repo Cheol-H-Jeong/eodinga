@@ -904,6 +904,7 @@ def execute(
         increment_counter("queries_truncated")
     record_histogram("query_latency_ms", elapsed_ms)
     record_histogram("query_result_count", float(total_estimate))
+    record_histogram("query_returned_count", float(len(hits)))
     return QueryResult(hits=hits, total_estimate=total_estimate, elapsed_ms=elapsed_ms)
 
 

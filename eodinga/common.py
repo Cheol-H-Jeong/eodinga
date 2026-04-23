@@ -108,6 +108,7 @@ class StatsSnapshot(BaseModel):
     queries_served: int = 0
     queries_zero_results: int = 0
     queries_truncated: int = 0
+    query_errors: int = 0
     parser_errors: int = 0
     parser_documents_parsed: int = 0
     parser_bytes_parsed: int = 0
@@ -136,6 +137,7 @@ class StatsSnapshot(BaseModel):
     log_sinks_file_disabled: int = 0
     query_latency_histogram: dict[str, object] = Field(default_factory=dict)
     query_result_count_histogram: dict[str, object] = Field(default_factory=dict)
+    query_returned_count_histogram: dict[str, object] = Field(default_factory=dict)
     parser_latency_histogram: dict[str, object] = Field(default_factory=dict)
     parser_input_bytes_histogram: dict[str, object] = Field(default_factory=dict)
     parser_body_chars_histogram: dict[str, object] = Field(default_factory=dict)
@@ -150,6 +152,7 @@ class StatsSnapshot(BaseModel):
     commands: dict[str, dict[str, int]] = Field(default_factory=dict)
     exit_codes: dict[str, int] = Field(default_factory=dict)
     crash_types: dict[str, int] = Field(default_factory=dict)
+    query_error_types: dict[str, int] = Field(default_factory=dict)
     parser_activity: dict[str, dict[str, int]] = Field(default_factory=dict)
     parser_volume: dict[str, dict[str, int]] = Field(default_factory=dict)
     watcher_event_types: dict[str, int] = Field(default_factory=dict)
