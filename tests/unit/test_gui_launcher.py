@@ -6,6 +6,7 @@ from typing import cast
 from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication, QMenu
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.launcher import LauncherState
@@ -568,6 +569,134 @@ def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
     assert copied == ["/tmp/release-notes.txt"]
     assert copied_names == ["release-notes.txt"]
     assert "Alt+N copies name" in launcher.shortcut_label.text()
+
+
+def test_launcher_result_context_menu_exposes_all_actions(qapp) -> None:
+    activated: list[str] = []
+    revealed: list[str] = []
+    copied: list[str] = []
+    copied_names: list[str] = []
+    properties: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/release-notes.txt"),
+                    parent_path=Path("/tmp"),
+                    name="release-notes.txt",
+                )
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: activated.append(hit.name))
+    launcher.open_containing_folder.connect(lambda hit: revealed.append(hit.name))
+    launcher.copy_path_requested.connect(lambda hit: copied.append(str(hit.path)))
+    launcher.copy_name_requested.connect(lambda hit: copied_names.append(hit.name))
+    launcher.show_properties.connect(lambda hit: properties.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(60)
+
+    menu = launcher._build_current_result_menu(launcher)
+
+    assert menu is not None
+    texts = [action.text() for action in menu.actions() if not action.isSeparator()]
+    assert texts == ["Open", "Reveal", "Copy Path", "Copy Name", "Properties"]
+
+    menu.actions()[0].trigger()
+    menu.actions()[1].trigger()
+    menu.actions()[3].trigger()
+    menu.actions()[4].trigger()
+    menu.actions()[6].trigger()
+
+    assert activated == ["release-notes.txt"]
+    assert revealed == ["release-notes.txt"]
+    assert copied == ["/tmp/release-notes.txt"]
+    assert copied_names == ["release-notes.txt"]
+    assert properties == ["release-notes.txt"]
+
+    launcher.close()
+    qapp.processEvents()
+
+
+def test_launcher_shift_f10_opens_result_action_menu(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/release-notes.txt"), parent_path=Path("/tmp"), name="release-notes.txt")
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(60)
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_F10, Qt.KeyboardModifier.ShiftModifier)
+    _wait(10)
+
+    popup = QApplication.activePopupWidget()
+
+    assert isinstance(popup, QMenu)
+    assert [action.text() for action in popup.actions() if not action.isSeparator()] == [
+        "Open",
+        "Reveal",
+        "Copy Path",
+        "Copy Name",
+        "Properties",
+    ]
+    assert "Shift+F10 or Menu opens actions" in launcher.shortcut_label.text()
+
+    popup.close()
+    popup.deleteLater()
+    launcher.close()
+    qapp.processEvents()
+    _wait(10)
+
+
+def test_launcher_result_context_menu_targets_clicked_row(qapp) -> None:
+    seen: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+            ][:limit],
+            total=2,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("a")
+    _wait(60)
+
+    def _capture_current_hit(parent, global_position) -> None:
+        del parent, global_position
+        current_hit = launcher._current_hit()
+        assert current_hit is not None
+        seen.append(current_hit.name)
+
+    launcher._exec_current_result_menu = _capture_current_hit
+
+    second_row_center = launcher.result_list.visualRect(launcher.model.index(1, 0)).center()
+    launcher._show_result_context_menu(second_row_center)
+
+    assert launcher.result_list.currentIndex().row() == 1
+    assert seen == ["beta.txt"]
+
+    launcher.close()
+    qapp.processEvents()
 
 
 def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
