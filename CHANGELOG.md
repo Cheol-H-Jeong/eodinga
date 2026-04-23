@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.556 - 2026-04-23
+## 0.1.564 - 2026-04-23
 
 - Hardened observability startup so a broken or unwritable file-log path falls back to stderr logging, records `log_sinks.file.failed`, and keeps `stats --json` usable instead of aborting early.
 - Counted bounded recent-snapshot churn with `snapshots_recorded` and `snapshots_dropped`, and exposed structured `snapshot_activity` plus `log_sinks` summaries in `stats --json` for easier operator inspection.
