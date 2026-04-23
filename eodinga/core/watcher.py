@@ -264,7 +264,7 @@ class WatchService:
 
     def _flush_ready(self, force: bool) -> None:
         now = monotonic()
-        flushed: list[WatchEvent] = []
+        ready_events: list[tuple[Path, WatchEvent, set[Path]]] = []
         with self._lock:
             ready_paths = [
                 path
@@ -276,20 +276,27 @@ class WatchService:
                 retired_sources = self._retired_sources.pop(path, set())
                 self._timestamps.pop(path, None)
                 if event is not None:
-                    if event.event_type == "moved" and event.src_path is not None:
-                        retired_sources = {event.src_path, *retired_sources}
-                    if retired_sources:
-                        self._flushed_retired_sources.update(retired_sources)
-                    if event.event_type in {"created", "modified", "deleted"}:
-                        self._flushed_retired_sources.discard(event.path)
-                    flushed.append(event)
+                    ready_events.append((path, event, retired_sources))
         delivered: list[WatchEvent] = []
-        for event in flushed:
+        for index, (path, event, retired_sources) in enumerate(ready_events):
             if not self._enqueue_event(event):
                 with self._lock:
-                    self._pending[event.path] = event
-                    self._timestamps[event.path] = now
+                    self._pending[path] = event
+                    self._retired_sources[path] = retired_sources
+                    self._timestamps[path] = now
+                    for pending_path, pending_event, pending_retired_sources in ready_events[index + 1 :]:
+                        self._pending[pending_path] = pending_event
+                        self._retired_sources[pending_path] = pending_retired_sources
+                        self._timestamps[pending_path] = now
                 break
+            with self._lock:
+                flushed_retired_sources = set(retired_sources)
+                if event.event_type == "moved" and event.src_path is not None:
+                    flushed_retired_sources.add(event.src_path)
+                if flushed_retired_sources:
+                    self._flushed_retired_sources.update(flushed_retired_sources)
+                if event.event_type in {"created", "modified", "deleted"}:
+                    self._flushed_retired_sources.discard(event.path)
             delivered.append(event)
         if delivered:
             increment_counter("watcher_flushes")

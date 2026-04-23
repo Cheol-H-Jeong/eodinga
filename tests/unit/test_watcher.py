@@ -693,3 +693,98 @@ def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path)
 
     second_event = service.queue.get_nowait()
     assert second_event.path == second
+
+
+def test_watcher_flush_retry_keeps_later_ready_events(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    service = WatchService()
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=first,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=second,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+
+    attempts = {"count": 0}
+    original_enqueue = service._enqueue_event
+
+    def fail_once(event: WatchEvent) -> bool:
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            return False
+        return original_enqueue(event)
+
+    monkeypatch.setattr(service, "_enqueue_event", fail_once)
+
+    service._flush_ready(force=True)
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+    service._flush_ready(force=True)
+
+    first_event = service.queue.get_nowait()
+    second_event = service.queue.get_nowait()
+    assert first_event.path == first
+    assert second_event.path == second
+
+
+def test_watcher_flush_retry_preserves_retired_move_source_suppression(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service = WatchService()
+    source = tmp_path / "draft.txt"
+    destination = tmp_path / "report.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="moved",
+            path=destination,
+            src_path=source,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+
+    attempts = {"count": 0}
+    original_enqueue = service._enqueue_event
+
+    def fail_once(event: WatchEvent) -> bool:
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            return False
+        return original_enqueue(event)
+
+    monkeypatch.setattr(service, "_enqueue_event", fail_once)
+
+    service._flush_ready(force=True)
+    service._flush_ready(force=True)
+
+    moved = service.queue.get_nowait()
+    assert moved.event_type == "moved"
+    assert moved.path == destination
+    assert moved.src_path == source
+
+    service.record(
+        WatchEvent(
+            event_type="deleted",
+            path=source,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
