@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.511 - 2026-04-23
+## 0.1.513 - 2026-04-23
 
 - Stopped watcher flush retries from silently dropping the tail of a ready batch when queue backpressure interrupts delivery, so deferred file events stay pending and are published on the next flush.
 - Made watcher startup transactional by tearing down the just-created flush thread when observer scheduling or startup fails, which avoids leaking background watcher state after a partial boot failure.
