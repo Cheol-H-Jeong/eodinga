@@ -204,6 +204,13 @@ def _duplicate_clause(negated: bool) -> str:
     return f"NOT ({clause})" if negated else clause
 
 
+def _sql_like_literal(value: str, escape: str = "^") -> str:
+    escaped = value.replace(escape, escape * 2)
+    escaped = escaped.replace("%", f"{escape}%")
+    escaped = escaped.replace("_", f"{escape}_")
+    return escaped
+
+
 def _normalize_is_value(value: str) -> str:
     normalized = value.strip().casefold().replace("_", "-")
     aliases = {
@@ -314,8 +321,8 @@ def _compile_branch(
                 )
                 if not _has_non_ascii(normalized_value):
                     comparator = "NOT LIKE" if term.negated else "LIKE"
-                    where_parts.append(f"files.path {comparator} ?")
-                    where_params.append(f"%{normalized_value}%")
+                    where_parts.append(f"files.path {comparator} ? ESCAPE '^'")
+                    where_params.append(f"%{_sql_like_literal(normalized_value)}%")
             continue
         if term.name == "ext":
             comparator = "!=" if term.negated else "="

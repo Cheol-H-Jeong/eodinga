@@ -204,6 +204,22 @@ def test_compile_non_ascii_path_filter_uses_python_normalized_scan() -> None:
     assert branch.where_params == ("txt",)
 
 
+def test_compile_ascii_path_filter_escapes_like_wildcards() -> None:
+    compiled = compile_query(parse(r"path:100%_done"))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == "files.path LIKE ? ESCAPE '^'"
+    assert branch.where_params == ("%100^%^_done%",)
+
+
+def test_compile_negated_ascii_path_filter_escapes_like_wildcards() -> None:
+    compiled = compile_query(parse(r"-path:100%_done"))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == "files.path NOT LIKE ? ESCAPE '^'"
+    assert branch.where_params == ("%100^%^_done%",)
+
+
 def test_compile_negated_group_pushes_negation_to_leaf_terms() -> None:
     compiled = compile_query(parse("-(alpha | beta) ext:txt"))
     branch = compiled.branches[0]
