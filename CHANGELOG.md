@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.180 - 2026-04-23
+## 0.1.181 - 2026-04-23
 
 - Changed `packaging/build.py --target windows` from an audit-only wrapper into a real build entrypoint that runs PyInstaller first and then compiles the rendered Inno Setup script only after the Windows packaging audit passes.
 - Tightened the Linux AppImage packaging contract so `packaging/build.py --target linux-appimage` now requires a runnable `.AppImage` artifact, records it in the audit payload, and fails validation if the build only stages an AppDir.
