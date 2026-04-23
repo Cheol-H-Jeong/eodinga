@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.270 - 2026-04-23
+## 0.1.275 - 2026-04-23
 
 - Added a shared `packaging/metadata.py` helper and rewired the Linux packaging scripts to consume it, so version sync and Debian control rendering now come from one audited source instead of duplicated shell snippets.
 - Tightened the Debian packaging audit to pin `Section`, `Priority`, and `Maintainer` against the checked-in control template, catching metadata drift that previously slipped past the dry-run checks.
