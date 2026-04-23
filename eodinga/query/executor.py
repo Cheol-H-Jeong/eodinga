@@ -170,13 +170,14 @@ def _text_matches(value: str, needle: str, case_sensitive: bool) -> bool:
 
 def _phrase_matches(value: str, phrase: str, case_sensitive: bool) -> bool:
     normalized_phrase = _normalize_search_text(phrase, case_sensitive=case_sensitive)
-    if normalized_phrase in _normalize_search_text(value, case_sensitive=case_sensitive):
+    normalized_value = _normalize_search_text(value, case_sensitive=case_sensitive)
+    if normalized_phrase in normalized_value:
         return True
     tokens = tuple(token for token in re.split(r"\s+", normalized_phrase) if token)
     if len(tokens) < 2:
         return False
     pattern = r"\W+".join(re.escape(token) for token in tokens)
-    return bool(re.search(pattern, value, 0 if case_sensitive else re.IGNORECASE))
+    return bool(re.search(pattern, normalized_value))
 
 
 def _term_matches(
