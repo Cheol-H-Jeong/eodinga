@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.362 - 2026-04-23
+## 0.1.363 - 2026-04-23
 
 - Preserved every debounced watcher event across queue backpressure so a full consumer queue no longer drops later ready events from the same flush batch.
 - Hardened the readonly filesystem safety audit to resolve imported aliases before checking for write-capable calls, closing gaps around indirect `open()` usage in `eodinga.core.fs`.
