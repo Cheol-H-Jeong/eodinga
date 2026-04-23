@@ -4,7 +4,7 @@ from pathlib import Path
 import sqlite3
 from typing import cast
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRect, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QSystemTrayIcon
 
@@ -175,6 +175,7 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
         tuple[object, EodingaWindow, LauncherWindow],
         launch_gui(test_mode=True, config=config, config_path=temp_config_path),
     )
+    launcher._available_geometry = lambda: QRect(0, 0, 1600, 1200)  # type: ignore[method-assign]
 
     launcher.show()
     launcher.move(180, 96)
@@ -195,6 +196,7 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
         tuple[object, EodingaWindow, LauncherWindow],
         launch_gui(test_mode=True, config=stored, config_path=temp_config_path),
     )
+    restored_launcher._available_geometry = lambda: QRect(0, 0, 1600, 1200)  # type: ignore[method-assign]
     restored_launcher.show()
     qapp.processEvents()
 
@@ -204,6 +206,34 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     assert restored_launcher.pos().y() == 96
 
     restored_window.close()
+    qapp.processEvents()
+
+
+def test_launcher_restore_clamps_saved_geometry_to_available_screen(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(
+        update={
+            "window_x": 1200,
+            "window_y": 900,
+            "window_width": 900,
+            "window_height": 700,
+        }
+    )
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+    launcher._available_geometry = lambda: QRect(100, 50, 800, 600)  # type: ignore[method-assign]
+
+    launcher.show()
+    qapp.processEvents()
+
+    assert launcher.pos().x() == 100
+    assert launcher.pos().y() == 50
+    assert launcher.width() == 800
+    assert launcher.height() == 600
+
+    window.close()
     qapp.processEvents()
 
 
@@ -366,6 +396,7 @@ def test_launcher_flag_toggles_preserve_geometry(qapp, temp_config_path: Path) -
     config = AppConfig()
     window = EodingaWindow(config=config, config_path=temp_config_path)
     launcher = window.launcher_window
+    launcher._available_geometry = lambda: QRect(0, 0, 1600, 1200)  # type: ignore[method-assign]
     launcher.show()
     launcher.move(210, 120)
     launcher.resize(760, 540)
