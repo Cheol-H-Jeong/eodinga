@@ -46,12 +46,14 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Surface Matrix" in readme
     assert "## Acceptance Quickcheck" in readme
     assert "## Validation Paths" in readme
+    assert "## Evidence Bundles" in readme
     assert "## DSL Cheatsheet" in readme
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
     assert "## Task Recipes" in readme
     assert "## Package Artifacts" in readme
     assert "## Release Inputs" in readme
+    assert "## Release Evidence Matrix" in readme
     assert "## Config and Data Paths" in readme
     assert "## Operator Checklist" in readme
     assert "## Docs-Only Release Pass" in readme
@@ -86,12 +88,15 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "packaging/dist/" in readme
     assert "Review the dry-run output before tagging." in readme
     assert "Treat that docs-only pass as release evidence" in readme
+    assert "If the change touches..." in readme
+    assert "How to prove it matches reality" in readme
     assert "git fetch origin main --tags && git tag -l | sort -V | tail -5" in readme
     assert "### State Directory Summary" in readme
     assert "EODINGA_LOG_PATH" in readme
     assert "EODINGA_CRASH_DIR" in readme
     assert "Docs asset drift after CLI or UI changes" in readme
     assert "What should I inspect before cutting a docs-only release?" in readme
+    assert "How do I confirm the launcher and CLI are reading the same index?" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance
@@ -132,6 +137,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Search Decision Path" in architecture
     assert "## Operator Evidence Sources" in architecture
     assert "## Live Update Sequence" in architecture
+    assert "## Cold Start Sequence" in architecture
+    assert "## Hot Restart Sequence" in architecture
+    assert "## Root Scope Model" in architecture
     assert "## Documentation Asset Flow" in architecture
     assert "## Release Input Map" in architecture
     assert "## Docs-Only Change Path" in architecture
@@ -164,6 +172,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Docs Refresh Order" in contributing
     assert "## Docs Round Checklist" in contributing
     assert "## Docs Evidence Bundle" in contributing
+    assert "## Change-To-Evidence Matrix" in contributing
     assert "## Metadata Commit Discipline" in contributing
     assert "## Release Retarget Playbook" in contributing
     assert "## Test Selection Guide" in contributing
@@ -175,6 +184,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "The final release commit for a round should carry the version bump" in contributing
     assert "Do not rewrite earlier docs or feature commits" in contributing
     assert "Prefer one explicit evidence bundle over ad-hoc retries." in contributing
+    assert "Primary proof" in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl
@@ -205,6 +215,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Baseline" in performance
     assert "## Baseline Freshness Policy" in performance
     assert "## Repro Checklist" in performance
+    assert "## Benchmark Capture Template" in performance
     assert "## Profiling Workflow" in performance
     assert "## Release Use" in performance
     assert "## Reporting Perf In Release Notes" in performance
@@ -226,6 +237,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Docs-Only Rounds" in release
     assert "## Docs-Only Validation Pass" in release
     assert "## Evidence Review Questions" in release
+    assert "## Manifest Review Questions" in release
     assert "## Cut The Local Release" in release
     assert "## Collision And Retag Rules" in release
     assert "## Tag Provenance" in release

@@ -124,6 +124,20 @@ Use this short checklist before replacing the baseline table:
 4. Record every non-default `EODINGA_PERF_*` override next to the benchmark output.
 5. Update the document only after a repeat run lands in the same range.
 
+## Benchmark Capture Template
+
+When you do refresh the baseline, keep the raw note small but structured:
+
+```text
+command:
+summary:
+env overrides:
+cache state:
+notes:
+```
+
+Fill in `summary:` with the exact stdout summary line from the perf test. That is the easiest way to keep later README, changelog, or release-note mentions tied back to a real benchmark invocation.
+
 ## Interpreting Results
 
 - `tests/perf/test_cold_start.py` exercises walker and bulk-upsert throughput. It is the best low-level proxy for first-index regressions.

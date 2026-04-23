@@ -321,6 +321,21 @@ IndexWriter.apply_events()
 next query sees updated results
 ```
 
+## Cold Start Sequence
+
+```text
+eodinga index
+    |
+    +--> resolve config + database paths
+    +--> open staged database candidate
+    +--> walk configured roots through read-only fs wrappers
+    +--> bulk upsert metadata and optional parsed content
+    +--> checkpoint + atomically promote staged database
+    +--> future search surfaces open the promoted live index
+```
+
+This is the highest-signal path when a report says "fresh rebuild is wrong". It narrows the problem to path selection, traversal, write staging, or atomic promotion before you look at ranking.
+
 ## Watch-To-Query Sequence
 
 ```text
@@ -336,6 +351,20 @@ filesystem change
                                     |
                                     +--> next CLI / GUI / launcher query sees the new row set
 ```
+
+## Hot Restart Sequence
+
+```text
+launcher or GUI restart
+    |
+    +--> reload config.toml
+    +--> reopen live SQLite database
+    +--> restore launcher/window state from config
+    +--> issue the next query through the shared compiler/executor stack
+```
+
+- Hot restart should not require a full filesystem walk when the live index is healthy.
+- If a reopened surface shows no results, confirm database-path selection before assuming the watcher or parser failed.
 
 ## Recovery Decision Tree
 
@@ -356,6 +385,17 @@ startup
             |
             +--> no: open live DB directly
 ```
+
+## Root Scope Model
+
+Multi-root behavior stays deliberately simple:
+
+- the walker records one canonical row per indexed file path
+- root filters narrow search to rows whose normalized path stays under the requested root
+- watcher updates reuse that same root/path ownership instead of inventing a launcher-only view
+- CLI, main GUI, and launcher all query the same shared row set, so cross-root mismatches are backend bugs first
+
+That model matters when a report mentions "the launcher sees it, but CLI does not" or the reverse. First prove whether the surfaces are scoped to different roots or different databases; only then chase UI-specific behavior.
 
 ## Packaging Surfaces
 

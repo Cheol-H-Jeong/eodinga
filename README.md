@@ -134,6 +134,19 @@ Use the smallest path that matches the work you changed:
 | launcher or GUI text/layout | `pytest -q tests/unit/test_gui_app.py tests/unit/test_gui_launcher.py tests/unit/test_docs_assets.py` | `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
 | packaging docs or recipes | `python packaging/build.py --target windows-dry-run` | the matching Linux dry run plus workflow lint from `docs/ACCEPTANCE.md` |
 
+## Evidence Bundles
+
+Use one explicit evidence bundle instead of retrying commands ad hoc:
+
+| If the change touches... | Minimum evidence bundle |
+| --- | --- |
+| prose-only docs | `pytest -q tests/unit/test_docs_assets.py` |
+| CLI help, examples, or operator commands | `python scripts/generate_manpage.py && pytest -q tests/unit/test_docs_assets.py` |
+| visible GUI or launcher behavior | `python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
+| packaged artifacts or release docs | matching `python packaging/build.py --target ...-dry-run` command plus manifest review under `packaging/dist/` |
+
+The point of the bundle is evidence quality, not volume. If the docs mention a shipped artifact, keep the dry-run manifest or generated asset in sync with the prose before tagging.
+
 ## CLI
 
 ```bash
@@ -328,6 +341,17 @@ Treat these as part of the shipped surface, not incidental repository files:
 3. Bump `pyproject.toml` and `eodinga/__init__.py`, add the new `CHANGELOG.md` entry, and create the local `v0.1.N` tag.
 4. Hand off the clean branch plus local tag; rebasing, pushing, and GitHub release publication stay outside the worker round.
 
+## Release Evidence Matrix
+
+| Release input | How to prove it matches reality |
+| --- | --- |
+| `README.md` and deeper guides under `docs/` | `pytest -q tests/unit/test_docs_assets.py` |
+| generated CLI reference in `docs/man/eodinga.1` | `python scripts/generate_manpage.py` and compare the checked-in asset |
+| offscreen screenshots under `docs/screenshots/` | `python scripts/render_docs_screenshots.py` and the Qt smoke path |
+| packaged docs payload and installer inputs | `python packaging/build.py --target ...-dry-run` plus review of `packaging/dist/` |
+
+Use this matrix when a round is release-facing but not code-heavy. It keeps the check focused on the evidence that actually changed.
+
 ## Docs-Only Release Pass
 
 When the round changes shipped docs but not runtime code, use one explicit validation pass instead of re-running the entire repository gate repeatedly:
@@ -474,6 +498,10 @@ Use `packaging/dist/`. Each packaging dry run writes its audit manifests or stag
 ### What should I inspect before cutting a docs-only release?
 
 Check `tests/unit/test_docs_assets.py`, the matching GUI smoke or packaging dry run for the surface you documented, and the rendered payload under `packaging/dist/` when the docs describe packaged artifacts.
+
+### How do I confirm the launcher and CLI are reading the same index?
+
+Run `eodinga stats --json` from the shell and compare the reported database path with the path the GUI or launcher is configured to use. If the paths match, treat result mismatches as one shared query-engine issue rather than as two separate surface bugs.
 
 ### Which files are skipped by default?
 

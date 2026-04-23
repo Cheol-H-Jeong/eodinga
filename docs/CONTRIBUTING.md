@@ -159,6 +159,19 @@ Collect the smallest reviewable evidence set that matches the docs you changed:
 
 Prefer one explicit evidence bundle over ad-hoc retries. The handoff should show why the docs match the runtime, not just that Markdown changed.
 
+## Change-To-Evidence Matrix
+
+Use this when you are unsure which proof belongs with a change:
+
+| Change type | Primary proof | Secondary proof when release-facing |
+| --- | --- | --- |
+| prose-only README or guide edits | `pytest -q tests/unit/test_docs_assets.py` | none unless the prose names a shipped artifact |
+| CLI wording or command examples | `python scripts/generate_manpage.py` | `pytest -q tests/unit/test_docs_assets.py` |
+| GUI screenshots, keyboard flow, launcher copy | `python scripts/render_docs_screenshots.py` | `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
+| packaging or installer documentation | matching `python packaging/build.py --target ...-dry-run` | manifest review under `packaging/dist/` |
+
+When one change spans more than one row, split the commit or carry both evidence paths explicitly in the handoff notes.
+
 ## Metadata Commit Discipline
 
 - Keep the final metadata commit reviewable: version bump, changelog entry, and local tag cut only.

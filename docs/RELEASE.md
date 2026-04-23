@@ -164,6 +164,17 @@ Before you cut the local tag, answer these against the actual outputs:
 3. Do the dry-run manifests under `packaging/dist/` agree with the packaged artifacts the docs claim exist?
 4. If the round changed release instructions, can a reviewer follow the documented commands without inventing missing steps?
 
+## Manifest Review Questions
+
+Use these when a dry run exits zero but you still need to review the generated payload:
+
+1. Does the artifact name embed the same `0.1.N` version now present in `pyproject.toml`, `eodinga/__init__.py`, and `CHANGELOG.md`?
+2. Do the staged docs include the files the release docs claim are shipped, especially `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`?
+3. If the round changed packaging prose, does the corresponding manifest under `packaging/dist/` show the same launchers, desktop entries, or installer inputs?
+4. Is the evidence review based on the manifest contents, not just a green command exit?
+
+A green dry run without a reviewed manifest is not a completed release check.
+
 ## Cut The Local Release
 
 1. Commit the release metadata changes.
