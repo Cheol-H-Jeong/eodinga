@@ -303,6 +303,29 @@ def test_execute_escaped_phrase_query_matches_literal_quotes_and_backslashes(
     assert content_hits == ['release "candidate" notes.txt']
 
 
+def test_execute_content_phrase_query_matches_across_token_separators(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/release-plan.txt",
+        512,
+        now,
+        "txt",
+        body_text="release\ncandidate checklist",
+    )
+    tmp_db.commit()
+
+    hits = [
+        hit.file.name
+        for hit in search(tmp_db, 'content:"release candidate"', limit=5).hits
+    ]
+
+    assert hits == ["release-plan.txt"]
+
+
 def test_execute_relative_date_queries_use_local_day_boundaries(
     tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:
