@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.211 - 2026-04-23
+## 0.1.212 - 2026-04-23
 
 - Added a gated walker throughput regression under `EODINGA_RUN_PERF=1`, so raw traversal throughput now has a stable performance contract alongside the existing bulk-upsert and query-latency suites.
 - Reused `os.scandir()` child `lstat` metadata inside `walk_batched()`, avoiding an extra `lstat()` on every discovered child path before it is indexed.
