@@ -225,6 +225,7 @@ def recover_interrupted_recovery(path: Path) -> bool:
         return False
     finally:
         _cleanup_index_files(staged_path)
+        _cleanup_partial_copy_artifacts(staged_path)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
 
@@ -246,12 +247,14 @@ def recover_interrupted_build(path: Path) -> bool:
         return False
     finally:
         _cleanup_index_files(staged_path)
+        _cleanup_partial_copy_artifacts(staged_path)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
 
 def open_index(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     _cleanup_partial_copy_artifacts(_staged_recovery_path(path))
+    _cleanup_partial_copy_artifacts(_staged_build_path(path))
     _cleanup_orphan_recovery_sidecars(path)
     _cleanup_orphan_build_sidecars(path)
     recovery_staged = _staged_recovery_path(path).exists()

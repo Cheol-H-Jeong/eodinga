@@ -492,6 +492,40 @@ def test_recover_interrupted_recovery_rejects_uninitialized_stage(tmp_path: Path
     assert not staged.exists()
 
 
+def test_recover_interrupted_recovery_cleans_partial_stage_artifacts(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+    partial = tmp_path / ".index.db.recover.partial"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/old", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/resumed", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    partial.write_bytes(b"orphaned")
+    partial.with_name(".index.db.recover.partial-wal").write_bytes(b"orphaned")
+    partial.with_name(".index.db.recover.partial-shm").write_bytes(b"orphaned")
+
+    assert recover_interrupted_recovery(target) is True
+    assert _read_root_paths(target) == ["/resumed"]
+    assert not partial.exists()
+    assert not partial.with_name(".index.db.recover.partial-wal").exists()
+    assert not partial.with_name(".index.db.recover.partial-shm").exists()
+
+
 def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path) -> None:
     target = tmp_path / "index.db"
     staged = tmp_path / ".index.db.next"
@@ -517,6 +551,40 @@ def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path
     assert recover_interrupted_build(target) is True
     assert _read_root_paths(target) == ["/rebuilt"]
     assert not staged.exists()
+
+
+def test_recover_interrupted_build_cleans_partial_stage_artifacts(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+    partial = tmp_path / ".index.db.next.partial"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/old", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/rebuilt", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    partial.write_bytes(b"orphaned")
+    partial.with_name(".index.db.next.partial-wal").write_bytes(b"orphaned")
+    partial.with_name(".index.db.next.partial-shm").write_bytes(b"orphaned")
+
+    assert recover_interrupted_build(target) is True
+    assert _read_root_paths(target) == ["/rebuilt"]
+    assert not partial.exists()
+    assert not partial.with_name(".index.db.next.partial-wal").exists()
+    assert not partial.with_name(".index.db.next.partial-shm").exists()
 
 
 def test_recover_interrupted_build_rejects_uninitialized_stage(tmp_path: Path) -> None:
@@ -692,3 +760,23 @@ def test_open_index_cleans_orphaned_build_sidecars_before_open(tmp_path: Path) -
     assert not staged.exists()
     assert not staged.with_name(".index.db.next-wal").exists()
     assert not staged.with_name(".index.db.next-shm").exists()
+
+
+def test_open_index_cleans_partial_build_copy_before_open(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    partial = tmp_path / ".index.db.next.partial"
+    partial.write_bytes(b"sqlite")
+    partial.with_name(".index.db.next.partial-wal").write_bytes(b"orphaned")
+    partial.with_name(".index.db.next.partial-shm").write_bytes(b"orphaned")
+
+    reopened = open_index(path)
+    try:
+        rows = reopened.execute("SELECT COUNT(*) FROM roots").fetchone()
+        assert rows is not None
+        assert int(rows[0]) == 0
+    finally:
+        reopened.close()
+
+    assert not partial.exists()
+    assert not partial.with_name(".index.db.next.partial-wal").exists()
+    assert not partial.with_name(".index.db.next.partial-shm").exists()
