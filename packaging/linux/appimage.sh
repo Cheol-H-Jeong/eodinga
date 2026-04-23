@@ -30,7 +30,7 @@ fi
 
 rm -rf "${APPDIR}"
 mkdir -p "${APPDIR}/usr/bin" "${APPDIR}/usr/share/applications"
-mkdir -p "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
+mkdir -p "${APPDIR}/usr/lib/eodinga" "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
 mkdir -p "${DIST_DIR}"
 
 python3 - <<PY
@@ -45,6 +45,7 @@ PY
 cp "${ROOT_DIR}/packaging/linux/eodinga.desktop" "${APPDIR}/usr/share/applications/eodinga.desktop"
 cp "${APPIMAGE_ICON}" "${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg"
 cp "${APPIMAGE_ICON}" "${APPDIR}/.DirIcon"
+cp -R "${ROOT_DIR}/eodinga" "${APPDIR}/usr/lib/eodinga/eodinga"
 cat > "${APPDIR}/AppRun" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -54,9 +55,9 @@ EOF
 cat > "${APPDIR}/usr/bin/eodinga" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)"
-cd "${ROOT_DIR}"
-exec python3 -m eodinga "$@"
+APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+APP_ROOT="${APPDIR}/usr/lib/eodinga"
+PYTHONPATH="${APP_ROOT}${PYTHONPATH:+:${PYTHONPATH}}" exec python3 -m eodinga "$@"
 EOF
 chmod +x "${APPDIR}/AppRun" "${APPDIR}/usr/bin/eodinga"
 
@@ -78,6 +79,7 @@ for line in desktop_lines:
 
 apprun_path = Path("${APPDIR}/AppRun")
 launcher_path = Path("${APPDIR}/usr/bin/eodinga")
+source_tree_path = Path("${APPDIR}/usr/lib/eodinga/eodinga")
 icon_path = Path("${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 diricon_path = Path("${APPDIR}/.DirIcon")
 recipe_path = Path("${APPIMAGE_RECIPE}")
@@ -134,8 +136,14 @@ payload = {
         "path": str(launcher_path),
         "is_executable": os.access(launcher_path, os.X_OK),
         "has_strict_shell": "set -euo pipefail" in launcher_path.read_text(encoding="utf-8"),
-        "changes_to_project_root": 'cd "\${ROOT_DIR}"' in launcher_path.read_text(encoding="utf-8"),
+        "uses_packaged_lib_path": 'APP_ROOT="\${APPDIR}/usr/lib/eodinga"' in launcher_path.read_text(encoding="utf-8")
+        and 'PYTHONPATH="\${APP_ROOT}\${PYTHONPATH:+:\${PYTHONPATH}}"' in launcher_path.read_text(encoding="utf-8"),
         "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
+    },
+    "source_tree": {
+        "path": str(source_tree_path),
+        "exists": source_tree_path.exists(),
+        "package_init_exists": (source_tree_path / "__init__.py").exists(),
     },
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")

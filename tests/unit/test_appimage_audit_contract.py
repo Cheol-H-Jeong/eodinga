@@ -19,4 +19,6 @@ def test_linux_appimage_dry_run_preserves_source_assets() -> None:
     assert payload["desktop_entry"]["startup_notify"] == "true"
     assert payload["icon"]["matches_source_asset"] is True
     assert payload["apprun"]["has_strict_shell"] is True
-    assert payload["launcher"]["changes_to_project_root"] is True
+    assert payload["source_tree"]["exists"] is True
+    assert payload["source_tree"]["package_init_exists"] is True
+    assert payload["launcher"]["uses_packaged_lib_path"] is True

@@ -11,6 +11,9 @@ def test_appimage_recipe_tracks_desktop_and_icon_assets() -> None:
     assert "version: @@APP_VERSION@@" in recipe
     assert "exec: usr/bin/eodinga" in recipe
     assert "exec_args: gui" in recipe
+    assert "mkdir -p AppDir/usr/bin AppDir/usr/lib/eodinga" in recipe
+    assert "cp -R eodinga AppDir/usr/lib/eodinga/eodinga" in recipe
+    assert "      - eodinga" in recipe
     assert "packaging/linux/eodinga.desktop" in recipe
     assert "packaging/linux/eodinga.svg" in recipe
 

@@ -251,13 +251,18 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
         "launcher": {
             "is_executable": True,
             "has_strict_shell": True,
-            "changes_to_project_root": True,
+            "uses_packaged_lib_path": False,
             "executes_python_module": False,
+        },
+        "source_tree": {
+            "exists": True,
+            "package_init_exists": True,
         },
     }
 
     errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
 
+    assert "AppImage launcher shim no longer uses the packaged library path" in errors
     assert "AppImage launcher shim no longer executes the Python module" in errors
 
 
@@ -290,7 +295,12 @@ def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> Non
         },
         "launcher": {
             "is_executable": True,
+            "uses_packaged_lib_path": True,
             "executes_python_module": True,
+        },
+        "source_tree": {
+            "exists": True,
+            "package_init_exists": True,
         },
     }
 
@@ -342,8 +352,10 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["apprun"]["has_strict_shell"] is True
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["has_strict_shell"] is True
-    assert payload["launcher"]["changes_to_project_root"] is True
+    assert payload["launcher"]["uses_packaged_lib_path"] is True
     assert payload["launcher"]["executes_python_module"] is True
+    assert payload["source_tree"]["exists"] is True
+    assert payload["source_tree"]["package_init_exists"] is True
 
 
 def test_linux_deb_dry_run_renders_control_template() -> None:
