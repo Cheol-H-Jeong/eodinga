@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.962 - 2026-04-24
+
+- Fixed semantic query diagnostics so invalid `case:`, `date:`, `size:`, `is:`, and promoted-regex terms report the source token offset instead of collapsing to `position 0`.
+- Added focused compiler and CLI coverage that pins those query error positions, including direct regex literals and `regex:true` promotion paths.
+- Expanded the DSL cheatsheet to document the full relative-date set, range forms, and canonical `ims` regex-flag behavior already supported by the query engine.
+
 ## 0.1.961 - 2026-04-24
 
 - Expanded the top-level README with a concrete `packaging/dist/` audit map and docs-only validation FAQ so release reviewers can open the right evidence file without guessing.
