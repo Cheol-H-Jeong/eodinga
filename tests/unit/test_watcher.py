@@ -693,3 +693,57 @@ def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path)
 
     second_event = service.queue.get_nowait()
     assert second_event.path == second
+
+
+def test_watcher_queue_backpressure_preserves_remaining_flushed_events(tmp_path: Path) -> None:
+    service = WatchService(queue_maxsize=1)
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    third = tmp_path / "third.txt"
+    finished = False
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=first,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    def emit_tail_batch() -> None:
+        nonlocal finished
+        service.record(
+            WatchEvent(
+                event_type="created",
+                path=second,
+                root_path=tmp_path,
+                happened_at=2.0,
+            )
+        )
+        service.record(
+            WatchEvent(
+                event_type="created",
+                path=third,
+                root_path=tmp_path,
+                happened_at=3.0,
+            )
+        )
+        service._flush_ready(force=True)
+        finished = True
+
+    thread = Thread(target=emit_tail_batch, daemon=True)
+    thread.start()
+    sleep(0.1)
+
+    assert finished is False
+
+    assert service.queue.get_nowait().path == first
+    second_event = service.queue.get(timeout=1)
+    assert second_event.path == second
+
+    thread.join(timeout=1)
+    assert finished is True
+
+    assert service.queue.get_nowait().path == third
