@@ -177,6 +177,19 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Exclude noisy trees | `-path:node_modules` |
 | Run regex | `regex:/todo|fixme/i` |
 
+## Query Patterns By Goal
+
+| Goal | Query | Why it helps |
+| --- | --- | --- |
+| Find docs touched today | `modified:today ext:md` | narrows by timestamp and file type in one pass |
+| Audit last month's PDFs | `date:last-month ext:pdf` | uses the built-in calendar macro instead of manual date math |
+| Keep duplicate cleanup bounded | `is:duplicate size:>10M` | avoids surfacing tiny duplicate noise first |
+| Exclude build trees | `roadmap -path:node_modules -path:dist` | keeps lexical hits focused on authored files |
+| Mix OR with a hard filter | `(invoice | receipt) ext:pdf` | shares the extension requirement across both branches |
+| Search by regex flag | `regex:/todo|fixme/im path:docs` | combines multiline and case-insensitive matching |
+| Open-ended date range | `date:2026-04-01.. path:notes` | starts at one date and keeps the upper bound open |
+| Exact timestamp targeting | `modified:2026-04-23T09:15:30+00:00` | useful for cross-checking automation output |
+
 ## Supported Content Types
 
 - Plain text and source code: `.txt`, `.md`, `.py`, and similar text-first formats.
@@ -248,6 +261,13 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - Validate Linux AppImage packaging with `python packaging/build.py --target linux-appimage-dry-run`.
 - Validate Linux Debian packaging with `python packaging/build.py --target linux-deb-dry-run`.
 
+For a release-candidate pass, follow those dry runs with workflow lint:
+
+```bash
+yamllint .github/workflows/release-windows.yml
+yamllint .github/workflows/release-linux.yml
+```
+
 ## Operator References
 
 - `docs/DSL.md` is the complete query reference.
@@ -260,10 +280,15 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 
 ## Package Artifacts
 
-- Windows release builds emit a PyInstaller bundle plus an Inno Setup installer audit under `packaging/dist/`.
-- Linux AppImage dry runs render `packaging/linux/appimage-builder.yml` from the current package version before building.
-- Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, and compressed changelog into the package root.
-- The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
+| Artifact | Produced by | What to confirm |
+| --- | --- | --- |
+| Windows PyInstaller bundle + installer audit | `python packaging/build.py --target windows-dry-run` | staged executable names, installer metadata, and uninstall behavior |
+| Linux AppImage recipe + audit manifest | `python packaging/build.py --target linux-appimage-dry-run` | rendered version, launcher wiring, and AppDir staging |
+| Linux Debian package root + audit manifest | `python packaging/build.py --target linux-deb-dry-run` | launcher, desktop entry, SVG icon, license, and compressed changelog |
+| Generated CLI reference | `python scripts/generate_manpage.py` | `docs/man/eodinga.1` still matches `eodinga --help` |
+| Screenshot gallery | `python scripts/render_docs_screenshots.py` | offscreen-rendered assets still reflect the current Qt surface |
+
+The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
 
 ## Recovery and Troubleshooting
 
@@ -282,10 +307,21 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 | Hotkey or launcher looks wrong | `eodinga doctor` | inspect detected hotkey backend and then re-open `eodinga gui` for settings/state |
 | Packaging audit failed | `python packaging/build.py --target windows-dry-run` | re-run the matching Linux dry run and workflow lint from `docs/ACCEPTANCE.md` |
 
+When a failure is clearly documentation-facing rather than runtime-facing, refresh the derived assets before cutting a tag:
+
+```bash
+python scripts/generate_manpage.py
+python scripts/render_docs_screenshots.py
+pytest -q tests/unit/test_docs_assets.py
+```
+
 ## Config and Data Paths
 
-- Linux config defaults to `~/.config/eodinga/config.toml` and the index database to `~/.local/share/eodinga/index.db`.
-- Windows uses `%APPDATA%\\eodinga\\config.toml` for config and `%LOCALAPPDATA%\\eodinga\\index.db` for the database.
+| Platform | Config path | Index path | Notes |
+| --- | --- | --- | --- |
+| Linux | `~/.config/eodinga/config.toml` | `~/.local/share/eodinga/index.db` | aligns with standard XDG config/data locations |
+| Windows | `%APPDATA%\\eodinga\\config.toml` | `%LOCALAPPDATA%\\eodinga\\index.db` | keeps config and mutable index state separated |
+
 - Override either location with `--config` or `--db` when running CLI commands.
 - Runtime writes stay inside those config/database areas; indexed roots are treated as read-only inputs.
 
@@ -312,6 +348,8 @@ eodinga search 'date:this-week ext:md' --limit 10
 ```
 
 If those are clean but the packaged app still looks wrong, continue with the release-gate commands in `docs/ACCEPTANCE.md`.
+
+For a full local release pass, use the one-command chain documented in `docs/RELEASE.md` so the entire gate stops at the first failing stage instead of leaving partially checked state behind.
 
 ## Docs Map
 

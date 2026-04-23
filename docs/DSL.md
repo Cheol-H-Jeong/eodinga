@@ -33,6 +33,18 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 - `created:..2026-04-23`
 - `modified:2026-04-23T09:15:30+00:00`
 
+Calendar macros expand in local time. Use explicit ISO ranges when you need cross-timezone reproducibility in scripts or release notes.
+
+## Structural Filters
+
+| Filter | Meaning | Example |
+| --- | --- | --- |
+| `is:file` | regular files only | `is:file ext:md` |
+| `is:dir` | directories only | `is:dir roadmap` |
+| `is:symlink` | symbolic links only | `is:symlink path:bin` |
+| `is:empty` | zero-byte files or empty directories | `is:empty -is:dir` |
+| `is:duplicate` | content-hash duplicates with at least one peer | `is:duplicate size:>1M` |
+
 ## Common Combos
 
 ```text
@@ -47,6 +59,16 @@ regex:true report-\d+
 regex:/launch|ship/i path:docs
 ```
 
+## Regex Flags
+
+| Flag | Meaning | Example |
+| --- | --- | --- |
+| `i` | case-insensitive | `regex:/todo|fixme/i` |
+| `m` | `^` and `$` match line boundaries | `regex:/^TODO:/m content:notes` |
+| `s` | `.` matches newlines | `regex:/release.*checklist/s` |
+
+Flags follow the trailing delimiter, so `/pattern/im` is valid while bare `regex:true` changes how plain terms are interpreted.
+
 ## Operator Notes
 
 - Path/name terms are case-insensitive unless `case:true` is set.
@@ -57,6 +79,8 @@ regex:/launch|ship/i path:docs
 - `is:file`, `is:dir`, `is:symlink`, and `is:empty` are also available for structural filtering.
 - `regex:true` only changes how plain terms are interpreted; explicit `/pattern/flags` literals still work without it.
 - Negation applies to the next term or the entire parenthesized group.
+- Group-level negation is valid, so `-(invoice | receipt) ext:pdf` excludes both branches before the extension filter is applied.
+- Phrase search stays lexical; it can cross normalized token boundaries in fallback scans, but it does not become semantic matching.
 
 ## Practical Limits
 
