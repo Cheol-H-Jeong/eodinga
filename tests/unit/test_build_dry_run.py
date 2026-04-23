@@ -531,6 +531,73 @@ def test_linux_appimage_audit_validator_rejects_launcher_version_regression() ->
     assert "AppImage launcher version smoke test no longer matches the packaged version" in errors
 
 
+def test_linux_appimage_audit_validator_rejects_unreplaced_recipe_tokens() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "x86_64",
+        "archive": f"packaging/dist/eodinga-{__version__}-linux-x86_64-appdir.tar.gz",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "archive_artifact": {
+            "exists": True,
+            "size_bytes": 1,
+            "sha256": "0" * 64,
+        },
+        "recipe": {
+            "exists": True,
+            "contains_version_template": True,
+            "rendered_exists": True,
+            "rendered_version_matches_package": True,
+            "rendered_contains_template_tokens": True,
+            "references_desktop_entry": True,
+            "references_icon_asset": True,
+            "launches_gui": True,
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "exec": "eodinga gui",
+            "icon": "eodinga",
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "diricon_exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "runtime_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "package_init_exists": True,
+            "module_entry_exists": True,
+            "i18n_en_exists": True,
+        },
+        "apprun": {
+            "is_executable": True,
+            "launches_gui": True,
+            "has_strict_shell": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "uses_bundled_runtime": True,
+            "executes_python_module": True,
+            "help_exit_code": 0,
+            "help_mentions_search_command": True,
+            "version_exit_code": 0,
+            "version_matches_package": True,
+        },
+    }
+
+    errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
+
+    assert "Rendered AppImage recipe still contains template tokens" in errors
+
+
 def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> None:
     module = _load_build_module()
     payload = {
@@ -604,6 +671,7 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert Path(payload["recipe"]["rendered_path"]).exists()
     assert payload["recipe"]["rendered_exists"] is True
     assert payload["recipe"]["rendered_version_matches_package"] is True
+    assert payload["recipe"]["rendered_contains_template_tokens"] is False
     assert payload["recipe"]["references_desktop_entry"] is True
     assert payload["recipe"]["references_icon_asset"] is True
     assert payload["recipe"]["launches_gui"] is True
@@ -654,6 +722,7 @@ def test_linux_deb_dry_run_renders_control_template() -> None:
     rendered_control_path = Path(payload["debian_control_template"]["rendered_path"])
     assert rendered_control_path.exists()
     assert payload["debian_control_template"]["rendered_exists"] is True
+    assert payload["debian_control_template"]["rendered_contains_template_tokens"] is False
     rendered_control = rendered_control_path.read_text(encoding="utf-8")
     assert f"Version: {__version__}" in rendered_control
     assert "Architecture: amd64" in rendered_control
@@ -810,6 +879,7 @@ def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
     assert Path(payload["archive"]).name == f"eodinga-{__version__}-linux-{payload['arch']}-appdir.tar.gz"
+    assert payload["recipe"]["rendered_contains_template_tokens"] is False
 
 
 def test_linux_deb_dry_run_stages_recipe() -> None:
@@ -853,6 +923,7 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["debian_control_template"]["contains_version_template"] is True
     assert payload["debian_control_template"]["contains_arch_template"] is True
     assert payload["debian_control_template"]["rendered_exists"] is True
+    assert payload["debian_control_template"]["rendered_contains_template_tokens"] is False
     assert payload["debian_control_template"]["source"] == "eodinga"
     assert payload["debian_control_template"]["maintainer"] == "Cheol-H-Jeong"
     assert payload["debian_control_template"]["binary_package"] == "eodinga"
@@ -1223,3 +1294,86 @@ def test_linux_deb_audit_validator_rejects_launcher_version_regression() -> None
 
     assert "Debian launcher version smoke test exited non-zero" in errors
     assert "Debian launcher version smoke test no longer matches the packaged version" in errors
+
+
+def test_linux_deb_audit_validator_rejects_unreplaced_control_tokens() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "amd64",
+        "archive": f"packaging/dist/eodinga_{__version__}_amd64_debroot.tar.gz",
+        "deb_path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "archive_artifact": {
+            "exists": True,
+            "size_bytes": 1,
+            "sha256": "0" * 64,
+        },
+        "deb_artifact": {
+            "path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+            "exists": True,
+            "size_bytes": 1,
+            "sha256": "1" * 64,
+        },
+        "dry_run": False,
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+            "architecture": "amd64",
+            "depends": "python3 (>= 3.11)",
+            "description": PROJECT_DESCRIPTION,
+        },
+        "debian_control_template": {
+            "exists": True,
+            "contains_version_template": True,
+            "contains_arch_template": True,
+            "rendered_exists": True,
+            "rendered_contains_template_tokens": True,
+            "source": "eodinga",
+            "maintainer": "Cheol-H-Jeong",
+            "binary_package": "eodinga",
+            "description": PROJECT_DESCRIPTION,
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "launches_gui": True,
+            "icon_matches_package": True,
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "runtime_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "package_init_exists": True,
+            "module_entry_exists": True,
+            "i18n_en_exists": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "uses_bundled_runtime": True,
+            "executes_python_module": True,
+            "help_exit_code": 0,
+            "help_mentions_search_command": True,
+            "version_exit_code": 0,
+            "version_matches_package": True,
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": True,
+            "changelog_has_current_release_heading": True,
+            "changelog_gzip_mtime_zero": True,
+        },
+    }
+
+    errors = module._validate_linux_deb_audit(payload, __version__, __version__)
+
+    assert "Rendered Debian control file still contains template tokens" in errors

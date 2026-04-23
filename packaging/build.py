@@ -379,6 +379,8 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
     for ok, message in required_flags:
         if not ok:
             errors.append(message)
+    if recipe_payload.get("rendered_contains_template_tokens"):
+        errors.append("Rendered AppImage recipe still contains template tokens")
     return errors
 
 
@@ -488,6 +490,8 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
     for ok, message in required_flags:
         if not ok:
             errors.append(message)
+    if control_template_payload.get("rendered_contains_template_tokens"):
+        errors.append("Rendered Debian control file still contains template tokens")
     if payload.get("dry_run"):
         if deb_artifact.get("exists"):
             errors.append("Debian dry run unexpectedly produced a .deb payload")

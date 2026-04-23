@@ -188,6 +188,8 @@ payload = {
         "contains_arch_template": "${TARGET_ARCH_TOKEN}" in debian_control_template_path.read_text(encoding="utf-8"),
         "rendered_path": "${DEBIAN_CONTROL_RENDERED}",
         "rendered_exists": Path("${DEBIAN_CONTROL_RENDERED}").exists(),
+        "rendered_contains_template_tokens": "${APP_VERSION_TOKEN}" in Path("${DEBIAN_CONTROL_RENDERED}").read_text(encoding="utf-8")
+        or "${TARGET_ARCH_TOKEN}" in Path("${DEBIAN_CONTROL_RENDERED}").read_text(encoding="utf-8"),
         "source": template_control_entries.get("Source"),
         "maintainer": template_control_entries.get("Maintainer"),
         "binary_package": template_control_entries.get("Package"),
