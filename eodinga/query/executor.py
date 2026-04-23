@@ -39,6 +39,7 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+_ROOT_SCOPE_CLAUSE_CACHE_SIZE = 128
 _SCAN_BATCH_SIZE = 2_000
 
 
@@ -370,10 +371,8 @@ def _fetch_record_batch(
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
-def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
-    if root is None:
-        return "", ()
-    root_text = str(root)
+@lru_cache(maxsize=_ROOT_SCOPE_CLAUSE_CACHE_SIZE)
+def _root_scope_clause_from_text(root_text: str) -> tuple[str, tuple[object, ...]]:
     normalized = root_text.rstrip("/\\") or root_text
     variants = _root_variants(normalized)
     exact_params = variants
@@ -383,6 +382,12 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
     like_clause = " OR ".join("files.path LIKE ? ESCAPE '^'" for _ in like_params)
     return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
+
+
+def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
+    if root is None:
+        return "", ()
+    return _root_scope_clause_from_text(str(root))
 
 
 def _escape_like_pattern(value: str) -> str:

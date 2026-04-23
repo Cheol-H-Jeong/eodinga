@@ -1650,6 +1650,22 @@ def test_search_root_scope_escapes_like_wildcards_in_windows_style_paths(
     assert hits == [Path(r"C:\workspace\team_1\alpha.txt")]
 
 
+def test_search_root_scope_reuses_cached_scope_clause(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    executor_module._root_scope_clause_from_text.cache_clear()
+    _insert_file(tmp_db, 1, "/workspace/reports/alpha.txt", 1024, now, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, "/workspace/archive/alpha.txt", 1024, now - 60, "txt", body_text="alpha")
+    tmp_db.commit()
+
+    root = Path("/workspace/reports")
+    first = search(tmp_db, "alpha", limit=10, root=root)
+    second = search(tmp_db, "path:alpha", limit=10, root=root)
+
+    assert [hit.file.path for hit in first.hits] == [Path("/workspace/reports/alpha.txt")]
+    assert [hit.file.path for hit in second.hits] == [Path("/workspace/reports/alpha.txt")]
+    assert executor_module._root_scope_clause_from_text.cache_info().hits >= 1
+
+
 def test_plain_query_can_fall_back_to_content_matches(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/projects/alpha.txt", 1024, now, "txt", body_text="launch checklist")
