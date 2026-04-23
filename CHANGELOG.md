@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.419 - 2026-04-23
+
+- Hardened the packaging dry-run audits so Windows, AppImage, and Debian releases now validate staged artifact existence, desktop-entry metadata, bundled data files, and installer asset contracts instead of only a small subset of flags.
+- Normalized common Debian target-architecture aliases such as `x86_64` and `aarch64` into Debian package names, keeping staged control metadata and artifact filenames aligned across more build hosts.
+- Split reusable packaging audit and preflight helpers out of `packaging/build.py`, keeping the build entrypoint under the repository module-size cap while preserving the audited release behavior.
+
 ## 0.1.388 - 2026-04-23
 
 - Fixed slash-delimited DSL regex parsing so closing `/` detection now honors even vs odd backslash runs, which keeps valid patterns ending in a literal backslash from being misread as unterminated.
