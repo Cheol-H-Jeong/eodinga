@@ -36,7 +36,7 @@ def test_walk_batched_visits_files_once_and_avoids_symlink_loop(tmp_path: Path) 
     assert before == after
 
 
-def test_walk_batched_reuses_discovery_stat_result(
+def test_walk_batched_reuses_scandir_stat_results_for_child_entries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     root = tmp_path / "tree"
@@ -59,8 +59,8 @@ def test_walk_batched_reuses_discovery_stat_result(
 
     assert {record.path for record in records} == {root, nested, sample}
     assert stat_calls.count(root) == 1
-    assert stat_calls.count(nested) == 1
-    assert stat_calls.count(sample) == 1
+    assert nested not in stat_calls
+    assert sample not in stat_calls
 
 
 def test_walk_batched_uses_fs_wrapper_to_detect_symlinked_directories(
@@ -138,6 +138,7 @@ def test_walk_batched_records_directory_alias_but_skips_reentering_same_inode(
 
     monkeypatch.setattr(walker_module, "resolve_safe", lambda path: path)
     monkeypatch.setattr(walker_module, "stat_safe", fake_stat)
+    monkeypatch.setattr(walker_module, "scandir_with_stat_safe", lambda _path: (_ for _ in ()).throw(OSError()))
     monkeypatch.setattr(walker_module, "scandir_safe", fake_scandir)
 
     rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
@@ -239,6 +240,7 @@ def test_walk_batched_skips_resolved_alias_cycles_even_when_inode_keys_differ(
 
     monkeypatch.setattr(walker_module, "resolve_safe", fake_resolve)
     monkeypatch.setattr(walker_module, "stat_safe", fake_stat)
+    monkeypatch.setattr(walker_module, "scandir_with_stat_safe", lambda _path: (_ for _ in ()).throw(OSError()))
     monkeypatch.setattr(walker_module, "scandir_safe", fake_scandir)
 
     rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
