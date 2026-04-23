@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.519 - 2026-04-23
+## 0.1.520 - 2026-04-23
 
 - Normalized Windows search-root scoping so CLI and executor queries now match indexed paths across slash variants, drive-letter case differences, and extended-length `\\?\` prefixes.
 - Hardened boolean query operator parsing by normalizing accepted truthy and falsy literals consistently, with explicit coverage for mixed-case aliases like `yes` and `off`.
