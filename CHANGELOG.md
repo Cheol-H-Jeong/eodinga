@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.845 - 2026-04-23
+## 0.1.849 - 2026-04-23
 
 - Tightened the Linux packaging audits so staged AppImage and Debian launchers must execute `--help` successfully from outside the repo, proving the bundled runtime can boot headlessly.
 - Added a second staged-launcher smoke check for the `version` command, so Linux package audits now fail if the embedded runtime resolves to the wrong package version.
