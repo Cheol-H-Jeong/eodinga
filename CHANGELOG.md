@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.138 - 2026-04-23
+## 0.1.139 - 2026-04-23
 
 - Buffered coalesced watcher events behind a retryable ready queue so bounded consumer queues no longer block the flush lock or silently lose filesystem notifications under backpressure.
 - Deferred `SIGINT` and `SIGTERM` during staged rebuilds until the current root insert or batch write had committed, then cleaned the staged database on interrupt so the live index stays unchanged after an aborted rebuild.
