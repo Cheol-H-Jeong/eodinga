@@ -215,6 +215,16 @@ def test_compile_double_negated_group_restores_positive_branches() -> None:
     assert all(not branch.path_terms[0].negated for branch in compiled.branches)
 
 
+def test_compile_nested_negated_group_distributes_to_conjunctive_branches() -> None:
+    compiled = compile_query(parse("-((alpha | beta) gamma)"))
+
+    assert len(compiled.branches) == 2
+    branch_terms = [{term.value: term.negated for term in branch.path_terms} for branch in compiled.branches]
+    assert {"alpha": True, "beta": True} in branch_terms
+    assert {"gamma": True} in branch_terms
+    assert all(branch.path_match_sql is None for branch in compiled.branches)
+
+
 def test_compile_reuses_cached_queries() -> None:
     first = compile("report ext:pdf")
     second = compile("report ext:pdf")
