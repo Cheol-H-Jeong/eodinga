@@ -770,3 +770,67 @@ def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path)
 
     second_event = service.queue.get_nowait()
     assert second_event.path == second
+
+
+def test_watcher_requeued_move_under_backpressure_keeps_source_delete_suppressed(
+    tmp_path: Path,
+) -> None:
+    service = WatchService(queue_maxsize=1)
+    first = tmp_path / "first.txt"
+    source = tmp_path / "before.txt"
+    destination = tmp_path / "after.txt"
+    finished = False
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=first,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    def flush_move() -> None:
+        nonlocal finished
+        service.record(
+            WatchEvent(
+                event_type="moved",
+                path=destination,
+                src_path=source,
+                root_path=tmp_path,
+                happened_at=2.0,
+            )
+        )
+        service._flush_ready(force=True)
+        finished = True
+
+    thread = Thread(target=flush_move, daemon=True)
+    thread.start()
+    sleep(0.1)
+
+    assert finished is False
+
+    queued_first = service.queue.get_nowait()
+    assert queued_first.path == first
+
+    thread.join(timeout=1)
+    assert finished is True
+
+    moved = service.queue.get_nowait()
+    assert moved.event_type == "moved"
+    assert moved.src_path == source
+    assert moved.path == destination
+
+    service.record(
+        WatchEvent(
+            event_type="deleted",
+            path=source,
+            root_path=tmp_path,
+            happened_at=3.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
