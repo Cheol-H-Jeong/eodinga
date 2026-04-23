@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.532 - 2026-04-23
+## 0.1.533 - 2026-04-23
 
 - Added an active-filter row to the launcher so parsed DSL operators such as `ext:`, `date:`, `content:`, and negated filters stay visible while typing instead of disappearing into the raw query string.
 - Made those active-filter chips actionable, so clicking one focuses the query field and selects the matching filter token for immediate editing.
