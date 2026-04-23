@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.985 - 2026-04-24
+
+- Added reopened-index integration coverage for repeat live rewrites, proving queries refresh a second time after reopen without requiring a rebuild.
+- Added reopened multi-root regressions for delete-and-recreate on the same path, pinning stale content removal, new-content visibility, and per-root query isolation after restart.
+- Added reopened multi-root regressions for cross-root move-then-rewrite flows, confirming that both scope ownership and refreshed content stay aligned after the file changes roots.
+
 ## 0.1.981 - 2026-04-24
 
 - Expanded integration coverage for reopened indexes after multi-root rebuild pruning, pinning that removed roots stay absent after reopen while the surviving root still accepts live watcher-driven updates within the existing latency budget.
