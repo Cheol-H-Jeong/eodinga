@@ -472,6 +472,9 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["parser_errors"] == 0
     assert payload["watcher_events"] == 0
     assert payload["query_latency_histogram"]["count"] == 1
+    assert payload["counters"]["queries_global"] == 1
+    assert payload["counters"]["query_results_matched"] == 2
+    assert payload["counters"]["query_results_returned"] == 2
     assert payload["counters"]["queries_served"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
 
@@ -518,8 +521,15 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert stats_exit == 0
     payload = json.loads(stats_output.out)
     assert payload["counters"]["files_indexed"] == indexed_files
+    assert payload["counters"]["index_rebuilds"] == 1
+    assert payload["counters"]["roots_indexed"] == 1
     assert payload["counters"]["parser_errors"] == 1
     assert payload["counters"]["parsers.broken.error"] == 1
     assert payload["counters"]["queries_served"] == 1
+    assert payload["counters"]["queries_global"] == 1
+    assert payload["counters"]["query_results_matched"] == 1
+    assert payload["counters"]["query_results_returned"] == 1
     assert payload["counters"]["watcher_events"] == 1
+    assert payload["counters"]["watcher_events.created"] == 1
+    assert payload["histograms"]["index_rebuild_ms"]["count"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
