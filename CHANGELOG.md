@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.857 - 2026-04-23
+## 0.1.860 - 2026-04-23
 
 - Surfaced watcher observer lifecycle failures in `stats --json`, including startup rollbacks plus cleanup and startup-cleanup stage breakdowns, so watcher startup/teardown faults no longer disappear behind raw counters.
 - Added log sink source and disable-reason summaries to `stats --json`, making runtime logging resolution auditable without post-processing the full counter map.
