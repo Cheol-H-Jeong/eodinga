@@ -332,6 +332,33 @@ def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
     assert calls == ["ext:pdf"]
 
 
+def test_launcher_query_summary_shows_active_terms_and_filters(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText('release ext:pdf -"draft" path:"/tmp/reports"')
+    _wait(10)
+
+    assert launcher.query_summary_row.isVisible()
+    assert [chip.text() for chip in launcher.query_summary_row.chips] == [
+        "release",
+        "ext:pdf",
+        'NOT "draft"',
+        'path:"/tmp/reports"',
+    ]
+
+
+def test_launcher_query_summary_shows_syntax_feedback_for_invalid_query(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText('content:"release')
+    _wait(10)
+
+    assert launcher.query_summary_row.isVisible()
+    assert [chip.text() for chip in launcher.query_summary_row.chips] == ["Syntax: unterminated phrase"]
+
+
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:
     revealed: list[str] = []
 
