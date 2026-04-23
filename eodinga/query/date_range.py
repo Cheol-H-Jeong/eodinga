@@ -49,7 +49,7 @@ def _parse_iso_endpoint(value: str) -> DateRange:
         return _day_bounds(_parse_iso_day(value))
     except QuerySyntaxError:
         pass
-    normalized = value.replace("Z", "+00:00")
+    normalized = value[:-1] + "+00:00" if value.endswith(("Z", "z")) else value
     try:
         return _instant_bounds(datetime.fromisoformat(normalized))
     except ValueError as error:

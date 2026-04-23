@@ -451,6 +451,16 @@ def test_execute_datetime_literal_and_range_queries(tmp_db: sqlite3.Connection) 
     assert range_hits == ["exact-second.txt", "later-second.txt"]
 
 
+def test_execute_datetime_query_accepts_lowercase_utc_suffix(tmp_db: sqlite3.Connection) -> None:
+    base = int(datetime(2026, 1, 3, 9, 15, 30, tzinfo=UTC).timestamp())
+    _insert_file(tmp_db, 1, "/workspace/exact-second.txt", 512, base, "txt", body_text="exact")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "modified:2026-01-03T09:15:30z", limit=10).hits]
+
+    assert hits == ["exact-second.txt"]
+
+
 def test_execute_decomposed_korean_path_filter_matches_nfc_paths(
     tmp_db: sqlite3.Connection,
 ) -> None:
