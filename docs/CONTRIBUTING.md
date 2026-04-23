@@ -152,6 +152,18 @@ Use this when the round is docs-only but still release-bearing:
 - If the patch number changes because another worker landed first, retarget just that final metadata commit instead of rewriting earlier docs or feature commits.
 - Re-run `pytest -q tests/unit` after retargeting the metadata commit so the branch tip stays demonstrably green.
 
+## Parallel Retargeting Playbook
+
+Use this when another worker lands your candidate patch version first:
+
+1. `git fetch origin main --tags`
+2. `git tag -l | sort -V | tail -5`
+3. Pick the next unused `0.1.N`.
+4. Update only `pyproject.toml`, `eodinga/__init__.py`, and the top changelog heading.
+5. Re-run `pytest -q tests/unit` before recreating the local tag.
+
+If anything beyond those metadata files needs to move, stop and explain why instead of silently rewriting earlier logical commits.
+
 ## Test Selection Guide
 
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`
@@ -176,3 +188,14 @@ Use this when the round is docs-only but still release-bearing:
 - README examples use the current query surface and current operator names.
 - Derived docs assets are regenerated from code, not edited by hand.
 - The final release metadata commit contains only the version/changelog/tag cut unless a same-round asset refresh is required.
+
+## Release Signoff Matrix
+
+| Surface changed | Minimum follow-up before handoff |
+| --- | --- |
+| README or `docs/*.md` wording only | `pytest -q tests/unit/test_docs_assets.py` |
+| CLI parser or command help | `python scripts/generate_manpage.py` and `pytest -q tests/unit/test_docs_assets.py` |
+| GUI text, launcher shortcuts, or screenshots | `python scripts/render_docs_screenshots.py` and the GUI-focused unit slice |
+| Packaging or release workflow docs | matching `packaging/build.py --target ...-dry-run` command plus docs-assets test |
+
+This keeps docs rounds reviewable without pretending every markdown edit needs the entire release pipeline from scratch.

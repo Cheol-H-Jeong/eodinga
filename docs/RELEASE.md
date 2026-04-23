@@ -167,6 +167,23 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - If another worker landed the same candidate version first, fetch tags again, pick the next unused patch number, and update the release metadata commit instead of force-retagging.
 - If the final gate fails after the metadata commit, fix the issue in a new commit and recreate the local tag on the new tip only after the gate is green again.
 
+## Retargeting After A Parallel Landing
+
+Use this exact flow when your candidate version collides with a newer landed tag:
+
+```bash
+git fetch origin main --tags && git tag -l | sort -V | tail -5
+```
+
+Then:
+
+1. Choose the next unused `0.1.N`.
+2. Edit only `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py`.
+3. Re-run `pytest -q tests/unit`.
+4. Recreate the local tag at the new tip.
+
+Do not squash unrelated docs or feature commits just to hide the retarget; the whole point of the isolated metadata commit is to make this collision path small.
+
 ## Handoff Checklist
 
 - Working tree clean except for intended release artifacts.
@@ -176,3 +193,14 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - The local tag points at the final commit for the round, not an earlier docs or feature commit.
 - The final release commit remains reviewable on its own and does not hide unrelated feature edits.
 - `packaging/dist/` has been reviewed for the dry-run targets touched by the round.
+
+## Release Signoff Table
+
+| Evidence | Why it is required |
+| --- | --- |
+| `pytest -q tests/unit` | proves each logical commit stayed locally green |
+| `pytest -q tests` | proves the assembled branch is not hiding cross-suite regressions |
+| `ruff check eodinga tests` and `pyright --outputjson` | keeps lint and typing aligned with the release tag |
+| GUI smoke + matching packaging dry runs | checks the shipped desktop and installer surfaces, not just the Python package |
+| reviewed `packaging/dist/` output | confirms the staged release payload matches what the docs claim |
+| local `v0.1.N` tag on the final commit | gives the orchestrator one unambiguous publication target |
