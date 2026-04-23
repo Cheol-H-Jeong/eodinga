@@ -710,6 +710,43 @@ def test_execute_datetime_query_accepts_lowercase_utc_suffix(tmp_db: sqlite3.Con
     assert hits == ["exact-second.txt"]
 
 
+def test_execute_created_queries_use_ctime_instead_of_mtime(tmp_db: sqlite3.Connection) -> None:
+    created = int(datetime(2026, 1, 1, 12, tzinfo=UTC).timestamp())
+    modified = int(datetime(2026, 2, 1, 12, tzinfo=UTC).timestamp())
+    path = Path("/workspace/created-first.txt")
+    tmp_db.execute(
+        """
+        INSERT INTO files (
+          id, root_id, path, parent_path, name, name_lower, ext, size, mtime, ctime,
+          is_dir, is_symlink, content_hash, indexed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            1,
+            1,
+            str(path),
+            str(path.parent),
+            path.name,
+            path.name.lower(),
+            "txt",
+            512,
+            modified,
+            created,
+            0,
+            0,
+            None,
+            modified,
+        ),
+    )
+    tmp_db.commit()
+
+    created_hits = [hit.file.name for hit in search(tmp_db, "created:2026-01-01", limit=10).hits]
+    modified_hits = [hit.file.name for hit in search(tmp_db, "modified:2026-01-01", limit=10).hits]
+
+    assert created_hits == ["created-first.txt"]
+    assert modified_hits == []
+
+
 def test_execute_decomposed_korean_path_filter_matches_nfc_paths(
     tmp_db: sqlite3.Connection,
 ) -> None:

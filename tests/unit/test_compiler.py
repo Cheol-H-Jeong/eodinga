@@ -125,6 +125,18 @@ def test_compile_previous_period_date_aliases_use_mtime_ranges(query: str) -> No
     assert branch.where_params[0] < branch.where_params[1]
 
 
+@pytest.mark.parametrize("query", ["created:this-year", "created:last-year"])
+def test_compile_created_previous_period_aliases_use_ctime_ranges(query: str) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == "files.ctime >= ? AND files.ctime < ?"
+    assert len(branch.where_params) == 2
+    assert isinstance(branch.where_params[0], int)
+    assert isinstance(branch.where_params[1], int)
+    assert branch.where_params[0] < branch.where_params[1]
+
+
 def test_compile_reversed_date_range_normalizes_bounds() -> None:
     compiled = compile_query(parse("date:2026-01-03..2026-01-01"))
     branch = compiled.branches[0]
