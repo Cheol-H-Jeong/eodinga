@@ -756,6 +756,22 @@ def test_search_root_scope_matches_windows_style_paths(tmp_db: sqlite3.Connectio
     assert hits == [Path(r"C:\workspace\reports\alpha.txt")]
 
 
+def test_search_root_scope_matches_windows_style_root_directory_with_drive_case_mismatch(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, r"C:\workspace\reports", 0, now, "", is_dir=1)
+    _insert_file(tmp_db, 2, r"C:\workspace\archive", 0, now - 60, "", is_dir=1)
+    tmp_db.commit()
+
+    hits = [
+        hit.file.path
+        for hit in search(tmp_db, "reports", limit=10, root=Path("c:/workspace/reports")).hits
+    ]
+
+    assert hits == [Path(r"C:\workspace\reports")]
+
+
 def test_plain_query_can_fall_back_to_content_matches(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/projects/alpha.txt", 1024, now, "txt", body_text="launch checklist")
@@ -776,3 +792,21 @@ def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:
 
     hits = [hit.file.name for hit in search(tmp_db, "-(-(alpha | beta))", limit=10).hits]
     assert hits == ["alpha.txt", "beta.txt"]
+
+
+def test_execute_equal_score_same_name_results_sort_by_path_then_id(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 5, "/workspace/zeta/report.txt", 1024, now, "txt")
+    _insert_file(tmp_db, 1, "/workspace/alpha/report.txt", 1024, now - 60, "txt")
+    _insert_file(tmp_db, 3, "/workspace/mid/report.txt", 1024, now - 120, "txt")
+    tmp_db.commit()
+
+    hits = [hit.file.path.as_posix() for hit in search(tmp_db, "ext:txt", limit=10).hits]
+
+    assert hits == [
+        "/workspace/alpha/report.txt",
+        "/workspace/mid/report.txt",
+        "/workspace/zeta/report.txt",
+    ]

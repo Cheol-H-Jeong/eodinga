@@ -269,27 +269,39 @@ def _fetch_record_batch(
     return {row["id"]: _row_to_record(row) for row in rows}
 
 
+def _drive_letter_variants(path_text: str) -> tuple[str, ...]:
+    if len(path_text) < 2 or path_text[1] != ":" or not path_text[0].isalpha():
+        return (path_text,)
+    return tuple(dict.fromkeys((path_text[0].upper() + path_text[1:], path_text[0].lower() + path_text[1:])))
+
+
 def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
     root_text = str(root)
     normalized = root_text.rstrip("/\\") or root_text
-    variants = tuple(
+    slash_variants = tuple(
         dict.fromkeys(
-            (
+            variant
+            for candidate in (
                 normalized,
                 normalized.replace("\\", "/"),
                 normalized.replace("/", "\\"),
             )
+            for variant in _drive_letter_variants(candidate)
         )
     )
-    exact_params = variants
-    like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
-        f"{variant}\\%" for variant in variants
+    exact_params = slash_variants
+    like_params = tuple(f"{variant}/%" for variant in slash_variants) + tuple(
+        f"{variant}\\%" for variant in slash_variants
     )
     exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
     like_clause = " OR ".join("files.path LIKE ?" for _ in like_params)
     return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
+
+
+def _record_order_key(record: FileRecord) -> tuple[str, str, int]:
+    return (record.name_lower, str(record.path).casefold(), record.id or 0)
 
 
 def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:
@@ -412,6 +424,8 @@ def _fetch_path_candidates_python_scan(
             )
             else 1,
             record.name if branch.case_sensitive else record.name_lower,
+            str(record.path) if branch.case_sensitive else str(record.path).casefold(),
+            record.id or 0,
         ),
     )[:limit]
     ids = [record.id for record in ordered if record.id is not None]
@@ -690,7 +704,7 @@ def _derive_name_path_hits(
     name_hits: list[int] = []
     path_hits: list[int] = []
     if not positive_terms:
-        ordered = sorted(records.values(), key=lambda item: item.name_lower)
+        ordered = sorted(records.values(), key=_record_order_key)
         ids = [record.id for record in ordered if record.id is not None]
         return ids, ids
     for record in records.values():
@@ -814,7 +828,10 @@ def execute(
                 merged_snippets[file_id] = snippet
     ordered_ids = sorted(
         merged_scores,
-        key=lambda file_id: (-merged_scores[file_id], merged_records[file_id].name_lower, file_id),
+        key=lambda file_id: (
+            -merged_scores[file_id],
+            * _record_order_key(merged_records[file_id]),
+        ),
     )[:limit]
     hits = [
         SearchHit(
