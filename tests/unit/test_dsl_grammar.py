@@ -228,6 +228,14 @@ def test_parse_regex_closes_after_even_backslashes(
     assert node.regex_flags == expected_flags
 
 
+def test_parse_regex_with_escaped_slash_and_korean_text() -> None:
+    node = parse(r"/회의록\/초안/ms")
+
+    assert isinstance(node, RegexNode)
+    assert node.pattern == r"회의록\/초안"
+    assert node.flags == "ms"
+
+
 @pytest.mark.parametrize(
     ("query", "expected_pattern", "expected_flags"),
     [

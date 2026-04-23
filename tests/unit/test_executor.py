@@ -407,6 +407,28 @@ def test_execute_decomposed_korean_phrase_query_matches_across_punctuation(
     assert hits == ["회의록-초안.txt"]
 
 
+def test_execute_content_regex_with_escaped_slash_and_korean_text(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/korean/meeting-notes.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="회의록/초안 정리본",
+    )
+    tmp_db.commit()
+
+    hits = [
+        hit.file.name
+        for hit in search(tmp_db, r"content:/회의록\/초안/ms", limit=5).hits
+    ]
+
+    assert hits == ["meeting-notes.txt"]
+
+
 def test_execute_relative_date_queries_use_local_day_boundaries(
     tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:
