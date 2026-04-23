@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from queue import Empty
+from threading import Thread
 from time import monotonic, sleep
 
 import pytest
@@ -647,3 +648,77 @@ def test_watcher_start_ignores_duplicate_root_registration(
 
     assert started == [tmp_path]
     assert stopped == [tmp_path]
+
+
+def test_watcher_blocks_on_queue_backpressure_until_consumer_drains(tmp_path: Path) -> None:
+    service = WatchService(queue_size=1)
+    first = WatchEvent(
+        event_type="created",
+        path=tmp_path / "first.txt",
+        root_path=tmp_path,
+        happened_at=1.0,
+    )
+    second = WatchEvent(
+        event_type="modified",
+        path=tmp_path / "second.txt",
+        root_path=tmp_path,
+        happened_at=2.0,
+    )
+
+    service.record(first)
+    service._flush_ready(force=True)
+
+    def flush_second() -> None:
+        service.record(second)
+        service._flush_ready(force=True)
+
+    worker = Thread(target=flush_second, daemon=True)
+    worker.start()
+    sleep(0.1)
+
+    assert worker.is_alive()
+    assert service.queue.get_nowait() == first
+
+    worker.join(timeout=0.5)
+    assert not worker.is_alive()
+    assert service.queue.get_nowait() == second
+
+
+def test_watcher_stop_releases_backpressured_enqueue(tmp_path: Path) -> None:
+    service = WatchService(queue_size=1)
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "first.txt",
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    worker = Thread(
+        target=lambda: (
+            service.record(
+                WatchEvent(
+                    event_type="modified",
+                    path=tmp_path / "second.txt",
+                    root_path=tmp_path,
+                    happened_at=2.0,
+                )
+            ),
+            service._flush_ready(force=True),
+        ),
+        daemon=True,
+    )
+    worker.start()
+    sleep(0.1)
+
+    assert worker.is_alive()
+    service.stop()
+    worker.join(timeout=0.5)
+    assert not worker.is_alive()
+
+
+def test_watcher_requires_positive_queue_size() -> None:
+    with pytest.raises(ValueError, match="queue_size must be positive"):
+        WatchService(queue_size=0)

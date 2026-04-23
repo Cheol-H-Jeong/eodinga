@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from threading import Thread
+from time import sleep
 from typing import cast
 
 from eodinga.common import WatchEvent
@@ -127,3 +129,35 @@ def test_watcher_flush_metrics_increment(tmp_path: Path) -> None:
     assert counters["watcher_events_flushed"] == 1
     assert histograms["watch_flush_batch_size"]["count"] == 1
     assert histograms["watch_event_lag_ms"]["count"] == 1
+
+
+def test_watcher_backpressure_counter_increments(tmp_path: Path) -> None:
+    service = WatchService(queue_size=1)
+    reset_metrics()
+
+    first = WatchEvent(
+        event_type="created",
+        path=tmp_path / "first.txt",
+        root_path=tmp_path,
+        happened_at=1.0,
+    )
+    second = WatchEvent(
+        event_type="modified",
+        path=tmp_path / "second.txt",
+        root_path=tmp_path,
+        happened_at=2.0,
+    )
+    service.record(first)
+    service._flush_ready(force=True)
+
+    worker = Thread(
+        target=lambda: (service.record(second), service._flush_ready(force=True)),
+        daemon=True,
+    )
+    worker.start()
+    sleep(0.1)
+    _ = service.queue.get_nowait()
+    worker.join(timeout=0.5)
+
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["watcher_queue_backpressure"] == 1
