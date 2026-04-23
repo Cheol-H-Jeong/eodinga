@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.408 - 2026-04-23
+## 0.1.409 - 2026-04-23
 
 - Refreshed the shipped docs contract around runtime lifecycle, validation paths, release-input ownership, and docs-only acceptance so operators can audit the local-first search surface from `README.md` and the release guides without reverse-engineering command order.
 - Updated the architecture and performance guides with current-head restart/recovery flows, state-path ownership, release-input sequencing, and a freshly rerun opt-in perf baseline including the exact recorded benchmark summary lines.
