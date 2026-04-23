@@ -257,6 +257,9 @@ def test_connect_database_applies_row_factory_and_pragmas(tmp_path: Path) -> Non
         cache_size = conn.execute("PRAGMA cache_size;").fetchone()
         assert cache_size is not None
         assert int(cache_size[0]) == -64000
+        synchronous = conn.execute("PRAGMA synchronous;").fetchone()
+        assert synchronous is not None
+        assert int(synchronous[0]) == 2
     finally:
         conn.close()
 

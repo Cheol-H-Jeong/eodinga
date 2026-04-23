@@ -57,6 +57,36 @@ def test_writer_bulk_insert_and_incremental_apply_are_fast(tmp_db: Path, tmp_pat
     assert incr_elapsed < 0.05
 
 
+def test_writer_bulk_upsert_uses_normal_sync_then_restores_full(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    with conn:
+        conn.execute(
+            "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+            (str(tmp_path), "[]", "[]", 1),
+        )
+    seen_sync_modes: list[int] = []
+    record = _synthetic_record(1, tmp_path)
+
+    def parse_and_capture(_path: Path) -> ParsedContent:
+        mode = conn.execute("PRAGMA synchronous;").fetchone()
+        assert mode is not None
+        seen_sync_modes.append(int(mode[0]))
+        return ParsedContent(
+            title=record.name,
+            head_text=f"head {record.name}",
+            body_text=f"body {record.name}",
+            content_sha=f"sha-{record.name}".encode(),
+        )
+
+    writer = IndexWriter(conn, parser_callback=parse_and_capture)
+
+    assert writer.bulk_upsert([record]) == 1
+    assert seen_sync_modes == [1]
+    restored = conn.execute("PRAGMA synchronous;").fetchone()
+    assert restored is not None
+    assert int(restored[0]) == 2
+
+
 def test_writer_caches_chunk_shaped_sql_templates() -> None:
     writer_module._delete_files_sql.cache_clear()
     writer_module._delete_content_rows_sql.cache_clear()

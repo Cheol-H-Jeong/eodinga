@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import sqlite3
 
+IDLE_SYNCHRONOUS = "FULL"
+BULK_SYNCHRONOUS = "NORMAL"
+
 PRAGMAS = (
     "PRAGMA journal_mode=WAL;",
-    "PRAGMA synchronous=NORMAL;",
+    f"PRAGMA synchronous={IDLE_SYNCHRONOUS};",
     "PRAGMA mmap_size=1073741824;",
     "PRAGMA temp_store=MEMORY;",
     "PRAGMA cache_size=-64000;",

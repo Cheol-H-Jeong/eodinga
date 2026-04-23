@@ -9,7 +9,7 @@ from time import time
 from typing import NamedTuple, TypeVar
 
 from eodinga.common import FileRecord, ParsedContent, WatchEvent
-from eodinga.index.schema import apply_schema, current_schema_version
+from eodinga.index.schema import BULK_SYNCHRONOUS, IDLE_SYNCHRONOUS, apply_schema, current_schema_version
 
 ParserCallback = Callable[[Path], ParsedContent | None]
 RecordLoader = Callable[[Path], FileRecord | None]
@@ -20,6 +20,9 @@ class ExistingContentRow(NamedTuple):
     file_id: int
     rowid: int | None
     content_sha: bytes | None
+
+
+_BULK_WRITE_MODE_DEPTH: dict[int, int] = {}
 
 
 def _record_tuple(record: FileRecord) -> tuple[object, ...]:
@@ -49,6 +52,26 @@ def _materialize_records(records: Iterable[FileRecord]) -> Sequence[FileRecord]:
     if isinstance(records, (list, tuple)):
         return records
     return tuple(records)
+
+
+@contextmanager
+def bulk_write_mode(conn: sqlite3.Connection) -> Iterator[None]:
+    connection_id = id(conn)
+    depth = _BULK_WRITE_MODE_DEPTH.get(connection_id, 0)
+    should_toggle = depth == 0 and not conn.in_transaction
+    if should_toggle:
+        conn.execute(f"PRAGMA synchronous={BULK_SYNCHRONOUS};")
+    _BULK_WRITE_MODE_DEPTH[connection_id] = depth + 1
+    try:
+        yield
+    finally:
+        remaining = _BULK_WRITE_MODE_DEPTH[connection_id] - 1
+        if remaining <= 0:
+            _BULK_WRITE_MODE_DEPTH.pop(connection_id, None)
+            if should_toggle:
+                conn.execute(f"PRAGMA synchronous={IDLE_SYNCHRONOUS};")
+        else:
+            _BULK_WRITE_MODE_DEPTH[connection_id] = remaining
 
 
 @lru_cache(maxsize=16)
@@ -99,9 +122,10 @@ class IndexWriter:
         buffered = _materialize_records(records)
         if not buffered:
             return 0
-        with self._transaction():
-            self._upsert_records(buffered)
-            self._upsert_content(buffered)
+        with bulk_write_mode(self._conn):
+            with self._transaction():
+                self._upsert_records(buffered)
+                self._upsert_content(buffered)
         return len(buffered)
 
     def apply_events(self, events: Sequence[WatchEvent], record_loader: RecordLoader) -> int:
@@ -110,27 +134,28 @@ class IndexWriter:
         deleted_paths: list[Path] = []
         retired_paths: list[Path] = []
         pending_records: list[FileRecord] = []
-        with self._transaction():
-            for event in events:
-                if event.event_type == "deleted":
-                    deleted_paths.append(event.path)
-                    continue
-                if event.event_type == "moved" and event.src_path is not None:
-                    retired_paths.append(event.src_path)
-                record = record_loader(event.path)
-                if record is None:
-                    continue
-                pending_records.append(record)
-                processed += 1
-            if deleted_paths:
-                processed += self._delete_paths(deleted_paths, content_deletes)
-            if retired_paths:
-                self._delete_paths(retired_paths, content_deletes)
-            if pending_records:
-                self._upsert_records(pending_records)
-                self._upsert_content(pending_records)
-            if content_deletes:
-                self._delete_content_rows(content_deletes)
+        with bulk_write_mode(self._conn):
+            with self._transaction():
+                for event in events:
+                    if event.event_type == "deleted":
+                        deleted_paths.append(event.path)
+                        continue
+                    if event.event_type == "moved" and event.src_path is not None:
+                        retired_paths.append(event.src_path)
+                    record = record_loader(event.path)
+                    if record is None:
+                        continue
+                    pending_records.append(record)
+                    processed += 1
+                if deleted_paths:
+                    processed += self._delete_paths(deleted_paths, content_deletes)
+                if retired_paths:
+                    self._delete_paths(retired_paths, content_deletes)
+                if pending_records:
+                    self._upsert_records(pending_records)
+                    self._upsert_content(pending_records)
+                if content_deletes:
+                    self._delete_content_rows(content_deletes)
         return processed
 
     @contextmanager
