@@ -413,6 +413,20 @@ docs/runtime change
 - The architecture of the release process mirrors the runtime split: docs contract first, derived/runtime evidence second, metadata last.
 - This keeps the local tag attached to a tree whose docs, generated assets, and staged packaging outputs have already been checked together.
 
+## Change-To-Evidence Routing
+
+Use this routing table when you want the shortest architecture-aware proof for one surface:
+
+| Changed surface | First proof command | Review artifact |
+| --- | --- | --- |
+| `README.md` or `docs/*.md` prose | `pytest -q tests/unit/test_docs_assets.py` | headings, links, and required release-contract references |
+| argparse help or CLI examples | `python scripts/generate_manpage.py && pytest -q tests/unit/test_docs_assets.py` | regenerated `docs/man/eodinga.1` |
+| screenshot-backed GUI wording | `python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` | refreshed PNGs under `docs/screenshots/` |
+| release or packaging claims | `python packaging/build.py --target windows-dry-run` or matching Linux dry run | staged manifests under `packaging/dist/` |
+| release candidate metadata | full acceptance pass from `docs/ACCEPTANCE.md` | green tests, dry-run manifests, and final metadata commit |
+
+This keeps the evidence path aligned with the system boundary that actually moved instead of rerunning unrelated checks first.
+
 ## Platform Surface Summary
 
 | Surface | Entry point | Purpose |

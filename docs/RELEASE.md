@@ -152,6 +152,17 @@ Use these prompts against the actual files under `packaging/dist/` before cuttin
 | Windows dry run | does the staged payload list the docs and launcher/runtime files the release docs claim exist? |
 | Linux AppImage / `.deb` dry runs | do artifact names, packaged docs, and compressed changelog outputs match the release notes and README wording? |
 
+## Minimum Review Packet
+
+Before tagging, keep one compact packet with the exact evidence you inspected:
+
+1. The one command bundle you ran for this round.
+2. The manifest, generated asset, or screenshot path you actually opened.
+3. The section headings or release-note bullets that changed.
+4. The first failing stage if you had to stop and repair the gate before continuing.
+
+This keeps the handoff factual. A reviewer should be able to rerun the same command and open the same artifact without reconstructing your path from git history.
+
 ## Release Notes Template
 
 Keep the changelog wording short and evidence-backed:

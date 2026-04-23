@@ -149,6 +149,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Packaging Surfaces" in architecture
     assert "## Packaging Review Path" in architecture
     assert "## Release Evidence Sequence" in architecture
+    assert "## Change-To-Evidence Routing" in architecture
     assert "## Derived Asset Ownership Matrix" in architecture
     assert "## Release Failure Isolation" in architecture
     assert "compressed changelog" in architecture
@@ -158,6 +159,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "packaging/dist/" in architecture
     assert "EODINGA_LOG_PATH" in architecture
     assert "crash-<ts>.log" in architecture
+    assert "This keeps the evidence path aligned with the system boundary that actually moved" in architecture
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
@@ -240,6 +242,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Run The Gate" in release
     assert "## Failure Priority" in release
     assert "## Artifact Review Worksheet" in release
+    assert "## Minimum Review Packet" in release
     assert "## Artifact Inspection Commands" in release
     assert "## Docs Asset Drift Fix Path" in release
     assert "## Artifact Inventory" in release
@@ -263,6 +266,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "find packaging/dist -maxdepth 2 -type f | sort" in release
     assert "Start each bullet with the user-visible or operator-visible effect." in release
     assert "Do not push tags or release branches from a worker worktree." in release
+    assert "The one command bundle you ran for this round." in release
+    assert "A reviewer should be able to rerun the same command and open the same artifact" in release
     assert "packaging/dist/" in release
     assert "Single-shot metadata cut" in release
     assert "git fetch origin main --tags" in release
