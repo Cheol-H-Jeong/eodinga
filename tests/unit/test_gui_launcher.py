@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QEventLoop, QTimer
+from PySide6.QtCore import QEvent, QEventLoop, QTimer
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 
@@ -437,6 +437,39 @@ def test_launcher_preview_follows_selected_result(qapp) -> None:
     assert launcher.preview_pane.path_label.text() == "/tmp/beta.md"
     assert "No indexed snippet" in launcher.preview_pane.snippet_label.text()
     assert ".md" in launcher.preview_pane.snippet_label.text()
+
+
+def test_launcher_hover_preview_does_not_change_selection(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt", snippet="Beta preview line"),
+            ][:limit],
+            total=2,
+            elapsed_ms=1.2,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("a")
+    _wait(60)
+
+    assert launcher.result_list.currentIndex().row() == 0
+    assert launcher.preview_pane.title_label.text() == "alpha.txt"
+
+    launcher._preview_hovered_result(launcher.model.index(1, 0))
+
+    assert launcher.result_list.currentIndex().row() == 0
+    assert launcher.preview_pane.title_label.text() == "beta.txt"
+    assert launcher.preview_pane.snippet_label.text() == "Beta preview line"
+
+    leave_event = QEvent(QEvent.Type.Leave)
+    launcher.eventFilter(launcher.result_list.viewport(), leave_event)
+
+    assert launcher.result_list.currentIndex().row() == 0
+    assert launcher.preview_pane.title_label.text() == "alpha.txt"
 
 
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:

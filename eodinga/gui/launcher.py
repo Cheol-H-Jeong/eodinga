@@ -52,6 +52,7 @@ class LauncherPanel(QWidget):
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
         self.result_list.setUniformItemSizes(False)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
+        self.result_list.setMouseTracking(True)
         self.status_chip = StatusChip("Idle", self)
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
@@ -85,9 +86,11 @@ class LauncherPanel(QWidget):
 
         self.query_field.textChanged.connect(self._schedule_query)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
+        self.result_list.entered.connect(self._preview_hovered_result)
         self.result_list.selectionModel().currentChanged.connect(lambda *_: self._sync_preview_to_current())
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
+        self.result_list.viewport().installEventFilter(self)
 
         self._shortcuts = [
             QShortcut(QKeySequence(Qt.Key.Key_Return), self),
@@ -180,6 +183,9 @@ class LauncherPanel(QWidget):
         self._navigate_recent_queries(1)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if watched is self.result_list.viewport() and event.type() == QEvent.Type.Leave:
+            self._sync_preview_to_current()
+            return False
         if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusIn:
             self._refresh_shortcut_hint()
         if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusOut:
@@ -387,6 +393,13 @@ class LauncherPanel(QWidget):
         hit = self._current_hit()
         if hit is None or self.model.rowCount() == 0:
             self.preview_pane.clear()
+            return
+        self.preview_pane.set_hit(hit)
+
+    def _preview_hovered_result(self, index: QModelIndex) -> None:
+        hit = self.model.item_at(index.row())
+        if hit is None:
+            self._sync_preview_to_current()
             return
         self.preview_pane.set_hit(hit)
 
