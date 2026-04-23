@@ -12,7 +12,12 @@ from eodinga.common import PathRules
 from eodinga.config import RootConfig
 from eodinga.content.registry import parse
 from eodinga.core.walker import walk_batched
-from eodinga.index.storage import _cleanup_index_files, atomic_replace_index, connect_database
+from eodinga.index.storage import (
+    BULK_LOAD_SQLITE_CACHED_STATEMENTS,
+    _cleanup_index_files,
+    atomic_replace_index,
+    connect_database,
+)
 from eodinga.index.writer import IndexWriter
 from eodinga.observability import increment_counter, record_histogram
 
@@ -90,7 +95,10 @@ def rebuild_index(
     staged_path = _staged_build_path(target_path)
     _cleanup_index_files(staged_path)
 
-    conn = connect_database(staged_path)
+    conn = connect_database(
+        staged_path,
+        cached_statements=BULK_LOAD_SQLITE_CACHED_STATEMENTS,
+    )
     files_indexed = 0
     parser_callback = (
         (lambda path: parse(path, max_body_chars=max_body_chars))

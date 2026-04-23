@@ -10,6 +10,7 @@ import pytest
 import eodinga.index.storage as storage_module
 from eodinga.index.schema import apply_schema
 from eodinga.index.storage import (
+    BULK_LOAD_SQLITE_CACHED_STATEMENTS,
     SQLITE_CACHED_STATEMENTS,
     atomic_replace_index,
     connect_database,
@@ -287,6 +288,28 @@ def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, m
     try:
         assert seen["database"] == path
         assert seen["cached_statements"] == SQLITE_CACHED_STATEMENTS
+    finally:
+        conn.close()
+
+
+def test_connect_database_accepts_custom_statement_cache_budget(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    seen: dict[str, object] = {}
+    original_connect = sqlite3.connect
+
+    def fake_connect(database: str | bytes | Path, *args: Any, **kwargs: Any) -> sqlite3.Connection:
+        seen["database"] = database
+        seen["cached_statements"] = kwargs.get("cached_statements")
+        return original_connect(database, *args, **kwargs)
+
+    monkeypatch.setattr(sqlite3, "connect", fake_connect)
+
+    conn = connect_database(path, cached_statements=BULK_LOAD_SQLITE_CACHED_STATEMENTS)
+    try:
+        assert seen["database"] == path
+        assert seen["cached_statements"] == BULK_LOAD_SQLITE_CACHED_STATEMENTS
     finally:
         conn.close()
 

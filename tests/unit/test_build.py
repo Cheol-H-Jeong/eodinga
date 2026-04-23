@@ -99,6 +99,28 @@ def test_rebuild_index_records_runtime_metrics(tmp_path: Path) -> None:
     assert cast(int, batch_histogram["count"]) >= 1
 
 
+def test_rebuild_index_uses_bulk_load_statement_cache_budget(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+
+    seen: list[int] = []
+    original_connect_database = build_module.connect_database
+
+    def recording_connect_database(*args, **kwargs):
+        seen.append(int(kwargs["cached_statements"]))
+        return original_connect_database(*args, **kwargs)
+
+    monkeypatch.setattr(build_module, "connect_database", recording_connect_database)
+
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    assert seen == [build_module.BULK_LOAD_SQLITE_CACHED_STATEMENTS]
+
+
 def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -10,6 +10,7 @@ from eodinga.index.schema import PRAGMAS, current_schema_version
 from eodinga.observability import get_logger
 
 SQLITE_CACHED_STATEMENTS = 128
+BULK_LOAD_SQLITE_CACHED_STATEMENTS = 512
 
 
 def _sidecar(path: Path, suffix: str) -> Path:
@@ -27,10 +28,13 @@ def configure_connection(
 
 
 def connect_database(
-    path: Path, *, row_factory: type[sqlite3.Row] | None = sqlite3.Row
+    path: Path,
+    *,
+    row_factory: type[sqlite3.Row] | None = sqlite3.Row,
+    cached_statements: int = SQLITE_CACHED_STATEMENTS,
 ) -> sqlite3.Connection:
     return configure_connection(
-        sqlite3.connect(path, cached_statements=SQLITE_CACHED_STATEMENTS),
+        sqlite3.connect(path, cached_statements=cached_statements),
         row_factory=row_factory,
     )
 
