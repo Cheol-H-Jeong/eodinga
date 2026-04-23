@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.167 - 2026-04-23
+## 0.1.169 - 2026-04-23
 
 - Expanded `docs/ARCHITECTURE.md` with design constraints, control-plane versus data-plane flow, storage-sidecar coverage, deeper query and watcher sequences, and explicit failure-domain recovery notes.
 - Expanded `docs/CONTRIBUTING.md` with a change-type gate matrix, a documentation trigger map, screenshot refresh workflow, and review hygiene expectations for parallel worktree rounds.
