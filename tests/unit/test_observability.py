@@ -15,7 +15,9 @@ from eodinga.observability import (
     default_crash_dir,
     default_log_path,
     increment_counter,
+    logger,
     reset_metrics,
+    resolve_file_log_config,
     runtime_metadata,
     snapshot_metrics,
     write_crash_log,
@@ -42,7 +44,10 @@ def test_default_log_and_crash_paths_follow_platform_state_dirs(monkeypatch) -> 
 def test_configure_logging_respects_explicit_file_target(tmp_path: Path) -> None:
     log_path = tmp_path / "logs" / "app.log"
     configure_logging("DEBUG", log_path=log_path)
+    logger.info("hello file sink")
+    logger.complete()
     assert log_path.parent.exists()
+    assert "hello file sink" in log_path.read_text(encoding="utf-8")
 
 
 def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> None:
@@ -51,6 +56,25 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     configure_logging("INFO")
     assert log_path.parent.exists()
+
+
+def test_resolve_file_log_config_supports_env_overrides(tmp_path: Path, monkeypatch) -> None:
+    log_path = tmp_path / "logs" / "custom.log"
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.setenv("EODINGA_LOG_ROTATION", "10 MB")
+    monkeypatch.setenv("EODINGA_LOG_RETENTION", "7 days")
+    monkeypatch.setenv("EODINGA_LOG_COMPRESSION", "gz")
+    monkeypatch.setenv("EODINGA_LOG_SERIALIZE", "1")
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    config = resolve_file_log_config()
+
+    assert config is not None
+    assert config.path == log_path
+    assert config.rotation == "10 MB"
+    assert config.retention == "7 days"
+    assert config.compression == "gz"
+    assert config.serialize is True
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:

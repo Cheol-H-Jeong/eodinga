@@ -52,6 +52,15 @@ class _HistogramState:
         }
 
 
+@dataclass(frozen=True)
+class FileLogConfig:
+    path: Path
+    rotation: str = "5 MB"
+    retention: int | str = 5
+    compression: str | None = None
+    serialize: bool = False
+
+
 def _bucket_label(value_ms: float, buckets_ms: tuple[float, ...]) -> str:
     for upper_bound in buckets_ms:
         if value_ms <= upper_bound:
@@ -99,11 +108,9 @@ def runtime_metadata() -> dict[str, object]:
     }
 
 
-def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
-    logger.remove()
-    logger.add(sys.stderr, level=level.upper())
+def resolve_file_log_config(log_path: Path | None = None) -> FileLogConfig | None:
     if os.environ.get("EODINGA_DISABLE_FILE_LOGGING") == "1":
-        return
+        return None
     effective_log_path = log_path
     if effective_log_path is None:
         override_path = os.environ.get("EODINGA_LOG_PATH")
@@ -111,11 +118,43 @@ def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None
             effective_log_path = Path(override_path)
         else:
             if "PYTEST_CURRENT_TEST" in os.environ:
-                return
+                return None
             effective_log_path = default_log_path()
-    target = effective_log_path.expanduser()
+    rotation = os.environ.get("EODINGA_LOG_ROTATION", "5 MB")
+    retention_text = os.environ.get("EODINGA_LOG_RETENTION", "5")
+    retention: int | str
+    retention = int(retention_text) if retention_text.isdigit() else retention_text
+    compression = os.environ.get("EODINGA_LOG_COMPRESSION") or None
+    serialize = os.environ.get("EODINGA_LOG_SERIALIZE") == "1"
+    return FileLogConfig(
+        path=effective_log_path.expanduser(),
+        rotation=rotation,
+        retention=retention,
+        compression=compression,
+        serialize=serialize,
+    )
+
+
+def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
+    logger.remove()
+    logger.add(sys.stderr, level=level.upper())
+    file_config = resolve_file_log_config(log_path)
+    if file_config is None:
+        return
+    target = file_config.path
     target.parent.mkdir(parents=True, exist_ok=True)
-    logger.add(target, rotation="5 MB", retention=5, level=level.upper())
+    logger.add(
+        target,
+        rotation=file_config.rotation,
+        retention=file_config.retention,
+        compression=file_config.compression,
+        serialize=file_config.serialize,
+        enqueue=True,
+        backtrace=False,
+        diagnose=False,
+        level=level.upper(),
+    )
+    logger.bind(log_path=str(target)).debug("file logging enabled")
 
 
 def get_logger(name: str | None = None) -> Any:
