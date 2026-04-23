@@ -319,8 +319,20 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
             "AppImage desktop entry categories drifted from the shipped asset",
         ),
         (
+            payload.get("desktop_entry", {}).get("comment") == "Instant lexical file search for Windows and Linux",
+            "AppImage desktop entry comment drifted from the release metadata",
+        ),
+        (
+            payload.get("desktop_entry", {}).get("keywords") == "search;files;index;launcher;",
+            "AppImage desktop entry keywords drifted from the expected launcher metadata",
+        ),
+        (
             payload.get("desktop_entry", {}).get("startup_notify") == "true",
             "AppImage desktop entry no longer enables startup notifications",
+        ),
+        (
+            payload.get("desktop_entry", {}).get("startup_wm_class") == "eodinga",
+            "AppImage desktop entry startup WM class drifted from eodinga",
         ),
         (icon_payload.get("exists"), "AppImage icon asset is missing from the staged AppDir"),
         (icon_payload.get("diricon_exists"), "AppImage .DirIcon is missing"),
@@ -402,8 +414,20 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
             "Debian desktop entry categories drifted from the shipped asset",
         ),
         (
+            desktop_payload.get("comment") == "Instant lexical file search for Windows and Linux",
+            "Debian desktop entry comment drifted from the release metadata",
+        ),
+        (
+            desktop_payload.get("keywords") == "search;files;index;launcher;",
+            "Debian desktop entry keywords drifted from the expected launcher metadata",
+        ),
+        (
             desktop_payload.get("startup_notify") == "true",
             "Debian desktop entry no longer enables startup notifications",
+        ),
+        (
+            desktop_payload.get("startup_wm_class") == "eodinga",
+            "Debian desktop entry startup WM class drifted from eodinga",
         ),
         (icon_payload.get("exists"), "Debian icon asset is missing from the package tree"),
         (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),

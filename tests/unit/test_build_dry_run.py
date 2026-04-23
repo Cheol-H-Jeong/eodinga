@@ -340,10 +340,13 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["archive_mtime_zero"] is True
     assert payload["archive_numeric_owner_zero"] is True
     assert payload["desktop_entry"]["name"] == "eodinga"
+    assert payload["desktop_entry"]["comment"] == "Instant lexical file search for Windows and Linux"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
     assert payload["desktop_entry"]["categories"] == "Utility;FileTools;"
+    assert payload["desktop_entry"]["keywords"] == "search;files;index;launcher;"
     assert payload["desktop_entry"]["startup_notify"] == "true"
+    assert payload["desktop_entry"]["startup_wm_class"] == "eodinga"
     assert payload["recipe"]["exists"] is True
     assert payload["recipe"]["contains_version_template"] is True
     assert Path(payload["recipe"]["rendered_path"]).exists()
@@ -412,11 +415,14 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
             "description": "Instant lexical file search for Windows and Linux",
         },
         "desktop_entry": {
+            "comment": "Instant lexical file search for Windows and Linux",
             "name": "eodinga",
+            "keywords": "search;files;index;launcher;",
             "launches_gui": True,
             "icon_matches_package": True,
             "categories": "Utility;FileTools;",
             "startup_notify": "true",
+            "startup_wm_class": "eodinga",
         },
         "icon": {
             "exists": True,
@@ -466,10 +472,13 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
         },
         "desktop_entry": {
             "name": "eodinga",
+            "comment": "Instant lexical file search for Windows and Linux",
             "launches_gui": True,
             "icon_matches_package": True,
             "categories": "Utility;FileTools;",
+            "keywords": "search;files;index;launcher;",
             "startup_notify": "true",
+            "startup_wm_class": "eodinga",
         },
         "icon": {
             "exists": True,
@@ -492,6 +501,71 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
 
     assert "Debian dry-run archive filename does not match the package version and arch" in errors
     assert "Debian package filename does not match the package version and arch" in errors
+
+
+def test_linux_deb_audit_validator_rejects_desktop_metadata_drift() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "amd64",
+        "archive": f"packaging/dist/eodinga_{__version__}_amd64_debroot.tar.gz",
+        "deb_path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+            "architecture": "amd64",
+            "depends": "python3 (>= 3.11)",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "debian_control_template": {
+            "exists": True,
+            "contains_version_template": True,
+            "contains_arch_template": True,
+            "rendered_exists": True,
+            "source": "eodinga",
+            "maintainer": "Cheol-H-Jeong",
+            "binary_package": "eodinga",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "comment": "Wrong comment",
+            "exec": "eodinga gui",
+            "icon": "eodinga",
+            "categories": "Utility;FileTools;",
+            "keywords": "wrong;",
+            "startup_notify": "true",
+            "startup_wm_class": "other",
+            "launches_gui": True,
+            "icon_matches_package": True,
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "executes_python_module": True,
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": True,
+            "changelog_has_current_release_heading": True,
+            "changelog_gzip_mtime_zero": True,
+        },
+    }
+
+    errors = module._validate_linux_deb_audit(payload, __version__, __version__)
+
+    assert "Debian desktop entry comment drifted from the release metadata" in errors
+    assert "Debian desktop entry keywords drifted from the expected launcher metadata" in errors
+    assert "Debian desktop entry startup WM class drifted from eodinga" in errors
 
 
 def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
@@ -552,10 +626,13 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["debian_control_template"]["binary_package"] == "eodinga"
     assert payload["debian_control_template"]["description"] == "Instant lexical file search for Windows and Linux"
     assert payload["desktop_entry"]["name"] == "eodinga"
+    assert payload["desktop_entry"]["comment"] == "Instant lexical file search for Windows and Linux"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
     assert payload["desktop_entry"]["categories"] == "Utility;FileTools;"
+    assert payload["desktop_entry"]["keywords"] == "search;files;index;launcher;"
     assert payload["desktop_entry"]["startup_notify"] == "true"
+    assert payload["desktop_entry"]["startup_wm_class"] == "eodinga"
     assert payload["desktop_entry"]["launches_gui"] is True
     assert payload["desktop_entry"]["icon_matches_package"] is True
     assert payload["icon"]["exists"] is True

@@ -1,9 +1,11 @@
 [Desktop Entry]
 Type=Application
 Name=eodinga
+Comment=Instant lexical file search for Windows and Linux
 Exec=eodinga gui
 Icon=eodinga
 Terminal=false
 Categories=Utility;FileTools;
+Keywords=search;files;index;launcher;
 StartupNotify=true
-
+StartupWMClass=eodinga

@@ -147,10 +147,13 @@ payload = {
     "desktop_entry": {
         "path": str(desktop_path),
         "name": desktop_entries.get("Name"),
+        "comment": desktop_entries.get("Comment"),
         "exec": desktop_entries.get("Exec"),
         "icon": desktop_entries.get("Icon"),
         "categories": desktop_entries.get("Categories"),
+        "keywords": desktop_entries.get("Keywords"),
         "startup_notify": desktop_entries.get("StartupNotify"),
+        "startup_wm_class": desktop_entries.get("StartupWMClass"),
         "launches_gui": desktop_entries.get("Exec") == "eodinga gui",
         "icon_matches_package": desktop_entries.get("Icon") == icon_path.stem,
         "matches_source_asset": desktop_path.read_text(encoding="utf-8") == Path("${DESKTOP_ENTRY}").read_text(encoding="utf-8"),
