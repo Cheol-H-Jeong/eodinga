@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.154 - 2026-04-23
+
+- Expanded live-update integration coverage so a real watched-directory rename must make the destination query-visible and retire the source-name hit within 500 ms.
+- Added an end-to-end modification regression that proves watcher-driven content refresh both surfaces new terms and removes stale terms from search within 500 ms.
+- Added a hot-restart persistence regression that closes and reopens the on-disk index after a watcher-applied live update, proving the incremental write survives without a rebuild.
+
 ## 0.1.149 - 2026-04-23
 
 - Expanded the Windows PyInstaller packaging spec so hidden imports now include third-party modules discovered directly from real `import` and `from ... import ...` usage across the `eodinga/` source tree, reducing dependence on a hand-maintained list.
