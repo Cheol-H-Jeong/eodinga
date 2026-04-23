@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.939 - 2026-04-24
+## 0.1.940 - 2026-04-24
 
 - Added derived observability summaries to `eodinga stats --json`, including query and command failure rates plus average values for the existing latency and batch-size histograms.
 - Added `recent_snapshot_counts` so stats consumers can see recent command/crash activity by snapshot name without reparsing the full snapshot list.
