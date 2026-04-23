@@ -127,9 +127,10 @@ def rebuild_index(
         else (lambda _path: None)
     )
     try:
-        writer = IndexWriter(conn, parser_callback=parser_callback)
-        _insert_roots(conn, effective_roots)
         with _SignalStop() as stop:
+            writer = IndexWriter(conn, parser_callback=parser_callback)
+            _insert_roots(conn, effective_roots)
+            stop.raise_if_requested()
             for root_id, root in enumerate(effective_roots, start=1):
                 stop.raise_if_requested()
                 rules = PathRules(
