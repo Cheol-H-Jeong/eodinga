@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from queue import Empty
 from time import monotonic
@@ -245,6 +246,60 @@ def test_live_same_root_move_updates_search_visibility_within_500ms(tmp_path: Pa
     assert destination_path_hits == [destination]
 
 
+def test_live_same_root_directory_move_updates_nested_query_visibility_within_500ms(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    source_dir = root / "drafts"
+    nested_dir = source_dir / "chapter"
+    nested_dir.mkdir(parents=True)
+    target = nested_dir / "story.txt"
+    target.write_text("directory move nested integration marker\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(conn, "nested integration marker", limit=5).hits]
+        destination_dir = root / "published"
+        source_dir.rename(destination_dir)
+        moved = destination_dir / "chapter" / "story.txt"
+
+        appeared_elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "nested integration marker",
+            moved,
+            deadline_seconds=0.5,
+        )
+        removed_elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "nested integration marker",
+            target,
+            deadline_seconds=0.5,
+        )
+        source_path_hits = {hit.file.path for hit in search(conn, "path:drafts/chapter", limit=5).hits}
+        destination_path_hits = {
+            hit.file.path for hit in search(conn, "path:published/chapter", limit=5).hits
+        }
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_hits == [target]
+    assert appeared_elapsed <= 0.5
+    assert removed_elapsed <= 0.5
+    assert source_path_hits == set()
+    assert destination_path_hits == {destination_dir / "chapter", moved}
+
+
 def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
@@ -409,6 +464,43 @@ def test_live_delete_removed_with_multi_root_watchers_and_root_scope(tmp_path: P
     assert elapsed <= 0.5
     assert alpha_hits == [survivor]
     assert beta_hits == []
+
+
+def test_live_directory_delete_removes_nested_query_visibility_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    doomed_dir = root / "archive"
+    nested_dir = doomed_dir / "2026"
+    nested_dir.mkdir(parents=True)
+    target = nested_dir / "entry.txt"
+    target.write_text("directory delete nested integration marker\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(conn, "delete nested integration", limit=5).hits]
+        shutil.rmtree(doomed_dir)
+
+        elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "delete nested integration",
+            target,
+            deadline_seconds=0.5,
+        )
+        remaining_hits = [hit.file.path for hit in search(conn, "delete nested integration", limit=5).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_hits == [target]
+    assert elapsed <= 0.5
+    assert remaining_hits == []
 
 
 def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Path) -> None:
