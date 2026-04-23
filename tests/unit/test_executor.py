@@ -343,6 +343,27 @@ def test_execute_phrase_query_matches_across_punctuation_in_path_and_content(
     assert content_hits == ["launch-checklist.txt"]
 
 
+def test_execute_phrase_query_matches_across_underscores_in_path_and_content(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/launch_checklist.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="launch_checklist approved",
+    )
+    tmp_db.commit()
+
+    path_hits = [hit.file.name for hit in search(tmp_db, '"launch checklist"', limit=5).hits]
+    content_hits = [hit.file.name for hit in search(tmp_db, 'content:"launch checklist"', limit=5).hits]
+
+    assert path_hits == ["launch_checklist.txt"]
+    assert content_hits == ["launch_checklist.txt"]
+
+
 def test_execute_decomposed_korean_phrase_query_matches_across_punctuation(
     tmp_db: sqlite3.Connection,
 ) -> None:
