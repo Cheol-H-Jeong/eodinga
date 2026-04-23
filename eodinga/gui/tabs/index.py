@@ -9,20 +9,26 @@ from eodinga.gui.widgets import PrimaryButton, StatusChip
 class IndexTab(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self.setAccessibleName("Index tab")
         layout = QVBoxLayout(self)
         title = QLabel("Index", self)
         title.setProperty("role", "title")
+        title.setAccessibleName("Index tab title")
         body = QLabel("Observe index health, rebuild, and vacuum.", self)
         body.setProperty("role", "secondary")
+        body.setAccessibleName("Index tab description")
         self.status_chip = StatusChip("Idle", self)
+        self.status_chip.setAccessibleName("Index status")
         self.progress_label = QLabel("Index is idle.", self)
         self.progress_label.setProperty("role", "secondary")
+        self.progress_label.setAccessibleName("Index progress")
+        self.rebuild_button = PrimaryButton("Rebuild index", self)
 
         layout.addWidget(title)
         layout.addWidget(body)
         layout.addWidget(self.status_chip)
         layout.addWidget(self.progress_label)
-        layout.addWidget(PrimaryButton("Rebuild index", self))
+        layout.addWidget(self.rebuild_button)
         layout.addStretch(1)
 
     def set_indexing_status(self, status: IndexingStatus) -> None:

@@ -99,6 +99,7 @@ class EodingaWindow(QMainWindow):
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("eodinga")
+        self.setAccessibleName("Main window")
         self.resize(960, 640)
         self.launcher_state = LauncherState(self)
         self.launcher_window = LauncherWindow(
@@ -111,6 +112,7 @@ class EodingaWindow(QMainWindow):
         container = QWidget(self)
         layout = QVBoxLayout(container)
         self.tab_widget = QTabWidget(container)
+        self.tab_widget.setAccessibleName("Main navigation tabs")
 
         self.roots_tab = RootsTab(self)
         self.index_tab = IndexTab(self)

@@ -28,6 +28,8 @@ def test_app_window_has_expected_tabs_and_launcher(qapp) -> None:
     assert isinstance(window.about_tab, AboutTab)
     assert launcher is window.launcher_window
     assert window.launcher_window.parent() is None
+    assert window.accessibleName() == "Main window"
+    assert window.tab_widget.accessibleName() == "Main navigation tabs"
 
 
 def test_app_updates_index_status_in_tab_and_tray(qapp) -> None:
@@ -75,6 +77,22 @@ def test_tray_indicator_can_show_launcher_without_tray_backend(qapp) -> None:
     window.tray_indicator.show_launcher()
 
     assert window.launcher_window.isVisible()
+
+
+def test_app_tabs_assign_accessible_names_to_interactive_widgets(qapp) -> None:
+    window = EodingaWindow()
+
+    assert window.roots_tab.accessibleName() == "Roots tab"
+    assert window.roots_tab.add_root_button.accessibleName() == "Add root"
+    assert window.roots_tab.remove_selected_button.accessibleName() == "Remove selected"
+    assert window.index_tab.accessibleName() == "Index tab"
+    assert window.index_tab.rebuild_button.accessibleName() == "Rebuild index"
+    assert window.index_tab.status_chip.accessibleName() == "Index status"
+    assert window.settings_tab.accessibleName() == "Settings tab"
+    assert window.settings_tab.system_theme_checkbox.accessibleName() == "Use system theme"
+    assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
+    assert window.search_tab.accessibleName() == "Search tab"
+    assert window.about_tab.accessibleName() == "About tab"
 
 
 def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_path: Path) -> None:
