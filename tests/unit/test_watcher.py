@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from queue import Empty
-from threading import Thread
+from threading import Event, Thread
 from time import monotonic, sleep
 
 import pytest
@@ -368,6 +368,85 @@ def test_watcher_flushed_chained_move_still_ignores_intermediate_delete(tmp_path
     assert second.event_type == "moved"
     assert second.path == destination
     assert second.src_path == intermediate
+
+    service.record(
+        WatchEvent(
+            event_type="deleted",
+            path=intermediate,
+            root_path=tmp_path,
+            happened_at=3.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+
+def test_watcher_backpressure_preserves_retired_intermediate_move_sources(tmp_path: Path) -> None:
+    service = WatchService(queue_maxsize=1)
+    blocker = tmp_path / "blocker.txt"
+    source = tmp_path / "before.txt"
+    intermediate = tmp_path / "middle.txt"
+    destination = tmp_path / "after.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=blocker,
+            root_path=tmp_path,
+            happened_at=0.5,
+        )
+    )
+    service._flush_ready(force=True)
+
+    service.record(
+        WatchEvent(
+            event_type="moved",
+            path=intermediate,
+            src_path=source,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="moved",
+            path=destination,
+            src_path=intermediate,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+
+    started = Event()
+    finished = Event()
+
+    def flush_with_stop() -> None:
+        started.set()
+        service._flush_ready(force=True)
+        finished.set()
+
+    thread = Thread(target=flush_with_stop, daemon=True)
+    thread.start()
+    assert started.wait(timeout=1) is True
+    sleep(0.1)
+    assert finished.is_set() is False
+
+    service._stop.set()
+    thread.join(timeout=1)
+    assert finished.is_set() is True
+
+    queued = service.queue.get_nowait()
+    assert queued.path == blocker
+
+    service._stop = Event()
+    service._flush_ready(force=True)
+
+    moved = service.queue.get_nowait()
+    assert moved.event_type == "moved"
+    assert moved.path == destination
+    assert moved.src_path == source
 
     service.record(
         WatchEvent(

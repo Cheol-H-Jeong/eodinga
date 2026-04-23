@@ -288,6 +288,11 @@ class WatchService:
             if not self._enqueue_event(event):
                 with self._lock:
                     self._pending[event.path] = event
+                    if retired_sources := {
+                        *self._retired_sources.get(event.path, set()),
+                        *({event.src_path} if event.event_type == "moved" and event.src_path is not None else set()),
+                    }:
+                        self._retired_sources[event.path] = retired_sources
                     self._timestamps[event.path] = now
                 break
             delivered.append(event)
