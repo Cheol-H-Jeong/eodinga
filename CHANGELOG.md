@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.170 - 2026-04-23
+
+- Expanded `README.md` with a clearer shipped feature matrix, more query examples, practical CLI workflows, and a completed FAQ covering local-only behavior, recovery, parser extras, and health checks.
+- Deepened `docs/ARCHITECTURE.md` with end-to-end request, query, and recovery diagrams plus a clearer explanation of why the runtime is split across `core`, `index`, `query`, and UI layers.
+- Tightened `docs/CONTRIBUTING.md` and `docs/RELEASE.md` so contributor flow now calls out per-commit unit-test expectations, a recommended command order, and an explicit local tag handoff for release metadata rounds.
+
 ## 0.1.163 - 2026-04-23
 
 - Added open-ended ISO date windows to `date:`, `modified:`, and `created:`, so queries like `date:2026-04-01..` and `created:..2026-04-23` now compile directly into one-sided timestamp predicates.
