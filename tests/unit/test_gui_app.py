@@ -5,6 +5,7 @@ import sqlite3
 from typing import cast
 
 from PySide6.QtCore import Qt
+from PySide6.QtCore import QRect
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QSystemTrayIcon
 
@@ -203,6 +204,69 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     assert restored_launcher.pos().y() == 96
 
     restored_window.close()
+    qapp.processEvents()
+
+
+def test_launcher_restores_offscreen_geometry_inside_available_screen(qapp, temp_config_path: Path, monkeypatch) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(
+        update={
+            "window_x": 3200,
+            "window_y": 2400,
+            "window_width": 900,
+            "window_height": 700,
+        }
+    )
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+    monkeypatch.setattr(
+        launcher,
+        "_available_screen_geometries",
+        lambda: [QRect(0, 0, 1280, 720)],
+    )
+
+    launcher.show()
+    qapp.processEvents()
+
+    geometry = launcher.geometry()
+    assert geometry == QRect(380, 20, 900, 700)
+
+    window.close()
+    qapp.processEvents()
+
+
+def test_launcher_restore_enforces_minimum_visible_size(qapp, temp_config_path: Path, monkeypatch) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(
+        update={
+            "window_x": 40,
+            "window_y": 20,
+            "window_width": 180,
+            "window_height": 120,
+        }
+    )
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+    monkeypatch.setattr(
+        launcher,
+        "_available_screen_geometries",
+        lambda: [QRect(0, 0, 1920, 1080)],
+    )
+
+    launcher.show()
+    qapp.processEvents()
+
+    geometry = launcher.geometry()
+    assert geometry.x() == 40
+    assert geometry.y() == 20
+    assert geometry.width() >= 320
+    assert geometry.height() >= 240
+
+    window.close()
     qapp.processEvents()
 
 
