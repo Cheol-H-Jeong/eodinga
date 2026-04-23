@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.243 - 2026-04-23
+
+- Hardened observability output by making file logs component-aware, queue-backed, and safer for crash forensics, while ensuring crash reports include platform metadata and avoid same-second filename collisions.
+- Expanded `eodinga stats --json` so it now exposes runtime observability state alongside counters and histograms, including the current UTC snapshot timestamp plus the effective log and crash destinations.
+- Broke watcher telemetry down by event type and added focused regressions proving logger output, crash-log collision handling, runtime stats metadata, and per-event watcher counters all hold through the CLI and unit surfaces.
+
 ## 0.1.196 - 2026-04-23
 
 - Completed the relative date macro set for query filters by adding `date:last-week` and `date:last-month`, with compiler and executor coverage that pins their local-time window semantics.
