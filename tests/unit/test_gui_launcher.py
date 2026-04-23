@@ -597,7 +597,8 @@ def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
 
     assert launcher.preview_pane.title_label.text() == "alpha.txt"
     assert "/tmp/alpha.txt" in launcher.preview_pane.path_label.text()
-    assert "Alpha release notes" in launcher.preview_pane.snippet_label.text()
+    assert "Alpha release " in launcher.preview_pane.snippet_label.text()
+    assert ">notes</mark>" in launcher.preview_pane.snippet_label.text()
     assert launcher.action_bar.open_button.isEnabled()
 
     launcher._handle_hovered_index(launcher.model.index(1, 0))
@@ -605,6 +606,34 @@ def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
     assert launcher.preview_pane.title_label.text() == "beta.txt"
     assert "Beta launch checklist" in launcher.preview_pane.snippet_label.text()
     assert launcher.result_list.currentIndex().row() == 1
+
+
+def test_launcher_active_filter_row_tracks_visible_query_filters(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    assert not launcher.active_filter_row.isVisible()
+
+    launcher.query_field.setText('report ext:pdf date:this-week content:"release notes"')
+    _wait(10)
+
+    assert launcher.active_filter_row.isVisible()
+    assert "ext:pdf" in launcher.active_filter_row.chips_label.text()
+    assert "date:this-week" in launcher.active_filter_row.chips_label.text()
+    assert "content:&quot;release notes&quot;" in launcher.active_filter_row.chips_label.text()
+
+
+def test_launcher_active_filter_row_hides_for_plain_terms_and_invalid_syntax(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText("report notes")
+    _wait(10)
+    assert not launcher.active_filter_row.isVisible()
+
+    launcher.query_field.setText('path:"unterminated')
+    _wait(10)
+    assert not launcher.active_filter_row.isVisible()
 
 
 def test_launcher_hovered_result_becomes_action_target(qapp) -> None:

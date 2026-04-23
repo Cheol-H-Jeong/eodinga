@@ -11,6 +11,7 @@ from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
 from eodinga.gui.widgets import (
+    ActiveFilterRow,
     EmptyState,
     LauncherActionBar,
     LauncherPreviewPane,
@@ -55,6 +56,7 @@ class LauncherPanel(QWidget):
 
         self.query_field = SearchField(parent=self)
         self.query_field.setAccessibleName("Launcher search field")
+        self.active_filter_row = ActiveFilterRow(self)
         self.pinned_queries_row = QueryChipRow(
             "Pinned",
             accessible_name="Pinned launcher queries",
@@ -99,6 +101,7 @@ class LauncherPanel(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
+        layout.addWidget(self.active_filter_row)
         layout.addWidget(self.pinned_queries_row)
         layout.addWidget(self.recent_queries_row)
 
@@ -127,6 +130,8 @@ class LauncherPanel(QWidget):
         layout.addLayout(footer)
 
         self.query_field.textChanged.connect(self._schedule_query)
+        self.query_field.textChanged.connect(self.active_filter_row.set_query)
+        self.query_field.textChanged.connect(self.preview_pane.set_query)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
@@ -171,6 +176,7 @@ class LauncherPanel(QWidget):
 
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
+        self.active_filter_row.set_query(self.query_field.text())
         self._refresh_preview()
 
     def set_search_fn(self, search_fn: SearchFn) -> None:

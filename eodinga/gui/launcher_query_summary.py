@@ -1,0 +1,47 @@
+from __future__ import annotations
+
+from eodinga.query.dsl import AndNode, AstNode, NotNode, OperatorNode, OrNode, QuerySyntaxError, parse
+
+
+def _format_filter(node: OperatorNode) -> str:
+    value = node.value
+    if node.value_kind == "phrase":
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        value = f'"{escaped}"'
+    elif node.value_kind == "regex":
+        value = f"/{value}/{node.regex_flags}"
+    prefix = "-" if node.negated else ""
+    return f"{prefix}{node.name}:{value}"
+
+
+def _collect_filters(node: AstNode) -> list[str]:
+    if isinstance(node, OperatorNode):
+        return [_format_filter(node)]
+    if isinstance(node, NotNode):
+        return _collect_filters(node.clause)
+    if isinstance(node, (AndNode, OrNode)):
+        filters: list[str] = []
+        for child in node.clauses:
+            filters.extend(_collect_filters(child))
+        return filters
+    return []
+
+
+def summarize_active_filters(query: str, *, limit: int = 5) -> list[str]:
+    normalized = query.strip()
+    if not normalized:
+        return []
+    try:
+        filters = _collect_filters(parse(normalized))
+    except QuerySyntaxError:
+        return []
+    deduped: list[str] = []
+    for item in filters:
+        if item not in deduped:
+            deduped.append(item)
+        if len(deduped) >= limit:
+            break
+    return deduped
+
+
+__all__ = ["summarize_active_filters"]
