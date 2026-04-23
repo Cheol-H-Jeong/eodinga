@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.285 - 2026-04-23
+
+- Expanded the tray controller so it now exposes explicit `Open eodinga`, `Show launcher`, and `Hide launcher` actions while keeping the launcher toggle text synchronized with the popup window state.
+- Filled in missing launcher accessibility labels for the empty state, preview pane fields, shortcut guidance, and status summary so screen-reader coverage extends beyond the top-level widgets and action buttons.
+- Strengthened launcher result emphasis by styling highlighted matches consistently across names, paths, snippets, and extension badges, making matched substrings visibly bolder in the result list.
+
 ## 0.1.282 - 2026-04-23
 
 - Tightened the contributor and release guides around parallel worker worktrees, one-commit-at-a-time unit gates, and the final local-tag handoff flow so docs rounds remain reproducible under concurrent landing.
