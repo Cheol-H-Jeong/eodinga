@@ -93,6 +93,7 @@ class IndexWriter:
         self._parser_callback = parser_callback
         self._savepoint_index = 0
         self._next_content_rowid_cache: int | None = None
+        self._root_id_by_path: dict[str, int] | None = None
         if current_schema_version(self._conn) == 0:
             apply_schema(self._conn)
 
@@ -121,6 +122,7 @@ class IndexWriter:
                 record = record_loader(event.path)
                 if record is None:
                     continue
+                record = self._record_with_event_root(record, event)
                 pending_records.append(record)
                 processed += 1
             if deleted_paths:
@@ -312,3 +314,20 @@ class IndexWriter:
                 _delete_content_rows_sql(len(chunk)),
                 tuple(chunk),
             )
+
+    def _record_with_event_root(self, record: FileRecord, event: WatchEvent) -> FileRecord:
+        if event.root_path is None:
+            return record
+        root_id = self._root_id_for_path(event.root_path)
+        if root_id is None or root_id == record.root_id:
+            return record
+        return record.model_copy(update={"root_id": root_id})
+
+    def _root_id_for_path(self, root_path: Path) -> int | None:
+        root_path_text = str(root_path)
+        if self._root_id_by_path is None:
+            self._root_id_by_path = {
+                str(row[0]): int(row[1])
+                for row in self._conn.execute("SELECT path, id FROM roots")
+            }
+        return self._root_id_by_path.get(root_path_text)

@@ -493,3 +493,76 @@ def test_writer_apply_events_respects_active_transaction_rollback(tmp_db: Path, 
 
     rows = conn.execute("SELECT path FROM files ORDER BY path").fetchall()
     assert rows == [(str(source.path),)]
+
+
+def test_writer_apply_events_uses_event_root_path_for_created_records(
+    tmp_db: Path, tmp_path: Path
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    root_a = tmp_path / "alpha"
+    root_b = tmp_path / "beta"
+    root_a.mkdir()
+    root_b.mkdir()
+    with conn:
+        conn.execute(
+            "INSERT INTO roots(id, path, include, exclude, added_at) VALUES (?, ?, ?, ?, ?)",
+            (1, str(root_a), "[]", "[]", 1),
+        )
+        conn.execute(
+            "INSERT INTO roots(id, path, include, exclude, added_at) VALUES (?, ?, ?, ?, ?)",
+            (2, str(root_b), "[]", "[]", 1),
+        )
+    created = root_b / "created.txt"
+    created.write_text("created", encoding="utf-8")
+    writer = IndexWriter(conn)
+
+    processed = writer.apply_events(
+        [WatchEvent(event_type="created", path=created, root_path=root_b)],
+        record_loader=lambda path: make_record(path, root_id=1),
+    )
+
+    row = conn.execute("SELECT root_id, path FROM files").fetchone()
+    assert processed == 1
+    assert row == (2, str(created))
+
+
+def test_writer_apply_events_uses_event_root_path_for_cross_root_moves(
+    tmp_db: Path, tmp_path: Path
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    root_a = tmp_path / "alpha"
+    root_b = tmp_path / "beta"
+    root_a.mkdir()
+    root_b.mkdir()
+    with conn:
+        conn.execute(
+            "INSERT INTO roots(id, path, include, exclude, added_at) VALUES (?, ?, ?, ?, ?)",
+            (1, str(root_a), "[]", "[]", 1),
+        )
+        conn.execute(
+            "INSERT INTO roots(id, path, include, exclude, added_at) VALUES (?, ?, ?, ?, ?)",
+            (2, str(root_b), "[]", "[]", 1),
+        )
+    source = root_a / "moved.txt"
+    source.write_text("source", encoding="utf-8")
+    writer = IndexWriter(conn)
+    assert writer.bulk_upsert([make_record(source, root_id=1)]) == 1
+
+    destination = root_b / "moved.txt"
+    source.rename(destination)
+
+    processed = writer.apply_events(
+        [
+            WatchEvent(
+                event_type="moved",
+                src_path=source,
+                path=destination,
+                root_path=root_b,
+            )
+        ],
+        record_loader=lambda path: make_record(path, root_id=1),
+    )
+
+    row = conn.execute("SELECT root_id, path FROM files").fetchone()
+    assert processed == 1
+    assert row == (2, str(destination))
