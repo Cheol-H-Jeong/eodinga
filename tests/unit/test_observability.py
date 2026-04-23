@@ -314,9 +314,13 @@ def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path:
 
     parse(broken, max_body_chars=128)
 
-    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
+    histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
     assert counters["parser_errors"] == 1
     assert counters["parsers.broken.error"] == 1
+    assert histograms["parser_input_bytes"]["count"] == 1
+    assert histograms["parser_failure_latency_ms"]["count"] == 1
 
 
 def test_parser_success_counter_increments_for_successful_parse(monkeypatch, tmp_path: Path) -> None:
@@ -333,8 +337,12 @@ def test_parser_success_counter_increments_for_successful_parse(monkeypatch, tmp
 
     parse(document, max_body_chars=128)
 
-    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
+    histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
     assert counters["parsers.ok.parsed"] == 1
+    assert histograms["parser_input_bytes"]["count"] == 1
+    assert histograms["parser_latency_ms"]["count"] == 1
 
 
 def test_parser_skipped_too_large_counter_increments(monkeypatch, tmp_path: Path) -> None:
@@ -351,8 +359,12 @@ def test_parser_skipped_too_large_counter_increments(monkeypatch, tmp_path: Path
 
     parse(document, max_body_chars=128)
 
-    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
+    histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
     assert counters["parsers.tiny-limit.skipped_too_large"] == 1
+    assert histograms["parser_input_bytes"]["count"] == 1
+    assert "parser_latency_ms" not in histograms
 
 
 def test_watcher_event_counter_increments() -> None:

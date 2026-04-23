@@ -507,6 +507,9 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_sinks_stderr_configured"] == 2
     assert payload["log_sinks_file_configured"] == 0
     assert payload["log_sinks_file_disabled"] == 2
+    assert payload["parser_latency_histogram"] == {}
+    assert payload["parser_failure_latency_histogram"] == {}
+    assert payload["parser_input_size_histogram"] == {}
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["query_result_count_histogram"]["count"] == 1
     assert payload["command_latency_histogram"]["count"] == 1
@@ -618,6 +621,9 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["parser_errors"] == 1
     assert payload["counters"]["parsers.broken.error"] == 1
     assert payload["counters"]["parsers.text.parsed"] >= 2
+    assert payload["histograms"]["parser_input_bytes"]["count"] >= 3
+    assert payload["histograms"]["parser_latency_ms"]["count"] >= 2
+    assert payload["histograms"]["parser_failure_latency_ms"]["count"] == 1
     assert payload["counters"]["queries_served"] == 1
     assert "queries_zero_results" not in payload["counters"]
     assert payload["counters"]["queries_truncated"] == 1
@@ -667,6 +673,9 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
+    assert payload["parser_input_size_histogram"]["count"] >= 3
+    assert payload["parser_latency_histogram"]["count"] >= 2
+    assert payload["parser_failure_latency_histogram"]["count"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["query_result_count"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 2

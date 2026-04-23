@@ -129,6 +129,9 @@ class StatsSnapshot(BaseModel):
     log_sinks_stderr_configured: int = 0
     log_sinks_file_configured: int = 0
     log_sinks_file_disabled: int = 0
+    parser_latency_histogram: dict[str, object] = Field(default_factory=dict)
+    parser_failure_latency_histogram: dict[str, object] = Field(default_factory=dict)
+    parser_input_size_histogram: dict[str, object] = Field(default_factory=dict)
     query_latency_histogram: dict[str, object] = Field(default_factory=dict)
     query_result_count_histogram: dict[str, object] = Field(default_factory=dict)
     command_latency_histogram: dict[str, object] = Field(default_factory=dict)
