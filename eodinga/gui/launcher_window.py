@@ -134,7 +134,7 @@ class LauncherWindow(LauncherPanel):
         x = self._config.launcher.window_x
         y = self._config.launcher.window_y
         if x is None or y is None:
-            self.resize(width, height)
+            self._center_on_available_screen(width, height, available)
             return
         saved_rect = available.__class__(x, y, saved_width, saved_height)
         if saved_rect.intersects(available):
@@ -145,3 +145,8 @@ class LauncherWindow(LauncherPanel):
         clamped_x = min(max(x, available.x()), max_x)
         clamped_y = min(max(y, available.y()), max_y)
         self.setGeometry(clamped_x, clamped_y, width, height)
+
+    def _center_on_available_screen(self, width: int, height: int, available) -> None:
+        centered_x = available.x() + max((available.width() - width) // 2, 0)
+        centered_y = available.y() + max((available.height() - height) // 2, 0)
+        self.setGeometry(centered_x, centered_y, width, height)
