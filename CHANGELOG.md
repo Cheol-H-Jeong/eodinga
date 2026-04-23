@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.850 - 2026-04-23
+
+- Classified search-query failures in runtime stats, separating query syntax/validation errors from generic command failures and surfacing them in recent snapshots.
+- Added watcher backpressure observability with queue and pending high-water marks plus explicit `watcher.backpressure` snapshots when a blocked enqueue clears.
+- Exposed per-root rebuild timing, counting indexed roots and recording `index.root` snapshots so multi-root rebuild latency is inspectable instead of folded into one total.
+
 ## 0.1.849 - 2026-04-23
 
 - Tightened the Linux packaging audits so staged AppImage and Debian launchers must execute `--help` successfully from outside the repo, proving the bundled runtime can boot headlessly.
