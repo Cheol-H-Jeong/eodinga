@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QApplication
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.app import EodingaWindow
-from eodinga.gui.launcher import LauncherWindow
+from eodinga.gui.launcher_window import LauncherWindow
 from eodinga.gui.theme import apply_theme
 
 

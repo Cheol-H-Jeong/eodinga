@@ -7,7 +7,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
-from eodinga.gui.launcher import LauncherState, LauncherWindow
+from eodinga.gui.launcher import LauncherState
+from eodinga.gui.launcher_window import LauncherWindow
 
 
 def _wait(milliseconds: int) -> None:
