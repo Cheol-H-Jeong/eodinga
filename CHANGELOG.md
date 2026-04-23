@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.366 - 2026-04-23
+
+- Expanded live-update integration coverage to prove in-place content rewrites and cross-root moves both converge in search within the 500ms watcher budget, including root-scoped query visibility.
+- Added multi-root rebuild coverage showing that removing a root from the configured rebuild set drops its indexed files and root scope instead of leaving stale cross-root results behind.
+- Extended hot-restart regressions so reopened indexes now prove multi-root content rewrites and cross-root moves remain query-correct without requiring a full rebuild.
+
 ## 0.1.365 - 2026-04-23
 
 - Cleaned leftover `.recover.partial*` and `.next.partial*` artifacts during interrupted-stage resume and startup open, so crash residue no longer survives into the next reopen path.
