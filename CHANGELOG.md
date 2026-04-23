@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.933 - 2026-04-24
+## 0.1.937 - 2026-04-24
 
 - Fixed the rendered Windows Inno script so its staged `LICENSE` and PyInstaller payload paths resolve from `packaging/dist/windows/`, matching the actual installer compile location.
 - Turned `packaging/pyinstaller.spec` into a real dual-bundle spec with separate CLI and GUI entrypoints, so the Windows release workflow now has executable build targets instead of audit-only metadata.
