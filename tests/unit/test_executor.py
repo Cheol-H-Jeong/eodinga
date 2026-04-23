@@ -502,6 +502,37 @@ def test_execute_reuses_cached_sql_shapes_for_content_queries(
     assert executor_module._content_candidates_sql.cache_info().hits >= 1
 
 
+def test_execute_reuses_cached_regex_compilation(populated_db: sqlite3.Connection) -> None:
+    executor_module._compiled_regex.cache_clear()
+
+    first = search(populated_db, "/report-[0-9]+/", limit=5)
+    second = search(populated_db, "/doc-[0-9]+/", limit=5)
+
+    assert first.hits
+    assert second.hits
+    assert executor_module._compiled_regex.cache_info().hits >= 1
+
+
+def test_execute_reuses_cached_normalized_terms_for_unicode_scan(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/문서/프로젝트-회의록.txt", 512, now, "txt", body_text="회의 메모")
+    _insert_file(tmp_db, 2, "/workspace/문서/프로젝트-보고서.txt", 512, now - 60, "txt", body_text="보고 메모")
+    tmp_db.commit()
+
+    executor_module._normalized_search_term.cache_clear()
+    executor_module._contains_non_ascii.cache_clear()
+
+    first = search(tmp_db, "프로젝트", limit=5)
+    second = search(tmp_db, "프로젝트", limit=5)
+
+    assert {hit.file.name for hit in first.hits} == {"프로젝트-보고서.txt", "프로젝트-회의록.txt"}
+    assert {hit.file.name for hit in second.hits} == {"프로젝트-보고서.txt", "프로젝트-회의록.txt"}
+    assert executor_module._normalized_search_term.cache_info().hits >= 1
+    assert executor_module._contains_non_ascii.cache_info().hits >= 1
+
+
 def test_execute_path_filter_with_short_unix_basename_literal(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/tmp/log", 512, now, "", body_text="system log")

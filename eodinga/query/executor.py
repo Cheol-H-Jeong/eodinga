@@ -143,6 +143,25 @@ def _content_backfill_sql(has_where_sql: bool) -> str:
     return sql
 
 
+@lru_cache(maxsize=512)
+def _compiled_regex(pattern: str, flags: str, default_case_sensitive: bool) -> re.Pattern[str]:
+    return re.compile(
+        pattern,
+        _make_flags(flags)
+        | (0 if default_case_sensitive or "i" in flags.lower() else re.IGNORECASE),
+    )
+
+
+@lru_cache(maxsize=2048)
+def _normalized_search_term(value: str, case_sensitive: bool) -> str:
+    return _normalize_search_text(value, case_sensitive=case_sensitive)
+
+
+@lru_cache(maxsize=2048)
+def _contains_non_ascii(value: str) -> bool:
+    return any(ord(char) > 127 for char in value)
+
+
 def _row_to_record(row: Mapping[str, object]) -> FileRecord:
     payload = {key: row[key] for key in row.keys()}  # type: ignore[arg-type]
     payload["is_dir"] = bool(payload["is_dir"])
@@ -164,12 +183,12 @@ def _make_flags(flag_text: str) -> int:
 
 def _text_matches(value: str, needle: str, case_sensitive: bool) -> bool:
     haystack = _normalize_search_text(value, case_sensitive=case_sensitive)
-    normalized_needle = _normalize_search_text(needle, case_sensitive=case_sensitive)
+    normalized_needle = _normalized_search_term(needle, case_sensitive=case_sensitive)
     return normalized_needle in haystack
 
 
 def _phrase_matches(value: str, phrase: str, case_sensitive: bool) -> bool:
-    normalized_phrase = _normalize_search_text(phrase, case_sensitive=case_sensitive)
+    normalized_phrase = _normalized_search_term(phrase, case_sensitive=case_sensitive)
     if normalized_phrase in _normalize_search_text(value, case_sensitive=case_sensitive):
         return True
     tokens = tuple(token for token in re.split(r"\s+", normalized_phrase) if token)
@@ -213,23 +232,18 @@ def _regex_ok(
     negated: bool,
     default_case_sensitive: bool,
 ) -> bool:
-    compiled = re.compile(
-        pattern,
-        _make_flags(flags)
-        | (0 if default_case_sensitive or "i" in flags.lower() else re.IGNORECASE),
-    )
+    compiled = _compiled_regex(pattern, flags, default_case_sensitive)
     matched = bool(compiled.search(text))
     return not matched if negated else matched
 
 
 def _plain_term_matches_record(
-    record: FileRecord,
+    target_text: str,
     content_text: str,
     term_value: str,
     kind: str,
     case_sensitive: bool,
 ) -> bool:
-    target_text = f"{record.name} {record.parent_path} {record.path}"
     return _term_matches(target_text, term_value, kind=kind, case_sensitive=case_sensitive) or (
         bool(content_text)
         and _term_matches(content_text, term_value, kind=kind, case_sensitive=case_sensitive)
@@ -237,9 +251,10 @@ def _plain_term_matches_record(
 
 
 def _filter_record(branch: CompiledBranch, record: FileRecord, content_text: str) -> bool:
+    target_text = f"{record.name} {record.parent_path} {record.path}"
     for term in branch.path_terms:
         matched = _plain_term_matches_record(
-            record,
+            target_text,
             content_text,
             term.value,
             term.kind,
@@ -258,7 +273,6 @@ def _filter_record(branch: CompiledBranch, record: FileRecord, content_text: str
             term.negated,
         ):
             return False
-    target_text = f"{record.name} {record.parent_path} {record.path}"
     for term in branch.content_terms:
         if not _term_ok(
             content_text,
@@ -368,7 +382,7 @@ def _should_scan_path_candidates(branch: CompiledBranch, fts_ids: list[int]) -> 
     if not fts_ids:
         return True
     # Keep the scan supplement for scripts where unicode token boundaries are less predictable.
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return any(_contains_non_ascii(term.value) for term in positive_terms)
 
 
 def _fetch_path_candidates_fts(
@@ -429,6 +443,10 @@ def _fetch_path_candidates_python_scan(
     if not positive_terms:
         return [], {}
     records = _fetch_records(conn, branch.where_sql, branch.where_params, limit=100_000)
+    normalized_prefixes = tuple(
+        _normalized_search_term(term.value, case_sensitive=branch.case_sensitive)
+        for term in positive_terms
+    )
     matched = {
         file_id: record
         for file_id, record in records.items()
@@ -443,10 +461,8 @@ def _fetch_path_candidates_python_scan(
         key=lambda record: (
             0
             if any(
-                _normalize_search_text(record.name, case_sensitive=branch.case_sensitive).startswith(
-                    _normalize_search_text(term.value, case_sensitive=branch.case_sensitive)
-                )
-                for term in positive_terms
+                _normalize_search_text(record.name, case_sensitive=branch.case_sensitive).startswith(prefix)
+                for prefix in normalized_prefixes
             )
             else 1,
             record.name if branch.case_sensitive else record.name_lower,
@@ -523,7 +539,7 @@ def _should_scan_content_candidates(branch: CompiledBranch, fts_ids: list[int]) 
         return False
     if not fts_ids:
         return True
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return any(_contains_non_ascii(term.value) for term in positive_terms)
 
 
 def _should_scan_auto_content_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
@@ -532,7 +548,7 @@ def _should_scan_auto_content_candidates(branch: CompiledBranch, fts_ids: list[i
         return False
     if not fts_ids:
         return True
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return any(_contains_non_ascii(term.value) for term in positive_terms)
 
 
 def _has_indexed_content(conn: sqlite3.Connection) -> bool:
