@@ -141,9 +141,19 @@ def _cleanup_staged_artifacts(path: Path) -> None:
 
 def _mark_staged_ready(path: Path) -> None:
     ready_path = _staged_ready_path(path)
-    ready_path.write_text("ready\n", encoding="utf-8")
-    _fsync_file(ready_path)
-    _fsync_directory(path.parent)
+    temp_path = ready_path.with_name(f".{ready_path.name}.tmp")
+    if temp_path.exists():
+        temp_path.unlink()
+    try:
+        temp_path.write_text("ready\n", encoding="utf-8")
+        _fsync_file(temp_path)
+        os.replace(temp_path, ready_path)
+        _fsync_file(ready_path)
+        _fsync_directory(path.parent)
+    except Exception:
+        if temp_path.exists():
+            temp_path.unlink()
+        raise
 
 
 def _is_staged_ready(path: Path) -> bool:

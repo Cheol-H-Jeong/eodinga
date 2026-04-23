@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import eodinga.index.storage as storage_module
 from eodinga.index.schema import apply_schema
 from eodinga.index.storage import (
     SQLITE_CACHED_STATEMENTS,
@@ -261,6 +262,42 @@ def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, m
         assert seen["timeout"] == SQLITE_TIMEOUT_SECONDS
     finally:
         conn.close()
+
+
+def test_mark_staged_ready_publishes_marker_atomically(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    staged = tmp_path / ".index.db.next"
+    staged.write_bytes(b"sqlite")
+    ready = staged.with_name(".index.db.next.ready")
+    temp = staged.with_name("..index.db.next.ready.tmp")
+    calls: list[tuple[str, Path, Path | None]] = []
+    original_replace = storage_module.os.replace
+
+    def record_file(path: Path) -> None:
+        calls.append(("file", path, None))
+
+    def record_directory(path: Path) -> None:
+        calls.append(("dir", path, None))
+
+    def record_replace(source: Path, target: Path) -> None:
+        calls.append(("replace", source, target))
+        original_replace(source, target)
+
+    monkeypatch.setattr(storage_module, "_fsync_file", record_file)
+    monkeypatch.setattr(storage_module, "_fsync_directory", record_directory)
+    monkeypatch.setattr(storage_module.os, "replace", record_replace)
+
+    storage_module._mark_staged_ready(staged)
+
+    assert ready.read_text(encoding="utf-8") == "ready\n"
+    assert not temp.exists()
+    assert calls == [
+        ("file", temp, None),
+        ("replace", temp, ready),
+        ("file", ready, None),
+        ("dir", tmp_path, None),
+    ]
 
 
 def test_recover_stale_wal_returns_false_when_nonempty_sidecar_survives(
