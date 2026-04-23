@@ -74,8 +74,10 @@ def test_format_hit_html_renders_extension_badge() -> None:
             ext="pdf",
         ),
         "report",
+        rank=0,
     )
 
+    assert "Alt+1" in rendered
     assert "<mark>report</mark>.pdf" in rendered
     assert ">pdf</span>" in rendered
     assert ">report.pdf</div><div" not in rendered
@@ -127,3 +129,18 @@ def test_format_hit_html_prefers_precomputed_highlighted_path() -> None:
 
     assert "/workspace/<mark>reports</mark>" in rendered
     assert "path:ignored" not in rendered
+
+
+def test_format_hit_html_omits_quick_pick_badge_after_top_nine() -> None:
+    rendered = format_hit_html(
+        SearchHit(
+            path=Path("/tmp/report.txt"),
+            parent_path=Path("/tmp"),
+            name="report.txt",
+        ),
+        "report",
+        rank=9,
+    )
+
+    assert "Alt+10" not in rendered
+    assert "Alt+" not in rendered
