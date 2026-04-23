@@ -49,9 +49,15 @@ def _spawn_thread(target: Callable[[], None]) -> Thread:
 
 
 class _Handler(FileSystemEventHandler):
-    def __init__(self, service: WatchService, root: Path) -> None:
+    def __init__(self, service: WatchService, root: Path | tuple[Path, ...]) -> None:
         self._service = service
-        self._root = root
+        if isinstance(root, tuple):
+            self._roots = root
+        else:
+            self._roots = (root,)
+
+    def _matching_roots(self, path: Path) -> tuple[Path, ...]:
+        return tuple(root for root in self._roots if _is_within_root(path, root))
 
     def on_any_event(self, event: FileSystemEvent) -> None:
         if event.is_directory:
@@ -59,46 +65,65 @@ class _Handler(FileSystemEventHandler):
         src_path = Path(fsdecode(event.src_path))
         if event.event_type == "moved":
             dest_path = Path(fsdecode(event.dest_path))
-            src_in_root = _is_within_root(src_path, self._root)
-            dest_in_root = _is_within_root(dest_path, self._root)
-            if src_in_root and dest_in_root:
-                normalized = WatchEvent(
-                    event_type="moved",
-                    path=dest_path,
-                    src_path=src_path,
-                    is_dir=event.is_directory,
-                    root_path=self._root,
-                    happened_at=monotonic(),
+            src_roots = set(self._matching_roots(src_path))
+            dest_roots = set(self._matching_roots(dest_path))
+            if not src_roots and not dest_roots:
+                return
+            for root in sorted(src_roots & dest_roots):
+                self._service.record(
+                    WatchEvent(
+                        event_type="moved",
+                        path=dest_path,
+                        src_path=src_path,
+                        is_dir=event.is_directory,
+                        root_path=root,
+                        happened_at=monotonic(),
+                    )
                 )
-            elif src_in_root:
-                normalized = WatchEvent(
-                    event_type="deleted",
+            for root in sorted(src_roots - dest_roots):
+                self._service.record(
+                    WatchEvent(
+                        event_type="deleted",
+                        path=src_path,
+                        is_dir=event.is_directory,
+                        root_path=root,
+                        happened_at=monotonic(),
+                    )
+                )
+            for root in sorted(dest_roots - src_roots):
+                self._service.record(
+                    WatchEvent(
+                        event_type="created",
+                        path=dest_path,
+                        is_dir=event.is_directory,
+                        root_path=root,
+                        happened_at=monotonic(),
+                    )
+                )
+            return
+        for root in self._matching_roots(src_path):
+            self._service.record(
+                WatchEvent(
+                    event_type=_event_type_for(event),
                     path=src_path,
                     is_dir=event.is_directory,
-                    root_path=self._root,
+                    root_path=root,
                     happened_at=monotonic(),
                 )
-            elif dest_in_root:
-                normalized = WatchEvent(
-                    event_type="created",
-                    path=dest_path,
-                    is_dir=event.is_directory,
-                    root_path=self._root,
-                    happened_at=monotonic(),
-                )
-            else:
-                return
-            self._service.record(normalized)
-            return
-        self._service.record(
-            WatchEvent(
-                event_type=_event_type_for(event),
-                path=src_path,
-                is_dir=event.is_directory,
-                root_path=self._root,
-                happened_at=monotonic(),
             )
-        )
+
+
+def _observer_groups(roots: set[Path]) -> tuple[tuple[Path, tuple[Path, ...]], ...]:
+    grouped_by_parent: dict[Path, list[Path]] = {}
+    for root in sorted(roots):
+        grouped_by_parent.setdefault(root.parent, []).append(root)
+    groups: list[tuple[Path, tuple[Path, ...]]] = []
+    for parent, sibling_roots in grouped_by_parent.items():
+        if len(sibling_roots) > 1:
+            groups.append((parent, tuple(sibling_roots)))
+            continue
+        groups.append((sibling_roots[0], (sibling_roots[0],)))
+    return tuple(groups)
 
 
 class WatchService:
@@ -111,33 +136,44 @@ class WatchService:
         self._lock = Lock()
         self._stop = Event()
         self._flush_thread = None
+        self._roots: set[Path] = set()
         self._observers: dict[Path, _ManagedObserver] = {}
         self._logger = get_logger("core.watcher")
 
     def start(self, root: Path) -> None:
-        if root in self._observers:
+        if root in self._roots:
             return
         if self._stop.is_set():
             self._stop = Event()
         if self._flush_thread is None or not self._flush_thread.is_alive():
             self._flush_thread = _spawn_thread(self._flush_loop)
             self._flush_thread.start()
-        observer = Observer()
-        observer.schedule(_Handler(self, root), str(root), recursive=True)
-        observer.start()
-        self._observers[root] = observer
+        self._roots.add(root)
+        self._rebuild_observers()
 
     def stop(self) -> None:
         self._stop.set()
+        self._stop_observers()
+        if self._flush_thread is not None and self._flush_thread.is_alive():
+            self._flush_thread.join(timeout=1)
+        self._flush_thread = None
+        self._roots.clear()
+        self._reset_state()
+
+    def _stop_observers(self) -> None:
         for observer in self._observers.values():
             observer.stop()
         for observer in self._observers.values():
             observer.join(timeout=1)
-        if self._flush_thread is not None and self._flush_thread.is_alive():
-            self._flush_thread.join(timeout=1)
-        self._flush_thread = None
         self._observers.clear()
-        self._reset_state()
+
+    def _rebuild_observers(self) -> None:
+        self._stop_observers()
+        for anchor, roots in _observer_groups(self._roots):
+            observer = Observer()
+            observer.schedule(_Handler(self, roots), str(anchor), recursive=True)
+            observer.start()
+            self._observers[anchor] = observer
 
     def record(self, event: WatchEvent) -> None:
         increment_counter("watcher_events", event_type=event.event_type)

@@ -65,6 +65,25 @@ def test_watcher_handler_preserves_move_within_root(tmp_path: Path) -> None:
     assert event.root_path == root
 
 
+def test_watcher_handler_maps_move_between_sibling_roots_to_delete_and_create(tmp_path: Path) -> None:
+    service = WatchService()
+    root_a = tmp_path / "alpha"
+    root_b = tmp_path / "beta"
+    source = root_a / "draft.txt"
+    destination = root_b / "draft.txt"
+    handler = _Handler(service, (root_a, root_b))
+
+    handler.on_any_event(FileMovedEvent(str(source), str(destination)))
+    service._flush_ready(force=True)
+
+    events = [service.queue.get_nowait(), service.queue.get_nowait()]
+    assert [(event.event_type, event.path) for event in events] == [
+        ("deleted", source),
+        ("created", destination),
+    ]
+    assert [event.root_path for event in events] == [root_a, root_b]
+
+
 def test_watcher_coalesces_events_within_500ms(tmp_path: Path) -> None:
     service = WatchService()
     service.start(tmp_path)

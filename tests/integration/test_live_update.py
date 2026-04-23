@@ -225,6 +225,67 @@ def test_live_delete_removed_with_multi_root_watchers_and_root_scope(tmp_path: P
     assert beta_hits == []
 
 
+def test_live_cross_root_move_rehomes_result_without_ghost_source(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    source = root_a / "move-me.txt"
+    destination = root_b / "moved.txt"
+    source.write_text("cross root transfer visibility\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        initial_hits = {hit.file.path for hit in search(conn, "cross root transfer visibility", limit=5).hits}
+        source.rename(destination)
+
+        elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "cross root transfer visibility",
+            destination,
+            deadline_seconds=0.5,
+        )
+        deadline = monotonic() + 0.5
+        while monotonic() < deadline:
+            try:
+                event = service.queue.get(timeout=0.05)
+            except Empty:
+                break
+            writer.apply_events([event], record_loader=make_record)
+
+        global_hits = {hit.file.path for hit in search(conn, "cross root transfer visibility", limit=5).hits}
+        alpha_hits = {
+            hit.file.path
+            for hit in search(conn, "cross root transfer visibility", limit=5, root=root_a).hits
+        }
+        beta_hits = {
+            hit.file.path
+            for hit in search(conn, "cross root transfer visibility", limit=5, root=root_b).hits
+        }
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_hits == {source}
+    assert elapsed <= 0.5
+    assert global_hits == {destination}
+    assert alpha_hits == set()
+    assert beta_hits == {destination}
+
+
 def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     db_path = tmp_path / "database" / "index.db"
