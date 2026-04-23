@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.203 - 2026-04-23
+
+- Made query path deboosting segment-aware and case-insensitive, so vendor directories like `NODE_MODULES` still de-rank correctly while lookalike names such as `node_modules_backup` no longer get penalized by substring accident.
+- Expanded Windows root scoping so exact-root searches still match indexed paths when the caller uses a different drive-letter case or slash style, including the root directory record itself.
+- Fixed the DSL parser so `path:/.../flags` regexes with escaped `/` segments stay regexes instead of silently downgrading to word literals, and added broader boolean-alias and tie-order regressions around the query pipeline.
+
 ## 0.1.197 - 2026-04-23
 
 - Bounded watcher delivery with explicit backpressure, so a full consumer queue now blocks producers visibly instead of growing silently under load; added metrics and regressions for both the pressure path and its observability surface.
