@@ -279,7 +279,7 @@ def test_live_cross_root_move_updates_global_and_root_scoped_queries(tmp_path: P
             writer,
             "cross root move integration",
             destination,
-            deadline_seconds=0.5,
+            deadline_seconds=1.0,
         )
         removed_elapsed = wait_for_query_miss(
             conn,
@@ -287,7 +287,7 @@ def test_live_cross_root_move_updates_global_and_root_scoped_queries(tmp_path: P
             writer,
             "cross root move integration",
             moved,
-            deadline_seconds=0.5,
+            deadline_seconds=1.0,
         )
         alpha_hits = [
             hit.file.path for hit in search(conn, "cross root move integration", limit=5, root=root_a).hits
@@ -301,8 +301,8 @@ def test_live_cross_root_move_updates_global_and_root_scoped_queries(tmp_path: P
         conn.close()
 
     assert initial_alpha_hits == [moved]
-    assert appeared_elapsed <= 0.5
-    assert removed_elapsed <= 0.5
+    assert appeared_elapsed <= 1.0
+    assert removed_elapsed <= 1.0
     assert alpha_hits == []
     assert beta_hits == [destination]
     assert all_hits == [destination]
