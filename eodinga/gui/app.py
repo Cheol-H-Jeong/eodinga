@@ -109,9 +109,12 @@ class EodingaWindow(QMainWindow):
         self.resize(960, 640)
         resolved_config = config or AppConfig()
         resolved_config_path = config_path or default_path()
+        launcher_config = resolved_config.launcher
         self.launcher_state = LauncherState(self)
         self.launcher_window = LauncherWindow(
             search_fn=search_fn,
+            max_results=launcher_config.max_results,
+            debounce_ms=launcher_config.debounce_ms,
             state=self.launcher_state,
             config=resolved_config,
             config_path=resolved_config_path,
@@ -124,7 +127,13 @@ class EodingaWindow(QMainWindow):
 
         self.roots_tab = RootsTab(self)
         self.index_tab = IndexTab(self)
-        self.search_tab = SearchTab(search_fn=search_fn, state=self.launcher_state, parent=self)
+        self.search_tab = SearchTab(
+            search_fn=search_fn,
+            max_results=launcher_config.max_results,
+            debounce_ms=launcher_config.debounce_ms,
+            state=self.launcher_state,
+            parent=self,
+        )
         self.settings_tab = SettingsTab(self)
         self.about_tab = AboutTab(self)
 

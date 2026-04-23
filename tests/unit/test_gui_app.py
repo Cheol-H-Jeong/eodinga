@@ -5,6 +5,7 @@ import sqlite3
 from typing import cast
 
 from PySide6.QtCore import Qt
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QSystemTrayIcon
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
@@ -103,6 +104,29 @@ def test_launcher_state_is_shared_between_popup_and_search_tab(qapp) -> None:
     launcher._run_query()
 
     assert "release" in window.search_tab.launcher_panel.empty_state.body_label.text()
+
+
+def test_launchers_respect_configured_limit_and_debounce(qapp) -> None:
+    calls: list[tuple[str, int]] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        calls.append((query, limit))
+        return QueryResult(items=[], total=0, elapsed_ms=1.0)
+
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"max_results": 7, "debounce_ms": 90})
+    window = EodingaWindow(search_fn=search_fn, config=config)
+
+    assert window.launcher_window._debounce_timer.interval() == 90
+    assert window.search_tab.launcher_panel._debounce_timer.interval() == 90
+
+    window.launcher_window.query_field.setText("popup")
+    window.search_tab.launcher_panel.query_field.setText("embedded")
+    QTest.qWait(40)
+    assert calls == []
+
+    QTest.qWait(80)
+    assert calls == [("popup", 7), ("embedded", 7)]
 
 
 def test_tray_indicator_can_show_launcher_without_tray_backend(qapp) -> None:

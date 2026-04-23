@@ -29,6 +29,7 @@ class LauncherPanel(QWidget):
         self,
         search_fn: SearchFn | None = None,
         max_results: int = 200,
+        debounce_ms: int = MOTION_DEBOUNCE_MS,
         state: LauncherState | None = None,
         parent=None,
     ) -> None:
@@ -64,7 +65,7 @@ class LauncherPanel(QWidget):
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
-        self._debounce_timer.setInterval(MOTION_DEBOUNCE_MS)
+        self._debounce_timer.setInterval(debounce_ms)
         self._debounce_timer.timeout.connect(self._run_query)
 
         layout = QVBoxLayout(self)
@@ -413,12 +414,13 @@ class LauncherWindow(LauncherPanel):
         self,
         search_fn: SearchFn | None = None,
         max_results: int = 200,
+        debounce_ms: int = MOTION_DEBOUNCE_MS,
         state: LauncherState | None = None,
         config: AppConfig | None = None,
         config_path: Path | None = None,
         parent=None,
     ) -> None:
-        super().__init__(search_fn=search_fn, max_results=max_results, state=state, parent=parent)
+        super().__init__(search_fn=search_fn, max_results=max_results, debounce_ms=debounce_ms, state=state, parent=parent)
         self._config = config
         self._config_path = config_path.expanduser() if config_path is not None else None
         self._geometry_restored = False
