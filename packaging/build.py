@@ -82,6 +82,10 @@ def _macro_value(text: str, macro_name: str) -> str | None:
     return match.group(1)
 
 
+def _template_tokens(text: str) -> list[str]:
+    return sorted(set(re.findall(r"@@[A-Z0-9_]+@@", text)))
+
+
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     spec_namespace = _load_windows_spec_namespace()
     inno_text = INNO_SCRIPT.read_text(encoding="utf-8")
@@ -163,6 +167,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "output_base_filename": output_base_filename,
             "rendered_source_entries": _source_entries(rendered_text),
             "rendered_source_entries_match_pyinstaller_dist": _source_entries(rendered_text) == rendered_source_entries,
+            "rendered_unresolved_tokens": _template_tokens(rendered_text),
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
             "license_file_exists": (PROJECT_ROOT / "LICENSE").exists(),
             "contains_user_install_dir": _inno_contains(rendered_text, r"DefaultDirName={userappdata}\eodinga"),
@@ -258,6 +263,7 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         "license_file_exists": "Inno setup no longer references a shipped LICENSE file",
         "source_entries_match_pyinstaller_dist": "Inno source entries drifted from PyInstaller dist names",
         "rendered_source_entries_match_pyinstaller_dist": "Rendered Inno source entries drifted from PyInstaller dist names",
+        "rendered_inno_has_no_unresolved_tokens": "Rendered Inno script still contains unresolved template tokens",
         "contains_rendered_uninstall_display_icon": "Rendered Inno uninstall icon does not point at the GUI executable",
         "contains_start_menu_shortcut": "Rendered Inno start menu shortcut is missing",
         "contains_user_desktop_shortcut": "Inno desktop shortcut no longer targets the per-user desktop",
@@ -269,6 +275,7 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         "purge_prompt_is_opt_in": "Inno uninstall purge prompt is no longer opt-in",
         "purge_targets_local_and_roaming_user_state": "Inno uninstall purge no longer targets both local data and roaming config",
     }
+    inno_payload["rendered_inno_has_no_unresolved_tokens"] = not inno_payload.get("rendered_unresolved_tokens")
     for key, message in required_flags.items():
         if not inno_payload.get(key):
             errors.append(message)
