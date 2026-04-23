@@ -205,8 +205,23 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     db_path = args.db or config.index.db_path
     with closing(open_index(db_path)) as conn:
         index_snapshot = read_index_stats(conn)
+    increment_counter("stats_requests_served")
+    if args.json:
+        increment_counter("stats_json_requests_served")
+    record_snapshot(
+        "command.stats",
+        {
+            "db": str(db_path),
+            "files_indexed": index_snapshot.file_count,
+            "documents_indexed": index_snapshot.content_count,
+            "format": "json" if args.json else "text",
+        },
+    )
     metrics = snapshot_metrics()
-    counters = metrics["counters"]
+    counters = dict(metrics["counters"])
+    counters["commands_completed"] = counters.get("commands_completed", 0) + 1
+    counters["commands.stats.completed"] = counters.get("commands.stats.completed", 0) + 1
+    counters["commands.exit_code.0"] = counters.get("commands.exit_code.0", 0) + 1
     log_target = resolve_log_target()
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
@@ -238,10 +253,12 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         ),
         watcher_startup_rollbacks=counter_value("watcher_startup_rollbacks"),
         index_rebuilds_completed=counter_value("index_rebuilds_completed"),
-        commands_started=counter_value("commands_started"),
-        commands_completed=counter_value("commands_completed"),
-        commands_failed=counter_value("commands_failed"),
-        commands_interrupted=counter_value("commands_interrupted"),
+        commands_started=int(counters.get("commands_started", 0)),
+        commands_completed=int(counters.get("commands_completed", 0)),
+        commands_failed=int(counters.get("commands_failed", 0)),
+        commands_interrupted=int(counters.get("commands_interrupted", 0)),
+        stats_requests_served=int(counters.get("stats_requests_served", 0)),
+        stats_json_requests_served=int(counters.get("stats_json_requests_served", 0)),
         crashes_reported=counter_value("crashes_reported"),
         crash_logs_written=counter_value("crash_logs_written"),
         crash_log_write_failures=counter_value("crash_log_write_failures"),
@@ -266,7 +283,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         watcher_failures=watcher_failure_summary(counters),
         log_sink_file_sources=log_sink_file_source_summary(counters),
         log_sink_file_disabled_reasons=log_sink_file_disabled_reason_summary(counters),
-        counters=counters,
+        counters=dict(sorted(counters.items())),
         histograms=metrics["histograms"],
         recent_snapshots=[dict(entry) for entry in recent_snapshots()],
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
@@ -280,16 +297,6 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         crash_dir=resolve_crash_dir(),
         file_logging_enabled=file_logging_enabled(),
     ).model_dump(mode="json")
-    record_snapshot(
-        "command.stats",
-        {
-            "db": str(db_path),
-            "files_indexed": snapshot["files_indexed"],
-            "documents_indexed": snapshot["documents_indexed"],
-            "queries_served": snapshot["queries_served"],
-            "commands_started": snapshot["commands_started"],
-        },
-    )
     return _emit(snapshot, as_json=bool(args.json))
 
 
