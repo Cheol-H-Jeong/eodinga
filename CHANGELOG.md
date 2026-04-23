@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.843 - 2026-04-23
+## 0.1.846 - 2026-04-23
 
 - Rejected `case:` and boolean `regex:` mode switches inside `OR` branches or negated groups, closing a compiler hole that could previously turn queries like `-(case:false alpha beta)` into match-all searches.
 - Added executor-level boolean truth-table regression coverage for supported predicate operators so De Morgan rewrites stay stable across grouped `AND`/`OR` negation.
