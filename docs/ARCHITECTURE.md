@@ -10,6 +10,24 @@
 4. `eodinga.query.dsl.parse()` and `eodinga.query.compiler.compile_query()` lower the DSL into SQLite filters plus in-memory fallback checks.
 5. `eodinga.query.executor.search()` fetches candidates, merges name/path/content rankings, and returns hits to the CLI or GUI.
 
+## Data Flow Diagram
+
+```text
+configured roots
+    |
+    v
+walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed content
+    |                                                    |
+    |                                                    v
+    +-------------------------------> IndexWriter ---> SQLite tables + FTS5
+                                                         |
+                                                         v
+                                              compiler + executor + ranker
+                                                         |
+                                                         v
+                                                 CLI / GUI / launcher
+```
+
 ## Module Map
 
 | Area | Primary modules | Responsibility |
@@ -28,6 +46,22 @@
 - `content_map` keeps the FTS row IDs stable across updates so incremental reindexing does not balloon the content index.
 - `eodinga.index.storage` owns WAL replay on startup and atomic staged-index replacement.
 
+## Index Lifecycle Sequence
+
+```text
+user / startup
+    |
+    +--> open_index()
+            |
+            +--> resume .next rebuild if present
+            |
+            +--> resume .recover swap if present
+            |
+            +--> replay stale WAL into staged copy when needed
+            |
+            +--> open live database
+```
+
 ## Startup Recovery
 
 - `open_index()` first resumes an interrupted staged rebuild database such as `.index.db.next`, promoting the fully built replacement index on the next startup if a crash happened before the final atomic swap.
@@ -35,6 +69,19 @@
 - If the live database still has a non-empty `-wal` sidecar, recovery is replayed against a staged copy first; only a clean checkpointed database is swapped into place.
 - `eodinga doctor` reports both resumed staged rebuild/recovery work and unrecoverable stale-WAL failures so the operator sees the same startup path the runtime takes.
 - This keeps crash recovery local to the database directory and avoids mutating indexed user roots.
+
+## Rebuild Sequence
+
+```text
+eodinga index --rebuild
+    |
+    +--> create staged .index.db.next
+    +--> walk roots in read-only mode
+    +--> bulk upsert files + FTS content
+    +--> checkpoint staged database
+    +--> atomic rename into live index path
+    +--> remove stale sidecars
+```
 
 ## Query Execution
 
@@ -49,6 +96,25 @@
 - Steady state is watcher-driven: coalesced filesystem events reuse the same writer path and preserve FTS row stability for changed documents.
 - Search is read-only against the index: CLI, launcher, and embedded search tab all call the same compiler and executor stack.
 - Packaging keeps the app local-first: no network services, no daemon dependency outside the local watchdog flow, and no writes outside config/database state.
+
+## Live Update Sequence
+
+```text
+filesystem event
+    |
+    v
+WatchService debounce/coalesce
+    |
+    v
+IndexWriter.apply_events()
+    |
+    +--> update files rows
+    +--> refresh paths_fts / content_fts rows
+    +--> commit transaction
+    |
+    v
+next query sees updated results
+```
 
 ## Packaging Surfaces
 
