@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.186 - 2026-04-23
+## 0.1.191 - 2026-04-23
 
 - Added a launcher preview pane that follows the current result selection, shows the indexed snippet when available, and falls back to path context when content snippets are absent.
 - Kept the popup launcher implementation split into its own module while adding the preview surface, preserving the repository's per-module size guard for the main launcher panel.
