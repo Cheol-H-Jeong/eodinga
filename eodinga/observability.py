@@ -14,6 +14,15 @@ from threading import Lock
 from typing import IO, Any, TypedDict
 
 from loguru import logger
+from eodinga.observability_state import (
+    MetricsStateSnapshot,
+    SnapshotRecord,
+    default_metrics_path as _default_metrics_path,
+    persist_metric_update,
+    reset_persisted_metrics,
+    resolve_metrics_path as _resolve_metrics_path,
+    snapshot_metrics_state as _snapshot_metrics_state,
+)
 
 try:
     import resource
@@ -70,12 +79,6 @@ class MetricsSnapshot(TypedDict):
     uptime_ms: float
 
 
-class SnapshotRecord(TypedDict):
-    name: str
-    recorded_at: str
-    payload: dict[str, object]
-
-
 _RECENT_SNAPSHOTS: deque[SnapshotRecord] = deque(maxlen=_RECENT_SNAPSHOT_LIMIT)
 
 
@@ -110,6 +113,10 @@ def default_log_path() -> Path:
     return default_logs_dir() / "eodinga.log"
 
 
+def default_metrics_path() -> Path:
+    return _default_metrics_path(default_state_dir)
+
+
 def default_crash_dir() -> Path:
     if sys.platform == "darwin":
         return default_logs_dir() / "crashes"
@@ -131,6 +138,10 @@ def resolve_log_path(log_path: Path | None = None) -> Path | None:
     if "PYTEST_CURRENT_TEST" in os.environ:
         return None
     return default_log_path()
+
+
+def resolve_metrics_path(metrics_path: Path | None = None) -> Path | None:
+    return _resolve_metrics_path(default_state_dir, metrics_path)
 
 
 def resolve_crash_dir(crash_dir: Path | None = None) -> Path:
@@ -195,6 +206,11 @@ def get_logger(name: str | None = None) -> Any:
 def increment_counter(name: str, value: int = 1, **fields: object) -> None:
     with _METRICS_LOCK:
         _COUNTERS[name] = _COUNTERS.get(name, 0) + value
+        persist_metric_update(
+            default_state_dir=default_state_dir,
+            recent_snapshot_limit=_RECENT_SNAPSHOT_LIMIT,
+            counter_updates={name: value},
+        )
     logger.bind(metric=name, **fields).debug("counter +{value}", value=value)
 
 
@@ -215,6 +231,11 @@ def record_histogram(
             state = _HistogramState(buckets_ms=buckets_ms)
             _HISTOGRAMS[name] = state
         state.observe(value_ms)
+        persist_metric_update(
+            default_state_dir=default_state_dir,
+            recent_snapshot_limit=_RECENT_SNAPSHOT_LIMIT,
+            histogram_updates=((name, value_ms, buckets_ms),),
+        )
     logger.bind(metric=name, **fields).debug("histogram {value_ms:.3f}ms", value_ms=value_ms)
 
 
@@ -241,11 +262,13 @@ def snapshot_metrics() -> MetricsSnapshot:
     }
 
 
-def reset_metrics() -> None:
+def reset_metrics(*, reset_persisted: bool = True) -> None:
     with _METRICS_LOCK:
         _COUNTERS.clear()
         _HISTOGRAMS.clear()
         _RECENT_SNAPSHOTS.clear()
+        if reset_persisted:
+            reset_persisted_metrics(default_state_dir)
 
 
 def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
@@ -256,12 +279,32 @@ def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
     }
     with _METRICS_LOCK:
         _RECENT_SNAPSHOTS.append(record)
+        persist_metric_update(
+            default_state_dir=default_state_dir,
+            recent_snapshot_limit=_RECENT_SNAPSHOT_LIMIT,
+            snapshot_record=record,
+        )
     logger.bind(metric=name, payload=record["payload"]).debug("snapshot recorded")
 
 
 def recent_snapshots() -> list[SnapshotRecord]:
     with _METRICS_LOCK:
         return list(_RECENT_SNAPSHOTS)
+
+
+def snapshot_metrics_state() -> MetricsStateSnapshot:
+    with _METRICS_LOCK:
+        runtime_counters = dict(_COUNTERS)
+        runtime_histograms = {
+            name: state.snapshot() for name, state in _HISTOGRAMS.items()
+        }
+        runtime_snapshots = list(_RECENT_SNAPSHOTS)
+    return _snapshot_metrics_state(
+        default_state_dir=default_state_dir,
+        runtime_counters=runtime_counters,
+        runtime_histograms=runtime_histograms,
+        runtime_snapshots=runtime_snapshots,
+    )
 
 
 def counter_value(name: str) -> int:
@@ -311,10 +354,12 @@ def write_crash_log(
         "log_retention": resolve_log_retention(),
         "log_compression": resolve_log_compression(),
         "crash_dir": target_dir,
+        "metrics_path": resolve_metrics_path(),
+        "metrics_persistence_enabled": resolve_metrics_path() is not None,
         "metrics_generated_at": metrics["generated_at"],
         "metrics_counters": metrics["counters"],
         "metrics_histograms": metrics["histograms"],
-        "recent_snapshots": recent_snapshots(),
+        "recent_snapshots": snapshot_metrics_state()["recent_snapshots"],
     }
     if details:
         metadata.update(details)

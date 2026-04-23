@@ -16,6 +16,7 @@ from eodinga.observability import (
     configure_logging,
     default_crash_dir,
     default_log_path,
+    default_metrics_path,
     file_logging_enabled,
     increment_counter,
     install_crash_handlers,
@@ -29,7 +30,9 @@ from eodinga.observability import (
     resolve_log_rotation,
     reset_metrics,
     report_crash,
+    resolve_metrics_path,
     snapshot_metrics,
+    snapshot_metrics_state,
     write_crash_log,
 )
 
@@ -38,6 +41,7 @@ def test_default_log_and_crash_paths_follow_platform_state_dirs(monkeypatch) -> 
     monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setenv("XDG_STATE_HOME", "/tmp/eodinga-state")
     assert default_log_path() == Path("/tmp/eodinga-state/eodinga/logs/eodinga.log")
+    assert default_metrics_path() == Path("/tmp/eodinga-state/eodinga/metrics.json")
     assert default_crash_dir() == Path("/tmp/eodinga-state/eodinga/crashes")
 
     monkeypatch.setattr(sys, "platform", "win32")
@@ -85,11 +89,14 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
 def test_log_and_crash_resolution_respect_runtime_overrides(tmp_path: Path, monkeypatch) -> None:
     log_path = tmp_path / "logs" / "custom.log"
     crash_dir = tmp_path / "crashes"
+    metrics_path = tmp_path / "metrics.json"
     monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
     monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
 
     assert resolve_log_path() == log_path
+    assert resolve_metrics_path() == metrics_path
     assert resolve_crash_dir() == crash_dir
     assert file_logging_enabled() is True
 
@@ -156,7 +163,9 @@ def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
 
 def test_write_crash_log_records_resolved_log_state(tmp_path: Path, monkeypatch) -> None:
     log_path = tmp_path / "logs" / "eodinga.log"
+    metrics_path = tmp_path / "metrics.json"
     monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
 
     try:
@@ -166,9 +175,40 @@ def test_write_crash_log_records_resolved_log_state(tmp_path: Path, monkeypatch)
 
     contents = crash_path.read_text(encoding="utf-8")
     assert f"log_path={log_path}" in contents
+    assert f"metrics_path={metrics_path}" in contents
+    assert "metrics_persistence_enabled=True" in contents
     assert "log_rotation=5 MB" in contents
     assert "log_retention=5" in contents
     assert "log_compression=None" in contents
+
+
+def test_metric_updates_persist_when_metrics_path_is_configured(tmp_path: Path, monkeypatch) -> None:
+    metrics_path = tmp_path / "metrics.json"
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+    reset_metrics()
+
+    increment_counter("queries_served", 2)
+    record_histogram("query_latency_ms", 12.5)
+    record_snapshot("command.search", {"query": "persisted", "count": 2})
+
+    metrics_state = snapshot_metrics_state()
+    assert metrics_state["persistence_enabled"] is True
+    assert metrics_state["metrics_path"] == str(metrics_path)
+    assert metrics_state["counters"]["queries_served"] == 2
+    assert metrics_state["histograms"]["query_latency_ms"]["count"] == 1
+    assert metrics_state["recent_snapshots"][0]["name"] == "command.search"
+
+
+def test_reset_metrics_can_preserve_persisted_state(tmp_path: Path, monkeypatch) -> None:
+    metrics_path = tmp_path / "metrics.json"
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+    reset_metrics()
+    increment_counter("queries_served")
+
+    reset_metrics(reset_persisted=False)
+
+    metrics_state = snapshot_metrics_state()
+    assert metrics_state["counters"]["queries_served"] == 1
 
 
 def test_write_crash_log_records_runtime_metrics(tmp_path: Path) -> None:
