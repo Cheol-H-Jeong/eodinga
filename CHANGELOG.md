@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.538 - 2026-04-23
+## 0.1.543 - 2026-04-23
 
 - Reused chunk-shaped `content_map` lookup SQL in the query executor so repeated filtered scans stop rebuilding large `IN (...)` statements on every pass.
 - Reduced Unicode query fallback overhead by caching normalized positive terms per compiled branch and comparing against pre-normalized record text in Python scan and ranking-prep paths.
