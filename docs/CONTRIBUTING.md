@@ -14,6 +14,7 @@ python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]
 2. Run the smallest relevant test slice first.
 3. Run the full local gate before handing off a release candidate.
 4. Update docs and screenshots when the visible or operator-facing contract changes.
+5. Keep release metadata changes (`CHANGELOG.md`, `pyproject.toml`, `eodinga/__init__.py`, local tag) as the last step in the round so intermediate commits stay easy to rework.
 
 ## Quality Gates
 
@@ -51,12 +52,27 @@ yamllint .github/workflows/release-linux.yml
 - Refresh `docs/PERFORMANCE.md` only after rerunning the benchmark you are documenting in the same local environment.
 - Regenerate the shipped screenshots with `python scripts/render_docs_screenshots.py` after visible GUI changes.
 
+Docs by change type:
+
+- Query semantics or search examples: update `README.md` and `docs/DSL.md`.
+- Index lifecycle, watcher behavior, or recovery: update `docs/ARCHITECTURE.md`.
+- Packaging or cut flow: update `docs/RELEASE.md`.
+- New measurable perf claims: rerun the benchmark first, then update `docs/PERFORMANCE.md`.
+
 ## Test Selection Guide
 
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`
 - GUI/launcher changes: `pytest -q tests/unit/test_gui_app.py tests/unit/test_gui_launcher.py tests/unit/test_docs_assets.py`
 - Index/storage/watcher changes: `pytest -q tests/unit/test_storage.py tests/unit/test_writer.py tests/unit/test_watcher.py`
 - Packaging changes: `pytest -q tests/unit/test_build.py tests/unit/test_build_dry_run.py tests/unit/test_inno_script.py tests/unit/test_pyinstaller_spec.py`
+- Docs-only changes that touch screenshots or release guidance: `pytest -q tests/unit/test_docs_assets.py tests/unit/test_release_workflows.py tests/unit/test_acceptance_contract.py`
+
+## Screenshot Workflow
+
+1. Start from a green environment with GUI extras installed.
+2. Regenerate assets with `python scripts/render_docs_screenshots.py`.
+3. Review the resulting files under `docs/screenshots/` instead of editing raster assets manually.
+4. Run `pytest -q tests/unit/test_docs_assets.py` so the shipped docs still reference the current asset set.
 
 ## Commit and Release Notes
 
@@ -64,3 +80,9 @@ yamllint .github/workflows/release-linux.yml
 - Keep `CHANGELOG.md` append-only with the newest round at the top.
 - Patch releases use `0.1.N`; bump `pyproject.toml` and `eodinga/__init__.py` together.
 - Local tags are created during the release-cut handoff flow documented in [RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md).
+
+Release metadata checklist:
+
+- `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py` must agree on the same `0.1.N`.
+- Use the next unused tag from `git tag -l | sort -V | tail -3`.
+- Create the local tag only after the full gate is green.
