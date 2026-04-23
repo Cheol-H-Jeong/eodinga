@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.744 - 2026-04-23
+## 0.1.746 - 2026-04-23
 
 - Clarified the README with an explicit surface-decision guide, command matrix, and fast-triage order so operators can pick the right entry point before rebuilding or debugging the wrong state.
 - Expanded the architecture guide with surface-to-engine ownership, recovery evidence order, and a release review loop that ties docs assets and packaging manifests back to the shared runtime.
