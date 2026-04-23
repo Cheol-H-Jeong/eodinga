@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.203 - 2026-04-23
+
+- Rejected corrupt staged index databases before recovery or atomic swap, so interrupted `.next` and `.recover` files now fail closed instead of replacing a healthy index.
+- Added watcher queue backpressure handling for bounded queues, recording explicit backpressure and stop-time drop counters instead of silently losing flushed events when consumers stall.
+- Made `eodinga index` handle `SIGINT` and `SIGTERM` gracefully by finishing the in-flight transaction, preserving the staged build for resume, and returning a clean signal-style exit code instead of writing a crash log.
+
 ## 0.1.195 - 2026-04-23
 
 - Split the launcher popup window into its own module so the launcher surface stays under the repository's module-size cap while preserving the existing geometry, topmost, and hotkey behavior.
