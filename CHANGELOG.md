@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.141 - 2026-04-23
+
+- Fixed slash-delimited regex parsing so top-level and spaced operator regexes now accept embedded `/` segments and valid closing delimiters after an even run of backslashes instead of misreporting them as unterminated.
+- Stabilized query ranking for same-name hits by preserving the existing branch ordering semantics while breaking identical-name ties by path, preventing insertion order from leaking into RRF scores and final search results.
+- Accepted `launcher.pinned_queries` in persisted config so CLI and GUI startup no longer crash when that launcher state is already present on disk.
+- Added focused grammar and executor regressions that pin the escaped-regex edge cases and the same-score/same-name tie behavior.
+
 ## 0.1.136 - 2026-04-23
 
 - Added a dedicated launcher hotkey controller that binds the configured global shortcut at GUI startup, toggles the popup on the callback path, and shuts the backend down cleanly when the main window exits.
