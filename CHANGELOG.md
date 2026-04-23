@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.147 - 2026-04-23
+## 0.1.151 - 2026-04-23
 
 - Fixed the Windows installer purge flow so opting into uninstall cleanup now removes both `%APPDATA%\\eodinga` and `%LOCALAPPDATA%\\eodinga`, matching the app's actual config and index locations instead of leaving roaming state behind.
 - Hardened the Windows packaging audit to verify both uninstall purge paths explicitly, keeping the Inno template, rendered installer script, and dry-run validation aligned.
