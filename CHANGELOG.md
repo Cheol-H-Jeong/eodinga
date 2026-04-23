@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.218 - 2026-04-23
+## 0.1.224 - 2026-04-23
 
 - Added real-watch integration coverage for rename, move-in, move-out, and cross-root handoff flows so filesystem moves are pinned through actual query visibility instead of handler-only unit tests.
 - Added CLI process roundtrip integration tests that prove multi-root root scoping survives separate `index` and `search` processes without an in-process shortcut.
