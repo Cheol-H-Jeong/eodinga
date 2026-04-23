@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.165 - 2026-04-23
+## 0.1.166 - 2026-04-23
 
 - Surfaced config-backed pinned queries and recent queries directly in the launcher as reusable chips, so frequent searches no longer require retyping filters or navigating history first.
 - Added active filter chips for parsed launcher DSL operators, making `ext:`, `date:`, `size:`, and similar query constraints visible the moment they are typed or recalled from a chip.
