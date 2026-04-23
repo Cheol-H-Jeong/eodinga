@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.703 - 2026-04-23
+## 0.1.704 - 2026-04-23
 
 - Preserved undelivered watcher events when a flush batch hits enqueue backpressure mid-drain, so the remainder of the batch and move-source suppression metadata survive retry instead of being silently dropped.
 - Hardened watcher startup cleanup so failed observer scheduling or startup tears down the transient flush thread and any partially started observer before returning the error.
