@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.967 - 2026-04-24
+## 0.1.971 - 2026-04-24
 
 - Added compact relative date aliases such as `date:thisweek`, `date:lastmonth`, and `date:previousyear`, keeping them equivalent to the existing hyphenated and underscored forms.
 - Fixed compact ISO week ranges so queries like `date:2026W17..2026W18` now span whole weeks instead of collapsing to the first week's Monday.
