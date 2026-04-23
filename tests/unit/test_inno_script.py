@@ -7,7 +7,15 @@ def test_inno_script_contains_required_fields() -> None:
     script = Path("packaging/windows/eodinga.iss").read_text(encoding="utf-8")
     assert '#define AppId "{{B4D25A04-71A1-45A2-A0BB-7B3F612E9E68}"' in script
     assert '#define AppVersion "@@APP_VERSION@@"' in script
+    assert '#define AppPublisherURL "https://github.com/Cheol-H-Jeong/eodinga"' in script
+    assert '#define AppSupportURL "https://github.com/Cheol-H-Jeong/eodinga/issues"' in script
+    assert '#define AppUpdatesURL "https://github.com/Cheol-H-Jeong/eodinga/releases"' in script
     assert "AppVersion={#AppVersion}" in script
+    assert "AppPublisherURL={#AppPublisherURL}" in script
+    assert "AppSupportURL={#AppSupportURL}" in script
+    assert "AppUpdatesURL={#AppUpdatesURL}" in script
+    assert "ArchitecturesAllowed=x64compatible" in script
+    assert "ArchitecturesInstallIn64BitMode=x64compatible" in script
     assert "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in script
     assert "LicenseFile=LICENSE" in script
     assert r"UninstallDisplayIcon={app}\@@GUI_EXE_NAME@@" in script

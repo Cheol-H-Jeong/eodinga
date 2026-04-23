@@ -2,6 +2,9 @@
 #define AppName "eodinga"
 #define AppVersion "@@APP_VERSION@@"
 #define AppPublisher "Cheol-H-Jeong"
+#define AppPublisherURL "https://github.com/Cheol-H-Jeong/eodinga"
+#define AppSupportURL "https://github.com/Cheol-H-Jeong/eodinga/issues"
+#define AppUpdatesURL "https://github.com/Cheol-H-Jeong/eodinga/releases"
 #define AppId "{{B4D25A04-71A1-45A2-A0BB-7B3F612E9E68}"
 
 [Setup]
@@ -9,11 +12,16 @@ AppId={#AppId}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
+AppPublisherURL={#AppPublisherURL}
+AppSupportURL={#AppSupportURL}
+AppUpdatesURL={#AppUpdatesURL}
 DefaultDirName={userappdata}\eodinga
 DefaultGroupName=eodinga
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup
 Compression=lzma
 SolidCompression=yes

@@ -81,6 +81,9 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     inno_text = INNO_SCRIPT.read_text(encoding="utf-8")
     app_id = _macro_value(inno_text, "AppId")
     app_version = _macro_value(inno_text, "AppVersion")
+    app_publisher_url = _macro_value(inno_text, "AppPublisherURL")
+    app_support_url = _macro_value(inno_text, "AppSupportURL")
+    app_updates_url = _macro_value(inno_text, "AppUpdatesURL")
     cli_dist_name = str(spec_namespace.get("CLI_DIST_NAME", "eodinga-cli"))
     gui_dist_name = str(spec_namespace.get("GUI_DIST_NAME", "eodinga-gui"))
     cli_exe_name = str(spec_namespace.get("CLI_EXE_NAME", f"{cli_dist_name}.exe"))
@@ -150,6 +153,9 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "app_id_is_guid_macro": app_id is not None and bool(_INNO_APP_ID_PATTERN.fullmatch(app_id)),
             "app_version_macro": app_version,
             "app_version_uses_template": app_version == INNO_VERSION_TOKEN,
+            "app_publisher_url_macro": app_publisher_url,
+            "app_support_url_macro": app_support_url,
+            "app_updates_url_macro": app_updates_url,
             "source_entries": source_entries,
             "source_entries_match_pyinstaller_dist": source_entries == expected_source_entries,
             "contains_app_version_template": INNO_VERSION_TOKEN in inno_text,
@@ -160,6 +166,14 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
             "license_file_exists": (PROJECT_ROOT / "LICENSE").exists(),
             "contains_user_install_dir": _inno_contains(rendered_text, r"DefaultDirName={userappdata}\eodinga"),
+            "contains_publisher_url": app_publisher_url == "https://github.com/Cheol-H-Jeong/eodinga"
+            and _inno_contains(inno_text, "AppPublisherURL={#AppPublisherURL}"),
+            "contains_support_url": app_support_url == "https://github.com/Cheol-H-Jeong/eodinga/issues"
+            and _inno_contains(inno_text, "AppSupportURL={#AppSupportURL}"),
+            "contains_updates_url": app_updates_url == "https://github.com/Cheol-H-Jeong/eodinga/releases"
+            and _inno_contains(inno_text, "AppUpdatesURL={#AppUpdatesURL}"),
+            "targets_x64_architecture": _inno_contains(rendered_text, "ArchitecturesAllowed=x64compatible")
+            and _inno_contains(rendered_text, "ArchitecturesInstallIn64BitMode=x64compatible"),
             "contains_rendered_uninstall_display_icon": _inno_contains(
                 rendered_text,
                 f"UninstallDisplayIcon={{app}}\\{gui_exe_name}",
@@ -242,6 +256,10 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
         "app_version_uses_template": "Inno AppVersion macro no longer uses the template token",
         "license_file_exists": "Inno setup no longer references a shipped LICENSE file",
+        "contains_publisher_url": "Inno installer publisher URL is missing",
+        "contains_support_url": "Inno installer support URL is missing",
+        "contains_updates_url": "Inno installer updates URL is missing",
+        "targets_x64_architecture": "Inno installer no longer restricts installs to x64-compatible Windows",
         "source_entries_match_pyinstaller_dist": "Inno source entries drifted from PyInstaller dist names",
         "rendered_source_entries_match_pyinstaller_dist": "Rendered Inno source entries drifted from PyInstaller dist names",
         "contains_rendered_uninstall_display_icon": "Rendered Inno uninstall icon does not point at the GUI executable",

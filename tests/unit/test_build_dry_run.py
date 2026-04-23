@@ -69,8 +69,15 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["app_id_is_guid_macro"] is True
     assert payload["inno_setup"]["app_version_macro"] == "@@APP_VERSION@@"
     assert payload["inno_setup"]["app_version_uses_template"] is True
+    assert payload["inno_setup"]["app_publisher_url_macro"] == "https://github.com/Cheol-H-Jeong/eodinga"
+    assert payload["inno_setup"]["app_support_url_macro"] == "https://github.com/Cheol-H-Jeong/eodinga/issues"
+    assert payload["inno_setup"]["app_updates_url_macro"] == "https://github.com/Cheol-H-Jeong/eodinga/releases"
     assert payload["inno_setup"]["contains_versioned_output_macro"] is True
     assert payload["inno_setup"]["contains_user_install_dir"] is True
+    assert payload["inno_setup"]["contains_publisher_url"] is True
+    assert payload["inno_setup"]["contains_support_url"] is True
+    assert payload["inno_setup"]["contains_updates_url"] is True
+    assert payload["inno_setup"]["targets_x64_architecture"] is True
     assert payload["inno_setup"]["contains_rendered_uninstall_display_icon"] is True
     assert payload["inno_setup"]["contains_start_menu_shortcut"] is True
     assert payload["inno_setup"]["contains_desktop_shortcut_task"] is True
@@ -139,6 +146,18 @@ def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -
     errors = module._validate_windows_audit(payload)
 
     assert "Inno uninstall purge no longer targets both local data and roaming config" in errors
+
+
+def test_windows_audit_validator_rejects_missing_installer_metadata() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["inno_setup"]["contains_support_url"] = False
+    payload["inno_setup"]["targets_x64_architecture"] = False
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "Inno installer support URL is missing" in errors
+    assert "Inno installer no longer restricts installs to x64-compatible Windows" in errors
 
 
 def test_build_preflight_reports_missing_windows_tool(monkeypatch) -> None:
