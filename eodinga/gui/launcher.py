@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Callable
-from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from PySide6.QtCore import QAbstractListModel, QEvent, QModelIndex, QObject, QTimer, Qt, Signal
@@ -11,7 +10,8 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
-from eodinga.gui.widgets import EmptyState, ResultItemDelegate, SearchField, StatusChip
+from eodinga.gui.launcher_support import default_search, format_indexing_footer, format_indexing_status
+from eodinga.gui.widgets import EmptyState, PreviewPane, ResultItemDelegate, SearchField, StatusChip
 from eodinga.gui.widgets.result_item import format_hit_html
 from eodinga.observability import get_logger
 
@@ -19,44 +19,6 @@ if TYPE_CHECKING:
     from eodinga.gui.launcher_window import LauncherWindow
 
 SearchFn = Callable[[str, int], QueryResult]
-
-
-def _default_search(query: str, limit: int) -> QueryResult:
-    hit = SearchHit(
-        path=Path("/tmp/example.txt"),
-        parent_path=Path("/tmp"),
-        name="example.txt",
-        ext="txt",
-        highlighted_name="example.txt",
-        highlighted_path="/tmp/example.txt",
-    )
-    items = [hit] if query else []
-    return QueryResult(items=items[:limit], total=len(items), elapsed_ms=2.0)
-
-
-def format_indexing_status(status: IndexingStatus) -> str:
-    if status.phase != "indexing":
-        return "Indexing idle. Results update automatically when your roots change."
-    total = str(status.total_files) if status.total_files > 0 else "?"
-    progress = ""
-    if status.total_files > 0:
-        percent = round((status.processed_files / status.total_files) * 100)
-        progress = f" ({percent}%)"
-    root_label = f" in {status.current_root}" if status.current_root is not None else ""
-    return f"Indexing {status.processed_files}/{total} files{progress}{root_label}."
-
-
-def format_indexing_footer(status: IndexingStatus) -> str:
-    if status.phase != "indexing":
-        return "0 results · 0.0 ms"
-    total = str(status.total_files) if status.total_files > 0 else "?"
-    parts = [f"{status.processed_files}/{total} files"]
-    if status.total_files > 0:
-        percent = round((status.processed_files / status.total_files) * 100)
-        parts.append(f"{percent}% indexed")
-    else:
-        parts.append("indexing")
-    return " · ".join(parts)
 
 
 class LauncherState(QObject):
@@ -139,7 +101,7 @@ class LauncherPanel(QWidget):
         parent=None,
     ) -> None:
         super().__init__(parent)
-        self._search_fn = search_fn or _default_search
+        self._search_fn = search_fn or default_search
         self._max_results = max_results
         self._latest_result = QueryResult()
         self._recent_queries: list[str] = []
@@ -155,15 +117,18 @@ class LauncherPanel(QWidget):
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
         self.result_list.setUniformItemSizes(False)
         self.result_list.setItemDelegate(ResultItemDelegate(self.result_list))
+        self.result_list.setMouseTracking(True)
         self.status_chip = StatusChip("Idle", self)
         self.shortcut_label = QLabel("", self)
         self.shortcut_label.setProperty("role", "secondary")
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
         self.empty_state = EmptyState("Type to search", "Recent queries and indexing progress will appear here.", self)
+        self.preview_pane = PreviewPane(self)
 
         self.model = ResultListModel(self)
         self.result_list.setModel(self.model)
+        self.result_list.selectionModel().currentChanged.connect(lambda current, _: self._update_preview(current))
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -174,7 +139,10 @@ class LauncherPanel(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
-        layout.addWidget(self.result_list, 1)
+        body = QHBoxLayout()
+        body.addWidget(self.result_list, 3)
+        body.addWidget(self.preview_pane, 2)
+        layout.addLayout(body, 1)
         layout.addWidget(self.empty_state)
 
         footer = QHBoxLayout()
@@ -186,6 +154,7 @@ class LauncherPanel(QWidget):
 
         self.query_field.textChanged.connect(self._schedule_query)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
+        self.result_list.entered.connect(self._update_preview)
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
 
@@ -216,6 +185,7 @@ class LauncherPanel(QWidget):
 
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
+        self.preview_pane.clear_preview()
 
     def set_search_fn(self, search_fn: SearchFn) -> None:
         self._search_fn = search_fn
@@ -288,6 +258,13 @@ class LauncherPanel(QWidget):
         if hit is not None:
             self.result_activated.emit(hit)
 
+    def _update_preview(self, index: QModelIndex) -> None:
+        hit = self.model.item_at(index.row()) if index.isValid() else None
+        if hit is None:
+            self.preview_pane.clear_preview()
+            return
+        self.preview_pane.set_hit(hit)
+
     def _schedule_query(self, _: str) -> None:
         if not self._applying_history_query:
             self._history_index = None
@@ -312,6 +289,8 @@ class LauncherPanel(QWidget):
         self._restore_selection(previous_hit)
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
+        if self.model.rowCount() == 0:
+            self.preview_pane.clear_preview()
         self.results_updated.emit(self._latest_result)
         get_logger().debug("launcher query '{}' returned {}", query, self._latest_result.total)
 

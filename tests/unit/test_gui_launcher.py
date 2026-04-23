@@ -369,6 +369,65 @@ def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> No
     assert "budget, report" in launcher.empty_state.body_label.text()
 
 
+def test_launcher_preview_tracks_selection_and_hover(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/alpha.txt"),
+                    parent_path=Path("/tmp"),
+                    name="alpha.txt",
+                    snippet="Alpha body",
+                ),
+                SearchHit(
+                    path=Path("/tmp/beta.txt"),
+                    parent_path=Path("/tmp"),
+                    name="beta.txt",
+                    snippet="Beta body",
+                ),
+            ][:limit],
+            total=2,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("a")
+    _wait(60)
+
+    assert launcher.preview_pane.title_label.text() == "alpha.txt"
+    assert launcher.preview_pane.path_label.text() == "/tmp/alpha.txt"
+    assert launcher.preview_pane.snippet_label.text() == "Alpha body"
+
+    target = launcher.model.index(1, 0)
+    launcher.result_list.entered.emit(target)
+    qapp.processEvents()
+
+    assert launcher.preview_pane.title_label.text() == "beta.txt"
+    assert launcher.preview_pane.snippet_label.text() == "Beta body"
+
+
+def test_launcher_preview_falls_back_when_no_snippet_is_indexed(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+            ][:limit],
+            total=1,
+            elapsed_ms=1.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("alpha")
+    _wait(60)
+
+    assert launcher.preview_pane.title_label.text() == "alpha.txt"
+    assert launcher.preview_pane.snippet_label.text() == "No content snippet indexed for this file."
+
+
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
