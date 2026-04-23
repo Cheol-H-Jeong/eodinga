@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.205 - 2026-04-23
+
+- Expanded the Windows PyInstaller hidden-import scan so packaging now catches common dynamic import patterns including aliased `importlib.import_module(...)`, `from importlib import import_module as ...`, and `__import__(...)`, reducing the chance of release-time drift when modules are loaded lazily.
+- Tightened the Windows installer audit so `packaging/build.py --target windows-dry-run` now enforces the x64 installer contract and fails if uninstall data purging no longer requires an explicit confirmation prompt.
+- Updated the Inno Setup script to declare x64-compatible install mode directly, bringing the installer metadata into line with the existing `win-x64` artifact naming.
+
 ## 0.1.197 - 2026-04-23
 
 - Bounded watcher delivery with explicit backpressure, so a full consumer queue now blocks producers visibly instead of growing silently under load; added metrics and regressions for both the pressure path and its observability surface.
