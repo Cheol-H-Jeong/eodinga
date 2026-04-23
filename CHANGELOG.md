@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.909 - 2026-04-24
+
+- Bypassed the cached query compiler path for relative date filters like `date:today` and `date:tomorrow`, so dynamic local-time ranges now recompile against the current boundary instead of reusing stale timestamps.
+- Reworked launcher keyboard traversal so `Tab` and `Shift+Tab` can move through pinned queries, recent queries, search results, and enabled action buttons without dropping keyboard users back to the mouse.
+- Expanded launcher and settings accessibility text with clearer panel, chip, button, and tab descriptions, and extracted the launcher focus/copy helpers so the main widget stays under the module-size cap.
+
 ## 0.1.905 - 2026-04-23
 
 - Moved CLI stats summarization into a dedicated observability helper so the command surface stays easier to evolve without bloating the main entrypoint.
