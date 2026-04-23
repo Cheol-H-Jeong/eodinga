@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.559 - 2026-04-23
+
+- Restored `PRAGMA synchronous=FULL` for idle connections while temporarily relaxing writer-owned top-level bulk transactions to `NORMAL`, so steady-state durability stays conservative without paying the full fsync cost during large index writes.
+- Tuned large writer upserts to run in fixed-size chunks across file rows, content FTS rows, content-map rows, and file-hash updates, reducing oversized `executemany()` bursts during heavy indexing.
+- Added perf-only bulk-content indexing coverage behind `EODINGA_RUN_PERF=1`, extending the writer benchmark suite beyond metadata-only upserts so content-backed throughput regressions have a dedicated check.
+
 ## 0.1.557 - 2026-04-23
 
 - Cached the executor's dynamic `content_map.file_id IN (...)` SQL templates by chunk size, reducing repeated statement construction during content backfill and record-filter scans.
