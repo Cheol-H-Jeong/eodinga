@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.148 - 2026-04-23
+## 0.1.149 - 2026-04-23
 
 - Expanded the Windows PyInstaller packaging spec so hidden imports now include third-party modules discovered directly from real `import` and `from ... import ...` usage across the `eodinga/` source tree, reducing dependence on a hand-maintained list.
 - Surfaced the source-derived hidden-import set in the Windows packaging audit and made `packaging/build.py --target windows-dry-run` fail if that derived contract goes empty or drops out of the final hidden-import payload.
