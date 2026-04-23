@@ -1,0 +1,88 @@
+.TH EODINGA 1 "2026-04-23" "eodinga 0.1" "User Commands"
+.SH NAME
+eodinga \- local-first instant file search for Windows and Linux
+.SH SYNOPSIS
+.B eodinga
+[\fB\-\-log-level\fR \fILEVEL\fR]
+[\fB\-\-config\fR \fIPATH\fR]
+[\fB\-\-db\fR \fIPATH\fR]
+\fICOMMAND\fR
+[\fIARGS\fR]
+.SH DESCRIPTION
+\fBeodinga\fR indexes filenames, paths, and supported document text on-device and exposes the same lexical search engine through CLI, GUI, and hotkey launcher surfaces.
+The runtime is local-only: indexed roots are treated as read-only inputs and runtime writes stay inside the application config and database directories.
+.SH GLOBAL OPTIONS
+.TP
+.B \-h, \-\-help
+Show the top-level help message and exit.
+.TP
+.B \-\-log-level \fILEVEL\fR
+Set the runtime log level for the invoked command.
+.TP
+.B \-\-config \fIPATH\fR
+Override the default configuration file path.
+.TP
+.B \-\-db \fIPATH\fR
+Override the default SQLite index database path.
+.SH COMMANDS
+.TP
+.B index
+Build or rebuild the on-disk index.
+Supports \fB\-\-root\fR \fIPATH\fR to add one or more roots for the command and \fB\-\-rebuild\fR for a cold staged rebuild.
+.TP
+.B watch
+Consume filesystem notifications and apply incremental updates to the existing index.
+Use after a successful build when you want live updates outside the GUI-managed flow.
+.TP
+.B search
+Execute one query from the shared DSL and print ranked hits.
+Supports \fB\-\-json\fR, \fB\-\-limit\fR \fIN\fR, and \fB\-\-root\fR \fIPATH\fR.
+.TP
+.B stats
+Print persisted index metadata and runtime counters.
+Use \fB\-\-json\fR for machine-readable observability output.
+.TP
+.B gui
+Launch the Qt application surface.
+Supports \fB\-\-test-mode\fR for offscreen smoke validation.
+.TP
+.B doctor
+Run local diagnostics covering dependencies, writable state paths, configured roots, and the active database path.
+.TP
+.B version
+Print the packaged application version.
+.SH QUERY EXAMPLES
+.TP
+.B eodinga search 'ext:pdf invoice'
+Search PDF files matching the lexical term \fBinvoice\fR.
+.TP
+.B eodinga search 'date:this-week path:docs'
+Limit results to recently modified files under paths containing \fBdocs\fR.
+.TP
+.B eodinga search 'regex:/todo|fixme/i' \-\-json
+Run a case-insensitive regex query and print JSON results.
+.TP
+.B eodinga search 'is:duplicate size:>10M'
+Find large duplicate candidates.
+.SH FILES
+.TP
+.I ~/.config/eodinga/config.toml
+Default Linux configuration path.
+.TP
+.I ~/.local/share/eodinga/index.db
+Default Linux SQLite index path.
+.TP
+.I %APPDATA%\\eodinga\\config.toml
+Default Windows configuration path.
+.TP
+.I %LOCALAPPDATA%\\eodinga\\index.db
+Default Windows SQLite index path.
+.SH DIAGNOSTICS
+Run \fBeodinga doctor\fR first when results look stale or the packaged surface behaves unexpectedly.
+Run \fBeodinga stats --json\fR to confirm the active database path and counters.
+Use \fBeodinga index --rebuild\fR when a clean staged rebuild is safer than waiting for live updates.
+.SH SEE ALSO
+.IR README.md ,
+.IR docs/DSL.md ,
+.IR docs/ARCHITECTURE.md ,
+.IR docs/RELEASE.md

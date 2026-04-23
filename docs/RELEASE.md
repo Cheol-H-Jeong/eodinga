@@ -43,6 +43,7 @@ Recommended order:
 Before tagging, confirm:
 
 - `README.md` still matches the current install, CLI, launcher, and DSL behavior.
+- `docs/eodinga.1` still matches `python -m eodinga --help` and the subcommand help surface.
 - `docs/ARCHITECTURE.md` still matches the index lifecycle and packaging surfaces.
 - `docs/PERFORMANCE.md` numbers come from a rerun at the documented HEAD.
 - Screenshot assets under `docs/screenshots/` still match the current UI, or have been refreshed with `python scripts/render_docs_screenshots.py`.

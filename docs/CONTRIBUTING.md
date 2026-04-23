@@ -63,6 +63,7 @@ yamllint .github/workflows/release-linux.yml
 ## Documentation Expectations
 
 - Update `README.md` when installation, query syntax, keyboard behavior, supported formats, packaging, or recovery behavior changes.
+- Keep `docs/eodinga.1` aligned with the live argparse surface (`python -m eodinga --help` plus the subcommand `--help` outputs) when CLI verbs or flags change.
 - Refresh `docs/ARCHITECTURE.md` when data flow, rebuild/recovery, or packaging surfaces change materially.
 - Refresh `docs/PERFORMANCE.md` only after rerunning the benchmark you are documenting in the same local environment.
 - Regenerate the shipped screenshots with `python scripts/render_docs_screenshots.py` after visible GUI changes.
@@ -80,5 +81,6 @@ yamllint .github/workflows/release-linux.yml
 - Use Conventional Commits.
 - Keep `CHANGELOG.md` append-only with the newest round at the top.
 - Patch releases use `0.1.N`; bump `pyproject.toml` and `eodinga/__init__.py` together.
+- Treat `docs/eodinga.1` as shipped CLI reference material for package maintainers and terminal-first users.
 - Local tags are created during the release-cut handoff flow documented in [RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md).
 - If a change cannot stay inside one theme or one logical commit, stop and split it before proceeding.
