@@ -37,6 +37,7 @@ from eodinga.observability import (
 )
 from eodinga.query import QuerySyntaxError, search as run_search
 from eodinga.stats_summary import (
+    command_failure_reason_summary,
     command_summary,
     crash_type_summary,
     exit_code_summary,
@@ -261,6 +262,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         index_batch_size_histogram=histogram_snapshot("index_batch_size"),
         commands=command_summary(counters),
         exit_codes=exit_code_summary(counters),
+        command_failure_reasons=command_failure_reason_summary(counters),
         crash_types=crash_type_summary(counters),
         parser_activity=parser_activity_summary(counters),
         watcher_event_types=watcher_event_type_summary(counters),
@@ -343,11 +345,13 @@ def _run_command(args: argparse.Namespace) -> int:
     except KeyboardInterrupt:
         exit_code = 130
         failure_reason = "interrupted"
+        increment_counter("commands.failure_reason.interrupted", command=command)
         increment_counter("commands_interrupted", command=command)
         increment_counter(f"commands.{command}.interrupted")
     except Exception:
         exit_code = 1
         failure_reason = "exception"
+        increment_counter("commands.failure_reason.exception", command=command)
         increment_counter("commands_failed", command=command)
         increment_counter(f"commands.{command}.failed")
         raise
@@ -371,6 +375,7 @@ def _run_command(args: argparse.Namespace) -> int:
         increment_counter("commands_completed", command=command)
         increment_counter(f"commands.{command}.completed")
     elif exit_code != 130:
+        increment_counter("commands.failure_reason.nonzero_exit", command=command)
         increment_counter("commands_failed", command=command)
         increment_counter(f"commands.{command}.failed")
     return exit_code

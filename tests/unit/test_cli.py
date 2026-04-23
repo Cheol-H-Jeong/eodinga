@@ -525,6 +525,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["commands"]["search"]["started"] == 1
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 1
+    assert payload["command_failure_reasons"] == {}
     assert payload["crash_types"] == {}
     assert payload["parser_activity"] == {}
     assert payload["watcher_event_types"] == {}
@@ -682,6 +683,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["commands"]["search"]["completed"] == 1
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 2
+    assert payload["command_failure_reasons"] == {}
     assert payload["crash_types"] == {}
     assert payload["parser_activity"]["broken"]["errors"] == 1
     assert payload["parser_activity"]["text"]["parsed"] >= 2
@@ -788,6 +790,7 @@ def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path
     assert metrics["counters"]["commands.version.started"] == 1
     assert metrics["counters"]["commands_failed"] == 1
     assert metrics["counters"]["commands.version.failed"] == 1
+    assert metrics["counters"]["commands.failure_reason.exception"] == 1
     assert metrics["counters"]["crashes_reported"] == 1
     assert metrics["counters"]["crash_logs_written"] == 1
     assert "crash_log_write_failures" not in metrics["counters"]
@@ -815,6 +818,7 @@ def test_interrupted_command_returns_130_without_crash_metrics(
     assert metrics["counters"]["commands.version.started"] == 1
     assert metrics["counters"]["commands_interrupted"] == 1
     assert metrics["counters"]["commands.version.interrupted"] == 1
+    assert metrics["counters"]["commands.failure_reason.interrupted"] == 1
     assert "commands_failed" not in metrics["counters"]
     assert "crashes_reported" not in metrics["counters"]
     assert metrics["counters"]["commands.exit_code.130"] == 1
@@ -838,6 +842,7 @@ def test_nonzero_command_exit_counts_as_failed_without_crash_metrics(
     assert metrics["counters"]["commands.search.started"] == 1
     assert metrics["counters"]["commands_failed"] == 1
     assert metrics["counters"]["commands.search.failed"] == 1
+    assert metrics["counters"]["commands.failure_reason.nonzero_exit"] == 1
     assert "commands_completed" not in metrics["counters"]
     assert "crashes_reported" not in metrics["counters"]
     assert metrics["counters"]["commands.exit_code.2"] == 1
@@ -865,6 +870,7 @@ def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Pat
     assert payload["commands"]["version"]["failed"] == 1
     assert payload["commands"]["version"]["started"] == 1
     assert payload["exit_codes"]["1"] == 1
+    assert payload["command_failure_reasons"] == {"exception": 1}
     assert payload["crash_types"] == {"RuntimeError": 1}
     assert payload["snapshot_types"] == {"command.crash": 1, "command.failure": 1}
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
@@ -904,6 +910,7 @@ def test_stats_json_structures_watcher_failure_and_log_sink_summaries(
     assert payload["watcher_observer_cleanup_failures"] == 2
     assert payload["watcher_observer_startup_cleanup_failures"] == 2
     assert payload["watcher_startup_rollbacks"] == 1
+    assert payload["command_failure_reasons"] == {}
     assert payload["watcher_failures"] == {
         "observer_cleanup": {"join": 1, "stop": 1},
         "observer_start": {"schedule": 1, "start": 1},
@@ -940,6 +947,7 @@ def test_stats_json_exposes_crash_log_write_failures(tmp_path: Path, capsys, mon
     assert payload["crashes_reported"] == 1
     assert payload["crash_logs_written"] == 0
     assert payload["crash_log_write_failures"] == 1
+    assert payload["command_failure_reasons"] == {"exception": 1}
     assert payload["crash_types"] == {"RuntimeError": 1}
     assert payload["snapshot_types"] == {"command.crash": 1, "command.failure": 1}
     assert payload["recent_snapshots"][1]["payload"]["crash_path"] is None
@@ -969,6 +977,7 @@ def test_stats_json_structures_interrupted_command_counts(
     assert payload["commands"]["version"]["interrupted"] == 1
     assert payload["commands"]["version"]["started"] == 1
     assert payload["exit_codes"]["130"] == 1
+    assert payload["command_failure_reasons"] == {"interrupted": 1}
     assert payload["recent_snapshots"] == [
         {
             "name": "command.failure",
@@ -1000,6 +1009,7 @@ def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> 
     assert payload["commands"]["search"]["failed"] == 1
     assert payload["commands"]["search"]["started"] == 1
     assert payload["exit_codes"]["2"] == 1
+    assert payload["command_failure_reasons"] == {"nonzero_exit": 1}
     assert payload["snapshot_types"] == {"command.failure": 1}
     assert len(payload["recent_snapshots"]) == 1
     assert payload["recent_snapshots"][0]["name"] == "command.failure"
