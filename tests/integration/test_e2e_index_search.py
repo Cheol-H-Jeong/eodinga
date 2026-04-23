@@ -164,6 +164,74 @@ def test_e2e_plain_negated_term_filters_auto_content_hits(tmp_path: Path) -> Non
     assert hits == ["beta.txt"]
 
 
+def test_e2e_index_search_supports_additional_relative_date_macros(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir(parents=True)
+
+    local_now = datetime.now().astimezone()
+    this_week_start = local_now.replace(hour=12, minute=0, second=0, microsecond=0) - timedelta(
+        days=local_now.weekday()
+    )
+    last_week_time = this_week_start - timedelta(days=3)
+    this_month_start = local_now.replace(day=1, hour=12, minute=0, second=0, microsecond=0)
+    last_month_time = this_month_start - timedelta(days=3)
+
+    files = {
+        "last-week-note.txt": ("last week note\n", last_week_time.timestamp()),
+        "last-month-note.txt": ("last month note\n", last_month_time.timestamp()),
+        "today-note.txt": ("today note\n", local_now.timestamp()),
+    }
+    for name, (body, mtime) in files.items():
+        path = root / name
+        path.write_text(body, encoding="utf-8")
+        os.utime(path, (mtime, mtime))
+
+    _index_tree(root, db_path)
+
+    conn = open_index(db_path)
+    try:
+        last_week_hits = [hit.file.name for hit in search(conn, "date:last-week", limit=5).hits]
+        last_month_hits = [hit.file.name for hit in search(conn, "date:last-month", limit=5).hits]
+    finally:
+        conn.close()
+
+    assert last_week_hits == ["last-week-note.txt"]
+    assert last_month_hits == ["last-month-note.txt"]
+
+
+def test_e2e_index_search_supports_size_ranges(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir(parents=True)
+
+    small = root / "small.txt"
+    medium = root / "medium.txt"
+    large = root / "large.txt"
+    small.write_text("small\n", encoding="utf-8")
+    medium.write_text("medium\n", encoding="utf-8")
+    large.write_text("large\n", encoding="utf-8")
+
+    sizes = {
+        small: 99,
+        medium: 100 * 1024,
+        large: 600 * 1024,
+    }
+    for path, size in sizes.items():
+        with path.open("ab") as handle:
+            handle.truncate(size)
+
+    _index_tree(root, db_path)
+
+    conn = open_index(db_path)
+    try:
+        hits = [hit.file.name for hit in search(conn, "size:100..500K", limit=5).hits]
+    finally:
+        conn.close()
+
+    assert hits == ["medium.txt"]
+
+
 def test_e2e_watch_move_then_recreate_delete_does_not_leave_ghost_source(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     db_path = tmp_path / "database" / "index.db"
