@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.542 - 2026-04-23
+
+- Made startup cleanup of orphaned `index.db` recovery and partial-copy artifacts durably sync the parent directory, reducing the chance that stale WAL or partial-stage residue reappears after a crash during reopen.
+- Hardened rebuild stop handling so a `SIGINT` or `SIGTERM` arriving just after the last explicit poll still exits through `KeyboardInterrupt` instead of silently completing and publishing the staged index.
+
 ## 0.1.540 - 2026-04-23
 
 - Normalized remapped launcher hotkeys into a stable canonical form, so spaced or alias-heavy input like `Control + Alt + K` now rebinds, persists, and displays as `ctrl+alt+k`.
