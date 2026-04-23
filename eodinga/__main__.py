@@ -232,6 +232,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         log_sinks_stderr_configured=counter_value("log_sinks.stderr.configured"),
         log_sinks_file_configured=counter_value("log_sinks.file.configured"),
         log_sinks_file_disabled=counter_value("log_sinks.file.disabled"),
+        snapshots_recorded=counter_value("snapshots_recorded"),
+        snapshots_dropped=counter_value("snapshots_dropped"),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
         query_result_count_histogram=histogram_snapshot("query_result_count"),
         command_latency_histogram=histogram_snapshot("command_latency_ms"),
@@ -243,6 +245,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         commands=_command_summary(counters),
         exit_codes=_exit_code_summary(counters),
         crash_types=_crash_type_summary(counters),
+        snapshot_activity=_snapshot_activity_summary(counters),
         parser_activity=_parser_activity_summary(counters),
         watcher_event_types=_watcher_event_type_summary(counters),
         counters=counters,
@@ -380,6 +383,16 @@ def _crash_type_summary(counters: dict[str, int]) -> dict[str, int]:
         if name.startswith(prefix)
     }
     return dict(sorted(crash_types.items()))
+
+
+def _snapshot_activity_summary(counters: dict[str, int]) -> dict[str, int]:
+    prefix = "snapshots."
+    snapshot_activity = {
+        name[len(prefix) :]: value
+        for name, value in counters.items()
+        if name.startswith(prefix)
+    }
+    return dict(sorted(snapshot_activity.items()))
 
 
 def _parser_activity_summary(counters: dict[str, int]) -> dict[str, dict[str, int]]:

@@ -255,6 +255,11 @@ def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
         "payload": dict(payload),
     }
     with _METRICS_LOCK:
+        if len(_RECENT_SNAPSHOTS) == _RECENT_SNAPSHOT_LIMIT:
+            _COUNTERS["snapshots_dropped"] = _COUNTERS.get("snapshots_dropped", 0) + 1
+        _COUNTERS["snapshots_recorded"] = _COUNTERS.get("snapshots_recorded", 0) + 1
+        snapshot_counter = f"snapshots.{name}"
+        _COUNTERS[snapshot_counter] = _COUNTERS.get(snapshot_counter, 0) + 1
         _RECENT_SNAPSHOTS.append(record)
     logger.bind(metric=name, payload=record["payload"]).debug("snapshot recorded")
 
