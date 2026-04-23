@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.504 - 2026-04-23
+
+- Expanded `stats --json` with rebuild completion, rebuild latency, and batch-size summaries so operators can inspect indexing throughput without decoding raw metric keys.
+- Added query outcome metrics for zero-hit searches, truncated result sets, and result-count distribution, making search behavior visible beyond simple query latency.
+- Structured parser activity and watcher event-type breakdowns in the stats payload, and recorded per-event watcher counters so live-update behavior is easier to inspect at a glance.
+
 ## 0.1.503 - 2026-04-23
 
 - Hardened the AppImage dry-run and build audits so staged Linux releases now fail on desktop-entry drift, missing strict-shell launchers, or launcher shims that stop returning to the project root before invoking `python -m eodinga`.
