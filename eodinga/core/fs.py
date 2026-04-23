@@ -95,7 +95,6 @@ __all__ = [
     "open_readonly",
     "resolve_safe",
     "scandir_safe",
-    "scandir_with_stat_safe",
     "stat_follow_safe",
     "stat_safe",
 ]

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.266 - 2026-04-23
+
+- Reused `os.scandir()` child stat results during index walks so large traversals avoid an immediate extra `lstat()` on every discovered entry while preserving symlink-loop handling and the fallback path for mocked directory listings.
+- Cached chunk-shaped content lookup SQL in the query executor so repeated content backfill batches reuse stable prepared statements instead of recompiling fresh `IN (...)` SQL text on each call.
+- Changed SQLite connections to idle at `synchronous=FULL`, then scope `synchronous=NORMAL` explicitly around rebuilds and clean bulk writer calls so indexing keeps the faster write path without leaving long-lived idle connections in the weaker durability mode.
+
 ## 0.1.244 - 2026-04-23
 
 - Hardened staged index recovery so interrupted `.recover` and `.next` snapshots must contain initialized schema before they can replace a live index, preventing empty or half-built files from being promoted during startup recovery.
