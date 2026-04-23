@@ -287,6 +287,7 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
     expected_archive_name = f"eodinga-{package_version}-linux-{arch}-appdir.tar.gz"
     if Path(str(archive_path)).name != expected_archive_name:
         errors.append("AppImage archive filename does not match the package version")
+    archive_artifact = payload.get("archive_artifact", {})
     recipe_payload = payload.get("recipe", {})
     icon_payload = payload.get("icon", {})
     apprun_payload = payload.get("apprun", {})
@@ -331,6 +332,9 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (payload.get("archive_entries_sorted"), "AppImage archive entries are no longer sorted"),
         (payload.get("archive_mtime_zero"), "AppImage archive member mtimes are no longer reproducible"),
         (payload.get("archive_numeric_owner_zero"), "AppImage archive ownership is no longer reproducible"),
+        (archive_artifact.get("exists"), "AppImage archive is missing"),
+        (isinstance(archive_artifact.get("size_bytes"), int) and archive_artifact.get("size_bytes", 0) > 0, "AppImage archive size is missing"),
+        (bool(archive_artifact.get("sha256")), "AppImage archive digest is missing"),
     ]
     for ok, message in required_flags:
         if not ok:
@@ -367,6 +371,8 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
     expected_deb_name = f"eodinga_{package_version}_{arch}.deb"
     if Path(str(payload.get("deb_path"))).name != expected_deb_name:
         errors.append("Debian package filename does not match the package version and arch")
+    archive_artifact = payload.get("archive_artifact", {})
+    deb_artifact = payload.get("deb_artifact", {})
     required_flags = [
         (control_template_payload.get("exists"), "Debian control template is missing"),
         (control_template_payload.get("contains_version_template"), "Debian control template no longer uses the version token"),
@@ -413,10 +419,27 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (payload.get("archive_entries_sorted"), "Debian dry-run archive entries are no longer sorted"),
         (payload.get("archive_mtime_zero"), "Debian dry-run archive member mtimes are no longer reproducible"),
         (payload.get("archive_numeric_owner_zero"), "Debian dry-run archive ownership is no longer reproducible"),
+        (archive_artifact.get("exists"), "Debian archive is missing"),
+        (isinstance(archive_artifact.get("size_bytes"), int) and archive_artifact.get("size_bytes", 0) > 0, "Debian archive size is missing"),
+        (bool(archive_artifact.get("sha256")), "Debian archive digest is missing"),
+        (
+            deb_artifact.get("path") == payload.get("deb_path"),
+            "Debian package artifact path drifted from the planned output path",
+        ),
     ]
     for ok, message in required_flags:
         if not ok:
             errors.append(message)
+    if payload.get("dry_run"):
+        if deb_artifact.get("exists"):
+            errors.append("Debian dry run unexpectedly produced a .deb payload")
+    else:
+        if not deb_artifact.get("exists"):
+            errors.append("Debian package is missing")
+        if not isinstance(deb_artifact.get("size_bytes"), int) or deb_artifact.get("size_bytes", 0) <= 0:
+            errors.append("Debian package size is missing")
+        if not deb_artifact.get("sha256"):
+            errors.append("Debian package digest is missing")
     return errors
 
 

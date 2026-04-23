@@ -425,6 +425,10 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["archive_entries_sorted"] is True
     assert payload["archive_mtime_zero"] is True
     assert payload["archive_numeric_owner_zero"] is True
+    assert payload["archive_artifact"]["path"] == payload["archive"]
+    assert payload["archive_artifact"]["exists"] is True
+    assert payload["archive_artifact"]["size_bytes"] > 0
+    assert len(payload["archive_artifact"]["sha256"]) == 64
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
@@ -621,6 +625,14 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["archive_entries_sorted"] is True
     assert payload["archive_mtime_zero"] is True
     assert payload["archive_numeric_owner_zero"] is True
+    assert payload["archive_artifact"]["path"] == payload["archive"]
+    assert payload["archive_artifact"]["exists"] is True
+    assert payload["archive_artifact"]["size_bytes"] > 0
+    assert len(payload["archive_artifact"]["sha256"]) == 64
+    assert payload["deb_artifact"]["path"] == payload["deb_path"]
+    assert payload["deb_artifact"]["exists"] is False
+    assert payload["deb_artifact"]["size_bytes"] is None
+    assert payload["deb_artifact"]["sha256"] is None
     assert payload["control"] == {
         "package": "eodinga",
         "version": __version__,
@@ -675,5 +687,143 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert payload["archive_entries_sorted"] is True
     assert payload["archive_mtime_zero"] is True
     assert payload["archive_numeric_owner_zero"] is True
+    assert payload["archive_artifact"]["path"] == payload["archive"]
+    assert payload["archive_artifact"]["exists"] is True
+    assert payload["archive_artifact"]["size_bytes"] > 0
+    assert len(payload["archive_artifact"]["sha256"]) == 64
     assert payload["icon"]["exists"] is True
     assert payload["docs"]["changelog_exists"] is True
+    assert payload["deb_artifact"]["path"] == payload["deb_path"]
+    assert payload["deb_artifact"]["exists"] is True
+    assert payload["deb_artifact"]["size_bytes"] > 0
+    assert len(payload["deb_artifact"]["sha256"]) == 64
+
+
+def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadata() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "x86_64",
+        "archive": f"packaging/dist/eodinga-{__version__}-linux-x86_64-appdir.tar.gz",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "archive_artifact": {
+            "exists": True,
+            "size_bytes": 0,
+            "sha256": "",
+        },
+        "recipe": {
+            "exists": True,
+            "contains_version_template": True,
+            "rendered_exists": True,
+            "rendered_version_matches_package": True,
+            "references_desktop_entry": True,
+            "references_icon_asset": True,
+            "launches_gui": True,
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "exec": "eodinga gui",
+            "icon": "eodinga",
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "diricon_exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "apprun": {
+            "is_executable": True,
+            "launches_gui": True,
+            "has_strict_shell": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "changes_to_project_root": True,
+            "executes_python_module": True,
+        },
+    }
+
+    errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
+
+    assert "AppImage archive size is missing" in errors
+    assert "AppImage archive digest is missing" in errors
+
+
+def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "amd64",
+        "archive": f"packaging/dist/eodinga_{__version__}_amd64_debroot.tar.gz",
+        "deb_path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "archive_artifact": {
+            "exists": True,
+            "size_bytes": 0,
+            "sha256": "",
+        },
+        "deb_artifact": {
+            "path": f"packaging/dist/eodinga_{__version__}_amd64.deb",
+            "exists": False,
+            "size_bytes": None,
+            "sha256": None,
+        },
+        "dry_run": False,
+        "control": {
+            "package": "eodinga",
+            "version": __version__,
+            "architecture": "amd64",
+            "depends": "python3 (>= 3.11)",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "debian_control_template": {
+            "exists": True,
+            "contains_version_template": True,
+            "contains_arch_template": True,
+            "rendered_exists": True,
+            "source": "eodinga",
+            "maintainer": "Cheol-H-Jeong",
+            "binary_package": "eodinga",
+            "description": "Instant lexical file search for Windows and Linux",
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "launches_gui": True,
+            "icon_matches_package": True,
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "executes_python_module": True,
+        },
+        "docs": {
+            "license_exists": True,
+            "changelog_exists": True,
+            "changelog_has_current_release_heading": True,
+            "changelog_gzip_mtime_zero": True,
+        },
+    }
+
+    errors = module._validate_linux_deb_audit(payload, __version__, __version__)
+
+    assert "Debian archive size is missing" in errors
+    assert "Debian archive digest is missing" in errors
+    assert "Debian package is missing" in errors
+    assert "Debian package size is missing" in errors
+    assert "Debian package digest is missing" in errors

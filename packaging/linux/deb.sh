@@ -33,6 +33,7 @@ if [[ "${1:-}" == "--dry-run" ]]; then
 fi
 
 rm -rf "${PACKAGE_DIR}"
+rm -f "${DEB_PATH}"
 mkdir -p "${PACKAGE_DIR}/DEBIAN" "${PACKAGE_DIR}/usr/bin" "${PACKAGE_DIR}/usr/share/applications" "${PACKAGE_DIR}/usr/share/doc/eodinga"
 mkdir -p "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps"
 
@@ -81,6 +82,7 @@ import gzip
 import json
 import os
 import tarfile
+import hashlib
 from pathlib import Path
 
 desktop_path = Path("${PACKAGE_DIR}/usr/share/applications/eodinga.desktop")
@@ -111,6 +113,8 @@ for line in debian_control_template_path.read_text(encoding="utf-8").splitlines(
     key, value = line.split(":", 1)
     template_control_entries[key] = value.strip()
 changelog_text = gzip.decompress(changelog_path.read_bytes()).decode("utf-8")
+archive_path = Path("${ARCHIVE_PATH}")
+deb_path = Path("${DEB_PATH}")
 with tarfile.open("${ARCHIVE_PATH}", mode="r:gz") as archive:
     members = archive.getmembers()
 payload = {
@@ -123,7 +127,19 @@ payload = {
     "archive_entries_sorted": [member.name for member in members] == sorted(member.name for member in members),
     "archive_mtime_zero": all(member.mtime == 0 for member in members),
     "archive_numeric_owner_zero": all(member.uid == 0 and member.gid == 0 for member in members),
+    "archive_artifact": {
+        "path": str(archive_path),
+        "exists": archive_path.exists(),
+        "size_bytes": archive_path.stat().st_size if archive_path.exists() else None,
+        "sha256": hashlib.sha256(archive_path.read_bytes()).hexdigest() if archive_path.exists() else None,
+    },
     "deb_path": "${DEB_PATH}",
+    "deb_artifact": {
+        "path": str(deb_path),
+        "exists": deb_path.exists(),
+        "size_bytes": deb_path.stat().st_size if deb_path.exists() else None,
+        "sha256": hashlib.sha256(deb_path.read_bytes()).hexdigest() if deb_path.exists() else None,
+    },
     "dry_run": bool(${DRY_RUN}),
     "control": {
         "package": control_entries.get("Package"),
@@ -185,4 +201,20 @@ if [[ "${DRY_RUN}" -eq 1 ]]; then
 fi
 
 dpkg-deb --build "${PACKAGE_DIR}" "${DEB_PATH}"
+python3 - <<PY
+import hashlib
+import json
+from pathlib import Path
+
+audit_path = Path("${AUDIT_PATH}")
+payload = json.loads(audit_path.read_text(encoding="utf-8"))
+deb_path = Path("${DEB_PATH}")
+payload["deb_artifact"] = {
+    "path": str(deb_path),
+    "exists": deb_path.exists(),
+    "size_bytes": deb_path.stat().st_size if deb_path.exists() else None,
+    "sha256": hashlib.sha256(deb_path.read_bytes()).hexdigest() if deb_path.exists() else None,
+}
+audit_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+PY
 echo "built Debian package at ${DEB_PATH}"
