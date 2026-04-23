@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.934 - 2026-04-24
+## 0.1.935 - 2026-04-24
 
 - Enriched the launcher preview pane with filesystem-backed metadata, so selected results now show the on-disk entry type, file size when applicable, and last-modified timestamp alongside the existing snippet fallback.
 - Added right-click result context menus that mirror the keyboard-first open, reveal, copy path, copy name, and properties actions directly on launcher results and the preview surface.
