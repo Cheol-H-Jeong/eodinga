@@ -135,7 +135,9 @@ class LauncherPanel(QWidget):
         self.query_field.textChanged.connect(self._schedule_query)
         self.query_field.textChanged.connect(self.active_filter_row.set_query)
         self.query_field.textChanged.connect(self.preview_pane.set_query)
-        self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
+        self.result_list.doubleClicked.connect(
+            lambda index: (hit := self.model.item_at(index.row())) is not None and self.result_activated.emit(hit)
+        )
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
 
@@ -157,10 +159,10 @@ class LauncherPanel(QWidget):
         self._shortcuts[3].activated.connect(self.emit_copy_path)
         self._shortcuts[4].activated.connect(self.emit_copy_name)
         self._shortcuts[5].activated.connect(self.toggle_current_query_pin)
-        self._shortcuts[6].activated.connect(self.select_query_text)
+        self._shortcuts[6].activated.connect(self.focus_query_field)
         self._shortcuts[7].activated.connect(self.focus_query_field)
-        self._shortcuts[8].activated.connect(self.recall_previous_query)
-        self._shortcuts[9].activated.connect(self.recall_next_query)
+        self._shortcuts[8].activated.connect(lambda: self._navigate_recent_queries(-1))
+        self._shortcuts[9].activated.connect(lambda: self._navigate_recent_queries(1))
         self.action_bar.open_button.clicked.connect(self.activate_current_result)
         self.action_bar.reveal_button.clicked.connect(self.emit_open_containing_folder)
         self.action_bar.copy_path_button.clicked.connect(self.emit_copy_path)
@@ -185,9 +187,6 @@ class LauncherPanel(QWidget):
         self._refresh_preview()
         self._refresh_result_list_accessibility()
 
-    def set_search_fn(self, search_fn: SearchFn) -> None:
-        self._search_fn = search_fn
-
     def set_recent_queries(self, queries: list[str]) -> None:
         self._recent_queries = queries
         self.recent_queries_row.set_queries(queries[:5])
@@ -204,10 +203,7 @@ class LauncherPanel(QWidget):
         self._refresh_empty_state()
 
     def activate_current_result(self) -> None:
-        self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.result_activated.emit(hit)
+        self._emit_current_hit(self.result_activated)
 
     def activate_result_at(self, row: int) -> None:
         self._flush_pending_query()
@@ -221,9 +217,6 @@ class LauncherPanel(QWidget):
         self.query_field.setFocus()
         self.query_field.selectAll()
 
-    def select_query_text(self) -> None:
-        self.focus_query_field()
-
     def toggle_current_query_pin(self) -> None:
         query = self.query_field.text().strip()
         if not query:
@@ -231,40 +224,20 @@ class LauncherPanel(QWidget):
         if self._state is not None:
             self._state.toggle_pinned_query(query)
             return
-        if query in self._pinned_queries:
-            self.set_pinned_queries([item for item in self._pinned_queries if item != query])
-            return
-        self.set_pinned_queries([query, *self._pinned_queries])
+        updated = [item for item in self._pinned_queries if item != query] if query in self._pinned_queries else [query, *self._pinned_queries]
+        self.set_pinned_queries(updated)
 
     def emit_open_containing_folder(self) -> None:
-        self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.open_containing_folder.emit(hit)
+        self._emit_current_hit(self.open_containing_folder)
 
     def emit_show_properties(self) -> None:
-        self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.show_properties.emit(hit)
+        self._emit_current_hit(self.show_properties)
 
     def emit_copy_path(self) -> None:
-        self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.copy_path_requested.emit(hit)
+        self._emit_current_hit(self.copy_path_requested)
 
     def emit_copy_name(self) -> None:
-        self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.copy_name_requested.emit(hit)
-
-    def recall_previous_query(self) -> None:
-        self._navigate_recent_queries(-1)
-
-    def recall_next_query(self) -> None:
-        self._navigate_recent_queries(1)
+        self._emit_current_hit(self.copy_name_requested)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusIn:
@@ -280,10 +253,11 @@ class LauncherPanel(QWidget):
             return self._handle_result_list_keypress(key_event)
         return super().eventFilter(watched, event)
 
-    def _emit_activation(self, row: int) -> None:
-        hit = self.model.item_at(row)
+    def _emit_current_hit(self, signal) -> None:
+        self._flush_pending_query()
+        hit = self._current_hit()
         if hit is not None:
-            self.result_activated.emit(hit)
+            signal.emit(hit)
 
     def _schedule_query(self, _: str) -> None:
         if not self._applying_history_query:
@@ -292,10 +266,9 @@ class LauncherPanel(QWidget):
         self._debounce_timer.start()
 
     def _flush_pending_query(self) -> None:
-        if not self._debounce_timer.isActive():
-            return
-        self._debounce_timer.stop()
-        self._run_query()
+        if self._debounce_timer.isActive():
+            self._debounce_timer.stop()
+            self._run_query()
 
     def _run_query(self) -> None:
         query = self.query_field.text().strip()
