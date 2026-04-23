@@ -13,6 +13,7 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     hiddenimports = cast(list[str], namespace["HIDDEN_IMPORTS"])
     discovered_runtime_modules = cast(list[str], namespace["DISCOVERED_RUNTIME_MODULES"])
     discovered_hiddenimports = cast(list[str], namespace["DISCOVERED_HIDDEN_IMPORTS"])
+    discovered_package_datas = cast(list[tuple[str, str]], namespace["DISCOVERED_PACKAGE_DATAS"])
     required_hiddenimports = cast(list[str], namespace["REQUIRED_HIDDEN_IMPORTS"])
     runtime_modules = cast(list[str], namespace["RUNTIME_MODULES"])
     datas = cast(list[tuple[str, str]], namespace["DATAS"])
@@ -39,8 +40,11 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     assert set(discovered_runtime_modules).issubset(set(hiddenimports))
     assert set(discovered_hiddenimports).issubset(set(hiddenimports))
     assert {"eodinga.launcher.hotkey_linux", "eodinga.launcher.hotkey_win"} <= set(runtime_modules)
+    assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in discovered_package_datas
+    assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in discovered_package_datas
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
     assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas
+    assert (str(Path("LICENSE").resolve()), ".") in datas
 
 
 def test_pyinstaller_spec_exposes_expected_windows_dist_names() -> None:
@@ -101,3 +105,26 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
     discovered = discover_hidden_imports(source_root)
 
     assert discovered == ["package.alpha", "package.beta", "package.gamma"]
+
+
+def test_pyinstaller_spec_discovers_package_datas(tmp_path: Path) -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_package_datas = cast(Callable[[Path], list[tuple[str, str]]], namespace["_discover_package_datas"])
+
+    source_root = tmp_path / "eodinga"
+    (source_root / "i18n").mkdir(parents=True)
+    (source_root / "__init__.py").write_text("", encoding="utf-8")
+    (source_root / "i18n" / "en.json").write_text("{}", encoding="utf-8")
+    (source_root / "theme.qss").write_text("QWidget {}", encoding="utf-8")
+    (source_root / "__pycache__").mkdir()
+    (source_root / "__pycache__" / "skip.pyc").write_bytes(b"pyc")
+
+    discovered = discover_package_datas(source_root)
+
+    assert discovered == [
+        (str((source_root / "i18n" / "en.json").resolve()), "eodinga/i18n"),
+        (str((source_root / "theme.qss").resolve()), "eodinga"),
+    ]

@@ -119,6 +119,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             },
             "required_hiddenimports": spec_namespace.get("REQUIRED_HIDDEN_IMPORTS", []),
             "discovered_source_hiddenimports": spec_namespace.get("DISCOVERED_SOURCE_HIDDEN_IMPORTS", []),
+            "discovered_package_datas": spec_namespace.get("DISCOVERED_PACKAGE_DATAS", []),
             "hiddenimports": spec_namespace.get("HIDDEN_IMPORTS", []),
             "datas": spec_namespace.get("DATAS", []),
         },
@@ -196,6 +197,8 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         errors.append("PyInstaller hidden imports no longer include the source-derived modules")
     if not spec_payload.get("datas"):
         errors.append("PyInstaller data files are empty")
+    if not spec_payload.get("discovered_package_datas"):
+        errors.append("PyInstaller package data discovery is empty")
     inno_payload = payload.get("inno_setup", {})
     required_flags = {
         "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",

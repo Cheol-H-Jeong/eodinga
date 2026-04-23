@@ -67,6 +67,21 @@ REQUIRED_HIDDEN_IMPORTS = [
 ]
 
 
+def _discover_package_datas(source_root: Path) -> list[tuple[str, str]]:
+    discovered: list[tuple[str, str]] = []
+    root_parent = source_root.parent
+    for source_path in sorted(source_root.rglob("*")):
+        if not source_path.is_file():
+            continue
+        if source_path.suffix in {".py", ".pyc"}:
+            continue
+        relative = source_path.relative_to(root_parent)
+        if "__pycache__" in relative.parts:
+            continue
+        discovered.append((str(source_path), str(relative.parent).replace("\\", "/")))
+    return discovered
+
+
 def _module_name_for_path(source_path: Path, source_root: Path) -> str:
     relative = source_path.relative_to(source_root.parent)
     parts = list(relative.parts)
@@ -194,6 +209,7 @@ def _discover_source_hidden_imports(source_root: Path) -> list[str]:
 DISCOVERED_RUNTIME_MODULES = _discover_runtime_modules(SOURCE_ROOT)
 DISCOVERED_HIDDEN_IMPORTS = _discover_hidden_imports(SOURCE_ROOT)
 DISCOVERED_SOURCE_HIDDEN_IMPORTS = _discover_source_hidden_imports(SOURCE_ROOT)
+DISCOVERED_PACKAGE_DATAS = _discover_package_datas(SOURCE_ROOT)
 
 HIDDEN_IMPORTS = sorted(
     {
@@ -206,8 +222,7 @@ HIDDEN_IMPORTS = sorted(
 )
 
 DATAS = [
-    (str(I18N_DIR / "en.json"), "eodinga/i18n"),
-    (str(I18N_DIR / "ko.json"), "eodinga/i18n"),
+    *DISCOVERED_PACKAGE_DATAS,
     (str(PROJECT_ROOT / "LICENSE"), "."),
 ]
 

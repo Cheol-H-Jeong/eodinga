@@ -45,6 +45,10 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     discovered_source_hiddenimports = set(payload["pyinstaller_spec"]["discovered_source_hiddenimports"])
     assert discovered_source_hiddenimports
     assert discovered_source_hiddenimports <= set(payload["pyinstaller_spec"]["hiddenimports"])
+    discovered_package_datas = {tuple(item) for item in payload["pyinstaller_spec"]["discovered_package_datas"]}
+    assert discovered_package_datas
+    assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in discovered_package_datas
+    assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in discovered_package_datas
     datas = {tuple(item) for item in payload["pyinstaller_spec"]["datas"]}
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
     assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas
@@ -106,6 +110,16 @@ def test_windows_audit_validator_rejects_missing_source_hidden_import_contract()
     errors = module._validate_windows_audit(payload)
 
     assert "PyInstaller hidden imports no longer include the source-derived modules" in errors
+
+
+def test_windows_audit_validator_rejects_missing_package_data_discovery() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["pyinstaller_spec"]["discovered_package_datas"] = []
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "PyInstaller package data discovery is empty" in errors
 
 
 def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -> None:
