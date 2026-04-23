@@ -416,3 +416,46 @@ def test_writer_clears_file_content_hash_for_empty_parsed_content(tmp_db: Path, 
 
     file_hash = conn.execute("SELECT content_hash FROM files WHERE path = ?", (str(record.path),)).fetchone()
     assert file_hash == (None,)
+
+
+def test_writer_bulk_upsert_respects_active_transaction_rollback(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    with conn:
+        conn.execute(
+            "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+            (str(tmp_path), "[]", "[]", 1),
+        )
+    writer = IndexWriter(conn)
+    record = _synthetic_record(1, tmp_path)
+
+    conn.execute("BEGIN")
+    writer.bulk_upsert([record])
+    conn.rollback()
+
+    rows = conn.execute("SELECT path FROM files").fetchall()
+    assert rows == []
+
+
+def test_writer_apply_events_respects_active_transaction_rollback(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    with conn:
+        conn.execute(
+            "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+            (str(tmp_path), "[]", "[]", 1),
+        )
+    source = _synthetic_record(1, tmp_path)
+    writer = IndexWriter(conn)
+    assert writer.bulk_upsert([source]) == 1
+
+    destination = tmp_path / "moved.txt"
+    destination.write_text("moved", encoding="utf-8")
+
+    conn.execute("BEGIN")
+    writer.apply_events(
+        [WatchEvent(event_type="moved", src_path=source.path, path=destination)],
+        record_loader=make_record,
+    )
+    conn.rollback()
+
+    rows = conn.execute("SELECT path FROM files ORDER BY path").fetchall()
+    assert rows == [(str(source.path),)]

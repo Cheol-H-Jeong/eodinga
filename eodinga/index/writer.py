@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Callable, Iterable, Sequence
+from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
 from time import time
@@ -90,6 +91,7 @@ class IndexWriter:
     ) -> None:
         self._conn = conn
         self._parser_callback = parser_callback
+        self._savepoint_index = 0
         if current_schema_version(self._conn) == 0:
             apply_schema(self._conn)
 
@@ -97,7 +99,7 @@ class IndexWriter:
         buffered = _materialize_records(records)
         if not buffered:
             return 0
-        with self._conn:
+        with self._transaction():
             self._upsert_records(buffered)
             self._upsert_content(buffered)
         return len(buffered)
@@ -108,7 +110,7 @@ class IndexWriter:
         deleted_paths: list[Path] = []
         retired_paths: list[Path] = []
         pending_records: list[FileRecord] = []
-        with self._conn:
+        with self._transaction():
             for event in events:
                 if event.event_type == "deleted":
                     deleted_paths.append(event.path)
@@ -130,6 +132,23 @@ class IndexWriter:
             if content_deletes:
                 self._delete_content_rows(content_deletes)
         return processed
+
+    @contextmanager
+    def _transaction(self) -> Iterable[None]:
+        if not self._conn.in_transaction:
+            with self._conn:
+                yield
+            return
+        self._savepoint_index += 1
+        savepoint_name = f"eodinga_writer_{self._savepoint_index}"
+        self._conn.execute(f"SAVEPOINT {savepoint_name}")
+        try:
+            yield
+        except Exception:
+            self._conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint_name}")
+            self._conn.execute(f"RELEASE SAVEPOINT {savepoint_name}")
+            raise
+        self._conn.execute(f"RELEASE SAVEPOINT {savepoint_name}")
 
     def _upsert_records(self, records: Sequence[FileRecord]) -> None:
         self._conn.executemany(
