@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.238 - 2026-04-23
+## 0.1.240 - 2026-04-23
 
 - Corrected the PyInstaller source-import scan so relative package imports no longer get misclassified as third-party hidden imports, which keeps the Windows packaging audit focused on real bundle dependencies.
 - Staged the checked-in `eodinga/` package tree inside the AppImage AppDir and made its launcher export the bundled Python path before running `python3 -m eodinga`, so the Linux AppImage dry run now audits a self-contained runtime surface.
