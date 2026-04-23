@@ -62,6 +62,7 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     reset_metrics()
+    configure_logging("INFO", log_path=tmp_path / "logs" / "app.log")
     try:
         raise RuntimeError("boom")
     except RuntimeError as error:
@@ -72,6 +73,9 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert "Traceback" in contents
     assert "timestamp=" in contents
     assert "pid=" in contents
+    assert "log_path=" in contents
+    assert "crash_dir=" in contents
+    assert "metrics=" in contents
     assert crash_path.name.startswith("crash-")
     assert counter_value("crashes_written") == 1
 

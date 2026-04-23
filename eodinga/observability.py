@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import sys
 import traceback
 from dataclasses import dataclass, field
@@ -195,6 +196,9 @@ def write_crash_log(
         f"{context}\n",
         f"timestamp={timestamp}\n",
         f"pid={os.getpid()}\n",
+        f"log_path={active_log_path() or resolved_log_path()}\n",
+        f"crash_dir={target_dir}\n",
+        f"metrics={json.dumps(snapshot_metrics(), sort_keys=True)}\n",
         f"{type(error).__name__}: {error}\n",
         "\n",
         *traceback.format_exception(type(error), error, error.__traceback__),
