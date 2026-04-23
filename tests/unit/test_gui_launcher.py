@@ -139,6 +139,7 @@ def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) ->
     assert "Ctrl+Enter reveals" in launcher.shortcut_label.text()
     assert "Up/Down wraps" in launcher.shortcut_label.text()
     assert "Home/End and PgUp/PgDn jump" in launcher.shortcut_label.text()
+    assert "Tab and Shift+Tab cycle chips, results, and actions" in launcher.shortcut_label.text()
     assert "Ctrl+A or Ctrl+L returns to filter" in launcher.shortcut_label.text()
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_End)
@@ -410,6 +411,34 @@ def test_launcher_chip_buttons_support_arrow_and_home_end_navigation(qapp) -> No
     assert launcher.recent_queries_row.buttons[0].hasFocus()
 
 
+def test_launcher_action_buttons_support_arrow_and_home_end_navigation(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/report.txt"), parent_path=Path("/tmp"), name="report.txt")][:limit],
+            total=1,
+            elapsed_ms=1.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("report")
+    _wait(60)
+    launcher._flush_pending_query()
+
+    launcher._focus_widget(launcher.action_bar.open_button, reason=Qt.FocusReason.TabFocusReason)
+    assert launcher.action_bar.open_button.hasFocus()
+
+    QTest.keyClick(launcher.action_bar.open_button, Qt.Key.Key_Right)
+    assert launcher.action_bar.reveal_button.hasFocus()
+
+    QTest.keyClick(launcher.action_bar.reveal_button, Qt.Key.Key_End)
+    assert launcher.action_bar.properties_button.hasFocus()
+
+    QTest.keyClick(launcher.action_bar.properties_button, Qt.Key.Key_Home)
+    assert launcher.action_bar.open_button.hasFocus()
+
+
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:
     revealed: list[str] = []
 
@@ -485,7 +514,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
     assert (
         launcher.shortcut_label.text()
-        == "Type a filename, path, or content term. Alt+Up and Alt+Down browse recent queries."
+        == "Type a filename, path, or content term. Tab reaches pinned and recent queries. Alt+Up and Alt+Down browse recent queries."
     )
 
     launcher.query_field.setText("missing")
@@ -498,6 +527,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "Alt+Down" in launcher.empty_state.body_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
     assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
+    assert "Tab reaches pinned and recent queries" in launcher.shortcut_label.text()
     assert "Alt+Up and Alt+Down browse recent queries" in launcher.shortcut_label.text()
 
 
@@ -934,6 +964,9 @@ def test_launcher_query_chips_expose_accessible_context(qapp) -> None:
     assert recent_chip.accessibleDescription() == "Apply the recent launcher query"
     assert launcher.pinned_queries_row.accessibleDescription() == "1 pinned launcher queries are available: ext:pdf."
     assert launcher.recent_queries_row.accessibleDescription() == "1 recent launcher queries are available: budget."
+    assert launcher.pinned_queries_row.buttons[0].parentWidget().accessibleDescription() == (
+        "Launcher query chips for ext:pdf. Press Tab to focus a chip, Left and Right to move between chips, and Enter or Space to apply it."
+    )
 
 
 def test_launcher_result_markup_surfaces_top_nine_quick_pick_badges(qapp) -> None:
