@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.744 - 2026-04-23
+
+- Expanded the README with single-shot startup, validation, and search recipe tables so operators can choose the smallest command path for desktop, CLI, docs, and release checks.
+- Added architecture maps for command ownership, state transitions, and symptom-to-subsystem routing, making it easier to trace stale results or recovery behavior back to the module that owns it.
+- Tightened contributor and release docs around one-line worker/release passes plus metadata retargeting, so parallel patch-version collisions can be resolved without rewriting earlier round commits.
+
 ## 0.1.738 - 2026-04-23
 
 - Added a `workflows-lint` packaging target and folded it into `release-dry-run`, so the packaging summary now proves the release workflow YAML stays lint-clean alongside the Windows and Linux dry-run audits.
