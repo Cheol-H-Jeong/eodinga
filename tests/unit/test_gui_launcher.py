@@ -408,6 +408,51 @@ def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> No
     assert "Pinned: ext:pdf, size:>10M." in launcher.empty_state.body_label.text()
 
 
+def test_hovering_result_updates_selection_preview_and_actions_target(qapp) -> None:
+    activated: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/alpha.txt"),
+                    parent_path=Path("/tmp"),
+                    name="alpha.txt",
+                    snippet="alpha snippet",
+                ),
+                SearchHit(
+                    path=Path("/tmp/beta.txt"),
+                    parent_path=Path("/tmp"),
+                    name="beta.txt",
+                    snippet="beta snippet",
+                ),
+            ][:limit],
+            total=2,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: activated.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("txt")
+    _wait(60)
+
+    assert launcher.result_list.currentIndex().row() == 0
+    assert launcher.preview_pane.title_label.text() == "alpha.txt"
+    assert launcher.preview_pane.snippet_label.text() == "alpha snippet"
+
+    launcher._sync_preview_to_hovered_index(launcher.model.index(1, 0))
+
+    assert launcher.result_list.currentIndex().row() == 1
+    assert launcher.preview_pane.title_label.text() == "beta.txt"
+    assert launcher.preview_pane.snippet_label.text() == "beta snippet"
+
+    launcher.action_bar.open_button.click()
+
+    assert activated == ["beta.txt"]
+
+
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
