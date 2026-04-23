@@ -154,6 +154,20 @@ When you refresh a benchmark note, keep these four fields together in the same s
 
 This prevents a later changelog or docs edit from quoting a number without the command and runtime context that produced it.
 
+## Perf Evidence Selection
+
+Use the smallest benchmark family that matches the claim you want to make:
+
+| Claim shape | Smallest acceptable evidence |
+| --- | --- |
+| "cold start got faster" | `tests/perf/test_cold_start.py` or the rebuild variant if the claim is specifically about staged rebuilds |
+| "query latency improved" | `tests/perf/test_query_latency.py` for name/path queries, `tests/perf/test_content_query.py` for parser-backed content lookups |
+| "watch updates appear sooner" | `tests/perf/test_watch_latency.py` plus the matching watcher or writer change note |
+| "bulk indexing improved" | `tests/perf/test_bulk_upsert.py` or `tests/perf/test_content_bulk_upsert.py` depending on whether content extraction is involved |
+| "the docs now explain perf better" | no numeric refresh required; update only the workflow prose and leave the baseline table unchanged |
+
+If the evidence does not line up with the wording, narrow the claim instead of broadening the benchmark story.
+
 ## Interpreting Results
 
 - `tests/perf/test_cold_start.py` exercises walker and bulk-upsert throughput. It is the best low-level proxy for first-index regressions.
@@ -200,6 +214,15 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 - Tie any number in `CHANGELOG.md`, `README.md`, or `docs/RELEASE.md` back to the structured stdout lines captured from the perf run.
 - If the round was docs-only, avoid refreshing benchmark prose unless the perf suite was rerun in the same round and the output was clean.
 - If the suite stayed untouched, describe the table in this guide as the current checked-in baseline rather than as a fresh measurement of the release candidate.
+
+Suggested release-note packet:
+
+```text
+benchmark: <test file or benchmark name>
+command: <exact command>
+stdout: <summary line>
+claim: <one sentence used in changelog or docs>
+```
 
 ## Docs-Only Perf Edits
 
