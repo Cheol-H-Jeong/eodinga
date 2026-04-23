@@ -48,9 +48,11 @@ class _HistogramState:
         self.bucket_hits[label] = self.bucket_hits.get(label, 0) + 1
 
     def snapshot(self) -> dict[str, object]:
+        average_ms = self.sum_ms / self.count if self.count else 0.0
         return {
             "count": self.count,
             "sum_ms": round(self.sum_ms, 3),
+            "avg_ms": round(average_ms, 3),
             "min_ms": round(self.min_ms, 3) if self.min_ms is not None else 0.0,
             "max_ms": round(self.max_ms, 3) if self.max_ms is not None else 0.0,
             "buckets": dict(sorted(self.bucket_hits.items())),

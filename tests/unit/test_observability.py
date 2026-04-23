@@ -339,3 +339,19 @@ def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:
 
     assert metrics["generated_at"].endswith("Z")
     assert metrics["uptime_ms"] >= 0
+
+
+def test_histogram_snapshot_exposes_average_latency() -> None:
+    reset_metrics()
+
+    from eodinga.observability import record_histogram
+
+    record_histogram("query_latency_ms", 10.0)
+    record_histogram("query_latency_ms", 30.0)
+
+    histogram = cast(dict[str, object], snapshot_metrics()["histograms"]["query_latency_ms"])
+    assert histogram["count"] == 2
+    assert histogram["sum_ms"] == 40.0
+    assert histogram["avg_ms"] == 20.0
+    assert histogram["min_ms"] == 10.0
+    assert histogram["max_ms"] == 30.0
