@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.216 - 2026-04-23
+## 0.1.222 - 2026-04-23
 
 - Added open-ended `size:` ranges to the query compiler and executor, so queries like `size:100K..` and `size:..500K` now compile into one-sided byte filters alongside the existing bounded form.
 - Expanded query regressions across executor, integration, and CLI layers to pin the new size-window behavior from compiler output through `eodinga search --json`.
