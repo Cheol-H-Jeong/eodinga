@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from eodinga.common import SearchHit
+from eodinga.core.fs import open_readonly
 
 MAX_PREVIEW_BYTES = 16 * 1024
 MAX_PREVIEW_CHARS = 400
@@ -14,8 +16,8 @@ def filesystem_preview_snippet(hit: SearchHit) -> str | None:
     if hit.snippet or not _is_regular_file(path):
         return None
     try:
-        with path.open("rb") as handle:
-            raw = handle.read(MAX_PREVIEW_BYTES)
+        with open_readonly(path, mode="rb") as handle:
+            raw = cast(bytes, handle.read(MAX_PREVIEW_BYTES))
     except OSError:
         return None
     if not raw or b"\x00" in raw:
