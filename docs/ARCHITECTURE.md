@@ -75,6 +75,16 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 - `content_map` keeps the FTS row IDs stable across updates so incremental reindexing does not balloon the content index.
 - `eodinga.index.storage` owns WAL replay on startup and atomic staged-index replacement.
 
+## Storage Responsibilities
+
+| Concern | Runtime owner | Why it matters operationally |
+| --- | --- | --- |
+| Root membership and canonical path identity | `files` | Every surface can answer "which root owns this hit?" without UI-specific logic. |
+| Fast lexical candidate generation | `paths_fts` | Keeps common name/path queries off the slower Python fallback path. |
+| Parsed text lookup | `content_fts` | Lets `content:` and phrase queries stay local without reparsing source files at search time. |
+| Stable content row mapping | `content_map` | Incremental refreshes can replace document text without invalidating the whole FTS table. |
+| Crash-safe promotion and WAL replay | `eodinga.index.storage` | Recovery stays inside the index directory instead of touching indexed roots. |
+
 ## SQLite Schema Snapshot
 
 | Table or virtual table | Role in the runtime | Populated by |
@@ -129,6 +139,13 @@ eodinga index --rebuild
 - Structured operators such as `ext:`, `path:`, `content:`, `size:`, `date:`, `modified:`, `created:`, and `is:` compile into SQLite predicates where possible.
 - Regex and mixed path/content terms are finalized in Python against the candidate set so the CLI and GUI share identical behavior.
 - `eodinga.query.ranker` applies reciprocal rank fusion, filename prefix boosts, and path deboosting for noisy trees such as `node_modules`.
+
+## Query Cost Model
+
+- Plain ASCII path/name searches normally stay on the `paths_fts` fast path and only fall back to Python substring checks when FTS misses.
+- Structured filters such as `ext:`, `size:`, `date:`, and `is:` reduce the candidate set before ranking, which is why combining them with text terms is usually faster than a broad text-only scan.
+- Regex and mixed-field queries are intentionally later-stage work; the compiler keeps them out of SQL when exact semantics would otherwise drift between CLI and GUI surfaces.
+- Phrase and content matches depend on indexed text being present. When parser extras are absent or a file type is unsupported, the query still works, but only through filename/path evidence.
 
 ## Query Sequence
 
@@ -216,6 +233,16 @@ runtime code / CLI / UI changes
 
 - The release flow treats documentation, generated assets, and packaging manifests as part of the same shipped surface.
 - This is why docs-only rounds still run `tests/unit/test_docs_assets.py` and the matching dry-run or GUI smoke command instead of stopping at markdown edits.
+
+## Release Review Responsibilities
+
+| Release input | Primary proof | Failure mode if skipped |
+| --- | --- | --- |
+| `README.md` and `docs/*.md` | reviewer can follow the current install/query/recovery contract from source control alone | packaged behavior and operator docs drift apart |
+| `docs/man/eodinga.1` | generated from the real argparse tree | packaged CLI help becomes stale or hand-maintained |
+| `docs/screenshots/*.png` | offscreen-rendered from live Qt widgets | screenshot gallery stops reflecting the shipped UI |
+| `packaging/dist/*-audit.json` and staged payload summaries | dry-run packaging evidence | release reviewers cannot inspect bundle contents without running installers |
+| `tests/unit/test_docs_assets.py` | docs-asset regression | markdown edits silently break the shipped docs contract |
 
 ## State Ownership
 
