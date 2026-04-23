@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.590 - 2026-04-23
+## 0.1.591 - 2026-04-23
 
 - Cached compiled regex patterns in the query executor, eliminating repeated `re.compile()` work during regex-heavy searches while preserving existing match semantics.
 - Reduced executor hot-path overhead by decoding SQLite rows directly into `FileRecord` objects and reusing normalized query needles across prefix, scan, and ranking passes.
