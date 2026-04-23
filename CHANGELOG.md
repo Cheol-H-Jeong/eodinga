@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.353 - 2026-04-23
+## 0.1.357 - 2026-04-23
 
 - Expanded the README with packaging artifact, stats-snapshot, and reference-matrix sections so operators can map symptoms and release artifacts to the right command or guide without reading the full docs tree first.
 - Deepened the architecture guide with explicit persistence boundaries, observability-driven stats surface notes, and a debug decision matrix that ties stale-result and packaging incidents back to the owning runtime layers.
