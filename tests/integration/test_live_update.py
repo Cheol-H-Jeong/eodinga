@@ -121,6 +121,49 @@ def test_live_delete_removed_from_search_within_500ms(tmp_path: Path) -> None:
     assert elapsed <= 0.5
 
 
+def test_live_rename_updates_path_search_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    source = root / "draft-live-update.txt"
+    destination = root / "renamed-live-update.txt"
+    source.write_text("live rename integration coverage\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(conn, "path:draft-live-update", limit=5).hits]
+        source.rename(destination)
+
+        hit_elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "path:renamed-live-update",
+            destination,
+            deadline_seconds=0.5,
+        )
+        miss_elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "path:draft-live-update",
+            source,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_hits == [source]
+    assert hit_elapsed <= 0.5
+    assert miss_elapsed <= 0.5
+
+
 def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
@@ -223,6 +266,68 @@ def test_live_delete_removed_with_multi_root_watchers_and_root_scope(tmp_path: P
     assert elapsed <= 0.5
     assert alpha_hits == [survivor]
     assert beta_hits == []
+
+
+def test_live_rename_stays_root_scoped_with_multi_root_watchers(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    alpha = root_a / "alpha-draft.txt"
+    beta_source = root_b / "beta-draft.txt"
+    beta_destination = root_b / "beta-renamed.txt"
+    alpha.write_text("alpha rename scope coverage\n", encoding="utf-8")
+    beta_source.write_text("beta rename scope coverage\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        initial_alpha_hits = [
+            hit.file.path for hit in search(conn, "path:alpha-draft", limit=5, root=root_a).hits
+        ]
+        initial_beta_hits = [
+            hit.file.path for hit in search(conn, "path:beta-draft", limit=5, root=root_b).hits
+        ]
+        beta_source.rename(beta_destination)
+
+        hit_elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "path:beta-renamed",
+            beta_destination,
+            deadline_seconds=0.5,
+        )
+        miss_elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "path:beta-draft",
+            beta_source,
+            deadline_seconds=0.5,
+        )
+        alpha_hits = [hit.file.path for hit in search(conn, "path:alpha-draft", limit=5, root=root_a).hits]
+        beta_hits = [hit.file.path for hit in search(conn, "path:beta-renamed", limit=5, root=root_b).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_alpha_hits == [alpha]
+    assert initial_beta_hits == [beta_source]
+    assert hit_elapsed <= 0.5
+    assert miss_elapsed <= 0.5
+    assert alpha_hits == [alpha]
+    assert beta_hits == [beta_destination]
 
 
 def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Path) -> None:
