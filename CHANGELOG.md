@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.954 - 2026-04-24
+## 0.1.958 - 2026-04-24
 
 - Stopped path-only query filters and path-regex branches from hydrating content text during executor fallback and final filtering, trimming unnecessary SQLite work on queries that can only match path metadata.
 - Made the executor probe `content_map` lazily, so metadata-only and path-only searches skip the indexed-content availability check unless a branch can actually use content-backed matching.
