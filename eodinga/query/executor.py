@@ -196,7 +196,7 @@ def _phrase_matches(value: str, phrase: str, case_sensitive: bool) -> bool:
     tokens = tuple(token for token in re.split(r"\s+", normalized_phrase) if token)
     if len(tokens) < 2:
         return False
-    pattern = r"\W+".join(re.escape(token) for token in tokens)
+    pattern = r"(?:[\W_]+)".join(re.escape(token) for token in tokens)
     return bool(re.search(pattern, normalized_value))
 
 
@@ -552,6 +552,8 @@ def _should_scan_content_candidates(branch: CompiledBranch, fts_ids: list[int]) 
     if not positive_terms:
         return False
     if not fts_ids:
+        return True
+    if any(term.kind == "phrase" for term in positive_terms):
         return True
     return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
 
