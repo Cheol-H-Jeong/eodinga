@@ -75,6 +75,18 @@ Before tagging, know which release inputs this repository expects to exist:
 - `packaging/dist/` dry-run manifests for Windows, AppImage, and Debian audits.
 - `.github/workflows/release-windows.yml` and `.github/workflows/release-linux.yml` as linted release automation inputs.
 
+## Release Evidence Matrix
+
+| Claim you are about to make | Minimum evidence to collect first |
+| --- | --- |
+| CLI surface is current | regenerate `docs/man/eodinga.1` or verify it still matches `eodinga --help` |
+| GUI docs are current | offscreen GUI smoke and refreshed screenshots if the visible surface changed |
+| packaging docs are current | rerun the matching `packaging/build.py --target ...-dry-run` command and inspect `packaging/dist/` |
+| release commands are current | one-command pass from `docs/ACCEPTANCE.md` |
+| patch version is safe to cut | `git fetch origin main --tags && git tag -l | sort -V | tail -5` |
+
+This keeps release notes evidence-first. Do not describe a surface as shipped merely because the markdown was updated.
+
 ## Verify Shipped Docs
 
 Before tagging, confirm:
@@ -123,6 +135,16 @@ round changes assembled
 4. Do not push tags or release branches from a worker worktree.
 5. Hand the orchestrator a clean branch plus the final local tag to rebase and publish.
 
+## Metadata Commit Contract
+
+The final release commit should answer only three questions:
+
+1. Which patch version is this round?
+2. What changed in `CHANGELOG.md` for that exact round?
+3. Which local tag points at that exact commit?
+
+If the final commit also contains broader docs rewrites or runtime changes, retargeting after a tag collision becomes harder than it needs to be. Keep the metadata cut small so parallel workers can advance independently.
+
 ## Docs-Only Rounds
 
 Use the same release discipline for docs-only changes when the shipped operator contract moved:
@@ -166,6 +188,18 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - Never move or delete an existing local release tag just to reuse the version number.
 - If another worker landed the same candidate version first, fetch tags again, pick the next unused patch number, and update the release metadata commit instead of force-retagging.
 - If the final gate fails after the metadata commit, fix the issue in a new commit and recreate the local tag on the new tip only after the gate is green again.
+
+## Fast Retarget Checklist
+
+When a tag collision happens late in the round:
+
+1. Fetch tags again.
+2. Pick the next unused `0.1.N`.
+3. Update only `pyproject.toml`, `eodinga/__init__.py`, and the top changelog entry.
+4. Re-run `pytest -q tests/unit`.
+5. Recreate the local tag on the new tip.
+
+Anything broader than that is a sign the metadata cut was not isolated enough.
 
 ## Handoff Checklist
 

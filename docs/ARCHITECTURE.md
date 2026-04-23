@@ -215,6 +215,18 @@ runtime surface changes
 - `scripts/render_docs_screenshots.py` renders offscreen Qt widgets through `eodinga.gui.docs`, keeping screenshots tied to real UI state instead of mock assets.
 - `tests/unit/test_docs_assets.py` pins the presence of the shipped sections and checks that the derived man page still matches the checked-in artifact.
 
+## Shipped Docs Ownership Map
+
+| Shipped artifact | Produced from | Verified by | When to refresh |
+| --- | --- | --- | --- |
+| `README.md` | checked-in markdown contract | operator review plus `tests/unit/test_docs_assets.py` section checks | install, workflow, recovery, or packaging expectations change |
+| `docs/ARCHITECTURE.md` and other guides | checked-in deep-reference docs | operator review plus theme-matched smoke commands | data flow, release flow, or runtime boundaries change |
+| `docs/man/eodinga.1` | `eodinga.__main__._build_parser()` via `scripts/generate_manpage.py` | `tests/unit/test_docs_assets.py` | CLI parser or help text changes |
+| `docs/screenshots/*.png` | `eodinga.gui.docs` rendered offscreen | screenshot refresh plus docs-assets test | visible GUI state used in docs changes |
+| `packaging/dist/*` dry-run manifests | `packaging/build.py --target ...-dry-run` | packaging dry runs and audit-contract tests | packaging docs or release claims change |
+
+Treat each row as a real release input. The docs layer is not a narrative afterthought; it is another audited surface of the runtime and packaging system.
+
 ## Release Input Map
 
 ```text
@@ -231,6 +243,17 @@ runtime code / CLI / UI changes
 
 - The release flow treats documentation, generated assets, and packaging manifests as part of the same shipped surface.
 - This is why docs-only rounds still run `tests/unit/test_docs_assets.py` and the matching dry-run or GUI smoke command instead of stopping at markdown edits.
+
+## Evidence Ladder
+
+When the operator contract looks wrong, walk upward through the smallest matching proof:
+
+1. Runtime evidence: `eodinga search`, `eodinga doctor`, `eodinga stats --json`, or GUI smoke.
+2. Derived-doc evidence: regenerated man page or screenshots tied to the same runtime surface.
+3. Packaging evidence: dry-run manifests under `packaging/dist/`.
+4. Release evidence: the one-command pass from `docs/ACCEPTANCE.md`.
+
+That order matters because the release docs should describe the runtime and packaging outputs, not mask uncertainty about them.
 
 ## State Ownership
 
