@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.180 - 2026-04-23
+
+- Changed `packaging/build.py --target windows` from an audit-only wrapper into a real build entrypoint that runs PyInstaller first and then compiles the rendered Inno Setup script only after the Windows packaging audit passes.
+- Tightened the Linux AppImage packaging contract so `packaging/build.py --target linux-appimage` now requires a runnable `.AppImage` artifact, records it in the audit payload, and fails validation if the build only stages an AppDir.
+- Added focused packaging regressions that pin both behaviors without broadening the packaging scope beyond the existing dry-run and artifact-audit surfaces.
+
 ## 0.1.174 - 2026-04-23
 
 - Expanded `README.md` with a clearer shipped feature matrix, more query examples, practical CLI workflows, and a completed FAQ covering local-only behavior, recovery, parser extras, and health checks.
