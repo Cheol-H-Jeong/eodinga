@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.711 - 2026-04-23
+## 0.1.715 - 2026-04-23
 
 - Expanded live watcher integration coverage for cross-root renames so path-filter queries and root-scoped searches both follow the moved file within 500ms instead of only checking content visibility.
 - Added multi-root delete-and-recreate integration coverage for both fresh and reopened sessions, pinning that stale query hits disappear and the recreated file becomes visible again without disturbing the sibling root.
