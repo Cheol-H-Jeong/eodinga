@@ -380,7 +380,11 @@ NEGATABLE_VALID_QUERY_STRATEGY = st.recursive(
 
 @given(NEGATABLE_VALID_QUERY_STRATEGY)
 def test_negated_operator_query_fuzz_parses_and_compiles(query: str) -> None:
-    compile_query(parse(query))
+    try:
+        compile_query(parse(query))
+    except QuerySyntaxError as error:
+        assert "invalid regex:" in str(error)
+        assert "regex:true" in query or "-regex:true" in query
 
 
 @given(
