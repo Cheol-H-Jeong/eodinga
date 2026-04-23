@@ -356,6 +356,29 @@ def test_settings_tab_toggles_always_on_top_without_restart(qapp, temp_config_pa
     assert load(temp_config_path).launcher.always_on_top is True
 
 
+def test_settings_tab_preserves_launcher_geometry_when_toggling_always_on_top(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"always_on_top": False})
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    launcher = window.launcher_window
+    launcher.show()
+    launcher.move(32, 44)
+    launcher.resize(520, 360)
+    qapp.processEvents()
+
+    before = launcher.geometry()
+    window.settings_tab.always_on_top_checkbox.click()
+    qapp.processEvents()
+    after_enable = launcher.geometry()
+
+    window.settings_tab.always_on_top_checkbox.click()
+    qapp.processEvents()
+    after_disable = launcher.geometry()
+
+    assert after_enable == before
+    assert after_disable == before
+
+
 class _ActionSpy:
     def __init__(self) -> None:
         self.opened: list[str] = []

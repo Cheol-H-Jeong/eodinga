@@ -131,7 +131,7 @@ def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) ->
     QTest.keyClick(launcher.query_field, Qt.Key.Key_Backtab)
     assert launcher.result_list.hasFocus()
     assert launcher.result_list.currentIndex().row() == 0
-    assert "Ctrl+Enter reveals" in launcher.shortcut_label.text()
+    assert "Ctrl+Enter or Alt+R reveals" in launcher.shortcut_label.text()
     assert "Up/Down wraps" in launcher.shortcut_label.text()
     assert "Home/End and PgUp/PgDn jump" in launcher.shortcut_label.text()
     assert "Ctrl+A or Ctrl+L returns to filter" in launcher.shortcut_label.text()
@@ -562,6 +562,45 @@ def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
     assert copied == ["/tmp/release-notes.txt"]
     assert copied_names == ["release-notes.txt"]
     assert "Alt+N copies name" in launcher.shortcut_label.text()
+
+
+def test_launcher_alt_action_shortcuts_open_reveal_and_show_properties(qapp) -> None:
+    activated: list[str] = []
+    revealed: list[str] = []
+    properties: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/release-notes.txt"),
+                    parent_path=Path("/tmp"),
+                    name="release-notes.txt",
+                )
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: activated.append(hit.name))
+    launcher.open_containing_folder.connect(lambda hit: revealed.append(hit.name))
+    launcher.show_properties.connect(lambda hit: properties.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(60)
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_O, Qt.KeyboardModifier.AltModifier)
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_R, Qt.KeyboardModifier.AltModifier)
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_P, Qt.KeyboardModifier.AltModifier)
+
+    assert activated == ["release-notes.txt"]
+    assert revealed == ["release-notes.txt"]
+    assert properties == ["release-notes.txt"]
+    assert "Alt+O opens the top hit" in launcher.shortcut_label.text()
+    assert "Alt+R reveals" in launcher.shortcut_label.text()
+    assert "Alt+P shows properties" in launcher.shortcut_label.text()
 
 
 def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:

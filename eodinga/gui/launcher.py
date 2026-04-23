@@ -135,6 +135,9 @@ class LauncherPanel(QWidget):
             QShortcut(QKeySequence(Qt.Key.Key_Return), self),
             QShortcut(QKeySequence("Ctrl+Return"), self),
             QShortcut(QKeySequence("Shift+Return"), self),
+            QShortcut(QKeySequence("Alt+O"), self),
+            QShortcut(QKeySequence("Alt+R"), self),
+            QShortcut(QKeySequence("Alt+P"), self),
             QShortcut(QKeySequence("Alt+C"), self),
             QShortcut(QKeySequence("Alt+N"), self),
             QShortcut(QKeySequence(QKeySequence.StandardKey.SelectAll), self),
@@ -145,12 +148,15 @@ class LauncherPanel(QWidget):
         self._shortcuts[0].activated.connect(self.activate_current_result)
         self._shortcuts[1].activated.connect(self.emit_open_containing_folder)
         self._shortcuts[2].activated.connect(self.emit_show_properties)
-        self._shortcuts[3].activated.connect(self.emit_copy_path)
-        self._shortcuts[4].activated.connect(self.emit_copy_name)
-        self._shortcuts[5].activated.connect(self.select_query_text)
-        self._shortcuts[6].activated.connect(self.focus_query_field)
-        self._shortcuts[7].activated.connect(self.recall_previous_query)
-        self._shortcuts[8].activated.connect(self.recall_next_query)
+        self._shortcuts[3].activated.connect(self.activate_current_result)
+        self._shortcuts[4].activated.connect(self.emit_open_containing_folder)
+        self._shortcuts[5].activated.connect(self.emit_show_properties)
+        self._shortcuts[6].activated.connect(self.emit_copy_path)
+        self._shortcuts[7].activated.connect(self.emit_copy_name)
+        self._shortcuts[8].activated.connect(self.select_query_text)
+        self._shortcuts[9].activated.connect(self.focus_query_field)
+        self._shortcuts[10].activated.connect(self.recall_previous_query)
+        self._shortcuts[11].activated.connect(self.recall_next_query)
         self.action_bar.open_button.clicked.connect(self.activate_current_result)
         self.action_bar.reveal_button.clicked.connect(self.emit_open_containing_folder)
         self.action_bar.copy_path_button.clicked.connect(self.emit_copy_path)
@@ -334,9 +340,9 @@ class LauncherPanel(QWidget):
             else:
                 hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
         elif self.result_list.hasFocus():
-            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
+            hint = "Enter or Alt+O opens. Shift+Enter or Alt+P shows properties. Ctrl+Enter or Alt+R reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
         else:
-            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
+            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter or Alt+O opens the top hit. Shift+Enter or Alt+P shows properties. Ctrl+Enter or Alt+R reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
 
     def _current_hit(self) -> SearchHit | None:
