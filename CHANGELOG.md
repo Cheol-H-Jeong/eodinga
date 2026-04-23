@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.975 - 2026-04-24
+## 0.1.979 - 2026-04-24
 
 - Hardened the Windows packaging dry-run audit so it now rejects missing CLI/GUI entrypoints, missing required hidden imports, dropped runtime modules, and staged data drift before those regressions can leak into a release build.
 - Tightened Linux packaging preflight checks to fail fast when `cp`, `chmod`, `install`, or `gzip` are unavailable, which makes AppImage and Debian targets stop with a targeted audit error instead of a later shell-script failure.
