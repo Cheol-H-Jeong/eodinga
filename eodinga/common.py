@@ -113,9 +113,17 @@ class StatsSnapshot(BaseModel):
     crashes_reported: int = 0
     crash_logs_written: int = 0
     logging_configurations: int = 0
+    logging_configuration_failures: int = 0
     log_sinks_stderr_configured: int = 0
     log_sinks_file_configured: int = 0
+    log_sinks_file_failed: int = 0
     log_sinks_file_disabled: int = 0
+    log_file_exists: bool = False
+    log_file_size_bytes: int = 0
+    log_file_rotated_count: int = 0
+    crash_log_count: int = 0
+    latest_crash_log: Path | None = None
+    latest_crash_log_size_bytes: int = 0
     query_latency_histogram: dict[str, object] = Field(default_factory=dict)
     command_latency_histogram: dict[str, object] = Field(default_factory=dict)
     watch_flush_batch_histogram: dict[str, object] = Field(default_factory=dict)

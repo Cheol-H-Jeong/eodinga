@@ -279,7 +279,6 @@ def describe_log_inventory(log_path: Path | None = None) -> LogInventory:
 def describe_crash_inventory(crash_dir: Path | None = None) -> CrashInventory:
     target_dir = resolve_crash_dir(crash_dir)
     latest_path: Path | None = None
-    latest_mtime_ns = -1
     crash_log_count = 0
     latest_size_bytes = 0
     if target_dir.exists():
@@ -288,13 +287,8 @@ def describe_crash_inventory(crash_dir: Path | None = None) -> CrashInventory:
             if stat_result is None:
                 continue
             crash_log_count += 1
-            if stat_result.st_mtime_ns > latest_mtime_ns or (
-                stat_result.st_mtime_ns == latest_mtime_ns
-                and latest_path is not None
-                and path.name > latest_path.name
-            ):
+            if latest_path is None or path.name > latest_path.name:
                 latest_path = path
-                latest_mtime_ns = stat_result.st_mtime_ns
                 latest_size_bytes = stat_result.st_size
     return {
         "crash_dir": str(target_dir),

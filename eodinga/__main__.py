@@ -20,6 +20,8 @@ from eodinga.index.storage import open_index
 from eodinga.observability import (
     configure_logging,
     counter_value,
+    describe_crash_inventory,
+    describe_log_inventory,
     file_logging_enabled,
     histogram_snapshot,
     increment_counter,
@@ -174,6 +176,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         index_snapshot = read_index_stats(conn)
     metrics = snapshot_metrics()
     counters = metrics["counters"]
+    log_inventory = describe_log_inventory()
+    crash_inventory = describe_crash_inventory()
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
         uptime_ms=float(metrics["uptime_ms"]),
@@ -193,9 +197,21 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         crashes_reported=counter_value("crashes_reported"),
         crash_logs_written=counter_value("crash_logs_written"),
         logging_configurations=counter_value("logging_configurations"),
+        logging_configuration_failures=counter_value("logging_configuration_failures"),
         log_sinks_stderr_configured=counter_value("log_sinks.stderr.configured"),
         log_sinks_file_configured=counter_value("log_sinks.file.configured"),
+        log_sinks_file_failed=counter_value("log_sinks.file.failed"),
         log_sinks_file_disabled=counter_value("log_sinks.file.disabled"),
+        log_file_exists=bool(log_inventory["exists"]),
+        log_file_size_bytes=int(log_inventory["size_bytes"]),
+        log_file_rotated_count=int(log_inventory["rotated_count"]),
+        crash_log_count=int(crash_inventory["crash_log_count"]),
+        latest_crash_log=(
+            None
+            if crash_inventory["latest_crash_log"] is None
+            else Path(str(crash_inventory["latest_crash_log"]))
+        ),
+        latest_crash_log_size_bytes=int(crash_inventory["latest_crash_log_size_bytes"]),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
         command_latency_histogram=histogram_snapshot("command_latency_ms"),
         watch_flush_batch_histogram=histogram_snapshot("watch_flush_batch_size"),

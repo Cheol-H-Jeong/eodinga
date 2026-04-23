@@ -465,8 +465,9 @@ def test_index_requires_at_least_one_root(cli_runner, tmp_path: Path) -> None:
     assert "requires at least one root" in result.stderr
 
 
-def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
+def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys, monkeypatch) -> None:
     db_path = tmp_path / "index.db"
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path / "crashes"))
     _build_search_db(db_path)
     reset_metrics()
 
@@ -497,9 +498,17 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["crashes_reported"] == 0
     assert payload["crash_logs_written"] == 0
     assert payload["logging_configurations"] == 2
+    assert payload["logging_configuration_failures"] == 0
     assert payload["log_sinks_stderr_configured"] == 2
     assert payload["log_sinks_file_configured"] == 0
+    assert payload["log_sinks_file_failed"] == 0
     assert payload["log_sinks_file_disabled"] == 2
+    assert payload["log_file_exists"] is False
+    assert payload["log_file_size_bytes"] == 0
+    assert payload["log_file_rotated_count"] == 0
+    assert payload["crash_log_count"] == 0
+    assert payload["latest_crash_log"] is None
+    assert payload["latest_crash_log_size_bytes"] == 0
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["command_latency_histogram"]["count"] == 1
     assert payload["watch_flush_batch_histogram"] == {}
@@ -538,6 +547,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     broken = tmp_path / "broken.txt"
     broken.write_text("broken parser input\n", encoding="utf-8")
     db_path = tmp_path / "index.db"
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path / "crashes"))
     reset_metrics()
 
     index_exit = main(["--db", str(db_path), "index", "--root", str(docs), "--rebuild"])
@@ -615,9 +625,17 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["log_sinks.stderr.configured"] == 3
     assert payload["counters"]["log_sinks.file.disabled"] == 3
     assert payload["logging_configurations"] == 3
+    assert payload["logging_configuration_failures"] == 0
     assert payload["log_sinks_stderr_configured"] == 3
     assert payload["log_sinks_file_configured"] == 0
+    assert payload["log_sinks_file_failed"] == 0
     assert payload["log_sinks_file_disabled"] == 3
+    assert payload["log_file_exists"] is False
+    assert payload["log_file_size_bytes"] == 0
+    assert payload["log_file_rotated_count"] == 0
+    assert payload["crash_log_count"] == 0
+    assert payload["latest_crash_log"] is None
+    assert payload["latest_crash_log_size_bytes"] == 0
     assert payload["commands_started"] == 3
     assert payload["commands_completed"] == 2
     assert payload["commands_failed"] == 0
@@ -635,6 +653,38 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["watch_flush_batch_histogram"]["count"] == 2
     assert payload["watch_event_lag_histogram"]["count"] == 2
     assert payload["watcher_queue_backpressure_histogram"]["count"] == 1
+
+
+def test_stats_json_reports_log_and_crash_inventory(tmp_path: Path, capsys, monkeypatch) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    log_path = tmp_path / "state" / "logs" / "eodinga.log"
+    crash_dir = tmp_path / "state" / "crashes"
+    crash_dir.mkdir(parents=True)
+    log_path.parent.mkdir(parents=True)
+    log_path.write_text("primary log", encoding="utf-8")
+    (log_path.parent / "eodinga.log.1").write_text("rolled", encoding="utf-8")
+    latest_crash = crash_dir / "crash-20260423T030000.000000Z.log"
+    latest_crash.write_text("latest crash", encoding="utf-8")
+    (crash_dir / "crash-20260423T020000.000000Z.log").write_text("older crash", encoding="utf-8")
+    reset_metrics()
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["log_path"] == str(log_path)
+    assert payload["log_file_exists"] is True
+    assert payload["log_file_size_bytes"] == len("primary log")
+    assert payload["log_file_rotated_count"] == 1
+    assert payload["crash_dir"] == str(crash_dir)
+    assert payload["crash_log_count"] == 2
+    assert payload["latest_crash_log"] == str(latest_crash)
+    assert payload["latest_crash_log_size_bytes"] == len("latest crash")
 
 
 def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path: Path) -> None:
