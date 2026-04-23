@@ -39,6 +39,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "![Index progress window]" in readme
     assert "![Settings window]" in readme
     assert "## Install" in readme
+    assert "Install extras map:" in readme
+    assert "| `.[gui]` | Qt GUI and watchdog integration |" in readme
+    assert "| `.[parsers]` | document parsers for PDF, Office, EPUB, HTML, and HWP |" in readme
     assert "## Quick Start" in readme
     assert "## Feature Overview" in readme
     assert "## Surface Matrix" in readme
@@ -68,6 +71,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "pytest -q tests && ruff check eodinga tests" in readme
     assert "python packaging/build.py --target windows-dry-run" in readme
     assert "yamllint .github/workflows/release-windows.yml" in readme
+    assert "For docs-only maintenance, the fast path is:" in readme
+    assert "pytest -q tests/unit/test_docs_assets.py" in readme
     assert "rendered offscreen from the real Qt surfaces" in readme
 
     assert "## Required Commands" in acceptance

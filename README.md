@@ -29,6 +29,16 @@ python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]
 Use `.[all]` for the full v0.1 local-dev surface, including GUI, parser, hotkey, lint, and test dependencies. For packaged builds, use the AppImage or `.deb` artifacts produced by CI.
 The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs the desktop entry, SVG icon, and packaged changelog under `/usr/share/doc/eodinga/`.
 
+Install extras map:
+
+| Extra | Includes | Use when |
+| --- | --- | --- |
+| base (`pip install -e .`) | CLI runtime and local index/search engine | you only need scripted indexing and search |
+| `.[gui]` | Qt GUI and watchdog integration | you want the main app window without parser tooling |
+| `.[parsers]` | document parsers for PDF, Office, EPUB, HTML, and HWP | you need content extraction beyond filename/path search |
+| `.[dev]` | pytest, ruff, pyright, hypothesis, yamllint | you are contributing or running the repo gate |
+| `.[all]` | base + GUI + parsers + dev + Linux hotkey extras | you want the full local developer surface |
+
 ### Windows
 
 - Download the latest `eodinga-0.1.x-win-x64-setup.exe` release asset.
@@ -277,6 +287,14 @@ eodinga search 'date:this-week ext:md' --limit 10
 
 If those are clean but the packaged app still looks wrong, continue with the release-gate commands in `docs/ACCEPTANCE.md`.
 
+For docs-only maintenance, the fast path is:
+
+```bash
+pytest -q tests/unit/test_docs_assets.py
+```
+
+Re-run `python scripts/generate_manpage.py` after CLI parser changes and `python scripts/render_docs_screenshots.py` after visible Qt changes.
+
 ## Docs Map
 
 - [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md): query cheatsheet and operator notes.
@@ -307,6 +325,10 @@ Startup resumes interrupted staged rebuilds and recovery swaps automatically. If
 ### Do I need parser extras for basic filename search?
 
 No. Filename and path indexing work without parser extras. The `parsers` extra only expands content extraction for supported document formats.
+
+### Which install extra should I choose?
+
+Use the base install for CLI-only workflows, `.[gui]` for the desktop app, `.[parsers]` when document-body search matters, `.[dev]` for contributor tooling, and `.[all]` when you want the full local surface in one environment.
 
 ### Which commands are most useful for a quick health check?
 
