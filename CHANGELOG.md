@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.720 - 2026-04-23
+## 0.1.732 - 2026-04-23
 
 - Preserved full undelivered watcher flush batches when enqueue fails mid-flush, so shutdown or queue-abort paths no longer lose later ready events after backpressure kicks in.
 - Let `open_index()` continue after it cleans a truncated interrupted build or recovery stage, avoiding false startup failures on harmless empty `.{index}.next` and `.{index}.recover` leftovers.
