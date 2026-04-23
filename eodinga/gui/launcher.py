@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
+from eodinga.gui.launcher_filters import active_filter_chips
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
 from eodinga.gui.widgets import (
     EmptyState,
@@ -31,6 +32,7 @@ class LauncherPanel(QWidget):
     show_properties = Signal(object)
     copy_path_requested = Signal(object)
     copy_name_requested = Signal(object)
+
     def __init__(
         self,
         search_fn: SearchFn | None = None,
@@ -56,18 +58,9 @@ class LauncherPanel(QWidget):
         self.query_field = SearchField(parent=self)
         self.query_field.setAccessibleName("Launcher search field")
         self.query_field.pin_query_requested.connect(self.toggle_current_query_pin)
-        self.pinned_queries_row = QueryChipRow(
-            "Pinned",
-            accessible_name="Pinned launcher queries",
-            on_chip_clicked=self._apply_query_chip,
-            parent=self,
-        )
-        self.recent_queries_row = QueryChipRow(
-            "Recent",
-            accessible_name="Recent launcher queries",
-            on_chip_clicked=self._apply_query_chip,
-            parent=self,
-        )
+        self.pinned_queries_row = QueryChipRow("Pinned", accessible_name="Pinned launcher queries", on_chip_clicked=self._apply_query_chip, parent=self)
+        self.active_filters_row = QueryChipRow("Active", accessible_name="Active launcher filters", on_chip_clicked=lambda _: self.focus_query_field(), parent=self)
+        self.recent_queries_row = QueryChipRow("Recent", accessible_name="Recent launcher queries", on_chip_clicked=self._apply_query_chip, parent=self)
         self.result_list = QListView(self)
         self.result_list.setAccessibleName("Launcher results list")
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
@@ -100,6 +93,7 @@ class LauncherPanel(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
+        layout.addWidget(self.active_filters_row)
         layout.addWidget(self.pinned_queries_row)
         layout.addWidget(self.recent_queries_row)
 
@@ -156,10 +150,10 @@ class LauncherPanel(QWidget):
         self._shortcuts[9].activated.connect(self.recall_next_query)
         for shortcut in self._shortcuts:
             shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        self._local_shortcuts = [QShortcut(QKeySequence("Ctrl+D"), self.result_list)]
-        for shortcut in self._local_shortcuts:
-            shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-            shortcut.activated.connect(self.toggle_current_query_pin)
+        shortcut = QShortcut(QKeySequence("Ctrl+D"), self.result_list)
+        shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        shortcut.activated.connect(self.toggle_current_query_pin)
+        self._result_list_pin_shortcut = shortcut
         self.action_bar.open_button.clicked.connect(self.activate_current_result)
         self.action_bar.reveal_button.clicked.connect(self.emit_open_containing_folder)
         self.action_bar.copy_path_button.clicked.connect(self.emit_copy_path)
@@ -193,19 +187,13 @@ class LauncherPanel(QWidget):
         self._search_fn = search_fn
 
     def set_recent_queries(self, queries: list[str]) -> None:
-        self._recent_queries = queries
-        self.recent_queries_row.set_queries(queries[:5])
-        self._refresh_empty_state()
+        self._recent_queries = queries; self.recent_queries_row.set_queries(queries[:5]); self._refresh_empty_state()
 
     def set_pinned_queries(self, queries: list[str]) -> None:
-        self._pinned_queries = queries
-        self.pinned_queries_row.set_queries(queries[:5])
-        self._refresh_empty_state()
+        self._pinned_queries = queries; self.pinned_queries_row.set_queries(queries[:5]); self._refresh_empty_state()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
-        self._indexing_status = status
-        self._refresh_status_footer()
-        self._refresh_empty_state()
+        self._indexing_status = status; self._refresh_status_footer(); self._refresh_empty_state()
 
     def activate_current_result(self) -> None:
         self._flush_pending_query()
@@ -222,41 +210,31 @@ class LauncherPanel(QWidget):
         self.result_activated.emit(hit)
 
     def focus_query_field(self) -> None:
-        self.query_field.setFocus()
-        self.query_field.selectAll()
+        self.query_field.setFocus(); self.query_field.selectAll()
 
-    def select_query_text(self) -> None:
-        self.focus_query_field()
+    def select_query_text(self) -> None: self.focus_query_field()
 
     def emit_open_containing_folder(self) -> None:
-        self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.open_containing_folder.emit(hit)
+        self._emit_current_hit(self.open_containing_folder)
 
     def emit_show_properties(self) -> None:
-        self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.show_properties.emit(hit)
+        self._emit_current_hit(self.show_properties)
 
     def emit_copy_path(self) -> None:
-        self._flush_pending_query()
-        hit = self._current_hit()
-        if hit is not None:
-            self.copy_path_requested.emit(hit)
+        self._emit_current_hit(self.copy_path_requested)
 
     def emit_copy_name(self) -> None:
+        self._emit_current_hit(self.copy_name_requested)
+
+    def _emit_current_hit(self, signal) -> None:
         self._flush_pending_query()
         hit = self._current_hit()
         if hit is not None:
-            self.copy_name_requested.emit(hit)
+            signal.emit(hit)
 
-    def recall_previous_query(self) -> None:
-        self._navigate_recent_queries(-1)
+    def recall_previous_query(self) -> None: self._navigate_recent_queries(-1)
 
-    def recall_next_query(self) -> None:
-        self._navigate_recent_queries(1)
+    def recall_next_query(self) -> None: self._navigate_recent_queries(1)
 
     def toggle_current_query_pin(self) -> None:
         query = self.query_field.text().strip()
@@ -293,6 +271,7 @@ class LauncherPanel(QWidget):
         if not self._applying_history_query:
             self._history_index = None
             self._history_draft = ""
+        self.active_filters_row.set_queries(active_filter_chips(self.query_field.text())[:5])
         self._debounce_timer.start()
 
     def _flush_pending_query(self) -> None:

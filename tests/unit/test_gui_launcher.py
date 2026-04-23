@@ -447,6 +447,19 @@ def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> No
     assert "Pinned: ext:pdf, size:>10M." in launcher.empty_state.body_label.text()
 
 
+def test_launcher_shows_active_filter_chips_from_query(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText('budget ext:pdf date:this-week -"draft" content:"release notes"')
+
+    assert [button.text() for button in launcher.active_filters_row.buttons] == [
+        "ext:pdf",
+        "date:this-week",
+        'content:"release notes"',
+    ]
+
+
 def test_launcher_ctrl_d_toggles_current_query_in_pinned_chips(qapp) -> None:
     state = LauncherState()
     launcher = LauncherWindow(state=state)
