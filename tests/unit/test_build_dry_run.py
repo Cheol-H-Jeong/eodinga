@@ -76,6 +76,8 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["contains_desktop_shortcut_task"] is True
     assert payload["inno_setup"]["contains_user_desktop_shortcut"] is True
     assert payload["inno_setup"]["contains_postinstall_launch"] is True
+    assert payload["inno_setup"]["architectures_allowed_x64"] is True
+    assert payload["inno_setup"]["architectures_install_in_64bit_mode"] is True
     assert payload["inno_setup"]["source_entries"] == [
         'dist\\\\@@GUI_DIST_NAME@@\\\\*',
         'dist\\\\@@CLI_DIST_NAME@@\\\\*',
@@ -139,6 +141,16 @@ def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -
     errors = module._validate_windows_audit(payload)
 
     assert "Inno uninstall purge no longer targets both local data and roaming config" in errors
+
+
+def test_windows_audit_validator_rejects_architecture_contract_regression() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["inno_setup"]["architectures_allowed_x64"] = False
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "Rendered Inno architecture allowlist no longer targets x64-compatible Windows" in errors
 
 
 def test_build_preflight_reports_missing_windows_tool(monkeypatch) -> None:
