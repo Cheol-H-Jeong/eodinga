@@ -64,6 +64,7 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.search_tab.accessibleName() == "Search tab"
     assert window.settings_tab.accessibleName() == "Settings tab"
     assert window.settings_tab.system_theme_checkbox.accessibleName() == "Use system theme"
+    assert window.settings_tab.always_on_top_checkbox.accessibleName() == "Keep launcher above other windows"
     assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
     assert window.about_tab.accessibleName() == "About tab"
@@ -277,6 +278,22 @@ def test_settings_tab_rebinds_hotkey_without_restart(
     ]
     assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+alt+k"
     assert load(temp_config_path).launcher.hotkey == "ctrl+alt+k"
+
+
+def test_settings_tab_toggles_launcher_always_on_top_without_restart(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"always_on_top": False})
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    window.launcher_window.show()
+    qapp.processEvents()
+
+    assert not bool(window.launcher_window.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
+
+    window.settings_tab.always_on_top_checkbox.click()
+    qapp.processEvents()
+
+    assert bool(window.launcher_window.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
+    assert load(temp_config_path).launcher.always_on_top is True
 
 
 class _ActionSpy:
