@@ -26,6 +26,7 @@ _BANNED_CALLS = {
     "socket.socket",
     "urllib.request.urlopen",
 }
+_BANNED_SUBPROCESS_COMMANDS = {"curl", "wget"}
 _SKIPPED_DIRS = {".git", ".pytest_cache", ".venv", "__pycache__"}
 _SKIPPED_PATHS = {"tests/safety/test_no_network.py"}
 _SKIPPED_PREFIXES = {"packaging/dist/", "tests/fixtures/"}
@@ -61,6 +62,18 @@ def _dotted_name(node: ast.AST) -> str | None:
     return None
 
 
+def _string_literal(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    return None
+
+
+def _subprocess_command_name(node: ast.AST) -> str | None:
+    if isinstance(node, (ast.List, ast.Tuple)) and node.elts:
+        return _string_literal(node.elts[0])
+    return _string_literal(node)
+
+
 def _scan_python_source(path: Path, root: Path) -> list[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     violations: list[str] = []
@@ -79,6 +92,18 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
             dotted = _dotted_name(node.func)
             if dotted in _BANNED_CALLS:
                 violations.append(f"{path.relative_to(root)}:{node.lineno}:{dotted}")
+            if dotted in {
+                "subprocess.run",
+                "subprocess.call",
+                "subprocess.check_call",
+                "subprocess.check_output",
+                "subprocess.Popen",
+            } and node.args:
+                command = _subprocess_command_name(node.args[0])
+                if command in _BANNED_SUBPROCESS_COMMANDS:
+                    violations.append(
+                        f"{path.relative_to(root)}:{node.lineno}:subprocess {command}"
+                    )
 
     return violations
 
