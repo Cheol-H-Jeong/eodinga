@@ -51,6 +51,17 @@ pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summ
 
 After the focused slice is green, run the broader acceptance gate before release handoff.
 
+## One-Shot Worker Recipes
+
+Use the narrowest single-shot command that matches the kind of round you are doing:
+
+| Goal | Command |
+| --- | --- |
+| Docs-only round | `source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && pytest -q tests/unit` |
+| Packaging round | `source .venv/bin/activate && pytest -q tests/unit/test_build.py tests/unit/test_build_dry_run.py tests/unit/test_inno_script.py tests/unit/test_pyinstaller_spec.py && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run` |
+| Query/correctness round | `source .venv/bin/activate && pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py && pytest -q tests/unit` |
+| Final local release check | `source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)"` |
+
 ## Quality Gates
 
 Default repository gate:
@@ -137,6 +148,15 @@ Use this when the round is docs-only but still release-bearing:
 4. Re-run `pytest -q tests/unit/test_docs_assets.py`.
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
+
+## Review Handoff Payload
+
+Before handing a worker round to the orchestrator, make sure the branch clearly contains:
+
+- one logical commit per change slice, each with `pytest -q tests/unit` already green
+- a final metadata commit that only bumps the version and changelog unless the same commit must refresh a derived docs asset
+- the exact local tag that points at the final commit for the round
+- enough docs updates that the shipped contract matches the code and packaging surfaces you touched
 
 ## Test Selection Guide
 

@@ -49,6 +49,15 @@ Recommended order:
 2. `pytest -q tests` once the candidate release branch is assembled.
 3. `ruff`, `pyright`, GUI smoke, packaging dry-runs, and workflow lint after the full test pass.
 
+## Version Collision Playbook
+
+When parallel workers are cutting releases at the same time, keep the version step deterministic:
+
+1. Re-run `git fetch origin main --tags`.
+2. Check `git tag -l | sort -V | tail -3` again immediately before editing version files.
+3. If your candidate tag appeared on `main`, pick the next unused `0.1.N` instead of moving an existing tag.
+4. If the collision is discovered after the metadata commit, update only `pyproject.toml`, `eodinga/__init__.py`, and `CHANGELOG.md`, recommit, and retag locally on the new tip.
+
 ## Artifact Inventory
 
 Before tagging, know which release inputs this repository expects to exist:
@@ -68,6 +77,7 @@ Before tagging, confirm:
 - `docs/PERFORMANCE.md` numbers come from a rerun at the documented HEAD.
 - `docs/man/eodinga.1` has been regenerated if `eodinga.__main__` changed.
 - Screenshot assets under `docs/screenshots/` still match the current UI, or have been refreshed with `python scripts/render_docs_screenshots.py`.
+- The README packaging table still matches the dry-run output directories and uninstall expectations.
 
 Documentation refresh commands:
 
@@ -123,6 +133,16 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - Never move or delete an existing local release tag just to reuse the version number.
 - If another worker landed the same candidate version first, fetch tags again, pick the next unused patch number, and update the release metadata commit instead of force-retagging.
 - If the final gate fails after the metadata commit, fix the issue in a new commit and recreate the local tag on the new tip only after the gate is green again.
+
+## Release Artifact Sanity Table
+
+| Surface | Minimal proof before tagging |
+| --- | --- |
+| Docs contract | `pytest -q tests/unit/test_docs_assets.py` |
+| Windows packaging | `python packaging/build.py --target windows-dry-run` |
+| Linux AppImage packaging | `python packaging/build.py --target linux-appimage-dry-run` |
+| Linux Debian packaging | `python packaging/build.py --target linux-deb-dry-run` |
+| CLI/GUI smoke | `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
 
 ## Handoff Checklist
 
