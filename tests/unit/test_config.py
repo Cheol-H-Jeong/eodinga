@@ -45,6 +45,20 @@ pinned_queries = ["ext:pdf", "size:>10M"]
     assert config.launcher.pinned_queries == ["ext:pdf", "size:>10M"]
 
 
+def test_load_accepts_frameless_launcher_setting(temp_config_path: Path) -> None:
+    temp_config_path.write_text(
+        """
+[launcher]
+frameless = false
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load(temp_config_path)
+
+    assert config.launcher.frameless is False
+
+
 def test_load_ignores_unknown_config_fields(temp_config_path: Path) -> None:
     temp_config_path.write_text(
         """
