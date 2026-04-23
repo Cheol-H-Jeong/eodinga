@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.188 - 2026-04-23
+
+- Added an active-filter chip row to the launcher so `ext:`, `date:`, `size:`, `content:`, and other DSL operators stay visible while typing, including fallback rendering when the query is temporarily invalid mid-edit.
+- Extended launcher accessibility labels to cover the shortcut hint, status summary, status chip, and empty-state copy, improving screen-reader coverage across the full popup surface instead of only the top-level inputs.
+- Expanded the tray controller with an `Open eodinga` action and a show/hide launcher toggle that tracks the popup state, making the background UI easier to control without guessing what each click will do.
+
 ## 0.1.184 - 2026-04-23
 
 - Wired `launcher.debounce_ms` and `launcher.max_results` into both launcher surfaces, so the popup and embedded search panel now respect the configured debounce window and result cap instead of hard-coded defaults.
