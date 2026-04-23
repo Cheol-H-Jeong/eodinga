@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.400 - 2026-04-23
+
+- Tightened the README around release-gate commands, packaged-artifact expectations, config/data paths, and a clearer recovery escalation order so the shipped operator contract is easier to run without bouncing between docs.
+- Expanded the architecture guide with a release-input map and a runtime-first debug path that separates runtime drift, generated-doc drift, and packaging drift more cleanly.
+- Aligned the contributing, release, and performance guides around worker-round sequencing, docs-only release discipline, and baseline-capture evidence for perf refreshes.
+
 ## 0.1.377 - 2026-04-23
 
 - Returned a clean `130` exit code for interrupted CLI commands, recording them as interrupted instead of crashed so Ctrl+C and signal stops no longer surface as unhandled failures.
