@@ -24,9 +24,12 @@ from eodinga.observability import (
     histogram_snapshot,
     increment_counter,
     install_crash_handlers,
+    last_crash_path,
     record_histogram,
     resolve_crash_dir,
     resolve_log_path,
+    session_started_at,
+    session_uptime_seconds,
     snapshot_metrics,
     report_crash,
 )
@@ -178,6 +181,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         watcher_events=counter_value("watcher_events"),
         commands_started=counter_value("commands_started"),
         commands_failed=counter_value("commands_failed"),
+        query_results_returned=counter_value("query_results_returned"),
+        queries_zero_results=counter_value("queries_zero_results"),
+        crash_logs_written=counter_value("crash_logs_written"),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
         command_latency_histogram=histogram_snapshot("command_latency_ms"),
         counters=metrics["counters"],
@@ -186,6 +192,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         db_path=db_path,
         log_path=resolve_log_path(),
         crash_dir=resolve_crash_dir(),
+        last_crash_path=last_crash_path(),
+        session_started_at=session_started_at().isoformat(),
+        session_uptime_seconds=round(session_uptime_seconds(), 3),
         file_logging_enabled=file_logging_enabled(),
     ).model_dump(mode="json")
     return _emit(snapshot, as_json=bool(args.json))

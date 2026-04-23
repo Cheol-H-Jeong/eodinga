@@ -102,6 +102,9 @@ class StatsSnapshot(BaseModel):
     watcher_events: int = 0
     commands_started: int = 0
     commands_failed: int = 0
+    query_results_returned: int = 0
+    queries_zero_results: int = 0
+    crash_logs_written: int = 0
     query_latency_histogram: dict[str, object] = Field(default_factory=dict)
     command_latency_histogram: dict[str, object] = Field(default_factory=dict)
     counters: dict[str, int] = Field(default_factory=dict)
@@ -110,6 +113,9 @@ class StatsSnapshot(BaseModel):
     db_path: Path | None = None
     log_path: Path | None = None
     crash_dir: Path | None = None
+    last_crash_path: Path | None = None
+    session_started_at: str | None = None
+    session_uptime_seconds: float = 0.0
     file_logging_enabled: bool = True
 
 
