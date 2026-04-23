@@ -31,15 +31,19 @@ class LauncherPreviewPane(QWidget):
         layout.setSpacing(SPACE_8)
 
         eyebrow = QLabel("Preview", self)
+        eyebrow.setAccessibleName("Preview section label")
         eyebrow.setProperty("role", "secondary")
         self.title_label = QLabel(self)
+        self.title_label.setAccessibleName("Preview title")
         self.title_label.setWordWrap(True)
         self.title_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.path_label = QLabel(self)
+        self.path_label.setAccessibleName("Preview path")
         self.path_label.setProperty("role", "secondary")
         self.path_label.setWordWrap(True)
         self.path_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.snippet_label = QLabel(self)
+        self.snippet_label.setAccessibleName("Preview snippet")
         self.snippet_label.setWordWrap(True)
         self.snippet_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.snippet_label.setMinimumWidth(220)
@@ -78,6 +82,11 @@ class LauncherActionBar(QWidget):
         self.copy_path_button.setAccessibleName("Copy selected path")
         self.copy_name_button.setAccessibleName("Copy selected name")
         self.properties_button.setAccessibleName("Show selected properties")
+        self.open_button.setAccessibleDescription("Open the highlighted result.")
+        self.reveal_button.setAccessibleDescription("Reveal the highlighted result in its containing folder.")
+        self.copy_path_button.setAccessibleDescription("Copy the full path for the highlighted result.")
+        self.copy_name_button.setAccessibleDescription("Copy only the file name for the highlighted result.")
+        self.properties_button.setAccessibleDescription("Show properties for the highlighted result.")
 
         for button in (
             self.open_button,

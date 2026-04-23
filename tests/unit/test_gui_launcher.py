@@ -303,6 +303,24 @@ def test_launcher_hides_inline_filter_chips_for_plain_text_or_invalid_query(qapp
 
     assert not launcher.filter_chips.isVisible()
 
+
+def test_launcher_exposes_accessible_names_for_status_empty_state_and_preview(qapp) -> None:
+    launcher = LauncherWindow(search_fn=lambda query, limit: QueryResult(items=[], total=0, elapsed_ms=1.0))
+    launcher.show()
+
+    assert launcher.status_chip.accessibleName() == "Launcher status chip"
+    assert launcher.shortcut_label.accessibleName() == "Launcher shortcut hint"
+    assert launcher.status_label.accessibleName() == "Launcher result status"
+    assert launcher.filter_chips.accessibleName() == "Launcher filter chips"
+    assert launcher.empty_state.accessibleName() == "Launcher empty state"
+    assert launcher.empty_state.title_label.accessibleName() == "Empty state title"
+    assert launcher.empty_state.body_label.accessibleName() == "Empty state guidance"
+    assert launcher.empty_state.details_label.accessibleName() == "Empty state details"
+    assert launcher.preview_pane.title_label.accessibleName() == "Preview title"
+    assert launcher.preview_pane.path_label.accessibleName() == "Preview path"
+    assert launcher.preview_pane.snippet_label.accessibleName() == "Preview snippet"
+    assert launcher.action_bar.open_button.accessibleDescription() == "Open the highlighted result."
+
     launcher.query_field.setText('ext:"')
 
     assert not launcher.filter_chips.isVisible()
