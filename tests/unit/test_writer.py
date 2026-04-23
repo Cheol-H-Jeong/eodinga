@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 from time import perf_counter, time
+from typing import cast
 
 import eodinga.index.writer as writer_module
 from eodinga.content.base import ParsedContent
@@ -84,7 +85,7 @@ def test_writer_in_clause_chunk_size_uses_connection_variable_limit() -> None:
             assert category == sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER
             return 64
 
-    assert writer_module._in_clause_chunk_size(FakeConnection()) == 56
+    assert writer_module._in_clause_chunk_size(cast(sqlite3.Connection, FakeConnection())) == 56
 
 
 def test_writer_in_clause_chunk_size_falls_back_when_getlimit_fails() -> None:
@@ -92,7 +93,7 @@ def test_writer_in_clause_chunk_size_falls_back_when_getlimit_fails() -> None:
         def getlimit(self, _category: int) -> int:
             raise OverflowError("unsupported")
 
-    assert writer_module._in_clause_chunk_size(FakeConnection()) == 991
+    assert writer_module._in_clause_chunk_size(cast(sqlite3.Connection, FakeConnection())) == 991
 
 
 def test_writer_without_parser_skips_content_queries(tmp_db: Path, tmp_path: Path) -> None:
