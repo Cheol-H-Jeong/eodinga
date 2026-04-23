@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.873 - 2026-04-23
+## 0.1.875 - 2026-04-23
 
 - Let index startup continue when it encounters an invalid interrupted `.recover` or `.next` stage that it can safely clean up, instead of aborting after the cleanup already succeeded.
 - Made `eodinga doctor` fail explicitly when interrupted recovery or staged-build artifacts remain unrecovered after the diagnostic pass, so broken startup state is surfaced instead of hidden behind a green report.
