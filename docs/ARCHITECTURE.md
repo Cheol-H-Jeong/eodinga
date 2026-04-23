@@ -110,6 +110,16 @@ user / startup
 - `eodinga doctor` reports both resumed staged rebuild/recovery work and unrecoverable stale-WAL failures so the operator sees the same startup path the runtime takes.
 - This keeps crash recovery local to the database directory and avoids mutating indexed user roots.
 
+## Recovery Artifact Map
+
+| On-disk artifact | Produced by | Meaning | Normal cleanup point |
+| --- | --- | --- | --- |
+| `index.db` | steady-state runtime | live SQLite index | remains in place |
+| `index.db-wal` / `index.db-shm` | SQLite WAL mode | pending committed work not yet checkpointed into `index.db` | checkpoint or staged recovery promotion |
+| `index.db.next` | `eodinga index --rebuild` | fully staged replacement index before the final atomic rename | promoted during rebuild completion or next startup |
+| `index.db.recover` | startup stale-WAL recovery | staged copy used to replay WAL safely before replacing the live DB | promoted after validation and checkpoint |
+| `.recover.partial*` | interrupted recovery copy step | incomplete staged sidecars that must not be promoted | deleted before retrying recovery |
+
 ## Rebuild Sequence
 
 ```text
@@ -208,6 +218,26 @@ IndexWriter.apply_events()
 next query sees updated results
 ```
 
+## Watcher Update Path
+
+```text
+OS watcher backend
+    |
+    +--> watchdog event
+            |
+            +--> WatchService queue / debounce / coalesce
+                    |
+                    +--> IndexWriter.apply_events()
+                            |
+                            +--> files row update / delete
+                            +--> paths_fts refresh
+                            +--> content_fts refresh when content indexing is enabled
+                            +--> commit
+                                    |
+                                    +--> counters + logs
+                                    +--> next query becomes visible
+```
+
 ## Recovery Decision Tree
 
 ```text
@@ -236,6 +266,44 @@ startup
 - Windows packaging uses `packaging/pyinstaller.spec`, `packaging/windows/eodinga.iss`, and `packaging/build.py --target windows-dry-run`.
 - Documentation screenshots are rendered from the real Qt surfaces through `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
 - Release docs also ship a generated CLI man page under `docs/man/` so packaged audits can verify the command surface without importing the project interactively.
+
+## Surface Call Path
+
+```text
+CLI subcommand / main window / launcher
+    |
+    +--> config resolution
+    +--> open_index()
+    +--> query compiler + executor
+    +--> shared result model
+    +--> surface-specific rendering or action dispatch
+```
+
+## Packaging And Docs Build Flow
+
+```text
+source tree + version metadata
+    |
+    +--> packaging/build.py --target windows-dry-run
+    |       |
+    |       +--> PyInstaller spec render
+    |       +--> Inno Setup script audit
+    |       +--> packaging/dist audit manifest
+    |
+    +--> packaging/build.py --target linux-appimage-dry-run
+    |       |
+    |       +--> AppImage recipe render
+    |
+    +--> packaging/build.py --target linux-deb-dry-run
+    |       |
+    |       +--> deb staging tree
+    |       +--> desktop entry / icon / compressed changelog checks
+    |
+    +--> scripts/generate_manpage.py -> docs/man/eodinga.1
+    +--> scripts/render_docs_screenshots.py -> docs/screenshots/*.png
+```
+
+The packaging and docs assets share the same release metadata inputs, which is why the release flow keeps the final version bump isolated and re-runs both dry-run and docs-asset checks afterward.
 
 ## Platform Surface Summary
 
@@ -269,3 +337,5 @@ When an operator reports stale or surprising results, the shortest architecture-
 3. `eodinga watch` or `eodinga index --rebuild` depending on whether the issue is live-update lag or a one-shot recovery need.
 
 That sequence mirrors the architecture itself: active DB selection, environment validation, then either watcher-driven incremental repair or staged rebuild.
+
+If the symptom is packaging-specific instead of runtime-specific, switch to the packaging path instead: run the matching `packaging/build.py --target ...-dry-run` command first, then the workflow lint from `docs/ACCEPTANCE.md`, and only then compare generated assets such as `docs/man/eodinga.1` or screenshots when the shipped UI or CLI contract appears wrong.
