@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.441 - 2026-04-23
+## 0.1.443 - 2026-04-23
 
 - Routed AppImage and Debian packaging through the shared release-version helper so Linux packaging entrypoints now fail fast when `pyproject.toml` and `eodinga/__init__.py` drift.
 - Normalized Debian package architectures from common host and CI aliases such as `x86_64` and `aarch64` into canonical Debian values like `amd64` and `arm64`.
