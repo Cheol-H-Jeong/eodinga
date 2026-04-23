@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.574 - 2026-04-23
+## 0.1.579 - 2026-04-23
 
 - Added successful command lifecycle snapshots to the observability timeline, so `stats --json` now shows completed commands alongside existing failure and crash breadcrumbs.
 - Exposed per-command command-latency summaries in `stats --json`, making it possible to inspect search and index latency distributions directly without decoding raw histogram keys.
