@@ -341,6 +341,74 @@ def test_execute_previous_period_date_queries_use_local_boundaries(
     assert last_month_hits == ["last-month.txt"]
 
 
+def test_execute_open_ended_relative_date_ranges(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    frozen_now = datetime(2026, 4, 23, 0, 30, tzinfo=seoul)
+    last_week_hit = int(datetime(2026, 4, 13, 12, 0, tzinfo=seoul).timestamp())
+    this_week_hit = int(datetime(2026, 4, 20, 12, 0, tzinfo=seoul).timestamp())
+    march_hit = int(datetime(2026, 3, 15, 12, 0, tzinfo=seoul).timestamp())
+    april_hit = int(datetime(2026, 4, 10, 12, 0, tzinfo=seoul).timestamp())
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/last-week.txt",
+        512,
+        last_week_hit,
+        "txt",
+        body_text="last week note",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/this-week.txt",
+        512,
+        this_week_hit,
+        "txt",
+        body_text="this week note",
+    )
+    _insert_file(
+        tmp_db,
+        3,
+        "/workspace/march.txt",
+        512,
+        march_hit,
+        "txt",
+        body_text="march note",
+    )
+    _insert_file(
+        tmp_db,
+        4,
+        "/workspace/april.txt",
+        512,
+        april_hit,
+        "txt",
+        body_text="april note",
+    )
+    tmp_db.commit()
+
+    open_after_last_week = [
+        hit.file.name for hit in search(tmp_db, "date:last-week..", limit=10).hits
+    ]
+    open_before_last_month = [
+        hit.file.name for hit in search(tmp_db, "date:..last-month", limit=10).hits
+    ]
+
+    assert open_after_last_week == ["last-week.txt", "this-week.txt"]
+    assert open_before_last_month == ["march.txt"]
+
+
 def test_execute_extended_relative_date_aliases_use_local_boundaries(
     tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:

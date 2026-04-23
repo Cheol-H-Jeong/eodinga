@@ -142,6 +142,9 @@ def test_compile_reversed_date_range_normalizes_bounds() -> None:
     [
         ("date:2026-01-03..", "files.mtime >= ?", 0),
         ("created:..2026-01-03", "files.ctime < ?", 0),
+        ("date:last-week..", "files.mtime >= ?", 0),
+        ("modified:..today", "files.mtime < ?", 0),
+        ("created:..this-month", "files.ctime < ?", 0),
     ],
 )
 def test_compile_open_ended_date_ranges(
