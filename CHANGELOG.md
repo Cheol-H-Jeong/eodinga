@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.823 - 2026-04-23
+## 0.1.824 - 2026-04-23
 
 - Rolled back watcher startup cleanly when observer registration fails, so a failed watch attach no longer leaves the debounce flush thread running without any registered roots.
 - Extended staged rebuild signal handling to cover root metadata insertion, preserving a resumable `.next` database even when `SIGINT` or `SIGTERM` arrives before file walking begins.
