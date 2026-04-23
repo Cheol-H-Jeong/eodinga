@@ -72,6 +72,8 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.settings_tab.pinned_queries_label.accessibleName() == "Pinned launcher queries summary"
     assert window.settings_tab.manage_pinned_queries_button.accessibleName() == "Manage pinned queries"
     assert window.settings_tab.clear_pinned_queries_button.accessibleName() == "Clear pinned queries"
+    assert window.settings_tab.recent_queries_label.accessibleName() == "Recent launcher queries summary"
+    assert window.settings_tab.clear_recent_queries_button.accessibleName() == "Clear recent queries"
     assert window.about_tab.accessibleName() == "About tab"
     assert window.launcher_window.pinned_queries_row.accessibleName() == "Pinned launcher queries"
     assert window.launcher_window.recent_queries_row.accessibleName() == "Recent launcher queries"
@@ -527,6 +529,25 @@ def test_settings_tab_can_clear_pinned_queries(qapp, temp_config_path: Path) -> 
     assert window.launcher_window.pinned_queries_row.buttons == []
     assert window.settings_tab.pinned_queries_label.text() == "Pinned queries: none"
     assert load(temp_config_path).launcher.pinned_queries == []
+
+
+def test_settings_tab_shows_and_clears_recent_queries_from_shared_state(qapp, temp_config_path: Path) -> None:
+    window = EodingaWindow(config=AppConfig(), config_path=temp_config_path)
+
+    window.launcher_state.remember_query("budget")
+    window.launcher_state.remember_query("release notes")
+    qapp.processEvents()
+
+    assert window.settings_tab.recent_queries_label.text() == "Recent queries: release notes, budget"
+    assert window.settings_tab.clear_recent_queries_button.isEnabled()
+
+    window.settings_tab.clear_recent_queries_button.click()
+    qapp.processEvents()
+
+    assert window.launcher_state.recent_queries == []
+    assert window.launcher_window.recent_queries_row.buttons == []
+    assert window.settings_tab.recent_queries_label.text() == "Recent queries: none"
+    assert not window.settings_tab.clear_recent_queries_button.isEnabled()
 
 
 def test_launcher_flag_toggles_preserve_geometry(qapp, temp_config_path: Path) -> None:

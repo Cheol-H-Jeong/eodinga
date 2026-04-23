@@ -13,6 +13,7 @@ class SettingsTab(QWidget):
     frameless_changed = Signal(bool)
     always_on_top_changed = Signal(bool)
     pinned_queries_changed = Signal(list)
+    clear_recent_queries_requested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -38,6 +39,10 @@ class SettingsTab(QWidget):
         self.pinned_queries_label.setProperty("role", "secondary")
         self.pinned_queries_label.setWordWrap(True)
         self.pinned_queries_label.setAccessibleName("Pinned launcher queries summary")
+        self.recent_queries_label = QLabel("", self)
+        self.recent_queries_label.setProperty("role", "secondary")
+        self.recent_queries_label.setWordWrap(True)
+        self.recent_queries_label.setAccessibleName("Recent launcher queries summary")
         self.manage_pinned_queries_button = SecondaryButton("Manage pinned queries", self)
         self.manage_pinned_queries_button.setAccessibleName("Manage pinned queries")
         self.manage_pinned_queries_button.setAccessibleDescription(
@@ -46,13 +51,18 @@ class SettingsTab(QWidget):
         self.clear_pinned_queries_button = SecondaryButton("Clear pinned queries", self)
         self.clear_pinned_queries_button.setAccessibleName("Clear pinned queries")
         self.clear_pinned_queries_button.setAccessibleDescription("Remove all pinned launcher queries.")
+        self.clear_recent_queries_button = SecondaryButton("Clear recent queries", self)
+        self.clear_recent_queries_button.setAccessibleName("Clear recent queries")
+        self.clear_recent_queries_button.setAccessibleDescription("Forget the recent launcher query history.")
         self.remap_hotkey_button.clicked.connect(self._prompt_hotkey_combo)
         self.manage_pinned_queries_button.clicked.connect(self._prompt_pinned_queries)
         self.clear_pinned_queries_button.clicked.connect(lambda: self.pinned_queries_changed.emit([]))
+        self.clear_recent_queries_button.clicked.connect(self.clear_recent_queries_requested.emit)
         self.frameless_checkbox.toggled.connect(self.frameless_changed.emit)
         self.always_on_top_checkbox.toggled.connect(self.always_on_top_changed.emit)
         self.set_hotkey_combo(self._hotkey_combo)
         self.set_pinned_queries([])
+        self.set_recent_queries([])
 
         layout.addWidget(title)
         layout.addWidget(body)
@@ -64,6 +74,8 @@ class SettingsTab(QWidget):
         layout.addWidget(self.pinned_queries_label)
         layout.addWidget(self.manage_pinned_queries_button)
         layout.addWidget(self.clear_pinned_queries_button)
+        layout.addWidget(self.recent_queries_label)
+        layout.addWidget(self.clear_recent_queries_button)
         layout.addStretch(1)
 
     def set_hotkey_combo(self, combo: str) -> None:
@@ -92,6 +104,19 @@ class SettingsTab(QWidget):
             self.pinned_queries_label.setText("Pinned queries: none")
             self.pinned_queries_label.setAccessibleDescription("No pinned launcher queries are configured.")
         self.clear_pinned_queries_button.setEnabled(bool(normalized))
+
+    def set_recent_queries(self, queries: list[str]) -> None:
+        normalized = self._normalize_queries(queries)
+        if normalized:
+            summary = ", ".join(normalized)
+            self.recent_queries_label.setText(f"Recent queries: {summary}")
+            self.recent_queries_label.setAccessibleDescription(
+                f"{len(normalized)} recent launcher queries: {summary}."
+            )
+        else:
+            self.recent_queries_label.setText("Recent queries: none")
+            self.recent_queries_label.setAccessibleDescription("No recent launcher queries are stored.")
+        self.clear_recent_queries_button.setEnabled(bool(normalized))
 
     def _prompt_hotkey_combo(self) -> None:
         combo, accepted = QInputDialog.getText(

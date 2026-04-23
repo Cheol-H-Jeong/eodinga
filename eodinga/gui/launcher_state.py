@@ -86,6 +86,12 @@ class LauncherState(QObject):
         self._pinned_queries = normalized
         self.pinned_queries_changed.emit(self.pinned_queries)
 
+    def clear_recent_queries(self) -> None:
+        if not self._recent_queries:
+            return
+        self._recent_queries.clear()
+        self.recent_queries_changed.emit(self.recent_queries)
+
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
         self.indexing_status_changed.emit(status)
