@@ -1030,6 +1030,46 @@ def test_execute_regex_only_query_scans_beyond_initial_window(tmp_db: sqlite3.Co
     assert hits == ["needle-1500.txt"]
 
 
+def test_execute_regex_multiline_flag_matches_line_anchors_inside_content(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/todo.txt",
+        1024,
+        now,
+        "txt",
+        body_text="intro line\nTODO: fix parser\nclosing line",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, r"content:/^TODO: fix parser$/m", limit=10).hits]
+
+    assert hits == ["todo.txt"]
+
+
+def test_execute_regex_dotall_flag_matches_across_newlines_in_content(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/notes.txt",
+        1024,
+        now,
+        "txt",
+        body_text="alpha section\nbeta section",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, r"content:/alpha.*beta/s", limit=10).hits]
+
+    assert hits == ["notes.txt"]
+
+
 def test_execute_negated_group_query(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/alpha-plan.txt", 1024, now, "txt", body_text="alpha")
