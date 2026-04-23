@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.170 - 2026-04-23
+## 0.1.174 - 2026-04-23
 
 - Expanded `README.md` with a clearer shipped feature matrix, more query examples, practical CLI workflows, and a completed FAQ covering local-only behavior, recovery, parser extras, and health checks.
 - Deepened `docs/ARCHITECTURE.md` with end-to-end request, query, and recovery diagrams plus a clearer explanation of why the runtime is split across `core`, `index`, `query`, and UI layers.
