@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.511 - 2026-04-23
+## 0.1.512 - 2026-04-23
 
 - Tightened the read-only filesystem wrapper so `open_readonly()` now only accepts canonical read modes (`r`, `rb`, `rt`) and rejects binary-mode encoding mismatches before touching the filesystem.
 - Hardened index-storage cleanup against concurrent delete races by treating already-removed staged, partial, WAL, and SHM files as benign during recovery and swap cleanup.
