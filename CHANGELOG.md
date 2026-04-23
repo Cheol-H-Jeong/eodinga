@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.555 - 2026-04-23
+## 0.1.558 - 2026-04-23
 
 - Fixed grouped `case:` and `regex:` query compilation so mode-only branches no longer survive alongside real filters and accidentally widen grouped or negated queries into match-all results.
 - Added compiler regressions for grouped and negated mode expressions, including OR cases like `case:true | alpha` that previously kept an unconstrained branch alive.
