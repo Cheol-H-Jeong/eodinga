@@ -207,6 +207,100 @@ def _term_ok(text: str, term_value: str, kind: str, case_sensitive: bool, negate
     return not matched if negated else matched
 
 
+def _collapse_snippet_ws(value: str) -> str:
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _match_span_for_text_term(
+    text: str,
+    value: str,
+    *,
+    kind: str,
+    case_sensitive: bool,
+) -> tuple[int, int] | None:
+    flags = 0 if case_sensitive else re.IGNORECASE
+    literal = re.search(re.escape(value), text, flags)
+    if literal is not None:
+        return literal.span()
+    if kind != "phrase":
+        return None
+    tokens = tuple(token for token in re.split(r"\s+", value) if token)
+    if len(tokens) < 2:
+        return None
+    pattern = r"\W+".join(re.escape(token) for token in tokens)
+    match = re.search(pattern, text, flags)
+    return match.span() if match is not None else None
+
+
+def _match_span_for_regex_term(
+    text: str,
+    pattern: str,
+    *,
+    flags: str,
+    case_sensitive: bool,
+) -> tuple[int, int] | None:
+    compiled = re.compile(
+        pattern,
+        _make_flags(flags) | (0 if case_sensitive or "i" in flags.lower() else re.IGNORECASE),
+    )
+    match = compiled.search(text)
+    return match.span() if match is not None else None
+
+
+def _build_scan_snippet(content_text: str, match_span: tuple[int, int]) -> str | None:
+    start, end = match_span
+    if start == end:
+        return None
+    excerpt_start = max(start - 48, 0)
+    excerpt_end = min(end + 48, len(content_text))
+    prefix = _collapse_snippet_ws(content_text[excerpt_start:start])
+    matched = _collapse_snippet_ws(content_text[start:end]) or content_text[start:end].strip()
+    suffix = _collapse_snippet_ws(content_text[end:excerpt_end])
+    snippet = f"{prefix}[{matched}]{suffix}".strip()
+    if excerpt_start > 0:
+        snippet = f"...{snippet}"
+    if excerpt_end < len(content_text):
+        snippet = f"{snippet}..."
+    return snippet or None
+
+
+def _scan_match_snippet(branch: CompiledBranch, content_text: str) -> str | None:
+    for term in branch.content_terms:
+        if term.negated:
+            continue
+        span = _match_span_for_text_term(
+            content_text,
+            term.value,
+            kind=term.kind,
+            case_sensitive=branch.case_sensitive,
+        )
+        if span is not None:
+            return _build_scan_snippet(content_text, span)
+    for term in branch.content_regex_terms:
+        if term.negated:
+            continue
+        span = _match_span_for_regex_term(
+            content_text,
+            term.pattern,
+            flags=term.flags,
+            case_sensitive=branch.case_sensitive,
+        )
+        if span is not None:
+            return _build_scan_snippet(content_text, span)
+    for term in branch.path_terms:
+        if term.negated:
+            continue
+        span = _match_span_for_text_term(
+            content_text,
+            term.value,
+            kind=term.kind,
+            case_sensitive=branch.case_sensitive,
+        )
+        if span is not None:
+            return _build_scan_snippet(content_text, span)
+    return None
+
+
 def _regex_ok(
     text: str,
     pattern: str,
@@ -477,12 +571,12 @@ def _fetch_content_candidates(
     ids = [row["id"] for row in rows]
     if len(ids) >= limit or not _should_scan_content_candidates(branch, ids):
         return ids, records, snippets
-    scan_records = _scan_filtered_content_records(conn, branch, limit)
+    scan_records, scan_snippets = _scan_filtered_content_records(conn, branch, limit)
     for file_id, record in scan_records.items():
         if file_id in records:
             continue
         records[file_id] = record
-        snippets[file_id] = None
+        snippets[file_id] = scan_snippets.get(file_id) or ""
         ids.append(file_id)
         if len(ids) >= limit:
             break
@@ -506,12 +600,12 @@ def _fetch_auto_content_candidates(
     ids = [row["id"] for row in rows]
     if len(ids) >= limit or not _should_scan_auto_content_candidates(branch, ids):
         return ids, records, snippets
-    scan_records = _scan_auto_content_candidates(conn, branch, limit)
+    scan_records, scan_snippets = _scan_auto_content_candidates(conn, branch, limit)
     for file_id, record in scan_records.items():
         if file_id in records:
             continue
         records[file_id] = record
-        snippets[file_id] = None
+        snippets[file_id] = scan_snippets.get(file_id) or ""
         ids.append(file_id)
         if len(ids) >= limit:
             break
@@ -621,37 +715,41 @@ def _scan_filtered_content_records(
     conn: sqlite3.Connection,
     branch: CompiledBranch,
     limit: int,
-) -> dict[int, FileRecord]:
+) -> tuple[dict[int, FileRecord], dict[int, str | None]]:
     target = max(limit, 1)
     batch_size = max(min(target * 2, 2000), 500)
     offset = 0
     matched: dict[int, FileRecord] = {}
+    snippets: dict[int, str | None] = {}
     while len(matched) < target:
         batch = _fetch_content_backfill_batch(conn, branch, limit=batch_size, offset=offset)
         if not batch:
             break
         content_texts = _fetch_content_texts(conn, batch)
         for file_id, record in batch.items():
-            if _filter_record(branch, record, content_texts.get(file_id, "")):
+            content_text = content_texts.get(file_id, "")
+            if _filter_record(branch, record, content_text):
                 matched[file_id] = record
+                snippets[file_id] = _scan_match_snippet(branch, content_text)
                 if len(matched) >= target:
                     break
         offset += batch_size
-    return matched
+    return matched, snippets
 
 
 def _scan_auto_content_candidates(
     conn: sqlite3.Connection,
     branch: CompiledBranch,
     limit: int,
-) -> dict[int, FileRecord]:
+) -> tuple[dict[int, FileRecord], dict[int, str | None]]:
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
-        return {}
+        return {}, {}
     target = max(limit, 1)
     batch_size = max(min(target * 2, 2000), 500)
     offset = 0
     matched: dict[int, FileRecord] = {}
+    snippets: dict[int, str | None] = {}
     while len(matched) < target:
         batch = _fetch_content_backfill_batch(conn, branch, limit=batch_size, offset=offset)
         if not batch:
@@ -665,10 +763,11 @@ def _scan_auto_content_candidates(
             ):
                 continue
             matched[file_id] = record
+            snippets[file_id] = _scan_match_snippet(branch, content_text)
             if len(matched) >= target:
                 break
         offset += batch_size
-    return matched
+    return matched, snippets
 
 
 def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> list[int]:
@@ -779,12 +878,18 @@ def _execute_branch(
         if content_ids:
             candidate_ids = set(content_ids)
         else:
-            content_backfill = _scan_filtered_content_records(
+            content_backfill, content_backfill_snippets = _scan_filtered_content_records(
                 conn,
                 branch,
                 max(limit * 4, 1000),
             )
             extra_records = content_backfill
+            snippets.update(
+                {
+                    file_id: snippet or ""
+                    for file_id, snippet in content_backfill_snippets.items()
+                }
+            )
             candidate_ids = set(content_backfill)
     else:
         if _needs_record_filter(branch):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sqlite3
 import unicodedata
 from datetime import UTC, datetime, timedelta
@@ -363,6 +364,11 @@ def test_execute_phrase_query_matches_across_newlines_in_content(
 
     assert hits == ["launch-plan.txt"]
 
+    result = search(tmp_db, 'content:"launch checklist"', limit=5)
+
+    assert result.hits[0].snippet is not None
+    assert "[launch checklist]" in re.sub(r"\s+", " ", result.hits[0].snippet)
+
 
 def test_execute_phrase_query_matches_across_punctuation_in_path_and_content(
     tmp_db: sqlite3.Connection,
@@ -690,6 +696,26 @@ def test_execute_decomposed_korean_content_query_keeps_snippets(
     assert result.hits[0].file.name == "회의록-봄.txt"
     assert result.hits[0].snippet is not None
     assert "회의록" in result.hits[0].snippet
+
+
+def test_execute_content_regex_scan_keeps_snippets(tmp_db: sqlite3.Connection) -> None:
+    path = "/workspace/regex-match.txt"
+    _insert_file(
+        tmp_db,
+        1,
+        path,
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="launch\nchecklist and sign-off",
+    )
+    tmp_db.commit()
+
+    result = search(tmp_db, r"content:/launch\s+checklist/s", limit=5)
+
+    assert result.hits[0].file.name == "regex-match.txt"
+    assert result.hits[0].snippet is not None
+    assert "[launch checklist]" in re.sub(r"\s+", " ", result.hits[0].snippet)
 
 
 def test_execute_duplicate_and_negated_size_queries(tmp_db: sqlite3.Connection) -> None:
