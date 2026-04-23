@@ -16,9 +16,12 @@ from eodinga.observability import (
     configure_logging,
     default_crash_dir,
     default_log_path,
+    default_metrics_path,
     file_logging_enabled,
+    flush_metrics,
     increment_counter,
     install_crash_handlers,
+    load_persisted_metrics,
     recent_snapshots,
     record_histogram,
     record_snapshot,
@@ -27,6 +30,7 @@ from eodinga.observability import (
     resolve_log_path,
     resolve_log_retention,
     resolve_log_rotation,
+    resolve_metrics_path,
     reset_metrics,
     report_crash,
     snapshot_metrics,
@@ -49,6 +53,15 @@ def test_default_log_and_crash_paths_follow_platform_state_dirs(monkeypatch) -> 
     monkeypatch.delenv("XDG_STATE_HOME", raising=False)
     assert default_log_path() == Path.home() / "Library" / "Logs" / "eodinga" / "eodinga.log"
     assert default_crash_dir() == Path.home() / "Library" / "Logs" / "eodinga" / "crashes"
+
+
+def test_default_metrics_path_follows_platform_state_dir(monkeypatch) -> None:
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setenv("XDG_STATE_HOME", "/tmp/eodinga-state")
+
+    assert default_metrics_path() == Path(
+        "/tmp/eodinga-state/eodinga/metrics/runtime-metrics.json"
+    )
 
 
 def test_configure_logging_respects_explicit_file_target(tmp_path: Path) -> None:
@@ -94,6 +107,13 @@ def test_log_and_crash_resolution_respect_runtime_overrides(tmp_path: Path, monk
     assert file_logging_enabled() is True
 
 
+def test_metrics_resolution_respects_runtime_overrides(tmp_path: Path, monkeypatch) -> None:
+    metrics_path = tmp_path / "metrics" / "runtime.json"
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+
+    assert resolve_metrics_path() == metrics_path
+
+
 def test_log_policy_resolution_respects_runtime_overrides(monkeypatch) -> None:
     monkeypatch.setenv("EODINGA_LOG_ROTATION", "12 MB")
     monkeypatch.setenv("EODINGA_LOG_RETENTION", "7")
@@ -116,6 +136,32 @@ def test_log_resolution_returns_none_when_file_logging_disabled(monkeypatch) -> 
     assert counters["log_sinks.stderr.configured"] == 1
     assert counters["log_sinks.file.disabled"] == 1
     assert "log_sinks.file.configured" not in counters
+
+
+def test_metrics_resolution_returns_none_during_pytest_without_override(monkeypatch) -> None:
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "tests/unit/test_observability.py::test")
+    monkeypatch.delenv("EODINGA_METRICS_PATH", raising=False)
+
+    assert resolve_metrics_path() is None
+
+
+def test_flush_metrics_persists_counters_histograms_and_snapshots(tmp_path: Path, monkeypatch) -> None:
+    metrics_path = tmp_path / "metrics" / "runtime.json"
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+    reset_metrics()
+    increment_counter("queries_served", 2)
+    record_histogram("query_latency_ms", 12.5)
+    record_snapshot("command.search", {"query": "alpha", "count": 2})
+
+    persisted_path = flush_metrics()
+
+    assert persisted_path == metrics_path
+    reset_metrics()
+    load_persisted_metrics()
+    metrics = snapshot_metrics()
+    assert metrics["counters"]["queries_served"] == 2
+    assert metrics["histograms"]["query_latency_ms"]["count"] == 1
+    assert recent_snapshots()[0]["payload"]["query"] == "alpha"
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:

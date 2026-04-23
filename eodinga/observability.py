@@ -3,17 +3,22 @@ from __future__ import annotations
 import os
 import sys
 import threading
-import traceback
 from collections import deque
 from dataclasses import dataclass, field
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from json import dumps as json_dumps
 from pathlib import Path
 from threading import Lock
 from typing import IO, Any, TypedDict
 
 from loguru import logger
+
+from eodinga.observability_state import (
+    PersistedHistogram,
+    load_metrics_state,
+    merge_metrics_state,
+    write_metrics_state,
+)
 
 try:
     import resource
@@ -26,8 +31,12 @@ _DEFAULT_LOG_RETENTION: str | int = 5
 _RECENT_SNAPSHOT_LIMIT = 20
 _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
+_COUNTER_DELTAS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
+_HISTOGRAM_DELTAS: dict[str, _HistogramState] = {}
 _PROCESS_STARTED_AT = datetime.now(UTC)
+_PERSISTED_AT: str | None = None
+_PERSISTED_METRICS_LOADED = False
 
 
 @dataclass
@@ -77,6 +86,7 @@ class SnapshotRecord(TypedDict):
 
 
 _RECENT_SNAPSHOTS: deque[SnapshotRecord] = deque(maxlen=_RECENT_SNAPSHOT_LIMIT)
+_SNAPSHOT_DELTAS: list[SnapshotRecord] = []
 
 
 def _bucket_label(value_ms: float, buckets_ms: tuple[float, ...]) -> str:
@@ -111,9 +121,13 @@ def default_log_path() -> Path:
 
 
 def default_crash_dir() -> Path:
-    if sys.platform == "darwin":
-        return default_logs_dir() / "crashes"
-    return default_state_dir() / "crashes"
+    from eodinga.crash_observability import default_crash_dir as _default_crash_dir
+
+    return _default_crash_dir()
+
+
+def default_metrics_path() -> Path:
+    return default_state_dir() / "metrics" / "runtime-metrics.json"
 
 
 def file_logging_enabled() -> bool:
@@ -134,12 +148,20 @@ def resolve_log_path(log_path: Path | None = None) -> Path | None:
 
 
 def resolve_crash_dir(crash_dir: Path | None = None) -> Path:
-    if crash_dir is not None:
-        return crash_dir.expanduser()
-    override_dir = os.environ.get("EODINGA_CRASH_DIR")
-    if override_dir:
-        return Path(override_dir).expanduser()
-    return default_crash_dir()
+    from eodinga.crash_observability import resolve_crash_dir as _resolve_crash_dir
+
+    return _resolve_crash_dir(crash_dir)
+
+
+def resolve_metrics_path(metrics_path: Path | None = None) -> Path | None:
+    if metrics_path is not None:
+        return metrics_path.expanduser()
+    override_path = os.environ.get("EODINGA_METRICS_PATH")
+    if override_path:
+        return Path(override_path).expanduser()
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return None
+    return default_metrics_path()
 
 
 def resolve_log_rotation() -> str | int:
@@ -195,6 +217,7 @@ def get_logger(name: str | None = None) -> Any:
 def increment_counter(name: str, value: int = 1, **fields: object) -> None:
     with _METRICS_LOCK:
         _COUNTERS[name] = _COUNTERS.get(name, 0) + value
+        _COUNTER_DELTAS[name] = _COUNTER_DELTAS.get(name, 0) + value
     logger.bind(metric=name, **fields).debug("counter +{value}", value=value)
 
 
@@ -210,11 +233,8 @@ def record_histogram(
     **fields: object,
 ) -> None:
     with _METRICS_LOCK:
-        state = _HISTOGRAMS.get(name)
-        if state is None:
-            state = _HistogramState(buckets_ms=buckets_ms)
-            _HISTOGRAMS[name] = state
-        state.observe(value_ms)
+        _observe_histogram(_HISTOGRAMS, name, value_ms, buckets_ms=buckets_ms)
+        _observe_histogram(_HISTOGRAM_DELTAS, name, value_ms, buckets_ms=buckets_ms)
     logger.bind(metric=name, **fields).debug("histogram {value_ms:.3f}ms", value_ms=value_ms)
 
 
@@ -242,10 +262,16 @@ def snapshot_metrics() -> MetricsSnapshot:
 
 
 def reset_metrics() -> None:
+    global _PERSISTED_AT, _PERSISTED_METRICS_LOADED
     with _METRICS_LOCK:
         _COUNTERS.clear()
+        _COUNTER_DELTAS.clear()
         _HISTOGRAMS.clear()
+        _HISTOGRAM_DELTAS.clear()
         _RECENT_SNAPSHOTS.clear()
+        _SNAPSHOT_DELTAS.clear()
+    _PERSISTED_AT = None
+    _PERSISTED_METRICS_LOADED = False
 
 
 def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
@@ -256,7 +282,72 @@ def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
     }
     with _METRICS_LOCK:
         _RECENT_SNAPSHOTS.append(record)
+        _SNAPSHOT_DELTAS.append(record)
     logger.bind(metric=name, payload=record["payload"]).debug("snapshot recorded")
+
+
+def load_persisted_metrics(metrics_path: Path | None = None) -> Path | None:
+    global _PERSISTED_AT, _PERSISTED_METRICS_LOADED
+    target = resolve_metrics_path(metrics_path)
+    if target is None or _PERSISTED_METRICS_LOADED:
+        return target
+    state = load_metrics_state(target)
+    with _METRICS_LOCK:
+        _COUNTERS.clear()
+        _COUNTERS.update(state["counters"])
+        _COUNTER_DELTAS.clear()
+        _HISTOGRAMS.clear()
+        _HISTOGRAMS.update(
+            {
+                name: _histogram_state_from_persisted(histogram)
+                for name, histogram in state["histograms"].items()
+            }
+        )
+        _HISTOGRAM_DELTAS.clear()
+        _RECENT_SNAPSHOTS.clear()
+        _RECENT_SNAPSHOTS.extend(_snapshot_records(state["recent_snapshots"]))
+        _SNAPSHOT_DELTAS.clear()
+    _PERSISTED_AT = state["persisted_at"] or None
+    _PERSISTED_METRICS_LOADED = True
+    return target
+
+
+def flush_metrics(metrics_path: Path | None = None) -> Path | None:
+    global _PERSISTED_AT, _PERSISTED_METRICS_LOADED
+    target = resolve_metrics_path(metrics_path)
+    if target is None:
+        return None
+    with _METRICS_LOCK:
+        if not _COUNTER_DELTAS and not _HISTOGRAM_DELTAS and not _SNAPSHOT_DELTAS:
+            _PERSISTED_METRICS_LOADED = True
+            return target
+        merged = merge_metrics_state(
+            load_metrics_state(target),
+            delta_counters=dict(_COUNTER_DELTAS),
+            delta_histograms={
+                name: _persisted_histogram(state) for name, state in _HISTOGRAM_DELTAS.items()
+            },
+            delta_snapshots=[dict(snapshot) for snapshot in _SNAPSHOT_DELTAS],
+            snapshot_limit=_RECENT_SNAPSHOT_LIMIT,
+        )
+        write_metrics_state(target, merged)
+        _COUNTERS.clear()
+        _COUNTERS.update(merged["counters"])
+        _COUNTER_DELTAS.clear()
+        _HISTOGRAMS.clear()
+        _HISTOGRAMS.update(
+            {
+                name: _histogram_state_from_persisted(histogram)
+                for name, histogram in merged["histograms"].items()
+            }
+        )
+        _HISTOGRAM_DELTAS.clear()
+        _RECENT_SNAPSHOTS.clear()
+        _RECENT_SNAPSHOTS.extend(_snapshot_records(merged["recent_snapshots"]))
+        _SNAPSHOT_DELTAS.clear()
+    _PERSISTED_AT = merged["persisted_at"]
+    _PERSISTED_METRICS_LOADED = True
+    return target
 
 
 def recent_snapshots() -> list[SnapshotRecord]:
@@ -284,50 +375,9 @@ def write_crash_log(
     context: str = "Unhandled exception",
     details: Mapping[str, object] | None = None,
 ) -> Path:
-    target_dir = resolve_crash_dir(crash_dir)
-    target_dir.mkdir(parents=True, exist_ok=True)
-    occurred_at = datetime.now(UTC)
-    timestamp = occurred_at.strftime("%Y%m%dT%H%M%S.%fZ")
-    crash_path = _next_crash_path(target_dir, timestamp)
-    metrics = snapshot_metrics()
-    metadata: dict[str, object] = {
-        "timestamp": timestamp,
-        "process_started_at": metrics["process_started_at"],
-        "uptime_ms": metrics["uptime_ms"],
-        "pid": metrics["pid"],
-        "thread_count": metrics["thread_count"],
-        "rss_bytes": metrics["rss_bytes"],
-        "open_fd_count": metrics["open_fd_count"],
-        "version": metrics["version"],
-        "platform": sys.platform,
-        "python": sys.version.split()[0],
-        "thread": threading.current_thread().name,
-        "executable": sys.executable,
-        "argv": sys.argv[1:],
-        "cwd": str(Path.cwd()),
-        "file_logging_enabled": file_logging_enabled(),
-        "log_path": resolve_log_path(),
-        "log_rotation": resolve_log_rotation(),
-        "log_retention": resolve_log_retention(),
-        "log_compression": resolve_log_compression(),
-        "crash_dir": target_dir,
-        "metrics_generated_at": metrics["generated_at"],
-        "metrics_counters": metrics["counters"],
-        "metrics_histograms": metrics["histograms"],
-        "recent_snapshots": recent_snapshots(),
-    }
-    if details:
-        metadata.update(details)
-    lines = [
-        f"{context}\n",
-        *[f"{key}={_format_detail_value(value)}\n" for key, value in metadata.items()],
-        f"{type(error).__name__}: {error}\n",
-        "\n",
-        *traceback.format_exception(type(error), error, error.__traceback__),
-    ]
-    crash_path.write_text("".join(lines), encoding="utf-8")
-    increment_counter("crash_logs_written")
-    return crash_path
+    from eodinga.crash_observability import write_crash_log as _write_crash_log
+
+    return _write_crash_log(error, crash_dir=crash_dir, context=context, details=details)
 
 
 def report_crash(
@@ -356,66 +406,59 @@ def report_crash(
 
 
 def install_crash_handlers(*, stream: IO[str] | None = None) -> None:
-    increment_counter("crash_handlers_installed")
+    from eodinga.crash_observability import install_crash_handlers as _install_crash_handlers
 
-    def _handle_exception(
-        exc_type: type[BaseException],
-        error: BaseException,
-        tb: Any,
-    ) -> None:
-        if issubclass(exc_type, KeyboardInterrupt):
-            return
-        error.__traceback__ = tb
-        report_crash(error, context="Unhandled top-level exception", stream=stream)
+    _install_crash_handlers(stream=stream)
 
-    def _handle_thread_exception(args: threading.ExceptHookArgs) -> None:
-        if args.exc_value is None or isinstance(args.exc_value, KeyboardInterrupt):
-            return
-        details = {"thread": args.thread.name if args.thread is not None else None}
-        report_crash(
-            args.exc_value,
-            context="Unhandled thread exception",
-            details=details,
-            stream=stream,
+
+def _observe_histogram(
+    target: dict[str, _HistogramState],
+    name: str,
+    value_ms: float,
+    *,
+    buckets_ms: tuple[float, ...],
+) -> None:
+    state = target.get(name)
+    if state is None:
+        state = _HistogramState(buckets_ms=buckets_ms)
+        target[name] = state
+    state.observe(value_ms)
+
+
+def _persisted_histogram(state: _HistogramState) -> PersistedHistogram:
+    return {
+        "bucket_hits": dict(sorted(state.bucket_hits.items())),
+        "buckets_ms": list(state.buckets_ms),
+        "count": state.count,
+        "sum_ms": state.sum_ms,
+        "min_ms": state.min_ms,
+        "max_ms": state.max_ms,
+    }
+
+
+def _histogram_state_from_persisted(histogram: PersistedHistogram) -> _HistogramState:
+    return _HistogramState(
+        buckets_ms=tuple(histogram["buckets_ms"]) or _DEFAULT_HISTOGRAM_BUCKETS_MS,
+        count=histogram["count"],
+        sum_ms=histogram["sum_ms"],
+        min_ms=histogram["min_ms"],
+        max_ms=histogram["max_ms"],
+        bucket_hits=dict(histogram["bucket_hits"]),
+    )
+
+
+def _snapshot_records(records: list[dict[str, object]]) -> list[SnapshotRecord]:
+    snapshots: list[SnapshotRecord] = []
+    for record in records:
+        payload = record.get("payload")
+        snapshots.append(
+            SnapshotRecord(
+                name=str(record.get("name", "")),
+                recorded_at=str(record.get("recorded_at", "")),
+                payload=dict(payload) if isinstance(payload, dict) else {},
+            )
         )
-
-    def _handle_unraisable(args: sys.UnraisableHookArgs) -> None:
-        if args.exc_value is None or isinstance(args.exc_value, KeyboardInterrupt):
-            return
-        details = {
-            "object": repr(args.object) if args.object is not None else None,
-            "err_msg": args.err_msg,
-        }
-        report_crash(
-            args.exc_value,
-            context="Unhandled unraisable exception",
-            details=details,
-            stream=stream,
-        )
-
-    sys.excepthook = _handle_exception
-    threading.excepthook = _handle_thread_exception
-    sys.unraisablehook = _handle_unraisable
-
-
-def _next_crash_path(target_dir: Path, timestamp: str) -> Path:
-    candidate = target_dir / f"crash-{timestamp}.log"
-    if not candidate.exists():
-        return candidate
-    suffix = 1
-    while True:
-        candidate = target_dir / f"crash-{timestamp}-{suffix}.log"
-        if not candidate.exists():
-            return candidate
-        suffix += 1
-
-
-def _format_detail_value(value: object) -> str:
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, (str, int, float, bool)) or value is None:
-        return str(value)
-    return json_dumps(value, sort_keys=True)
+    return snapshots
 
 
 def _parse_log_policy_value(raw: str) -> str | int:

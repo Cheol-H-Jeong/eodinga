@@ -21,9 +21,11 @@ from eodinga.observability import (
     configure_logging,
     counter_value,
     file_logging_enabled,
+    flush_metrics,
     histogram_snapshot,
     increment_counter,
     install_crash_handlers,
+    load_persisted_metrics,
     record_snapshot,
     record_histogram,
     recent_snapshots,
@@ -341,6 +343,8 @@ def _run_command(args: argparse.Namespace) -> int:
                         "elapsed_ms": round(elapsed_ms, 3),
                     },
                 )
+        if failure_reason != "exception":
+            flush_metrics()
     assert exit_code is not None
     if exit_code == 0:
         increment_counter("commands_completed", command=command)
@@ -416,6 +420,7 @@ def _watcher_event_type_summary(counters: dict[str, int]) -> dict[str, int]:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    load_persisted_metrics()
     configure_logging(args.log_level)
     install_crash_handlers()
     try:
@@ -438,6 +443,7 @@ def main(argv: list[str] | None = None) -> int:
                 "crash_path": str(crash_path) if crash_path is not None else None,
             },
         )
+        flush_metrics()
         return 1
 
 
