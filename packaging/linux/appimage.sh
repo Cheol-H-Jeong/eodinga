@@ -84,6 +84,13 @@ recipe_path = Path("${APPIMAGE_RECIPE}")
 rendered_recipe_path = Path("${RENDERED_RECIPE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
 rendered_recipe_text = rendered_recipe_path.read_text(encoding="utf-8")
+recipe_entries = {}
+for line in rendered_recipe_text.splitlines():
+    stripped = line.strip()
+    if not stripped or stripped.startswith("#") or ":" not in stripped:
+        continue
+    key, value = stripped.split(":", 1)
+    recipe_entries[key.strip()] = value.strip()
 with tarfile.open("${ARCHIVE_PATH}", mode="r:gz") as archive:
     members = archive.getmembers()
 payload = {
@@ -112,9 +119,17 @@ payload = {
         "rendered_path": str(rendered_recipe_path),
         "rendered_exists": rendered_recipe_path.exists(),
         "rendered_version_matches_package": f"version: ${VERSION}" in rendered_recipe_text,
+        "rendered_version_token_removed": "${APPIMAGE_VERSION_TOKEN}" not in rendered_recipe_text,
         "references_desktop_entry": "packaging/linux/eodinga.desktop" in recipe_text,
         "references_icon_asset": "packaging/linux/eodinga.svg" in recipe_text,
+        "app_id": recipe_entries.get("id"),
+        "app_name": recipe_entries.get("name"),
+        "app_icon": recipe_entries.get("icon"),
+        "app_exec": recipe_entries.get("exec"),
+        "app_exec_args": recipe_entries.get("exec_args"),
         "launches_gui": "exec_args: gui" in recipe_text,
+        "includes_desktop_entry": "packaging/linux/eodinga.desktop" in rendered_recipe_text,
+        "includes_icon_asset": "packaging/linux/eodinga.svg" in rendered_recipe_text,
     },
     "icon": {
         "path": str(icon_path),

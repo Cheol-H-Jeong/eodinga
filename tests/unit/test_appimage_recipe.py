@@ -6,6 +6,7 @@ from pathlib import Path
 def test_appimage_recipe_tracks_desktop_and_icon_assets() -> None:
     recipe = Path("packaging/linux/appimage-builder.yml").read_text(encoding="utf-8")
 
+    assert "id: io.github.cheolhjeong.eodinga" in recipe
     assert "name: eodinga" in recipe
     assert "icon: eodinga" in recipe
     assert "version: @@APP_VERSION@@" in recipe

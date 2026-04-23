@@ -17,6 +17,12 @@ def test_linux_appimage_dry_run_preserves_source_assets() -> None:
     assert payload["desktop_entry"]["matches_source_asset"] is True
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["startup_notify"] == "true"
+    assert payload["recipe"]["app_id"] == "io.github.cheolhjeong.eodinga"
+    assert payload["recipe"]["app_exec"] == "usr/bin/eodinga"
+    assert payload["recipe"]["app_exec_args"] == "gui"
+    assert payload["recipe"]["rendered_version_token_removed"] is True
+    assert payload["recipe"]["includes_desktop_entry"] is True
+    assert payload["recipe"]["includes_icon_asset"] is True
     assert payload["icon"]["matches_source_asset"] is True
     assert payload["apprun"]["has_strict_shell"] is True
     assert payload["launcher"]["changes_to_project_root"] is True

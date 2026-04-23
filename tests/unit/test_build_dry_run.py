@@ -247,9 +247,17 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
             "contains_version_template": True,
             "rendered_exists": True,
             "rendered_version_matches_package": True,
+            "rendered_version_token_removed": True,
             "references_desktop_entry": True,
             "references_icon_asset": True,
+            "app_id": "io.github.cheolhjeong.eodinga",
+            "app_name": "eodinga",
+            "app_icon": "eodinga",
+            "app_exec": "usr/bin/eodinga",
+            "app_exec_args": "gui",
             "launches_gui": True,
+            "includes_desktop_entry": True,
+            "includes_icon_asset": True,
         },
         "icon": {
             "exists": True,
@@ -289,9 +297,17 @@ def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> Non
             "contains_version_template": True,
             "rendered_exists": True,
             "rendered_version_matches_package": True,
+            "rendered_version_token_removed": True,
             "references_desktop_entry": True,
             "references_icon_asset": True,
+            "app_id": "io.github.cheolhjeong.eodinga",
+            "app_name": "eodinga",
+            "app_icon": "eodinga",
+            "app_exec": "usr/bin/eodinga",
+            "app_exec_args": "gui",
             "launches_gui": True,
+            "includes_desktop_entry": True,
+            "includes_icon_asset": True,
         },
         "icon": {
             "exists": True,
@@ -344,9 +360,17 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert Path(payload["recipe"]["rendered_path"]).exists()
     assert payload["recipe"]["rendered_exists"] is True
     assert payload["recipe"]["rendered_version_matches_package"] is True
+    assert payload["recipe"]["rendered_version_token_removed"] is True
     assert payload["recipe"]["references_desktop_entry"] is True
     assert payload["recipe"]["references_icon_asset"] is True
+    assert payload["recipe"]["app_id"] == "io.github.cheolhjeong.eodinga"
+    assert payload["recipe"]["app_name"] == "eodinga"
+    assert payload["recipe"]["app_icon"] == "eodinga"
+    assert payload["recipe"]["app_exec"] == "usr/bin/eodinga"
+    assert payload["recipe"]["app_exec_args"] == "gui"
     assert payload["recipe"]["launches_gui"] is True
+    assert payload["recipe"]["includes_desktop_entry"] is True
+    assert payload["recipe"]["includes_icon_asset"] is True
     assert payload["icon"]["exists"] is True
     assert payload["icon"]["diricon_exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True
@@ -358,6 +382,71 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["launcher"]["has_strict_shell"] is True
     assert payload["launcher"]["changes_to_project_root"] is True
     assert payload["launcher"]["executes_python_module"] is True
+
+
+def test_linux_appimage_audit_validator_rejects_app_metadata_drift() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "x86_64",
+        "archive": f"packaging/dist/eodinga-{__version__}-linux-x86_64-appdir.tar.gz",
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "recipe": {
+            "exists": True,
+            "contains_version_template": True,
+            "rendered_exists": True,
+            "rendered_version_matches_package": True,
+            "rendered_version_token_removed": False,
+            "references_desktop_entry": True,
+            "references_icon_asset": True,
+            "app_id": "io.github.cheolhjeong.other",
+            "app_name": "other",
+            "app_icon": "other",
+            "app_exec": "usr/bin/other",
+            "app_exec_args": "cli",
+            "launches_gui": True,
+            "includes_desktop_entry": False,
+            "includes_icon_asset": False,
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "exec": "eodinga gui",
+            "icon": "eodinga",
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "diricon_exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "apprun": {
+            "is_executable": True,
+            "launches_gui": True,
+            "has_strict_shell": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "changes_to_project_root": True,
+            "executes_python_module": True,
+        },
+    }
+
+    errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
+
+    assert "Rendered AppImage recipe still contains the version template token" in errors
+    assert "AppImage recipe id drifted from io.github.cheolhjeong.eodinga" in errors
+    assert "AppImage recipe app name drifted from eodinga" in errors
+    assert "AppImage recipe app icon drifted from eodinga" in errors
+    assert "AppImage recipe exec drifted from usr/bin/eodinga" in errors
+    assert "AppImage recipe exec args drifted from gui" in errors
+    assert "Rendered AppImage recipe no longer includes the desktop entry" in errors
+    assert "Rendered AppImage recipe no longer includes the icon asset" in errors
 
 
 def test_linux_deb_dry_run_renders_control_template() -> None:
