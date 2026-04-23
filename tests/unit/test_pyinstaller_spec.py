@@ -101,3 +101,37 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
     discovered = discover_hidden_imports(source_root)
 
     assert discovered == ["package.alpha", "package.beta", "package.gamma"]
+
+
+def test_pyinstaller_spec_discovers_hidden_imports_from_string_bindings(tmp_path: Path) -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_hidden_imports = cast(Callable[[Path], list[str]], namespace["_discover_hidden_imports"])
+
+    source_root = tmp_path / "eodinga"
+    source_root.mkdir()
+    (source_root / "__init__.py").write_text("", encoding="utf-8")
+    module_path = source_root / "dynamic_imports.py"
+    module_path.write_text(
+        "\n".join(
+            [
+                "import importlib",
+                "from importlib import import_module",
+                "",
+                'MODULE = "package.delta"',
+                'MODULES = ("package.epsilon", f"package.zeta")',
+                "",
+                "import_module(MODULE)",
+                "for module_name in MODULES:",
+                "    importlib.import_module(module_name)",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    discovered = discover_hidden_imports(source_root)
+
+    assert discovered == ["package.delta"]

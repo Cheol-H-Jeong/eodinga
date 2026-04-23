@@ -126,6 +126,7 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
         module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
         import_module_aliases = {"import_module"}
         importlib_module_aliases = {"importlib"}
+        string_bindings: dict[str, tuple[str, ...]] = {}
         for node in ast.walk(module):
             if isinstance(node, ast.Import):
                 for alias in node.names:
@@ -135,6 +136,17 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
                 for alias in node.names:
                     if alias.name == "import_module":
                         import_module_aliases.add(alias.asname or alias.name)
+            elif isinstance(node, ast.Assign):
+                value = _extract_string_sequence(node.value)
+                if value is None:
+                    continue
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        string_bindings[target.id] = value
+            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                value = _extract_string_sequence(node.value)
+                if value is not None:
+                    string_bindings[node.target.id] = value
         for node in ast.walk(module):
             if not isinstance(node, ast.Call):
                 continue
@@ -149,12 +161,55 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
                     continue
             else:
                 continue
-            if not node.args or not isinstance(node.args[0], ast.Constant):
+            if not node.args:
                 continue
-            if not isinstance(node.args[0].value, str):
+            values = _extract_import_targets(node.args[0], string_bindings)
+            if values is None:
                 continue
-            discovered.add(node.args[0].value)
+            discovered.update(values)
     return sorted(discovered)
+
+
+def _extract_import_targets(
+    node: ast.expr,
+    string_bindings: dict[str, tuple[str, ...]],
+) -> tuple[str, ...] | None:
+    if isinstance(node, ast.Name):
+        return string_bindings.get(node.id)
+    return _extract_string_sequence(node)
+
+
+def _extract_string_sequence(node: ast.expr | None) -> tuple[str, ...] | None:
+    if node is None:
+        return None
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return (node.value,)
+    if isinstance(node, (ast.List, ast.Set, ast.Tuple)):
+        values: list[str] = []
+        for element in node.elts:
+            rendered = _extract_constant_string(element)
+            if rendered is None:
+                return None
+            values.append(rendered)
+        return tuple(values)
+    rendered = _extract_constant_string(node)
+    if rendered is None:
+        return None
+    return (rendered,)
+
+
+def _extract_constant_string(node: ast.expr) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.JoinedStr):
+        parts: list[str] = []
+        for value in node.values:
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                parts.append(value.value)
+                continue
+            return None
+        return "".join(parts)
+    return None
 
 
 def _is_stdlib_module(module_name: str) -> bool:
