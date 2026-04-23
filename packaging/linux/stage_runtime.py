@@ -2,7 +2,21 @@ from __future__ import annotations
 
 import shutil
 import sys
+import tomllib
 from pathlib import Path
+
+
+def declared_package_data_paths(project_root: Path) -> list[str]:
+    payload = tomllib.loads((project_root / "pyproject.toml").read_text(encoding="utf-8"))
+    package_data = payload.get("tool", {}).get("setuptools", {}).get("package-data", {})
+    declared: set[str] = set()
+    for package_name, patterns in package_data.items():
+        package_root = project_root.joinpath(*package_name.split("."))
+        for pattern in patterns:
+            for matched_path in package_root.glob(pattern):
+                if matched_path.is_file():
+                    declared.add(matched_path.relative_to(project_root).as_posix())
+    return sorted(declared)
 
 
 def main(argv: list[str] | None = None) -> int:

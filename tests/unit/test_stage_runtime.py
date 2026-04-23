@@ -35,4 +35,16 @@ def test_stage_runtime_copies_package_tree_without_bytecode(tmp_path: Path) -> N
     assert (staged_package / "__init__.py").exists()
     assert (staged_package / "__main__.py").exists()
     assert (staged_package / "i18n" / "en.json").exists()
+    assert (staged_package / "i18n" / "ko.json").exists()
     assert not (staged_package / "__pycache__").exists()
+
+
+def test_declared_package_data_paths_match_current_project_metadata() -> None:
+    module = _load_stage_runtime_module()
+
+    declared = module.declared_package_data_paths(Path(".").resolve())
+
+    assert declared == [
+        "eodinga/i18n/en.json",
+        "eodinga/i18n/ko.json",
+    ]

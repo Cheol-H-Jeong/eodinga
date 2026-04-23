@@ -21,5 +21,7 @@ def test_linux_appimage_dry_run_preserves_source_assets() -> None:
     assert payload["runtime_bundle"]["package_exists"] is True
     assert payload["runtime_bundle"]["package_init_exists"] is True
     assert payload["runtime_bundle"]["module_entry_exists"] is True
+    assert payload["runtime_bundle"]["i18n_ko_exists"] is True
+    assert payload["runtime_bundle"]["package_data_paths_match_declared"] is True
     assert payload["apprun"]["has_strict_shell"] is True
     assert payload["launcher"]["uses_bundled_runtime"] is True

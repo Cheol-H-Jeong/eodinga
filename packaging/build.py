@@ -328,6 +328,11 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (runtime_payload.get("package_init_exists"), "AppImage bundled eodinga package is missing __init__.py"),
         (runtime_payload.get("module_entry_exists"), "AppImage bundled eodinga package is missing __main__.py"),
         (runtime_payload.get("i18n_en_exists"), "AppImage bundled eodinga runtime is missing i18n assets"),
+        (runtime_payload.get("i18n_ko_exists"), "AppImage bundled eodinga runtime is missing Korean i18n assets"),
+        (
+            runtime_payload.get("package_data_paths_match_declared"),
+            "AppImage bundled runtime package-data files drifted from the declared package metadata",
+        ),
         (apprun_payload.get("is_executable"), "AppImage AppRun is not executable"),
         (apprun_payload.get("launches_gui"), "AppImage AppRun no longer launches the GUI target"),
         (apprun_payload.get("has_strict_shell"), "AppImage AppRun no longer uses strict shell flags"),
@@ -360,6 +365,8 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
     icon_payload = payload.get("icon", {})
     runtime_payload = payload.get("runtime_bundle", {})
     launcher_payload = payload.get("launcher", {})
+    maintainer_scripts_payload = payload.get("maintainer_scripts", {})
+    preserves_user_state_payload = payload.get("preserves_user_state", {})
     docs_payload = payload.get("docs", {})
     arch = payload.get("arch")
     if control_payload.get("package") != "eodinga":
@@ -421,10 +428,31 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (runtime_payload.get("package_init_exists"), "Debian bundled eodinga package is missing __init__.py"),
         (runtime_payload.get("module_entry_exists"), "Debian bundled eodinga package is missing __main__.py"),
         (runtime_payload.get("i18n_en_exists"), "Debian bundled eodinga runtime is missing i18n assets"),
+        (runtime_payload.get("i18n_ko_exists"), "Debian bundled eodinga runtime is missing Korean i18n assets"),
+        (
+            runtime_payload.get("package_data_paths_match_declared"),
+            "Debian bundled runtime package-data files drifted from the declared package metadata",
+        ),
         (launcher_payload.get("is_executable"), "Debian launcher shim is not executable"),
         (launcher_payload.get("has_strict_shell"), "Debian launcher shim no longer uses strict shell flags"),
         (launcher_payload.get("uses_bundled_runtime"), "Debian launcher shim no longer uses the bundled runtime"),
         (launcher_payload.get("executes_python_module"), "Debian launcher shim no longer executes the Python module"),
+        (not maintainer_scripts_payload.get("preinst_exists"), "Debian package unexpectedly ships a preinst maintainer script"),
+        (not maintainer_scripts_payload.get("postinst_exists"), "Debian package unexpectedly ships a postinst maintainer script"),
+        (not maintainer_scripts_payload.get("prerm_exists"), "Debian package unexpectedly ships a prerm maintainer script"),
+        (not maintainer_scripts_payload.get("postrm_exists"), "Debian package unexpectedly ships a postrm maintainer script"),
+        (
+            not preserves_user_state_payload.get("ships_etc_config_dir"),
+            "Debian package unexpectedly seeds a system config directory for user state",
+        ),
+        (
+            not preserves_user_state_payload.get("ships_var_lib_dir"),
+            "Debian package unexpectedly ships mutable /var/lib state",
+        ),
+        (
+            not preserves_user_state_payload.get("ships_home_skel_dir"),
+            "Debian package unexpectedly seeds per-user config into /etc/skel",
+        ),
         (docs_payload.get("license_exists"), "Debian package no longer ships the license"),
         (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),
         (docs_payload.get("changelog_has_current_release_heading"), "Debian package changelog no longer starts with the current release heading"),

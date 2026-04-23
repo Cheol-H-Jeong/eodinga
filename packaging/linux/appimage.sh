@@ -70,6 +70,7 @@ import json
 import os
 import tarfile
 import hashlib
+import tomllib
 from pathlib import Path
 
 desktop_path = Path("${APPDIR}/usr/share/applications/eodinga.desktop")
@@ -87,6 +88,21 @@ icon_path = Path("${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 diricon_path = Path("${APPDIR}/.DirIcon")
 runtime_root = Path("${RUNTIME_ROOT}")
 runtime_package_root = runtime_root / "eodinga"
+pyproject = tomllib.loads(Path("${ROOT_DIR}/pyproject.toml").read_text(encoding="utf-8"))
+declared_package_data = sorted(
+    {
+        matched.relative_to(Path("${ROOT_DIR}")).as_posix()
+        for package_name, patterns in pyproject.get("tool", {}).get("setuptools", {}).get("package-data", {}).items()
+        for pattern in patterns
+        for matched in Path("${ROOT_DIR}").joinpath(*package_name.split(".")).glob(pattern)
+        if matched.is_file()
+    }
+)
+staged_package_data = sorted(
+    path.relative_to(runtime_root).as_posix()
+    for relative in declared_package_data
+    if (path := runtime_root / relative).is_file()
+)
 recipe_path = Path("${APPIMAGE_RECIPE}")
 rendered_recipe_path = Path("${RENDERED_RECIPE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
@@ -146,6 +162,10 @@ payload = {
         "package_init_exists": (runtime_package_root / "__init__.py").exists(),
         "module_entry_exists": (runtime_package_root / "__main__.py").exists(),
         "i18n_en_exists": (runtime_package_root / "i18n" / "en.json").exists(),
+        "i18n_ko_exists": (runtime_package_root / "i18n" / "ko.json").exists(),
+        "declared_package_data_paths": declared_package_data,
+        "staged_package_data_paths": staged_package_data,
+        "package_data_paths_match_declared": staged_package_data == declared_package_data,
     },
     "apprun": {
         "path": str(apprun_path),

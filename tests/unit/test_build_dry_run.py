@@ -353,6 +353,15 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
             "launches_gui": True,
             "has_strict_shell": True,
         },
+        "runtime_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "package_init_exists": True,
+            "module_entry_exists": True,
+            "i18n_en_exists": True,
+            "i18n_ko_exists": False,
+            "package_data_paths_match_declared": True,
+        },
         "launcher": {
             "is_executable": True,
             "has_strict_shell": True,
@@ -364,6 +373,7 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
     errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
 
     assert "AppImage launcher shim no longer executes the Python module" in errors
+    assert "AppImage bundled eodinga runtime is missing Korean i18n assets" in errors
 
 
 def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> None:
@@ -451,6 +461,16 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["runtime_bundle"]["package_init_exists"] is True
     assert payload["runtime_bundle"]["module_entry_exists"] is True
     assert payload["runtime_bundle"]["i18n_en_exists"] is True
+    assert payload["runtime_bundle"]["i18n_ko_exists"] is True
+    assert payload["runtime_bundle"]["declared_package_data_paths"] == [
+        "eodinga/i18n/en.json",
+        "eodinga/i18n/ko.json",
+    ]
+    assert payload["runtime_bundle"]["staged_package_data_paths"] == [
+        "eodinga/i18n/en.json",
+        "eodinga/i18n/ko.json",
+    ]
+    assert payload["runtime_bundle"]["package_data_paths_match_declared"] is True
     assert payload["apprun"]["is_executable"] is True
     assert payload["apprun"]["launches_gui"] is True
     assert payload["apprun"]["has_strict_shell"] is True
@@ -493,6 +513,16 @@ def test_linux_deb_dry_run_renders_control_template() -> None:
     assert payload["runtime_bundle"]["package_init_exists"] is True
     assert payload["runtime_bundle"]["module_entry_exists"] is True
     assert payload["runtime_bundle"]["i18n_en_exists"] is True
+    assert payload["runtime_bundle"]["i18n_ko_exists"] is True
+    assert payload["runtime_bundle"]["declared_package_data_paths"] == [
+        "eodinga/i18n/en.json",
+        "eodinga/i18n/ko.json",
+    ]
+    assert payload["runtime_bundle"]["staged_package_data_paths"] == [
+        "eodinga/i18n/en.json",
+        "eodinga/i18n/ko.json",
+    ]
+    assert payload["runtime_bundle"]["package_data_paths_match_declared"] is True
     assert payload["launcher"]["uses_bundled_runtime"] is True
     assert payload["launcher"]["executes_python_module"] is True
 
@@ -530,12 +560,25 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
             "package_init_exists": True,
             "module_entry_exists": True,
             "i18n_en_exists": True,
+            "i18n_ko_exists": True,
+            "package_data_paths_match_declared": True,
         },
         "launcher": {
             "is_executable": True,
             "has_strict_shell": True,
             "uses_bundled_runtime": True,
             "executes_python_module": True,
+        },
+        "maintainer_scripts": {
+            "preinst_exists": False,
+            "postinst_exists": False,
+            "prerm_exists": False,
+            "postrm_exists": False,
+        },
+        "preserves_user_state": {
+            "ships_etc_config_dir": False,
+            "ships_var_lib_dir": False,
+            "ships_home_skel_dir": False,
         },
         "docs": {
             "license_exists": True,
@@ -591,12 +634,25 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
             "package_init_exists": True,
             "module_entry_exists": True,
             "i18n_en_exists": True,
+            "i18n_ko_exists": True,
+            "package_data_paths_match_declared": True,
         },
         "launcher": {
             "is_executable": True,
             "has_strict_shell": True,
             "uses_bundled_runtime": True,
             "executes_python_module": True,
+        },
+        "maintainer_scripts": {
+            "preinst_exists": False,
+            "postinst_exists": False,
+            "prerm_exists": False,
+            "postrm_exists": False,
+        },
+        "preserves_user_state": {
+            "ships_etc_config_dir": False,
+            "ships_var_lib_dir": False,
+            "ships_home_skel_dir": False,
         },
         "docs": {
             "license_exists": True,
@@ -691,10 +747,31 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["runtime_bundle"]["package_init_exists"] is True
     assert payload["runtime_bundle"]["module_entry_exists"] is True
     assert payload["runtime_bundle"]["i18n_en_exists"] is True
+    assert payload["runtime_bundle"]["i18n_ko_exists"] is True
+    assert payload["runtime_bundle"]["declared_package_data_paths"] == [
+        "eodinga/i18n/en.json",
+        "eodinga/i18n/ko.json",
+    ]
+    assert payload["runtime_bundle"]["staged_package_data_paths"] == [
+        "eodinga/i18n/en.json",
+        "eodinga/i18n/ko.json",
+    ]
+    assert payload["runtime_bundle"]["package_data_paths_match_declared"] is True
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["has_strict_shell"] is True
     assert payload["launcher"]["uses_bundled_runtime"] is True
     assert payload["launcher"]["executes_python_module"] is True
+    assert payload["maintainer_scripts"] == {
+        "preinst_exists": False,
+        "postinst_exists": False,
+        "prerm_exists": False,
+        "postrm_exists": False,
+    }
+    assert payload["preserves_user_state"] == {
+        "ships_etc_config_dir": False,
+        "ships_var_lib_dir": False,
+        "ships_home_skel_dir": False,
+    }
     assert payload["docs"]["license_exists"] is True
     assert payload["docs"]["changelog_exists"] is True
     assert payload["docs"]["changelog_has_current_release_heading"] is True
@@ -730,6 +807,17 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert payload["deb_artifact"]["exists"] is True
     assert payload["deb_artifact"]["size_bytes"] > 0
     assert len(payload["deb_artifact"]["sha256"]) == 64
+    assert payload["maintainer_scripts"] == {
+        "preinst_exists": False,
+        "postinst_exists": False,
+        "prerm_exists": False,
+        "postrm_exists": False,
+    }
+    assert payload["preserves_user_state"] == {
+        "ships_etc_config_dir": False,
+        "ships_var_lib_dir": False,
+        "ships_home_skel_dir": False,
+    }
 
 
 def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadata() -> None:
@@ -775,6 +863,8 @@ def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadat
             "package_init_exists": True,
             "module_entry_exists": True,
             "i18n_en_exists": True,
+            "i18n_ko_exists": True,
+            "package_data_paths_match_declared": True,
         },
         "apprun": {
             "is_executable": True,
@@ -847,10 +937,31 @@ def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
             "desktop_icon_matches_asset": True,
             "matches_source_asset": True,
         },
+        "runtime_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "package_init_exists": True,
+            "module_entry_exists": True,
+            "i18n_en_exists": True,
+            "i18n_ko_exists": True,
+            "package_data_paths_match_declared": True,
+        },
         "launcher": {
             "is_executable": True,
             "has_strict_shell": True,
+            "uses_bundled_runtime": True,
             "executes_python_module": True,
+        },
+        "maintainer_scripts": {
+            "preinst_exists": False,
+            "postinst_exists": False,
+            "prerm_exists": True,
+            "postrm_exists": False,
+        },
+        "preserves_user_state": {
+            "ships_etc_config_dir": True,
+            "ships_var_lib_dir": False,
+            "ships_home_skel_dir": False,
         },
         "docs": {
             "license_exists": True,
@@ -867,3 +978,5 @@ def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
     assert "Debian package is missing" in errors
     assert "Debian package size is missing" in errors
     assert "Debian package digest is missing" in errors
+    assert "Debian package unexpectedly ships a prerm maintainer script" in errors
+    assert "Debian package unexpectedly seeds a system config directory for user state" in errors

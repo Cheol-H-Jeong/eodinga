@@ -90,6 +90,7 @@ import json
 import os
 import tarfile
 import hashlib
+import tomllib
 from pathlib import Path
 
 desktop_path = Path("${PACKAGE_DIR}/usr/share/applications/eodinga.desktop")
@@ -115,6 +116,21 @@ changelog_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
 runtime_root = Path("${PACKAGE_DIR}/${RUNTIME_ROOT_REL}")
 runtime_package_root = runtime_root / "eodinga"
 debian_control_template_path = Path("${DEBIAN_CONTROL_TEMPLATE}")
+pyproject = tomllib.loads(Path("${ROOT_DIR}/pyproject.toml").read_text(encoding="utf-8"))
+declared_package_data = sorted(
+    {
+        matched.relative_to(Path("${ROOT_DIR}")).as_posix()
+        for package_name, patterns in pyproject.get("tool", {}).get("setuptools", {}).get("package-data", {}).items()
+        for pattern in patterns
+        for matched in Path("${ROOT_DIR}").joinpath(*package_name.split(".")).glob(pattern)
+        if matched.is_file()
+    }
+)
+staged_package_data = sorted(
+    path.relative_to(runtime_root).as_posix()
+    for relative in declared_package_data
+    if (path := runtime_root / relative).is_file()
+)
 template_control_entries = {}
 for line in debian_control_template_path.read_text(encoding="utf-8").splitlines():
     if not line or ":" not in line:
@@ -194,6 +210,10 @@ payload = {
         "package_init_exists": (runtime_package_root / "__init__.py").exists(),
         "module_entry_exists": (runtime_package_root / "__main__.py").exists(),
         "i18n_en_exists": (runtime_package_root / "i18n" / "en.json").exists(),
+        "i18n_ko_exists": (runtime_package_root / "i18n" / "ko.json").exists(),
+        "declared_package_data_paths": declared_package_data,
+        "staged_package_data_paths": staged_package_data,
+        "package_data_paths_match_declared": staged_package_data == declared_package_data,
     },
     "launcher": {
         "path": str(launcher_path),
@@ -201,6 +221,17 @@ payload = {
         "has_strict_shell": "set -euo pipefail" in launcher_path.read_text(encoding="utf-8"),
         "uses_bundled_runtime": 'PYTHONPATH="/usr/lib/eodinga' in launcher_path.read_text(encoding="utf-8"),
         "executes_python_module": "exec python3 -Im eodinga" in launcher_path.read_text(encoding="utf-8"),
+    },
+    "maintainer_scripts": {
+        "preinst_exists": (Path("${PACKAGE_DIR}/DEBIAN/preinst")).exists(),
+        "postinst_exists": (Path("${PACKAGE_DIR}/DEBIAN/postinst")).exists(),
+        "prerm_exists": (Path("${PACKAGE_DIR}/DEBIAN/prerm")).exists(),
+        "postrm_exists": (Path("${PACKAGE_DIR}/DEBIAN/postrm")).exists(),
+    },
+    "preserves_user_state": {
+        "ships_etc_config_dir": (Path("${PACKAGE_DIR}/etc/eodinga")).exists(),
+        "ships_var_lib_dir": (Path("${PACKAGE_DIR}/var/lib/eodinga")).exists(),
+        "ships_home_skel_dir": (Path("${PACKAGE_DIR}/etc/skel/.config/eodinga")).exists(),
     },
     "docs": {
         "license_path": str(license_path),

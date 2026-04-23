@@ -22,3 +22,4 @@ def test_deb_recipe_tracks_desktop_icon_and_docs_assets() -> None:
     assert "Architecture: @@TARGET_ARCH@@" in control
     assert "Depends: python3 (>= 3.11)" in control
     assert "Description: Instant lexical file search for Windows and Linux" in control
+    assert "postrm" not in control
