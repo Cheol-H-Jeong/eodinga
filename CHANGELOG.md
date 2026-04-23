@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.552 - 2026-04-23
+## 0.1.553 - 2026-04-23
 
 - Hardened the Linux AppImage and Debian audits so desktop entries now fail if they stop declaring `Type=Application` or re-enable terminal launch, keeping staged GUI packages aligned with the shipped desktop asset contract.
 - Tightened the Windows installer audit to enforce the per-user install path, lowest-privilege mode, desktop/autostart tasks, Korean language pack, and other rendered Inno flags instead of merely reporting them.
