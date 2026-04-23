@@ -112,6 +112,51 @@ def test_live_modify_replaces_query_visibility_within_500ms(tmp_path: Path) -> N
     assert current_hits == [target]
 
 
+def test_live_same_root_move_updates_query_visibility_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    source = root / "draft-note.txt"
+    destination = root / "renamed-note.txt"
+    source.write_text("same root rename integration\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(conn, "same root rename integration", limit=5).hits]
+        source.rename(destination)
+
+        appeared_elapsed = wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "same root rename integration",
+            destination,
+            deadline_seconds=0.5,
+        )
+        removed_elapsed = wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "same root rename integration",
+            source,
+            deadline_seconds=0.5,
+        )
+        current_hits = [hit.file.path for hit in search(conn, "same root rename integration", limit=5).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_hits == [source]
+    assert appeared_elapsed <= 0.5
+    assert removed_elapsed <= 0.5
+    assert current_hits == [destination]
+
+
 def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
@@ -157,6 +202,68 @@ def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: P
     assert elapsed <= 0.5
     assert alpha_hits == []
     assert beta_hits == [created]
+
+
+def test_live_same_root_move_keeps_root_scope_with_multi_root_watchers(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    source = root_b / "beta-draft.txt"
+    destination = root_b / "beta-final.txt"
+    source.write_text("beta same root rename scope\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        initial_beta_hits = [
+            hit.file.path for hit in search(conn, "beta same root rename scope", limit=5, root=root_b).hits
+        ]
+        source.rename(destination)
+
+        appeared_elapsed = wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "beta same root rename scope",
+            destination,
+            deadline_seconds=0.5,
+        )
+        removed_elapsed = wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "beta same root rename scope",
+            source,
+            deadline_seconds=0.5,
+        )
+        alpha_hits = [
+            hit.file.path for hit in search(conn, "beta same root rename scope", limit=5, root=root_a).hits
+        ]
+        beta_hits = [
+            hit.file.path for hit in search(conn, "beta same root rename scope", limit=5, root=root_b).hits
+        ]
+        all_hits = [hit.file.path for hit in search(conn, "beta same root rename scope", limit=5).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_beta_hits == [source]
+    assert appeared_elapsed <= 0.5
+    assert removed_elapsed <= 0.5
+    assert alpha_hits == []
+    assert beta_hits == [destination]
+    assert all_hits == [destination]
 
 
 def test_live_cross_root_move_updates_global_and_root_scoped_queries(tmp_path: Path) -> None:
