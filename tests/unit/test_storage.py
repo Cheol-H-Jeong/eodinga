@@ -170,6 +170,18 @@ def test_atomic_replace_index_preserves_live_sidecars_when_swap_fails(
     assert _read_root_paths(target) == ["/live"]
 
 
+def test_atomic_replace_index_rejects_corrupt_staged_database(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / "index.staged.db"
+    staged.write_text("not-a-sqlite-database", encoding="utf-8")
+
+    with pytest.raises(sqlite3.DatabaseError, match="failed quick_check"):
+        atomic_replace_index(staged, target)
+
+    assert not target.exists()
+    assert staged.read_text(encoding="utf-8") == "not-a-sqlite-database"
+
+
 def test_open_index_replays_stale_wal_on_startup(tmp_path: Path) -> None:
     source = tmp_path / "source.db"
     snapshot = tmp_path / "snapshot.db"
@@ -378,6 +390,28 @@ def test_recover_interrupted_recovery_swaps_existing_staged_database(tmp_path: P
     assert not staged.exists()
 
 
+def test_recover_interrupted_recovery_keeps_live_target_when_staged_database_is_corrupt(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged.write_text("not-a-sqlite-database", encoding="utf-8")
+
+    assert recover_interrupted_recovery(target) is False
+    assert _read_root_paths(target) == ["/live"]
+    assert not staged.exists()
+
+
 def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path) -> None:
     target = tmp_path / "index.db"
     staged = tmp_path / ".index.db.next"
@@ -402,6 +436,28 @@ def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path
 
     assert recover_interrupted_build(target) is True
     assert _read_root_paths(target) == ["/rebuilt"]
+    assert not staged.exists()
+
+
+def test_recover_interrupted_build_keeps_live_target_when_staged_database_is_corrupt(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged.write_text("not-a-sqlite-database", encoding="utf-8")
+
+    assert recover_interrupted_build(target) is False
+    assert _read_root_paths(target) == ["/live"]
     assert not staged.exists()
 
 

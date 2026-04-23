@@ -141,6 +141,22 @@ def _replay_stale_wal(path: Path) -> bool:
     return True
 
 
+def _quick_check(path: Path) -> bool:
+    if not path.exists():
+        return False
+    try:
+        conn = connect_database(path, row_factory=None)
+    except sqlite3.DatabaseError:
+        return False
+    try:
+        rows = conn.execute("PRAGMA quick_check(1);").fetchall()
+    except sqlite3.DatabaseError:
+        return False
+    finally:
+        conn.close()
+    return len(rows) == 1 and str(rows[0][0]).lower() == "ok"
+
+
 def recover_stale_wal(path: Path) -> bool:
     if not has_stale_wal(path):
         return False
@@ -150,6 +166,9 @@ def recover_stale_wal(path: Path) -> bool:
     try:
         _copy_index_with_sidecars(path, staged_path)
         if not _replay_stale_wal(staged_path):
+            return False
+        if not _quick_check(staged_path):
+            logger.error("recovered staged index failed quick_check for {}", path)
             return False
         atomic_replace_index(staged_path, path)
     except (OSError, sqlite3.DatabaseError):
@@ -169,6 +188,9 @@ def recover_interrupted_recovery(path: Path) -> bool:
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
             return False
+        if not _quick_check(staged_path):
+            logger.error("interrupted recovery staged index failed quick_check for {}", path)
+            return False
         atomic_replace_index(staged_path, path)
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted recovery resume for {}", path)
@@ -186,6 +208,9 @@ def recover_interrupted_build(path: Path) -> bool:
     logger.warning("resuming interrupted staged build for {}", path)
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
+            return False
+        if not _quick_check(staged_path):
+            logger.error("interrupted staged build failed quick_check for {}", path)
             return False
         atomic_replace_index(staged_path, path)
     except (OSError, sqlite3.DatabaseError):
@@ -212,6 +237,8 @@ def open_index(path: Path) -> sqlite3.Connection:
 def atomic_replace_index(staged_path: Path, target_path: Path) -> None:
     if not staged_path.exists():
         raise FileNotFoundError(staged_path)
+    if not _quick_check(staged_path):
+        raise sqlite3.DatabaseError(f"staged index failed quick_check: {staged_path}")
     target_dir = target_path.parent
     target_dir.mkdir(parents=True, exist_ok=True)
     _checkpoint_wal(staged_path)
