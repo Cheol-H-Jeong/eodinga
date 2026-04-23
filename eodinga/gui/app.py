@@ -177,6 +177,7 @@ class EodingaWindow(QMainWindow):
         self._config = resolved_config
         self._config_path = resolved_config_path
         self.settings_tab.set_hotkey_combo(self._hotkey_controller.combo)
+        self.settings_tab.set_hotkey_backend_status(self._hotkey_controller.available, self._hotkey_controller.combo)
         self.settings_tab.set_frameless(resolved_config.launcher.frameless)
         self.settings_tab.set_always_on_top(resolved_config.launcher.always_on_top)
         self.settings_tab.hotkey_change_requested.connect(self._change_hotkey)
@@ -210,6 +211,7 @@ class EodingaWindow(QMainWindow):
         self._config.launcher = self._config.launcher.model_copy(update={"hotkey": self._hotkey_controller.combo})
         self._config.save(self._config_path)
         self.settings_tab.set_hotkey_combo(self._hotkey_controller.combo)
+        self.settings_tab.set_hotkey_backend_status(self._hotkey_controller.available, self._hotkey_controller.combo)
 
     def _change_always_on_top(self, enabled: bool) -> None:
         self.launcher_window.set_always_on_top(enabled)

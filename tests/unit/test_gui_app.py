@@ -68,6 +68,7 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.settings_tab.frameless_checkbox.accessibleName() == "Use frameless launcher window"
     assert window.settings_tab.always_on_top_checkbox.accessibleName() == "Keep launcher always on top"
     assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"
+    assert window.settings_tab.hotkey_status_label.accessibleName() == "Launcher hotkey backend status"
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
     assert window.about_tab.accessibleName() == "About tab"
     assert window.launcher_window.pinned_queries_row.accessibleName() == "Pinned launcher queries"
@@ -368,6 +369,9 @@ def test_window_registers_hotkey_and_toggles_launcher_from_callback(qapp) -> Non
     ]
     assert hotkey_service.callback is not None
     assert not window.launcher_window.isVisible()
+    assert window.settings_tab.hotkey_status_label.text() == (
+        "Global hotkey backend is available. Changes apply immediately."
+    )
 
     hotkey_service.callback()
     qapp.processEvents()
@@ -455,7 +459,18 @@ def test_settings_tab_can_disable_hotkey_without_restart(
         ("unregister", ""),
     ]
     assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: disabled"
+    assert window.settings_tab.hotkey_status_label.text() == (
+        "Global hotkey is disabled. Enter a shortcut to enable it immediately."
+    )
     assert load(temp_config_path).launcher.hotkey == ""
+
+
+def test_settings_tab_surfaces_unavailable_hotkey_backend(qapp) -> None:
+    window = EodingaWindow()
+
+    assert window.settings_tab.hotkey_status_label.text() == (
+        "Global hotkey backend is unavailable in this session. The shortcut is saved, but it cannot be used live."
+    )
 
 
 def test_settings_tab_toggles_always_on_top_without_restart(qapp, temp_config_path: Path) -> None:

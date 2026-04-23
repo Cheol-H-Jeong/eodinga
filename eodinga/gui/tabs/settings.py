@@ -29,12 +29,17 @@ class SettingsTab(QWidget):
         self.hotkey_label = QLabel("", self)
         self.hotkey_label.setProperty("role", "secondary")
         self.hotkey_label.setAccessibleName("Current launcher hotkey")
+        self.hotkey_status_label = QLabel("", self)
+        self.hotkey_status_label.setProperty("role", "secondary")
+        self.hotkey_status_label.setWordWrap(True)
+        self.hotkey_status_label.setAccessibleName("Launcher hotkey backend status")
         self.remap_hotkey_button = SecondaryButton("Remap hotkey", self)
         self.remap_hotkey_button.setAccessibleName("Remap hotkey")
         self.remap_hotkey_button.clicked.connect(self._prompt_hotkey_combo)
         self.frameless_checkbox.toggled.connect(self.frameless_changed.emit)
         self.always_on_top_checkbox.toggled.connect(self.always_on_top_changed.emit)
         self.set_hotkey_combo(self._hotkey_combo)
+        self.set_hotkey_backend_status(True, self._hotkey_combo)
 
         layout.addWidget(title)
         layout.addWidget(body)
@@ -42,12 +47,29 @@ class SettingsTab(QWidget):
         layout.addWidget(self.frameless_checkbox)
         layout.addWidget(self.always_on_top_checkbox)
         layout.addWidget(self.hotkey_label)
+        layout.addWidget(self.hotkey_status_label)
         layout.addWidget(self.remap_hotkey_button)
         layout.addStretch(1)
 
     def set_hotkey_combo(self, combo: str) -> None:
         self._hotkey_combo = combo
         self.hotkey_label.setText(f"Launcher hotkey: {combo or 'disabled'}")
+
+    def set_hotkey_backend_status(self, available: bool, combo: str) -> None:
+        if available:
+            if combo:
+                self.hotkey_status_label.setText("Global hotkey backend is available. Changes apply immediately.")
+            else:
+                self.hotkey_status_label.setText("Global hotkey is disabled. Enter a shortcut to enable it immediately.")
+            return
+        if combo:
+            self.hotkey_status_label.setText(
+                "Global hotkey backend is unavailable in this session. The shortcut is saved, but it cannot be used live."
+            )
+            return
+        self.hotkey_status_label.setText(
+            "Global hotkey backend is unavailable in this session. You can still save a shortcut for a future run."
+        )
 
     def set_always_on_top(self, enabled: bool) -> None:
         self.always_on_top_checkbox.blockSignals(True)
