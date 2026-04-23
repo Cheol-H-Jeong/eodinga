@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QLineEdit
+from PySide6.QtWidgets import QLineEdit, QToolButton
 
 from eodinga.gui.design import FONT_18
 
@@ -14,4 +14,5 @@ class SearchField(QLineEdit):
         font.setPointSize(FONT_18)
         self.setFont(font)
         self.setClearButtonEnabled(True)
-
+        for button in self.findChildren(QToolButton):
+            button.setAccessibleName("Clear launcher search")

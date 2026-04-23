@@ -6,7 +6,7 @@ from typing import cast
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QSystemTrayIcon
+from PySide6.QtWidgets import QSystemTrayIcon, QToolButton
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.config import AppConfig, load
@@ -56,6 +56,7 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     window.show()
 
     assert window.tab_widget.accessibleName() == "Main navigation tabs"
+    assert window.tab_widget.tabBar().accessibleName() == "Main navigation tab bar"
     assert window.roots_tab.accessibleName() == "Roots tab"
     assert window.roots_tab.add_root_button.accessibleName() == "Add root"
     assert window.roots_tab.remove_root_button.accessibleName() == "Remove selected root"
@@ -68,6 +69,9 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
     assert window.about_tab.accessibleName() == "About tab"
     assert window.launcher_window.preview_pane.accessibleName() == "Launcher preview pane"
+    clear_buttons = window.launcher_window.query_field.findChildren(QToolButton)
+    assert len(clear_buttons) == 1
+    assert clear_buttons[0].accessibleName() == "Clear launcher search"
     assert window.search_tab.launcher_panel.action_bar.accessibleName() == "Launcher action bar"
 
 
