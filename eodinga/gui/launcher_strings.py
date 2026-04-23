@@ -42,7 +42,10 @@ def build_result_list_accessible_description(count: int, current_row: int | None
     description = f"{count} launcher results."
     if current_row is not None and current_name is not None:
         description = f"{description} Selected {current_row} of {count}: {current_name}."
-    return f"{description} Use Up and Down to move between results, Enter to open, and Alt+1 through Alt+9 for quick picks."
+    return (
+        f"{description} Use Up and Down to move between results, Enter to open, "
+        "Shift+F10 or Menu for result actions, and Alt+1 through Alt+9 for quick picks."
+    )
 
 
 __all__ = [

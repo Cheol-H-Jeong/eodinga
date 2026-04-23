@@ -1040,12 +1040,12 @@ def test_launcher_results_expose_accessible_text_and_preview_summary(qapp) -> No
     assert "Path /tmp/release-notes.txt." in accessible_text
     assert tooltip == accessible_text
     assert launcher.result_list.accessibleDescription() == (
-        "1 launcher results. Selected 1 of 1: release-notes.txt. Use Up and Down to move between results, Enter to open, and Alt+1 through Alt+9 for quick picks."
+        "1 launcher results. Selected 1 of 1: release-notes.txt. Use Up and Down to move between results, Enter to open, Shift+F10 or Menu for result actions, and Alt+1 through Alt+9 for quick picks."
     )
     assert "Previewing release-notes.txt at /tmp/release-notes.txt." in launcher.preview_pane.accessibleDescription()
     assert "Snippet: ...the release notes are attached..." in launcher.preview_pane.accessibleDescription()
     assert launcher.action_bar.accessibleDescription() == (
-        "Actions for release-notes.txt: Enter opens, Ctrl+Enter reveals, Alt+C copies the path, Alt+N copies the name, and Shift+Enter shows properties."
+        "Actions for release-notes.txt: Enter opens, Ctrl+Enter reveals, Alt+C copies the path, Alt+N copies the name, Shift+Enter shows properties, and Shift+F10 or Menu opens the result menu."
     )
 
 
