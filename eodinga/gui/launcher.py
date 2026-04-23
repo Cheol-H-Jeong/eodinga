@@ -305,7 +305,7 @@ class LauncherPanel(QWidget):
         elif self.result_list.hasFocus():
             hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
         else:
-            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
+            hint = "Tab moves to results. Down/Up and PgUp/PgDn navigate. Home/End edit the query. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
 
     def _current_hit(self) -> SearchHit | None:
@@ -329,14 +329,6 @@ class LauncherPanel(QWidget):
                 self._set_selection(self.model.rowCount() - 1)
             else:
                 self._move_selection(-1)
-            return True
-        if event.key() == Qt.Key.Key_Home:
-            self.result_list.setFocus()
-            self._set_selection(0)
-            return True
-        if event.key() == Qt.Key.Key_End:
-            self.result_list.setFocus()
-            self._set_selection(self.model.rowCount() - 1)
             return True
         if event.key() == Qt.Key.Key_PageDown:
             self.result_list.setFocus()

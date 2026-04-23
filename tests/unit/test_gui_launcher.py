@@ -194,7 +194,7 @@ def test_launcher_page_keys_jump_through_results(qapp) -> None:
     assert launcher.result_list.currentIndex().row() == 2
 
 
-def test_launcher_query_field_home_end_and_page_keys_jump_into_results(qapp) -> None:
+def test_launcher_query_field_home_end_edit_text_while_page_keys_jump_into_results(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         items = [
             SearchHit(path=Path(f"/tmp/item-{index}.txt"), parent_path=Path("/tmp"), name=f"item-{index}.txt")
@@ -208,15 +208,20 @@ def test_launcher_query_field_home_end_and_page_keys_jump_into_results(qapp) -> 
     launcher.query_field.setText("item")
     _wait(60)
 
+    launcher.query_field.setCursorPosition(2)
     QTest.keyClick(launcher.query_field, Qt.Key.Key_End)
-    assert launcher.result_list.hasFocus()
-    assert launcher.result_list.currentIndex().row() == 5
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.cursorPosition() == len("item")
+    assert launcher.result_list.currentIndex().row() == 0
 
     QTest.keyClick(launcher.query_field, Qt.Key.Key_Home)
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.cursorPosition() == 0
     assert launcher.result_list.currentIndex().row() == 0
 
     launcher.query_field.setFocus()
     QTest.keyClick(launcher.query_field, Qt.Key.Key_PageDown)
+    assert launcher.result_list.hasFocus()
     assert launcher.result_list.currentIndex().row() == 3
 
     launcher.query_field.setFocus()
@@ -406,6 +411,25 @@ def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> No
     launcher.show()
 
     assert "Pinned: ext:pdf, size:>10M." in launcher.empty_state.body_label.text()
+
+
+def test_launcher_query_focus_hint_mentions_query_editing_keys(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/report.txt"), parent_path=Path("/tmp"), name="report.txt")][:limit],
+            total=1,
+            elapsed_ms=1.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("report")
+    _wait(60)
+
+    assert launcher.query_field.hasFocus()
+    assert "Home/End edit the query" in launcher.shortcut_label.text()
+    assert "PgUp/PgDn navigate" in launcher.shortcut_label.text()
 
 
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:
@@ -639,7 +663,7 @@ def test_launcher_alt_number_quick_picks_results(qapp) -> None:
     assert activated == ["item-2.txt"]
     assert launcher.result_list.currentIndex().row() == 2
     assert "Alt+1..9 quick-picks" in launcher.shortcut_label.text()
-    assert "Home/End and PgUp/PgDn jump" in launcher.shortcut_label.text()
+    assert "Home/End edit the query" in launcher.shortcut_label.text()
 
 
 def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
