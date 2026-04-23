@@ -164,6 +164,10 @@ def test_windows_build_target_relabels_audit_and_requires_built_artifacts(monkey
         return f"/usr/bin/{command}"
 
     monkeypatch.setattr(module.shutil, "which", fake_which)
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["pyinstaller_spec"]["dist_exists"] = {"cli": False, "gui": False}
+    payload["pyinstaller_spec"]["exe_exists"] = {"cli": False, "gui": False}
+    monkeypatch.setattr(module, "_audit_windows_inputs", lambda version, package_version: payload)
 
     result = module._run_windows()
 
