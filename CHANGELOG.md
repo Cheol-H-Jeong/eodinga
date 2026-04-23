@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.846 - 2026-04-23
+## 0.1.851 - 2026-04-23
 
 - Tightened the Windows packaging release audit so `python packaging/build.py --target windows` now fails on non-Windows hosts even if stale placeholder `dist/` trees are present, keeping the release contract aligned with the actual Windows workflow.
 - Added integration coverage for restarting a real watchdog observer on the same root and still surfacing a new file to search within 500ms after the restart.
