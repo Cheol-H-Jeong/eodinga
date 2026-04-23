@@ -53,6 +53,8 @@ def test_pyinstaller_spec_exposes_expected_windows_dist_names() -> None:
     assert namespace["GUI_DIST_NAME"] == "eodinga-gui"
     assert namespace["CLI_EXE_NAME"] == "eodinga-cli.exe"
     assert namespace["GUI_EXE_NAME"] == "eodinga-gui.exe"
+    assert Path(namespace["ENTRY_CLI"]).as_posix().endswith("packaging/windows/cli_entry.py")
+    assert Path(namespace["ENTRY_GUI"]).as_posix().endswith("packaging/windows/gui_entry.py")
 
 
 def test_pyinstaller_runtime_modules_map_to_real_sources() -> None:
@@ -101,3 +103,56 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
     discovered = discover_hidden_imports(source_root)
 
     assert discovered == ["package.alpha", "package.beta", "package.gamma"]
+
+
+def test_pyinstaller_spec_defines_dual_collect_targets_when_pyinstaller_globals_exist() -> None:
+    spec_path = Path("packaging/pyinstaller.spec")
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    class FakeAnalysis:
+        def __init__(self, scripts, **kwargs) -> None:
+            self.scripts = scripts
+            self.kwargs = kwargs
+            self.pure = [Path(scripts[0]).stem]
+            self.binaries = [("binary", ".")]
+            self.datas = kwargs["datas"]
+            calls.append(("Analysis", {"scripts": scripts, **kwargs}))
+
+    class FakePYZ:
+        def __init__(self, pure) -> None:
+            self.pure = pure
+            calls.append(("PYZ", {"pure": pure}))
+
+    class FakeEXE:
+        def __init__(self, pyz, scripts, *extra, **kwargs) -> None:
+            self.pyz = pyz
+            self.scripts = scripts
+            self.extra = extra
+            self.kwargs = kwargs
+            calls.append(("EXE", {"scripts": scripts, "extra": extra, **kwargs}))
+
+    class FakeCOLLECT:
+        def __init__(self, exe, binaries, datas, **kwargs) -> None:
+            self.exe = exe
+            self.binaries = binaries
+            self.datas = datas
+            self.kwargs = kwargs
+            calls.append(("COLLECT", {"binaries": binaries, "datas": datas, **kwargs}))
+
+    namespace: dict[str, object] = {
+        "__file__": str(spec_path.resolve()),
+        "Analysis": FakeAnalysis,
+        "PYZ": FakePYZ,
+        "EXE": FakeEXE,
+        "COLLECT": FakeCOLLECT,
+    }
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+
+    analysis_calls = [payload for name, payload in calls if name == "Analysis"]
+    exe_calls = [payload for name, payload in calls if name == "EXE"]
+    collect_calls = [payload for name, payload in calls if name == "COLLECT"]
+
+    assert [Path(payload["scripts"][0]).name for payload in analysis_calls] == ["cli_entry.py", "gui_entry.py"]
+    assert [payload["name"] for payload in exe_calls] == ["eodinga-cli", "eodinga-gui"]
+    assert [payload["console"] for payload in exe_calls] == [True, False]
+    assert [payload["name"] for payload in collect_calls] == ["eodinga-cli", "eodinga-gui"]

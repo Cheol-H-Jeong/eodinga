@@ -7,8 +7,8 @@ import tomllib
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-ENTRY_CLI = PROJECT_ROOT / "eodinga" / "__main__.py"
-ENTRY_GUI = PROJECT_ROOT / "eodinga" / "__main__.py"
+ENTRY_CLI = PROJECT_ROOT / "packaging" / "windows" / "cli_entry.py"
+ENTRY_GUI = PROJECT_ROOT / "packaging" / "windows" / "gui_entry.py"
 CLI_DIST_NAME = "eodinga-cli"
 GUI_DIST_NAME = "eodinga-gui"
 CLI_EXE_NAME = f"{CLI_DIST_NAME}.exe"
@@ -240,3 +240,71 @@ SPEC_AUDIT = {
     "datas": DATAS,
     "mode": "onedir",
 }
+
+
+def _build_executables() -> None:
+    analysis_cls = globals().get("Analysis")
+    pyz_cls = globals().get("PYZ")
+    exe_cls = globals().get("EXE")
+    collect_cls = globals().get("COLLECT")
+    if not all((analysis_cls, pyz_cls, exe_cls, collect_cls)):
+        return
+
+    cli_analysis = analysis_cls(
+        [str(ENTRY_CLI)],
+        pathex=[str(PROJECT_ROOT)],
+        binaries=[],
+        datas=DATAS,
+        hiddenimports=HIDDEN_IMPORTS,
+        hookspath=[],
+        hooksconfig={},
+        runtime_hooks=[],
+        excludes=[],
+        noarchive=False,
+    )
+    cli_pyz = pyz_cls(cli_analysis.pure)
+    cli_exe = exe_cls(
+        cli_pyz,
+        cli_analysis.scripts,
+        [],
+        exclude_binaries=True,
+        name=CLI_DIST_NAME,
+        console=True,
+    )
+    collect_cls(
+        cli_exe,
+        cli_analysis.binaries,
+        cli_analysis.datas,
+        name=CLI_DIST_NAME,
+    )
+
+    gui_analysis = analysis_cls(
+        [str(ENTRY_GUI)],
+        pathex=[str(PROJECT_ROOT)],
+        binaries=[],
+        datas=DATAS,
+        hiddenimports=HIDDEN_IMPORTS,
+        hookspath=[],
+        hooksconfig={},
+        runtime_hooks=[],
+        excludes=[],
+        noarchive=False,
+    )
+    gui_pyz = pyz_cls(gui_analysis.pure)
+    gui_exe = exe_cls(
+        gui_pyz,
+        gui_analysis.scripts,
+        [],
+        exclude_binaries=True,
+        name=GUI_DIST_NAME,
+        console=False,
+    )
+    collect_cls(
+        gui_exe,
+        gui_analysis.binaries,
+        gui_analysis.datas,
+        name=GUI_DIST_NAME,
+    )
+
+
+_build_executables()
