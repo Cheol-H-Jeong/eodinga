@@ -71,6 +71,7 @@ yamllint .github/workflows/release-linux.yml
 
 ## Test Selection Guide
 
+- Docs-only changes: `pytest -q tests/unit/test_docs_assets.py tests/unit/test_cli.py tests/unit/test_acceptance_contract.py`
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`
 - GUI/launcher changes: `pytest -q tests/unit/test_gui_app.py tests/unit/test_gui_launcher.py tests/unit/test_docs_assets.py`
 - Index/storage/watcher changes: `pytest -q tests/unit/test_storage.py tests/unit/test_writer.py tests/unit/test_watcher.py`

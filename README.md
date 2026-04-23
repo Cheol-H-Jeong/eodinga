@@ -229,6 +229,16 @@ The doctor command checks Python compatibility, importable dependencies, databas
 
 If search looks stale, run `eodinga stats` to confirm the active database path, then either `eodinga watch` for live updates or `eodinga index --rebuild` to rebuild once.
 
+## Operator Runbook
+
+| If you see | Check | Likely next command |
+| --- | --- | --- |
+| Search results look stale | `eodinga stats --json` to confirm the active DB path and counters | `eodinga watch` or `eodinga index --rebuild` |
+| Startup recovered after a crash | `eodinga doctor` for staged rebuild / WAL recovery notes | `eodinga index --rebuild` if recovery still looks suspect |
+| Content queries return filename-only hits | Confirm parser extras are installed and content indexing is enabled | `pip install -e .[parsers]` then `eodinga index --rebuild` |
+| Packaging validation drifts | Re-run the packaging dry-run commands from the acceptance quickcheck | `python packaging/build.py --target windows-dry-run` |
+| Release docs no longer match CLI or UI | Refresh the shipped docs artifacts before tagging | `python scripts/render_man_page.py` and `python scripts/render_docs_screenshots.py` |
+
 ## Docs Map
 
 - [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md): query cheatsheet and operator notes.

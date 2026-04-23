@@ -45,6 +45,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
     assert "## Config and Data Paths" in readme
+    assert "## Operator Runbook" in readme
     assert "## Recovery and Troubleshooting" in readme
     assert "## Limitations" in readme
     assert "## Packaging" in readme
@@ -83,12 +84,14 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Data Flow Diagram" in architecture
     assert "## Module Map" in architecture
     assert "## Index Storage" in architecture
+    assert "## Transaction Boundaries" in architecture
     assert "## Index Lifecycle Sequence" in architecture
     assert "## Startup Recovery" in architecture
     assert "## Rebuild Sequence" in architecture
     assert "## Query Execution" in architecture
     assert "## Live Update Sequence" in architecture
     assert "## Packaging Surfaces" in architecture
+    assert "## Shipped Documentation Artifacts" in architecture
     assert "compressed changelog" in architecture
 
     assert "## Local Setup" in contributing
@@ -98,6 +101,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Documentation Expectations" in contributing
     assert "scripts/render_docs_screenshots.py" in contributing
     assert "## Test Selection Guide" in contributing
+    assert "Docs-only changes" in contributing
     assert "## Commit and Release Notes" in contributing
 
     assert "modified:today" in dsl
@@ -128,7 +132,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "EODINGA_PERF_REBUILD_MIN_FPS" in performance
     assert "## Running the Suite" in performance
     assert "## Baseline" in performance
+    assert "## Reproduction Envelope" in performance
     assert "## Profiling Workflow" in performance
+    assert "## Updating This Document" in performance
 
     assert "## Pick The Version" in release
     assert "## Refresh Release Notes" in release
@@ -138,3 +144,4 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release
     assert "python scripts/render_man_page.py" in release
+    assert "python scripts/render_docs_screenshots.py" in release

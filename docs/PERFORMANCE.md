@@ -32,6 +32,16 @@ The current perf suite covers the SPEC §6.3 scenarios with smaller local-dev da
 - `tests/perf/test_content_query.py`: content query latency against a 5k-document corpus.
 - `tests/perf/test_watch_latency.py`: file-create to query-visible latency through the watcher path.
 
+## Reproduction Envelope
+
+Keep the environment close to the documented baseline when you intend to refresh this file:
+
+- Use the repository `.venv` with the current `.[dev,parsers,gui]` extras installed.
+- Run on an otherwise idle local machine; cold-start throughput is especially sensitive to competing disk activity.
+- Reuse the same filesystem type for before/after comparisons when possible, because `tmpfs`, SSD-backed ext4, and network mounts have materially different walker behavior.
+- Treat the first run as a cache-warming sample and rerun once before writing new numbers into this document.
+- Update the baseline only after the code and the benchmark command set are both stable for the round.
+
 ## Scaling Knobs
 
 Use env vars to raise workload size or tighten/relax the informational gate for a single run:
@@ -94,6 +104,15 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 3. If the regression is in cold start, compare `test_cold_start.py` with `test_bulk_upsert.py` to decide whether the walker or writer moved.
 4. If the regression is in watch visibility, inspect coalescing, debounce, and commit timing before touching query ranking.
 5. Refresh this document only after you have rerun the benchmark in the same local environment and the result is stable enough to be explanatory.
+
+## Updating This Document
+
+When a perf-oriented round changes the documented baseline:
+
+1. Rerun only the relevant benchmark until the result is stable enough to explain.
+2. Record the benchmark date, dataset shape, and the code-path change that explains the movement.
+3. Keep the prose release-focused; this document should explain the measured delta, not narrate the entire implementation.
+4. Leave unrelated baseline numbers untouched if they were not rerun in the same environment.
 
 ## Practical Threshold Notes
 

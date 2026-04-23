@@ -68,6 +68,13 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 - `content_map` keeps the FTS row IDs stable across updates so incremental reindexing does not balloon the content index.
 - `eodinga.index.storage` owns WAL replay on startup and atomic staged-index replacement.
 
+## Transaction Boundaries
+
+- Cold rebuilds write into a staged `.index.db.next` database and only replace the live database after a clean checkpoint.
+- Watcher updates batch filesystem events into one writer transaction so query-visible state advances in commit-sized steps rather than one row at a time.
+- Search remains read-only against the active index connection; it never mutates indexed roots or query-time metadata.
+- Recovery paths promote staged or replayed databases with atomic rename semantics so the live database is always either the old complete state or the new complete state.
+
 ## Index Lifecycle Sequence
 
 ```text
@@ -186,6 +193,13 @@ startup
 - The Debian recipe stages the launcher shim, desktop entry, SVG icon, license, and compressed changelog into the package root before emitting the audit manifest.
 - Windows packaging uses `packaging/pyinstaller.spec`, `packaging/windows/eodinga.iss`, and `packaging/build.py --target windows-dry-run`.
 - Documentation screenshots are rendered from the real Qt surfaces through `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
+
+## Shipped Documentation Artifacts
+
+- `README.md` is the top-level operator contract for install, DSL usage, recovery, packaging, and release links.
+- `docs/eodinga.1` is generated from the argparse CLI surface by `scripts/render_man_page.py`.
+- `docs/screenshots/*.png` are generated from the real Qt widgets by `scripts/render_docs_screenshots.py`.
+- `docs/ACCEPTANCE.md`, `docs/RELEASE.md`, and `docs/PERFORMANCE.md` document the validation, packaging, and perf-baseline handoff expected at release time.
 
 ## Platform Surface Summary
 

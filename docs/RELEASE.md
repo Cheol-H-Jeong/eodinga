@@ -48,6 +48,13 @@ Before tagging, confirm:
 - `docs/PERFORMANCE.md` numbers come from a rerun at the documented HEAD.
 - Screenshot assets under `docs/screenshots/` still match the current UI, or have been refreshed with `python scripts/render_docs_screenshots.py`.
 
+Useful refresh commands:
+
+```bash
+python scripts/render_man_page.py
+python scripts/render_docs_screenshots.py
+```
+
 ## Cut The Local Release
 
 1. Commit the release metadata changes.
