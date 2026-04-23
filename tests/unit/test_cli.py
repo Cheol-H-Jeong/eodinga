@@ -520,6 +520,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 1
     assert payload["crash_types"] == {}
+    assert payload["crash_sources"] == {}
     assert payload["parser_activity"] == {}
     assert payload["watcher_event_types"] == {}
     assert len(payload["recent_snapshots"]) == 1
@@ -663,6 +664,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 2
     assert payload["crash_types"] == {}
+    assert payload["crash_sources"] == {}
     assert payload["parser_activity"]["broken"]["errors"] == 1
     assert payload["parser_activity"]["text"]["parsed"] >= 2
     assert payload["watcher_event_types"] == {"created": 1, "modified": 1}
@@ -760,6 +762,7 @@ def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path
     assert metrics["counters"]["commands.version.failed"] == 1
     assert metrics["counters"]["crashes_reported"] == 1
     assert metrics["counters"]["crash_logs_written"] == 1
+    assert metrics["counters"]["crash_sources.command"] == 1
     assert "crash_log_write_failures" not in metrics["counters"]
     assert "commands_completed" not in metrics["counters"]
     assert metrics["histograms"]["command_latency_ms"]["count"] == 1

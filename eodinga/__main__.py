@@ -243,6 +243,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         commands=_command_summary(counters),
         exit_codes=_exit_code_summary(counters),
         crash_types=_crash_type_summary(counters),
+        crash_sources=_crash_source_summary(counters),
         parser_activity=_parser_activity_summary(counters),
         watcher_event_types=_watcher_event_type_summary(counters),
         counters=counters,
@@ -382,6 +383,16 @@ def _crash_type_summary(counters: dict[str, int]) -> dict[str, int]:
     return dict(sorted(crash_types.items()))
 
 
+def _crash_source_summary(counters: dict[str, int]) -> dict[str, int]:
+    prefix = "crash_sources."
+    crash_sources = {
+        name[len(prefix) :]: value
+        for name, value in counters.items()
+        if name.startswith(prefix)
+    }
+    return dict(sorted(crash_sources.items()))
+
+
 def _parser_activity_summary(counters: dict[str, int]) -> dict[str, dict[str, int]]:
     parser_activity: dict[str, dict[str, int]] = {}
     prefix = "parsers."
@@ -429,6 +440,7 @@ def main(argv: list[str] | None = None) -> int:
             error,
             context=f"Unhandled exception while running: {command}",
             details={"argv": command_argv},
+            source="command",
         )
         record_snapshot(
             "command.crash",

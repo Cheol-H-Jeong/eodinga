@@ -140,6 +140,7 @@ class StatsSnapshot(BaseModel):
     commands: dict[str, dict[str, int]] = Field(default_factory=dict)
     exit_codes: dict[str, int] = Field(default_factory=dict)
     crash_types: dict[str, int] = Field(default_factory=dict)
+    crash_sources: dict[str, int] = Field(default_factory=dict)
     parser_activity: dict[str, dict[str, int]] = Field(default_factory=dict)
     watcher_event_types: dict[str, int] = Field(default_factory=dict)
     counters: dict[str, int] = Field(default_factory=dict)

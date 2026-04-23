@@ -345,6 +345,7 @@ def report_crash(
     *,
     context: str = "Unhandled exception",
     details: Mapping[str, object] | None = None,
+    source: str = "runtime",
     stream: IO[str] | None = None,
 ) -> Path | None:
     target_stream = stream or sys.stderr
@@ -354,6 +355,7 @@ def report_crash(
         increment_counter("crash_log_write_failures")
         increment_counter("crashes_reported")
         increment_counter(f"crashes.{type(error).__name__}")
+        increment_counter(f"crash_sources.{source}")
         target_stream.write(
             "unhandled exception; failed to write crash log: "
             f"{type(write_error).__name__}: {write_error}\n"
@@ -361,6 +363,7 @@ def report_crash(
         return None
     increment_counter("crashes_reported")
     increment_counter(f"crashes.{type(error).__name__}")
+    increment_counter(f"crash_sources.{source}")
     target_stream.write(f"unhandled exception; crash log written to {crash_path}\n")
     return crash_path
 
@@ -376,7 +379,12 @@ def install_crash_handlers(*, stream: IO[str] | None = None) -> None:
         if issubclass(exc_type, KeyboardInterrupt):
             return
         error.__traceback__ = tb
-        report_crash(error, context="Unhandled top-level exception", stream=stream)
+        report_crash(
+            error,
+            context="Unhandled top-level exception",
+            source="top_level",
+            stream=stream,
+        )
 
     def _handle_thread_exception(args: threading.ExceptHookArgs) -> None:
         if args.exc_value is None or isinstance(args.exc_value, KeyboardInterrupt):
@@ -386,6 +394,7 @@ def install_crash_handlers(*, stream: IO[str] | None = None) -> None:
             args.exc_value,
             context="Unhandled thread exception",
             details=details,
+            source="thread",
             stream=stream,
         )
 
@@ -400,6 +409,7 @@ def install_crash_handlers(*, stream: IO[str] | None = None) -> None:
             args.exc_value,
             context="Unhandled unraisable exception",
             details=details,
+            source="unraisable",
             stream=stream,
         )
 
