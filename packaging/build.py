@@ -26,6 +26,10 @@ INNO_CLI_DIST_TOKEN = "@@CLI_DIST_NAME@@"
 INNO_GUI_EXE_TOKEN = "@@GUI_EXE_NAME@@"
 _INNO_APP_ID_PATTERN = re.compile(r"^\{\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$")
 RELEASE_DRY_RUN_AUDIT = DIST_DIR / "release-dry-run-audit.json"
+RELEASE_WORKFLOWS = [
+    PROJECT_ROOT / ".github" / "workflows" / "release-windows.yml",
+    PROJECT_ROOT / ".github" / "workflows" / "release-linux.yml",
+]
 
 
 def _read_project_version() -> str:
@@ -544,6 +548,7 @@ def _run_release_dry_run() -> int:
         ("windows-dry-run", DIST_DIR / "windows-dry-run-audit.json", _run_windows_dry_run()),
         ("linux-appimage-dry-run", DIST_DIR / "linux-appimage-audit.json", _run_linux_appimage_dry_run()),
         ("linux-deb-dry-run", DIST_DIR / "linux-deb-audit.json", _run_linux_deb_dry_run()),
+        ("workflows-lint", DIST_DIR / "workflows-lint-audit.json", _run_workflows_lint()),
     ]
     summary = {
         "target": "release-dry-run",
@@ -560,12 +565,43 @@ def _run_release_dry_run() -> int:
     return 0 if summary["all_passed"] else 1
 
 
+def _run_workflows_lint() -> int:
+    preflight = _preflight_required_commands("workflows-lint", ["yamllint"])
+    if preflight != 0:
+        return preflight
+    command = ["yamllint", *(str(path) for path in RELEASE_WORKFLOWS)]
+    result = subprocess.run(
+        command,
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    payload = {
+        "target": "workflows-lint",
+        "command": command,
+        "files": [str(path) for path in RELEASE_WORKFLOWS],
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "success": result.returncode == 0,
+    }
+    _write_audit(payload)
+    if result.returncode == 0:
+        return 0
+    errors = [line for line in result.stdout.splitlines() if line.strip()]
+    errors.extend(line for line in result.stderr.splitlines() if line.strip())
+    if not errors:
+        errors = ["yamllint exited with a non-zero status"]
+    return _report_validation_errors("workflows-lint", errors)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--target",
         choices=(
             "release-dry-run",
+            "workflows-lint",
             "linux-appimage-dry-run",
             "linux-appimage",
             "linux-deb-dry-run",
@@ -578,6 +614,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.target == "release-dry-run":
         return _run_release_dry_run()
+    if args.target == "workflows-lint":
+        return _run_workflows_lint()
     if args.target == "linux-appimage-dry-run":
         return _run_linux_appimage_dry_run()
     if args.target == "linux-appimage":

@@ -278,7 +278,55 @@ def test_release_dry_run_runs_all_packaging_audits() -> None:
             "exists": True,
             "result": 0,
         },
+        "workflows-lint": {
+            "path": str(Path("packaging/dist/workflows-lint-audit.json").resolve()),
+            "exists": True,
+            "result": 0,
+        },
     }
+
+
+def test_workflows_lint_target_writes_audit() -> None:
+    result = subprocess.run(
+        [sys.executable, "packaging/build.py", "--target", "workflows-lint"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    audit_path = Path("packaging/dist/workflows-lint-audit.json")
+    assert audit_path.exists()
+    payload = json.loads(audit_path.read_text(encoding="utf-8"))
+
+    assert payload["target"] == "workflows-lint"
+    assert payload["command"] == [
+        "yamllint",
+        str(Path(".github/workflows/release-windows.yml").resolve()),
+        str(Path(".github/workflows/release-linux.yml").resolve()),
+    ]
+    assert payload["files"] == [
+        str(Path(".github/workflows/release-windows.yml").resolve()),
+        str(Path(".github/workflows/release-linux.yml").resolve()),
+    ]
+    assert payload["stdout"] == ""
+    assert payload["stderr"] == ""
+    assert payload["success"] is True
+
+
+def test_workflows_lint_preflight_reports_missing_yamllint(monkeypatch) -> None:
+    module = _load_build_module()
+
+    def fake_which(command: str) -> str | None:
+        if command == "yamllint":
+            return None
+        return f"/usr/bin/{command}"
+
+    monkeypatch.setattr(module.shutil, "which", fake_which)
+
+    result = module._run_workflows_lint()
+
+    assert result == 1
 
 
 def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> None:
