@@ -152,6 +152,11 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
                 f'Filename: "{{app}}\\\\{gui_exe_name}"; Description: "{{cm:LaunchProgram,eodinga}}"; Flags: nowait postinstall skipifsilent',
             ),
             "privileges_lowest": _inno_contains(rendered_text, "PrivilegesRequired=lowest"),
+            "architectures_allowed_x64": _inno_contains(rendered_text, "ArchitecturesAllowed=x64compatible"),
+            "architectures_install_in_64bit_mode": _inno_contains(
+                rendered_text,
+                "ArchitecturesInstallIn64BitMode=x64compatible",
+            ),
             "disables_program_group_page": _inno_contains(rendered_text, "DisableProgramGroupPage=yes"),
             "disables_dir_page": _inno_contains(rendered_text, "DisableDirPage=yes"),
             "includes_korean_language": _inno_contains(rendered_text, 'Name: "korean"; MessagesFile: "compiler:Languages\\Korean.isl"'),
@@ -162,6 +167,10 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             and 'Tasks: autostart' in inno_text,
             "rendered_autostart_registry_matches_gui_exe": f'ValueData: """{{app}}\\\\{gui_exe_name}"""' in rendered_text,
             "contains_uninstall_purge_prompt": _inno_contains(rendered_text, r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);"),
+            "uninstall_purge_requires_confirmation": _inno_contains(
+                rendered_text,
+                "if MsgBox('Purge %LOCALAPPDATA%\\\\eodinga\\\\ data? / %LOCALAPPDATA%\\\\eodinga\\\\ 데이터를 삭제할까요?', mbConfirmation, MB_YESNO) = IDYES then",
+            ),
         },
     }
 
@@ -202,9 +211,12 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         "contains_rendered_uninstall_display_icon": "Rendered Inno uninstall icon does not point at the GUI executable",
         "contains_start_menu_shortcut": "Rendered Inno start menu shortcut is missing",
         "contains_postinstall_launch": "Rendered Inno postinstall launch action is missing",
+        "architectures_allowed_x64": "Rendered Inno installer is missing the x64 architecture guard",
+        "architectures_install_in_64bit_mode": "Rendered Inno installer is missing 64-bit install mode",
         "contains_autostart_registry": "Inno autostart registry entry is missing",
         "rendered_autostart_registry_matches_gui_exe": "Rendered Inno autostart registry entry does not point at the GUI executable",
         "contains_uninstall_purge_prompt": "Inno uninstall purge prompt is missing",
+        "uninstall_purge_requires_confirmation": "Inno uninstall purge no longer requires explicit user confirmation",
     }
     for key, message in required_flags.items():
         if not inno_payload.get(key):

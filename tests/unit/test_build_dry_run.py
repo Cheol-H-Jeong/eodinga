@@ -67,6 +67,8 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["contains_start_menu_shortcut"] is True
     assert payload["inno_setup"]["contains_desktop_shortcut_task"] is True
     assert payload["inno_setup"]["contains_postinstall_launch"] is True
+    assert payload["inno_setup"]["architectures_allowed_x64"] is True
+    assert payload["inno_setup"]["architectures_install_in_64bit_mode"] is True
     assert payload["inno_setup"]["source_entries"] == [
         'dist\\\\@@GUI_DIST_NAME@@\\\\*',
         'dist\\\\@@CLI_DIST_NAME@@\\\\*',
@@ -85,6 +87,7 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["contains_autostart_registry"] is True
     assert payload["inno_setup"]["rendered_autostart_registry_matches_gui_exe"] is True
     assert payload["inno_setup"]["contains_uninstall_purge_prompt"] is True
+    assert payload["inno_setup"]["uninstall_purge_requires_confirmation"] is True
 
 
 def test_windows_audit_validator_rejects_version_mismatch() -> None:
@@ -104,6 +107,18 @@ def test_windows_audit_validator_rejects_missing_source_hidden_import_contract()
     errors = module._validate_windows_audit(payload)
 
     assert "PyInstaller hidden imports no longer include the source-derived modules" in errors
+
+
+def test_windows_audit_validator_rejects_missing_x64_or_uninstall_confirmation_contracts() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["inno_setup"]["architectures_allowed_x64"] = False
+    payload["inno_setup"]["uninstall_purge_requires_confirmation"] = False
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "Rendered Inno installer is missing the x64 architecture guard" in errors
+    assert "Inno uninstall purge no longer requires explicit user confirmation" in errors
 
 
 def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
