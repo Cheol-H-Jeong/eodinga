@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.928 - 2026-04-24
+## 0.1.929 - 2026-04-24
 
 - Added `snapshot_types` to `eodinga stats --json` and counted snapshot recordings by name, so bounded recent snapshots now have an all-time aggregate for command and failure activity.
 - Added `command_failure_reasons` to `eodinga stats --json`, separating exception, interrupted, and clean nonzero-exit failures without forcing consumers to parse recent snapshot payloads.
