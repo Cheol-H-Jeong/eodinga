@@ -23,6 +23,7 @@ def _insert_file(
     *,
     body_text: str = "",
     content_hash: bytes | None = None,
+    is_dir: int = 0,
 ) -> None:
     path_obj = Path(path)
     conn.execute(
@@ -48,7 +49,7 @@ def _insert_file(
             size,
             mtime,
             mtime,
-            0,
+            is_dir,
             0,
             content_hash,
             mtime,
@@ -78,6 +79,14 @@ def _build_search_db(db_path: Path) -> None:
             local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
         )
         yesterday_start = today_start - int(timedelta(days=1).total_seconds())
+        this_week_start = today_start - local_now.weekday() * int(timedelta(days=1).total_seconds())
+        last_week_start = this_week_start - 7 * int(timedelta(days=1).total_seconds())
+        this_month_start = int(
+            local_now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp()
+        )
+        last_month_start = int(
+            (local_now.replace(day=1) - timedelta(days=1)).replace(day=1).timestamp()
+        )
         _insert_file(
             conn,
             1,
@@ -107,6 +116,69 @@ def _build_search_db(db_path: Path) -> None:
             "txt",
             body_text="beta archive note",
             content_hash=b"unique-content",
+        )
+        _insert_file(
+            conn,
+            4,
+            "/workspace/archive/last-week-review.txt",
+            512,
+            last_week_start + 60,
+            "txt",
+            body_text="last week review",
+        )
+        _insert_file(
+            conn,
+            5,
+            "/workspace/archive/last-month-plan.txt",
+            512,
+            last_month_start + 60,
+            "txt",
+            body_text="last month plan",
+        )
+        _insert_file(
+            conn,
+            6,
+            "/workspace/reports/window.txt",
+            320 * 1024,
+            this_month_start + 60,
+            "txt",
+            body_text="windowed size sample",
+        )
+        _insert_file(
+            conn,
+            7,
+            "/workspace/reports/empty.txt",
+            0,
+            this_month_start + 120,
+            "txt",
+            body_text="",
+        )
+        _insert_file(
+            conn,
+            8,
+            "/workspace/reports/empty-dir",
+            0,
+            this_month_start + 180,
+            "",
+            is_dir=1,
+        )
+        _insert_file(
+            conn,
+            9,
+            "/workspace/reports/full-dir",
+            0,
+            this_month_start + 240,
+            "",
+            is_dir=1,
+        )
+        _insert_file(
+            conn,
+            10,
+            "/workspace/reports/full-dir/child.txt",
+            8,
+            this_month_start + 300,
+            "txt",
+            body_text="child",
         )
         conn.commit()
     finally:
@@ -201,6 +273,28 @@ def test_search_json_executes_regex_mode_query(cli_runner, tmp_path: Path) -> No
         "today-alpha-clone.txt",
         "today-alpha-copy.txt",
     ]
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_names"),
+    [
+        ("date:last-week", ["last-week-review.txt"]),
+        ("date:last-month", ["last-month-plan.txt"]),
+        ("size:100K..500K", ["window.txt"]),
+        ("is:empty", ["empty-dir", "empty.txt"]),
+    ],
+)
+def test_search_json_supports_new_query_filters(
+    cli_runner, tmp_path: Path, query: str, expected_names: list[str]
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+
+    result = cli_runner("--db", str(db_path), "search", query, "--json")
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == expected_names
 
 
 def test_search_json_honors_root_filter(cli_runner, tmp_path: Path) -> None:
@@ -462,8 +556,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     stats_output = capsys.readouterr()
     assert stats_exit == 0
     payload = json.loads(stats_output.out)
-    assert payload["files_indexed"] == 3
-    assert payload["documents_indexed"] == 3
+    assert payload["files_indexed"] == 10
+    assert payload["documents_indexed"] == 7
     assert payload["queries_served"] == 1
     assert payload["parser_errors"] == 0
     assert payload["watcher_events"] == 0

@@ -24,6 +24,10 @@ def _escape_phrase(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
+def _is_plain_atom(value: str) -> bool:
+    return bool(value.strip()) and value != "-" and not any(char.isspace() for char in value)
+
+
 @pytest.mark.parametrize(
     ("query", "expected_type"),
     [
@@ -233,11 +237,25 @@ def test_invalid_query_fuzz_raises_cleanly(query: str) -> None:
 
 OPERATOR_ATOMS = st.one_of(
     st.builds(lambda value: f"content:{value}", st.sampled_from(["alpha", '"hello world"'])),
-    st.builds(lambda value: f"date:{value}", st.sampled_from(["today", "yesterday", "this-week", "this-month", "2026-01-01", "2026-01-01..2026-01-03"])),
+    st.builds(
+        lambda value: f"date:{value}",
+        st.sampled_from(
+            [
+                "today",
+                "yesterday",
+                "this-week",
+                "last-week",
+                "this-month",
+                "last-month",
+                "2026-01-01",
+                "2026-01-01..2026-01-03",
+            ]
+        ),
+    ),
     st.builds(lambda value: f"ext:{value}", st.sampled_from(["pdf", "txt", "md"])),
-    st.builds(lambda value: f"is:{value}", st.sampled_from(["file", "dir", "symlink", "duplicate"])),
+    st.builds(lambda value: f"is:{value}", st.sampled_from(["file", "dir", "symlink", "empty", "duplicate"])),
     st.builds(lambda value: f"path:{value}", st.sampled_from(["workspace", "프로젝트", '"team notes"'])),
-    st.builds(lambda value: f"size:{value}", st.sampled_from([">10M", "<=42K", "=512B"])),
+    st.builds(lambda value: f"size:{value}", st.sampled_from([">10M", "<=42K", "=512B", "100..500K"])),
 )
 
 ATOMS = st.one_of(
@@ -245,7 +263,7 @@ ATOMS = st.one_of(
         st.characters(blacklist_characters='()|" /', blacklist_categories=("Cs",)),
         min_size=1,
         max_size=12,
-    ).filter(lambda value: value.strip() and value != "-"),
+    ).filter(_is_plain_atom),
     st.builds(
         lambda value: f'"{_escape_phrase(value)}"',
         st.text(
@@ -357,7 +375,10 @@ NEGATABLE_OPERATOR_ATOMS = st.one_of(
             "path:/workspace/projects",
             "path:/tmp/log/i",
             "date:this-week",
+            "date:last-week",
             "size:>10M",
+            "size:100..500K",
+            "is:empty",
             "is:duplicate",
             "case:false",
             "regex:true",
@@ -395,7 +416,7 @@ def test_negated_operator_query_fuzz_parses_and_compiles(query: str) -> None:
                 ),
                 min_size=1,
                 max_size=12,
-            ).filter(lambda value: value.strip() and value != "-"),
+            ).filter(_is_plain_atom),
         ),
         st.tuples(
             st.just("regex"),
