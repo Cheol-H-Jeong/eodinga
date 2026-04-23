@@ -161,6 +161,7 @@ class EodingaWindow(QMainWindow):
         self._config_path = resolved_config_path
         self.settings_tab.set_hotkey_combo(self._hotkey_controller.combo)
         self.settings_tab.hotkey_change_requested.connect(self._change_hotkey)
+        self.launcher_state.pinned_queries_changed.connect(self._persist_pinned_queries)
         self.launcher_state.indexing_status_changed.connect(self.index_tab.set_indexing_status)
         self.launcher_state.indexing_status_changed.connect(self.tray_indicator.set_indexing_status)
         self.set_indexing_status(IndexingStatus())
@@ -189,6 +190,12 @@ class EodingaWindow(QMainWindow):
         self._config.launcher = self._config.launcher.model_copy(update={"hotkey": self._hotkey_controller.combo})
         self._config.save(self._config_path)
         self.settings_tab.set_hotkey_combo(self._hotkey_controller.combo)
+
+    def _persist_pinned_queries(self, queries: list[str]) -> None:
+        if self._config.launcher.pinned_queries == queries:
+            return
+        self._config.launcher = self._config.launcher.model_copy(update={"pinned_queries": queries})
+        self._config.save(self._config_path)
 
 def build_index_search_fn(db_path) -> SearchFn:
     def _search(query: str, limit: int) -> QueryResult:

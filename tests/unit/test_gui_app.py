@@ -281,6 +281,22 @@ def test_settings_tab_rebinds_hotkey_without_restart(
     assert load(temp_config_path).launcher.hotkey == "ctrl+alt+k"
 
 
+def test_launcher_pinned_queries_persist_to_config(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher.query_field.setText("ext:pdf")
+    launcher.pin_query_button.click()
+    qapp.processEvents()
+
+    stored = load(temp_config_path)
+    assert stored.launcher.pinned_queries == ["ext:pdf"]
+    assert "Pinned: ext:pdf." in window.search_tab.launcher_panel.empty_state.body_label.text()
+
+
 class _ActionSpy:
     def __init__(self) -> None:
         self.opened: list[str] = []

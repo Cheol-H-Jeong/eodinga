@@ -375,7 +375,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "(20%)" in launcher.empty_state.details_label.text()
     assert launcher.status_chip.text() == "Indexing"
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
-    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Alt+Up recalls recent queries."
+    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Ctrl+P pins the current query. Alt+Up recalls recent queries."
 
     launcher.query_field.setText("missing")
     _wait(60)
@@ -406,6 +406,42 @@ def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> No
     launcher.show()
 
     assert "Pinned: ext:pdf, size:>10M." in launcher.empty_state.body_label.text()
+
+
+def test_launcher_pin_button_and_shortcut_toggle_current_query(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    launcher.query_field.setText("ext:pdf")
+    launcher.pin_query_button.click()
+
+    assert state.pinned_queries == ["ext:pdf"]
+    assert launcher.pin_query_button.text() == "Unpin"
+
+    launcher.query_field.setText("")
+    _wait(60)
+    assert "Pinned: ext:pdf." in launcher.empty_state.body_label.text()
+
+    launcher.query_field.setText("ext:pdf")
+    QTest.keyClick(launcher, Qt.Key.Key_P, Qt.KeyboardModifier.ControlModifier)
+
+    assert state.pinned_queries == []
+    assert launcher.pin_query_button.text() == "Pin"
+
+
+def test_launcher_pin_button_tracks_shared_state_updates(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    launcher.query_field.setText("report")
+    assert launcher.pin_query_button.text() == "Pin"
+
+    state.set_pinned_queries(["report"])
+
+    assert launcher.pin_query_button.text() == "Unpin"
+    assert launcher.pin_query_button.accessibleName() == "Unpin current query"
 
 
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:
