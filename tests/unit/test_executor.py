@@ -184,8 +184,11 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     local_now = datetime.now().astimezone()
     today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
     yesterday_start = today_start - 86_400
+    tomorrow_start = today_start + 86_400
     this_week_start = today_start - local_now.weekday() * 86_400
     last_month = int((local_now - timedelta(days=40)).timestamp())
+    this_year_start = int(local_now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0).timestamp())
+    last_year = int(local_now.replace(year=local_now.year - 1, month=7, day=1).timestamp())
 
     _insert_file(tmp_db, 1, "/workspace/today.txt", 512, today_start + 60, "txt", body_text="today note")
     _insert_file(
@@ -215,20 +218,63 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
         "txt",
         body_text="old note",
     )
+    _insert_file(
+        tmp_db,
+        5,
+        "/workspace/tomorrow.txt",
+        512,
+        tomorrow_start + 60,
+        "txt",
+        body_text="tomorrow note",
+    )
+    _insert_file(
+        tmp_db,
+        6,
+        "/workspace/year.txt",
+        512,
+        this_year_start + 60,
+        "txt",
+        body_text="year note",
+    )
+    _insert_file(
+        tmp_db,
+        7,
+        "/workspace/last-year.txt",
+        512,
+        last_year,
+        "txt",
+        body_text="last year note",
+    )
     tmp_db.commit()
 
     assert search(tmp_db, "date:today", limit=5).hits[0].file.name == "today.txt"
     assert search(tmp_db, "date:yesterday", limit=5).hits[0].file.name == "yesterday.txt"
+    assert search(tmp_db, "date:tomorrow", limit=5).hits[0].file.name == "tomorrow.txt"
     this_week_hits = [hit.file.name for hit in search(tmp_db, "date:this-week", limit=10).hits]
     assert "today.txt" in this_week_hits
     assert "yesterday.txt" in this_week_hits
     assert "week.txt" in this_week_hits
+    week_alias_hits = [hit.file.name for hit in search(tmp_db, "date:week", limit=10).hits]
+    assert week_alias_hits == this_week_hits
     this_month_hits = [hit.file.name for hit in search(tmp_db, "date:this-month", limit=10).hits]
     assert "old.txt" not in this_month_hits
+    month_alias_hits = [hit.file.name for hit in search(tmp_db, "date:month", limit=10).hits]
+    assert month_alias_hits == this_month_hits
     last_week_hits = [hit.file.name for hit in search(tmp_db, "date:last-week", limit=10).hits]
     assert "today.txt" not in last_week_hits
+    prev_week_hits = [hit.file.name for hit in search(tmp_db, "date:prev-week", limit=10).hits]
+    assert prev_week_hits == last_week_hits
     last_month_hits = [hit.file.name for hit in search(tmp_db, "date:last-month", limit=10).hits]
     assert "old.txt" in last_month_hits
+    prev_month_hits = [hit.file.name for hit in search(tmp_db, "date:previous_month", limit=10).hits]
+    assert prev_month_hits == last_month_hits
+    this_year_hits = [hit.file.name for hit in search(tmp_db, "date:this-year", limit=10).hits]
+    year_alias_hits = [hit.file.name for hit in search(tmp_db, "date:year", limit=10).hits]
+    last_year_hits = [hit.file.name for hit in search(tmp_db, "date:last-year", limit=10).hits]
+    assert "year.txt" in this_year_hits
+    assert "last-year.txt" not in this_year_hits
+    assert year_alias_hits == this_year_hits
+    assert last_year_hits == ["last-year.txt"]
 
 
 def test_execute_previous_period_date_queries_use_local_boundaries(
@@ -293,6 +339,38 @@ def test_execute_previous_period_date_queries_use_local_boundaries(
 
     assert last_week_hits == ["last-week.txt"]
     assert last_month_hits == ["last-month.txt"]
+
+
+def test_execute_extended_relative_date_aliases_use_local_boundaries(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    frozen_now = datetime(2026, 4, 23, 0, 30, tzinfo=seoul)
+    tomorrow_hit = int(datetime(2026, 4, 24, 12, 0, tzinfo=seoul).timestamp())
+    this_year_hit = int(datetime(2026, 2, 15, 12, 0, tzinfo=seoul).timestamp())
+    last_year_hit = int(datetime(2025, 8, 10, 12, 0, tzinfo=seoul).timestamp())
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+
+    _insert_file(tmp_db, 1, "/workspace/tomorrow.txt", 512, tomorrow_hit, "txt", body_text="tomorrow note")
+    _insert_file(tmp_db, 2, "/workspace/this-year.txt", 512, this_year_hit, "txt", body_text="year note")
+    _insert_file(tmp_db, 3, "/workspace/last-year.txt", 512, last_year_hit, "txt", body_text="last year note")
+    tmp_db.commit()
+
+    tomorrow_hits = [hit.file.name for hit in search(tmp_db, "date:tomorrow", limit=10).hits]
+    year_hits = [hit.file.name for hit in search(tmp_db, "date:year", limit=10).hits]
+    previous_year_hits = [hit.file.name for hit in search(tmp_db, "date:previous_year", limit=10).hits]
+
+    assert tomorrow_hits == ["tomorrow.txt"]
+    assert year_hits == ["this-year.txt", "tomorrow.txt"]
+    assert previous_year_hits == ["last-year.txt"]
 
 
 def test_execute_date_keywords_are_case_insensitive_and_allow_underscores(

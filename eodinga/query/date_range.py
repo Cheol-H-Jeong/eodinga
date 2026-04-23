@@ -31,6 +31,14 @@ def _next_month_start(day: date) -> date:
     return (day.replace(day=28) + timedelta(days=4)).replace(day=1)
 
 
+def _year_start(day: date) -> date:
+    return day.replace(month=1, day=1)
+
+
+def _next_year_start(day: date) -> date:
+    return day.replace(year=day.year + 1, month=1, day=1)
+
+
 def _parse_iso_day(value: str) -> date:
     try:
         return date.fromisoformat(value)
@@ -63,21 +71,31 @@ def _relative_range(value: str) -> DateRange | None:
         return _day_bounds(today)
     if normalized == "yesterday":
         return _day_bounds(today - timedelta(days=1))
-    if normalized == "this-week":
+    if normalized == "tomorrow":
+        return _day_bounds(today + timedelta(days=1))
+    if normalized in {"this-week", "week"}:
         start = today - timedelta(days=today.weekday())
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(start + timedelta(days=7)).start)
-    if normalized == "last-week":
+    if normalized in {"last-week", "prev-week", "previous-week"}:
         end = today - timedelta(days=today.weekday())
         start = end - timedelta(days=7)
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(end).start)
-    if normalized == "this-month":
+    if normalized in {"this-month", "month"}:
         start = _month_start(today)
         next_month = _next_month_start(start)
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(next_month).start)
-    if normalized == "last-month":
+    if normalized in {"last-month", "prev-month", "previous-month"}:
         this_month = _month_start(today)
         last_month = _month_start(this_month - timedelta(days=1))
         return DateRange(start=_day_bounds(last_month).start, end=_day_bounds(this_month).start)
+    if normalized in {"this-year", "year"}:
+        start = _year_start(today)
+        next_year = _next_year_start(start)
+        return DateRange(start=_day_bounds(start).start, end=_day_bounds(next_year).start)
+    if normalized in {"last-year", "prev-year", "previous-year"}:
+        this_year = _year_start(today)
+        last_year = this_year.replace(year=this_year.year - 1)
+        return DateRange(start=_day_bounds(last_year).start, end=_day_bounds(this_year).start)
     return None
 
 
