@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.531 - 2026-04-23
+
+- Relaxed `size:` parsing so open-ended ranges like `size:100..` and `size:..500K`, plus spaced comparators like `size: > 10M`, now compile and execute the same way as the existing date-range syntax.
+- Improved quoted phrase fallback matching across common filename and content separators, including underscores and dots, so queries like `"launch review"` can match `launch_review.txt` and `launch.review`.
+- Added integration coverage for the new relaxed size filters and separator-aware phrase matching to keep the query path exercised above the unit layer.
+
 ## 0.1.525 - 2026-04-23
 
 - Counted successful parser runs alongside existing skip and error paths, so `stats --json` now reports fuller per-parser activity instead of only failures.
