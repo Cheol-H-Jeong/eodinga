@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.433 - 2026-04-23
+## 0.1.443 - 2026-04-23
 
 - Extended query size ranges to accept open-ended bounds such as `size:..500K`, `size:100K..`, and spaced variants, with the compiler and executor now treating them like the existing open-ended date filters instead of rejecting them.
 - Added regression coverage for mixed ISO day/datetime range endpoints, including reversed forms, so query semantics stay pinned around local-date lower bounds and exact datetime upper bounds.
