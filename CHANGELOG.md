@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.545 - 2026-04-23
+## 0.1.546 - 2026-04-23
 
 - Expanded the README with a fuller shipped-feature checklist, dedicated date/structural DSL quick references, and practical FAQ entries for watcher-driven freshness and scoped debugging.
 - Deepened the architecture guide with a command-to-runtime map, search-pipeline stage table, docs ownership matrix, and surface-specific debug entry points.
