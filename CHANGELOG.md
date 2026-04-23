@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.244 - 2026-04-23
+## 0.1.249 - 2026-04-23
 
 - Added integration coverage for cross-root live moves so the watched query surface now proves a renamed file eventually leaves the source root scope and settles under the destination root.
 - Added hot-restart regressions that confirm watcher-applied creates survive reopen and watcher-applied deletes stay gone after reopening the index without a rebuild.
