@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.365 - 2026-04-23
+## 0.1.368 - 2026-04-23
 
 - Removed the redundant outer SQLite transaction around rebuild batch writes, so staged index rebuilds no longer create an extra savepoint layer before every `bulk_upsert()` call.
 - Cached executor SQL shapes for `content_map` text backfills and chunked large file-id lookups, reducing repeated filtered-query overhead from rebuilding large `IN (...)` statements.
