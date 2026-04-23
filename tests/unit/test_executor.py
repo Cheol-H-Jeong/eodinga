@@ -491,6 +491,62 @@ def test_execute_decomposed_korean_content_query_keeps_snippets(
     assert "회의록" in result.hits[0].snippet
 
 
+def test_execute_content_phrase_query_crosses_token_boundaries(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/release-notes.txt",
+        512,
+        now,
+        "txt",
+        body_text="release-notes summary and follow-up",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/other.txt",
+        512,
+        now - 60,
+        "txt",
+        body_text="release summary only",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, 'content:"release notes"', limit=10).hits]
+
+    assert hits == ["release-notes.txt"]
+
+
+def test_execute_negated_content_phrase_query_crosses_token_boundaries(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/release-notes.txt",
+        512,
+        now,
+        "txt",
+        body_text="release-notes summary and follow-up",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/general-summary.txt",
+        512,
+        now - 60,
+        "txt",
+        body_text="general summary only",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, '-content:"release notes"', limit=10).hits]
+
+    assert hits == ["general-summary.txt"]
+
+
 def test_execute_duplicate_and_negated_size_queries(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     duplicate_hash = b"same-content"

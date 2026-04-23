@@ -39,6 +39,7 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+_PHRASE_BOUNDARY_RE = re.compile(r"[\W_]+", re.UNICODE)
 
 
 @lru_cache(maxsize=256)
@@ -173,13 +174,55 @@ def _normalize_search_text(value: str, case_sensitive: bool) -> str:
     return normalized if case_sensitive else normalized.casefold()
 
 
+def _normalize_phrase_text(value: str, case_sensitive: bool) -> str:
+    normalized = _normalize_search_text(value, case_sensitive=case_sensitive)
+    collapsed = _PHRASE_BOUNDARY_RE.sub(" ", normalized)
+    return " ".join(collapsed.split())
+
+
+def _compiled_text_matches(
+    value: str,
+    term_value: str,
+    term_kind: str,
+    case_sensitive: bool,
+) -> bool:
+    if term_kind != "phrase":
+        return _text_matches(value, term_value, case_sensitive)
+    normalized_needle = _normalize_phrase_text(term_value, case_sensitive)
+    if not normalized_needle:
+        return _text_matches(value, term_value, case_sensitive)
+    return normalized_needle in _normalize_phrase_text(value, case_sensitive)
+
+
+def _starts_with_term(
+    value: str,
+    term_value: str,
+    term_kind: str,
+    case_sensitive: bool,
+) -> bool:
+    if term_kind != "phrase":
+        normalized_value = _normalize_search_text(value, case_sensitive=case_sensitive)
+        normalized_term = _normalize_search_text(term_value, case_sensitive=case_sensitive)
+        return normalized_value.startswith(normalized_term)
+    normalized_term = _normalize_phrase_text(term_value, case_sensitive)
+    if not normalized_term:
+        return False
+    return _normalize_phrase_text(value, case_sensitive).startswith(normalized_term)
+
+
 def _fts_prefix_literal(value: str) -> str:
     escaped = value.replace('"', '""')
     return f'"{escaped}"*'
 
 
-def _term_ok(text: str, term_value: str, case_sensitive: bool, negated: bool) -> bool:
-    matched = _text_matches(text, term_value, case_sensitive)
+def _term_ok(
+    text: str,
+    term_value: str,
+    term_kind: str,
+    case_sensitive: bool,
+    negated: bool,
+) -> bool:
+    matched = _compiled_text_matches(text, term_value, term_kind, case_sensitive)
     return not matched if negated else matched
 
 
@@ -203,11 +246,12 @@ def _plain_term_matches_record(
     record: FileRecord,
     content_text: str,
     term_value: str,
+    term_kind: str,
     case_sensitive: bool,
 ) -> bool:
     target_text = f"{record.name} {record.parent_path} {record.path}"
-    return _text_matches(target_text, term_value, case_sensitive) or (
-        bool(content_text) and _text_matches(content_text, term_value, case_sensitive)
+    return _compiled_text_matches(target_text, term_value, term_kind, case_sensitive) or (
+        bool(content_text) and _compiled_text_matches(content_text, term_value, term_kind, case_sensitive)
     )
 
 
@@ -217,6 +261,7 @@ def _filter_record(branch: CompiledBranch, record: FileRecord, content_text: str
             record,
             content_text,
             term.value,
+            term.kind,
             branch.case_sensitive,
         )
         if term.negated and matched:
@@ -224,11 +269,11 @@ def _filter_record(branch: CompiledBranch, record: FileRecord, content_text: str
         if not term.negated and not matched:
             return False
     for term in branch.path_filters:
-        if not _term_ok(str(record.path), term.value, branch.case_sensitive, term.negated):
+        if not _term_ok(str(record.path), term.value, term.kind, branch.case_sensitive, term.negated):
             return False
     target_text = f"{record.name} {record.parent_path} {record.path}"
     for term in branch.content_terms:
-        if not _term_ok(content_text, term.value, branch.case_sensitive, term.negated):
+        if not _term_ok(content_text, term.value, term.kind, branch.case_sensitive, term.negated):
             return False
     for term in branch.path_regex_terms:
         if not _regex_ok(
@@ -619,7 +664,7 @@ def _scan_auto_content_candidates(
         for file_id, record in batch.items():
             content_text = content_texts.get(file_id, "")
             if not all(
-                _text_matches(content_text, term.value, branch.case_sensitive)
+                _compiled_text_matches(content_text, term.value, term.kind, branch.case_sensitive)
                 for term in positive_terms
             ):
                 continue
@@ -631,15 +676,13 @@ def _scan_auto_content_candidates(
 
 
 def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> list[int]:
-    positives = [term.value for term in branch.path_terms if not term.negated]
+    positives = [term for term in branch.path_terms if not term.negated]
     if not positives:
         return []
     hits: list[int] = []
     for file_id, record in records.items():
-        check_name = _normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
         for term in positives:
-            needle = _normalize_search_text(term, case_sensitive=branch.case_sensitive)
-            if check_name.startswith(needle):
+            if _starts_with_term(record.name, term.value, term.kind, branch.case_sensitive):
                 hits.append(file_id)
                 break
     return hits
@@ -699,12 +742,12 @@ def _derive_name_path_hits(
         target_name = record.name
         target_path = str(record.path)
         if any(
-            _text_matches(target_name, term.value, branch.case_sensitive)
+            _compiled_text_matches(target_name, term.value, term.kind, branch.case_sensitive)
             for term in positive_terms
         ):
             name_hits.append(record.id)
         if any(
-            _text_matches(target_path, term.value, branch.case_sensitive)
+            _compiled_text_matches(target_path, term.value, term.kind, branch.case_sensitive)
             for term in positive_terms
         ):
             path_hits.append(record.id)
