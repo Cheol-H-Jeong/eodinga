@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.169 - 2026-04-23
+## 0.1.171 - 2026-04-23
 
 - Preserved interrupted rebuild progress by committing the current staged `.next` database on shutdown signals and `KeyboardInterrupt`, letting the next `open_index()` resume from durable work instead of throwing the partial rebuild away.
 - Installed explicit CLI shutdown handlers for `SIGINT` and `SIGTERM`, so long-running commands now surface through the same recovery-aware interrupt path instead of relying on process-default termination.
