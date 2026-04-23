@@ -240,6 +240,35 @@ def test_launcher_tab_moves_from_results_into_action_bar_and_back(qapp) -> None:
     assert launcher.result_list.hasFocus()
 
 
+def test_launcher_returns_focus_to_query_when_results_disappear_from_action_bar(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        if query == "missing":
+            return QueryResult(items=[], total=0, elapsed_ms=1.5)
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt")][:limit],
+            total=1,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("alpha")
+    _wait(60)
+    launcher.result_list.setFocus()
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Tab)
+    _wait(10)
+    assert launcher.action_bar.open_button.hasFocus()
+
+    launcher.query_field.setText("missing")
+    _wait(60)
+
+    assert launcher.query_field.hasFocus()
+    assert launcher.model.rowCount() == 0
+    assert not launcher.action_bar.open_button.isEnabled()
+
+
 def test_launcher_result_list_wraps_with_up_and_down_keys(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(

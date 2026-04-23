@@ -548,6 +548,8 @@ class LauncherPanel(QWidget):
 
     def _refresh_preview(self) -> None:
         self._sync_preview_to_index(self.result_list.currentIndex())
+        if self.model.rowCount() == 0 and any(button.hasFocus() for button in self._action_buttons):
+            self.query_field.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def _navigate_recent_queries(self, direction: int) -> None:
         if not self._recent_queries:
