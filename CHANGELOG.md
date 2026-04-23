@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.705 - 2026-04-23
+
+- Added a live launcher filter summary row that parses DSL operators into visible chips, so `ext:`, `date:`, `size:`, `path:`, `content:`, and related filters stay discoverable while typing instead of disappearing into raw query text.
+- Highlighted matching path and snippet fragments inside the launcher preview pane, keeping the side preview aligned with the selected query context instead of showing unannotated file text.
+- Added overflow feedback for dense filter queries, surfacing a `+N more` badge and accessibility summary when more than five active filters are present.
+
 ## 0.1.592 - 2026-04-23
 
 - Reduced walker canonicalization overhead by resolving only the root and symlink-backed ancestry, keeping ordinary directory traversals off the `resolve_safe()` hot path while preserving alias-loop protection.
