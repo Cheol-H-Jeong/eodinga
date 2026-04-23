@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.125 - 2026-04-23
+## 0.1.126 - 2026-04-23
 
 - Let keyboard-only launcher use recover the current filter instantly from the results list with `Ctrl+A`, while also trimming the launcher module under the repository's 500-line ceiling by extracting shared support helpers.
 - Expanded the launcher’s empty-state and footer guidance so `Ctrl+A`, `Home` / `End`, quick-picks, and recent-query recall are visible in-context instead of being implicit keyboard contracts.
