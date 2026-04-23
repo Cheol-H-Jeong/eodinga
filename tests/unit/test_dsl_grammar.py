@@ -129,6 +129,25 @@ def test_parse_inline_phrase_without_whitespace_decodes_escapes(
     assert node.value == expected_value
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_value"),
+    [
+        ("size:> 10M", ">10M"),
+        ("size:<= 512KiB", "<=512KiB"),
+    ],
+)
+def test_parse_size_operator_allows_separated_comparator_value(
+    query: str,
+    expected_value: str,
+) -> None:
+    node = parse(query)
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "size"
+    assert node.value_kind == "word"
+    assert node.value == expected_value
+
+
 @pytest.mark.parametrize("query", ["content://i", "path://", "regex://i"])
 def test_parse_inline_operator_empty_regex_errors(query: str) -> None:
     with pytest.raises(QuerySyntaxError, match="empty regex"):
