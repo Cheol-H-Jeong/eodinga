@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.590 - 2026-04-23
+## 0.1.703 - 2026-04-23
 
 - Fixed reciprocal-rank fusion and path deboost helpers so they no longer synthesize zero-score entries for file ids that were never actually ranked.
 - Expanded DSL regex coverage around top-level escaped-delimiter literals, including Korean path/content patterns and malformed dangling-escape forms.
