@@ -75,6 +75,10 @@ def _inno_contains(text: str, needle: str) -> bool:
     return needle in text
 
 
+def _contains_template_tokens(text: str, tokens: tuple[str, ...]) -> bool:
+    return any(token in text for token in tokens)
+
+
 def _source_entries(text: str) -> list[str]:
     return re.findall(r'Source:\s*"([^"]+)"', text)
 
@@ -160,10 +164,21 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "app_id_is_guid_macro": app_id is not None and bool(_INNO_APP_ID_PATTERN.fullmatch(app_id)),
             "app_version_macro": app_version,
             "app_version_uses_template": app_version == INNO_VERSION_TOKEN,
+            "contains_license_file_reference": _inno_contains(inno_text, "LicenseFile=LICENSE"),
+            "rendered_contains_license_file_reference": _inno_contains(rendered_text, "LicenseFile=LICENSE"),
             "source_entries": source_entries,
             "source_entries_match_pyinstaller_dist": source_entries == expected_source_entries,
             "contains_app_version_template": INNO_VERSION_TOKEN in inno_text,
             "rendered_path": str(rendered_path),
+            "rendered_has_unreplaced_template_tokens": _contains_template_tokens(
+                rendered_text,
+                (
+                    INNO_VERSION_TOKEN,
+                    INNO_GUI_DIST_TOKEN,
+                    INNO_CLI_DIST_TOKEN,
+                    INNO_GUI_EXE_TOKEN,
+                ),
+            ),
             "output_base_filename": output_base_filename,
             "rendered_source_entries": _source_entries(rendered_text),
             "rendered_source_entries_match_pyinstaller_dist": _source_entries(rendered_text) == rendered_source_entries,
@@ -259,7 +274,9 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     required_flags = {
         "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
         "app_version_uses_template": "Inno AppVersion macro no longer uses the template token",
-        "license_file_exists": "Inno setup no longer references a shipped LICENSE file",
+        "license_file_exists": "Inno setup no longer ships a LICENSE file alongside the installer inputs",
+        "contains_license_file_reference": "Inno setup no longer references the LICENSE file",
+        "rendered_contains_license_file_reference": "Rendered Inno setup no longer references the LICENSE file",
         "source_entries_match_pyinstaller_dist": "Inno source entries drifted from PyInstaller dist names",
         "rendered_source_entries_match_pyinstaller_dist": "Rendered Inno source entries drifted from PyInstaller dist names",
         "contains_rendered_uninstall_display_icon": "Rendered Inno uninstall icon does not point at the GUI executable",
@@ -276,6 +293,8 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     for key, message in required_flags.items():
         if not inno_payload.get(key):
             errors.append(message)
+    if inno_payload.get("rendered_has_unreplaced_template_tokens"):
+        errors.append("Rendered Inno setup still contains unreplaced template tokens")
     return errors
 
 
