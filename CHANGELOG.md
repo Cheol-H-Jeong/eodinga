@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.131 - 2026-04-23
+## 0.1.132 - 2026-04-23
 
 - Normalized Windows root-scope matching across drive-letter case variants, so scoped searches now include exact-root records even when the caller passes `c:` and the index stored `C:`.
 - Made equal-score query results deterministic by sorting duplicate basenames by normalized full path before row id, removing insertion-order drift from metadata-only result sets.
