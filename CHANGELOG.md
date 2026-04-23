@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.381 - 2026-04-23
+
+- Clarified the README’s packaging contract with dry-run-to-artifact mapping, release-side validation checks, and a more explicit operator runbook for packaging and docs refreshes.
+- Expanded the architecture guide with recovery and query-consistency invariants, a packaging audit path, and a symptom-to-subsystem map that ties operator debugging back to runtime boundaries.
+- Tightened contributor and release workflows around one-shot worker commands, review handoff payloads, and deterministic version-collision handling for concurrent worktrees.
+
 ## 0.1.377 - 2026-04-23
 
 - Returned a clean `130` exit code for interrupted CLI commands, recording them as interrupted instead of crashed so Ctrl+C and signal stops no longer surface as unhandled failures.
