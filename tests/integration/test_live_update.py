@@ -343,3 +343,123 @@ def test_live_delete_stays_deleted_after_reopen_without_rewalk(tmp_path: Path) -
     assert initial_hits == [target]
     assert elapsed <= 0.5
     assert reopened_hits == []
+
+
+def test_multi_root_live_create_persists_after_reopen_with_root_scope(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        created = root_b / "persist-beta-after-reopen.txt"
+        created.write_text("persisted multi root reopen create\n", encoding="utf-8")
+        elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "persisted multi root reopen create",
+            created,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    reopened = open_index(db_path)
+    try:
+        all_hits = [
+            hit.file.path
+            for hit in search(reopened, "persisted multi root reopen create", limit=5).hits
+        ]
+        alpha_hits = [
+            hit.file.path
+            for hit in search(reopened, "persisted multi root reopen create", limit=5, root=root_a).hits
+        ]
+        beta_hits = [
+            hit.file.path
+            for hit in search(reopened, "persisted multi root reopen create", limit=5, root=root_b).hits
+        ]
+    finally:
+        reopened.close()
+
+    assert elapsed <= 0.5
+    assert all_hits == [created]
+    assert alpha_hits == []
+    assert beta_hits == [created]
+
+
+def test_multi_root_live_delete_persists_after_reopen_with_root_scope(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    survivor = root_a / "alpha-survivor.txt"
+    target = root_b / "beta-delete-after-reopen.txt"
+    survivor.write_text("persisted multi root survivor\n", encoding="utf-8")
+    target.write_text("persisted multi root reopen delete\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        initial_hits = [
+            hit.file.path
+            for hit in search(conn, "persisted multi root reopen delete", limit=5).hits
+        ]
+        target.unlink()
+        elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "persisted multi root reopen delete",
+            target,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    reopened = open_index(db_path)
+    try:
+        all_hits = [
+            hit.file.path
+            for hit in search(reopened, "persisted multi root reopen delete", limit=5).hits
+        ]
+        alpha_hits = [
+            hit.file.path
+            for hit in search(reopened, "persisted multi root survivor", limit=5, root=root_a).hits
+        ]
+        beta_hits = [
+            hit.file.path
+            for hit in search(reopened, "persisted multi root reopen delete", limit=5, root=root_b).hits
+        ]
+    finally:
+        reopened.close()
+
+    assert initial_hits == [target]
+    assert elapsed <= 0.5
+    assert all_hits == []
+    assert alpha_hits == [survivor]
+    assert beta_hits == []
