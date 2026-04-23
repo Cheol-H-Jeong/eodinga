@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.136 - 2026-04-23
+
+- Fixed `path:` inline regex parsing so escaped `/` separators with valid flags now stay regexes instead of silently degrading into literal path filters.
+- Hardened reciprocal-rank fusion against duplicate ids inside a single ranking channel, preventing repeated candidates from inflating their own score.
+- Deduplicated equivalent compiled branches produced by grouped boolean modifiers and added coverage for grouped `case:` / `regex:` truth-table behavior.
+
 ## 0.1.130 - 2026-04-23
 
 - Expanded integration coverage so one live `WatchService` can monitor multiple configured roots while `search(..., root=...)` still isolates newly indexed results to the correct root.
