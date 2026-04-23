@@ -101,6 +101,32 @@ def _cleanup_orphan_build_sidecars(path: Path) -> bool:
     return cleaned
 
 
+def _meta_value(conn: sqlite3.Connection, key: str) -> str | None:
+    row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+    if row is None:
+        return None
+    return str(row[0])
+
+
+def set_build_resume_state(conn: sqlite3.Connection, *, resumable: bool) -> None:
+    conn.execute(
+        """
+        INSERT INTO meta(key, value) VALUES('build_resume_state', ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        """,
+        ("ready" if resumable else "building",),
+    )
+
+
+def _staged_build_is_resumable(path: Path) -> bool:
+    conn = _configure_connection(sqlite3.connect(path))
+    try:
+        migrate(conn)
+        return _meta_value(conn, "build_resume_state") == "ready"
+    finally:
+        conn.close()
+
+
 def _copy_index_with_sidecars(source_path: Path, target_path: Path) -> None:
     target_path.parent.mkdir(parents=True, exist_ok=True)
     _cleanup_index_files(target_path)
@@ -169,6 +195,15 @@ def recover_interrupted_build(path: Path) -> bool:
     if not staged_path.exists():
         return False
     logger = get_logger("index.storage")
+    try:
+        if not _staged_build_is_resumable(staged_path):
+            logger.warning("discarding incomplete staged build for {}", path)
+            _cleanup_index_files(staged_path)
+            return False
+    except (OSError, sqlite3.DatabaseError, ValueError):
+        logger.exception("failed staged build validation for {}", path)
+        _cleanup_index_files(staged_path)
+        return False
     logger.warning("resuming interrupted staged build for {}", path)
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
@@ -217,4 +252,5 @@ __all__ = [
     "recover_interrupted_build",
     "recover_interrupted_recovery",
     "recover_stale_wal",
+    "set_build_resume_state",
 ]

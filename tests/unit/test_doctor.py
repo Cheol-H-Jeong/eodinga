@@ -7,6 +7,7 @@ from pathlib import Path
 from eodinga.config import AppConfig, RootConfig
 from eodinga.doctor import run_diagnostics
 from eodinga.index.schema import apply_schema
+from eodinga.index.storage import set_build_resume_state
 
 
 def test_doctor_returns_expected_shape(tmp_path: Path) -> None:
@@ -115,6 +116,7 @@ def test_doctor_resumes_interrupted_build_before_reporting(tmp_path: Path) -> No
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         (str(tmp_path), "[]", "[]", 1),
     )
+    set_build_resume_state(conn, resumable=True)
     conn.commit()
     conn.close()
 
