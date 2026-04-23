@@ -14,7 +14,7 @@ from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga.index.schema import apply_schema
-from eodinga.observability import reset_metrics
+from eodinga.observability import reset_metrics, snapshot_metrics
 
 
 def _insert_file(
@@ -473,7 +473,11 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["watcher_events"] == 0
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["counters"]["queries_served"] == 1
+    assert payload["counters"]["commands_started"] == 2
+    assert payload["counters"]["commands.search.completed"] == 1
+    assert payload["counters"]["commands.stats.started"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
+    assert payload["histograms"]["command_latency_ms"]["count"] == 1
 
 
 def test_stats_json_exposes_end_to_end_runtime_metrics(
@@ -523,3 +527,26 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["queries_served"] == 1
     assert payload["counters"]["watcher_events"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
+    assert payload["histograms"]["command_latency_ms"]["count"] == 2
+
+
+def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    def _boom(_args) -> int:
+        raise RuntimeError("version exploded")
+
+    monkeypatch.setattr("eodinga.__main__._cmd_version", _boom)
+
+    exit_code = main(["--db", str(db_path), "version"])
+
+    metrics = snapshot_metrics()
+    assert exit_code == 1
+    assert metrics["counters"]["commands_started"] == 1
+    assert metrics["counters"]["commands.version.started"] == 1
+    assert metrics["counters"]["commands_failed"] == 1
+    assert metrics["counters"]["commands.version.failed"] == 1
+    assert "commands_completed" not in metrics["counters"]
+    assert metrics["histograms"]["command_latency_ms"]["count"] == 1

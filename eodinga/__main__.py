@@ -7,6 +7,7 @@ import re
 import sys
 from contextlib import closing
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
 from eodinga import __version__
@@ -20,7 +21,9 @@ from eodinga.observability import (
     configure_logging,
     counter_value,
     histogram_snapshot,
+    increment_counter,
     install_crash_handlers,
+    record_histogram,
     snapshot_metrics,
     report_crash,
 )
@@ -206,13 +209,33 @@ def _cmd_version(args: argparse.Namespace) -> int:
     return _emit(__version__)
 
 
+def _run_command(args: argparse.Namespace) -> int:
+    command = args.command or "<interactive>"
+    increment_counter("commands_started", command=command)
+    increment_counter(f"commands.{command}.started")
+    started_at = monotonic()
+    try:
+        exit_code = int(args.handler(args))
+    except Exception:
+        increment_counter("commands_failed", command=command)
+        increment_counter(f"commands.{command}.failed")
+        raise
+    finally:
+        elapsed_ms = max((monotonic() - started_at) * 1000, 0.0)
+        record_histogram("command_latency_ms", elapsed_ms, command=command)
+    increment_counter("commands_completed", command=command)
+    increment_counter(f"commands.{command}.completed")
+    increment_counter(f"commands.exit_code.{exit_code}")
+    return exit_code
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     configure_logging(args.log_level)
     install_crash_handlers()
     try:
-        return args.handler(args)
+        return _run_command(args)
     except KeyboardInterrupt:
         raise
     except Exception as error:
