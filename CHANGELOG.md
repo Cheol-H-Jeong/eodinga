@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.582 - 2026-04-23
+
+- Preserved every ready watcher event across queue-backpressure retries, so a single full queue no longer drops the tail of a flush batch before it can be retried.
+- Kept rebuild signal handling active through the final staged-index publish step, allowing `SIGINT` and `SIGTERM` to finish the atomic swap and then surface as an interrupt instead of silently succeeding.
+
 ## 0.1.574 - 2026-04-23
 
 - Hardened the no-network safety scan so aliased imports and `from parent import child` forms like `from urllib import request` or `from socket import create_connection` can no longer bypass the repository-wide source check.
