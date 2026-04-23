@@ -287,7 +287,12 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
     expected_archive_name = f"eodinga-{package_version}-linux-{arch}-appdir.tar.gz"
     if Path(str(archive_path)).name != expected_archive_name:
         errors.append("AppImage archive filename does not match the package version")
+    appimage_path = payload.get("appimage_path")
+    expected_appimage_name = f"eodinga-{package_version}-{arch}.AppImage"
+    if Path(str(appimage_path)).name != expected_appimage_name:
+        errors.append("AppImage filename does not match the package version")
     archive_artifact = payload.get("archive_artifact", {})
+    appimage_artifact = payload.get("appimage_artifact", {})
     recipe_payload = payload.get("recipe", {})
     icon_payload = payload.get("icon", {})
     apprun_payload = payload.get("apprun", {})
@@ -297,6 +302,7 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (recipe_payload.get("contains_version_template"), "AppImage recipe no longer uses the version template"),
         (recipe_payload.get("rendered_exists"), "Rendered AppImage recipe is missing"),
         (recipe_payload.get("rendered_version_matches_package"), "Rendered AppImage recipe version does not match the package version"),
+        (recipe_payload.get("rendered_arch_matches_target"), "Rendered AppImage recipe architecture does not match the target"),
         (recipe_payload.get("references_desktop_entry"), "AppImage recipe no longer references the desktop entry"),
         (recipe_payload.get("references_icon_asset"), "AppImage recipe no longer references the icon asset"),
         (recipe_payload.get("launches_gui"), "AppImage recipe no longer launches the GUI target"),
@@ -339,6 +345,18 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
     for ok, message in required_flags:
         if not ok:
             errors.append(message)
+    if appimage_artifact.get("path") != appimage_path:
+        errors.append("AppImage artifact path drifted from the planned output path")
+    if payload.get("dry_run"):
+        if appimage_artifact.get("exists"):
+            errors.append("AppImage dry run unexpectedly produced a .AppImage payload")
+    else:
+        if not appimage_artifact.get("exists"):
+            errors.append("AppImage bundle is missing")
+        if not isinstance(appimage_artifact.get("size_bytes"), int) or appimage_artifact.get("size_bytes", 0) <= 0:
+            errors.append("AppImage bundle size is missing")
+        if not appimage_artifact.get("sha256"):
+            errors.append("AppImage bundle digest is missing")
     return errors
 
 
@@ -507,7 +525,7 @@ def _run_linux_appimage_dry_run() -> int:
 
 
 def _run_linux_appimage() -> int:
-    preflight = _preflight_required_commands("linux-appimage", ["bash", "python3", "tar"])
+    preflight = _preflight_required_commands("linux-appimage", ["appimage-builder", "bash", "python3", "tar"])
     if preflight != 0:
         return preflight
     result = subprocess.run(

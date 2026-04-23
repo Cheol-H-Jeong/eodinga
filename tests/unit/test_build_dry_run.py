@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import importlib.util
+import os
 import re
 import subprocess
 import sys
@@ -17,6 +18,43 @@ def _load_build_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _fake_appimage_builder_env(tmp_path: Path) -> dict[str, str]:
+    tool_dir = tmp_path / "bin"
+    tool_dir.mkdir()
+    tool_path = tool_dir / "appimage-builder"
+    tool_path.write_text(
+        "\n".join(
+            [
+                "#!/usr/bin/env python3",
+                "from pathlib import Path",
+                "import re",
+                "import sys",
+                "",
+                "args = sys.argv[1:]",
+                "recipe = None",
+                "for index, arg in enumerate(args):",
+                "    if arg == '--recipe' and index + 1 < len(args):",
+                "        recipe = args[index + 1]",
+                "        break",
+                "if recipe is None:",
+                "    raise SystemExit('missing --recipe')",
+                "text = Path(recipe).read_text(encoding='utf-8')",
+                "match = re.search(r'^  file_name: (.+)$', text, re.MULTILINE)",
+                "if match is None:",
+                "    raise SystemExit('missing file_name')",
+                "target = Path.cwd() / match.group(1).strip()",
+                "target.write_bytes(b'fake appimage payload\\n')",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    tool_path.chmod(0o755)
+    env = os.environ.copy()
+    env["PATH"] = f"{tool_dir}{os.pathsep}{env.get('PATH', '')}"
+    return env
 
 
 def test_build_dry_run_returns_zero_and_writes_audit() -> None:
@@ -183,6 +221,21 @@ def test_build_preflight_reports_missing_linux_deb_tool(monkeypatch) -> None:
     monkeypatch.setattr(module.shutil, "which", fake_which)
 
     result = module._run_linux_deb()
+
+    assert result == 1
+
+
+def test_build_preflight_reports_missing_linux_appimage_tool(monkeypatch) -> None:
+    module = _load_build_module()
+
+    def fake_which(command: str) -> str | None:
+        if command == "appimage-builder":
+            return None
+        return f"/usr/bin/{command}"
+
+    monkeypatch.setattr(module.shutil, "which", fake_which)
+
+    result = module._run_linux_appimage()
 
     assert result == 1
 
@@ -421,6 +474,7 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["arch"]
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
+    assert payload["appimage_path"] == str(Path(f"packaging/dist/eodinga-{__version__}-{payload['arch']}.AppImage").resolve())
     assert Path(payload["archive"]).name == f"eodinga-{__version__}-linux-{payload['arch']}-appdir.tar.gz"
     assert payload["archive_entries_sorted"] is True
     assert payload["archive_mtime_zero"] is True
@@ -439,9 +493,14 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert Path(payload["recipe"]["rendered_path"]).exists()
     assert payload["recipe"]["rendered_exists"] is True
     assert payload["recipe"]["rendered_version_matches_package"] is True
+    assert payload["recipe"]["rendered_arch_matches_target"] is True
     assert payload["recipe"]["references_desktop_entry"] is True
     assert payload["recipe"]["references_icon_asset"] is True
     assert payload["recipe"]["launches_gui"] is True
+    assert payload["appimage_artifact"]["path"] == payload["appimage_path"]
+    assert payload["appimage_artifact"]["exists"] is False
+    assert payload["appimage_artifact"]["size_bytes"] is None
+    assert payload["appimage_artifact"]["sha256"] is None
     assert payload["icon"]["exists"] is True
     assert payload["icon"]["diricon_exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True
@@ -584,12 +643,14 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
     assert "Debian package filename does not match the package version and arch" in errors
 
 
-def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
+def test_linux_appimage_build_target_writes_non_dry_run_audit(tmp_path: Path) -> None:
+    env = _fake_appimage_builder_env(tmp_path)
     result = subprocess.run(
         [sys.executable, "packaging/build.py", "--target", "linux-appimage"],
         capture_output=True,
         text=True,
         check=False,
+        env=env,
     )
     assert result.returncode == 0, result.stdout + result.stderr
 
@@ -602,6 +663,12 @@ def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
     assert Path(payload["archive"]).name == f"eodinga-{__version__}-linux-{payload['arch']}-appdir.tar.gz"
+    assert payload["appimage_path"] == str(Path(f"packaging/dist/eodinga-{__version__}-{payload['arch']}.AppImage").resolve())
+    assert Path(payload["appimage_path"]).exists()
+    assert payload["appimage_artifact"]["path"] == payload["appimage_path"]
+    assert payload["appimage_artifact"]["exists"] is True
+    assert payload["appimage_artifact"]["size_bytes"] > 0
+    assert len(payload["appimage_artifact"]["sha256"]) == 64
 
 
 def test_linux_deb_dry_run_stages_recipe() -> None:
@@ -705,6 +772,7 @@ def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadat
         "version": __version__,
         "arch": "x86_64",
         "archive": f"packaging/dist/eodinga-{__version__}-linux-x86_64-appdir.tar.gz",
+        "appimage_path": f"packaging/dist/eodinga-{__version__}-x86_64.AppImage",
         "archive_entries_sorted": True,
         "archive_mtime_zero": True,
         "archive_numeric_owner_zero": True,
@@ -713,11 +781,19 @@ def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadat
             "size_bytes": 0,
             "sha256": "",
         },
+        "appimage_artifact": {
+            "path": f"packaging/dist/eodinga-{__version__}-x86_64.AppImage",
+            "exists": False,
+            "size_bytes": None,
+            "sha256": None,
+        },
+        "dry_run": False,
         "recipe": {
             "exists": True,
             "contains_version_template": True,
             "rendered_exists": True,
             "rendered_version_matches_package": True,
+            "rendered_arch_matches_target": True,
             "references_desktop_entry": True,
             "references_icon_asset": True,
             "launches_gui": True,
@@ -753,6 +829,9 @@ def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadat
 
     assert "AppImage archive size is missing" in errors
     assert "AppImage archive digest is missing" in errors
+    assert "AppImage bundle is missing" in errors
+    assert "AppImage bundle size is missing" in errors
+    assert "AppImage bundle digest is missing" in errors
 
 
 def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:

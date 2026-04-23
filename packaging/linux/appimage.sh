@@ -9,6 +9,7 @@ APPIMAGE_RECIPE="${ROOT_DIR}/packaging/linux/appimage-builder.yml"
 RENDERED_RECIPE="${DIST_DIR}/appimage-builder.yml"
 APPIMAGE_ICON="${ROOT_DIR}/packaging/linux/eodinga.svg"
 APPIMAGE_VERSION_TOKEN="@@APP_VERSION@@"
+APPIMAGE_ARCH_TOKEN="@@APPIMAGE_ARCH@@"
 VERSION="$(python3 - <<'PY'
 import pathlib
 import re
@@ -22,6 +23,7 @@ PY
 )"
 ARCH="${TARGET_ARCH:-$(uname -m)}"
 ARCHIVE_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-${ARCH}-appdir.tar.gz"
+APPIMAGE_PATH="${DIST_DIR}/eodinga-${VERSION}-${ARCH}.AppImage"
 DRY_RUN=0
 
 if [[ "${1:-}" == "--dry-run" ]]; then
@@ -29,6 +31,7 @@ if [[ "${1:-}" == "--dry-run" ]]; then
 fi
 
 rm -rf "${APPDIR}"
+rm -f "${APPIMAGE_PATH}" "${APPIMAGE_PATH}.zsync"
 mkdir -p "${APPDIR}/usr/bin" "${APPDIR}/usr/share/applications"
 mkdir -p "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
 mkdir -p "${DIST_DIR}"
@@ -39,6 +42,7 @@ from pathlib import Path
 template_path = Path("${APPIMAGE_RECIPE}")
 rendered_path = Path("${RENDERED_RECIPE}")
 rendered = template_path.read_text(encoding="utf-8").replace("${APPIMAGE_VERSION_TOKEN}", "${VERSION}")
+rendered = rendered.replace("${APPIMAGE_ARCH_TOKEN}", "${ARCH}")
 rendered_path.write_text(rendered, encoding="utf-8")
 PY
 
@@ -61,6 +65,16 @@ EOF
 chmod +x "${APPDIR}/AppRun" "${APPDIR}/usr/bin/eodinga"
 
 tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf "${ARCHIVE_PATH}" -C "${DIST_DIR}" "$(basename "${APPDIR}")"
+if [[ "${DRY_RUN}" -eq 0 ]]; then
+  if ! command -v appimage-builder >/dev/null 2>&1; then
+    echo "missing required build command: appimage-builder" >&2
+    exit 1
+  fi
+  (
+    cd "${DIST_DIR}"
+    appimage-builder --recipe "${RENDERED_RECIPE}" --skip-test
+  )
+fi
 python3 - <<PY
 import json
 import os
@@ -86,6 +100,7 @@ rendered_recipe_path = Path("${RENDERED_RECIPE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
 rendered_recipe_text = rendered_recipe_path.read_text(encoding="utf-8")
 archive_path = Path("${ARCHIVE_PATH}")
+appimage_path = Path("${APPIMAGE_PATH}")
 with tarfile.open("${ARCHIVE_PATH}", mode="r:gz") as archive:
     members = archive.getmembers()
 payload = {
@@ -94,6 +109,7 @@ payload = {
     "arch": "${ARCH}",
     "appdir": "${APPDIR}",
     "archive": "${ARCHIVE_PATH}",
+    "appimage_path": "${APPIMAGE_PATH}",
     "archive_entries_sorted": [member.name for member in members] == sorted(member.name for member in members),
     "archive_mtime_zero": all(member.mtime == 0 for member in members),
     "archive_numeric_owner_zero": all(member.uid == 0 and member.gid == 0 for member in members),
@@ -102,6 +118,12 @@ payload = {
         "exists": archive_path.exists(),
         "size_bytes": archive_path.stat().st_size if archive_path.exists() else None,
         "sha256": hashlib.sha256(archive_path.read_bytes()).hexdigest() if archive_path.exists() else None,
+    },
+    "appimage_artifact": {
+        "path": str(appimage_path),
+        "exists": appimage_path.exists(),
+        "size_bytes": appimage_path.stat().st_size if appimage_path.exists() else None,
+        "sha256": hashlib.sha256(appimage_path.read_bytes()).hexdigest() if appimage_path.exists() else None,
     },
     "dry_run": bool(${DRY_RUN}),
     "desktop_entry": {
@@ -120,6 +142,7 @@ payload = {
         "rendered_path": str(rendered_recipe_path),
         "rendered_exists": rendered_recipe_path.exists(),
         "rendered_version_matches_package": f"version: ${VERSION}" in rendered_recipe_text,
+        "rendered_arch_matches_target": f"arch: ${ARCH}" in rendered_recipe_text,
         "references_desktop_entry": "packaging/linux/eodinga.desktop" in recipe_text,
         "references_icon_asset": "packaging/linux/eodinga.svg" in recipe_text,
         "launches_gui": "exec_args: gui" in recipe_text,
