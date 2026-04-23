@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.451 - 2026-04-23
+## 0.1.501 - 2026-04-23
 
 - Capped the query executor's SQL-shape LRU caches at an explicit 128 entries so prepared-statement memory use stays bounded without sacrificing cache reuse across repeated searches.
 - Reused one `indexed_at` timestamp per emitted walker batch instead of calling the clock for every discovered path, trimming per-record traversal overhead on large scans.
