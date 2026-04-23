@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.278 - 2026-04-23
+
+- Expanded `README.md` with an install matrix, command-surface table, query recipes, launcher action table, and a tighter troubleshooting matrix so the top-level operator contract is faster to audit.
+- Deepened `docs/ARCHITECTURE.md` with explicit runtime boundaries, persistent-state surfaces, query capability mapping, release artifact flow, and packaging input matrices tied to the shipped runtime.
+- Tightened `docs/CONTRIBUTING.md` and `docs/RELEASE.md` around docs-only rounds, review checkpoints, change-type-specific validation, version-sync checks, and final tag placement discipline.
+
 ## 0.1.277 - 2026-04-23
 
 - Reused `os.scandir()` metadata during tree walks so discovered children no longer pay an extra `lstat()` before indexing, while preserving the existing fallback path for entries whose metadata cannot be read during directory enumeration.
