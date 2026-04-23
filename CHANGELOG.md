@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.431 - 2026-04-23
+## 0.1.432 - 2026-04-23
 
 - Surfaced active query filters as launcher chips so scoped searches stay visible and editable while you type.
 - Routed Tab and Shift+Tab through active, pinned, and recent query chips before the result list, keeping the launcher keyboard-only friendly.
