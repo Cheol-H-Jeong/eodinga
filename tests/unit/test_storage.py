@@ -258,6 +258,32 @@ def test_open_index_replays_stale_wal_on_startup(tmp_path: Path) -> None:
     assert not wal_path.exists() or wal_path.stat().st_size == 0
 
 
+def test_temporary_pragmas_skips_reapplying_identical_nested_overrides(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conn = connect_database(tmp_path / "index.db")
+    try:
+        calls: list[str] = []
+        original_read_pragma = storage_module._read_pragma
+
+        def counting_read_pragma(inner_conn: sqlite3.Connection, name: str) -> str:
+            calls.append(name)
+            return original_read_pragma(inner_conn, name)
+
+        monkeypatch.setattr(storage_module, "_read_pragma", counting_read_pragma)
+
+        with temporary_pragmas(conn, {"synchronous": "NORMAL", "cache_size": -128000}):
+            with temporary_pragmas(conn, {"synchronous": "NORMAL", "cache_size": -128000}):
+                assert tuple(conn.execute("PRAGMA synchronous;").fetchone()) == (1,)
+                assert tuple(conn.execute("PRAGMA cache_size;").fetchone()) == (-128000,)
+
+        assert calls == ["synchronous", "cache_size"]
+        assert tuple(conn.execute("PRAGMA synchronous;").fetchone()) == (2,)
+        assert tuple(conn.execute("PRAGMA cache_size;").fetchone()) == (-64000,)
+    finally:
+        conn.close()
+
+
 def test_recover_stale_wal_returns_false_without_sidecars(tmp_path: Path) -> None:
     path = tmp_path / "index.db"
     conn = sqlite3.connect(path)

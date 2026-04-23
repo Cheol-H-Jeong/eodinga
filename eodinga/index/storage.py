@@ -12,6 +12,7 @@ from eodinga.index.schema import PRAGMAS, current_schema_version
 from eodinga.observability import get_logger
 
 SQLITE_CACHED_STATEMENTS = 128
+_TEMP_PRAGMA_STACKS: dict[int, list[dict[str, str]]] = {}
 _PRAGMA_VALUE_ALIASES: dict[str, dict[str, str]] = {
     "synchronous": {
         "OFF": "0",
@@ -61,25 +62,45 @@ def connect_database(
     )
 
 
+def _active_pragmas(conn: sqlite3.Connection) -> dict[str, str]:
+    active: dict[str, str] = {}
+    for overrides in _TEMP_PRAGMA_STACKS.get(id(conn), ()):
+        active.update(overrides)
+    return active
+
+
 @contextmanager
 def temporary_pragmas(
     conn: sqlite3.Connection,
     overrides: Mapping[str, str | int],
 ) -> Iterator[None]:
-    if conn.in_transaction or not overrides:
+    if not overrides:
+        yield
+        return
+    requested = {name: str(value) for name, value in overrides.items()}
+    active = _active_pragmas(conn)
+    if conn.in_transaction and not active:
         yield
         return
     previous: dict[str, str] = {}
-    for name, value in overrides.items():
-        current_value = _read_pragma(conn, name)
-        requested_value = str(value)
-        if _pragma_matches(name, current_value, requested_value):
-            continue
-        previous[name] = current_value
-        conn.execute(f"PRAGMA {name}={value};")
+    if not conn.in_transaction:
+        for name, value in overrides.items():
+            requested_value = requested[name]
+            if active.get(name) == requested_value:
+                continue
+            current_value = _read_pragma(conn, name)
+            if _pragma_matches(name, current_value, requested_value):
+                continue
+            previous[name] = current_value
+            conn.execute(f"PRAGMA {name}={value};")
+    stack = _TEMP_PRAGMA_STACKS.setdefault(id(conn), [])
+    stack.append(requested)
     try:
         yield
     finally:
+        stack.pop()
+        if not stack:
+            _TEMP_PRAGMA_STACKS.pop(id(conn), None)
         for name, value in previous.items():
             conn.execute(f"PRAGMA {name}={value};")
 
