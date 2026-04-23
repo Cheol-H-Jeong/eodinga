@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.748 - 2026-04-23
+## 0.1.800 - 2026-04-23
 
 - Normalized Windows rule and denylist path matching so lowercase drive letters and extended-length `\\?\` paths are evaluated consistently instead of slipping past filtering.
 - Extended query root scoping to treat regular Windows paths and extended-length `\\?\` variants as equivalent, covering both the incoming `root=` value and already-indexed records.
