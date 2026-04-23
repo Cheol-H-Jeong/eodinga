@@ -110,6 +110,61 @@ def test_launcher_tab_moves_focus_into_results_without_mouse(qapp) -> None:
     assert launcher.result_list.currentIndex().row() == 0
 
 
+def test_launcher_tab_visits_active_pinned_and_recent_query_chips_before_results(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt")][:limit],
+            total=1,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn, state=state)
+    launcher.show()
+
+    launcher.query_field.setText("ext:pdf report")
+    _wait(60)
+
+    assert [button.text() for button in launcher.active_filters_row.buttons] == ["ext:pdf"]
+    assert "Tab visits filter, pinned, and recent chips before results." in launcher.shortcut_label.text()
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Tab)
+    assert launcher.active_filters_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.active_filters_row.buttons[0], Qt.Key.Key_Tab)
+    assert launcher.pinned_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[0], Qt.Key.Key_Tab)
+    assert launcher.recent_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.recent_queries_row.buttons[0], Qt.Key.Key_Tab)
+    assert launcher.recent_queries_row.buttons[1].hasFocus()
+
+    QTest.keyClick(launcher.recent_queries_row.buttons[1], Qt.Key.Key_Tab)
+    assert launcher.result_list.hasFocus()
+
+
+def test_launcher_active_filter_chip_selects_matching_query_text(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(items=[], total=0, elapsed_ms=1.0)
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText('ext:pdf content:"release notes" report')
+    _wait(60)
+
+    assert [button.text() for button in launcher.active_filters_row.buttons] == ['ext:pdf', 'content:"release notes"']
+    assert launcher.active_filters_row.buttons[1].accessibleName() == 'Select filter content:"release notes"'
+
+    launcher.active_filters_row.buttons[1].click()
+
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.selectedText() == 'content:"release notes"'
+
+
 def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
@@ -141,6 +196,29 @@ def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) ->
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_Home)
     assert launcher.result_list.currentIndex().row() == 0
+
+
+def test_launcher_backtab_from_results_returns_to_last_visible_query_chip(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt")][:limit],
+            total=1,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn, state=state)
+    launcher.show()
+
+    launcher.query_field.setText("ext:pdf report")
+    _wait(60)
+    launcher.result_list.setFocus()
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Backtab)
+
+    assert launcher.recent_queries_row.buttons[-1].hasFocus()
 
 
 def test_launcher_result_list_wraps_with_up_and_down_keys(qapp) -> None:
@@ -596,13 +674,40 @@ def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
 
     assert launcher.preview_pane.title_label.text() == "alpha.txt"
     assert "/tmp/alpha.txt" in launcher.preview_pane.path_label.text()
-    assert "Alpha release notes" in launcher.preview_pane.snippet_label.text()
+    assert "Alpha release" in launcher.preview_pane.snippet_label.text()
+    assert "<mark" in launcher.preview_pane.snippet_label.text()
     assert launcher.action_bar.open_button.isEnabled()
 
     launcher._sync_preview_to_index(launcher.model.index(1, 0))
 
     assert launcher.preview_pane.title_label.text() == "beta.txt"
     assert "Beta launch checklist" in launcher.preview_pane.snippet_label.text()
+
+
+def test_launcher_preview_highlights_query_matches(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/alpha-notes.txt"),
+                    parent_path=Path("/tmp"),
+                    name="alpha-notes.txt",
+                    snippet="Alpha launch checklist",
+                )
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("alpha")
+    _wait(60)
+
+    assert "<mark" in launcher.preview_pane.title_label.text()
+    assert "<mark" in launcher.preview_pane.snippet_label.text()
+    assert "font-weight:700" in launcher.preview_pane.title_label.text()
 
 
 def test_launcher_action_bar_triggers_result_actions(qapp) -> None:
@@ -684,6 +789,7 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
 
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
+    assert launcher.active_filters_row.accessibleName() == "Active launcher filters"
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"

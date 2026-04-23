@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from eodinga.common import SearchHit
 from eodinga.gui.design import SPACE_4, SPACE_8, SPACE_16
 from eodinga.gui.widgets.button import SecondaryButton
+from eodinga.gui.widgets.result_item import render_highlighted_text
 
 
 def _preview_text(hit: SearchHit | None) -> tuple[str, str, str]:
@@ -56,11 +57,16 @@ class LauncherPreviewPane(QWidget):
 
         self.set_hit(None)
 
-    def set_hit(self, hit: SearchHit | None) -> None:
+    def set_hit(self, hit: SearchHit | None, query: str = "") -> None:
         title, path_text, snippet = _preview_text(hit)
-        self.title_label.setText(title)
-        self.path_label.setText(path_text)
-        self.snippet_label.setText(snippet)
+        if hit is None or not query:
+            self.title_label.setText(title)
+            self.path_label.setText(path_text)
+            self.snippet_label.setText(snippet)
+            return
+        self.title_label.setText(render_highlighted_text(title, query, target="name"))
+        self.path_label.setText(render_highlighted_text(path_text, query, target="path"))
+        self.snippet_label.setText(render_highlighted_text(snippet, query, target="snippet"))
 
 
 class LauncherActionBar(QWidget):
