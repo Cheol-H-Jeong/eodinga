@@ -95,6 +95,18 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Failure Priority
+
+When the release pass fails, repair the first broken proof in this order:
+
+1. docs contract or generated asset drift
+2. unit or full-test failures
+3. GUI smoke mismatches
+4. packaging dry-run failures
+5. workflow-lint failures
+
+This keeps the debugging path narrow. A packaging failure is not actionable until the docs contract and repository-health checks are already green.
+
 ## Packaging Audit Checklist
 
 Use this review table after each matching dry run:
@@ -106,6 +118,17 @@ Use this review table after each matching dry run:
 | Linux `.deb` | `python packaging/build.py --target linux-deb-dry-run` | staged desktop entry, icon, compressed changelog, docs payload |
 
 Treat `packaging/dist/` as the review surface. A green dry run without a reviewed manifest is not a completed release check.
+
+## Artifact Review Worksheet
+
+Use these prompts against the actual files under `packaging/dist/` before cutting the local tag:
+
+| Artifact family | Review question |
+| --- | --- |
+| generated man page | does `docs/man/eodinga.1` still describe the current subcommands and flags from argparse? |
+| screenshots | do the rendered PNGs still show the visible text, keyboard hints, and surfaces described in `README.md`? |
+| Windows dry run | does the staged payload list the docs and launcher/runtime files the release docs claim exist? |
+| Linux AppImage / `.deb` dry runs | do artifact names, packaged docs, and compressed changelog outputs match the release notes and README wording? |
 
 ## Tag Decision Path
 
@@ -215,6 +238,17 @@ When a parallel worker lands your planned patch number first:
 5. recreate the local `v0.1.N` tag on the new metadata commit
 
 Keep the earlier docs or feature commits unchanged so the round stays reviewable and easy to rebase.
+
+## Docs Asset Drift Fix Path
+
+If only the docs evidence is stale while runtime tests are green:
+
+1. regenerate the affected asset with `python scripts/generate_manpage.py` or `python scripts/render_docs_screenshots.py`
+2. rerun `pytest -q tests/unit/test_docs_assets.py`
+3. rerun only the matching GUI smoke or packaging dry run
+4. keep the metadata/tag cut as the last step
+
+Do not rewrite unrelated docs or code just to refresh one generated asset family.
 
 ## Handoff Checklist
 

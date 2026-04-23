@@ -125,6 +125,20 @@ Use the smallest green slice that proves the change:
 | `launcher` / `ux` | `pytest -q tests/unit/test_gui_launcher.py tests/unit/test_gui_app.py tests/unit/test_docs_assets.py` |
 | `integration` / `reliability` | `pytest -q tests/unit/test_storage.py tests/unit/test_writer.py tests/unit/test_watcher.py` |
 
+## Theme Command Bundles
+
+Use one of these when you want a copy-pasteable, low-noise command bundle for the current theme:
+
+| Theme | Command bundle |
+| --- | --- |
+| `docs` | `source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
+| `packaging` | `source .venv/bin/activate && pytest -q tests/unit/test_build.py tests/unit/test_build_dry_run.py tests/unit/test_inno_script.py tests/unit/test_pyinstaller_spec.py && python packaging/build.py --target windows-dry-run` |
+| `query` / `correctness` | `source .venv/bin/activate && pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py && ruff check eodinga tests` |
+| `launcher` / `ux` | `source .venv/bin/activate && pytest -q tests/unit/test_gui_launcher.py tests/unit/test_gui_app.py tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
+
+- Prefer these explicit bundles over assembling ad-hoc sequences during a worker round.
+- If the bundle is green and the round touched a release-facing surface, continue with the broader gate before handoff.
+
 ## Docs Refresh Order
 
 When a change affects the shipped contract, refresh docs in this order:
@@ -176,6 +190,15 @@ Use this when another worker lands the same `0.1.N` before your local tag:
 5. recreate the local tag on the new metadata commit only after the branch tip is green
 
 Do not rewrite earlier docs or feature commits just to retarget the patch number.
+
+## Round Exit Criteria
+
+Before you stop a worker round, confirm:
+
+1. every logical commit left `pytest -q tests/unit` green
+2. the last commit before metadata is still theme-scoped and reviewable on its own
+3. the metadata/tag cut is isolated to `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py`
+4. the evidence you gathered matches the surface you changed instead of a broader unrelated gate
 
 ## Test Selection Guide
 

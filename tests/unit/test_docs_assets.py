@@ -52,6 +52,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Task Recipes" in readme
     assert "## Package Artifacts" in readme
     assert "## Release Inputs" in readme
+    assert "## Release Evidence Matrix" in readme
     assert "## Config and Data Paths" in readme
     assert "## Operator Checklist" in readme
     assert "## Docs-Only Release Pass" in readme
@@ -92,6 +93,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "EODINGA_CRASH_DIR" in readme
     assert "Docs asset drift after CLI or UI changes" in readme
     assert "What should I inspect before cutting a docs-only release?" in readme
+    assert "How do I refresh screenshots and the man page without missing a validation step?" in readme
+    assert "Minimum command" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance
@@ -141,6 +144,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Packaging Surfaces" in architecture
     assert "## Packaging Review Path" in architecture
     assert "## Release Evidence Sequence" in architecture
+    assert "## Derived Asset Ownership Matrix" in architecture
+    assert "## Release Failure Isolation" in architecture
     assert "compressed changelog" in architecture
     assert "scripts/generate_manpage.py" in architecture
     assert "scripts/render_docs_screenshots.py" in architecture
@@ -166,6 +171,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Docs Evidence Bundle" in contributing
     assert "## Metadata Commit Discipline" in contributing
     assert "## Release Retarget Playbook" in contributing
+    assert "## Theme Command Bundles" in contributing
+    assert "## Round Exit Criteria" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
     assert "## Review Checklist" in contributing
@@ -218,6 +225,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Version Collision Guard" in release
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
+    assert "## Failure Priority" in release
+    assert "## Artifact Review Worksheet" in release
+    assert "## Docs Asset Drift Fix Path" in release
     assert "## Artifact Inventory" in release
     assert "## Verify Shipped Docs" in release
     assert "## Packaging Audit Checklist" in release
