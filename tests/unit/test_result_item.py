@@ -76,6 +76,7 @@ def test_format_hit_html_renders_extension_badge() -> None:
         "report",
     )
 
+    assert "mark{font-weight:700;" in rendered
     assert "<mark>report</mark>.pdf" in rendered
     assert ">pdf</span>" in rendered
     assert ">report.pdf</div><div" not in rendered

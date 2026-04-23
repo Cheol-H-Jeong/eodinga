@@ -237,6 +237,7 @@ def format_hit_html(hit: SearchHit, query: str) -> str:
             "</span>"
         )
     return (
+        "<style>mark{font-weight:700; background:#FDE68A; color:#111827; padding:0 1px;}</style>"
         f"<div style='font-size:15px; font-weight:600'>{primary}{ext_badge}</div>"
         f"<div style='font-size:11px; color:#6B7280'>{secondary}</div>"
         f"{snippet_html}"
