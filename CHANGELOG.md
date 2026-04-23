@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.580 - 2026-04-23
+
+- Tightened scoped-search root matching so wildcard characters in root paths no longer leak results from sibling roots, and Windows drive-letter case variants now keep exact-root records in scope.
+- Locked in parser regressions for Korean and escaped-slash regex queries, including fuzz coverage that round-trips inline regex bodies with embedded delimiters.
+- Made reciprocal-rank fusion and prefix boosting idempotent for repeated file ids within a channel, preventing accidental score inflation if an upstream candidate list contains duplicates.
+
 ## 0.1.574 - 2026-04-23
 
 - Hardened the no-network safety scan so aliased imports and `from parent import child` forms like `from urllib import request` or `from socket import create_connection` can no longer bypass the repository-wide source check.
