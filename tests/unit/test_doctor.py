@@ -115,6 +115,15 @@ def test_doctor_resumes_interrupted_build_before_reporting(tmp_path: Path) -> No
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         (str(tmp_path), "[]", "[]", 1),
     )
+    conn.execute(
+        """
+        INSERT INTO files (
+          root_id, path, parent_path, name, name_lower, ext, size, mtime, ctime,
+          is_dir, is_symlink, content_hash, indexed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (1, str(tmp_path / "live.txt"), str(tmp_path), "live.txt", "live.txt", "txt", 4, 1, 1, 0, 0, None, 1),
+    )
     conn.commit()
     conn.close()
 

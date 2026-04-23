@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.936 - 2026-04-24
+
+- Hardened staged-index cleanup against concurrent file disappearance, so raced-away `.wal` and `.shm` sidecars no longer turn a successful swap or startup recovery into a spurious failure.
+- Rejected interrupted `.next` build stages that contain schema metadata but no indexed file rows, preventing hot restart from replacing a healthy live index with an incomplete empty build.
+- Let `open_index()` continue when it safely discards an invalid interrupted stage that it already cleaned up, instead of failing the whole open path after the bad stage is gone.
+
 ## 0.1.932 - 2026-04-24
 
 - Added contributor guidance for orchestrated module-worker rounds, including strict scope handling and a compact docs review packet for handoff evidence.
