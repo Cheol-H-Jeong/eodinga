@@ -59,11 +59,8 @@ class LauncherHotkeyController(QObject):
             return
         try:
             self._apply_combo(normalized)
-        except Exception:
-            if previous:
-                self._apply_combo(previous)
-            else:
-                self._disable()
+        except Exception as error:
+            self._rollback_combo(previous, normalized, error)
             raise
 
     def stop(self) -> None:
@@ -103,3 +100,18 @@ class LauncherHotkeyController(QObject):
             self._service.unregister()
         self._combo = ""
         get_logger().debug("launcher hotkey disabled")
+
+    def _rollback_combo(self, previous: str, attempted: str, error: Exception) -> None:
+        try:
+            if previous:
+                self._apply_combo(previous)
+            else:
+                self._disable()
+        except Exception as rollback_error:
+            error.add_note(f"failed to restore previous launcher hotkey {previous or 'disabled'}: {rollback_error}")
+            get_logger().warning(
+                "launcher hotkey rebind rollback failed after {} -> {}: {}",
+                previous or "disabled",
+                attempted,
+                rollback_error,
+            )
