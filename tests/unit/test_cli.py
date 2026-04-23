@@ -515,6 +515,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["commands"]["search"]["started"] == 1
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 1
+    assert payload["parser_activity"] == {}
+    assert payload["watcher_event_types"] == {}
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
     assert payload["log_rotation"] == "5 MB"
@@ -611,6 +613,8 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert "queries_zero_results" not in payload["counters"]
     assert payload["counters"]["queries_truncated"] == 1
     assert payload["counters"]["watcher_events"] == 2
+    assert payload["counters"]["watcher_events.created"] == 1
+    assert payload["counters"]["watcher_events.modified"] == 1
     assert payload["counters"]["watcher_flushes"] == 2
     assert payload["counters"]["watcher_events_flushed"] == 2
     assert payload["counters"]["watcher_queue_full"] == 1
@@ -643,6 +647,8 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["commands"]["search"]["completed"] == 1
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 2
+    assert payload["parser_activity"]["broken"]["errors"] == 1
+    assert payload["watcher_event_types"] == {"created": 1, "modified": 1}
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
@@ -678,6 +684,8 @@ def test_stats_json_exposes_zero_result_query_metrics(tmp_path: Path, capsys) ->
     assert payload["query_result_count_histogram"]["min_ms"] == 0.0
     assert payload["counters"]["queries_zero_results"] == 1
     assert "queries_truncated" not in payload["counters"]
+    assert payload["parser_activity"] == {}
+    assert payload["watcher_event_types"] == {}
 
 
 def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path: Path) -> None:

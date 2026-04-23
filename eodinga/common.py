@@ -135,6 +135,8 @@ class StatsSnapshot(BaseModel):
     index_batch_size_histogram: dict[str, object] = Field(default_factory=dict)
     commands: dict[str, dict[str, int]] = Field(default_factory=dict)
     exit_codes: dict[str, int] = Field(default_factory=dict)
+    parser_activity: dict[str, dict[str, int]] = Field(default_factory=dict)
+    watcher_event_types: dict[str, int] = Field(default_factory=dict)
     counters: dict[str, int] = Field(default_factory=dict)
     histograms: dict[str, dict[str, object]] = Field(default_factory=dict)
     roots: list[Path] = Field(default_factory=list)

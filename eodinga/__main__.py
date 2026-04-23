@@ -215,6 +215,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         index_batch_size_histogram=histogram_snapshot("index_batch_size"),
         commands=_command_summary(counters),
         exit_codes=_exit_code_summary(counters),
+        parser_activity=_parser_activity_summary(counters),
+        watcher_event_types=_watcher_event_type_summary(counters),
         counters=counters,
         histograms=metrics["histograms"],
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
@@ -307,6 +309,32 @@ def _exit_code_summary(counters: dict[str, int]) -> dict[str, int]:
         name[len(prefix) :]: value for name, value in counters.items() if name.startswith(prefix)
     }
     return dict(sorted(exit_codes.items(), key=lambda item: int(item[0])))
+
+
+def _parser_activity_summary(counters: dict[str, int]) -> dict[str, dict[str, int]]:
+    parser_activity: dict[str, dict[str, int]] = {}
+    prefix = "parsers."
+    for name, value in counters.items():
+        if not name.startswith(prefix):
+            continue
+        parser_name, _, status = name[len(prefix) :].rpartition(".")
+        if not parser_name or status not in {"error", "skipped_too_large"}:
+            continue
+        key = "errors" if status == "error" else "skipped_too_large"
+        parser_activity.setdefault(parser_name, {})[key] = value
+    return dict(
+        sorted((name, dict(sorted(statuses.items()))) for name, statuses in parser_activity.items())
+    )
+
+
+def _watcher_event_type_summary(counters: dict[str, int]) -> dict[str, int]:
+    prefix = "watcher_events."
+    event_types = {
+        name[len(prefix) :]: value
+        for name, value in counters.items()
+        if name.startswith(prefix)
+    }
+    return dict(sorted(event_types.items()))
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -295,6 +295,7 @@ def test_watcher_event_counter_increments() -> None:
 
     counters = cast(dict[str, int], snapshot_metrics()["counters"])
     assert counters["watcher_events"] == 1
+    assert counters["watcher_events.created"] == 1
 
 
 def test_watcher_flush_metrics_increment(tmp_path: Path) -> None:

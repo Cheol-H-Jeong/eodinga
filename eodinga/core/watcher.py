@@ -144,6 +144,7 @@ class WatchService:
 
     def record(self, event: WatchEvent) -> None:
         increment_counter("watcher_events", event_type=event.event_type)
+        increment_counter(f"watcher_events.{event.event_type}")
         immediate_emit: WatchEvent | None = None
         flush_now = False
         with self._lock:
