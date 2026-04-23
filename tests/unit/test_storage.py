@@ -310,6 +310,28 @@ def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, m
         conn.close()
 
 
+def test_has_stale_wal_returns_false_when_sidecar_disappears_before_stat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    conn = sqlite3.connect(path)
+    apply_schema(conn)
+    conn.close()
+    wal_path = path.with_name("index.db-wal")
+    wal_path.write_bytes(b"stale")
+    original_stat = Path.stat
+
+    def flaky_stat(self: Path, *args: Any, **kwargs: Any):
+        if self == wal_path:
+            wal_path.unlink(missing_ok=True)
+            raise FileNotFoundError(self)
+        return original_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", flaky_stat)
+
+    assert has_stale_wal(path) is False
+
+
 def test_temporary_pragmas_override_then_restore_values(tmp_path: Path) -> None:
     path = tmp_path / "index.db"
     conn = connect_database(path)
@@ -1105,3 +1127,67 @@ def test_open_index_skips_parent_fsync_when_no_startup_artifacts_need_cleanup(
     reopened.close()
 
     assert calls == []
+
+
+def test_open_index_ignores_startup_cleanup_file_not_found_races(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    wal = path.with_name("index.db-wal")
+    shm = path.with_name("index.db-shm")
+    wal.write_bytes(b"orphaned")
+    shm.write_bytes(b"orphaned")
+    original_unlink = Path.unlink
+
+    def flaky_unlink(self: Path, *args: Any, **kwargs: Any) -> None:
+        if self in {wal, shm}:
+            if self.exists():
+                original_unlink(self, *args, **kwargs)
+            raise FileNotFoundError(self)
+        original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+
+    reopened = open_index(path)
+    reopened.close()
+
+    assert not wal.exists()
+    assert not shm.exists()
+
+
+def test_atomic_replace_index_ignores_target_sidecar_cleanup_file_not_found_race(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / "index.staged.db"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.close()
+    target_wal = target.with_name("index.db-wal")
+    target_shm = target.with_name("index.db-shm")
+    target_wal.write_bytes(b"stale")
+    target_shm.write_bytes(b"stale")
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/new", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+    original_unlink = Path.unlink
+
+    def flaky_unlink(self: Path, *args: Any, **kwargs: Any) -> None:
+        if self in {target_wal, target_shm}:
+            if self.exists():
+                original_unlink(self, *args, **kwargs)
+            raise FileNotFoundError(self)
+        original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+
+    atomic_replace_index(staged, target)
+
+    assert _read_root_paths(target) == ["/new"]

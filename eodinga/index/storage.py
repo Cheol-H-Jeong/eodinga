@@ -124,7 +124,10 @@ def _cleanup_sidecars(path: Path) -> bool:
     for suffix in ("-wal", "-shm"):
         sidecar = _sidecar(path, suffix)
         if sidecar.exists():
-            sidecar.unlink()
+            try:
+                sidecar.unlink()
+            except FileNotFoundError:
+                pass
             cleaned = True
     return cleaned
 
@@ -132,7 +135,10 @@ def _cleanup_sidecars(path: Path) -> bool:
 def _cleanup_index_files(path: Path, *, durable: bool = False) -> bool:
     cleaned = False
     if path.exists():
-        path.unlink()
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
         cleaned = True
     cleaned = _cleanup_sidecars(path) or cleaned
     if cleaned and durable:
@@ -160,7 +166,17 @@ def _fsync_directory(path: Path) -> None:
 
 def has_stale_wal(path: Path) -> bool:
     wal_path = _sidecar(path, "-wal")
-    return path.exists() and wal_path.exists() and wal_path.stat().st_size > 0
+    try:
+        path_exists = path.exists()
+        wal_exists = wal_path.exists()
+    except FileNotFoundError:
+        return False
+    if not path_exists or not wal_exists:
+        return False
+    try:
+        return wal_path.stat().st_size > 0
+    except FileNotFoundError:
+        return False
 
 
 def _staged_recovery_path(path: Path) -> Path:
@@ -239,7 +255,10 @@ def _copy_index_with_sidecars(source_path: Path, target_path: Path) -> None:
             partial_sidecar = _sidecar(partial_path, suffix)
             if partial_sidecar.exists():
                 target_sidecar = _sidecar(target_path, suffix)
-                os.replace(partial_sidecar, target_sidecar)
+                try:
+                    os.replace(partial_sidecar, target_sidecar)
+                except FileNotFoundError:
+                    continue
                 _fsync_file(target_sidecar)
         _fsync_file(target_path)
         _fsync_directory(target_path.parent)
@@ -257,10 +276,14 @@ def _replay_stale_wal(path: Path) -> bool:
     _checkpoint_wal(path)
     for suffix in ("-wal", "-shm"):
         sidecar = _sidecar(path, suffix)
-        if sidecar.exists() and sidecar.stat().st_size > 0:
-            return False
-        if sidecar.exists():
+        if not sidecar.exists():
+            continue
+        try:
+            if sidecar.stat().st_size > 0:
+                return False
             sidecar.unlink()
+        except FileNotFoundError:
+            continue
     return True
 
 
