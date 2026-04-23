@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.956 - 2026-04-24
+
+- Tightened the README release runbook with clearer docs-evidence selection, config-vs-database troubleshooting, and a more explicit docs-only tag-cut order.
+- Expanded the architecture guide with symptom-to-subsystem mappings and release-evidence dependency flow so operators can narrow runtime, docs, and packaging issues to the right boundary faster.
+- Clarified contributor, release, and performance docs around review packets, metadata retargeting after version collisions, and how to choose the smallest benchmark family that supports a perf claim.
+
 ## 0.1.951 - 2026-04-24
 
 - Expanded query date parsing so `date:2026`, `date:2026-02`, and matching `modified:`/`created:` forms resolve to full ISO year and month spans instead of requiring day-level literals.
