@@ -28,6 +28,7 @@ _BANNED_CALLS = {
     "urllib.request.urlopen",
 }
 _BANNED_SUBPROCESS_COMMANDS = {"curl", "wget"}
+_SHELL_WRAPPER_COMMANDS = {"bash", "sh", "zsh", "pwsh", "powershell", "cmd", "cmd.exe"}
 _SKIPPED_DIRS = {".git", ".pytest_cache", ".venv", "__pycache__"}
 _SKIPPED_PATHS = {"tests/safety/test_no_network.py"}
 _SKIPPED_PREFIXES = {"packaging/dist/", "tests/fixtures/"}
@@ -101,6 +102,33 @@ def _subprocess_command_name(node: ast.AST) -> str | None:
     return _string_literal(node)
 
 
+def _subprocess_shell_payload(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Constant):
+        return _string_literal(node)
+    if not isinstance(node, (ast.List, ast.Tuple)):
+        return None
+
+    args = [_string_literal(element) for element in node.elts]
+    if any(arg is None for arg in args):
+        return None
+    shell_args = [arg for arg in args if arg is not None]
+    if not shell_args:
+        return None
+
+    command = Path(shell_args[0]).name.lower()
+    if command not in _SHELL_WRAPPER_COMMANDS:
+        return None
+    if command in {"cmd", "cmd.exe"}:
+        for index, arg in enumerate(shell_args[1:], start=1):
+            if arg.lower() == "/c" and index + 1 < len(shell_args):
+                return shell_args[index + 1]
+        return None
+    for index, arg in enumerate(shell_args[1:], start=1):
+        if arg in {"-c", "-lc", "/c"} and index + 1 < len(shell_args):
+            return shell_args[index + 1]
+    return None
+
+
 def _shell_uses_banned_command(command: str) -> str | None:
     try:
         tokens = shlex.split(command, posix=True)
@@ -166,6 +194,14 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                         violations.append(
                             f"{path.relative_to(root)}:{node.lineno}:subprocess {shell_command}"
                         )
+                        continue
+                wrapped_shell_command = _subprocess_shell_payload(node.args[0])
+                if wrapped_shell_command is not None:
+                    shell_command = _shell_uses_banned_command(wrapped_shell_command)
+                    if shell_command is not None:
+                        violations.append(
+                            f"{path.relative_to(root)}:{node.lineno}:subprocess {shell_command}"
+                        )
 
     return violations
 
@@ -182,6 +218,23 @@ def test_python_source_scan_flags_shell_wrapped_network_commands(tmp_path: Path)
         "import subprocess\n"
         "subprocess.run('curl https://example.com', shell=True)\n"
         "subprocess.Popen('wget.exe https://example.com', shell=True)\n",
+        encoding="utf-8",
+    )
+
+    violations = _scan_python_source(source, tmp_path)
+
+    assert violations == [
+        "candidate.py:2:subprocess curl",
+        "candidate.py:3:subprocess wget",
+    ]
+
+
+def test_python_source_scan_flags_shell_wrapper_argv_network_commands(tmp_path: Path) -> None:
+    source = tmp_path / "candidate.py"
+    source.write_text(
+        "import subprocess\n"
+        "subprocess.run(['bash', '-lc', 'curl https://example.com'])\n"
+        "subprocess.Popen(['cmd.exe', '/c', 'wget https://example.com'])\n",
         encoding="utf-8",
     )
 
