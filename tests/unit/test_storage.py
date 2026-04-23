@@ -403,6 +403,35 @@ def test_recover_stale_wal_cleans_orphaned_partial_stage_before_retry(tmp_path: 
     assert not partial.with_name(".index.db.recover.partial-shm").exists()
 
 
+def test_recover_stale_wal_preserves_staged_copy_when_swap_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.db"
+    path = tmp_path / "index.db"
+    conn = sqlite3.connect(source)
+    apply_schema(conn)
+    conn.execute("PRAGMA wal_autocheckpoint=0;")
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/retry-recovery", "[]", "[]", 1),
+    )
+    conn.commit()
+    _make_recovery_snapshot(source, path)
+    conn.close()
+
+    staged = tmp_path / ".index.db.recover"
+
+    def fail_swap(_staged: Path, _target: Path) -> None:
+        raise OSError("simulated swap failure")
+
+    monkeypatch.setattr(storage_module, "atomic_replace_index", fail_swap)
+
+    assert recover_stale_wal(path) is False
+    assert staged.exists()
+    assert _read_root_paths(staged) == ["/retry-recovery"]
+    assert not staged.with_name(".index.db.recover-wal").exists()
+
+
 def test_open_index_raises_when_stale_wal_recovery_fails(tmp_path: Path, monkeypatch) -> None:
     path = tmp_path / "index.db"
     conn = sqlite3.connect(path)
@@ -526,6 +555,38 @@ def test_recover_interrupted_recovery_cleans_partial_stage_artifacts(tmp_path: P
     assert not partial.with_name(".index.db.recover.partial-shm").exists()
 
 
+def test_recover_interrupted_recovery_preserves_stage_when_swap_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/old", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/retry-recovery", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    monkeypatch.setattr(storage_module, "atomic_replace_index", lambda _staged, _target: (_ for _ in ()).throw(OSError("simulated swap failure")))
+
+    assert recover_interrupted_recovery(target) is False
+    assert _read_root_paths(target) == ["/old"]
+    assert staged.exists()
+    assert _read_root_paths(staged) == ["/retry-recovery"]
+
+
 def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path) -> None:
     target = tmp_path / "index.db"
     staged = tmp_path / ".index.db.next"
@@ -585,6 +646,38 @@ def test_recover_interrupted_build_cleans_partial_stage_artifacts(tmp_path: Path
     assert not partial.exists()
     assert not partial.with_name(".index.db.next.partial-wal").exists()
     assert not partial.with_name(".index.db.next.partial-shm").exists()
+
+
+def test_recover_interrupted_build_preserves_stage_when_swap_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/old", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/retry-build", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    monkeypatch.setattr(storage_module, "atomic_replace_index", lambda _staged, _target: (_ for _ in ()).throw(OSError("simulated swap failure")))
+
+    assert recover_interrupted_build(target) is False
+    assert _read_root_paths(target) == ["/old"]
+    assert staged.exists()
+    assert _read_root_paths(staged) == ["/retry-build"]
 
 
 def test_recover_interrupted_build_rejects_uninitialized_stage(tmp_path: Path) -> None:

@@ -205,16 +205,19 @@ def recover_stale_wal(path: Path) -> bool:
     logger.warning("recovering stale WAL for {}", path)
     staged_path = _staged_recovery_path(path)
     _cleanup_partial_copy_artifacts(staged_path)
+    preserve_staged_path = False
     try:
         _copy_index_with_sidecars(path, staged_path)
         if not _replay_stale_wal(staged_path):
             return False
+        preserve_staged_path = True
         atomic_replace_index(staged_path, path)
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed staged stale WAL recovery for {}", path)
         return False
     finally:
-        _cleanup_index_files(staged_path)
+        if not preserve_staged_path:
+            _cleanup_index_files(staged_path)
         _cleanup_index_files(_partial_copy_path(staged_path))
     return not has_stale_wal(path)
 
@@ -225,18 +228,21 @@ def recover_interrupted_recovery(path: Path) -> bool:
         return False
     logger = get_logger("index.storage")
     logger.warning("resuming interrupted recovery for {}", path)
+    preserve_staged_path = False
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
             return False
         if not _has_initialized_schema(staged_path):
             logger.warning("skipping interrupted recovery swap with uninitialized stage {}", staged_path)
             return False
+        preserve_staged_path = True
         atomic_replace_index(staged_path, path)
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted recovery resume for {}", path)
         return False
     finally:
-        _cleanup_index_files(staged_path)
+        if not preserve_staged_path:
+            _cleanup_index_files(staged_path)
         _cleanup_partial_copy_artifacts(staged_path)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
@@ -247,18 +253,21 @@ def recover_interrupted_build(path: Path) -> bool:
         return False
     logger = get_logger("index.storage")
     logger.warning("resuming interrupted staged build for {}", path)
+    preserve_staged_path = False
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
             return False
         if not _has_initialized_schema(staged_path):
             logger.warning("skipping interrupted staged build swap with uninitialized stage {}", staged_path)
             return False
+        preserve_staged_path = True
         atomic_replace_index(staged_path, path)
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed interrupted staged build resume for {}", path)
         return False
     finally:
-        _cleanup_index_files(staged_path)
+        if not preserve_staged_path:
+            _cleanup_index_files(staged_path)
         _cleanup_partial_copy_artifacts(staged_path)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
 
