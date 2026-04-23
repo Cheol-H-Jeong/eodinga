@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.840 - 2026-04-23
+
+- Fixed `size:` parsing so whitespace-separated units and bounds like `size:> 10 M`, `size:100 K .. 500 M`, and open-ended forms now normalize to the same query semantics as the compact literals.
+- Added executor-level boolean equivalence coverage for grouped negation across `content:`, `path:`, and extension filters, locking in the De Morgan behavior beyond compiler-only tests.
+- Added property-style DSL coverage proving compact and whitespace-heavy size literals/ranges parse to identical ASTs, reducing regression risk in the query grammar.
+
 ## 0.1.837 - 2026-04-23
 
 - Bundled the `eodinga/` runtime tree into the staged Linux AppImage and Debian package roots so packaged launchers no longer depend on the source checkout being present at runtime.
