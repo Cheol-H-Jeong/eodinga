@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.808 - 2026-04-23
+## 0.1.810 - 2026-04-23
 
 - Turned the Windows PyInstaller metadata into an executable dual-target spec with packaging-owned CLI and GUI entry wrappers, so the release build can produce distinct console and launcher bundles from one audited source of truth.
 - Fixed `python packaging/build.py --target windows` to run `pyinstaller` and `iscc`, capture both command results in the audit manifest, and refresh staged dist facts after the build instead of only checking for leftover files.
