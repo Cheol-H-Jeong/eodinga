@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.157 - 2026-04-23
+
+- Expanded `date:` macros with `last-week` and `last-month`, and pinned their local-time behavior in compiler and executor regressions.
+- Added bounded `size:` windows like `100..500K`, including reversed-range normalization and negated-range execution coverage.
+- Added `is:empty` so zero-byte files and directories without indexed descendants can be queried directly from the DSL.
+
 ## 0.1.155 - 2026-04-23
 
 - Fixed the default observability paths on macOS so rotating logs now land under `~/Library/Logs/eodinga` and crash reports follow the same platform-native log root instead of falling back to Linux-style state directories.
