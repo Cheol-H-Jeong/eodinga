@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
@@ -134,7 +134,7 @@ class IndexWriter:
         return processed
 
     @contextmanager
-    def _transaction(self) -> Iterable[None]:
+    def _transaction(self) -> Iterator[None]:
         if not self._conn.in_transaction:
             with self._conn:
                 yield

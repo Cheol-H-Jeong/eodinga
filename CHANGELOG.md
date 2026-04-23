@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.197 - 2026-04-23
+
+- Bounded watcher delivery with explicit backpressure, so a full consumer queue now blocks producers visibly instead of growing silently under load; added metrics and regressions for both the pressure path and its observability surface.
+- Wrapped `IndexWriter` batch operations in savepoints when they run inside an already-open SQLite transaction, so failed outer workflows can roll back `bulk_upsert()` and `apply_events()` cleanly without leaking partial writes.
+- Tightened startup recovery so `open_index()` now fails fast when interrupted `.recover` or `.next` resume attempts cannot complete, rather than continuing against an ambiguous on-disk index state.
+
 ## 0.1.195 - 2026-04-23
 
 - Split the launcher popup window into its own module so the launcher surface stays under the repository's module-size cap while preserving the existing geometry, topmost, and hotkey behavior.
