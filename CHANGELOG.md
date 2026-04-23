@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.840 - 2026-04-23
+
+- Preserved the launcher popup geometry when toggling `always_on_top` or `frameless` while the window is hidden, so the next show no longer jumps back to a default Qt position.
+- Persisted the launcher's last screen name with its saved geometry and now prefer that screen on restore when it still exists, keeping multi-monitor reopen behavior stable after relaunch.
+- Added launcher-window regression coverage for hidden flag toggles and saved-screen restore so future popup-state changes keep the same geometry contract.
+
 ## 0.1.837 - 2026-04-23
 
 - Bundled the `eodinga/` runtime tree into the staged Linux AppImage and Debian package roots so packaged launchers no longer depend on the source checkout being present at runtime.
