@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.801 - 2026-04-23
+
+- Normalized mixed ISO date and datetime ranges by their outer bounds, so reversing a query like `modified:2026-04-23T09:15:30+00:00..2026-04-23` now returns the same window instead of shrinking to the narrower endpoint.
+- Added compiler and executor regression coverage for reversed mixed-range queries, including exact-datetime ranges where the endpoints arrive out of order.
+- Expanded the README and DSL cheatsheet examples to document mixed ISO ranges plus the existing `tomorrow`, `this-year`, and `last-year` aliases more explicitly.
+
 ## 0.1.744 - 2026-04-23
 
 - Extended query date macros with `tomorrow`, `year`, and previous-period aliases like `prev-week`, `previous_month`, and `previous_year`, keeping them on the existing local-time boundary rules.
