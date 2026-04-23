@@ -48,8 +48,9 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usPostUninstall then
   begin
-    if MsgBox('Purge %LOCALAPPDATA%\\eodinga\\ data? / %LOCALAPPDATA%\\eodinga\\ 데이터를 삭제할까요?', mbConfirmation, MB_YESNO) = IDYES then
+    if MsgBox('Purge %APPDATA%\\eodinga\\ and %LOCALAPPDATA%\\eodinga\\ data? / %APPDATA%\\eodinga\\ 및 %LOCALAPPDATA%\\eodinga\\ 데이터를 삭제할까요?', mbConfirmation, MB_YESNO) = IDYES then
     begin
+      DelTree(ExpandConstant('{userappdata}\\eodinga'), True, True, True);
       DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);
     end;
   end;

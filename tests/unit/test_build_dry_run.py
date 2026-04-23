@@ -82,6 +82,8 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["contains_autostart_registry"] is True
     assert payload["inno_setup"]["rendered_autostart_registry_matches_gui_exe"] is True
     assert payload["inno_setup"]["contains_uninstall_purge_prompt"] is True
+    assert payload["inno_setup"]["purges_roaming_data_dir"] is True
+    assert payload["inno_setup"]["purges_local_data_dir"] is True
 
 
 def test_windows_audit_validator_rejects_version_mismatch() -> None:
