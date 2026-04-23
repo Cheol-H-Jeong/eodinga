@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.844 - 2026-04-23
+
+- Added a README release-evidence bundle matrix and expanded the FAQ so docs-only rounds now spell out when GUI smoke, packaging dry runs, and `packaging/dist/` review are required.
+- Expanded the DSL guide with evaluation rules and a symptom-driven troubleshooting table, making grouped negation, regex narrowing, parser-dependent content search, and local-date boundaries easier to audit.
+- Tightened acceptance, architecture, contributing, and release guides around evidence-path selection so contributors can choose the smallest valid gate before cutting release metadata.
+
 ## 0.1.840 - 2026-04-23
 
 - Preserved the launcher popup geometry when toggling `always_on_top` or `frameless` while the window is hidden, so the next show no longer jumps back to a default Qt position.
