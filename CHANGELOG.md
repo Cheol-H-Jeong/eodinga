@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.968 - 2026-04-24
+## 0.1.973 - 2026-04-24
 
 - Replaced offset-driven query fallback scans with ordered keyset batches, which keeps phrase and Unicode fallback paths from getting slower as the scanned corpus grows.
 - Short-circuited prefix-heavy Python fallback scans once the requested number of prefix hits is secured, cutting avoidable batch reads for queries like quoted Unicode prefixes.
