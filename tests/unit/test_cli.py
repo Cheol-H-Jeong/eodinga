@@ -510,6 +510,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["query_result_count_histogram"]["count"] == 1
     assert payload["command_latency_histogram"]["count"] == 1
+    assert payload["command_latency_by_command"]["search"]["count"] == 1
     assert payload["watch_flush_batch_histogram"] == {}
     assert payload["watch_event_lag_histogram"] == {}
     assert payload["watcher_queue_backpressure_histogram"] == {}
@@ -545,6 +546,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["query_result_count"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 1
+    assert payload["histograms"]["command_latency_ms.search"]["count"] == 1
 
 
 def test_stats_json_exposes_end_to_end_runtime_metrics(
@@ -674,12 +676,16 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["query_result_count"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
+    assert payload["command_latency_by_command"]["index"]["count"] == 1
+    assert payload["command_latency_by_command"]["search"]["count"] == 1
     assert payload["query_result_count_histogram"]["count"] == 1
     assert payload["watch_flush_batch_histogram"]["count"] == 2
     assert payload["watch_event_lag_histogram"]["count"] == 2
     assert payload["watcher_queue_backpressure_histogram"]["count"] == 1
     assert payload["index_rebuild_latency_histogram"]["count"] == 1
     assert payload["index_batch_size_histogram"]["count"] >= 1
+    assert payload["histograms"]["command_latency_ms.index"]["count"] == 1
+    assert payload["histograms"]["command_latency_ms.search"]["count"] == 1
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
         "command.index",
         "command.completed",

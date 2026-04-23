@@ -235,6 +235,10 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
         query_result_count_histogram=histogram_snapshot("query_result_count"),
         command_latency_histogram=histogram_snapshot("command_latency_ms"),
+        command_latency_by_command=_command_histogram_summary(
+            metrics["histograms"],
+            prefix="command_latency_ms.",
+        ),
         watch_flush_batch_histogram=histogram_snapshot("watch_flush_batch_size"),
         watch_event_lag_histogram=histogram_snapshot("watch_event_lag_ms"),
         watcher_queue_backpressure_histogram=histogram_snapshot("watcher_queue_backpressure_ms"),
@@ -329,6 +333,7 @@ def _run_command(args: argparse.Namespace) -> int:
     finally:
         elapsed_ms = max((monotonic() - started_at) * 1000, 0.0)
         record_histogram("command_latency_ms", elapsed_ms, command=command)
+        record_histogram(f"command_latency_ms.{command}", elapsed_ms)
         if exit_code is not None:
             increment_counter(f"commands.exit_code.{exit_code}")
             if exit_code != 0:
@@ -378,6 +383,19 @@ def _exit_code_summary(counters: dict[str, int]) -> dict[str, int]:
         name[len(prefix) :]: value for name, value in counters.items() if name.startswith(prefix)
     }
     return dict(sorted(exit_codes.items(), key=lambda item: int(item[0])))
+
+
+def _command_histogram_summary(
+    histograms: dict[str, dict[str, object]],
+    *,
+    prefix: str,
+) -> dict[str, dict[str, object]]:
+    command_histograms = {
+        name[len(prefix) :]: payload
+        for name, payload in histograms.items()
+        if name.startswith(prefix)
+    }
+    return dict(sorted(command_histograms.items()))
 
 
 def _crash_type_summary(counters: dict[str, int]) -> dict[str, int]:
