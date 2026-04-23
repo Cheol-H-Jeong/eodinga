@@ -393,6 +393,17 @@ def test_search_reports_invalid_semantic_query_cleanly(
     assert expected_message in result.stderr
 
 
+def test_search_accepts_is_aliases(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+
+    result = cli_runner("--db", str(db_path), "search", "is:FILE", "--json")
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["results"]
+
+
 def test_version_matches_package(cli_runner) -> None:
     result = cli_runner("version")
     assert result.returncode == 0

@@ -204,6 +204,25 @@ def _duplicate_clause(negated: bool) -> str:
     return f"NOT ({clause})" if negated else clause
 
 
+def _normalize_is_value(value: str) -> str:
+    normalized = value.strip().casefold().replace("_", "-")
+    aliases = {
+        "dir": "dir",
+        "directory": "dir",
+        "folder": "dir",
+        "file": "file",
+        "symlink": "symlink",
+        "link": "symlink",
+        "empty": "empty",
+        "duplicate": "duplicate",
+        "dup": "duplicate",
+    }
+    try:
+        return aliases[normalized]
+    except KeyError as error:
+        raise QuerySyntaxError(f"invalid is: value: {value}", 0) from error
+
+
 def _empty_clause(negated: bool) -> str:
     clause = (
         "("
@@ -336,7 +355,7 @@ def _compile_branch(
             where_params.append(size_bytes)
             continue
         if term.name == "is":
-            normalized = term.value.lower()
+            normalized = _normalize_is_value(term.value)
             if normalized == "dir":
                 clause = "files.is_dir = 1"
             elif normalized == "file":
@@ -350,8 +369,6 @@ def _compile_branch(
                 clause = _duplicate_clause(term.negated)
                 where_parts.append(clause)
                 continue
-            else:
-                raise QuerySyntaxError(f"invalid is: value: {term.value}", 0)
             where_parts.append(f"NOT ({clause})" if term.negated else clause)
             continue
         if term.name == "case":

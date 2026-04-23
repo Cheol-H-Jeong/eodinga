@@ -738,6 +738,23 @@ def test_execute_is_empty_queries(tmp_db: sqlite3.Connection) -> None:
     assert "/workspace/non-empty-dir/note.txt" in non_empty_hits
 
 
+def test_execute_is_alias_queries(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/alpha.txt", 1, now, "txt", body_text="file")
+    _insert_file(tmp_db, 2, "/workspace/folder", 0, now - 60, "", is_dir=True)
+    tmp_db.execute(
+        "UPDATE files SET is_symlink = 1 WHERE id = ?",
+        (1,),
+    )
+    tmp_db.commit()
+
+    folder_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "is:Folder", limit=10).hits]
+    link_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "is:link", limit=10).hits]
+
+    assert folder_hits == ["/workspace/folder"]
+    assert link_hits == ["/workspace/alpha.txt"]
+
+
 def test_execute_size_range_queries(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/tiny.txt", 99, now, "txt", body_text="tiny")
