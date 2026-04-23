@@ -280,6 +280,49 @@ def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) 
     assert remaining_hits == {survivor}
 
 
+def test_hot_restart_reopen_preserves_queries_and_refreshes_modified_content(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    target = root / "reopen-refresh.txt"
+    target.write_text("persisted restart draft\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    first_conn = open_index(db_path)
+    try:
+        initial_hits = [hit.file.path for hit in search(first_conn, "persisted restart draft", limit=3).hits]
+    finally:
+        first_conn.close()
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        target.write_text("persisted restart refreshed\n", encoding="utf-8")
+        elapsed = _wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "persisted restart refreshed",
+            target,
+            deadline_seconds=0.5,
+        )
+        draft_hits = [hit.file.path for hit in search(reopened, "persisted restart draft", limit=3).hits]
+        refreshed_hits = [
+            hit.file.path for hit in search(reopened, "persisted restart refreshed", limit=3).hits
+        ]
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == [target]
+    assert elapsed <= 0.5
+    assert draft_hits == []
+    assert refreshed_hits == [target]
+
+
 def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updates(
     tmp_path: Path,
 ) -> None:
