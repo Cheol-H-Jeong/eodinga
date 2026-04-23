@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.971 - 2026-04-24
+
+- Hardened Windows release audits so placeholder-sized staged executables no longer satisfy the packaging gate, which keeps stale local fixtures from masquerading as real build outputs.
+- Canonicalized extended UNC prefixes in both watcher root normalization and query root scoping, so `\\?\\unc\\server\\share\\...` and `\\?\\UNC\\server\\share\\...` resolve to the same root.
+- Switched watcher Windows-root containment checks to canonical text comparison, preserving events when drive-letter or extended-UNC prefix casing differs between the configured root and the incoming filesystem event.
+
 ## 0.1.965 - 2026-04-24
 
 - Hardened Linux packaging audits so both the AppImage and Debian dry runs now fail if the shipped desktop entry stops being a non-terminal `Application` launcher.
