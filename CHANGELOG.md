@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.133 - 2026-04-23
+
+- Reworked the walker hot path to reuse `os.scandir()` directory-entry `lstat` data for discovered children, avoiding a second metadata syscall per queued path during cold-start and rebuild traversals.
+- Cached and chunked executor content backfill lookups so wide filtered scans reuse chunk-shaped `IN (...)` SQL and stop rebuilding oversized statements for every content-text fetch.
+- Added focused walker and executor regressions that pin the new stat-reuse and chunked-content-fetch behavior without changing search results.
+
 ## 0.1.130 - 2026-04-23
 
 - Expanded integration coverage so one live `WatchService` can monitor multiple configured roots while `search(..., root=...)` still isolates newly indexed results to the correct root.
