@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.229 - 2026-04-23
+
+- Made quoted query phrases match across separator boundaries in both paths and indexed content, so searches like `"hot restart"` and `content:"launch checklist"` now catch `hot-restart.py` and `launch_checklist`.
+- Allowed optional whitespace around `..` for `date:`, `modified:`, `created:`, and `size:` ranges, so spaced forms like `date:2026-01-01 .. 2026-01-03` compile the same as their compact equivalents.
+
 ## 0.1.222 - 2026-04-23
 
 - Turned `packaging/linux/appimage-builder.yml` into a versioned template and made the AppImage dry-run audit verify the rendered recipe matches the package version instead of drifting behind `latest`.
