@@ -24,7 +24,7 @@ Build or rebuild the on-disk index for one or more configured roots.
 .TP
 \fBwatch\fR
 Start the filesystem watch loop that feeds live updates into the index.
-[-h]
+[-h] [--root ROOT]
 .TP
 \fBsearch\fR
 Run a DSL query against the current index and print matches.
@@ -58,7 +58,11 @@ Add one root for this run; repeat the flag to override configured roots.
 Force a staged rebuild instead of reusing the existing index snapshot.
 .SS watch
 .B Usage
-[-h]
+[-h] [--root ROOT]
+.B Options
+.TP
+\fB--root ROOT\fR
+
 .SS search
 .B Usage
 [-h] [--json] [--limit LIMIT] [--root ROOT] query

@@ -148,8 +148,11 @@ def _cmd_watch(args: argparse.Namespace) -> int:
         "db": str(db_path),
         "roots": [str(root.path.expanduser()) for root in roots],
     }
+    def _announce_ready() -> None:
+        _emit(payload, as_json=True)
+
     with closing(open_index(db_path)) as conn:
-        watch_index(conn, roots, on_ready=lambda: _emit(payload, as_json=True))
+        watch_index(conn, roots, on_ready=_announce_ready)
     return 0
 
 

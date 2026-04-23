@@ -10,6 +10,7 @@ from stat import S_ISDIR, S_ISLNK
 from time import time
 from collections.abc import Callable
 from typing import Any
+from time import sleep
 
 from eodinga.common import FileRecord, PathRules
 from eodinga.config import RootConfig
@@ -18,6 +19,8 @@ from eodinga.core.fs import stat_follow_safe, stat_safe
 from eodinga.core.rules import should_index
 from eodinga.core.watcher import WatchService
 from eodinga.index.writer import IndexWriter
+
+_READY_DELAY_SECONDS = 0.05
 
 
 class _WatchStop(AbstractContextManager["_WatchStop"]):
@@ -140,6 +143,7 @@ def watch_index(
     try:
         for root in effective_roots:
             service.start(root.path)
+        sleep(_READY_DELAY_SECONDS)
         if on_ready is not None:
             on_ready()
         with _WatchStop() as stop:
