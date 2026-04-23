@@ -368,6 +368,10 @@ def _fetch_path_candidates(
     return ids, records
 
 
+def _requires_phrase_scan(term_kind: str) -> bool:
+    return term_kind == "phrase"
+
+
 def _should_scan_path_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
@@ -375,7 +379,10 @@ def _should_scan_path_candidates(branch: CompiledBranch, fts_ids: list[int]) -> 
     if not fts_ids:
         return True
     # Keep the scan supplement for scripts where unicode token boundaries are less predictable.
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return any(
+        _requires_phrase_scan(term.kind) or any(ord(char) > 127 for char in term.value)
+        for term in positive_terms
+    )
 
 
 def _fetch_path_candidates_fts(
@@ -409,7 +416,10 @@ def _fetch_path_candidates_scan(
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return [], {}
-    if any(any(ord(char) > 127 for char in term.value) for term in positive_terms):
+    if any(
+        _requires_phrase_scan(term.kind) or any(ord(char) > 127 for char in term.value)
+        for term in positive_terms
+    ):
         return _fetch_path_candidates_python_scan(conn, branch, limit)
     params: list[object] = []
     prefix_term = positive_terms[0].value if positive_terms else ""
@@ -440,8 +450,8 @@ def _fetch_path_candidates_python_scan(
         file_id: record
         for file_id, record in records.items()
         if all(
-            _text_matches(record.name, term.value, branch.case_sensitive)
-            or _text_matches(str(record.path), term.value, branch.case_sensitive)
+            _compiled_text_matches(record.name, term.value, term.kind, branch.case_sensitive)
+            or _compiled_text_matches(str(record.path), term.value, term.kind, branch.case_sensitive)
             for term in positive_terms
         )
     }
@@ -450,9 +460,7 @@ def _fetch_path_candidates_python_scan(
         key=lambda record: (
             0
             if any(
-                _normalize_search_text(record.name, case_sensitive=branch.case_sensitive).startswith(
-                    _normalize_search_text(term.value, case_sensitive=branch.case_sensitive)
-                )
+                _starts_with_term(record.name, term.value, term.kind, branch.case_sensitive)
                 for term in positive_terms
             )
             else 1,
@@ -528,7 +536,10 @@ def _should_scan_content_candidates(branch: CompiledBranch, fts_ids: list[int]) 
         return False
     if not fts_ids:
         return True
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return any(
+        _requires_phrase_scan(term.kind) or any(ord(char) > 127 for char in term.value)
+        for term in positive_terms
+    )
 
 
 def _should_scan_auto_content_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
@@ -537,7 +548,10 @@ def _should_scan_auto_content_candidates(branch: CompiledBranch, fts_ids: list[i
         return False
     if not fts_ids:
         return True
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return any(
+        _requires_phrase_scan(term.kind) or any(ord(char) > 127 for char in term.value)
+        for term in positive_terms
+    )
 
 
 def _has_indexed_content(conn: sqlite3.Connection) -> bool:
