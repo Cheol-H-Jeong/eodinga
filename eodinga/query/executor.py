@@ -143,6 +143,17 @@ def _content_backfill_sql(has_where_sql: bool) -> str:
     return sql
 
 
+@lru_cache(maxsize=16)
+def _content_texts_sql(chunk_size: int) -> str:
+    placeholders = ", ".join("?" for _ in range(chunk_size))
+    return f"""
+        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
+        FROM content_map
+        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
+        WHERE content_map.file_id IN ({placeholders})
+    """
+
+
 def _row_to_record(row: Mapping[str, object]) -> FileRecord:
     payload = {key: row[key] for key in row.keys()}  # type: ignore[arg-type]
     payload["is_dir"] = bool(payload["is_dir"])
@@ -195,6 +206,10 @@ def _term_matches(
 def _normalize_search_text(value: str, case_sensitive: bool) -> str:
     normalized = unicodedata.normalize("NFC", value)
     return normalized if case_sensitive else normalized.casefold()
+
+
+def _normalized_needles(values: Iterable[str], case_sensitive: bool) -> tuple[str, ...]:
+    return tuple(_normalize_search_text(value, case_sensitive=case_sensitive) for value in values)
 
 
 def _fts_prefix_literal(value: str) -> str:
@@ -429,32 +444,27 @@ def _fetch_path_candidates_python_scan(
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return [], {}
+    needles = _normalized_needles(
+        (term.value for term in positive_terms),
+        case_sensitive=branch.case_sensitive,
+    )
     records = _fetch_records(conn, branch.where_sql, branch.where_params, limit=100_000)
-    matched = {
-        file_id: record
-        for file_id, record in records.items()
-        if all(
-            _text_matches(record.name, term.value, branch.case_sensitive)
-            or _text_matches(str(record.path), term.value, branch.case_sensitive)
-            for term in positive_terms
-        )
-    }
-    ordered = sorted(
-        matched.values(),
-        key=lambda record: (
-            0
-            if any(
-                _normalize_search_text(record.name, case_sensitive=branch.case_sensitive).startswith(
-                    _normalize_search_text(term.value, case_sensitive=branch.case_sensitive)
-                )
-                for term in positive_terms
+    matched: list[tuple[int, str, str, int, FileRecord]] = []
+    for record in records.values():
+        normalized_name = _normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
+        normalized_path = _normalize_search_text(str(record.path), case_sensitive=branch.case_sensitive)
+        if not all(needle in normalized_name or needle in normalized_path for needle in needles):
+            continue
+        matched.append(
+            (
+                0 if any(normalized_name.startswith(needle) for needle in needles) else 1,
+                normalized_name,
+                str(record.path),
+                -1 if record.id is None else record.id,
+                record,
             )
-            else 1,
-            record.name if branch.case_sensitive else record.name_lower,
-            str(record.path),
-            -1 if record.id is None else record.id,
-        ),
-    )[:limit]
+        )
+    ordered = [record for _, _, _, _, record in sorted(matched)[:limit]]
     ids = [record.id for record in ordered if record.id is not None]
     return ids, {record.id: record for record in ordered if record.id is not None}
 
@@ -552,20 +562,19 @@ def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[i
     id_list = tuple(dict.fromkeys(ids))
     if not id_list:
         return {}
-    placeholders = ", ".join("?" for _ in id_list)
-    sql = f"""
-        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
-        FROM content_map
-        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
-        WHERE content_map.file_id IN ({placeholders})
-    """
-    rows = conn.execute(sql, id_list).fetchall()
-    return {
-        row["file_id"]: " ".join(
-            part for part in (row["title"], row["head_text"], row["body_text"]) if part
+    content_texts: dict[int, str] = {}
+    for start in range(0, len(id_list), 500):
+        chunk = id_list[start : start + 500]
+        rows = conn.execute(_content_texts_sql(len(chunk)), chunk).fetchall()
+        content_texts.update(
+            {
+                row["file_id"]: " ".join(
+                    part for part in (row["title"], row["head_text"], row["body_text"]) if part
+                )
+                for row in rows
+            }
         )
-        for row in rows
-    }
+    return content_texts
 
 
 def _fetch_content_backfill(
@@ -648,6 +657,10 @@ def _scan_auto_content_candidates(
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return {}
+    needles = _normalized_needles(
+        (term.value for term in positive_terms),
+        case_sensitive=branch.case_sensitive,
+    )
     target = max(limit, 1)
     batch_size = max(min(target * 2, 2000), 500)
     offset = 0
@@ -658,11 +671,11 @@ def _scan_auto_content_candidates(
             break
         content_texts = _fetch_content_texts(conn, batch)
         for file_id, record in batch.items():
-            content_text = content_texts.get(file_id, "")
-            if not all(
-                _text_matches(content_text, term.value, branch.case_sensitive)
-                for term in positive_terms
-            ):
+            normalized_content = _normalize_search_text(
+                content_texts.get(file_id, ""),
+                case_sensitive=branch.case_sensitive,
+            )
+            if not all(needle in normalized_content for needle in needles):
                 continue
             matched[file_id] = record
             if len(matched) >= target:
@@ -672,14 +685,16 @@ def _scan_auto_content_candidates(
 
 
 def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> list[int]:
-    positives = [term.value for term in branch.path_terms if not term.negated]
-    if not positives:
+    needles = _normalized_needles(
+        (term.value for term in branch.path_terms if not term.negated),
+        case_sensitive=branch.case_sensitive,
+    )
+    if not needles:
         return []
     hits: list[int] = []
     for file_id, record in records.items():
         check_name = _normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
-        for term in positives:
-            needle = _normalize_search_text(term, case_sensitive=branch.case_sensitive)
+        for needle in needles:
             if check_name.startswith(needle):
                 hits.append(file_id)
                 break
@@ -734,20 +749,18 @@ def _derive_name_path_hits(
         ordered = sorted(records.values(), key=lambda item: item.name_lower)
         ids = [record.id for record in ordered if record.id is not None]
         return ids, ids
+    needles = _normalized_needles(
+        (term.value for term in positive_terms),
+        case_sensitive=branch.case_sensitive,
+    )
     for record in records.values():
         if record.id is None:
             continue
-        target_name = record.name
-        target_path = str(record.path)
-        if any(
-            _text_matches(target_name, term.value, branch.case_sensitive)
-            for term in positive_terms
-        ):
+        target_name = _normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
+        target_path = _normalize_search_text(str(record.path), case_sensitive=branch.case_sensitive)
+        if any(needle in target_name for needle in needles):
             name_hits.append(record.id)
-        if any(
-            _text_matches(target_path, term.value, branch.case_sensitive)
-            for term in positive_terms
-        ):
+        if any(needle in target_path for needle in needles):
             path_hits.append(record.id)
     return name_hits, path_hits
 

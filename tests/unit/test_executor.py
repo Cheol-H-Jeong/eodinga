@@ -1033,6 +1033,42 @@ def test_plain_ascii_query_skips_substring_scan_when_fts_already_hits(
     assert not any("instr(lower(files.name)" in statement for statement in statements)
 
 
+def test_fetch_content_texts_chunks_large_id_sets_with_cached_sql_shapes(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    for file_id in range(1, 1002):
+        _insert_file(
+            tmp_db,
+            file_id,
+            f"/workspace/projects/doc-{file_id:04d}.txt",
+            1024,
+            now - file_id,
+            "txt",
+            body_text=f"body {file_id}",
+        )
+    tmp_db.commit()
+
+    executor_module._content_texts_sql.cache_clear()
+
+    statements: list[str] = []
+    tmp_db.set_trace_callback(statements.append)
+    try:
+        content = executor_module._fetch_content_texts(tmp_db, range(1, 1002))
+    finally:
+        tmp_db.set_trace_callback(None)
+
+    assert len(content) == 1001
+    assert content[1].startswith("doc-0001.txt")
+    assert sum("WHERE content_map.file_id IN" in statement for statement in statements) == 3
+
+    executor_module._fetch_content_texts(tmp_db, range(1, 1002))
+
+    cache_info = executor_module._content_texts_sql.cache_info()
+    assert cache_info.misses == 2
+    assert cache_info.hits >= 4
+
+
 def test_search_root_scope_matches_windows_style_paths(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, r"C:\workspace\reports\alpha.txt", 1024, now, "txt", body_text="alpha")
