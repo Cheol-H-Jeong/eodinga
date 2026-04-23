@@ -7,6 +7,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from queue import Empty
 from time import monotonic
+from typing import Any
 
 from eodinga.__main__ import main
 from eodinga.common import WatchEvent
@@ -97,7 +98,7 @@ def wait_for_query_miss(
     raise AssertionError(f"{missing_path} remained query-visible after {deadline_seconds:.3f}s")
 
 
-def run_cli_json(argv: list[str]) -> tuple[int, dict[str, object], str]:
+def run_cli_json(argv: list[str]) -> tuple[int, dict[str, Any], str]:
     stdout_buffer = io.StringIO()
     stderr_buffer = io.StringIO()
     with redirect_stdout(stdout_buffer), redirect_stderr(stderr_buffer):

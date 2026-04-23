@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.972 - 2026-04-24
+
+- Added public-CLI integration coverage for end-to-end `index` and `search` flows, including multi-root root-scoped queries against a real on-disk index.
+- Added CLI live-update integration coverage that re-searches after watcher-applied creates, verifying both global and root-scoped results through the user-facing command surface.
+- Added CLI restart-recovery integration coverage for stale-WAL and interrupted staged-build reopen paths, pinning the first-open recovery behavior and post-recovery query visibility.
+
 ## 0.1.970 - 2026-04-24
 
 - Hardened the Windows release audit so the non-dry-run packaging target now fails on non-Windows hosts instead of going green from whatever stale staged artifacts happen to be present locally.
