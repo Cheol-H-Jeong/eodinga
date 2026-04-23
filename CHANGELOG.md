@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.279 - 2026-04-23
+## 0.1.283 - 2026-04-23
 
 - Replaced the Unicode path-query fallback's fixed 100k-row scan window with paged iteration, so decomposed-Hangul filename lookups now keep finding late-batch matches without forcing one giant candidate pull.
 - Cached the chunk-shaped `content_map` to `content_fts` text lookup SQL in the query executor, reducing repeated placeholder construction during record-filter and content-backfill scans.
