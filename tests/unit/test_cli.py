@@ -207,6 +207,32 @@ def test_search_json_executes_regex_mode_query(cli_runner, tmp_path: Path) -> No
     ]
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_names"),
+    [
+        ("size:11M.. -path:archive", ["today-alpha-clone.txt", "today-alpha-copy.txt"]),
+        ("size:..10M path:archive", ["yesterday-beta.txt"]),
+    ],
+)
+def test_search_json_executes_open_ended_size_range_query(
+    cli_runner, tmp_path: Path, query: str, expected_names: list[str]
+) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        query,
+        "--json",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == expected_names
+
+
 def test_search_json_honors_root_filter(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
