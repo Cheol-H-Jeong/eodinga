@@ -344,9 +344,9 @@ class WatchService:
                         self._flushed_retired_sources.discard(event.path)
                     flushed.append((event, retired_sources))
         delivered: list[WatchEvent] = []
-        for event, retired_sources in flushed:
+        for index, (event, retired_sources) in enumerate(flushed):
             if not self._enqueue_event(event):
-                self._restore_flushed_event(event, retired_sources, now=now)
+                self._restore_flushed_batch(flushed[index:], now=now)
                 break
             delivered.append(event)
         if delivered:
@@ -364,6 +364,15 @@ class WatchService:
                 self._retired_sources[event.path] = set(retired_sources)
                 self._flushed_retired_sources.difference_update(retired_sources)
             self._timestamps[event.path] = now
+
+    def _restore_flushed_batch(
+        self,
+        flushed: list[tuple[WatchEvent, set[Path]]],
+        *,
+        now: float,
+    ) -> None:
+        for event, retired_sources in flushed:
+            self._restore_flushed_event(event, retired_sources, now=now)
 
     def _dispose_observer(
         self,
