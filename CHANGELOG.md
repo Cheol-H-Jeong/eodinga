@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.736 - 2026-04-23
+
+- Added a `workflows-lint` packaging target and folded it into `release-dry-run`, so the packaging summary now proves the release workflow YAML stays lint-clean alongside the Windows and Linux dry-run audits.
+- Recorded stable Linux package artifact metadata in the AppImage and Debian audits, including archive size and SHA-256 digests for reviewable staged outputs.
+- Fixed the Debian packaging flow so dry runs clear stale `.deb` outputs and non-dry-run audits refresh the final package metadata after `dpkg-deb` builds the artifact.
+
 ## 0.1.721 - 2026-04-23
 
 - Derived PyInstaller `datas` entries from the project metadata instead of a hardcoded list, so packaging audits now track the source tree's declared package data directly.
