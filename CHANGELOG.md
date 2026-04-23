@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.374 - 2026-04-23
+## 0.1.379 - 2026-04-23
 
 - Matched-term emphasis now carries through from the launcher result list into the preview pane, so the selected file name, path, and snippet keep the same visual cue instead of dropping back to plain text.
 - Keyboard-only users can now reach pinned and recent query chips directly from the search field when no results are visible, navigate chip rows with arrow keys and Home/End, and escape back to the filter without touching the mouse.
