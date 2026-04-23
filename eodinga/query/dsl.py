@@ -155,6 +155,7 @@ class _Parser:
 
     def _parse_operator(self, name: str, initial_value: str, negated: bool) -> OperatorNode:
         if initial_value:
+            initial_value = self._extend_ranged_operator_value(name, initial_value)
             value, value_kind, regex_flags = self._decode_inline_value(name, initial_value)
             return OperatorNode(
                 name=name,
@@ -182,6 +183,7 @@ class _Parser:
         value = self._read_token()
         if not value:
             raise QuerySyntaxError("expected operator value", self.index)
+        value = self._extend_ranged_operator_value(name, value)
         return OperatorNode(name=name, value=value, value_kind="word", negated=negated)
 
     def _parse_phrase(self) -> PhraseNode:
@@ -287,6 +289,24 @@ class _Parser:
                 break
             self.index += 1
         return self.source[start:self.index]
+
+    def _extend_ranged_operator_value(self, name: str, value: str) -> str:
+        if name not in {"date", "modified", "created", "size"}:
+            return value
+        if ".." in value and not value.endswith("..") and not value.startswith(".."):
+            return value
+        checkpoint = self.index
+        self._skip_ws()
+        if self.source.startswith("..", self.index):
+            self.index += 2
+            self._skip_ws()
+            suffix = self._read_token()
+            return f"{value}..{suffix}"
+        if value.endswith("..") or value == "..":
+            suffix = self._read_token()
+            return f"{value}{suffix}"
+        self.index = checkpoint
+        return value
 
     def _peek(self, *, offset: int = 0) -> str | None:
         index = self.index + offset
