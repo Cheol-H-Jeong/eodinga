@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.132 - 2026-04-23
+
+- Added a dedicated launcher hotkey controller that binds the configured global shortcut at GUI startup, toggles the popup on the callback path, and shuts the backend down cleanly when the main window exits.
+- Wired the Settings tab to show the active launcher shortcut and remap it live through the running hotkey backend, persisting successful changes back to config without restarting the app.
+- Expanded the launcher desktop actions with a direct `copy name` shortcut and added a tray-level `Quit` action so the popup can now copy either the full path or basename and exit cleanly from the system tray.
+
 ## 0.1.130 - 2026-04-23
 
 - Expanded integration coverage so one live `WatchService` can monitor multiple configured roots while `search(..., root=...)` still isolates newly indexed results to the correct root.
