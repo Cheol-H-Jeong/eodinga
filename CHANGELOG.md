@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.133 - 2026-04-23
+## 0.1.136 - 2026-04-23
 
 - Expanded the top-level README with dependency-profile guidance, install verification steps, common index/watch/query flows, and a shorter release-validation entry point.
 - Added deeper architecture documentation for the live SQLite layout, query pipeline, hot-restart behavior, and multi-root result-scoping model behind the shared index.
