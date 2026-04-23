@@ -219,12 +219,17 @@ class _Parser:
             raise QuerySyntaxError("expected regex", start)
         self.index += 1
         pattern_start = self.index
+        backslashes = 0
         while True:
             char = self._peek()
             if char is None:
                 raise QuerySyntaxError("unterminated regex", start)
-            if char == "/" and self.source[self.index - 1] != "\\":
+            if char == "/" and backslashes % 2 == 0:
                 break
+            if char == "\\":
+                backslashes += 1
+            else:
+                backslashes = 0
             self.index += 1
         pattern = self.source[pattern_start:self.index]
         self.index += 1
