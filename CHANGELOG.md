@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.239 - 2026-04-23
+## 0.1.243 - 2026-04-23
 
 - Reduced cold-start walker overhead by reusing `os.scandir()` child stat metadata instead of calling `lstat()` again for every discovered path.
 - Reused a single `indexed_at` timestamp across each traversal pass so large directory walks avoid per-record clock calls while keeping batch semantics unchanged.
