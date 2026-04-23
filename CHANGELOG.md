@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.744 - 2026-04-23
+
+- Extended query date macros with `tomorrow`, `year`, and previous-period aliases like `prev-week`, `previous_month`, and `previous_year`, keeping them on the existing local-time boundary rules.
+- Fixed quoted phrase matching so path and content searches can bridge underscores and filesystem separators, instead of depending on FTS tokenization to match space-separated input literally.
+- Added executor coverage for the new relative-date aliases and separator-crossing phrase searches, locking in the query shapes that previously fell through the candidate scan path.
+
 ## 0.1.738 - 2026-04-23
 
 - Added a `workflows-lint` packaging target and folded it into `release-dry-run`, so the packaging summary now proves the release workflow YAML stays lint-clean alongside the Windows and Linux dry-run audits.
