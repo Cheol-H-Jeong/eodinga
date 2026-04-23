@@ -208,6 +208,10 @@ def _normalize_extension(value: str) -> str:
     return value.strip().lower().removeprefix(".")
 
 
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _empty_clause(negated: bool) -> str:
     clause = (
         "("
@@ -299,8 +303,8 @@ def _compile_branch(
                 )
                 if not _has_non_ascii(normalized_value):
                     comparator = "NOT LIKE" if term.negated else "LIKE"
-                    where_parts.append(f"files.path {comparator} ?")
-                    where_params.append(f"%{normalized_value}%")
+                    where_parts.append(f"files.path {comparator} ? ESCAPE '\\'")
+                    where_params.append(f"%{_escape_like(normalized_value)}%")
             continue
         if term.name == "ext":
             comparator = "!=" if term.negated else "="

@@ -381,6 +381,55 @@ def test_search_json_honors_windows_style_root_filter(cli_runner, tmp_path: Path
     assert [item["path"] for item in payload["results"]] == [r"C:\workspace\reports\alpha.txt"]
 
 
+def test_search_json_root_filter_treats_like_wildcards_literally(
+    cli_runner, tmp_path: Path
+) -> None:
+    db_path = tmp_path / "index.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        conn.execute(
+            "INSERT INTO roots(id, path, include, exclude, added_at) VALUES (?, ?, ?, ?, ?)",
+            (1, "/workspace", "[]", "[]", 1),
+        )
+        for file_id, raw_path in (
+            (1, "/workspace/reports_2026/keep.txt"),
+            (2, "/workspace/reportsX2026/skip.txt"),
+            (3, "/workspace/reports%2026/percent.txt"),
+            (4, "/workspace/reportsA2026/percent-skip.txt"),
+        ):
+            _insert_file(conn, file_id, raw_path, 1024, 1_713_528_000 - file_id, "txt")
+        conn.commit()
+    finally:
+        conn.close()
+
+    underscore_result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "txt",
+        "--json",
+        "--root",
+        "/workspace/reports_2026",
+    )
+    percent_result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "txt",
+        "--json",
+        "--root",
+        "/workspace/reports%2026",
+    )
+
+    assert underscore_result.returncode == 0
+    assert percent_result.returncode == 0
+    underscore_payload = json.loads(underscore_result.stdout)
+    percent_payload = json.loads(percent_result.stdout)
+    assert [Path(item["path"]).name for item in underscore_payload["results"]] == ["keep.txt"]
+    assert [Path(item["path"]).name for item in percent_payload["results"]] == ["percent.txt"]
+
+
 def test_search_reports_invalid_query_cleanly(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)

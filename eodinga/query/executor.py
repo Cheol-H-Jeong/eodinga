@@ -178,6 +178,14 @@ def _fts_prefix_literal(value: str) -> str:
     return f'"{escaped}"*'
 
 
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def _like_descendant_pattern(value: str, separator: str) -> str:
+    return f"{_escape_like(value)}{_escape_like(separator)}%"
+
+
 def _term_ok(text: str, term_value: str, case_sensitive: bool, negated: bool) -> bool:
     matched = _text_matches(text, term_value, case_sensitive)
     return not matched if negated else matched
@@ -284,11 +292,11 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
         )
     )
     exact_params = variants
-    like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
-        f"{variant}\\%" for variant in variants
+    like_params = tuple(_like_descendant_pattern(variant, "/") for variant in variants) + tuple(
+        _like_descendant_pattern(variant, "\\") for variant in variants
     )
     exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
-    like_clause = " OR ".join("files.path LIKE ?" for _ in like_params)
+    like_clause = " OR ".join("files.path LIKE ? ESCAPE '\\'" for _ in like_params)
     return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
 
 
