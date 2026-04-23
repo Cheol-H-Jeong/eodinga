@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.932 - 2026-04-24
+
+- Added contributor guidance for orchestrated module-worker rounds, including strict scope handling and a compact docs review packet for handoff evidence.
+- Expanded the release guide with artifact-inspection commands and a short evidence-backed changelog template so dry-run review and release-note writing are less guesswork-driven.
+- Clarified performance documentation with subsystem-to-benchmark mapping and a capture worksheet that keeps perf claims tied to exact commands and stdout summaries.
+
 ## 0.1.926 - 2026-04-24
 
 - Batched the query executor's Python fallback scan for phrase and Unicode path searches, avoiding the previous one-shot `100000`-row materialization and keeping the slower correctness path bounded in memory.
