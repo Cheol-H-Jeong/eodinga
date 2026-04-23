@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.250 - 2026-04-23
+
+- Added a live "Keep launcher on top" setting that updates the frameless launcher window immediately and persists the preference without requiring an app restart.
+- Tightened launcher hover behavior so the preview pane, active result, and action targets stay aligned as the pointer moves through search results.
+- Added result-list context actions for open, reveal, copy path, copy name, and properties so the full launcher action set is available directly from the focused hit list.
+
 ## 0.1.244 - 2026-04-23
 
 - Hardened staged index recovery so interrupted `.recover` and `.next` snapshots must contain initialized schema before they can replace a live index, preventing empty or half-built files from being promoted during startup recovery.
