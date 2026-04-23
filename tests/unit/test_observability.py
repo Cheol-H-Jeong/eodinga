@@ -243,6 +243,8 @@ def test_report_crash_writes_log_and_stderr(tmp_path: Path, monkeypatch, capsys)
     assert str(crash_path) in captured.err
     assert "reported crash" in crash_path.read_text(encoding="utf-8")
     counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["crash_sources_reported"] == 1
+    assert counters["crash_sources.runtime"] == 1
     assert counters["crashes.RuntimeError"] == 1
 
 
@@ -261,6 +263,8 @@ def test_report_crash_records_write_failure_without_raising(monkeypatch, capsys)
     assert crash_path is None
     assert "failed to write crash log" in captured.err
     assert "disk full" in captured.err
+    assert counters["crash_sources_reported"] == 1
+    assert counters["crash_sources.runtime"] == 1
     assert counters["crashes.RuntimeError"] == 1
     assert counters["crashes_reported"] == 1
     assert counters["crash_log_write_failures"] == 1
@@ -296,6 +300,8 @@ def test_install_crash_handlers_writes_thread_crash_log(
     contents = crash_logs[0].read_text(encoding="utf-8")
     assert "Unhandled thread exception" in contents
     assert f"thread={threading.current_thread().name}" in contents
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["crash_sources.thread"] == 1
 
 
 def test_install_crash_handlers_writes_unraisable_crash_log(tmp_path: Path, monkeypatch) -> None:
@@ -325,6 +331,8 @@ def test_install_crash_handlers_writes_unraisable_crash_log(tmp_path: Path, monk
     assert "Unhandled unraisable exception" in contents
     assert "err_msg=while finalizing" in contents
     assert "RuntimeError: unraisable boom" in contents
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["crash_sources.unraisable"] == 1
 
 
 def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path: Path) -> None:

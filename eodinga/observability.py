@@ -357,8 +357,11 @@ def report_crash(
     context: str = "Unhandled exception",
     details: Mapping[str, object] | None = None,
     stream: IO[str] | None = None,
+    source: str = "runtime",
 ) -> Path | None:
     target_stream = stream or sys.stderr
+    increment_counter("crash_sources_reported")
+    increment_counter(f"crash_sources.{source}")
     try:
         crash_path = write_crash_log(error, context=context, details=details)
     except Exception as write_error:
@@ -387,7 +390,12 @@ def install_crash_handlers(*, stream: IO[str] | None = None) -> None:
         if issubclass(exc_type, KeyboardInterrupt):
             return
         error.__traceback__ = tb
-        report_crash(error, context="Unhandled top-level exception", stream=stream)
+        report_crash(
+            error,
+            context="Unhandled top-level exception",
+            stream=stream,
+            source="excepthook",
+        )
 
     def _handle_thread_exception(args: threading.ExceptHookArgs) -> None:
         if args.exc_value is None or isinstance(args.exc_value, KeyboardInterrupt):
@@ -398,6 +406,7 @@ def install_crash_handlers(*, stream: IO[str] | None = None) -> None:
             context="Unhandled thread exception",
             details=details,
             stream=stream,
+            source="thread",
         )
 
     def _handle_unraisable(args: sys.UnraisableHookArgs) -> None:
@@ -412,6 +421,7 @@ def install_crash_handlers(*, stream: IO[str] | None = None) -> None:
             context="Unhandled unraisable exception",
             details=details,
             stream=stream,
+            source="unraisable",
         )
 
     sys.excepthook = _handle_exception

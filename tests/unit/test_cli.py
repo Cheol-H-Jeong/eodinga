@@ -527,6 +527,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["exit_codes"]["0"] == 1
     assert payload["command_failure_reasons"] == {}
     assert payload["crash_types"] == {}
+    assert payload["crash_sources"] == {}
     assert payload["parser_activity"] == {}
     assert payload["watcher_event_types"] == {}
     assert payload["watcher_failures"] == {
@@ -685,6 +686,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["exit_codes"]["0"] == 2
     assert payload["command_failure_reasons"] == {}
     assert payload["crash_types"] == {}
+    assert payload["crash_sources"] == {}
     assert payload["parser_activity"]["broken"]["errors"] == 1
     assert payload["parser_activity"]["text"]["parsed"] >= 2
     assert payload["watcher_event_types"] == {"created": 1, "modified": 1}
@@ -791,6 +793,7 @@ def test_failed_command_increments_command_failure_metrics(monkeypatch, tmp_path
     assert metrics["counters"]["commands_failed"] == 1
     assert metrics["counters"]["commands.version.failed"] == 1
     assert metrics["counters"]["commands.failure_reason.exception"] == 1
+    assert metrics["counters"]["crash_sources.main"] == 1
     assert metrics["counters"]["crashes_reported"] == 1
     assert metrics["counters"]["crash_logs_written"] == 1
     assert "crash_log_write_failures" not in metrics["counters"]
@@ -872,6 +875,7 @@ def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Pat
     assert payload["exit_codes"]["1"] == 1
     assert payload["command_failure_reasons"] == {"exception": 1}
     assert payload["crash_types"] == {"RuntimeError": 1}
+    assert payload["crash_sources"] == {"main": 1}
     assert payload["snapshot_types"] == {"command.crash": 1, "command.failure": 1}
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
         "command.failure",
@@ -916,6 +920,7 @@ def test_stats_json_structures_watcher_failure_and_log_sink_summaries(
         "observer_start": {"schedule": 1, "start": 1},
         "observer_startup_cleanup": {"join": 1, "stop": 1},
     }
+    assert payload["crash_sources"] == {}
     assert payload["snapshot_types"] == {}
     assert payload["log_sink_file_sources"] == {"env_override": 1}
     assert payload["log_sink_file_disabled_reasons"] == {}
@@ -949,6 +954,7 @@ def test_stats_json_exposes_crash_log_write_failures(tmp_path: Path, capsys, mon
     assert payload["crash_log_write_failures"] == 1
     assert payload["command_failure_reasons"] == {"exception": 1}
     assert payload["crash_types"] == {"RuntimeError": 1}
+    assert payload["crash_sources"] == {"main": 1}
     assert payload["snapshot_types"] == {"command.crash": 1, "command.failure": 1}
     assert payload["recent_snapshots"][1]["payload"]["crash_path"] is None
 

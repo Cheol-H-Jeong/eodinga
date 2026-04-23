@@ -86,6 +86,10 @@ def command_failure_reason_summary(counters: dict[str, int]) -> dict[str, int]:
     return _suffix_summary(counters, "commands.failure_reason.")
 
 
+def crash_source_summary(counters: dict[str, int]) -> dict[str, int]:
+    return _suffix_summary(counters, "crash_sources.")
+
+
 def snapshot_type_summary(counters: dict[str, int]) -> dict[str, int]:
     return _suffix_summary(counters, "snapshots.")
 

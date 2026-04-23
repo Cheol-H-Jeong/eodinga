@@ -39,6 +39,7 @@ from eodinga.query import QuerySyntaxError, search as run_search
 from eodinga.stats_summary import (
     command_failure_reason_summary,
     command_summary,
+    crash_source_summary,
     crash_type_summary,
     exit_code_summary,
     log_sink_file_disabled_reason_summary,
@@ -264,6 +265,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         exit_codes=exit_code_summary(counters),
         command_failure_reasons=command_failure_reason_summary(counters),
         crash_types=crash_type_summary(counters),
+        crash_sources=crash_source_summary(counters),
         parser_activity=parser_activity_summary(counters),
         watcher_event_types=watcher_event_type_summary(counters),
         watcher_failures=watcher_failure_summary(counters),
@@ -395,6 +397,7 @@ def main(argv: list[str] | None = None) -> int:
             error,
             context=f"Unhandled exception while running: {command}",
             details={"argv": command_argv},
+            source="main",
         )
         record_snapshot(
             "command.crash",
