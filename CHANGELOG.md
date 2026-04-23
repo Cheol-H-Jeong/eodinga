@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.531 - 2026-04-23
+
+- Surfaced `Alt+1` through `Alt+9` quick-pick badges directly on the top launcher results so the keyboard path is visible instead of hidden behind shortcut text alone.
+- Labeled the search-field clear button accessibly when the launcher is shown, closing the remaining unnamed interactive control in the launcher surface.
+- Added launcher regressions that pin quick-pick badge rendering, shortcut activation before the debounce timer flushes, and accessible-name coverage across launcher and settings widgets.
+
 ## 0.1.524 - 2026-04-23
 
 - Retained a bounded in-memory timeline of recent command snapshots and exposed it through `stats --json`, so operators can see the last successful index/search/stats/doctor/version activity without scraping debug logs.
