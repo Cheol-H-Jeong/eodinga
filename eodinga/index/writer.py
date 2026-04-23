@@ -93,22 +93,31 @@ class IndexWriter:
         if current_schema_version(self._conn) == 0:
             apply_schema(self._conn)
 
+    def _run_in_transaction(self, operation: Callable[[], int]) -> int:
+        if self._conn.in_transaction:
+            return operation()
+        with self._conn:
+            return operation()
+
     def bulk_upsert(self, records: Iterable[FileRecord]) -> int:
         buffered = _materialize_records(records)
         if not buffered:
             return 0
-        with self._conn:
+
+        def operation() -> int:
             self._upsert_records(buffered)
             self._upsert_content(buffered)
-        return len(buffered)
+            return len(buffered)
+
+        return self._run_in_transaction(operation)
 
     def apply_events(self, events: Sequence[WatchEvent], record_loader: RecordLoader) -> int:
-        processed = 0
-        content_deletes: list[int] = []
-        deleted_paths: list[Path] = []
-        retired_paths: list[Path] = []
-        pending_records: list[FileRecord] = []
-        with self._conn:
+        def operation() -> int:
+            processed = 0
+            content_deletes: list[int] = []
+            deleted_paths: list[Path] = []
+            retired_paths: list[Path] = []
+            pending_records: list[FileRecord] = []
             for event in events:
                 if event.event_type == "deleted":
                     deleted_paths.append(event.path)
@@ -129,7 +138,9 @@ class IndexWriter:
                 self._upsert_content(pending_records)
             if content_deletes:
                 self._delete_content_rows(content_deletes)
-        return processed
+            return processed
+
+        return self._run_in_transaction(operation)
 
     def _upsert_records(self, records: Sequence[FileRecord]) -> None:
         self._conn.executemany(

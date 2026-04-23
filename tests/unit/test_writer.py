@@ -98,6 +98,43 @@ def test_writer_without_parser_skips_content_queries(tmp_db: Path, tmp_path: Pat
     assert conn.execute("SELECT COUNT(*) FROM content_map").fetchone() == (0,)
 
 
+def test_writer_bulk_upsert_preserves_caller_owned_transaction(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    writer = IndexWriter(conn)
+    record = _synthetic_record(1, tmp_path)
+
+    with conn:
+        assert writer.bulk_upsert([record]) == 1
+        assert conn.in_transaction is True
+        assert conn.execute("SELECT COUNT(*) FROM files").fetchone() == (1,)
+        assert conn.in_transaction is True
+
+
+def test_writer_apply_events_preserves_caller_owned_transaction(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    writer = IndexWriter(conn)
+    path = tmp_path / "live.txt"
+    path.write_text("live", encoding="utf-8")
+
+    with conn:
+        processed = writer.apply_events(
+            [WatchEvent(event_type="created", path=path)],
+            record_loader=lambda current: make_record(current),
+        )
+        assert processed == 1
+        assert conn.in_transaction is True
+        assert conn.execute("SELECT COUNT(*) FROM files").fetchone() == (1,)
+        assert conn.in_transaction is True
+
+
 def test_writer_bulk_upsert_batches_content_inserts(tmp_db: Path, tmp_path: Path) -> None:
     conn = sqlite3.connect(tmp_db)
     conn.execute(
