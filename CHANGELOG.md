@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.823 - 2026-04-23
+
+- Tightened the README with a search-surface decision guide, a query-building ladder, and a release-evidence checklist so operators can choose the right entry point and verify release readiness faster.
+- Expanded the architecture guide with hot-restart behavior, cross-surface consistency checks, a debug decision tree, and an explicit release-evidence flow tying docs assets to packaging manifests.
+- Strengthened the contributor, performance, and release docs with evidence-capture guidance and pinned the new docs contract in `tests/unit/test_docs_assets.py`.
+
 ## 0.1.810 - 2026-04-23
 
 - Escaped literal `%`, `_`, and `^` characters in the query compiler's `path:` SQL fast path, so wildcard-like path fragments now stay literal without falling back to slower broad matches.
