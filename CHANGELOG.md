@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.559 - 2026-04-23
+
+- Added parser observability histograms for input size, successful parse latency, and failed parse latency, and exposed them through `eodinga stats --json` with unit and CLI coverage.
+- Instrumented invalid search inputs with dedicated `query_errors` counters, typed error summaries, and `command.search.error` snapshots so malformed queries no longer disappear into generic command-failure metrics.
+- Recorded watcher flush latency alongside existing batch-size and event-lag histograms, making `stats --json` useful for diagnosing slow drain cycles versus large but healthy flushes.
+
 ## 0.1.552 - 2026-04-23
 
 - Stabilized tied search-result ordering by breaking equal-name and equal-score ties with the indexed path instead of insertion-order-dependent file ids, so duplicate filenames across directories now sort deterministically.
