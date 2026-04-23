@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.142 - 2026-04-23
+
+- Accepted persisted `launcher.pinned_queries` in the config schema so existing local configs no longer crash CLI commands or test runs before the requested action starts.
+- Added a generated CLI man page at `docs/eodinga.1`, linked it from the README, and documented the regeneration step in the contributor and release workflows.
+- Expanded the architecture and performance guides with command-surface maps, storage object tables, packaging artifact matrices, and a clearer perf-baseline environment/update procedure.
+
 ## 0.1.136 - 2026-04-23
 
 - Added a dedicated launcher hotkey controller that binds the configured global shortcut at GUI startup, toggles the popup on the callback path, and shuts the backend down cleanly when the main window exits.
