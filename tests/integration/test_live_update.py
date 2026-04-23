@@ -158,6 +158,53 @@ def test_live_modify_replaces_query_visibility_within_500ms(tmp_path: Path) -> N
     assert current_hits == [target]
 
 
+def test_live_same_root_move_updates_search_visibility_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    source = root / "draft-note.txt"
+    source.write_text("same root move integration marker\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(conn, "same root move integration", limit=5).hits]
+        destination = root / "renamed-note.txt"
+        source.rename(destination)
+
+        appeared_elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "same root move integration",
+            destination,
+            deadline_seconds=0.5,
+        )
+        removed_elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "same root move integration",
+            source,
+            deadline_seconds=0.5,
+        )
+        source_path_hits = [hit.file.path for hit in search(conn, "path:draft-note", limit=5).hits]
+        destination_path_hits = [hit.file.path for hit in search(conn, "path:renamed-note", limit=5).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_hits == [source]
+    assert appeared_elapsed <= 0.5
+    assert removed_elapsed <= 0.5
+    assert source_path_hits == []
+    assert destination_path_hits == [destination]
+
+
 def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
