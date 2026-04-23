@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.440 - 2026-04-23
+
+- Refreshed the published performance baseline from fresh `tests/perf` runs at current `origin/main`, including the exact summary lines used to derive the documented throughput and latency numbers.
+- Added a release-input proof matrix plus docs-only handoff examples so workers can tie each shipped doc or packaging claim to one explicit verification command before tagging.
+
 ## 0.1.415 - 2026-04-23
 
 - Accepted spaced range syntax in query operators, so filters like `date:2026-01-01 .. 2026-01-03`, `date:.. 2026-01-03`, and `size:100 .. 500K` compile as intended instead of breaking into stray terms.
