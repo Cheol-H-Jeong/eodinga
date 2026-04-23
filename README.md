@@ -324,6 +324,16 @@ eodinga search 'date:this-week ext:md' --limit 10
 
 If those are clean but the packaged app still looks wrong, continue with the release-gate commands in `docs/ACCEPTANCE.md`.
 
+## Docs Refresh
+
+Use this when the shipped docs contract changed and you want one repeatable refresh pass instead of ad-hoc commands:
+
+```bash
+source .venv/bin/activate && python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py
+```
+
+That command regenerates the CLI man page, rerenders the screenshot set from real Qt widgets, and proves the checked-in docs assets still match the current source tree.
+
 ## Docs Map
 
 - [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md): query cheatsheet and operator notes.
@@ -359,13 +369,25 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
 
+### How do I refresh the docs after changing the CLI or GUI?
+
+Run the single-pass docs refresh command from the `Docs Refresh` section. It regenerates `docs/man/eodinga.1`, rerenders `docs/screenshots/*.png`, and then runs the docs asset regression that keeps those derived files aligned with the current tree.
+
 ### Where do I inspect packaging outputs before a release?
 
 Use `packaging/dist/`. Each packaging dry run writes its audit manifests or staged output summary there so the release review can inspect generated inputs without running the installer.
 
+### Can I validate packaging docs without building a real installer?
+
+Yes. Use `python packaging/build.py --target windows-dry-run`, `python packaging/build.py --target linux-appimage-dry-run`, or `python packaging/build.py --target linux-deb-dry-run`. Those dry runs render the staged payload descriptions under `packaging/dist/`, which is the review surface the docs refer to.
+
 ### Which files are skipped by default?
 
 System and cache paths such as `/proc`, `/sys`, `/dev`, `/tmp`, `$HOME/.cache`, `C:\Windows`, and `%SystemRoot%` stay excluded unless the user explicitly opts in.
+
+### Can I use the launcher without the global hotkey working?
+
+Yes. `eodinga gui` exposes the same indexed query engine and launcher-related settings even if the current desktop session cannot register the hotkey backend. `eodinga doctor` will tell you which backend it detected before you start changing settings blindly.
 
 ### Does uninstall delete my local index automatically?
 
