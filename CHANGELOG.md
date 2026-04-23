@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.175 - 2026-04-23
+
+- Fixed standalone regex literals so patterns ending with escaped backslashes before the closing slash now parse correctly, keeping `/.../flags` behavior aligned with inline operator regex parsing.
+- Stabilized the executor inputs that feed reciprocal-rank fusion so equal-match queries no longer depend on transient dict insertion order when computing name and path channel ranks.
+
 ## 0.1.163 - 2026-04-23
 
 - Added open-ended ISO date windows to `date:`, `modified:`, and `created:`, so queries like `date:2026-04-01..` and `created:..2026-04-23` now compile directly into one-sided timestamp predicates.
