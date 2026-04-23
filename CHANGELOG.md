@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.985 - 2026-04-24
+## 0.1.1102 - 2026-04-24
 
 - Added reopened-index integration coverage for repeat live rewrites, proving queries refresh a second time after reopen without requiring a rebuild.
 - Added reopened multi-root regressions for delete-and-recreate on the same path, pinning stale content removal, new-content visibility, and per-root query isolation after restart.
