@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.713 - 2026-04-23
+
+- Added reduced-precision ISO date literals to the query DSL, so `date:2026` and `date:2026-02` now expand to full year and month ranges instead of failing as invalid date filters.
+- Extended relative date macros with `date:this-year` and `date:last-year`, keeping year-wide filtering aligned with the existing day/week/month shortcuts.
+- Added focused query regressions for reversed reduced-precision ranges, mixed relative/reduced-precision bounds, and spaced `..` date ranges so the parser and executor keep agreeing on these date filters.
+
 ## 0.1.706 - 2026-04-23
 
 - Added a live launcher filter summary row that parses DSL operators into visible chips, so `ext:`, `date:`, `size:`, `path:`, `content:`, and related filters stay discoverable while typing instead of disappearing into raw query text.
