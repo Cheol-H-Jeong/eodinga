@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.580 - 2026-04-23
+
+- Added reopen-after-trim integration coverage for live file creation on the surviving root, asserting removed-root content stays absent globally and in root-scoped queries.
+- Added matching reopen-after-trim integration coverage for live file modification, pinning that rewritten content becomes visible within 500ms without reviving trimmed-root scope.
+- Added reopen-after-trim integration coverage for live deletion, ensuring surviving-root watcher updates remove results promptly while the pruned root remains absent from the reopened index.
+
 ## 0.1.570 - 2026-04-23
 
 - Added visible `Alt+1` through `Alt+9` quick-pick badges to the first nine launcher results so keyboard shortcuts are discoverable directly in the result list.
