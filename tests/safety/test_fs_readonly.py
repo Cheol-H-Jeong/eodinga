@@ -39,6 +39,18 @@ def _collect_import_aliases(tree: ast.AST) -> dict[str, str]:
     return aliases
 
 
+def _collect_constant_bindings(tree: ast.AST) -> dict[str, ast.AST]:
+    bindings: dict[str, ast.AST] = {}
+    for node in getattr(tree, "body", []):
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target = node.targets[0]
+            if isinstance(target, ast.Name):
+                bindings[target.id] = node.value
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.value is not None:
+            bindings[node.target.id] = node.value
+    return bindings
+
+
 def _resolve_dotted_name(node: ast.AST, aliases: dict[str, str]) -> str | None:
     dotted = _dotted_name(node)
     if dotted is None:
@@ -50,14 +62,31 @@ def _resolve_dotted_name(node: ast.AST, aliases: dict[str, str]) -> str | None:
     return f"{resolved_head}.{tail}"
 
 
-def _literal_string(node: ast.AST) -> str | None:
+def _literal_string(
+    node: ast.AST,
+    *,
+    constants: dict[str, ast.AST] | None = None,
+    seen: set[str] | None = None,
+) -> str | None:
+    constants = {} if constants is None else constants
+    seen = set() if seen is None else seen
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
+    if isinstance(node, ast.Name) and node.id in constants and node.id not in seen:
+        seen.add(node.id)
+        return _literal_string(constants[node.id], constants=constants, seen=seen)
     return None
 
 
-def _contains_write_open_flags(node: ast.AST, aliases: dict[str, str] | None = None) -> bool:
+def _contains_write_open_flags(
+    node: ast.AST,
+    aliases: dict[str, str] | None = None,
+    constants: dict[str, ast.AST] | None = None,
+    seen: set[str] | None = None,
+) -> bool:
     aliases = {} if aliases is None else aliases
+    constants = {} if constants is None else constants
+    seen = set() if seen is None else seen
     write_flags = {
         "O_APPEND",
         "O_CREAT",
@@ -70,10 +99,26 @@ def _contains_write_open_flags(node: ast.AST, aliases: dict[str, str] | None = N
         return node.attr in write_flags
     if isinstance(node, ast.Name):
         resolved = aliases.get(node.id, node.id)
+        if node.id in constants and node.id not in seen:
+            seen.add(node.id)
+            return _contains_write_open_flags(
+                constants[node.id],
+                aliases=aliases,
+                constants=constants,
+                seen=seen,
+            )
         return resolved.rsplit(".", 1)[-1] in write_flags
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
-        return _contains_write_open_flags(node.left, aliases) or _contains_write_open_flags(
-            node.right, aliases
+        return _contains_write_open_flags(
+            node.left,
+            aliases=aliases,
+            constants=constants,
+            seen=seen,
+        ) or _contains_write_open_flags(
+            node.right,
+            aliases=aliases,
+            constants=constants,
+            seen=seen,
         )
     return False
 
@@ -82,6 +127,7 @@ def test_fs_module_avoids_write_capable_calls() -> None:
     source = Path(fs.__file__).read_text(encoding="utf-8")
     tree = ast.parse(source, filename=fs.__file__ or "eodinga/core/fs.py")
     aliases = _collect_import_aliases(tree)
+    constants = _collect_constant_bindings(tree)
     forbidden_methods = {
         "chmod",
         "mkdir",
@@ -110,7 +156,7 @@ def test_fs_module_avoids_write_capable_calls() -> None:
             continue
         dotted = _resolve_dotted_name(node.func, aliases)
         if dotted == "os.open" and len(node.args) >= 2:
-            assert not _contains_write_open_flags(node.args[1], aliases)
+            assert not _contains_write_open_flags(node.args[1], aliases=aliases, constants=constants)
             continue
         assert dotted not in forbidden_calls
         if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, (ast.Name, ast.Attribute)):
@@ -118,10 +164,10 @@ def test_fs_module_avoids_write_capable_calls() -> None:
             if node.func.attr == "open":
                 mode: str | None = None
                 if len(node.args) >= 1:
-                    mode = _literal_string(node.args[0])
+                    mode = _literal_string(node.args[0], constants=constants)
                 for keyword in node.keywords:
                     if keyword.arg == "mode":
-                        mode = _literal_string(keyword.value)
+                        mode = _literal_string(keyword.value, constants=constants)
                         break
                 if mode is not None:
                     assert all(flag not in mode for flag in ("w", "a", "+", "x"))
@@ -149,6 +195,17 @@ def test_write_flag_detector_resolves_imported_flag_aliases() -> None:
     assert _contains_write_open_flags(node.value.args[1], aliases) is True
 
 
+def test_write_flag_detector_resolves_module_level_flag_constants() -> None:
+    tree = ast.parse("FLAGS = os.O_WRONLY | os.O_CREAT\nos.open(path, FLAGS)")
+    aliases = _collect_import_aliases(tree)
+    constants = _collect_constant_bindings(tree)
+    node = tree.body[1]
+    assert isinstance(node, ast.Expr)
+    assert isinstance(node.value, ast.Call)
+
+    assert _contains_write_open_flags(node.value.args[1], aliases, constants) is True
+
+
 def test_alias_resolution_catches_imported_write_calls() -> None:
     tree = ast.parse("from os import open as os_open\nos_open(path, os.O_RDONLY)")
     aliases = _collect_import_aliases(tree)
@@ -157,6 +214,14 @@ def test_alias_resolution_catches_imported_write_calls() -> None:
     assert isinstance(node.value, ast.Call)
 
     assert _resolve_dotted_name(node.value.func, aliases) == "os.open"
+
+
+def test_literal_string_resolves_module_level_mode_constants() -> None:
+    tree = ast.parse("READ_MODE = 'rb'\nWRITE_MODE = 'wb'")
+    constants = _collect_constant_bindings(tree)
+
+    assert _literal_string(ast.Name(id="READ_MODE"), constants=constants) == "rb"
+    assert _literal_string(ast.Name(id="WRITE_MODE"), constants=constants) == "wb"
 
 
 @pytest.mark.parametrize("mode", ["w", "wb", "a", "ab", "x", "xb", "r+", "rb+", "a+"])
