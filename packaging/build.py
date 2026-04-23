@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -317,6 +318,20 @@ def _report_validation_errors(target: str, errors: list[str]) -> int:
     return 1
 
 
+def _missing_required_commands(commands: list[str]) -> list[str]:
+    return sorted(command for command in commands if shutil.which(command) is None)
+
+
+def _preflight_required_commands(target: str, commands: list[str]) -> int:
+    missing = _missing_required_commands(commands)
+    if not missing:
+        return 0
+    return _report_validation_errors(
+        target,
+        [f"required build command is missing from PATH: {command}" for command in missing],
+    )
+
+
 def _run_windows_dry_run() -> int:
     version = _read_project_version()
     package_version = _read_package_version()
@@ -326,6 +341,9 @@ def _run_windows_dry_run() -> int:
 
 
 def _run_windows() -> int:
+    preflight = _preflight_required_commands("windows", ["pyinstaller", "iscc"])
+    if preflight != 0:
+        return preflight
     version = _read_project_version()
     package_version = _read_package_version()
     payload = _audit_windows_inputs(version, package_version)
@@ -335,6 +353,9 @@ def _run_windows() -> int:
 
 
 def _run_linux_appimage_dry_run() -> int:
+    preflight = _preflight_required_commands("linux-appimage-dry-run", ["bash", "python3", "tar"])
+    if preflight != 0:
+        return preflight
     result = subprocess.run(
         ["bash", str(APPIMAGE_SCRIPT), "--dry-run"],
         cwd=PROJECT_ROOT,
@@ -352,6 +373,9 @@ def _run_linux_appimage_dry_run() -> int:
 
 
 def _run_linux_appimage() -> int:
+    preflight = _preflight_required_commands("linux-appimage", ["bash", "python3", "tar"])
+    if preflight != 0:
+        return preflight
     result = subprocess.run(
         ["bash", str(APPIMAGE_SCRIPT)],
         cwd=PROJECT_ROOT,
@@ -369,6 +393,9 @@ def _run_linux_appimage() -> int:
 
 
 def _run_linux_deb_dry_run() -> int:
+    preflight = _preflight_required_commands("linux-deb-dry-run", ["bash", "python3", "tar"])
+    if preflight != 0:
+        return preflight
     result = subprocess.run(
         ["bash", str(DEB_SCRIPT), "--dry-run"],
         cwd=PROJECT_ROOT,
@@ -386,6 +413,9 @@ def _run_linux_deb_dry_run() -> int:
 
 
 def _run_linux_deb() -> int:
+    preflight = _preflight_required_commands("linux-deb", ["bash", "dpkg-deb", "python3", "tar"])
+    if preflight != 0:
+        return preflight
     result = subprocess.run(
         ["bash", str(DEB_SCRIPT)],
         cwd=PROJECT_ROOT,

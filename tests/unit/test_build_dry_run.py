@@ -118,6 +118,36 @@ def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -
     assert "Inno uninstall purge path no longer preserves roaming config by default" in errors
 
 
+def test_build_preflight_reports_missing_windows_tool(monkeypatch) -> None:
+    module = _load_build_module()
+
+    def fake_which(command: str) -> str | None:
+        if command == "iscc":
+            return None
+        return f"/usr/bin/{command}"
+
+    monkeypatch.setattr(module.shutil, "which", fake_which)
+
+    result = module._run_windows()
+
+    assert result == 1
+
+
+def test_build_preflight_reports_missing_linux_deb_tool(monkeypatch) -> None:
+    module = _load_build_module()
+
+    def fake_which(command: str) -> str | None:
+        if command == "dpkg-deb":
+            return None
+        return f"/usr/bin/{command}"
+
+    monkeypatch.setattr(module.shutil, "which", fake_which)
+
+    result = module._run_linux_deb()
+
+    assert result == 1
+
+
 def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
     result = subprocess.run(
         [sys.executable, "packaging/build.py", "--target", "windows-dry-run"],
