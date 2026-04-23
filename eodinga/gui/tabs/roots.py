@@ -10,6 +10,7 @@ class RootsTab(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setAccessibleName("Roots tab")
+        self.setAccessibleDescription("Manage which folders are indexed and which roots are removed.")
         layout = QVBoxLayout(self)
         title = QLabel("Roots", self)
         title.setProperty("role", "title")
@@ -18,8 +19,10 @@ class RootsTab(QWidget):
         body.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.add_root_button = PrimaryButton("Add root", self)
         self.add_root_button.setAccessibleName("Add root")
+        self.add_root_button.setAccessibleDescription("Choose a new folder to include in the search index.")
         self.remove_root_button = SecondaryButton("Remove selected", self)
         self.remove_root_button.setAccessibleName("Remove selected root")
+        self.remove_root_button.setAccessibleDescription("Remove the currently selected indexed root.")
 
         layout.addWidget(title)
         layout.addWidget(body)

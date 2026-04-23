@@ -78,6 +78,28 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.search_tab.launcher_panel.status_chip.accessibleName() == "Launcher status"
 
 
+def test_app_accessible_descriptions_cover_main_interactive_widgets(qapp) -> None:
+    window = EodingaWindow()
+    window.show()
+
+    assert window.tab_widget.accessibleDescription() == "Switch between roots, index, search, settings, and about views."
+    assert window.roots_tab.accessibleDescription() == "Manage which folders are indexed and which roots are removed."
+    assert window.roots_tab.add_root_button.accessibleDescription() == "Choose a new folder to include in the search index."
+    assert window.roots_tab.remove_root_button.accessibleDescription() == "Remove the currently selected indexed root."
+    assert window.index_tab.accessibleDescription() == "Review index status and trigger maintenance actions."
+    assert window.index_tab.status_chip.accessibleDescription() == "Current indexing state."
+    assert window.index_tab.progress_label.accessibleName() == "Index progress summary"
+    assert window.index_tab.rebuild_button.accessibleDescription() == "Rebuild the full index from the configured roots."
+    assert window.search_tab.accessibleDescription() == "Run launcher-style searches inside the main window."
+    assert window.search_tab.launcher_panel.accessibleDescription() == "Embedded launcher panel for search results and actions."
+    assert window.settings_tab.accessibleDescription() == "Adjust appearance, launcher behavior, and the global hotkey."
+    assert window.settings_tab.system_theme_checkbox.accessibleDescription() == "Follow the operating system light or dark theme."
+    assert window.settings_tab.frameless_checkbox.accessibleDescription() == "Hide the native window frame around the launcher."
+    assert window.settings_tab.always_on_top_checkbox.accessibleDescription() == "Keep the launcher above other windows when shown."
+    assert window.settings_tab.hotkey_label.accessibleDescription() == "Shows the currently configured launcher shortcut."
+    assert window.settings_tab.remap_hotkey_button.accessibleDescription() == "Choose a new global keyboard shortcut for the launcher."
+
+
 def test_app_updates_index_status_in_tab_and_tray(qapp) -> None:
     window = EodingaWindow()
     status = IndexingStatus(phase="indexing", processed_files=12, total_files=40, current_root=Path("/tmp/docs"))
