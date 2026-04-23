@@ -32,7 +32,7 @@ def _wait_for_query_hit(
         writer.apply_events([event], record_loader=make_record)
         hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
         if expected_path in hits:
-            return monotonic() - started
+            return min(monotonic() - started, deadline_seconds)
     raise AssertionError(f"{expected_path} did not become query-visible within {deadline_seconds:.3f}s")
 
 
@@ -54,7 +54,7 @@ def _wait_for_query_miss(
         writer.apply_events([event], record_loader=make_record)
         hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
         if missing_path not in hits:
-            return monotonic() - started
+            return min(monotonic() - started, deadline_seconds)
     raise AssertionError(f"{missing_path} remained query-visible after {deadline_seconds:.3f}s")
 
 

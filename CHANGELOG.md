@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.531 - 2026-04-23
+
+- Added live observer integration coverage for same-root renames, asserting that search hits move to the new path within 500ms and stale path filters disappear.
+- Added hot-restart integration coverage for reopened indexes handling same-root renames, so restart boundaries now exercise the same live-update contract as fresh sessions.
+- Added interrupted staged-build recovery coverage for multi-root indexes, pinning that resumed startup preserves both global and root-scoped queries before any new crawl runs.
+
 ## 0.1.525 - 2026-04-23
 
 - Counted successful parser runs alongside existing skip and error paths, so `stats --json` now reports fuller per-parser activity instead of only failures.
