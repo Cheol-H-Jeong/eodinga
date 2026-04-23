@@ -144,6 +144,66 @@ def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) ->
     assert launcher.result_list.currentIndex().row() == 0
 
 
+def test_launcher_tab_cycles_through_results_and_actions(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+            ][:limit],
+            total=2,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("a")
+    _wait(60)
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Tab)
+    assert launcher.result_list.hasFocus()
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Tab)
+    assert launcher.action_bar.open_button.hasFocus()
+    assert "Left/Right move between actions" in launcher.shortcut_label.text()
+
+    QTest.keyClick(launcher.action_bar.open_button, Qt.Key.Key_Tab)
+    assert launcher.query_field.hasFocus()
+    assert "Tab moves to results, then actions" in launcher.shortcut_label.text()
+
+
+def test_launcher_action_bar_supports_arrow_navigation_and_backtab(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt")][:limit],
+            total=1,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("alpha")
+    _wait(60)
+    launcher.action_bar.open_button.setFocus()
+
+    QTest.keyClick(launcher.action_bar.open_button, Qt.Key.Key_Right)
+    assert launcher.action_bar.reveal_button.hasFocus()
+
+    QTest.keyClick(launcher.action_bar.reveal_button, Qt.Key.Key_End)
+    assert launcher.action_bar.properties_button.hasFocus()
+
+    QTest.keyClick(launcher.action_bar.properties_button, Qt.Key.Key_Left)
+    assert launcher.action_bar.copy_name_button.hasFocus()
+
+    QTest.keyClick(launcher.action_bar.copy_name_button, Qt.Key.Key_Home)
+    assert launcher.action_bar.open_button.hasFocus()
+
+    QTest.keyClick(launcher.action_bar.open_button, Qt.Key.Key_Backtab)
+    assert launcher.result_list.hasFocus()
+
+
 def test_launcher_result_list_wraps_with_up_and_down_keys(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(

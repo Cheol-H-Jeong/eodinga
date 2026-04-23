@@ -5,7 +5,7 @@ from typing import cast
 
 from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
 from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QAbstractButton, QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidget
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
@@ -161,6 +161,15 @@ class LauncherPanel(QWidget):
         self.action_bar.copy_path_button.clicked.connect(self.emit_copy_path)
         self.action_bar.copy_name_button.clicked.connect(self.emit_copy_name)
         self.action_bar.properties_button.clicked.connect(self.emit_show_properties)
+        self._action_buttons = (
+            self.action_bar.open_button,
+            self.action_bar.reveal_button,
+            self.action_bar.copy_path_button,
+            self.action_bar.copy_name_button,
+            self.action_bar.properties_button,
+        )
+        for button in self._action_buttons:
+            button.installEventFilter(self)
         self._quick_pick_shortcuts: list[QShortcut] = []
         for index in range(9):
             shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
@@ -249,9 +258,10 @@ class LauncherPanel(QWidget):
         self._navigate_recent_queries(1)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusIn:
+        focusable_widgets = {self.query_field, self.result_list, *self._action_buttons}
+        if watched in focusable_widgets and event.type() == QEvent.Type.FocusIn:
             self._refresh_shortcut_hint()
-        if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusOut:
+        if watched in focusable_widgets and event.type() == QEvent.Type.FocusOut:
             QTimer.singleShot(0, self._refresh_shortcut_hint)
         if event.type() != QEvent.Type.KeyPress:
             return super().eventFilter(watched, event)
@@ -260,6 +270,8 @@ class LauncherPanel(QWidget):
             return self._handle_query_field_keypress(key_event)
         if watched is self.result_list:
             return self._handle_result_list_keypress(key_event)
+        if watched in self._action_buttons:
+            return self._handle_action_button_keypress(cast(QAbstractButton, watched), key_event)
         return super().eventFilter(watched, event)
 
     def _emit_activation(self, row: int) -> None:
@@ -339,10 +351,12 @@ class LauncherPanel(QWidget):
                 hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries."
             else:
                 hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
+        elif any(button.hasFocus() for button in self._action_buttons):
+            hint = "Enter or Space runs the focused action. Left/Right move between actions. Tab returns to the filter. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks keep working."
         elif self.result_list.hasFocus():
             hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
         else:
-            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
+            hint = "Tab moves to results, then actions. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
 
     def _current_hit(self) -> SearchHit | None:
@@ -384,15 +398,15 @@ class LauncherPanel(QWidget):
             self._move_selection(-self._page_step())
             return True
         if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
-            self.result_list.setFocus()
-            current_index = self.result_list.currentIndex()
-            if not current_index.isValid() and self.model.rowCount() > 0:
-                self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
+            self._focus_results()
             return True
         return False
 
     def _handle_result_list_keypress(self, event: QKeyEvent) -> bool:
-        if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
+        if event.key() == Qt.Key.Key_Tab:
+            self._focus_first_action()
+            return True
+        if event.key() == Qt.Key.Key_Backtab:
             self.query_field.setFocus()
             return True
         if event.key() == Qt.Key.Key_Down:
@@ -412,6 +426,28 @@ class LauncherPanel(QWidget):
             return True
         if event.key() == Qt.Key.Key_PageUp:
             self._move_selection(-self._page_step())
+            return True
+        return False
+
+    def _handle_action_button_keypress(self, button: QAbstractButton, event: QKeyEvent) -> bool:
+        if event.key() == Qt.Key.Key_Tab:
+            self.query_field.setFocus()
+            self.query_field.selectAll()
+            return True
+        if event.key() == Qt.Key.Key_Backtab:
+            self._focus_results()
+            return True
+        if event.key() == Qt.Key.Key_Right:
+            self._move_action_focus(button, 1)
+            return True
+        if event.key() == Qt.Key.Key_Left:
+            self._move_action_focus(button, -1)
+            return True
+        if event.key() == Qt.Key.Key_Home:
+            self._focus_first_action()
+            return True
+        if event.key() == Qt.Key.Key_End:
+            self._focus_last_action()
             return True
         return False
 
@@ -443,6 +479,45 @@ class LauncherPanel(QWidget):
     def _set_selection(self, row: int) -> None:
         self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(row, 0)))
         self.result_list.scrollTo(self.result_list.currentIndex())
+
+    def _focus_results(self) -> None:
+        if self.model.rowCount() == 0:
+            self.query_field.setFocus()
+            return
+        self.result_list.setFocus()
+        current_index = self.result_list.currentIndex()
+        if not current_index.isValid():
+            self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
+
+    def _enabled_action_buttons(self) -> tuple[QAbstractButton, ...]:
+        return tuple(button for button in self._action_buttons if button.isEnabled())
+
+    def _focus_first_action(self) -> None:
+        enabled_buttons = self._enabled_action_buttons()
+        if not enabled_buttons:
+            self.query_field.setFocus()
+            return
+        enabled_buttons[0].setFocus()
+
+    def _focus_last_action(self) -> None:
+        enabled_buttons = self._enabled_action_buttons()
+        if not enabled_buttons:
+            self._focus_results()
+            return
+        enabled_buttons[-1].setFocus()
+
+    def _move_action_focus(self, current_button: QAbstractButton, direction: int) -> None:
+        enabled_buttons = self._enabled_action_buttons()
+        if not enabled_buttons:
+            self._focus_results()
+            return
+        try:
+            current_index = enabled_buttons.index(current_button)
+        except ValueError:
+            enabled_buttons[0].setFocus()
+            return
+        next_index = (current_index + direction) % len(enabled_buttons)
+        enabled_buttons[next_index].setFocus()
 
     def _sync_preview_to_current_index(self, current: QModelIndex, previous: QModelIndex) -> None:
         del previous
