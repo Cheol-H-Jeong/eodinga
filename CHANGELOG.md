@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.848 - 2026-04-23
+
+- Cached normalized query terms inside the executor, so repeated case-folded and NFC-normalized needles are reused across candidate scans instead of recomputed for every record match.
+- Reused compiled regex objects and hoisted per-record path text assembly out of the inner filter loop, reducing overhead on scan-heavy regex and filtered query branches.
+- Raised writer-side SQLite path-batch chunks to a still-safe 900 bindings per statement and added an opt-in regex query latency benchmark to keep the scan path performance budget visible.
+
 ## 0.1.840 - 2026-04-23
 
 - Preserved the launcher popup geometry when toggling `always_on_top` or `frameless` while the window is hidden, so the next show no longer jumps back to a default Qt position.
