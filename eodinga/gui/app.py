@@ -141,6 +141,9 @@ class EodingaWindow(QMainWindow):
         layout = QVBoxLayout(container)
         self.tab_widget = QTabWidget(container)
         self.tab_widget.setAccessibleName("Main navigation tabs")
+        self.tab_widget.setAccessibleDescription(
+            "Switch between the roots, index, search, settings, and about views."
+        )
 
         self.roots_tab = RootsTab(self)
         self.index_tab = IndexTab(self)

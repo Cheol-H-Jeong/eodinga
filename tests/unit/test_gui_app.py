@@ -57,18 +57,45 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     window.show()
 
     assert window.tab_widget.accessibleName() == "Main navigation tabs"
+    assert window.tab_widget.accessibleDescription() == (
+        "Switch between the roots, index, search, settings, and about views."
+    )
     assert window.roots_tab.accessibleName() == "Roots tab"
     assert window.roots_tab.add_root_button.accessibleName() == "Add root"
+    assert window.roots_tab.add_root_button.accessibleDescription() == (
+        "Choose a new filesystem root to include in the index."
+    )
     assert window.roots_tab.remove_root_button.accessibleName() == "Remove selected root"
+    assert window.roots_tab.remove_root_button.accessibleDescription() == (
+        "Remove the currently selected indexed root."
+    )
     assert window.index_tab.accessibleName() == "Index tab"
     assert window.index_tab.rebuild_button.accessibleName() == "Rebuild index"
+    assert window.index_tab.rebuild_button.accessibleDescription() == (
+        "Start a fresh index rebuild for every configured root."
+    )
     assert window.search_tab.accessibleName() == "Search tab"
     assert window.settings_tab.accessibleName() == "Settings tab"
     assert window.settings_tab.system_theme_checkbox.accessibleName() == "Use system theme"
+    assert window.settings_tab.system_theme_checkbox.accessibleDescription() == (
+        "Follow the operating system theme for the main window."
+    )
     assert window.settings_tab.frameless_checkbox.accessibleName() == "Use frameless launcher window"
+    assert window.settings_tab.frameless_checkbox.accessibleDescription() == (
+        "Toggle the launcher popup window frame on or off."
+    )
     assert window.settings_tab.always_on_top_checkbox.accessibleName() == "Keep launcher always on top"
+    assert window.settings_tab.always_on_top_checkbox.accessibleDescription() == (
+        "Keep the launcher popup above other windows."
+    )
     assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"
+    assert window.settings_tab.hotkey_label.accessibleDescription() == (
+        "Shows the current global launcher hotkey binding."
+    )
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
+    assert window.settings_tab.remap_hotkey_button.accessibleDescription() == (
+        "Choose a new global keyboard shortcut for opening the launcher."
+    )
     assert window.about_tab.accessibleName() == "About tab"
     assert window.launcher_window.pinned_queries_row.accessibleName() == "Pinned launcher queries"
     assert window.launcher_window.recent_queries_row.accessibleName() == "Recent launcher queries"

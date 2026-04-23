@@ -20,6 +20,7 @@ class IndexTab(QWidget):
         self.progress_label.setProperty("role", "secondary")
         self.rebuild_button = PrimaryButton("Rebuild index", self)
         self.rebuild_button.setAccessibleName("Rebuild index")
+        self.rebuild_button.setAccessibleDescription("Start a fresh index rebuild for every configured root.")
 
         layout.addWidget(title)
         layout.addWidget(body)
