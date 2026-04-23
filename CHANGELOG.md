@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.720 - 2026-04-23
+## 0.1.721 - 2026-04-23
 
 - Derived PyInstaller `datas` entries from the project metadata instead of a hardcoded list, so packaging audits now track the source tree's declared package data directly.
 - Added a `python packaging/build.py --target release-dry-run` entry point that runs the Windows, AppImage, and Debian dry runs in one shot and writes a summary audit manifest under `packaging/dist/`.
