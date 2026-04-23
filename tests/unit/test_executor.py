@@ -303,6 +303,40 @@ def test_execute_escaped_phrase_query_matches_literal_quotes_and_backslashes(
     assert content_hits == ['release "candidate" notes.txt']
 
 
+def test_execute_phrase_queries_cross_separator_boundaries(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/src/hot-restart.py",
+        512,
+        now,
+        "py",
+        body_text="watch the launch_checklist before restart",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/src/hot_notes.py",
+        512,
+        now - 60,
+        "py",
+        body_text="plain launch checklist note",
+    )
+    tmp_db.commit()
+
+    path_hits = [hit.file.name for hit in search(tmp_db, '"hot restart"', limit=10).hits]
+    content_hits = [
+        hit.file.name for hit in search(tmp_db, 'content:"launch checklist"', limit=10).hits
+    ]
+
+    assert path_hits == ["hot-restart.py"]
+    assert "hot-restart.py" in content_hits
+    assert "hot_notes.py" in content_hits
+
+
 def test_execute_relative_date_queries_use_local_day_boundaries(
     tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:
