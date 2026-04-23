@@ -100,6 +100,7 @@ def rebuild_index(
     _cleanup_index_files(staged_path)
 
     conn = connect_database(staged_path)
+    connection_closed = False
     files_indexed = 0
     parser_callback = (
         (lambda path: parse(path, max_body_chars=max_body_chars))
@@ -144,17 +145,18 @@ def rebuild_index(
                         increment_counter("files_indexed", indexed, root=str(root.path))
                     stop.raise_if_requested()
             stop.raise_if_requested()
+            conn.close()
+            connection_closed = True
+            stop.raise_if_requested()
+            atomic_replace_index(staged_path, target_path)
+            stop.raise_if_requested()
     except KeyboardInterrupt:
-        conn.close()
+        if not connection_closed:
+            conn.close()
         raise
     except Exception:
-        conn.close()
-        _cleanup_index_files(staged_path)
-        raise
-    conn.close()
-    try:
-        atomic_replace_index(staged_path, target_path)
-    except Exception:
+        if not connection_closed:
+            conn.close()
         _cleanup_index_files(staged_path)
         raise
     elapsed_ms = (perf_counter() - started) * 1000

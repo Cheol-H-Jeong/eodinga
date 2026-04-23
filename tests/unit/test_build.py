@@ -148,6 +148,46 @@ def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
         resumed.close()
 
 
+def test_rebuild_index_publish_signal_raises_after_atomic_swap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    staged_path = db_path.with_name(".index.db.next")
+
+    current_stop: build_module._SignalStop | None = None
+    original_enter = build_module._SignalStop.__enter__
+    original_atomic_replace = build_module.atomic_replace_index
+
+    def recording_enter(self: build_module._SignalStop) -> build_module._SignalStop:
+        nonlocal current_stop
+        current_stop = self
+        return original_enter(self)
+
+    def signal_during_publish(source: Path, target: Path) -> None:
+        stop = current_stop
+        assert stop is not None
+        stop._handle_signal(signal.SIGTERM, None)
+        original_atomic_replace(source, target)
+
+    monkeypatch.setattr(build_module._SignalStop, "__enter__", recording_enter)
+    monkeypatch.setattr(build_module, "atomic_replace_index", signal_during_publish)
+
+    with pytest.raises(KeyboardInterrupt):
+        rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    reopened = sqlite3.connect(db_path)
+    try:
+        rows = reopened.execute("SELECT path FROM files ORDER BY path").fetchall()
+        assert [str(row[0]) for row in rows] == [str(root), str(root / "alpha.txt")]
+    finally:
+        reopened.close()
+
+    assert not staged_path.exists()
+
+
 def test_rebuild_index_installs_sigint_and_sigterm_handlers_on_main_thread(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
