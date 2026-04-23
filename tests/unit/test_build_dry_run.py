@@ -190,6 +190,12 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
     module = _load_build_module()
     payload = {
         "version": __version__,
+        "arch": "x86_64",
+        "appimage": {
+            "path": f"packaging/dist/eodinga-{__version__}-linux-x86_64.AppImage",
+            "exists": True,
+            "is_executable": True,
+        },
         "recipe": {
             "exists": True,
             "contains_version_template": True,
@@ -223,7 +229,13 @@ def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> Non
     module = _load_build_module()
     payload = {
         "version": __version__,
+        "arch": "x86_64",
         "archive": "packaging/dist/eodinga-linux-appdir.tar.gz",
+        "appimage": {
+            "path": "packaging/dist/eodinga-latest-linux-x86_64.AppImage",
+            "exists": True,
+            "is_executable": True,
+        },
         "recipe": {
             "exists": True,
             "contains_version_template": True,
@@ -251,6 +263,7 @@ def test_linux_appimage_audit_validator_rejects_versioned_archive_drift() -> Non
     errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
 
     assert "AppImage archive filename does not match the package version" in errors
+    assert "AppImage artifact filename does not match the package version and arch" in errors
 
 
 def test_linux_appimage_dry_run_stages_recipe() -> None:
@@ -267,8 +280,12 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-appimage-dry-run"
     assert payload["version"] == __version__
+    assert payload["arch"] == "x86_64"
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
+    assert payload["appimage"]["path"].endswith(f"eodinga-{__version__}-linux-x86_64.AppImage")
+    assert payload["appimage"]["exists"] is False
+    assert payload["appimage"]["is_executable"] is False
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
@@ -402,21 +419,65 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
 
 
 def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
-    result = subprocess.run(
-        [sys.executable, "packaging/build.py", "--target", "linux-appimage"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stdout + result.stderr
+    module = _load_build_module()
+    expected_path = Path("packaging/dist/linux-appimage-audit.json")
 
-    manifest_path = Path("packaging/dist/linux-appimage-audit.json")
-    assert manifest_path.exists()
-    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    def fake_run(*args, **kwargs):
+        expected_path.parent.mkdir(parents=True, exist_ok=True)
+        expected_path.write_text(
+            json.dumps(
+                {
+                    "target": "linux-appimage",
+                    "version": __version__,
+                    "arch": "x86_64",
+                    "appdir": "packaging/dist/eodinga.AppDir",
+                    "archive": f"packaging/dist/eodinga-{__version__}-linux-appdir.tar.gz",
+                    "dry_run": False,
+                    "recipe": {
+                        "exists": True,
+                        "contains_version_template": True,
+                        "rendered_exists": True,
+                        "rendered_version_matches_package": True,
+                        "references_desktop_entry": True,
+                        "references_icon_asset": True,
+                        "launches_gui": True,
+                    },
+                    "desktop_entry": {"matches_source_asset": True},
+                    "icon": {
+                        "exists": True,
+                        "diricon_exists": True,
+                        "desktop_icon_matches_asset": True,
+                        "matches_source_asset": True,
+                    },
+                    "apprun": {"is_executable": True, "launches_gui": True},
+                    "launcher": {"is_executable": True, "executes_python_module": True},
+                    "appimage": {
+                        "path": f"packaging/dist/eodinga-{__version__}-linux-x86_64.AppImage",
+                        "exists": True,
+                        "is_executable": True,
+                    },
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(args=args[0], returncode=0)
+
+    result = module.subprocess.run
+    original_which = module.shutil.which
+    module.subprocess.run = fake_run
+    module.shutil.which = lambda command: f"/usr/bin/{command}"
+    try:
+        assert module._run_linux_appimage() == 0
+    finally:
+        module.subprocess.run = result
+        module.shutil.which = original_which
+
+    payload = json.loads(expected_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-appimage"
     assert payload["dry_run"] is False
-    assert Path(payload["appdir"]).exists()
-    assert Path(payload["archive"]).exists()
+    assert payload["appimage"]["exists"] is True
+    assert payload["appimage"]["is_executable"] is True
 
 
 def test_linux_deb_dry_run_stages_recipe() -> None:

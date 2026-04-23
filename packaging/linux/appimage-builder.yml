@@ -5,6 +5,13 @@ script:
   - mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/scalable/apps
   - cp packaging/linux/eodinga.desktop AppDir/usr/share/applications/eodinga.desktop
   - cp packaging/linux/eodinga.svg AppDir/usr/share/icons/hicolor/scalable/apps/eodinga.svg
+  - |
+      cat > AppDir/usr/bin/eodinga <<'EOF'
+      #!/usr/bin/env bash
+      set -euo pipefail
+      exec python3 -m eodinga "$@"
+      EOF
+  - chmod +x AppDir/usr/bin/eodinga
 
 AppDir:
   path: AppDir

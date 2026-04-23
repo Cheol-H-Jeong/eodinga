@@ -235,6 +235,11 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
     expected_archive_name = f"eodinga-{package_version}-linux-appdir.tar.gz"
     if Path(str(archive_path)).name != expected_archive_name:
         errors.append("AppImage archive filename does not match the package version")
+    arch = payload.get("arch")
+    appimage_payload = payload.get("appimage", {})
+    expected_appimage_name = f"eodinga-{package_version}-linux-{arch}.AppImage"
+    if Path(str(appimage_payload.get("path"))).name != expected_appimage_name:
+        errors.append("AppImage artifact filename does not match the package version and arch")
     recipe_payload = payload.get("recipe", {})
     icon_payload = payload.get("icon", {})
     apprun_payload = payload.get("apprun", {})
@@ -260,6 +265,11 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
     for ok, message in required_flags:
         if not ok:
             errors.append(message)
+    if not payload.get("dry_run"):
+        if not appimage_payload.get("exists"):
+            errors.append("AppImage build did not produce the AppImage artifact")
+        if not appimage_payload.get("is_executable"):
+            errors.append("AppImage artifact is not executable")
     return errors
 
 
@@ -385,7 +395,7 @@ def _run_linux_appimage_dry_run() -> int:
 
 
 def _run_linux_appimage() -> int:
-    preflight = _preflight_required_commands("linux-appimage", ["bash", "python3", "tar"])
+    preflight = _preflight_required_commands("linux-appimage", ["appimage-builder", "bash", "python3", "tar"])
     if preflight != 0:
         return preflight
     result = subprocess.run(

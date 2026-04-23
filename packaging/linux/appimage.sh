@@ -21,13 +21,24 @@ print(match.group(1))
 PY
 )"
 ARCHIVE_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-appdir.tar.gz"
+ARCH="$(uname -m)"
+case "${ARCH}" in
+  amd64)
+    ARCH="x86_64"
+    ;;
+  arm64)
+    ARCH="aarch64"
+    ;;
+esac
+APPIMAGE_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-${ARCH}.AppImage"
 DRY_RUN=0
 
 if [[ "${1:-}" == "--dry-run" ]]; then
   DRY_RUN=1
 fi
 
-rm -rf "${APPDIR}"
+rm -rf "${APPDIR}" "${ROOT_DIR}/AppDir"
+rm -f "${APPIMAGE_PATH}" "${ROOT_DIR}"/*.AppImage
 mkdir -p "${APPDIR}/usr/bin" "${APPDIR}/usr/share/applications"
 mkdir -p "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
 mkdir -p "${DIST_DIR}"
@@ -60,6 +71,21 @@ EOF
 chmod +x "${APPDIR}/AppRun" "${APPDIR}/usr/bin/eodinga"
 
 tar -czf "${ARCHIVE_PATH}" -C "${DIST_DIR}" "$(basename "${APPDIR}")"
+
+if [[ "${DRY_RUN}" -eq 0 ]]; then
+  (
+    cd "${ROOT_DIR}"
+    appimage-builder --recipe "${RENDERED_RECIPE}" --skip-test
+  )
+  BUILT_APPIMAGE="$(find "${ROOT_DIR}" -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
+  if [[ -z "${BUILT_APPIMAGE}" ]]; then
+    echo "appimage-builder did not produce an AppImage artifact" >&2
+    exit 1
+  fi
+  mv "${BUILT_APPIMAGE}" "${APPIMAGE_PATH}"
+  chmod +x "${APPIMAGE_PATH}"
+fi
+
 python3 - <<PY
 import json
 import os
@@ -85,6 +111,7 @@ rendered_recipe_text = rendered_recipe_path.read_text(encoding="utf-8")
 payload = {
     "target": "linux-appimage-dry-run" if ${DRY_RUN} else "linux-appimage",
     "version": "${VERSION}",
+    "arch": "${ARCH}",
     "appdir": "${APPDIR}",
     "archive": "${ARCHIVE_PATH}",
     "dry_run": bool(${DRY_RUN}),
@@ -126,6 +153,11 @@ payload = {
         "is_executable": os.access(launcher_path, os.X_OK),
         "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
     },
+    "appimage": {
+        "path": "${APPIMAGE_PATH}",
+        "exists": Path("${APPIMAGE_PATH}").exists(),
+        "is_executable": os.access("${APPIMAGE_PATH}", os.X_OK),
+    },
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 PY
@@ -135,4 +167,4 @@ if [[ "${DRY_RUN}" -eq 1 ]]; then
   exit 0
 fi
 
-echo "staged source-backed AppDir at ${APPDIR}"
+echo "built AppImage at ${APPIMAGE_PATH}"
