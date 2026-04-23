@@ -183,6 +183,59 @@ def test_live_delete_removed_with_multi_root_watchers_and_root_scope(tmp_path: P
     assert beta_hits == []
 
 
+def test_live_cross_root_move_reindexes_destination_with_destination_root_id(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    source = root_a / "alpha-move.txt"
+    destination = root_b / "beta-move.txt"
+    source.write_text("cross root live move coverage\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        record_loader = root_aware_record_loader(conn)
+        root_ids = {
+            Path(str(row[0])): int(row[1])
+            for row in conn.execute("SELECT path, id FROM roots ORDER BY id").fetchall()
+        }
+        service.start(root_a)
+        service.start(root_b)
+
+        source.rename(destination)
+
+        elapsed = wait_for_applied_event(
+            service,
+            writer,
+            record_loader=record_loader,
+            deadline_seconds=1.0,
+            predicate=lambda: search(conn, "cross root live move coverage", limit=5, root=root_a).hits
+            == []
+            and [hit.file.path for hit in search(conn, "cross root live move coverage", limit=5, root=root_b).hits]
+            == [destination],
+        )
+        stored = conn.execute(
+            "SELECT path, root_id FROM files WHERE path IN (?, ?) ORDER BY path",
+            (str(source), str(destination)),
+        ).fetchall()
+    finally:
+        service.stop()
+        conn.close()
+
+    assert elapsed <= 1.0
+    assert [(Path(str(row[0])), int(row[1])) for row in stored] == [
+        (destination, root_ids[root_b]),
+    ]
+
+
 def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     db_path = tmp_path / "database" / "index.db"
