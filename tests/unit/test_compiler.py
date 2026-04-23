@@ -77,6 +77,34 @@ def test_compile_negated_boolean_operators_invert_requested_mode(
     assert branch.regex_mode is expected_regex_mode
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_case_sensitive", "expected_regex_mode"),
+    [
+        ("case:1 alpha", True, False),
+        ("case:yes alpha", True, False),
+        ("case:on alpha", True, False),
+        ("case:0 alpha", False, False),
+        ("case:no alpha", False, False),
+        ("case:off alpha", False, False),
+        ("regex:1 alpha", False, True),
+        ("regex:yes alpha", False, True),
+        ("regex:on alpha", False, True),
+        ("regex:0 alpha", False, False),
+        ("regex:no alpha", False, False),
+        ("regex:off alpha", False, False),
+    ],
+)
+def test_compile_boolean_operator_aliases(
+    query: str,
+    expected_case_sensitive: bool,
+    expected_regex_mode: bool,
+) -> None:
+    branch = compile_query(parse(query)).branches[0]
+
+    assert branch.case_sensitive is expected_case_sensitive
+    assert branch.regex_mode is expected_regex_mode
+
+
 def test_compile_date_alias_uses_mtime_range() -> None:
     compiled = compile_query(parse("date:this-week"))
     branch = compiled.branches[0]

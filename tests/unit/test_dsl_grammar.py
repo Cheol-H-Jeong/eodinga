@@ -77,6 +77,34 @@ def test_parse_operator_regex_value() -> None:
 
 
 @pytest.mark.parametrize(
+    ("query", "expected_name", "expected_pattern", "expected_flags"),
+    [
+        ("content:/https?:\\/\\/example\\.com/i", "content", r"https?:\/\/example\.com", "i"),
+        ("path:/docs\\/2026\\/report/i", "path", r"docs\/2026\/report", "i"),
+        (r"/foo\/bar\/baz/ms", None, r"foo\/bar\/baz", "ms"),
+    ],
+)
+def test_parse_regex_supports_escaped_forward_slashes(
+    query: str,
+    expected_name: str | None,
+    expected_pattern: str,
+    expected_flags: str,
+) -> None:
+    node = parse(query)
+
+    if expected_name is None:
+        assert isinstance(node, RegexNode)
+        assert node.pattern == expected_pattern
+        assert node.flags == expected_flags
+        return
+    assert isinstance(node, OperatorNode)
+    assert node.name == expected_name
+    assert node.value_kind == "regex"
+    assert node.value == expected_pattern
+    assert node.regex_flags == expected_flags
+
+
+@pytest.mark.parametrize(
     ("query", "expected_name", "expected_value"),
     [
         ('"release \\"candidate\\""', None, 'release "candidate"'),
