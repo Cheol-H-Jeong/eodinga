@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.713 - 2026-04-23
+## 0.1.716 - 2026-04-23
 
 - Added open-ended `size:` range support, so queries like `size:..500K`, `size:100..`, and their negated forms now compile and execute consistently alongside the existing bounded range syntax.
 - Fixed launcher filter summaries to preserve grouped negation for operator filters, so queries like `-(ext:pdf | path:archive)` no longer render as misleading positive chips.
