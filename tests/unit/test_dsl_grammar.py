@@ -437,6 +437,22 @@ def test_valid_query_fuzz_parses_and_compiles(query: str) -> None:
     compile_query(parse(query))
 
 
+def test_parse_negated_control_separator_word() -> None:
+    node = parse("-\x1f")
+
+    assert isinstance(node, WordNode)
+    assert node.value == "\x1f"
+    assert node.negated is True
+
+
+def test_parse_grouped_negated_control_separator_word() -> None:
+    node = parse("(-\x1f)")
+
+    assert isinstance(node, WordNode)
+    assert node.value == "\x1f"
+    assert node.negated is True
+
+
 @given(
     st.tuples(
         st.text(

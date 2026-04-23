@@ -18,6 +18,7 @@ OP_NAMES = {
 }
 
 _RANGE_OP_NAMES = {"date", "modified", "created", "size"}
+_ASCII_WHITESPACE = {" ", "\t", "\n", "\r", "\f", "\v"}
 
 
 class QueryNode(BaseModel):
@@ -295,7 +296,7 @@ class _Parser:
     def _read_token(self) -> str:
         start = self.index
         while (char := self._peek()) is not None and char not in '()|"':
-            if char.isspace():
+            if char in _ASCII_WHITESPACE:
                 break
             self.index += 1
         return self.source[start:self.index]
@@ -353,7 +354,7 @@ class _Parser:
 
     def _skip_ws(self) -> bool:
         start = self.index
-        while (char := self._peek()) is not None and char.isspace():
+        while (char := self._peek()) is not None and char in _ASCII_WHITESPACE:
             self.index += 1
         return self.index > start
 
