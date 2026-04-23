@@ -303,6 +303,62 @@ def test_execute_escaped_phrase_query_matches_literal_quotes_and_backslashes(
     assert content_hits == ['release "candidate" notes.txt']
 
 
+def test_execute_content_phrase_query_matches_across_newlines(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/alpha-inline.txt",
+        512,
+        now,
+        "txt",
+        body_text="alpha project launch",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/alpha-newline.txt",
+        512,
+        now - 60,
+        "txt",
+        body_text="alpha\nproject launch",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, 'content:"alpha project"', limit=10).hits]
+
+    assert hits == ["alpha-inline.txt", "alpha-newline.txt"]
+
+
+def test_execute_phrase_query_supplements_fts_candidates_with_scan_matches(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/alpha-inline.txt",
+        512,
+        now,
+        "txt",
+        body_text="alpha project launch",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/alpha-newline.txt",
+        512,
+        now - 60,
+        "txt",
+        body_text="alpha\nproject launch",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, '"alpha project"', limit=10).hits]
+
+    assert hits == ["alpha-inline.txt", "alpha-newline.txt"]
+
+
 def test_execute_relative_date_queries_use_local_day_boundaries(
     tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -409,6 +465,21 @@ def test_execute_datetime_literal_and_range_queries(tmp_db: sqlite3.Connection) 
 
     assert exact_hits == ["exact-second.txt"]
     assert range_hits == ["exact-second.txt", "later-second.txt"]
+
+
+def test_execute_datetime_query_accepts_lowercase_z_suffix(tmp_db: sqlite3.Connection) -> None:
+    target = int(datetime(2026, 1, 3, 9, 15, 30, tzinfo=UTC).timestamp())
+    nearby = target + 1
+    _insert_file(tmp_db, 1, "/workspace/exact-z.txt", 512, target, "txt", body_text="exact")
+    _insert_file(tmp_db, 2, "/workspace/nearby-z.txt", 512, nearby, "txt", body_text="nearby")
+    tmp_db.commit()
+
+    hits = [
+        hit.file.name
+        for hit in search(tmp_db, "modified:2026-01-03T09:15:30z", limit=10).hits
+    ]
+
+    assert hits == ["exact-z.txt"]
 
 
 def test_execute_decomposed_korean_path_filter_matches_nfc_paths(
