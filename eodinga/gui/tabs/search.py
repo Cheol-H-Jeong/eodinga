@@ -13,6 +13,7 @@ class SearchTab(QWidget):
         parent=None,
     ) -> None:
         super().__init__(parent)
+        self.setAccessibleName("Search tab")
         layout = QVBoxLayout(self)
         self.launcher_panel = LauncherPanel(search_fn=search_fn, state=state, parent=self)
         layout.addWidget(self.launcher_panel)

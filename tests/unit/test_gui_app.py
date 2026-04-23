@@ -30,6 +30,23 @@ def test_app_window_has_expected_tabs_and_launcher(qapp) -> None:
     assert window.launcher_window.parent() is None
 
 
+def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
+    window = EodingaWindow()
+    window.show()
+
+    assert window.tab_widget.accessibleName() == "Main navigation tabs"
+    assert window.roots_tab.accessibleName() == "Roots tab"
+    assert window.roots_tab.add_root_button.accessibleName() == "Add root"
+    assert window.roots_tab.remove_root_button.accessibleName() == "Remove selected root"
+    assert window.index_tab.accessibleName() == "Index tab"
+    assert window.index_tab.rebuild_button.accessibleName() == "Rebuild index"
+    assert window.search_tab.accessibleName() == "Search tab"
+    assert window.settings_tab.accessibleName() == "Settings tab"
+    assert window.settings_tab.system_theme_checkbox.accessibleName() == "Use system theme"
+    assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
+    assert window.about_tab.accessibleName() == "About tab"
+
+
 def test_app_updates_index_status_in_tab_and_tray(qapp) -> None:
     window = EodingaWindow()
     status = IndexingStatus(phase="indexing", processed_files=12, total_files=40, current_root=Path("/tmp/docs"))

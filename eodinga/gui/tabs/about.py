@@ -8,6 +8,7 @@ from eodinga import __version__
 class AboutTab(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self.setAccessibleName("About tab")
         layout = QVBoxLayout(self)
         title = QLabel("About", self)
         title.setProperty("role", "title")
@@ -18,4 +19,3 @@ class AboutTab(QWidget):
         layout.addWidget(title)
         layout.addWidget(body)
         layout.addStretch(1)
-
