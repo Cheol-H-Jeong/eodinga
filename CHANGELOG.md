@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.249 - 2026-04-23
+
+- Added inline launcher filter chips so active `ext:`, `date:`, `size:`, `content:`, and similar operators stay visible while typing.
+- Named the launcher's status, hint, empty-state, and preview landmarks more completely so screen readers can identify the same UI regions keyboard users navigate.
+- Strengthened launcher hit highlighting by rendering matched substrings in bold inside the existing highlight mark for faster result scanning.
+
 ## 0.1.242 - 2026-04-23
 
 - Hardened crash observability so same-second failures no longer overwrite prior `crash-*.log` files, unraisable exceptions now flow through the same crash-report path, and crash counters are visible in runtime stats.
