@@ -388,6 +388,72 @@ def test_execute_open_ended_date_ranges(tmp_db: sqlite3.Connection) -> None:
     assert older_hits == ["jan-1.txt", "jan-2.txt"]
 
 
+def test_execute_relative_date_ranges_accept_macro_endpoints(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    frozen_now = datetime(2026, 4, 23, 9, 30, tzinfo=seoul)
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/last-week.txt",
+        512,
+        int(datetime(2026, 4, 14, 12, 0, tzinfo=seoul).timestamp()),
+        "txt",
+        body_text="last week",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/yesterday.txt",
+        512,
+        int(datetime(2026, 4, 22, 12, 0, tzinfo=seoul).timestamp()),
+        "txt",
+        body_text="yesterday",
+    )
+    _insert_file(
+        tmp_db,
+        3,
+        "/workspace/today.txt",
+        512,
+        int(datetime(2026, 4, 23, 12, 0, tzinfo=seoul).timestamp()),
+        "txt",
+        body_text="today",
+    )
+    _insert_file(
+        tmp_db,
+        4,
+        "/workspace/tomorrow.txt",
+        512,
+        int(datetime(2026, 4, 24, 12, 0, tzinfo=seoul).timestamp()),
+        "txt",
+        body_text="tomorrow",
+    )
+    tmp_db.commit()
+
+    between_hits = [hit.file.name for hit in search(tmp_db, "date:yesterday..today", limit=10).hits]
+    open_end_hits = [hit.file.name for hit in search(tmp_db, "date:..today", limit=10).hits]
+    open_start_hits = [hit.file.name for hit in search(tmp_db, "date:last-week..", limit=10).hits]
+    mixed_hits = [
+        hit.file.name for hit in search(tmp_db, "date:2026-04-22..today", limit=10).hits
+    ]
+
+    assert set(between_hits) == {"yesterday.txt", "today.txt"}
+    assert set(open_end_hits) == {"last-week.txt", "yesterday.txt", "today.txt"}
+    assert set(open_start_hits) == {"last-week.txt", "yesterday.txt", "today.txt", "tomorrow.txt"}
+    assert set(mixed_hits) == {"yesterday.txt", "today.txt"}
+
+
 def test_execute_datetime_literal_and_range_queries(tmp_db: sqlite3.Connection) -> None:
     base = int(datetime(2026, 1, 3, 9, 15, 30, tzinfo=UTC).timestamp())
     _insert_file(tmp_db, 1, "/workspace/exact-second.txt", 512, base, "txt", body_text="exact")

@@ -56,8 +56,7 @@ def _parse_iso_endpoint(value: str) -> DateRange:
         raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
 
 
-def parse_date_range(value: str) -> DateRange:
-    today = datetime.now().astimezone().date()
+def _parse_relative_endpoint(value: str, today: date) -> DateRange | None:
     if value == "today":
         return _day_bounds(today)
     if value == "yesterday":
@@ -77,16 +76,31 @@ def parse_date_range(value: str) -> DateRange:
         this_month = _month_start(today)
         last_month = _month_start(this_month - timedelta(days=1))
         return DateRange(start=_day_bounds(last_month).start, end=_day_bounds(this_month).start)
+    return None
+
+
+def _parse_endpoint(value: str, today: date) -> DateRange:
+    relative = _parse_relative_endpoint(value, today)
+    if relative is not None:
+        return relative
+    return _parse_iso_endpoint(value)
+
+
+def parse_date_range(value: str) -> DateRange:
+    today = datetime.now().astimezone().date()
+    relative = _parse_relative_endpoint(value, today)
+    if relative is not None:
+        return relative
     if ".." in value:
         left, right = (part.strip() for part in value.split("..", 1))
         if not left and not right:
             raise QuerySyntaxError(f"invalid date literal: {value}", 0)
         if not left:
-            return DateRange(end=_parse_iso_endpoint(right).end)
+            return DateRange(end=_parse_endpoint(right, today).end)
         if not right:
-            return DateRange(start=_parse_iso_endpoint(left).start)
-        left_range = _parse_iso_endpoint(left)
-        right_range = _parse_iso_endpoint(right)
+            return DateRange(start=_parse_endpoint(left, today).start)
+        left_range = _parse_endpoint(left, today)
+        right_range = _parse_endpoint(right, today)
         if (right_range.start or 0) < (left_range.start or 0):
             left_range, right_range = right_range, left_range
         return DateRange(start=left_range.start, end=right_range.end)
