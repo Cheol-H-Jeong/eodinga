@@ -49,6 +49,16 @@ Recommended order:
 2. `pytest -q tests` once the candidate release branch is assembled.
 3. `ruff`, `pyright`, GUI smoke, packaging dry-runs, and workflow lint after the full test pass.
 
+## Artifact Inventory
+
+Before tagging, know which release inputs this repository expects to exist:
+
+- `README.md`, `docs/ACCEPTANCE.md`, `docs/ARCHITECTURE.md`, `docs/CONTRIBUTING.md`, `docs/PERFORMANCE.md`, and `docs/RELEASE.md` as the shipped operator docs set.
+- `docs/man/eodinga.1` as the generated CLI reference derived from the current argparse surface.
+- `docs/screenshots/*.png` as offscreen-rendered evidence of the current Qt surfaces.
+- `packaging/dist/` dry-run manifests for Windows, AppImage, and Debian audits.
+- `.github/workflows/release-windows.yml` and `.github/workflows/release-linux.yml` as linted release automation inputs.
+
 ## Verify Shipped Docs
 
 Before tagging, confirm:
@@ -107,6 +117,12 @@ Collision check example:
 ```bash
 if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 ```
+
+## Collision And Retag Rules
+
+- Never move or delete an existing local release tag just to reuse the version number.
+- If another worker landed the same candidate version first, fetch tags again, pick the next unused patch number, and update the release metadata commit instead of force-retagging.
+- If the final gate fails after the metadata commit, fix the issue in a new commit and recreate the local tag on the new tip only after the gate is green again.
 
 ## Handoff Checklist
 

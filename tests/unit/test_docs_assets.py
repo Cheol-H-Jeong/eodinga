@@ -108,8 +108,11 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Startup Recovery" in architecture
     assert "## Rebuild Sequence" in architecture
     assert "## Query Execution" in architecture
+    assert "## Search Decision Path" in architecture
     assert "## Live Update Sequence" in architecture
     assert "## Documentation Asset Flow" in architecture
+    assert "## State Ownership" in architecture
+    assert "## Failure Domains" in architecture
     assert "## Operator Debug Path" in architecture
     assert "## Packaging Surfaces" in architecture
     assert "compressed changelog" in architecture
@@ -130,8 +133,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "scripts/generate_manpage.py" in contributing
     assert "scripts/render_docs_screenshots.py" in contributing
     assert "## Docs Refresh Order" in contributing
+    assert "## Docs Round Checklist" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
+    assert "## Review Checklist" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
     assert "The final release commit for a round should carry the version bump" in contributing
 
@@ -168,10 +173,12 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Pick The Version" in release
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
+    assert "## Artifact Inventory" in release
     assert "## Verify Shipped Docs" in release
     assert "## Worker Handoff Rules" in release
     assert "## Docs-Only Rounds" in release
     assert "## Cut The Local Release" in release
+    assert "## Collision And Retag Rules" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release
     assert "python scripts/generate_manpage.py" in release

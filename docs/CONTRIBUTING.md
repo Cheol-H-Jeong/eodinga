@@ -127,6 +127,17 @@ When a change affects the shipped contract, refresh docs in this order:
 4. Re-run `pytest -q tests/unit/test_docs_assets.py` before the broader gate.
 5. Re-run any matching packaging dry run if the docs now describe packaging behavior or artifacts differently.
 
+## Docs Round Checklist
+
+Use this when the round is docs-only but still release-bearing:
+
+1. Update the top-level contract in `README.md`.
+2. Update the deeper guide under `docs/` that explains the same surface in more detail.
+3. Refresh `docs/man/eodinga.1` or screenshots if the documented CLI or UI changed.
+4. Re-run `pytest -q tests/unit/test_docs_assets.py`.
+5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
+6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
+
 ## Test Selection Guide
 
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`
@@ -143,3 +154,11 @@ When a change affects the shipped contract, refresh docs in this order:
 - Docs-only rounds still require a changelog entry and local tag when the shipped contract changed.
 - If a change cannot stay inside one theme or one logical commit, stop and split it before proceeding.
 - The final release commit for a round should carry the version bump, changelog entry, and local tag together so earlier feature or docs commits remain easy to review and rebase.
+
+## Review Checklist
+
+- The documented commands are single-shot and non-interactive where possible.
+- Release docs do not describe artifacts or paths that the packaging dry runs do not actually produce.
+- README examples use the current query surface and current operator names.
+- Derived docs assets are regenerated from code, not edited by hand.
+- The final release metadata commit contains only the version/changelog/tag cut unless a same-round asset refresh is required.

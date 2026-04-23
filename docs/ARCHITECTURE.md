@@ -151,6 +151,24 @@ raw query string
                                             +--> normalized result objects
 ```
 
+## Search Decision Path
+
+```text
+query term or operator
+    |
+    +--> can SQLite/FTS answer it directly?
+    |       |
+    |       +--> yes: compile to SQL predicate or FTS probe
+    |       |
+    |       +--> no: keep as Python fallback predicate
+    |
+    +--> fetch reduced candidate set
+    |
+    +--> run fallback predicates for regex / mixed path-content / negation edges
+    |
+    +--> fuse scores and emit normalized hits
+```
+
 ## Observability Flow
 
 ```text
@@ -182,12 +200,29 @@ runtime surface changes
 - `scripts/render_docs_screenshots.py` renders offscreen Qt widgets through `eodinga.gui.docs`, keeping screenshots tied to real UI state instead of mock assets.
 - `tests/unit/test_docs_assets.py` pins the presence of the shipped sections and checks that the derived man page still matches the checked-in artifact.
 
+## State Ownership
+
+| State | Owner | Why it lives there |
+| --- | --- | --- |
+| Indexed file metadata | `files` table | Canonical root/path/timestamp/size state for every query surface. |
+| Lexical path lookup | `paths_fts` | Fast candidate generation for filename and path matches. |
+| Parsed document text | `content_fts` + `content_map` | Stable full-text rows for content phrases and parser-backed search. |
+| Runtime settings | config file under platform app dirs | Keeps user-visible launcher/gui behavior outside the index. |
+| Derived docs assets | `docs/man/` and `docs/screenshots/` | Versioned release inputs audited by tests instead of ad-hoc notes. |
+
 ## Operational Model
 
 - Cold start is walker-driven: discover roots, write metadata in bulk, then parse supported documents for content rows.
 - Steady state is watcher-driven: coalesced filesystem events reuse the same writer path and preserve FTS row stability for changed documents.
 - Search is read-only against the index: CLI, launcher, and embedded search tab all call the same compiler and executor stack.
 - Packaging keeps the app local-first: no network services, no daemon dependency outside the local watchdog flow, and no writes outside config/database state.
+
+## Failure Domains
+
+- Walker failures should stay scoped to the current root entry; unreadable files are skipped without widening writes outside the index path.
+- Writer and storage failures are handled at the database boundary so startup recovery can reason about `.next`, `.recover`, and stale WAL artifacts explicitly.
+- Query fallback failures must not mutate state; they only affect one search invocation and are observable through `eodinga stats --json` and runtime logs.
+- Docs or packaging drift is treated as a release-input failure, caught by `tests/unit/test_docs_assets.py` and the packaging dry-run audits before a tag is cut.
 
 ## Live Update Sequence
 
