@@ -101,7 +101,7 @@ def _discover_runtime_modules(source_root: Path) -> list[str]:
         module_name = _module_name_for_path(source_path, source_root)
         current_package = module_name if source_path.name == "__init__.py" else module_name.rpartition(".")[0]
         module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
-        for node in ast.walk(module):
+        for node in _iter_runtime_nodes(module):
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if alias.name.startswith("eodinga.") and _module_exists(alias.name, PROJECT_ROOT):
@@ -127,7 +127,8 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
         module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
         import_module_aliases = {"import_module"}
         importlib_module_aliases = {"importlib"}
-        for node in ast.walk(module):
+        string_constants = _string_constant_assignments(module)
+        for node in _iter_runtime_nodes(module):
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     if alias.name == "importlib":
@@ -136,7 +137,7 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
                 for alias in node.names:
                     if alias.name == "import_module":
                         import_module_aliases.add(alias.asname or alias.name)
-        for node in ast.walk(module):
+        for node in _iter_runtime_nodes(module):
             if not isinstance(node, ast.Call):
                 continue
             if isinstance(node.func, ast.Name):
@@ -150,11 +151,10 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
                     continue
             else:
                 continue
-            if not node.args or not isinstance(node.args[0], ast.Constant):
+            module_name = _call_string_argument(node, string_constants)
+            if module_name is None:
                 continue
-            if not isinstance(node.args[0].value, str):
-                continue
-            discovered.add(node.args[0].value)
+            discovered.add(module_name)
     return sorted(discovered)
 
 
@@ -167,7 +167,7 @@ def _discover_source_hidden_imports(source_root: Path) -> list[str]:
     discovered: set[str] = set()
     for source_path in source_root.rglob("*.py"):
         module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
-        for node in ast.walk(module):
+        for node in _iter_runtime_nodes(module):
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     module_name = alias.name
@@ -190,6 +190,54 @@ def _discover_source_hidden_imports(source_root: Path) -> list[str]:
                     if spec is not None:
                         discovered.add(candidate)
     return sorted(discovered)
+
+
+def _is_type_checking_reference(node: ast.AST) -> bool:
+    return isinstance(node, ast.Name) and node.id == "TYPE_CHECKING" or (
+        isinstance(node, ast.Attribute)
+        and node.attr == "TYPE_CHECKING"
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "typing"
+    )
+
+
+def _iter_runtime_nodes(node: ast.AST):
+    yield node
+    if isinstance(node, ast.If):
+        if _is_type_checking_reference(node.test):
+            for child in node.orelse:
+                yield from _iter_runtime_nodes(child)
+            return
+        if isinstance(node.test, ast.UnaryOp) and isinstance(node.test.op, ast.Not) and _is_type_checking_reference(node.test.operand):
+            for child in node.body:
+                yield from _iter_runtime_nodes(child)
+            return
+    for child in ast.iter_child_nodes(node):
+        yield from _iter_runtime_nodes(child)
+
+
+def _string_constant_assignments(module: ast.AST) -> dict[str, str]:
+    assignments: dict[str, str] = {}
+    for node in _iter_runtime_nodes(module):
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                assignments[node.targets[0].id] = node.value.value
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+                assignments[node.target.id] = node.value.value
+    return assignments
+
+
+def _call_string_argument(node: ast.Call, string_constants: dict[str, str]) -> str | None:
+    if node.args:
+        argument = node.args[0]
+    else:
+        argument = next((keyword.value for keyword in node.keywords if keyword.arg == "name"), None)
+    if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+        return argument.value
+    if isinstance(argument, ast.Name):
+        return string_constants.get(argument.id)
+    return None
 
 
 def _discover_package_datas(project_root: Path) -> list[tuple[str, str]]:

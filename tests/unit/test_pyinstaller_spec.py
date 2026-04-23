@@ -89,9 +89,13 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
                 "import importlib as il",
                 "from importlib import import_module as load_module",
                 "",
+                'module_name = "package.delta"',
+                'kw_name = "package.epsilon"',
                 'il.import_module("package.alpha")',
                 'load_module("package.beta")',
                 '__import__("package.gamma")',
+                "load_module(module_name)",
+                "il.import_module(name=kw_name)",
                 "",
             ]
         ),
@@ -100,4 +104,44 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
 
     discovered = discover_hidden_imports(source_root)
 
-    assert discovered == ["package.alpha", "package.beta", "package.gamma"]
+    assert discovered == [
+        "package.alpha",
+        "package.beta",
+        "package.delta",
+        "package.epsilon",
+        "package.gamma",
+    ]
+
+
+def test_pyinstaller_spec_ignores_type_checking_only_imports(tmp_path: Path) -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_hidden_imports = cast(Callable[[Path], list[str]], namespace["_discover_hidden_imports"])
+    discover_source_hidden_imports = cast(Callable[[Path], list[str]], namespace["_discover_source_hidden_imports"])
+
+    source_root = tmp_path / "eodinga"
+    source_root.mkdir()
+    (source_root / "__init__.py").write_text("", encoding="utf-8")
+    (source_root / "runtime_only.py").write_text(
+        "\n".join(
+            [
+                "import typing",
+                "from typing import TYPE_CHECKING",
+                "",
+                'runtime_name = "package.runtime"',
+                "if TYPE_CHECKING:",
+                '    __import__("package.type_only")',
+                "if typing.TYPE_CHECKING:",
+                "    import pathspec",
+                "if not TYPE_CHECKING:",
+                "    __import__(runtime_name)",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert discover_hidden_imports(source_root) == ["package.runtime"]
+    assert discover_source_hidden_imports(source_root) == []
