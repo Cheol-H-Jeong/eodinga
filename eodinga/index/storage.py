@@ -132,10 +132,11 @@ def _fsync_directory(path: Path) -> None:
 
 
 def _unlink_if_exists(path: Path) -> bool:
+    existed = path.exists()
     try:
         path.unlink()
     except FileNotFoundError:
-        return False
+        return existed
     return True
 
 

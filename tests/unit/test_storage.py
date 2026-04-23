@@ -169,10 +169,35 @@ def test_cleanup_index_files_tolerates_concurrent_missing_files(
 
     monkeypatch.setattr(Path, "unlink", flaky_unlink)
 
-    assert storage_module._cleanup_index_files(path) is False
+    assert storage_module._cleanup_index_files(path) is True
     assert not path.exists()
     assert not wal_path.exists()
     assert not shm_path.exists()
+
+
+def test_cleanup_index_files_fsyncs_parent_directory_when_cleanup_races_still_removed_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "index.db"
+    wal_path = path.with_name("index.db-wal")
+    path.write_bytes(b"sqlite")
+    wal_path.write_bytes(b"wal")
+    calls: list[Path] = []
+    attempts: dict[Path, int] = {}
+    original_unlink = Path.unlink
+
+    def flaky_unlink(target: Path, *args: object, **kwargs: object) -> None:
+        attempts[target] = attempts.get(target, 0) + 1
+        if target in {path, wal_path} and attempts[target] == 1:
+            original_unlink(target, *args, **kwargs)
+            raise FileNotFoundError(target)
+        original_unlink(target, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+    monkeypatch.setattr("eodinga.index.storage._fsync_directory", lambda target: calls.append(target))
+
+    assert storage_module._cleanup_index_files(path, durable=True) is True
+    assert calls == [tmp_path]
 
 
 def test_copy_index_with_sidecars_fsyncs_promoted_sidecars(tmp_path: Path, monkeypatch) -> None:
