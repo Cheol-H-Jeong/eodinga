@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.550 - 2026-04-23
+
+- Expanded the README operator contract with a capability matrix, validation-path table, and explicit docs-asset workflow so contributors can tell which extras and checks are required for each surface.
+- Deepened the architecture guide with query ownership, query-visibility boundaries, release-asset provenance, and an operator triage map, making it easier to trace surprising search or packaging behavior to the right subsystem.
+- Tightened contributor and release docs with a round-closeout matrix, metadata-commit input checklist, and a shorter worker closeout path, so docs-heavy rounds can still cut consistent release metadata without guessing at validation order.
+
 ## 0.1.540 - 2026-04-23
 
 - Normalized remapped launcher hotkeys into a stable canonical form, so spaced or alias-heavy input like `Control + Alt + K` now rebinds, persists, and displays as `ctrl+alt+k`.
