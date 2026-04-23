@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.203 - 2026-04-23
+
+- Expanded the PyInstaller spec to discover dynamic hidden imports loaded through `importlib.import_module(...)`, aliased `importlib` module handles, and direct `__import__(...)` calls, reducing manual packaging drift for optional runtime modules.
+- Tightened the packaging audit validators so Linux AppImage and Debian dry runs now fail if project/package versions diverge or artifact filenames stop matching the expected versioned release naming scheme.
+- Hardened the Windows installer audit around uninstall behavior, explicitly verifying that purge remains opt-in and only targets `%LOCALAPPDATA%\\eodinga` so roaming configuration is preserved by default.
+
 ## 0.1.197 - 2026-04-23
 
 - Bounded watcher delivery with explicit backpressure, so a full consumer queue now blocks producers visibly instead of growing silently under load; added metrics and regressions for both the pressure path and its observability surface.
