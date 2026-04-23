@@ -32,6 +32,8 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
         "Xlib.X",
         "Xlib.XK",
         "Xlib.display",
+        "eodinga.launcher.hotkey_linux",
+        "eodinga.launcher.hotkey_win",
         "pynput.keyboard",
     ]
     assert set(required_hiddenimports).issubset(set(hiddenimports))
@@ -91,11 +93,17 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
                 "",
                 'module_name = "package.delta"',
                 'kw_name = "package.epsilon"',
+                "def choose_module() -> str:",
+                '    return "package.zeta"',
+                "",
+                "selected_module = choose_module()",
                 'il.import_module("package.alpha")',
                 'load_module("package.beta")',
                 '__import__("package.gamma")',
                 "load_module(module_name)",
                 "il.import_module(name=kw_name)",
+                "load_module(selected_module)",
+                "load_module(choose_module())",
                 "",
             ]
         ),
@@ -110,6 +118,7 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
         "package.delta",
         "package.epsilon",
         "package.gamma",
+        "package.zeta",
     ]
 
 

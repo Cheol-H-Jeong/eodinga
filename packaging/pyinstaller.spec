@@ -127,7 +127,8 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
         module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
         import_module_aliases = {"import_module"}
         importlib_module_aliases = {"importlib"}
-        string_constants = _string_constant_assignments(module)
+        function_return_constants = _function_return_string_constants(module)
+        string_constants = _string_constant_assignments(module, function_return_constants)
         for node in _iter_runtime_nodes(module):
             if isinstance(node, ast.Import):
                 for alias in node.names:
@@ -151,10 +152,10 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
                     continue
             else:
                 continue
-            module_name = _call_string_argument(node, string_constants)
-            if module_name is None:
+            module_names = _call_string_arguments(node, string_constants, function_return_constants)
+            if not module_names:
                 continue
-            discovered.add(module_name)
+            discovered.update(module_names)
     return sorted(discovered)
 
 
@@ -216,28 +217,62 @@ def _iter_runtime_nodes(node: ast.AST):
         yield from _iter_runtime_nodes(child)
 
 
-def _string_constant_assignments(module: ast.AST) -> dict[str, str]:
-    assignments: dict[str, str] = {}
+def _string_constant_assignments(
+    module: ast.AST,
+    function_return_constants: dict[str, set[str]],
+) -> dict[str, set[str]]:
+    assignments: dict[str, set[str]] = {}
     for node in _iter_runtime_nodes(module):
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
             if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
-                assignments[node.targets[0].id] = node.value.value
+                assignments[node.targets[0].id] = {node.value.value}
+            elif isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name):
+                resolved = function_return_constants.get(node.value.func.id)
+                if resolved:
+                    assignments[node.targets[0].id] = set(resolved)
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
             if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
-                assignments[node.target.id] = node.value.value
+                assignments[node.target.id] = {node.value.value}
+            elif isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name):
+                resolved = function_return_constants.get(node.value.func.id)
+                if resolved:
+                    assignments[node.target.id] = set(resolved)
     return assignments
 
 
-def _call_string_argument(node: ast.Call, string_constants: dict[str, str]) -> str | None:
+def _function_return_string_constants(module: ast.AST) -> dict[str, set[str]]:
+    constants: dict[str, set[str]] = {}
+    for node in _iter_runtime_nodes(module):
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        values = {
+            child.value.value
+            for child in ast.walk(node)
+            if isinstance(child, ast.Return)
+            and isinstance(child.value, ast.Constant)
+            and isinstance(child.value.value, str)
+        }
+        if values:
+            constants[node.name] = values
+    return constants
+
+
+def _call_string_arguments(
+    node: ast.Call,
+    string_constants: dict[str, set[str]],
+    function_return_constants: dict[str, set[str]],
+) -> set[str]:
     if node.args:
         argument = node.args[0]
     else:
         argument = next((keyword.value for keyword in node.keywords if keyword.arg == "name"), None)
     if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
-        return argument.value
+        return {argument.value}
     if isinstance(argument, ast.Name):
-        return string_constants.get(argument.id)
-    return None
+        return set(string_constants.get(argument.id, set()))
+    if isinstance(argument, ast.Call) and isinstance(argument.func, ast.Name):
+        return function_return_constants.get(argument.func.id, set())
+    return set()
 
 
 def _discover_package_datas(project_root: Path) -> list[tuple[str, str]]:
