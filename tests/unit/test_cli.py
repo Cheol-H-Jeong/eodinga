@@ -522,9 +522,13 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["crash_types"] == {}
     assert payload["parser_activity"] == {}
     assert payload["watcher_event_types"] == {}
-    assert len(payload["recent_snapshots"]) == 1
-    assert payload["recent_snapshots"][0]["name"] == "command.search"
+    assert [entry["name"] for entry in payload["recent_snapshots"]] == [
+        "command.search",
+        "command.completed",
+    ]
     assert payload["recent_snapshots"][0]["payload"]["query"] == "duplicate"
+    assert payload["recent_snapshots"][1]["payload"]["command"] == "search"
+    assert payload["recent_snapshots"][1]["payload"]["exit_code"] == 0
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
     assert payload["log_rotation"] == "5 MB"
@@ -678,8 +682,14 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["index_batch_size_histogram"]["count"] >= 1
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
         "command.index",
+        "command.completed",
         "command.search",
+        "command.completed",
     ]
+    assert payload["recent_snapshots"][1]["payload"]["command"] == "index"
+    assert payload["recent_snapshots"][1]["payload"]["exit_code"] == 0
+    assert payload["recent_snapshots"][3]["payload"]["command"] == "search"
+    assert payload["recent_snapshots"][3]["payload"]["exit_code"] == 0
 
 
 def test_stats_json_structures_parser_success_and_skip_counts(tmp_path: Path, capsys, monkeypatch) -> None:

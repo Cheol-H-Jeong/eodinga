@@ -345,6 +345,14 @@ def _run_command(args: argparse.Namespace) -> int:
     if exit_code == 0:
         increment_counter("commands_completed", command=command)
         increment_counter(f"commands.{command}.completed")
+        record_snapshot(
+            "command.completed",
+            {
+                "command": command,
+                "exit_code": exit_code,
+                "elapsed_ms": round(elapsed_ms, 3),
+            },
+        )
     elif exit_code != 130:
         increment_counter("commands_failed", command=command)
         increment_counter(f"commands.{command}.failed")
