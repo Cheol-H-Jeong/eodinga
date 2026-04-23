@@ -100,6 +100,8 @@ eodinga stats --json
 eodinga doctor
 ```
 
+The full CLI manual, including command synopsis, option summaries, and operator-facing examples, lives in [docs/eodinga.1.md](/tmp/eodinga-parallel/worker-4/docs/eodinga.1.md).
+
 ## Query DSL
 
 - `report` : plain lexical term
@@ -197,6 +199,7 @@ If search looks stale, run `eodinga stats` to confirm the active database path, 
 ## Docs Map
 
 - [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md): query cheatsheet and operator notes.
+- [docs/eodinga.1.md](/tmp/eodinga-parallel/worker-4/docs/eodinga.1.md): CLI manual page for `index`, `watch`, `search`, `stats`, `gui`, `doctor`, and `version`.
 - [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md): SPEC §9 release checklist and validation commands.
 - [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md): runtime flow, index lifecycle, and packaging surfaces.
 - [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, current baselines, and profiling workflow.

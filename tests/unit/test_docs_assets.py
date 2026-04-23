@@ -27,6 +27,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     readme = (root / "README.md").read_text(encoding="utf-8")
     acceptance = (root / "docs" / "ACCEPTANCE.md").read_text(encoding="utf-8")
     architecture = (root / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
+    cli_manual = (root / "docs" / "eodinga.1.md").read_text(encoding="utf-8")
     contributing = (root / "docs" / "CONTRIBUTING.md").read_text(encoding="utf-8")
     dsl = (root / "docs" / "DSL.md").read_text(encoding="utf-8")
     performance = (root / "docs" / "PERFORMANCE.md").read_text(encoding="utf-8")
@@ -51,6 +52,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Release Process" in readme
     assert "linux-deb-dry-run" in readme
     assert "docs/DSL.md" in readme
+    assert "docs/eodinga.1.md" in readme
     assert "docs/ACCEPTANCE.md" in readme
     assert "docs/ARCHITECTURE.md" in readme
     assert "docs/CONTRIBUTING.md" in readme
@@ -60,6 +62,15 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "python packaging/build.py --target windows-dry-run" in readme
     assert "yamllint .github/workflows/release-windows.yml" in readme
     assert "rendered offscreen from the real Qt surfaces" in readme
+
+    assert "## Synopsis" in cli_manual
+    assert "eodinga index [--root ROOT] [--rebuild]" in cli_manual
+    assert "eodinga search [--json] [--limit LIMIT] [--root ROOT] query" in cli_manual
+    assert "## Commands" in cli_manual
+    assert "## Query Pointers" in cli_manual
+    assert "## Exit Status" in cli_manual
+    assert "date:this-month" in cli_manual
+    assert "regex:/todo|fixme/i" in cli_manual
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance
