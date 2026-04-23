@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.368 - 2026-04-23
+
+- Preserved the correct `root_id` during watcher-driven upserts by resolving incremental events against the watched root path instead of trusting the record loader's fallback.
+- Added unit coverage for created and cross-root moved watcher events so multi-root incremental indexing keeps file ownership aligned with the `roots` table.
+- Expanded integration coverage to verify real multi-root live updates, cross-root moves, and hot-restart reopen flows all keep search scope and stored root metadata synchronized within the 500ms watcher target.
+
 ## 0.1.365 - 2026-04-23
 
 - Cleaned leftover `.recover.partial*` and `.next.partial*` artifacts during interrupted-stage resume and startup open, so crash residue no longer survives into the next reopen path.
