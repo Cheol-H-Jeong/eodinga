@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.166 - 2026-04-23
+
+- Added a launcher preview pane beneath the result list so the selected hit now shows its full path and any indexed snippet without opening the file.
+- Kept preview fallbacks useful for non-content hits by surfacing a clear no-snippet message and the file extension when no indexed text is available.
+- Updated the launcher so hovering a result temporarily previews it without changing selection, then restores the selected preview when the pointer leaves the list.
+
 ## 0.1.161 - 2026-04-23
 
 - Expanded `date:` macros with `last-week` and `last-month`, and pinned their local-time behavior in compiler and executor regressions.
