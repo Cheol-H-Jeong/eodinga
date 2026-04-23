@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import shutil
 import subprocess
-import sys
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -25,6 +25,48 @@ INNO_GUI_DIST_TOKEN = "@@GUI_DIST_NAME@@"
 INNO_CLI_DIST_TOKEN = "@@CLI_DIST_NAME@@"
 INNO_GUI_EXE_TOKEN = "@@GUI_EXE_NAME@@"
 _INNO_APP_ID_PATTERN = re.compile(r"^\{\{[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}\}$")
+
+_BUILD_SUPPORT_SPEC = importlib.util.spec_from_file_location("_eodinga_packaging_build_support", PROJECT_ROOT / "packaging" / "_build_support.py")
+if _BUILD_SUPPORT_SPEC is None or _BUILD_SUPPORT_SPEC.loader is None:
+    raise RuntimeError("could not load packaging build support module")
+_build_support = importlib.util.module_from_spec(_BUILD_SUPPORT_SPEC)
+_BUILD_SUPPORT_SPEC.loader.exec_module(_build_support)
+
+_source_entries = _build_support.source_entries
+_contains_data_entry = _build_support.contains_data_entry
+_macro_value = _build_support.macro_value
+_validate_windows_audit = _build_support.validate_windows_audit
+_validate_linux_appimage_audit = _build_support.validate_linux_appimage_audit
+_validate_linux_deb_audit = _build_support.validate_linux_deb_audit
+_report_validation_errors = _build_support.report_validation_errors
+
+
+def _missing_required_commands(commands: list[str]) -> list[str]:
+    return sorted(command for command in commands if shutil.which(command) is None)
+
+
+def _preflight_required_commands(target: str, commands: list[str]) -> int:
+    missing = _missing_required_commands(commands)
+    if not missing:
+        return 0
+    return _report_validation_errors(
+        target,
+        [f"required build command is missing from PATH: {command}" for command in missing],
+    )
+
+
+def _missing_required_files(paths: list[Path]) -> list[Path]:
+    return _build_support.missing_required_files(paths)
+
+
+def _preflight_required_files(target: str, paths: list[Path]) -> int:
+    missing = _missing_required_files(paths)
+    if not missing:
+        return 0
+    return _report_validation_errors(
+        target,
+        [f"required packaging file is missing: {path}" for path in missing],
+    )
 
 
 def _read_project_version() -> str:
@@ -65,20 +107,11 @@ def _inno_contains(text: str, needle: str) -> bool:
     return needle in text
 
 
-def _source_entries(text: str) -> list[str]:
-    return re.findall(r'Source:\s*"([^"]+)"', text)
-
-
-def _macro_value(text: str, macro_name: str) -> str | None:
-    match = re.search(rf'^#define\s+{re.escape(macro_name)}\s+"([^"]+)"', text, flags=re.MULTILINE)
-    if match is None:
-        return None
-    return match.group(1)
-
-
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     spec_namespace = _load_windows_spec_namespace()
     inno_text = INNO_SCRIPT.read_text(encoding="utf-8")
+    datas = spec_namespace.get("DATAS", [])
+    i18n_dir = PROJECT_ROOT / "eodinga" / "i18n"
     app_id = _macro_value(inno_text, "AppId")
     app_version = _macro_value(inno_text, "AppVersion")
     cli_dist_name = str(spec_namespace.get("CLI_DIST_NAME", "eodinga-cli"))
@@ -121,7 +154,12 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "required_hiddenimports": spec_namespace.get("REQUIRED_HIDDEN_IMPORTS", []),
             "discovered_source_hiddenimports": spec_namespace.get("DISCOVERED_SOURCE_HIDDEN_IMPORTS", []),
             "hiddenimports": spec_namespace.get("HIDDEN_IMPORTS", []),
-            "datas": spec_namespace.get("DATAS", []),
+            "datas": datas,
+            "datas_include_i18n": all(
+                _contains_data_entry(datas, i18n_dir / locale_file, "eodinga/i18n")
+                for locale_file in ("en.json", "ko.json")
+            ),
+            "datas_include_license": _contains_data_entry(datas, PROJECT_ROOT / "LICENSE", "."),
         },
         "inno_setup": {
             "path": str(INNO_SCRIPT),
@@ -139,6 +177,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "rendered_source_entries_match_pyinstaller_dist": _source_entries(rendered_text) == rendered_source_entries,
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
             "contains_user_install_dir": _inno_contains(rendered_text, r"DefaultDirName={userappdata}\eodinga"),
+            "contains_license_file": _inno_contains(rendered_text, "LicenseFile=LICENSE"),
             "contains_rendered_uninstall_display_icon": _inno_contains(
                 rendered_text,
                 f"UninstallDisplayIcon={{app}}\\{gui_exe_name}",
@@ -166,6 +205,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "purge_prompt_is_opt_in": "MB_YESNO" in rendered_text and "if MsgBox(" in rendered_text and "= IDYES then" in rendered_text,
             "purge_targets_local_data_dir_only": r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);" in rendered_text
             and "{appdata}" not in rendered_text,
+            "rendered_exists": rendered_path.exists(),
         },
     }
 
@@ -180,159 +220,13 @@ def _write_audit(payload: dict[str, Any]) -> Path:
 def _load_audit(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
-
-def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
-    errors: list[str] = []
-    if not payload.get("version_matches_package"):
-        errors.append("project and package versions do not match")
-    spec_payload = payload.get("pyinstaller_spec", {})
-    if not spec_payload.get("exists"):
-        errors.append("PyInstaller spec is missing")
-    if not spec_payload.get("hiddenimports"):
-        errors.append("PyInstaller hidden imports are empty")
-    discovered_source_hiddenimports = spec_payload.get("discovered_source_hiddenimports", [])
-    if not discovered_source_hiddenimports:
-        errors.append("PyInstaller source-derived hidden imports are empty")
-    elif not set(discovered_source_hiddenimports).issubset(set(spec_payload.get("hiddenimports", []))):
-        errors.append("PyInstaller hidden imports no longer include the source-derived modules")
-    if not spec_payload.get("datas"):
-        errors.append("PyInstaller data files are empty")
-    inno_payload = payload.get("inno_setup", {})
-    required_flags = {
-        "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
-        "app_version_uses_template": "Inno AppVersion macro no longer uses the template token",
-        "source_entries_match_pyinstaller_dist": "Inno source entries drifted from PyInstaller dist names",
-        "rendered_source_entries_match_pyinstaller_dist": "Rendered Inno source entries drifted from PyInstaller dist names",
-        "contains_rendered_uninstall_display_icon": "Rendered Inno uninstall icon does not point at the GUI executable",
-        "contains_start_menu_shortcut": "Rendered Inno start menu shortcut is missing",
-        "contains_postinstall_launch": "Rendered Inno postinstall launch action is missing",
-        "contains_autostart_registry": "Inno autostart registry entry is missing",
-        "rendered_autostart_registry_matches_gui_exe": "Rendered Inno autostart registry entry does not point at the GUI executable",
-        "contains_uninstall_purge_prompt": "Inno uninstall purge prompt is missing",
-        "purge_prompt_is_opt_in": "Inno uninstall purge prompt is no longer opt-in",
-        "purge_targets_local_data_dir_only": "Inno uninstall purge path no longer preserves roaming config by default",
-    }
-    for key, message in required_flags.items():
-        if not inno_payload.get(key):
-            errors.append(message)
-    return errors
-
-
-def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str, package_version: str) -> list[str]:
-    errors: list[str] = []
-    if project_version != package_version:
-        errors.append("project and package versions do not match")
-    if payload.get("version") != package_version:
-        errors.append("AppImage audit version does not match the package version")
-    archive_path = payload.get("archive")
-    expected_archive_name = f"eodinga-{package_version}-linux-appdir.tar.gz"
-    if Path(str(archive_path)).name != expected_archive_name:
-        errors.append("AppImage archive filename does not match the package version")
-    recipe_payload = payload.get("recipe", {})
-    icon_payload = payload.get("icon", {})
-    apprun_payload = payload.get("apprun", {})
-    launcher_payload = payload.get("launcher", {})
-    required_flags = [
-        (recipe_payload.get("exists"), "AppImage recipe is missing"),
-        (recipe_payload.get("contains_version_template"), "AppImage recipe no longer uses the version template"),
-        (recipe_payload.get("rendered_exists"), "Rendered AppImage recipe is missing"),
-        (recipe_payload.get("rendered_version_matches_package"), "Rendered AppImage recipe version does not match the package version"),
-        (recipe_payload.get("references_desktop_entry"), "AppImage recipe no longer references the desktop entry"),
-        (recipe_payload.get("references_icon_asset"), "AppImage recipe no longer references the icon asset"),
-        (recipe_payload.get("launches_gui"), "AppImage recipe no longer launches the GUI target"),
-        (icon_payload.get("exists"), "AppImage icon asset is missing from the staged AppDir"),
-        (icon_payload.get("diricon_exists"), "AppImage .DirIcon is missing"),
-        (icon_payload.get("desktop_icon_matches_asset"), "AppImage desktop icon no longer matches the shipped asset"),
-        (apprun_payload.get("is_executable"), "AppImage AppRun is not executable"),
-        (apprun_payload.get("launches_gui"), "AppImage AppRun no longer launches the GUI target"),
-        (launcher_payload.get("is_executable"), "AppImage launcher shim is not executable"),
-        (launcher_payload.get("executes_python_module"), "AppImage launcher shim no longer executes the Python module"),
-    ]
-    for ok, message in required_flags:
-        if not ok:
-            errors.append(message)
-    return errors
-
-
-def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, package_version: str) -> list[str]:
-    errors: list[str] = []
-    if project_version != package_version:
-        errors.append("project and package versions do not match")
-    if payload.get("version") != package_version:
-        errors.append("Debian audit version does not match the package version")
-    control_payload = payload.get("control", {})
-    control_template_payload = payload.get("debian_control_template", {})
-    desktop_payload = payload.get("desktop_entry", {})
-    icon_payload = payload.get("icon", {})
-    launcher_payload = payload.get("launcher", {})
-    docs_payload = payload.get("docs", {})
-    arch = payload.get("arch")
-    if control_payload.get("package") != "eodinga":
-        errors.append("Debian control package name drifted from eodinga")
-    if control_payload.get("version") != package_version:
-        errors.append("Debian control version does not match the package version")
-    expected_archive_name = f"eodinga_{package_version}_{arch}_debroot.tar.gz"
-    if Path(str(payload.get("archive"))).name != expected_archive_name:
-        errors.append("Debian dry-run archive filename does not match the package version and arch")
-    expected_deb_name = f"eodinga_{package_version}_{arch}.deb"
-    if Path(str(payload.get("deb_path"))).name != expected_deb_name:
-        errors.append("Debian package filename does not match the package version and arch")
-    required_flags = [
-        (control_template_payload.get("exists"), "Debian control template is missing"),
-        (control_template_payload.get("contains_version_template"), "Debian control template no longer uses the version token"),
-        (control_template_payload.get("contains_arch_template"), "Debian control template no longer uses the architecture token"),
-        (control_template_payload.get("rendered_exists"), "Rendered Debian control file is missing"),
-        (
-            control_template_payload.get("source") == "eodinga",
-            "Debian control template source package drifted from eodinga",
-        ),
-        (
-            control_template_payload.get("binary_package") == "eodinga",
-            "Debian control template binary package drifted from eodinga",
-        ),
-        (
-            control_template_payload.get("description") == control_payload.get("description"),
-            "Debian control template description drifted from the staged package",
-        ),
-        (desktop_payload.get("launches_gui"), "Debian desktop entry no longer launches the GUI command"),
-        (desktop_payload.get("icon_matches_package"), "Debian desktop entry icon no longer matches the packaged asset"),
-        (icon_payload.get("exists"), "Debian icon asset is missing from the package tree"),
-        (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),
-        (launcher_payload.get("is_executable"), "Debian launcher shim is not executable"),
-        (launcher_payload.get("executes_python_module"), "Debian launcher shim no longer executes the Python module"),
-        (docs_payload.get("license_exists"), "Debian package no longer ships the license"),
-        (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),
-        (docs_payload.get("changelog_has_current_release_heading"), "Debian package changelog no longer starts with the current release heading"),
-    ]
-    for ok, message in required_flags:
-        if not ok:
-            errors.append(message)
-    return errors
-
-
-def _report_validation_errors(target: str, errors: list[str]) -> int:
-    if not errors:
-        return 0
-    joined = "\n".join(f"- {error}" for error in errors)
-    print(f"{target} packaging audit failed:\n{joined}", file=sys.stderr)
-    return 1
-
-
-def _missing_required_commands(commands: list[str]) -> list[str]:
-    return sorted(command for command in commands if shutil.which(command) is None)
-
-
-def _preflight_required_commands(target: str, commands: list[str]) -> int:
-    missing = _missing_required_commands(commands)
-    if not missing:
-        return 0
-    return _report_validation_errors(
-        target,
-        [f"required build command is missing from PATH: {command}" for command in missing],
-    )
-
-
 def _run_windows_dry_run() -> int:
+    preflight = _preflight_required_files(
+        "windows-dry-run",
+        [WINDOWS_SPEC, INNO_SCRIPT, PROJECT_ROOT / "LICENSE", PROJECT_ROOT / "eodinga" / "i18n" / "en.json", PROJECT_ROOT / "eodinga" / "i18n" / "ko.json"],
+    )
+    if preflight != 0:
+        return preflight
     version = _read_project_version()
     package_version = _read_package_version()
     payload = _audit_windows_inputs(version, package_version)
@@ -344,6 +238,12 @@ def _run_windows() -> int:
     preflight = _preflight_required_commands("windows", ["pyinstaller", "iscc"])
     if preflight != 0:
         return preflight
+    file_preflight = _preflight_required_files(
+        "windows",
+        [WINDOWS_SPEC, INNO_SCRIPT, PROJECT_ROOT / "LICENSE", PROJECT_ROOT / "eodinga" / "i18n" / "en.json", PROJECT_ROOT / "eodinga" / "i18n" / "ko.json"],
+    )
+    if file_preflight != 0:
+        return file_preflight
     version = _read_project_version()
     package_version = _read_package_version()
     payload = _audit_windows_inputs(version, package_version)
@@ -356,6 +256,12 @@ def _run_linux_appimage_dry_run() -> int:
     preflight = _preflight_required_commands("linux-appimage-dry-run", ["bash", "python3", "tar"])
     if preflight != 0:
         return preflight
+    file_preflight = _preflight_required_files(
+        "linux-appimage-dry-run",
+        [APPIMAGE_SCRIPT, PROJECT_ROOT / "packaging" / "linux" / "appimage-builder.yml", APPIMAGE_DESKTOP, PROJECT_ROOT / "packaging" / "linux" / "eodinga.svg"],
+    )
+    if file_preflight != 0:
+        return file_preflight
     result = subprocess.run(
         ["bash", str(APPIMAGE_SCRIPT), "--dry-run"],
         cwd=PROJECT_ROOT,
@@ -376,6 +282,12 @@ def _run_linux_appimage() -> int:
     preflight = _preflight_required_commands("linux-appimage", ["bash", "python3", "tar"])
     if preflight != 0:
         return preflight
+    file_preflight = _preflight_required_files(
+        "linux-appimage",
+        [APPIMAGE_SCRIPT, PROJECT_ROOT / "packaging" / "linux" / "appimage-builder.yml", APPIMAGE_DESKTOP, PROJECT_ROOT / "packaging" / "linux" / "eodinga.svg"],
+    )
+    if file_preflight != 0:
+        return file_preflight
     result = subprocess.run(
         ["bash", str(APPIMAGE_SCRIPT)],
         cwd=PROJECT_ROOT,
@@ -396,6 +308,12 @@ def _run_linux_deb_dry_run() -> int:
     preflight = _preflight_required_commands("linux-deb-dry-run", ["bash", "python3", "tar"])
     if preflight != 0:
         return preflight
+    file_preflight = _preflight_required_files(
+        "linux-deb-dry-run",
+        [DEB_SCRIPT, PROJECT_ROOT / "packaging" / "linux" / "debian" / "control", APPIMAGE_DESKTOP, PROJECT_ROOT / "packaging" / "linux" / "eodinga.svg", PROJECT_ROOT / "LICENSE", PROJECT_ROOT / "CHANGELOG.md"],
+    )
+    if file_preflight != 0:
+        return file_preflight
     result = subprocess.run(
         ["bash", str(DEB_SCRIPT), "--dry-run"],
         cwd=PROJECT_ROOT,
@@ -416,6 +334,12 @@ def _run_linux_deb() -> int:
     preflight = _preflight_required_commands("linux-deb", ["bash", "dpkg-deb", "python3", "tar"])
     if preflight != 0:
         return preflight
+    file_preflight = _preflight_required_files(
+        "linux-deb",
+        [DEB_SCRIPT, PROJECT_ROOT / "packaging" / "linux" / "debian" / "control", APPIMAGE_DESKTOP, PROJECT_ROOT / "packaging" / "linux" / "eodinga.svg", PROJECT_ROOT / "LICENSE", PROJECT_ROOT / "CHANGELOG.md"],
+    )
+    if file_preflight != 0:
+        return file_preflight
     result = subprocess.run(
         ["bash", str(DEB_SCRIPT)],
         cwd=PROJECT_ROOT,
