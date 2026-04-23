@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.568 - 2026-04-23
+## 0.1.574 - 2026-04-23
 
 - Centered the launcher popup on the cursor's display on first show, and taught geometry restore to prefer the previously used named screen instead of clamping blindly to the primary display.
 - Persisted the resolved popup geometry immediately after first-show restore and after visible window-mode flag toggles, so screen-aware placement survives without waiting for a later hide or manual move.
