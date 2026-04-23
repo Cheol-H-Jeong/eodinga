@@ -3,17 +3,18 @@ from __future__ import annotations
 import ast
 import importlib.util
 import sys
+import tomllib
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENTRY_CLI = PROJECT_ROOT / "eodinga" / "__main__.py"
 ENTRY_GUI = PROJECT_ROOT / "eodinga" / "__main__.py"
-I18N_DIR = PROJECT_ROOT / "eodinga" / "i18n"
 CLI_DIST_NAME = "eodinga-cli"
 GUI_DIST_NAME = "eodinga-gui"
 CLI_EXE_NAME = f"{CLI_DIST_NAME}.exe"
 GUI_EXE_NAME = f"{GUI_DIST_NAME}.exe"
 SOURCE_ROOT = PROJECT_ROOT / "eodinga"
+LICENSE_FILE = PROJECT_ROOT / "LICENSE"
 
 RUNTIME_MODULES = [
     "eodinga.content.code",
@@ -191,9 +192,30 @@ def _discover_source_hidden_imports(source_root: Path) -> list[str]:
     return sorted(discovered)
 
 
+def _discover_package_datas(project_root: Path) -> list[tuple[str, str]]:
+    payload = tomllib.loads((project_root / "pyproject.toml").read_text(encoding="utf-8"))
+    package_data = payload.get("tool", {}).get("setuptools", {}).get("package-data", {})
+    discovered: set[tuple[str, str]] = set()
+    for package_name, patterns in package_data.items():
+        package_root = project_root.joinpath(*package_name.split("."))
+        package_destination = package_name.replace(".", "/")
+        for pattern in patterns:
+            for matched_path in package_root.glob(pattern):
+                if matched_path.is_file():
+                    relative_parent = matched_path.relative_to(package_root).parent
+                    destination = package_destination
+                    if relative_parent != Path("."):
+                        destination = f"{package_destination}/{relative_parent.as_posix()}"
+                    discovered.add((str(matched_path.resolve()), destination))
+    if LICENSE_FILE.exists():
+        discovered.add((str(LICENSE_FILE.resolve()), "."))
+    return sorted(discovered)
+
+
 DISCOVERED_RUNTIME_MODULES = _discover_runtime_modules(SOURCE_ROOT)
 DISCOVERED_HIDDEN_IMPORTS = _discover_hidden_imports(SOURCE_ROOT)
 DISCOVERED_SOURCE_HIDDEN_IMPORTS = _discover_source_hidden_imports(SOURCE_ROOT)
+DISCOVERED_PACKAGE_DATAS = _discover_package_datas(PROJECT_ROOT)
 
 HIDDEN_IMPORTS = sorted(
     {
@@ -205,11 +227,7 @@ HIDDEN_IMPORTS = sorted(
     }
 )
 
-DATAS = [
-    (str(I18N_DIR / "en.json"), "eodinga/i18n"),
-    (str(I18N_DIR / "ko.json"), "eodinga/i18n"),
-    (str(PROJECT_ROOT / "LICENSE"), "."),
-]
+DATAS = DISCOVERED_PACKAGE_DATAS
 
 SPEC_AUDIT = {
     "cli_entry": str(ENTRY_CLI),

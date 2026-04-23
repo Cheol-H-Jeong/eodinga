@@ -56,6 +56,7 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     datas = {tuple(item) for item in payload["pyinstaller_spec"]["datas"]}
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
     assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas
+    assert (str(Path("LICENSE").resolve()), ".") in datas
     rendered_path = Path(payload["inno_setup"]["rendered_path"])
     assert rendered_path.exists()
     rendered_text = rendered_path.read_text(encoding="utf-8")
@@ -222,6 +223,26 @@ def test_windows_dry_run_covers_source_imported_third_party_modules() -> None:
     assert "pathspec" in hidden_imports
     assert "ebooklib.epub" in hidden_imports
     assert {"charset_normalizer", "pathspec", "ebooklib.epub"} <= discovered_source_hiddenimports
+
+
+def test_windows_dry_run_discovers_pyinstaller_datas_from_project_metadata() -> None:
+    result = subprocess.run(
+        [sys.executable, "packaging/build.py", "--target", "windows-dry-run"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+
+    audit_path = Path("packaging/dist/windows-dry-run-audit.json")
+    payload = json.loads(audit_path.read_text(encoding="utf-8"))
+    datas = {tuple(item) for item in payload["pyinstaller_spec"]["datas"]}
+
+    assert datas == {
+        (str(Path("LICENSE").resolve()), "."),
+        (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n"),
+        (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n"),
+    }
 
 
 def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> None:
