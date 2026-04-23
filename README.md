@@ -64,6 +64,15 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 | Recovery | Atomic staged rebuild and startup recovery for interrupted index swaps and stale WAL state. |
 | Packaging | Windows installer, Linux AppImage, and Linux `.deb` dry-run paths. |
 
+## Surface Matrix
+
+| Surface | Best for | Entry point | Notes |
+| --- | --- | --- | --- |
+| Launcher | Fast keyboard-first lookup from anywhere | `Ctrl+Shift+Space` | Lowest-friction open/reveal flow once the index is warm. |
+| Main GUI | Root management, settings, and diagnostics | `eodinga gui` | Owns index controls, settings, and the embedded search tab. |
+| CLI search | Scripts and reproducible checks | `eodinga search "query"` | Supports `--json`, root scoping, and result limits. |
+| CLI maintenance | Rebuilds, watch mode, and health checks | `eodinga index`, `watch`, `doctor`, `stats` | Same engine, but easier to automate and inspect in logs. |
+
 ## At A Glance
 
 - Local-only indexing and search; no hosted service and no runtime network calls.
@@ -148,6 +157,23 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Exclude noisy trees | `-path:node_modules` |
 | Run regex | `regex:/todo|fixme/i` |
 
+## Query Cookbook
+
+Use these when you want a fast starting point instead of building a query from scratch:
+
+| Task | Query |
+| --- | --- |
+| Find documents changed this week | `date:this-week ext:pdf | ext:docx` |
+| Search release notes inside docs only | `path:docs content:"release notes"` |
+| Spot large duplicate archives | `is:duplicate size:>100M` |
+| Find empty directories under a root | `is:empty is:dir path:projects` |
+| Exclude generated trees from code search | `roadmap -path:node_modules -path:dist -path:build` |
+| Search case-sensitive filenames | `case:true README` |
+| Search with a regex and ignore case | `regex:/todo|fixme/i path:src` |
+| Restrict to an exact date window | `date:2026-04-01..2026-04-23 ext:md` |
+| Search recent content, not just names | `modified:yesterday content:"incident review"` |
+| Audit symlinks in one tree | `is:symlink path:workspace` |
+
 ## Supported Content Types
 
 - Plain text and source code: `.txt`, `.md`, `.py`, and similar text-first formats.
@@ -166,6 +192,19 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 - `Up` / `Down` wraps through the result list once focus is in the list
 - `PgUp` / `PgDn` jumps through longer result sets
 - `Ctrl+L` returns focus to the filter field
+
+## Keyboard Quick Reference
+
+| Goal | Shortcut |
+| --- | --- |
+| Open launcher | `Ctrl+Shift+Space` |
+| Open selection | `Enter` |
+| Reveal in file manager | `Ctrl+Enter` |
+| Show properties | `Shift+Enter` |
+| Recall recent queries | `Alt+Up` / `Alt+Down` |
+| Move through longer lists | `PgUp` / `PgDn` |
+| Return focus to filter | `Ctrl+L` |
+| Dismiss launcher | `Esc` |
 
 ## Common Workflows
 
