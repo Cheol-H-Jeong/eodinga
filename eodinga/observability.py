@@ -14,6 +14,7 @@ from threading import Lock
 from typing import IO, Any, TypedDict
 
 from loguru import logger
+from eodinga.metrics_store import clear_metrics, load_metrics, save_metrics
 
 try:
     import resource
@@ -28,6 +29,8 @@ _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
 _PROCESS_STARTED_AT = datetime.now(UTC)
+_METRICS_LOADED = False
+_METRICS_DIRTY = False
 
 
 @dataclass
@@ -116,6 +119,10 @@ def default_crash_dir() -> Path:
     return default_state_dir() / "crashes"
 
 
+def default_metrics_path() -> Path:
+    return default_state_dir() / "metrics" / "runtime.json"
+
+
 def file_logging_enabled() -> bool:
     return os.environ.get("EODINGA_DISABLE_FILE_LOGGING") != "1"
 
@@ -140,6 +147,15 @@ def resolve_crash_dir(crash_dir: Path | None = None) -> Path:
     if override_dir:
         return Path(override_dir).expanduser()
     return default_crash_dir()
+
+
+def resolve_metrics_path(metrics_path: Path | None = None) -> Path:
+    if metrics_path is not None:
+        return metrics_path.expanduser()
+    override_path = os.environ.get("EODINGA_METRICS_PATH")
+    if override_path:
+        return Path(override_path).expanduser()
+    return default_metrics_path()
 
 
 def resolve_log_rotation() -> str | int:
@@ -193,8 +209,10 @@ def get_logger(name: str | None = None) -> Any:
 
 
 def increment_counter(name: str, value: int = 1, **fields: object) -> None:
+    _ensure_metrics_loaded()
     with _METRICS_LOCK:
         _COUNTERS[name] = _COUNTERS.get(name, 0) + value
+        _mark_metrics_dirty()
     logger.bind(metric=name, **fields).debug("counter +{value}", value=value)
 
 
@@ -209,18 +227,21 @@ def record_histogram(
     buckets_ms: tuple[float, ...] = _DEFAULT_HISTOGRAM_BUCKETS_MS,
     **fields: object,
 ) -> None:
+    _ensure_metrics_loaded()
     with _METRICS_LOCK:
         state = _HISTOGRAMS.get(name)
         if state is None:
             state = _HistogramState(buckets_ms=buckets_ms)
             _HISTOGRAMS[name] = state
         state.observe(value_ms)
+        _mark_metrics_dirty()
     logger.bind(metric=name, **fields).debug("histogram {value_ms:.3f}ms", value_ms=value_ms)
 
 
 def snapshot_metrics() -> MetricsSnapshot:
     from eodinga import __version__
 
+    _ensure_metrics_loaded()
     with _METRICS_LOCK:
         counters = dict(sorted(_COUNTERS.items()))
         histograms: dict[str, dict[str, object]] = {
@@ -242,13 +263,19 @@ def snapshot_metrics() -> MetricsSnapshot:
 
 
 def reset_metrics() -> None:
+    global _METRICS_DIRTY, _METRICS_LOADED
+    metrics_path = resolve_metrics_path()
     with _METRICS_LOCK:
         _COUNTERS.clear()
         _HISTOGRAMS.clear()
         _RECENT_SNAPSHOTS.clear()
+        _METRICS_LOADED = True
+        _METRICS_DIRTY = False
+    clear_metrics(metrics_path)
 
 
 def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
+    _ensure_metrics_loaded()
     record: SnapshotRecord = {
         "name": name,
         "recorded_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
@@ -256,25 +283,55 @@ def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
     }
     with _METRICS_LOCK:
         _RECENT_SNAPSHOTS.append(record)
+        _mark_metrics_dirty()
     logger.bind(metric=name, payload=record["payload"]).debug("snapshot recorded")
 
 
 def recent_snapshots() -> list[SnapshotRecord]:
+    _ensure_metrics_loaded()
     with _METRICS_LOCK:
         return list(_RECENT_SNAPSHOTS)
 
 
 def counter_value(name: str) -> int:
+    _ensure_metrics_loaded()
     with _METRICS_LOCK:
         return _COUNTERS.get(name, 0)
 
 
 def histogram_snapshot(name: str) -> dict[str, object]:
+    _ensure_metrics_loaded()
     with _METRICS_LOCK:
         state = _HISTOGRAMS.get(name)
         if state is None:
             return {}
         return state.snapshot()
+
+
+def flush_metrics() -> None:
+    global _METRICS_DIRTY
+    _ensure_metrics_loaded()
+    with _METRICS_LOCK:
+        if not _METRICS_DIRTY:
+            return
+        payload = {
+            "counters": dict(sorted(_COUNTERS.items())),
+            "histograms": {
+                name: {
+                    "bucket_hits": dict(state.bucket_hits),
+                    "buckets_ms": list(state.buckets_ms),
+                    "count": state.count,
+                    "max_ms": state.max_ms,
+                    "min_ms": state.min_ms,
+                    "sum_ms": state.sum_ms,
+                }
+                for name, state in sorted(_HISTOGRAMS.items())
+            },
+            "recent_snapshots": list(_RECENT_SNAPSHOTS),
+        }
+    save_metrics(resolve_metrics_path(), payload)
+    with _METRICS_LOCK:
+        _METRICS_DIRTY = False
 
 
 def write_crash_log(
@@ -348,10 +405,12 @@ def report_crash(
             "unhandled exception; failed to write crash log: "
             f"{type(write_error).__name__}: {write_error}\n"
         )
+        flush_metrics()
         return None
     increment_counter("crashes_reported")
     increment_counter(f"crashes.{type(error).__name__}")
     target_stream.write(f"unhandled exception; crash log written to {crash_path}\n")
+    flush_metrics()
     return crash_path
 
 
@@ -416,6 +475,41 @@ def _format_detail_value(value: object) -> str:
     if isinstance(value, (str, int, float, bool)) or value is None:
         return str(value)
     return json_dumps(value, sort_keys=True)
+
+
+def _ensure_metrics_loaded() -> None:
+    global _METRICS_LOADED
+    with _METRICS_LOCK:
+        if _METRICS_LOADED:
+            return
+        persisted = load_metrics(resolve_metrics_path())
+        _COUNTERS.update(
+            {name: int(value) for name, value in persisted["counters"].items() if isinstance(value, int)}
+        )
+        for name, payload in persisted["histograms"].items():
+            if not isinstance(payload, dict):
+                continue
+            buckets = payload.get("buckets_ms")
+            bucket_hits = payload.get("bucket_hits")
+            if not isinstance(buckets, list) or not isinstance(bucket_hits, dict):
+                continue
+            _HISTOGRAMS[name] = _HistogramState(
+                buckets_ms=tuple(float(value) for value in buckets),
+                count=int(payload.get("count", 0)),
+                sum_ms=float(payload.get("sum_ms", 0.0)),
+                min_ms=None if payload.get("min_ms") is None else float(payload["min_ms"]),
+                max_ms=None if payload.get("max_ms") is None else float(payload["max_ms"]),
+                bucket_hits={label: int(value) for label, value in bucket_hits.items()},
+            )
+        _RECENT_SNAPSHOTS.extend(
+            entry for entry in persisted["recent_snapshots"] if isinstance(entry, dict)
+        )
+        _METRICS_LOADED = True
+
+
+def _mark_metrics_dirty() -> None:
+    global _METRICS_DIRTY
+    _METRICS_DIRTY = True
 
 
 def _parse_log_policy_value(raw: str) -> str | int:

@@ -21,6 +21,7 @@ from eodinga.observability import (
     configure_logging,
     counter_value,
     file_logging_enabled,
+    flush_metrics,
     histogram_snapshot,
     increment_counter,
     install_crash_handlers,
@@ -348,6 +349,7 @@ def _run_command(args: argparse.Namespace) -> int:
     elif exit_code != 130:
         increment_counter("commands_failed", command=command)
         increment_counter(f"commands.{command}.failed")
+    flush_metrics()
     return exit_code
 
 
