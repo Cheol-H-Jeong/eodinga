@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.982 - 2026-04-24
+## 0.1.986 - 2026-04-24
 
 - Made launcher guidance state-aware so empty states and shortcut hints only advertise recent-query navigation and quick-picks when those actions are actually available.
 - Surfaced the active launcher hotkey in the tray toggle action and kept that label synced after hotkey remaps, making the launcher entrypoint more discoverable from the tray.
