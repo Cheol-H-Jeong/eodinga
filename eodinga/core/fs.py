@@ -49,6 +49,8 @@ def _is_supported_read_mode(mode: str) -> bool:
 def open_readonly(path: Path, mode: str = "rb", encoding: str | None = None) -> IO[str] | IO[bytes]:
     if not _is_supported_read_mode(mode):
         raise ValueError("open_readonly only supports read modes")
+    if "b" in mode and encoding is not None:
+        raise ValueError("open_readonly does not accept encoding in binary mode")
     return path.open(mode=mode, encoding=encoding)
 
 
