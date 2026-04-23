@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import sqlite3
+from errno import EACCES, EINVAL
 from typing import Any
 from pathlib import Path
 
@@ -128,6 +129,40 @@ def test_atomic_replace_index_fsyncs_staged_file_and_target_directory(
         ("file", target),
         ("dir", target.parent),
     ]
+
+
+def test_fsync_directory_ignores_unsupported_directory_handles(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    directory = tmp_path / "db"
+    directory.mkdir()
+
+    def fail_open(_path: Path, _flags: int) -> int:
+        raise OSError(EACCES, "directory handles unsupported")
+
+    monkeypatch.setattr(storage_module.os, "open", fail_open)
+
+    storage_module._fsync_directory(directory)
+
+
+def test_fsync_directory_ignores_unsupported_directory_fsync(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    directory = tmp_path / "db"
+    directory.mkdir()
+    closed: list[int] = []
+
+    monkeypatch.setattr(storage_module.os, "open", lambda _path, _flags: 42)
+
+    def fail_fsync(_fd: int) -> None:
+        raise OSError(EINVAL, "directory fsync unsupported")
+
+    monkeypatch.setattr(storage_module.os, "fsync", fail_fsync)
+    monkeypatch.setattr(storage_module.os, "close", lambda fd: closed.append(fd))
+
+    storage_module._fsync_directory(directory)
+
+    assert closed == [42]
 
 
 def test_copy_index_with_sidecars_fsyncs_promoted_sidecars(tmp_path: Path, monkeypatch) -> None:

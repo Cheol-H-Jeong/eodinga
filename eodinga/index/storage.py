@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sqlite3
 import shutil
+from errno import EACCES, EINVAL, ENOTSUP, EOPNOTSUPP
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
@@ -124,9 +125,18 @@ def _fsync_file(path: Path) -> None:
 
 
 def _fsync_directory(path: Path) -> None:
-    fd = os.open(path, os.O_RDONLY)
     try:
-        os.fsync(fd)
+        fd = os.open(path, os.O_RDONLY)
+    except OSError as exc:
+        if exc.errno not in {EACCES, EINVAL, ENOTSUP, EOPNOTSUPP}:
+            raise
+        return
+    try:
+        try:
+            os.fsync(fd)
+        except OSError as exc:
+            if exc.errno not in {EINVAL, ENOTSUP, EOPNOTSUPP}:
+                raise
     finally:
         os.close(fd)
 
