@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.736 - 2026-04-23
+## 0.1.737 - 2026-04-23
 
 - Persisted observability counters, histograms, and recent command snapshots to a state file so `eodinga stats --json` now reports activity across separate CLI invocations instead of only the current process.
 - Exposed metrics persistence state in `stats --json`, including the resolved metrics path and whether persistence is enabled for the current runtime.
