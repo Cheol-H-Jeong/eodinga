@@ -450,6 +450,26 @@ def test_execute_open_ended_date_ranges(tmp_db: sqlite3.Connection) -> None:
     assert older_hits == ["jan-1.txt", "jan-2.txt"]
 
 
+def test_execute_spaced_date_and_size_ranges(tmp_db: sqlite3.Connection) -> None:
+    jan_1 = int(datetime(2026, 1, 1, 12, tzinfo=UTC).timestamp())
+    jan_2 = int(datetime(2026, 1, 2, 12, tzinfo=UTC).timestamp())
+    jan_3 = int(datetime(2026, 1, 3, 12, tzinfo=UTC).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/jan-1.txt", 100, jan_1, "txt", body_text="jan 1")
+    _insert_file(tmp_db, 2, "/workspace/jan-2.txt", 300 * 1024, jan_2, "txt", body_text="jan 2")
+    _insert_file(tmp_db, 3, "/workspace/jan-3.txt", 900 * 1024, jan_3, "txt", body_text="jan 3")
+    tmp_db.commit()
+
+    ranged_hits = [
+        hit.file.name
+        for hit in search(tmp_db, "date:2026-01-01 .. 2026-01-02 size:100 .. 500K", limit=10).hits
+    ]
+    open_ended_hits = [hit.file.name for hit in search(tmp_db, "date:.. 2026-01-02", limit=10).hits]
+
+    assert ranged_hits == ["jan-1.txt", "jan-2.txt"]
+    assert open_ended_hits == ["jan-1.txt", "jan-2.txt"]
+
+
 def test_execute_datetime_literal_and_range_queries(tmp_db: sqlite3.Connection) -> None:
     base = int(datetime(2026, 1, 3, 9, 15, 30, tzinfo=UTC).timestamp())
     _insert_file(tmp_db, 1, "/workspace/exact-second.txt", 512, base, "txt", body_text="exact")

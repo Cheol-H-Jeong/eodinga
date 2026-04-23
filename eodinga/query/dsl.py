@@ -17,6 +17,8 @@ OP_NAMES = {
     "regex",
 }
 
+_RANGE_OP_NAMES = {"date", "modified", "created", "size"}
+
 
 class QueryNode(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -156,6 +158,8 @@ class _Parser:
     def _parse_operator(self, name: str, initial_value: str, negated: bool) -> OperatorNode:
         if initial_value:
             value, value_kind, regex_flags = self._decode_inline_value(name, initial_value)
+            if value_kind == "word":
+                value = self._maybe_extend_range_value(name, value)
             return OperatorNode(
                 name=name,
                 value=value,
@@ -182,6 +186,7 @@ class _Parser:
         value = self._read_token()
         if not value:
             raise QuerySyntaxError("expected operator value", self.index)
+        value = self._maybe_extend_range_value(name, value)
         return OperatorNode(name=name, value=value, value_kind="word", negated=negated)
 
     def _parse_phrase(self) -> PhraseNode:
@@ -292,6 +297,36 @@ class _Parser:
                 break
             self.index += 1
         return self.source[start:self.index]
+
+    def _maybe_extend_range_value(self, name: str, value: str) -> str:
+        if name not in _RANGE_OP_NAMES:
+            return value
+        if value == "..":
+            checkpoint = self.index
+            self._skip_ws()
+            char = self._peek()
+            if char is None or char in {"|", ")"}:
+                self.index = checkpoint
+                return value
+            suffix = self._read_token()
+            if not suffix:
+                self.index = checkpoint
+                return value
+            return f"..{suffix}"
+        checkpoint = self.index
+        self._skip_ws()
+        if self.source[self.index : self.index + 2] != "..":
+            self.index = checkpoint
+            return value
+        self.index += 2
+        self._skip_ws()
+        char = self._peek()
+        if char is None or char in {"|", ")"}:
+            return f"{value}.."
+        suffix = self._read_token()
+        if not suffix:
+            return f"{value}.."
+        return f"{value}..{suffix}"
 
     def _peek(self, *, offset: int = 0) -> str | None:
         index = self.index + offset
