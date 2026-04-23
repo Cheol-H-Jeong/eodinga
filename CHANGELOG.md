@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.741 - 2026-04-23
+## 0.1.742 - 2026-04-23
 
 - Fixed spaced slash-prefixed `path:` filters so `path: /tmp/log` and `path: /tmp/log/i` now follow the same literal-versus-regex rules as the compact `path:/...` forms instead of misparsing as invalid regex input.
 - Extended root-scoped search matching across Windows `\\\\?\\` long-path prefixes, so scoped queries still hit indexed records when the root and stored path disagree only on long-path normalization.
