@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.210 - 2026-04-23
+
+- Normalized observability destination resolution behind shared helpers so file logging, explicit log targets, crash directories, and pytest/env overrides all resolve through one test-covered path.
+- Expanded `eodinga stats --json` with runtime diagnostic destinations, exposing whether file logging is active plus the effective log path and crash directory for the current process.
+- Counted crash log writes in the in-memory metrics registry and pinned the new counter through unit and CLI regressions so emitted crash artifacts show up in the stats surface.
+
 ## 0.1.209 - 2026-04-23
 
 - Expanded the PyInstaller spec to discover dynamic hidden imports loaded through `importlib.import_module(...)`, aliased `importlib` module handles, and direct `__import__(...)` calls, reducing manual packaging drift for optional runtime modules.
