@@ -86,6 +86,7 @@ def test_resolved_crash_dir_prefers_explicit_then_env_override(tmp_path: Path, m
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
+    reset_metrics()
     try:
         raise RuntimeError("boom")
     except RuntimeError as error:
@@ -100,9 +101,11 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert f"platform={sys.platform}" in contents
     assert f"cwd={Path.cwd()}" in contents
     assert 'argv=["search", "boom"]' in contents
+    assert cast(dict[str, int], snapshot_metrics()["counters"])["crash_logs_written"] == 1
 
 
 def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
+    reset_metrics()
     monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path))
     try:
         raise ValueError("env boom")
@@ -110,6 +113,7 @@ def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
         crash_path = write_crash_log(error, context="env override")
     assert crash_path.parent == tmp_path
     assert "env override" in crash_path.read_text(encoding="utf-8")
+    assert cast(dict[str, int], snapshot_metrics()["counters"])["crash_logs_written"] == 1
 
 
 def test_parser_error_counter_increments_for_failed_parse(monkeypatch, tmp_path: Path) -> None:

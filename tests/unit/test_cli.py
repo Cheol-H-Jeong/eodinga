@@ -14,7 +14,7 @@ from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga.index.schema import apply_schema
-from eodinga.observability import reset_metrics
+from eodinga.observability import reset_metrics, write_crash_log
 
 
 def _insert_file(
@@ -474,6 +474,9 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["counters"]["queries_served"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
+    assert payload["file_logging_enabled"] is False
+    assert payload["log_path"] is None
+    assert Path(payload["crash_dir"]).name == "crashes"
 
 
 def test_stats_json_exposes_end_to_end_runtime_metrics(
@@ -488,6 +491,10 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     broken = tmp_path / "broken.txt"
     broken.write_text("broken parser input\n", encoding="utf-8")
     db_path = tmp_path / "index.db"
+    custom_log_path = tmp_path / "runtime-logs" / "eodinga.log"
+    custom_crash_dir = tmp_path / "runtime-crashes"
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(custom_log_path))
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(custom_crash_dir))
     reset_metrics()
 
     index_exit = main(["--db", str(db_path), "index", "--root", str(docs), "--rebuild"])
@@ -523,3 +530,26 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["queries_served"] == 1
     assert payload["counters"]["watcher_events"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
+    assert payload["file_logging_enabled"] is True
+    assert Path(payload["log_path"]) == custom_log_path
+    assert Path(payload["crash_dir"]) == custom_crash_dir
+
+
+def test_stats_json_reports_crash_counter(tmp_path: Path, capsys, monkeypatch) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    crash_dir = tmp_path / "crashes"
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
+    reset_metrics()
+
+    try:
+        raise RuntimeError("boom")
+    except RuntimeError as error:
+        write_crash_log(error)
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["counters"]["crash_logs_written"] == 1
+    assert Path(payload["crash_dir"]) == crash_dir
