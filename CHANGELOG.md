@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.591 - 2026-04-23
+## 0.1.592 - 2026-04-23
 
 - Reduced walker canonicalization overhead by resolving only the root and symlink-backed ancestry, keeping ordinary directory traversals off the `resolve_safe()` hot path while preserving alias-loop protection.
 - Removed redundant outer rebuild transactions around `IndexWriter.bulk_upsert()` and batched root metadata inserts once up front, cutting avoidable savepoint and commit work during staged index builds.
