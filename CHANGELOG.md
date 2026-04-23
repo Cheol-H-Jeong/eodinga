@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.808 - 2026-04-23
+
+- Tightened the contributor and acceptance guides around single-shot validation, evidence-first failure handling, and explicit review of generated release inputs such as `packaging/dist/`, screenshots, and the generated man page.
+- Documented how to handle mixed or failing perf-suite reruns without corrupting the checked-in baseline, including a copy-ready capture command, an example mixed-result summary, and a failure-note template.
+- Clarified the README release handoff path so docs-only and perf-audit rounds point reviewers at the right evidence surfaces before the local metadata cut and tag.
+
 ## 0.1.801 - 2026-04-23
 
 - Expanded the shipped operator docs with a packaging audit checklist, state-directory summary, and FAQ entries for logs, crash reports, docs-only release checks, and packaged payload review.
