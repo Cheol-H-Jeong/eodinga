@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.864 - 2026-04-23
+
+- Preserved negated query filters in launcher summaries, so grouped filters like `-(ext:pdf | date:today)` no longer show misleading positive chips.
+- Fixed result highlighting to honor negated and last-wins `case:` operators, keeping visual matches aligned with the compiled query behavior.
+- Rejected ambiguous size ranges that mixed comparison operators with `..`, so inputs like `size:>100..500K` now fail cleanly instead of being reinterpreted.
+
 ## 0.1.863 - 2026-04-23
 
 - Expanded the launcher’s inline and empty-state keyboard guidance to cover both `Alt+Up` and `Alt+Down`, so recent-query browsing is explained consistently anywhere the user can get stuck.
