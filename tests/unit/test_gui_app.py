@@ -435,6 +435,43 @@ def test_launcher_flag_toggles_preserve_geometry(qapp, temp_config_path: Path) -
     assert launcher.geometry() == before
 
 
+def test_hidden_launcher_flag_toggles_preserve_geometry_on_next_show(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    launcher = window.launcher_window
+    launcher.show()
+    launcher.move(210, 120)
+    launcher.resize(760, 540)
+    qapp.processEvents()
+
+    before = launcher.geometry()
+    launcher.hide()
+    qapp.processEvents()
+
+    launcher.set_always_on_top(True)
+    launcher.set_frameless(False)
+    qapp.processEvents()
+    launcher.show()
+    qapp.processEvents()
+
+    assert launcher.geometry() == before
+
+
+def test_hotkey_toggle_presents_launcher_and_selects_existing_query(qapp) -> None:
+    hotkey_service = _HotkeyServiceSpy()
+    window = EodingaWindow(hotkey_service=hotkey_service)
+    launcher = window.launcher_window
+
+    launcher.query_field.setText("release notes")
+    assert hotkey_service.callback is not None
+    hotkey_service.callback()
+    qapp.processEvents()
+
+    assert launcher.isVisible()
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.selectedText() == "release notes"
+
+
 class _ActionSpy:
     def __init__(self) -> None:
         self.opened: list[str] = []

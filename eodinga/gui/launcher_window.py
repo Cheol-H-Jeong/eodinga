@@ -55,8 +55,7 @@ class LauncherWindow(LauncherPanel):
         if not self._geometry_restored and self._config is not None:
             self._restore_visible_geometry()
             self._geometry_restored = True
-        self.query_field.setFocus()
-        self.query_field.selectAll()
+        self._focus_query_field()
         self.visibility_changed.emit(True)
 
     def moveEvent(self, event: QMoveEvent) -> None:
@@ -72,6 +71,12 @@ class LauncherWindow(LauncherPanel):
 
     def set_frameless(self, enabled: bool) -> None:
         self._set_window_flag_preserving_visibility(Qt.WindowType.FramelessWindowHint, enabled)
+
+    def present(self) -> None:
+        self.show()
+        self.raise_()
+        self.activateWindow()
+        self._focus_query_field()
 
     def hideEvent(self, event: QHideEvent) -> None:
         self._persist_geometry()
@@ -94,12 +99,15 @@ class LauncherWindow(LauncherPanel):
         was_visible = self.isVisible()
         geometry = self.geometry()
         self.setWindowFlag(flag, enabled)
-        if not was_visible:
-            return
-        self.show()
         self.setGeometry(geometry)
-        self.raise_()
-        self.activateWindow()
+        if was_visible:
+            self.present()
+        else:
+            self._persist_geometry()
+
+    def _focus_query_field(self) -> None:
+        self.query_field.setFocus()
+        self.query_field.selectAll()
 
     def _persist_geometry(self) -> None:
         if self._config is None or self._config_path is None or not self._geometry_restored:

@@ -69,11 +69,7 @@ class LauncherHotkeyController(QObject):
         if self._launcher_window.isVisible():
             self._launcher_window.hide()
             return
-        self._launcher_window.show()
-        self._launcher_window.raise_()
-        self._launcher_window.activateWindow()
-        self._launcher_window.query_field.setFocus()
-        self._launcher_window.query_field.selectAll()
+        self._launcher_window.present()
 
     def _build_service(self) -> HotkeyServiceLike | None:
         try:
