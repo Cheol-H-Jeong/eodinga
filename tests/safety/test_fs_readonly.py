@@ -106,6 +106,15 @@ def test_write_flag_detector_catches_os_open_write_modes() -> None:
     assert _contains_write_open_flags(safe.value.args[1]) is False
 
 
+@pytest.mark.parametrize("mode", ["r", "rb", "rt"])
+def test_open_readonly_accepts_canonical_read_modes(tmp_path: Path, mode: str) -> None:
+    target = tmp_path / "fixture.txt"
+    target.write_text("hello", encoding="utf-8")
+
+    with fs.open_readonly(target, mode=mode) as handle:
+        assert handle.read()
+
+
 @pytest.mark.parametrize("mode", ["w", "wb", "a", "ab", "x", "xb", "r+", "rb+", "a+"])
 def test_open_readonly_rejects_all_write_capable_modes(tmp_path: Path, mode: str) -> None:
     target = tmp_path / "fixture.txt"
@@ -113,3 +122,20 @@ def test_open_readonly_rejects_all_write_capable_modes(tmp_path: Path, mode: str
 
     with pytest.raises(ValueError):
         fs.open_readonly(target, mode=mode)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("mode", ["", "br", "tr", "rbt", "U", "rU"])
+def test_open_readonly_rejects_noncanonical_read_modes(tmp_path: Path, mode: str) -> None:
+    target = tmp_path / "fixture.txt"
+    target.write_text("hello", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="canonical read-only modes"):
+        fs.open_readonly(target, mode=mode)
+
+
+def test_open_readonly_rejects_encoding_with_binary_mode(tmp_path: Path) -> None:
+    target = tmp_path / "fixture.txt"
+    target.write_text("hello", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="does not accept an encoding"):
+        fs.open_readonly(target, mode="rb", encoding="utf-8")

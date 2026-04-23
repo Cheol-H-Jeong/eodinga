@@ -33,8 +33,10 @@ class ScanEntry(NamedTuple):
 
 
 def open_readonly(path: Path, mode: str = "rb", encoding: str | None = None) -> IO[str] | IO[bytes]:
-    if any(flag in mode for flag in ("w", "a", "+", "x")):
-        raise ValueError("open_readonly only supports read modes")
+    if mode not in {"r", "rb", "rt"}:
+        raise ValueError("open_readonly only supports canonical read-only modes: r, rb, rt")
+    if "b" in mode and encoding is not None:
+        raise ValueError("binary read mode does not accept an encoding")
     return path.open(mode=mode, encoding=encoding)
 
 
