@@ -158,6 +158,7 @@ class WatchService:
         self._observers: dict[Path, _ManagedObserver] = {}
         self._logger = get_logger("core.watcher")
         self._queue_backpressure_active = False
+        self._enqueue_abort_warning_active = False
 
     def start(self, root: Path) -> None:
         root = _normalize_root(root)
@@ -455,6 +456,7 @@ class WatchService:
             self._flushed_retired_sources.clear()
             self._timestamps.clear()
             self._queue_backpressure_active = False
+            self._enqueue_abort_warning_active = False
         queued_discarded = 0
         while True:
             try:
@@ -489,6 +491,10 @@ class WatchService:
                         )
         self._clear_queue_backpressure()
         increment_counter("watcher_enqueue_aborted", event_type=event.event_type)
+        if self._activate_enqueue_abort_warning():
+            self._logger.warning(
+                "watch queue shutdown aborted enqueue for {}", event.path
+            )
         return False
 
     def _activate_queue_backpressure(self) -> bool:
@@ -501,3 +507,10 @@ class WatchService:
     def _clear_queue_backpressure(self) -> None:
         with self._lock:
             self._queue_backpressure_active = False
+
+    def _activate_enqueue_abort_warning(self) -> bool:
+        with self._lock:
+            if self._enqueue_abort_warning_active:
+                return False
+            self._enqueue_abort_warning_active = True
+            return True

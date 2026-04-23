@@ -1072,3 +1072,54 @@ def test_watcher_queue_backpressure_warns_once_until_queue_recovers(
     fourth_thread.join(timeout=1)
     assert fourth_done is True
     assert service.queue.get_nowait() == fourth
+
+
+def test_watcher_shutdown_abort_warns_once_until_reset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service = WatchService(queue_maxsize=1)
+    warnings: list[str] = []
+
+    def record_warning(message: str, *args: object) -> None:
+        warnings.append(message.format(*args))
+
+    monkeypatch.setattr(service._logger, "warning", record_warning)
+
+    first = WatchEvent(
+        event_type="created",
+        path=tmp_path / "first.txt",
+        root_path=tmp_path,
+        happened_at=1.0,
+    )
+    second = WatchEvent(
+        event_type="created",
+        path=tmp_path / "second.txt",
+        root_path=tmp_path,
+        happened_at=2.0,
+    )
+    third = WatchEvent(
+        event_type="created",
+        path=tmp_path / "third.txt",
+        root_path=tmp_path,
+        happened_at=3.0,
+    )
+
+    assert service._enqueue_event(first) is True
+    service._stop.set()
+    assert service._enqueue_event(second) is False
+    assert service._enqueue_event(third) is False
+
+    assert warnings == [
+        "watch queue shutdown aborted enqueue for {}".format(second.path),
+    ]
+
+    service._reset_state()
+    service._stop.clear()
+    assert service._enqueue_event(first) is True
+    service._stop.set()
+    assert service._enqueue_event(third) is False
+
+    assert warnings == [
+        "watch queue shutdown aborted enqueue for {}".format(second.path),
+        "watch queue shutdown aborted enqueue for {}".format(third.path),
+    ]
