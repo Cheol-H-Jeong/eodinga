@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.108 - 2026-04-23
+## 0.1.113 - 2026-04-23
 
 - Honored the launcher `always_on_top` config instead of forcing the popup to stay pinned above every window, and split the popup-specific geometry logic into its own module so the launcher controller stays under the 500-line cap.
 - Added a dedicated launcher `copy name` action alongside the existing open, reveal, properties, and copy-path flows, with shortcut and wiring coverage for both the popup and embedded search panel.
