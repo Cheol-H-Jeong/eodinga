@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.849 - 2026-04-23
+## 0.1.854 - 2026-04-23
 
 - Extended the launcher's keyboard-only flow so `Tab` now reaches the action bar, `Shift+Tab` returns to results, and left/right/home/end navigation works across action buttons without a mouse.
 - Added direct query pinning inside both launcher surfaces with a dedicated button, `Ctrl+P` shortcut, shared-state updates, and config persistence so pinned searches survive app restarts.
