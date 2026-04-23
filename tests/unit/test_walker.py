@@ -124,6 +124,31 @@ def test_walk_batched_falls_back_to_stat_safe_when_scandir_metadata_is_missing(
     assert stat_calls.count(sample) == 1
 
 
+def test_walk_batched_only_resolves_root_for_regular_directories_without_symlink_ancestry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "tree"
+    nested = root / "nested"
+    sample = nested / "sample.txt"
+    nested.mkdir(parents=True)
+    sample.write_text("sample", encoding="utf-8")
+
+    resolve_calls: list[Path] = []
+    original_resolve_safe = walker_module.resolve_safe
+
+    def counting_resolve(path: Path) -> Path:
+        resolve_calls.append(path)
+        return original_resolve_safe(path)
+
+    monkeypatch.setattr(walker_module, "resolve_safe", counting_resolve)
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+
+    assert {record.path for record in records} == {root, nested, sample}
+    assert resolve_calls == [root]
+
+
 def test_walk_batched_uses_fs_wrapper_to_detect_symlinked_directories(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -272,15 +297,14 @@ def test_walk_batched_marks_symlinked_directories_as_directories(tmp_path: Path)
 def test_walk_batched_skips_resolved_alias_cycles_even_when_inode_keys_differ(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    root = tmp_path / "tree"
-    canonical = root / "canonical"
-    mirror = root / "mirror"
-    sample = canonical / "sample.txt"
+    alias_root = tmp_path / "alias"
+    canonical = tmp_path / "canonical"
+    mirror = alias_root / "mirror"
+    sample = alias_root / "sample.txt"
 
     def fake_stat(path: Path) -> os.stat_result:
         inode_map = {
-            root: (10, 1, S_IFDIR | 0o755),
-            canonical: (10, 2, S_IFDIR | 0o755),
+            alias_root: (10, 1, S_IFDIR | 0o755),
             mirror: (11, 200, S_IFDIR | 0o755),
             sample: (10, 3, S_IFREG | 0o644),
         }
@@ -289,24 +313,22 @@ def test_walk_batched_skips_resolved_alias_cycles_even_when_inode_keys_differ(
 
     def fake_scandir(path: Path) -> list[Path]:
         children = {
-            root: [canonical],
-            canonical: [sample, mirror],
+            alias_root: [sample, mirror],
             mirror: [sample, mirror],
         }
         return children.get(path, [])
 
     def fake_resolve(path: Path) -> Path:
-        return canonical if path == mirror else path
+        return canonical if path in {alias_root, mirror} else path
 
     monkeypatch.setattr(walker_module, "resolve_safe", fake_resolve)
     monkeypatch.setattr(walker_module, "stat_safe", fake_stat)
     monkeypatch.setattr(walker_module, "scandir_safe", fake_scandir)
 
-    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
-    records = [record for batch in walk_batched(root, rules) for record in batch]
+    rules = PathRules(root=alias_root, include=(str(alias_root), f"{alias_root}/**"), exclude=())
+    records = [record for batch in walk_batched(alias_root, rules) for record in batch]
     paths = [record.path for record in records]
 
-    assert paths.count(canonical) == 1
     assert paths.count(mirror) == 1
     assert paths.count(sample) == 1
 
@@ -314,17 +336,21 @@ def test_walk_batched_skips_resolved_alias_cycles_even_when_inode_keys_differ(
 def test_walk_batched_skips_descending_when_resolve_safe_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    root = tmp_path / "tree"
-    child = root / "child"
+    target = tmp_path / "target"
+    target.mkdir()
+    child = target / "child"
     nested = child / "nested.txt"
-    root.mkdir()
     child.mkdir()
     nested.write_text("nested", encoding="utf-8")
+    root = tmp_path / "alias"
+    root.symlink_to(target, target_is_directory=True)
+    alias_child = root / "child"
+    alias_nested = alias_child / "nested.txt"
 
     original_resolve_safe = walker_module.resolve_safe
 
     def flaky_resolve(path: Path) -> Path:
-        if path == child:
+        if path == alias_child:
             raise OSError("bind mount disappeared")
         return original_resolve_safe(path)
 
@@ -335,5 +361,5 @@ def test_walk_batched_skips_descending_when_resolve_safe_fails(
     paths = {record.path for record in records}
 
     assert root in paths
-    assert child in paths
-    assert nested not in paths
+    assert alias_child in paths
+    assert alias_nested not in paths
