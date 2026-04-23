@@ -16,6 +16,8 @@ This repository tracks the `0.1.x` lexical-search release defined in `SPEC.md`. 
 
 ![Settings window](docs/screenshots/settings-window.png)
 
+All screenshots in this repository are rendered offscreen from the real Qt surfaces with `python scripts/render_docs_screenshots.py`; they are not mockups.
+
 ## Install
 
 ### Linux
@@ -49,6 +51,16 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 5. Use `Enter` to open the selected result or `Ctrl+Enter` to reveal it in the file manager.
 6. Use `Alt+Up` to recall recent queries, `Ctrl+L` to jump back to the filter, and `PgUp` / `PgDn` to move through longer result sets without leaving the keyboard.
 7. Re-run `python scripts/render_docs_screenshots.py` if you update the Qt surfaces and want the shipped screenshots refreshed.
+
+## Feature Overview
+
+- Shared engine across CLI, main GUI, and hotkey launcher.
+- Local-only indexing of filenames, paths, and supported document text.
+- Real-time refresh through watchdog-backed filesystem events.
+- Query DSL with terms, phrases, groups, negation, regex, path filters, size filters, date macros, and duplicate detection.
+- Content extraction for text, source code, Office files, PDF, EPUB, HTML, and HWP when parser extras are installed.
+- Atomic staged rebuild and startup recovery for interrupted index swaps and stale WAL state.
+- Packaging flows for Windows installer, Linux AppImage, and Linux `.deb`.
 
 ## Acceptance Quickcheck
 
@@ -103,6 +115,19 @@ eodinga doctor
 - `(invoice | receipt) ext:pdf` : grouping
 
 Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md).
+
+## DSL Cheatsheet
+
+| Goal | Query |
+| --- | --- |
+| Search by plain term | `roadmap` |
+| Restrict by extension | `ext:pdf invoice` |
+| Restrict by path | `path:projects content:"design review"` |
+| Find recent files | `date:this-week` |
+| Find size ranges | `size:100K..500K` |
+| Find duplicates | `is:duplicate` |
+| Exclude noisy trees | `-path:node_modules` |
+| Run regex | `regex:/todo|fixme/i` |
 
 ## Supported Content Types
 
@@ -175,6 +200,16 @@ If search looks stale, run `eodinga stats` to confirm the active database path, 
 - [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md): SPEC §9 release checklist and validation commands.
 - [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md): runtime flow, index lifecycle, and packaging surfaces.
 - [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, current baselines, and profiling workflow.
+- [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md): local workflow, guardrails, and doc/screenshot expectations for contributors.
+- [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md): release-candidate workflow, tagging, packaging validation, and handoff.
+
+## Contributing
+
+Contributor workflow lives in [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md). Use it for local setup, quality gates, screenshot refreshes, and scope guardrails before opening a change.
+
+## Release Process
+
+Release-specific steps live in [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md), with [docs/ACCEPTANCE.md](/home/cheol/projects/eodinga/docs/ACCEPTANCE.md) as the short gate checklist.
 
 ## FAQ
 
