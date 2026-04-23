@@ -281,6 +281,35 @@ def test_launcher_preserves_selected_result_when_query_refines(qapp) -> None:
     assert result.name == "gamma.txt"
 
 
+def test_launcher_hover_updates_selection_preview_and_actions(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt", snippet="alpha preview"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt", snippet="beta preview"),
+            ][:limit],
+            total=2,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("a")
+    _wait(60)
+
+    assert launcher.result_list.currentIndex().row() == 0
+    assert launcher.preview_pane.title_label.text() == "alpha.txt"
+
+    hovered = launcher.model.index(1, 0)
+    launcher._sync_hovered_result(hovered)
+
+    assert launcher.result_list.currentIndex().row() == 1
+    assert launcher.preview_pane.title_label.text() == "beta.txt"
+    assert launcher.preview_pane.snippet_label.text() == "beta preview"
+    assert launcher.action_bar.open_button.isEnabled()
+
+
 def test_launcher_activation_flushes_debounced_query_before_opening(qapp) -> None:
     activated: list[str] = []
 

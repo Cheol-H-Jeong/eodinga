@@ -88,7 +88,7 @@ class LauncherPanel(QWidget):
         self.model = ResultListModel(self)
         self.result_list.setModel(self.model)
         self.result_list.selectionModel().currentChanged.connect(self._sync_preview_to_current_index)
-        self.result_list.entered.connect(self._sync_preview_to_index)
+        self.result_list.entered.connect(self._sync_hovered_result)
 
         self._debounce_timer = QTimer(self)
         self._debounce_timer.setSingleShot(True)
@@ -441,6 +441,11 @@ class LauncherPanel(QWidget):
     def _sync_preview_to_current_index(self, current: QModelIndex, previous: QModelIndex) -> None:
         del previous
         self._sync_preview_to_index(current)
+
+    def _sync_hovered_result(self, index: QModelIndex) -> None:
+        if not index.isValid():
+            return
+        self._set_selection(index.row())
 
     def _sync_preview_to_index(self, index: QModelIndex) -> None:
         self.preview_pane.set_hit(self.model.item_at(index.row()) if index.isValid() else None)
