@@ -25,11 +25,20 @@ DENYLIST = (
 
 _HIDDEN_NAMES = {".git", ".hg", ".svn", ".cache", "__pycache__"}
 _WINDOWS_ABS_RE = re.compile(r"^[A-Za-z]:[\\/]")
+_WINDOWS_EXTENDED_DRIVE_RE = re.compile(r"^(?:\\\\\?\\|//\\?/)([A-Za-z]:[\\/].*)$")
 
 
 class ScanEntry(NamedTuple):
     path: Path
     stat_result: os.stat_result | None
+
+
+def _normalize_windows_path_text(raw: str) -> str:
+    normalized = raw.replace("\\", "/")
+    match = _WINDOWS_EXTENDED_DRIVE_RE.match(raw)
+    if match is not None:
+        return match.group(1).replace("\\", "/")
+    return normalized
 
 
 def _is_supported_read_mode(mode: str) -> bool:
@@ -62,14 +71,14 @@ def file_size(path: Path) -> int:
 
 
 def resolve_safe(path: Path) -> Path:
-    raw = str(path).replace("\\", "/")
+    raw = _normalize_windows_path_text(str(path))
     if _WINDOWS_ABS_RE.match(raw):
         return Path(raw)
     return path.expanduser().resolve(strict=False)
 
 
 def absolute_safe(path: Path) -> Path:
-    raw = str(path).replace("\\", "/")
+    raw = _normalize_windows_path_text(str(path))
     if _WINDOWS_ABS_RE.match(raw):
         return Path(raw)
     expanded = path.expanduser()
