@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.203 - 2026-04-23
+## 0.1.207 - 2026-04-23
 
 - Made query path deboosting segment-aware and case-insensitive, so vendor directories like `NODE_MODULES` still de-rank correctly while lookalike names such as `node_modules_backup` no longer get penalized by substring accident.
 - Expanded Windows root scoping so exact-root searches still match indexed paths when the caller uses a different drive-letter case or slash style, including the root directory record itself.
