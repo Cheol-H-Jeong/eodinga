@@ -228,6 +228,16 @@ eodinga index --rebuild
 | Confirm runtime health | `eodinga doctor && eodinga stats --json` |
 | Refresh shipped docs assets | `python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` |
 
+## One-Command Validation
+
+Use this when you want the shortest local pass that still exercises the shipped docs, lint, typing, GUI smoke path, and packaging audits:
+
+```bash
+source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)" && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run && yamllint .github/workflows/release-windows.yml && yamllint .github/workflows/release-linux.yml
+```
+
+If you only changed docs, start smaller with `pytest -q tests/unit/test_docs_assets.py`, then run the matching packaging dry run or GUI smoke command for the surface you documented.
+
 ## Architecture
 
 The runtime stack is intentionally small: read-only filesystem traversal, SQLite/FTS-backed indexing, a shared DSL compiler/executor, and thin CLI/GUI surfaces. The component map and data flow are documented in [docs/ARCHITECTURE.md](/home/cheol/projects/eodinga/docs/ARCHITECTURE.md).
@@ -260,10 +270,13 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 
 ## Package Artifacts
 
-- Windows release builds emit a PyInstaller bundle plus an Inno Setup installer audit under `packaging/dist/`.
-- Linux AppImage dry runs render `packaging/linux/appimage-builder.yml` from the current package version before building.
-- Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, and compressed changelog into the package root.
-- The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
+| Target | Audit command | Expected staged output |
+| --- | --- | --- |
+| Windows installer | `python packaging/build.py --target windows-dry-run` | PyInstaller bundle layout plus Inno Setup audit under `packaging/dist/` |
+| Linux AppImage | `python packaging/build.py --target linux-appimage-dry-run` | rendered `packaging/linux/appimage-builder.yml` and AppImage staging manifest |
+| Linux `.deb` | `python packaging/build.py --target linux-deb-dry-run` | package root with launcher shim, desktop entry, SVG icon, license, and compressed changelog |
+
+The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
 
 ## Recovery and Troubleshooting
 
@@ -281,6 +294,7 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 | Startup mentions recovery | `eodinga doctor` | check that the live DB path is writable and recovery sidecars are gone after startup |
 | Hotkey or launcher looks wrong | `eodinga doctor` | inspect detected hotkey backend and then re-open `eodinga gui` for settings/state |
 | Packaging audit failed | `python packaging/build.py --target windows-dry-run` | re-run the matching Linux dry run and workflow lint from `docs/ACCEPTANCE.md` |
+| Docs asset drift after a CLI or UI change | `pytest -q tests/unit/test_docs_assets.py` | regenerate `docs/man/eodinga.1` or screenshots, then re-run the focused docs gate |
 
 ## Config and Data Paths
 
@@ -312,6 +326,8 @@ eodinga search 'date:this-week ext:md' --limit 10
 ```
 
 If those are clean but the packaged app still looks wrong, continue with the release-gate commands in `docs/ACCEPTANCE.md`.
+
+For release-bearing changes, finish with the single-shot validation pass in `docs/RELEASE.md` so test, lint, GUI smoke, packaging dry runs, and workflow lint are evaluated in one order.
 
 ## Docs Map
 
@@ -348,6 +364,10 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
 
+### Do I need both `index` and `watch`?
+
+Use `eodinga index --rebuild` for a one-shot cold refresh of the index. Use `eodinga watch` when you want ongoing live updates after the initial index exists. The packaged desktop flow wires those same capabilities through the GUI and launcher on top of the same database.
+
 ### Which files are skipped by default?
 
 System and cache paths such as `/proc`, `/sys`, `/dev`, `/tmp`, `$HOME/.cache`, `C:\Windows`, and `%SystemRoot%` stay excluded unless the user explicitly opts in.
@@ -363,6 +383,14 @@ No. `0.1.x` is lexical only.
 ### Where is the CLI reference for packaged builds?
 
 Use `docs/man/eodinga.1`. It is generated from the parser in `eodinga.__main__`, so it stays aligned with `eodinga --help` instead of drifting as hand-written prose.
+
+### What exactly gets written to disk?
+
+Runtime writes stay in the configured config and database locations only. Indexed roots are read-only inputs; rebuild staging, WAL recovery, logs, and crash reports all stay under the app-managed state paths instead of mutating user files.
+
+### What ships with packaged desktop releases?
+
+Packaged releases ship the GUI and launcher surfaces, the generated CLI man page, and the operator docs needed to audit the install locally. The dry-run packaging commands in this repository are the source of truth for what those builds must stage before a release tag is cut.
 
 ## Limitations
 
