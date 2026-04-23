@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.132 - 2026-04-23
+## 0.1.136 - 2026-04-23
 
 - Added a dedicated launcher hotkey controller that binds the configured global shortcut at GUI startup, toggles the popup on the callback path, and shuts the backend down cleanly when the main window exits.
 - Wired the Settings tab to show the active launcher shortcut and remap it live through the running hotkey backend, persisting successful changes back to config without restarting the app.
