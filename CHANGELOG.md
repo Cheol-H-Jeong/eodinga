@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.359 - 2026-04-23
+## 0.1.360 - 2026-04-23
 
 - Added aggregate packaging audits so `python packaging/build.py --target linux-dry-run` now validates both Linux dry-run artifact paths together, and `--target release-dry-run` rolls Linux plus Windows packaging checks into one local release gate.
 - Stopped duplicating Debian control metadata in shell by deriving the staged package name, section, priority, maintainer, and description from the checked-in Debian control template before building or auditing `.deb` artifacts.
