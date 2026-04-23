@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.193 - 2026-04-23
+
+- Completed the relative date macro set for query filters by adding `date:last-week` and `date:last-month`, with compiler and executor coverage that pins their local-time window semantics.
+- Added inclusive byte-range parsing for `size:` filters, so queries like `size:100..500K` now compile and execute alongside the existing comparator-based literals.
+- Expanded query regressions across unit, CLI, and real on-disk integration flows to prove the new date and size filters hold through parsing, compilation, indexed search, and JSON output.
+
 ## 0.1.155 - 2026-04-23
 
 - Fixed the default observability paths on macOS so rotating logs now land under `~/Library/Logs/eodinga` and crash reports follow the same platform-native log root instead of falling back to Linux-style state directories.
