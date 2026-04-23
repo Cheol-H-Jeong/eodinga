@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.140 - 2026-04-23
+
+- Added launcher-side pinned queries that persist in config, surface in the empty state, and can be toggled directly from the search field without leaving keyboard flow.
+- Rendered active operator filters as inline chips inside the launcher query field so `ext:`, `date:`, `size:`, `path:`, and related modifiers stay visible while refining a search.
+- Clarified launcher guidance and accessibility labels so the popup now distinguishes pin versus unpin actions for the current query and exposes the supporting status and empty-state widgets to assistive tooling.
+
 ## 0.1.136 - 2026-04-23
 
 - Added a dedicated launcher hotkey controller that binds the configured global shortcut at GUI startup, toggles the popup on the callback path, and shuts the backend down cleanly when the main window exits.
