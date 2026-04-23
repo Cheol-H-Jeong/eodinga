@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.536 - 2026-04-23
+## 0.1.540 - 2026-04-23
 
 - Normalized remapped launcher hotkeys into a stable canonical form, so spaced or alias-heavy input like `Control + Alt + K` now rebinds, persists, and displays as `ctrl+alt+k`.
 - Hardened launcher popup restore so stale saved geometry from older monitor layouts clamps back onto the current screen instead of reviving off-screen or absurdly oversized windows.
