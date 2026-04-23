@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.224 - 2026-04-23
+## 0.1.229 - 2026-04-23
 
 - Made quoted phrase matching resilient across separator boundaries in both path and content search, so queries like `"release candidate"` or `content:"launch checklist"` can match hyphenated, underscored, and newline-separated text instead of depending on exact FTS tokenization.
 - Added `date:this-year` and `date:last-year` aliases with local-time boundaries, extending the existing relative-date DSL without forcing users to spell out ISO ranges for common annual scopes.
