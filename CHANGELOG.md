@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.982 - 2026-04-24
+
+- Added filesystem-state observability helpers that can inspect the active log file target and crash-log inventory without assuming the files already exist.
+- Extended `eodinga stats --json` with a separate runtime `files_indexed` counter plus current log/crash file state, so operators can distinguish persisted index size from work completed in the current process.
+- Added CLI and observability coverage that pins the new stats fields against real log and crash artifacts, not just raw counters.
+
 ## 0.1.979 - 2026-04-24
 
 - Hardened the Windows packaging dry-run audit so it now rejects missing CLI/GUI entrypoints, missing required hidden imports, dropped runtime modules, and staged data drift before those regressions can leak into a release build.
