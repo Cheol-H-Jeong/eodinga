@@ -170,13 +170,14 @@ def _text_matches(value: str, needle: str, case_sensitive: bool) -> bool:
 
 def _phrase_matches(value: str, phrase: str, case_sensitive: bool) -> bool:
     normalized_phrase = _normalize_search_text(phrase, case_sensitive=case_sensitive)
-    if normalized_phrase in _normalize_search_text(value, case_sensitive=case_sensitive):
+    normalized_value = _normalize_search_text(value, case_sensitive=case_sensitive)
+    if normalized_phrase in normalized_value:
         return True
     tokens = tuple(token for token in re.split(r"\s+", normalized_phrase) if token)
     if len(tokens) < 2:
         return False
     pattern = r"\W+".join(re.escape(token) for token in tokens)
-    return bool(re.search(pattern, value, 0 if case_sensitive else re.IGNORECASE))
+    return bool(re.search(pattern, normalized_value))
 
 
 def _term_matches(
@@ -659,7 +660,12 @@ def _scan_auto_content_candidates(
         for file_id, record in batch.items():
             content_text = content_texts.get(file_id, "")
             if not all(
-                _text_matches(content_text, term.value, branch.case_sensitive)
+                _term_matches(
+                    content_text,
+                    term.value,
+                    kind=term.kind,
+                    case_sensitive=branch.case_sensitive,
+                )
                 for term in positive_terms
             ):
                 continue
