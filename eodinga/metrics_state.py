@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections import deque
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -44,7 +45,12 @@ def write_metrics_state(path: Path | None, state: PersistedMetricsState) -> Path
     if path is None:
         return None
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, sort_keys=True), encoding="utf-8")
+    temp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    try:
+        temp_path.write_text(json.dumps(state, sort_keys=True), encoding="utf-8")
+        os.replace(temp_path, path)
+    finally:
+        temp_path.unlink(missing_ok=True)
     return path
 
 
