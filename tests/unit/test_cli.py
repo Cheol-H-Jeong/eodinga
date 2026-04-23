@@ -152,6 +152,46 @@ def test_search_json_queries_real_index(cli_runner, tmp_path: Path) -> None:
     ]
 
 
+def test_search_json_accepts_spaced_date_ranges(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    local_today = datetime.now().astimezone().date()
+    local_yesterday = local_today - timedelta(days=1)
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        f"date: {local_yesterday.isoformat()} .. {local_today.isoformat()}",
+        "--json",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == [
+        "today-alpha-clone.txt",
+        "today-alpha-copy.txt",
+        "yesterday-beta.txt",
+    ]
+
+
+def test_search_json_queries_open_ended_size_ranges(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "size: .. 10M",
+        "--json",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == ["yesterday-beta.txt"]
+
+
 def test_search_json_reports_total_count_not_page_length(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     conn = sqlite3.connect(db_path)
