@@ -138,6 +138,7 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
         for node in ast.walk(module):
             if not isinstance(node, ast.Call):
                 continue
+            package_name: str | None = None
             if isinstance(node.func, ast.Name):
                 if node.func.id not in import_module_aliases and node.func.id != "__import__":
                     continue
@@ -153,7 +154,36 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
                 continue
             if not isinstance(node.args[0].value, str):
                 continue
-            discovered.add(node.args[0].value)
+            module_name = node.args[0].value
+            if module_name.startswith("."):
+                if len(node.args) >= 2 and isinstance(node.args[1], ast.Constant) and isinstance(node.args[1].value, str):
+                    package_name = node.args[1].value
+                else:
+                    for keyword in node.keywords:
+                        if keyword.arg == "package" and isinstance(keyword.value, ast.Constant) and isinstance(keyword.value.value, str):
+                            package_name = keyword.value.value
+                            break
+                if package_name:
+                    level = len(module_name) - len(module_name.lstrip("."))
+                    relative_name = module_name.lstrip(".") or None
+                    resolved = _resolve_imported_module(relative_name, level, package_name)
+                    if resolved:
+                        discovered.add(resolved)
+                continue
+            discovered.add(module_name)
+            if isinstance(node.func, ast.Name) and node.func.id == "__import__":
+                fromlist_nodes: list[ast.expr] = []
+                if len(node.args) >= 4 and isinstance(node.args[3], (ast.List, ast.Tuple, ast.Set)):
+                    fromlist_nodes = list(node.args[3].elts)
+                else:
+                    for keyword in node.keywords:
+                        if keyword.arg == "fromlist" and isinstance(keyword.value, (ast.List, ast.Tuple, ast.Set)):
+                            fromlist_nodes = list(keyword.value.elts)
+                            break
+                for fromlist_node in fromlist_nodes:
+                    if not isinstance(fromlist_node, ast.Constant) or not isinstance(fromlist_node.value, str):
+                        continue
+                    discovered.add(f"{module_name}.{fromlist_node.value}")
     return sorted(discovered)
 
 

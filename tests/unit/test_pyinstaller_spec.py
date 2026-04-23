@@ -101,3 +101,39 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
     discovered = discover_hidden_imports(source_root)
 
     assert discovered == ["package.alpha", "package.beta", "package.gamma"]
+
+
+def test_pyinstaller_spec_discovers_relative_and_fromlist_hidden_import_patterns(tmp_path: Path) -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_hidden_imports = cast(Callable[[Path], list[str]], namespace["_discover_hidden_imports"])
+
+    source_root = tmp_path / "eodinga"
+    package_root = source_root / "gui"
+    package_root.mkdir(parents=True)
+    (source_root / "__init__.py").write_text("", encoding="utf-8")
+    (package_root / "__init__.py").write_text("", encoding="utf-8")
+    module_path = package_root / "dynamic_imports.py"
+    module_path.write_text(
+        "\n".join(
+            [
+                "from importlib import import_module",
+                "",
+                'import_module(".widgets", "eodinga.gui")',
+                '__import__("package.delta", fromlist=("extra", "helpers"))',
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    discovered = discover_hidden_imports(source_root)
+
+    assert discovered == [
+        "eodinga.gui.widgets",
+        "package.delta",
+        "package.delta.extra",
+        "package.delta.helpers",
+    ]
