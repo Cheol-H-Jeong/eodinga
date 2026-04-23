@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.584 - 2026-04-23
+
+- Hardened launcher popup restore so saved window bounds now round-trip when still visible on the current screen, while partially off-screen geometry clamps fully back into view and tiny stale sizes are lifted to a usable minimum.
+- Tightened launcher hotkey rebinding so modifier-only and multi-primary-key combos are rejected with a clear error instead of silently persisting an unusable shortcut.
+- Added shortcut tooltips to launcher action buttons so the open, reveal, copy, and properties affordances stay discoverable even before users memorize the keyboard layer.
+
 ## 0.1.574 - 2026-04-23
 
 - Hardened the no-network safety scan so aliased imports and `from parent import child` forms like `from urllib import request` or `from socket import create_connection` can no longer bypass the repository-wide source check.
