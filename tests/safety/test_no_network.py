@@ -20,10 +20,13 @@ _BANNED_CALLS = {
     "asyncio.open_connection",
     "http.client.HTTPConnection",
     "http.client.HTTPSConnection",
+    "os.system",
     "httpx.Client",
     "httpx.AsyncClient",
     "socket.create_connection",
     "socket.socket",
+    "subprocess.getoutput",
+    "subprocess.getstatusoutput",
     "urllib.request.urlopen",
 }
 _BANNED_SUBPROCESS_COMMANDS = {"curl", "wget"}
@@ -74,9 +77,37 @@ def _subprocess_command_name(node: ast.AST) -> str | None:
     return _string_literal(node)
 
 
+def _collect_import_aliases(tree: ast.AST) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                bound_name = alias.asname or alias.name.split(".", 1)[0]
+                aliases[bound_name] = alias.name
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            for alias in node.names:
+                if alias.name == "*":
+                    continue
+                bound_name = alias.asname or alias.name
+                aliases[bound_name] = f"{module}.{alias.name}" if module else alias.name
+    return aliases
+
+
+def _resolve_alias_dotted_name(name: str, aliases: dict[str, str]) -> str:
+    head, separator, tail = name.partition(".")
+    target = aliases.get(head)
+    if target is None:
+        return name
+    if separator:
+        return f"{target}.{tail}"
+    return target
+
+
 def _scan_python_source(path: Path, root: Path) -> list[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     violations: list[str] = []
+    aliases = _collect_import_aliases(tree)
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -90,6 +121,8 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                 violations.append(f"{path.relative_to(root)}:{node.lineno}:from {module} import {imported}")
         elif isinstance(node, ast.Call):
             dotted = _dotted_name(node.func)
+            if dotted is not None:
+                dotted = _resolve_alias_dotted_name(dotted, aliases)
             if dotted in _BANNED_CALLS:
                 violations.append(f"{path.relative_to(root)}:{node.lineno}:{dotted}")
             if dotted in {
@@ -100,7 +133,7 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                 "subprocess.Popen",
             } and node.args:
                 command = _subprocess_command_name(node.args[0])
-                if command in _BANNED_SUBPROCESS_COMMANDS:
+                if command is not None and command.split(maxsplit=1)[0] in _BANNED_SUBPROCESS_COMMANDS:
                     violations.append(
                         f"{path.relative_to(root)}:{node.lineno}:subprocess {command}"
                     )
