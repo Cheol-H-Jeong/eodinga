@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.962 - 2026-04-24
+
+- Hardened Linux packaging audits so both the AppImage and Debian dry runs now fail if the shipped desktop entry stops being a non-terminal `Application` launcher.
+- Hardened the Windows Inno dry-run contract around installer metadata and staged payload entries, pinning publisher, compression, wizard style, and recursive GUI/CLI file payload lines.
+
 ## 0.1.961 - 2026-04-24
 
 - Expanded the top-level README with a concrete `packaging/dist/` audit map and docs-only validation FAQ so release reviewers can open the right evidence file without guessing.
