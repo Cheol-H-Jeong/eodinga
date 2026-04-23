@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.866 - 2026-04-23
+## 0.1.867 - 2026-04-23
 
 - Added tighter docs guidance for theme-sized validation, evidence bundles, and derived-asset triggers so docs-focused rounds can prove the right runtime or packaging surface without rerunning unrelated checks.
 - Expanded the architecture and release guides with symptom-to-boundary routing, failure-first release triage, and pre-tag evidence expectations, making docs-only and release-candidate reviews more evidence-driven.
