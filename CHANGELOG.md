@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.909 - 2026-04-23
+## 0.1.911 - 2026-04-23
 
 - Added README operator guidance for one-command desktop, CLI live-update, docs-only release, and full release-candidate paths, plus a surface-to-evidence map for debugging the right boundary first.
 - Expanded the architecture guide with explicit CLI, GUI/launcher, and packaging-provenance lifecycles so release-facing drift can be traced back to the correct runtime or packaging surface faster.
