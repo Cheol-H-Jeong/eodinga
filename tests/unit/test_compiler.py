@@ -106,6 +106,14 @@ def test_compile_reversed_date_range_normalizes_bounds() -> None:
     assert start < end
 
 
+def test_compile_size_range_normalizes_bounds() -> None:
+    compiled = compile_query(parse("size:500K..100"))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == "files.size BETWEEN ? AND ?"
+    assert branch.where_params == (100, 500 * 1024)
+
+
 def test_compile_duplicate_filter_shape() -> None:
     compiled = compile_query(parse("is:duplicate -is:symlink"))
     branch = compiled.branches[0]
@@ -157,6 +165,7 @@ def test_compile_reuses_cached_queries() -> None:
         "/[a-/",
         "regex:true [a-",
         "size:>tenM report",
+        "size:100.. report",
         "date:2026-01-01..bogus report",
         "is:folder report",
     ],

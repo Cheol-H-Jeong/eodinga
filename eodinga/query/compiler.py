@@ -154,23 +154,39 @@ def _validate_regex_pattern(pattern: str, flags: str = "") -> None:
         raise QuerySyntaxError(f"invalid regex: {error}", 0) from error
 
 
-def _size_to_bytes(value: str) -> tuple[str, int]:
+def _parse_size_literal(value: str) -> int:
     text = value.strip()
-    comparator = "="
-    for prefix in (">=", "<=", ">", "<", "="):
-        if text.startswith(prefix):
-            comparator = prefix
-            text = text[len(prefix) :]
-            break
+    if not text:
+        raise QuerySyntaxError("invalid size literal: ", 0)
     unit = text[-1].upper() if text and text[-1].isalpha() else "B"
     number_text = text[:-1] if unit != "B" or (text and text[-1].isalpha()) else text
     factor = {"B": 1, "K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}.get(unit)
     if factor is None:
         raise QuerySyntaxError(f"invalid size literal: {value}", 0)
     try:
-        return comparator, int(float(number_text) * factor)
+        return int(float(number_text) * factor)
     except ValueError as error:
         raise QuerySyntaxError(f"invalid size literal: {value}", 0) from error
+
+
+def _size_to_condition(value: str) -> tuple[str, tuple[int, ...]]:
+    text = value.strip()
+    if ".." in text:
+        left_text, right_text = text.split("..", 1)
+        if not left_text or not right_text:
+            raise QuerySyntaxError(f"invalid size literal: {value}", 0)
+        left = _parse_size_literal(left_text)
+        right = _parse_size_literal(right_text)
+        if right < left:
+            left, right = right, left
+        return "BETWEEN ? AND ?", (left, right)
+    comparator = "="
+    for prefix in (">=", "<=", ">", "<", "="):
+        if text.startswith(prefix):
+            comparator = prefix
+            text = text[len(prefix) :]
+            break
+    return f"{comparator} ?", (_parse_size_literal(text),)
 
 
 def _day_bounds(day: date) -> tuple[int, int]:
@@ -320,12 +336,12 @@ def _compile_branch(
             where_params.extend([start, end])
             continue
         if term.name == "size":
-            comparator, size_bytes = _size_to_bytes(term.value)
+            condition_sql, condition_params = _size_to_condition(term.value)
             if term.negated:
-                where_parts.append(f"NOT (files.size {comparator} ?)")
+                where_parts.append(f"NOT (files.size {condition_sql})")
             else:
-                where_parts.append(f"files.size {comparator} ?")
-            where_params.append(size_bytes)
+                where_parts.append(f"files.size {condition_sql}")
+            where_params.extend(condition_params)
             continue
         if term.name == "is":
             normalized = term.value.lower()
