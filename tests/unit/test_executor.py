@@ -476,6 +476,44 @@ def test_execute_path_filter_with_regex_like_short_unix_basename_literal(
     assert hits == ["/tmp/ms"]
 
 
+def test_execute_path_filter_with_escaped_slash_regex(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/tmp/logs/app.log", 512, now, "log", body_text="app")
+    _insert_file(tmp_db, 2, "/tmp/notes/app.log", 512, now - 60, "log", body_text="notes")
+    tmp_db.commit()
+
+    hits = [hit.file.path.as_posix() for hit in search(tmp_db, r"path:/tmp\/logs/i", limit=5).hits]
+
+    assert hits == ["/tmp/logs/app.log"]
+
+
+def test_execute_inline_phrase_path_filter_decodes_backslashes(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        r"C:\workspace\notes\alpha.txt",
+        512,
+        now,
+        "txt",
+        body_text="windows path",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        r"C:\workspace\archive\beta.txt",
+        512,
+        now - 60,
+        "txt",
+        body_text="archive path",
+    )
+    tmp_db.commit()
+
+    hits = [str(hit.file.path) for hit in search(tmp_db, r'path:"C:\\workspace\\notes"', limit=5).hits]
+
+    assert hits == [r"C:\workspace\notes\alpha.txt"]
+
+
 def test_execute_decomposed_korean_content_query_keeps_snippets(
     tmp_db: sqlite3.Connection,
 ) -> None:
@@ -694,6 +732,30 @@ def test_execute_negated_group_query(tmp_db: sqlite3.Connection) -> None:
 
     hits = [hit.file.name for hit in search(tmp_db, "-(alpha | beta) ext:txt", limit=10).hits]
     assert hits == ["gamma-plan.txt"]
+
+
+def test_execute_negated_group_query_applies_demorgan_truth_table(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/alpha-only.txt", 1024, now, "txt", body_text="alpha")
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/beta-gamma.txt",
+        1024,
+        now - 60,
+        "txt",
+        body_text="beta gamma",
+    )
+    _insert_file(tmp_db, 3, "/workspace/beta-only.txt", 1024, now - 120, "txt", body_text="beta")
+    _insert_file(tmp_db, 4, "/workspace/gamma-only.txt", 1024, now - 180, "txt", body_text="gamma")
+    _insert_file(tmp_db, 5, "/workspace/neutral.txt", 1024, now - 240, "txt", body_text="neutral")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "-(alpha | beta gamma) ext:txt", limit=10).hits]
+
+    assert hits == ["beta-only.txt", "gamma-only.txt", "neutral.txt"]
 
 
 def test_execute_korean_filename_queries(tmp_db: sqlite3.Connection) -> None:
