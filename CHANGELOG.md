@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.835 - 2026-04-23
+
+- Bundled the `eodinga/` runtime tree into the staged Linux AppImage and Debian package roots so packaged launchers no longer depend on the source checkout being present at runtime.
+- Tightened the Linux packaging audits to prove the embedded runtime payload, module entrypoint, and i18n assets are shipped, and to reject launcher regressions back to checkout-backed execution.
+- Added a shared Linux runtime-staging helper plus unit coverage so AppImage and Debian packaging keep bundling the same filtered runtime payload without drifting.
+
 ## 0.1.830 - 2026-04-23
 
 - Tightened the shipped docs around docs-only validation so README and the release/contributor guides now point at one explicit evidence bundle covering docs assets, GUI smoke, and packaging dry runs.
