@@ -623,6 +623,29 @@ def test_launcher_active_filter_row_tracks_visible_query_filters(qapp) -> None:
     assert "content:&quot;release notes&quot;" in launcher.active_filter_row.chips_label.text()
 
 
+def test_launcher_query_field_shows_inline_filter_summary(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText("report ext:pdf date:this-week size:>10M")
+    _wait(10)
+
+    assert launcher.query_field.summary_label.isVisible()
+    assert launcher.query_field.summary_label.text() == "ext:pdf  date:this-week  +1"
+    assert launcher.query_field.textMargins().right() > 0
+
+
+def test_launcher_query_field_hides_inline_filter_summary_for_plain_terms(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText("report notes")
+    _wait(10)
+
+    assert not launcher.query_field.summary_label.isVisible()
+    assert launcher.query_field.textMargins().right() == 0
+
+
 def test_launcher_active_filter_row_hides_for_plain_terms_and_invalid_syntax(qapp) -> None:
     launcher = LauncherWindow()
     launcher.show()
@@ -644,7 +667,23 @@ def test_launcher_active_filter_row_shows_overflow_count_for_many_filters(qapp) 
     _wait(10)
 
     assert "+1 more" in launcher.active_filter_row.chips_label.text()
-    assert launcher.active_filter_row.accessibleDescription() == "Showing 5 of 6 active launcher filters."
+    assert (
+        launcher.active_filter_row.accessibleDescription()
+        == "Showing 5 of 6 active launcher filters. Click a chip to select it in the search field."
+    )
+
+
+def test_launcher_active_filter_chip_selects_matching_query_text(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText('report ext:pdf date:this-week content:"release notes"')
+    _wait(10)
+
+    launcher.active_filter_row.chips_label.linkActivated.emit("filter-1")
+
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.selectedText() == "date:this-week"
 
 
 def test_launcher_hovered_result_becomes_action_target(qapp) -> None:

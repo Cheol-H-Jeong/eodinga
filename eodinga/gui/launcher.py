@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
+from eodinga.gui.launcher_query_summary import compact_filter_summary
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
 from eodinga.gui.widgets import (
     ActiveFilterRow,
@@ -131,7 +132,9 @@ class LauncherPanel(QWidget):
 
         self.query_field.textChanged.connect(self._schedule_query)
         self.query_field.textChanged.connect(self.active_filter_row.set_query)
+        self.query_field.textChanged.connect(self._sync_query_field_filter_summary)
         self.query_field.textChanged.connect(self.preview_pane.set_query)
+        self.active_filter_row.filter_selected.connect(self._focus_filter_token)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
@@ -177,6 +180,7 @@ class LauncherPanel(QWidget):
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
         self.active_filter_row.set_query(self.query_field.text())
+        self._sync_query_field_filter_summary(self.query_field.text())
         self._refresh_preview()
 
     def set_search_fn(self, search_fn: SearchFn) -> None:
@@ -495,3 +499,14 @@ class LauncherPanel(QWidget):
         self.query_field.setFocus()
         self._set_query_from_history(query)
         self._flush_pending_query()
+
+    def _sync_query_field_filter_summary(self, query: str) -> None:
+        self.query_field.set_filter_summary(compact_filter_summary(query))
+
+    def _focus_filter_token(self, filter_text: str) -> None:
+        self.query_field.setFocus()
+        start = self.query_field.text().find(filter_text)
+        if start < 0:
+            self.query_field.selectAll()
+            return
+        self.query_field.setSelection(start, len(filter_text))

@@ -44,4 +44,16 @@ def summarize_active_filters(query: str, *, limit: int | None = 5) -> list[str]:
     return deduped
 
 
-__all__ = ["summarize_active_filters"]
+def compact_filter_summary(query: str, *, limit: int = 2) -> str:
+    filters = summarize_active_filters(query, limit=None)
+    if not filters:
+        return ""
+    visible_filters = filters[:limit]
+    summary = "  ".join(visible_filters)
+    hidden_count = len(filters) - len(visible_filters)
+    if hidden_count > 0:
+        summary = f"{summary}  +{hidden_count}"
+    return summary
+
+
+__all__ = ["compact_filter_summary", "summarize_active_filters"]
