@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.203 - 2026-04-23
+## 0.1.208 - 2026-04-23
 
 - Rejected corrupt staged index databases before recovery or atomic swap, so interrupted `.next` and `.recover` files now fail closed instead of replacing a healthy index.
 - Added watcher queue backpressure handling for bounded queues, recording explicit backpressure and stop-time drop counters instead of silently losing flushed events when consumers stall.
