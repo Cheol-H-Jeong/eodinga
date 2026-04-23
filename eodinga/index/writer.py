@@ -136,8 +136,13 @@ class IndexWriter:
     @contextmanager
     def _transaction(self) -> Iterator[None]:
         if not self._conn.in_transaction:
-            with self._conn:
+            self._conn.execute("BEGIN IMMEDIATE")
+            try:
                 yield
+            except Exception:
+                self._conn.rollback()
+                raise
+            self._conn.commit()
             return
         self._savepoint_index += 1
         savepoint_name = f"eodinga_writer_{self._savepoint_index}"

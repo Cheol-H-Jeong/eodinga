@@ -459,3 +459,49 @@ def test_writer_apply_events_respects_active_transaction_rollback(tmp_db: Path, 
 
     rows = conn.execute("SELECT path FROM files ORDER BY path").fetchall()
     assert rows == [(str(source.path),)]
+
+
+def test_writer_bulk_upsert_uses_begin_immediate_for_top_level_transaction(
+    tmp_db: Path, tmp_path: Path
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    with conn:
+        conn.execute(
+            "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+            (str(tmp_path), "[]", "[]", 1),
+        )
+    writer = IndexWriter(conn)
+    record = _synthetic_record(1, tmp_path)
+
+    statements: list[str] = []
+    conn.set_trace_callback(statements.append)
+    try:
+        assert writer.bulk_upsert([record]) == 1
+    finally:
+        conn.set_trace_callback(None)
+
+    assert "BEGIN IMMEDIATE" in statements
+    assert "SAVEPOINT eodinga_writer_1" not in statements
+
+
+def test_writer_nested_transactions_still_use_savepoints(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    with conn:
+        conn.execute(
+            "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+            (str(tmp_path), "[]", "[]", 1),
+        )
+    writer = IndexWriter(conn)
+    record = _synthetic_record(1, tmp_path)
+
+    statements: list[str] = []
+    conn.execute("BEGIN")
+    conn.set_trace_callback(statements.append)
+    try:
+        assert writer.bulk_upsert([record]) == 1
+    finally:
+        conn.set_trace_callback(None)
+        conn.rollback()
+
+    assert "SAVEPOINT eodinga_writer_1" in statements
+    assert "BEGIN IMMEDIATE" not in statements
