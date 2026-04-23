@@ -85,6 +85,28 @@ def test_parse_operator_regex_value() -> None:
 
 
 @pytest.mark.parametrize(
+    ("query", "expected_flags"),
+    [
+        ("/todo/IM", "im"),
+        ("content:/todo/SM", "sm"),
+        ("path:/tmp/log/MS", "ms"),
+    ],
+)
+def test_parse_regex_flags_are_canonicalized_to_lowercase(
+    query: str,
+    expected_flags: str,
+) -> None:
+    node = parse(query)
+
+    if isinstance(node, RegexNode):
+        assert node.flags == expected_flags
+        return
+    assert isinstance(node, OperatorNode)
+    assert node.value_kind == "regex"
+    assert node.regex_flags == expected_flags
+
+
+@pytest.mark.parametrize(
     ("query", "expected_name", "expected_value"),
     [
         ('"release \\"candidate\\""', None, 'release "candidate"'),

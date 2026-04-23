@@ -230,7 +230,7 @@ class _Parser:
             raise QuerySyntaxError("empty regex", pattern_start)
         flags = self.source[flags_start:self.index]
         self._validate_regex_flags(flags, flags_start)
-        return RegexNode(pattern=pattern, flags=flags)
+        return RegexNode(pattern=pattern, flags=flags.lower())
 
     def _decode_inline_value(
         self, name: str, value: str
@@ -266,7 +266,7 @@ class _Parser:
                     self._validate_regex_flags(suffix, self.index - len(value) + last + 1)
                 except QuerySyntaxError:
                     return value, "word", ""
-            flags = suffix
+            flags = suffix.lower()
             self._validate_regex_flags(flags, self.index - len(value) + last + 1)
             return pattern, "regex", flags
         return value, "word", ""
