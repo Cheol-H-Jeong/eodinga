@@ -138,6 +138,7 @@ class WatchService:
 
     def record(self, event: WatchEvent) -> None:
         increment_counter("watcher_events", event_type=event.event_type)
+        should_force_flush = False
         with self._lock:
             if event.event_type in {"created", "modified"}:
                 self._flushed_retired_sources.discard(event.path)
@@ -176,7 +177,10 @@ class WatchService:
                     self._retired_sources[event.path] = moved_retired_sources
                 self._timestamps[event.path] = monotonic()
             if len(self._pending) >= _FLUSH_LIMIT:
-                self._flush_ready(force=True)
+                should_force_flush = True
+        if should_force_flush:
+            increment_counter("watcher_backpressure_flushes")
+            self._flush_ready(force=True)
 
     def _is_retired_move_source(self, path: Path) -> bool:
         return any(
@@ -255,6 +259,7 @@ class WatchService:
 
     def _flush_ready(self, force: bool) -> None:
         now = monotonic()
+        flushed_count = 0
         with self._lock:
             ready_paths = [
                 path
@@ -273,6 +278,12 @@ class WatchService:
                     if event.event_type in {"created", "modified", "deleted"}:
                         self._flushed_retired_sources.discard(event.path)
                     self.queue.put(event)
+                    flushed_count += 1
+        if flushed_count:
+            increment_counter("watcher_flushes")
+            if force:
+                increment_counter("watcher_forced_flushes")
+            increment_counter("watcher_events_enqueued", flushed_count)
 
     def _reset_state(self) -> None:
         with self._lock:

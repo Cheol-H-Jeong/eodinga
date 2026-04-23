@@ -9,6 +9,7 @@ from watchdog.events import FileMovedEvent
 
 from eodinga.common import WatchEvent
 from eodinga.core.watcher import WatchService, _Handler
+from eodinga.observability import reset_metrics, snapshot_metrics
 
 
 def test_watcher_handler_maps_move_leaving_root_to_delete(tmp_path: Path) -> None:
@@ -217,6 +218,27 @@ def test_watcher_move_then_destination_create_preserves_move_metadata(tmp_path: 
     assert event.event_type == "moved"
     assert event.path == destination
     assert event.src_path == source
+
+
+def test_watcher_backpressure_flush_is_counted(tmp_path: Path) -> None:
+    service = WatchService()
+    reset_metrics()
+
+    for index in range(500):
+        service.record(
+            WatchEvent(
+                event_type="created",
+                path=tmp_path / f"file-{index}.txt",
+                root_path=tmp_path,
+                happened_at=float(index),
+            )
+        )
+
+    counters = snapshot_metrics()["counters"]
+    assert counters["watcher_backpressure_flushes"] == 1
+    assert counters["watcher_flushes"] == 1
+    assert counters["watcher_forced_flushes"] == 1
+    assert counters["watcher_events_enqueued"] == 500
 
 
 def test_watcher_move_then_source_delete_keeps_single_move_event(tmp_path: Path) -> None:

@@ -90,6 +90,10 @@ def test_watcher_event_counter_increments() -> None:
     reset_metrics()
 
     service.record(WatchEvent(event_type="created", path=Path("/tmp/report.txt")))
+    service._flush_ready(force=True)
 
     counters = cast(dict[str, int], snapshot_metrics()["counters"])
     assert counters["watcher_events"] == 1
+    assert counters["watcher_flushes"] == 1
+    assert counters["watcher_forced_flushes"] == 1
+    assert counters["watcher_events_enqueued"] == 1
