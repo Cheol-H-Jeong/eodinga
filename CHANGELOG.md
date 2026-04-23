@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.186 - 2026-04-23
+
+- Surfaced configured launcher `pinned_queries` through the shared popup and Search tab state, so empty states and query hints now expose reusable filters alongside recent searches.
+- Filled in accessible names across the launcher status surfaces, empty-state labels, and the remaining tab widgets to tighten keyboard and assistive-technology coverage.
+- Strengthened launcher result highlighting with bolder, higher-contrast match styling so matched substrings stand out more clearly in names, paths, and snippets.
+
 ## 0.1.178 - 2026-04-23
 
 - Enriched `crash-<ts>.log` artifacts with stable runtime metadata including version, platform, current working directory, and argv so unhandled failures are easier to reproduce from one file.
