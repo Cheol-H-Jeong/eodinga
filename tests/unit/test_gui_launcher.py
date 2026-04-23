@@ -636,6 +636,17 @@ def test_launcher_active_filter_row_hides_for_plain_terms_and_invalid_syntax(qap
     assert not launcher.active_filter_row.isVisible()
 
 
+def test_launcher_active_filter_row_shows_overflow_count_for_many_filters(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText("ext:pdf date:today size:>10M path:reports is:file regex:true")
+    _wait(10)
+
+    assert "+1 more" in launcher.active_filter_row.chips_label.text()
+    assert launcher.active_filter_row.accessibleDescription() == "Showing 5 of 6 active launcher filters."
+
+
 def test_launcher_hovered_result_becomes_action_target(qapp) -> None:
     activated: list[str] = []
 

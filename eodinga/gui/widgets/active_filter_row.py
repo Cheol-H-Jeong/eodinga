@@ -12,9 +12,15 @@ _CHIP_STYLE = (
     "display:inline-block; margin:0 6px 6px 0; padding:1px 8px; border-radius:999px; "
     "font-size:11px; font-weight:700; color:#0F766E; background:#CCFBF1"
 )
+_OVERFLOW_STYLE = (
+    "display:inline-block; margin:0 6px 6px 0; padding:1px 8px; border-radius:999px; "
+    "font-size:11px; font-weight:700; color:#374151; background:#E5E7EB"
+)
 
 
 class ActiveFilterRow(QWidget):
+    _VISIBLE_FILTER_LIMIT = 5
+
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setAccessibleName("Active launcher filters")
@@ -37,12 +43,19 @@ class ActiveFilterRow(QWidget):
         self.set_query("")
 
     def set_query(self, query: str) -> None:
-        filters = summarize_active_filters(query)
+        filters = summarize_active_filters(query, limit=None)
         self.setVisible(bool(filters))
         if not filters:
             self.chips_label.clear()
+            self.setAccessibleDescription("No active launcher filters.")
             return
-        self.chips_label.setText("".join(f"<span style='{_CHIP_STYLE}'>{escape(item)}</span>" for item in filters))
+        visible_filters = filters[: self._VISIBLE_FILTER_LIMIT]
+        html = "".join(f"<span style='{_CHIP_STYLE}'>{escape(item)}</span>" for item in visible_filters)
+        hidden_count = len(filters) - len(visible_filters)
+        if hidden_count > 0:
+            html += f"<span style='{_OVERFLOW_STYLE}'>+{hidden_count} more</span>"
+        self.chips_label.setText(html)
+        self.setAccessibleDescription(f"Showing {len(visible_filters)} of {len(filters)} active launcher filters.")
 
 
 __all__ = ["ActiveFilterRow"]

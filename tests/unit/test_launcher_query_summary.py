@@ -17,3 +17,9 @@ def test_summarize_active_filters_formats_regex_values() -> None:
 
 def test_summarize_active_filters_hides_invalid_queries() -> None:
     assert summarize_active_filters('path:"unterminated') == []
+
+
+def test_summarize_active_filters_can_return_full_filter_list() -> None:
+    filters = summarize_active_filters("ext:pdf date:today size:>10M path:reports is:file regex:true", limit=None)
+
+    assert filters == ["ext:pdf", "date:today", "size:>10M", "path:reports", "is:file", "regex:true"]

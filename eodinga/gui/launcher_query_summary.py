@@ -27,7 +27,7 @@ def _collect_filters(node: AstNode) -> list[str]:
     return []
 
 
-def summarize_active_filters(query: str, *, limit: int = 5) -> list[str]:
+def summarize_active_filters(query: str, *, limit: int | None = 5) -> list[str]:
     normalized = query.strip()
     if not normalized:
         return []
@@ -39,7 +39,7 @@ def summarize_active_filters(query: str, *, limit: int = 5) -> list[str]:
     for item in filters:
         if item not in deduped:
             deduped.append(item)
-        if len(deduped) >= limit:
+        if limit is not None and len(deduped) >= limit:
             break
     return deduped
 
