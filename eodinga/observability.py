@@ -134,7 +134,16 @@ def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None
             effective_log_path = default_log_path()
     target = effective_log_path.expanduser()
     target.parent.mkdir(parents=True, exist_ok=True)
-    logger.add(target, rotation="5 MB", retention=5, level=level.upper())
+    logger.add(
+        target,
+        rotation=os.environ.get("EODINGA_LOG_ROTATION", "5 MB"),
+        retention=os.environ.get("EODINGA_LOG_RETENTION", 5),
+        compression=os.environ.get("EODINGA_LOG_COMPRESSION") or None,
+        enqueue=True,
+        backtrace=False,
+        diagnose=False,
+        level=level.upper(),
+    )
 
 
 def get_logger(name: str | None = None) -> Any:

@@ -4,6 +4,7 @@ import json
 import sys
 from pathlib import Path
 from typing import cast
+from unittest.mock import Mock
 
 from eodinga.common import WatchEvent
 from eodinga.content.base import ParserSpec
@@ -53,6 +54,32 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     configure_logging("INFO")
     assert log_path.parent.exists()
+
+
+def test_configure_logging_applies_file_sink_options(tmp_path: Path, monkeypatch) -> None:
+    add_mock = Mock()
+    remove_mock = Mock()
+    monkeypatch.setattr("eodinga.observability.logger.add", add_mock)
+    monkeypatch.setattr("eodinga.observability.logger.remove", remove_mock)
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    monkeypatch.setenv("EODINGA_LOG_ROTATION", "20 MB")
+    monkeypatch.setenv("EODINGA_LOG_RETENTION", "14 days")
+    monkeypatch.setenv("EODINGA_LOG_COMPRESSION", "zip")
+
+    log_path = tmp_path / "logs" / "runtime.log"
+    configure_logging("debug", log_path=log_path)
+
+    assert remove_mock.call_count == 1
+    assert add_mock.call_count == 2
+    file_call = add_mock.call_args_list[1]
+    assert file_call.args[0] == log_path
+    assert file_call.kwargs["rotation"] == "20 MB"
+    assert file_call.kwargs["retention"] == "14 days"
+    assert file_call.kwargs["compression"] == "zip"
+    assert file_call.kwargs["enqueue"] is True
+    assert file_call.kwargs["backtrace"] is False
+    assert file_call.kwargs["diagnose"] is False
+    assert file_call.kwargs["level"] == "DEBUG"
 
 
 def test_metrics_persist_via_env_override(tmp_path: Path, monkeypatch) -> None:
