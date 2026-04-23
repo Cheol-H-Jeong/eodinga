@@ -218,6 +218,17 @@ def test_execute_uses_statement_cache_for_hot_read_queries(
     assert any(kind == "all" and "FROM paths_fts" in sql for kind, sql in seen_sql)
 
 
+def test_execute_caches_compiled_regex_patterns(populated_db: sqlite3.Connection) -> None:
+    executor_module._compiled_regex.cache_clear()
+
+    first = search(populated_db, "regex:/report-[0-9]+/", limit=10)
+    second = search(populated_db, "regex:/report-[0-9]+/", limit=10)
+
+    assert first.hits
+    assert second.hits
+    assert executor_module._compiled_regex.cache_info().hits >= 1
+
+
 def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     local_now = datetime.now().astimezone()
     today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
