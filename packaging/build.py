@@ -290,6 +290,7 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
     archive_artifact = payload.get("archive_artifact", {})
     recipe_payload = payload.get("recipe", {})
     icon_payload = payload.get("icon", {})
+    runtime_payload = payload.get("runtime_bundle", {})
     apprun_payload = payload.get("apprun", {})
     launcher_payload = payload.get("launcher", {})
     required_flags = [
@@ -322,12 +323,17 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (icon_payload.get("diricon_exists"), "AppImage .DirIcon is missing"),
         (icon_payload.get("desktop_icon_matches_asset"), "AppImage desktop icon no longer matches the shipped asset"),
         (icon_payload.get("matches_source_asset"), "AppImage icon payload no longer matches the shipped asset"),
+        (runtime_payload.get("exists"), "AppImage bundled runtime root is missing"),
+        (runtime_payload.get("package_exists"), "AppImage bundled eodinga package is missing"),
+        (runtime_payload.get("package_init_exists"), "AppImage bundled eodinga package is missing __init__.py"),
+        (runtime_payload.get("module_entry_exists"), "AppImage bundled eodinga package is missing __main__.py"),
+        (runtime_payload.get("i18n_en_exists"), "AppImage bundled eodinga runtime is missing i18n assets"),
         (apprun_payload.get("is_executable"), "AppImage AppRun is not executable"),
         (apprun_payload.get("launches_gui"), "AppImage AppRun no longer launches the GUI target"),
         (apprun_payload.get("has_strict_shell"), "AppImage AppRun no longer uses strict shell flags"),
         (launcher_payload.get("is_executable"), "AppImage launcher shim is not executable"),
         (launcher_payload.get("has_strict_shell"), "AppImage launcher shim no longer uses strict shell flags"),
-        (launcher_payload.get("changes_to_project_root"), "AppImage launcher shim no longer changes to the project root"),
+        (launcher_payload.get("uses_bundled_runtime"), "AppImage launcher shim no longer uses the bundled runtime"),
         (launcher_payload.get("executes_python_module"), "AppImage launcher shim no longer executes the Python module"),
         (payload.get("archive_entries_sorted"), "AppImage archive entries are no longer sorted"),
         (payload.get("archive_mtime_zero"), "AppImage archive member mtimes are no longer reproducible"),
@@ -352,6 +358,7 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
     control_template_payload = payload.get("debian_control_template", {})
     desktop_payload = payload.get("desktop_entry", {})
     icon_payload = payload.get("icon", {})
+    runtime_payload = payload.get("runtime_bundle", {})
     launcher_payload = payload.get("launcher", {})
     docs_payload = payload.get("docs", {})
     arch = payload.get("arch")
@@ -409,8 +416,14 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (icon_payload.get("exists"), "Debian icon asset is missing from the package tree"),
         (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),
         (icon_payload.get("matches_source_asset"), "Debian icon payload no longer matches the shipped asset"),
+        (runtime_payload.get("exists"), "Debian bundled runtime root is missing"),
+        (runtime_payload.get("package_exists"), "Debian bundled eodinga package is missing"),
+        (runtime_payload.get("package_init_exists"), "Debian bundled eodinga package is missing __init__.py"),
+        (runtime_payload.get("module_entry_exists"), "Debian bundled eodinga package is missing __main__.py"),
+        (runtime_payload.get("i18n_en_exists"), "Debian bundled eodinga runtime is missing i18n assets"),
         (launcher_payload.get("is_executable"), "Debian launcher shim is not executable"),
         (launcher_payload.get("has_strict_shell"), "Debian launcher shim no longer uses strict shell flags"),
+        (launcher_payload.get("uses_bundled_runtime"), "Debian launcher shim no longer uses the bundled runtime"),
         (launcher_payload.get("executes_python_module"), "Debian launcher shim no longer executes the Python module"),
         (docs_payload.get("license_exists"), "Debian package no longer ships the license"),
         (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),

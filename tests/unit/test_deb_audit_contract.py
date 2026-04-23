@@ -18,5 +18,9 @@ def test_linux_deb_dry_run_preserves_assets_and_reproducible_changelog() -> None
     assert payload["desktop_entry"]["matches_source_asset"] is True
     assert payload["desktop_entry"]["startup_notify"] == "true"
     assert payload["icon"]["matches_source_asset"] is True
+    assert payload["runtime_bundle"]["package_exists"] is True
+    assert payload["runtime_bundle"]["package_init_exists"] is True
+    assert payload["runtime_bundle"]["module_entry_exists"] is True
     assert payload["launcher"]["has_strict_shell"] is True
+    assert payload["launcher"]["uses_bundled_runtime"] is True
     assert payload["docs"]["changelog_gzip_mtime_zero"] is True

@@ -356,7 +356,7 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
         "launcher": {
             "is_executable": True,
             "has_strict_shell": True,
-            "changes_to_project_root": True,
+            "uses_bundled_runtime": True,
             "executes_python_module": False,
         },
     }
@@ -446,12 +446,17 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["icon"]["diricon_exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True
     assert payload["icon"]["matches_source_asset"] is True
+    assert payload["runtime_bundle"]["exists"] is True
+    assert payload["runtime_bundle"]["package_exists"] is True
+    assert payload["runtime_bundle"]["package_init_exists"] is True
+    assert payload["runtime_bundle"]["module_entry_exists"] is True
+    assert payload["runtime_bundle"]["i18n_en_exists"] is True
     assert payload["apprun"]["is_executable"] is True
     assert payload["apprun"]["launches_gui"] is True
     assert payload["apprun"]["has_strict_shell"] is True
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["has_strict_shell"] is True
-    assert payload["launcher"]["changes_to_project_root"] is True
+    assert payload["launcher"]["uses_bundled_runtime"] is True
     assert payload["launcher"]["executes_python_module"] is True
 
 
@@ -483,6 +488,12 @@ def test_linux_deb_dry_run_renders_control_template() -> None:
     rendered_control = rendered_control_path.read_text(encoding="utf-8")
     assert f"Version: {__version__}" in rendered_control
     assert "Architecture: amd64" in rendered_control
+    assert payload["runtime_bundle"]["exists"] is True
+    assert payload["runtime_bundle"]["package_exists"] is True
+    assert payload["runtime_bundle"]["package_init_exists"] is True
+    assert payload["runtime_bundle"]["module_entry_exists"] is True
+    assert payload["runtime_bundle"]["i18n_en_exists"] is True
+    assert payload["launcher"]["uses_bundled_runtime"] is True
     assert payload["launcher"]["executes_python_module"] is True
 
 
@@ -513,9 +524,17 @@ def test_linux_deb_audit_validator_rejects_missing_docs() -> None:
             "desktop_icon_matches_asset": True,
             "matches_source_asset": True,
         },
+        "runtime_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "package_init_exists": True,
+            "module_entry_exists": True,
+            "i18n_en_exists": True,
+        },
         "launcher": {
             "is_executable": True,
             "has_strict_shell": True,
+            "uses_bundled_runtime": True,
             "executes_python_module": True,
         },
         "docs": {
@@ -566,9 +585,17 @@ def test_linux_deb_audit_validator_rejects_artifact_name_drift() -> None:
             "desktop_icon_matches_asset": True,
             "matches_source_asset": True,
         },
+        "runtime_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "package_init_exists": True,
+            "module_entry_exists": True,
+            "i18n_en_exists": True,
+        },
         "launcher": {
             "is_executable": True,
             "has_strict_shell": True,
+            "uses_bundled_runtime": True,
             "executes_python_module": True,
         },
         "docs": {
@@ -659,8 +686,14 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["icon"]["exists"] is True
     assert payload["icon"]["desktop_icon_matches_asset"] is True
     assert payload["icon"]["matches_source_asset"] is True
+    assert payload["runtime_bundle"]["exists"] is True
+    assert payload["runtime_bundle"]["package_exists"] is True
+    assert payload["runtime_bundle"]["package_init_exists"] is True
+    assert payload["runtime_bundle"]["module_entry_exists"] is True
+    assert payload["runtime_bundle"]["i18n_en_exists"] is True
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["has_strict_shell"] is True
+    assert payload["launcher"]["uses_bundled_runtime"] is True
     assert payload["launcher"]["executes_python_module"] is True
     assert payload["docs"]["license_exists"] is True
     assert payload["docs"]["changelog_exists"] is True
@@ -736,6 +769,13 @@ def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadat
             "desktop_icon_matches_asset": True,
             "matches_source_asset": True,
         },
+        "runtime_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "package_init_exists": True,
+            "module_entry_exists": True,
+            "i18n_en_exists": True,
+        },
         "apprun": {
             "is_executable": True,
             "launches_gui": True,
@@ -744,7 +784,7 @@ def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadat
         "launcher": {
             "is_executable": True,
             "has_strict_shell": True,
-            "changes_to_project_root": True,
+            "uses_bundled_runtime": True,
             "executes_python_module": True,
         },
     }

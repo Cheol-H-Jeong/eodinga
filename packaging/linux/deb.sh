@@ -7,6 +7,7 @@ BUILD_ROOT="${DIST_DIR}/deb-root"
 AUDIT_PATH="${DIST_DIR}/linux-deb-audit.json"
 DESKTOP_ENTRY="${ROOT_DIR}/packaging/linux/eodinga.desktop"
 ICON_ASSET="${ROOT_DIR}/packaging/linux/eodinga.svg"
+RUNTIME_ROOT_REL="usr/lib/eodinga"
 DEBIAN_CONTROL_TEMPLATE="${ROOT_DIR}/packaging/linux/debian/control"
 DEBIAN_CONTROL_RENDERED="${DIST_DIR}/debian-control"
 APP_VERSION_TOKEN="@@APP_VERSION@@"
@@ -36,6 +37,7 @@ rm -rf "${PACKAGE_DIR}"
 rm -f "${DEB_PATH}"
 mkdir -p "${PACKAGE_DIR}/DEBIAN" "${PACKAGE_DIR}/usr/bin" "${PACKAGE_DIR}/usr/share/applications" "${PACKAGE_DIR}/usr/share/doc/eodinga"
 mkdir -p "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps"
+mkdir -p "${PACKAGE_DIR}/${RUNTIME_ROOT_REL}"
 
 python3 - <<PY
 from pathlib import Path
@@ -59,9 +61,23 @@ PY
 cat > "${PACKAGE_DIR}/usr/bin/eodinga" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-exec python3 -m eodinga "$@"
+export PYTHONPATH="/usr/lib/eodinga${PYTHONPATH:+:${PYTHONPATH}}"
+exec python3 -Im eodinga "$@"
 EOF
 chmod 0755 "${PACKAGE_DIR}/usr/bin/eodinga"
+
+python3 - <<PY
+import shutil
+from pathlib import Path
+
+source = Path("${ROOT_DIR}/eodinga")
+target = Path("${PACKAGE_DIR}/${RUNTIME_ROOT_REL}/eodinga")
+shutil.copytree(
+    source,
+    target,
+    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+)
+PY
 
 install -m 0644 "${DESKTOP_ENTRY}" "${PACKAGE_DIR}/usr/share/applications/eodinga.desktop"
 install -m 0644 "${ICON_ASSET}" "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg"
@@ -106,6 +122,8 @@ launcher_path = Path("${PACKAGE_DIR}/usr/bin/eodinga")
 icon_path = Path("${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 license_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/LICENSE")
 changelog_path = Path("${PACKAGE_DIR}/usr/share/doc/eodinga/changelog.gz")
+runtime_root = Path("${PACKAGE_DIR}/${RUNTIME_ROOT_REL}")
+runtime_package_root = runtime_root / "eodinga"
 debian_control_template_path = Path("${DEBIAN_CONTROL_TEMPLATE}")
 template_control_entries = {}
 for line in debian_control_template_path.read_text(encoding="utf-8").splitlines():
@@ -178,11 +196,21 @@ payload = {
         "desktop_icon_matches_asset": desktop_entries.get("Icon") == icon_path.stem,
         "matches_source_asset": icon_path.read_text(encoding="utf-8") == Path("${ICON_ASSET}").read_text(encoding="utf-8"),
     },
+    "runtime_bundle": {
+        "path": str(runtime_root),
+        "exists": runtime_root.exists(),
+        "package_root": str(runtime_package_root),
+        "package_exists": runtime_package_root.exists(),
+        "package_init_exists": (runtime_package_root / "__init__.py").exists(),
+        "module_entry_exists": (runtime_package_root / "__main__.py").exists(),
+        "i18n_en_exists": (runtime_package_root / "i18n" / "en.json").exists(),
+    },
     "launcher": {
         "path": str(launcher_path),
         "is_executable": os.access(launcher_path, os.X_OK),
         "has_strict_shell": "set -euo pipefail" in launcher_path.read_text(encoding="utf-8"),
-        "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
+        "uses_bundled_runtime": 'PYTHONPATH="/usr/lib/eodinga' in launcher_path.read_text(encoding="utf-8"),
+        "executes_python_module": "exec python3 -Im eodinga" in launcher_path.read_text(encoding="utf-8"),
     },
     "docs": {
         "license_path": str(license_path),

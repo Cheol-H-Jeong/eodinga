@@ -8,6 +8,7 @@ AUDIT_PATH="${DIST_DIR}/linux-appimage-audit.json"
 APPIMAGE_RECIPE="${ROOT_DIR}/packaging/linux/appimage-builder.yml"
 RENDERED_RECIPE="${DIST_DIR}/appimage-builder.yml"
 APPIMAGE_ICON="${ROOT_DIR}/packaging/linux/eodinga.svg"
+RUNTIME_ROOT="${APPDIR}/usr/lib/eodinga"
 APPIMAGE_VERSION_TOKEN="@@APP_VERSION@@"
 VERSION="$(python3 - <<'PY'
 import pathlib
@@ -31,6 +32,7 @@ fi
 rm -rf "${APPDIR}"
 mkdir -p "${APPDIR}/usr/bin" "${APPDIR}/usr/share/applications"
 mkdir -p "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
+mkdir -p "${RUNTIME_ROOT}"
 mkdir -p "${DIST_DIR}"
 
 python3 - <<PY
@@ -45,6 +47,18 @@ PY
 cp "${ROOT_DIR}/packaging/linux/eodinga.desktop" "${APPDIR}/usr/share/applications/eodinga.desktop"
 cp "${APPIMAGE_ICON}" "${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg"
 cp "${APPIMAGE_ICON}" "${APPDIR}/.DirIcon"
+python3 - <<PY
+import shutil
+from pathlib import Path
+
+source = Path("${ROOT_DIR}/eodinga")
+target = Path("${RUNTIME_ROOT}/eodinga")
+shutil.copytree(
+    source,
+    target,
+    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+)
+PY
 cat > "${APPDIR}/AppRun" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -54,9 +68,9 @@ EOF
 cat > "${APPDIR}/usr/bin/eodinga" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)"
-cd "${ROOT_DIR}"
-exec python3 -m eodinga "$@"
+APPDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export PYTHONPATH="${APPDIR}/usr/lib/eodinga${PYTHONPATH:+:${PYTHONPATH}}"
+exec python3 -Im eodinga "$@"
 EOF
 chmod +x "${APPDIR}/AppRun" "${APPDIR}/usr/bin/eodinga"
 
@@ -81,6 +95,8 @@ apprun_path = Path("${APPDIR}/AppRun")
 launcher_path = Path("${APPDIR}/usr/bin/eodinga")
 icon_path = Path("${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 diricon_path = Path("${APPDIR}/.DirIcon")
+runtime_root = Path("${RUNTIME_ROOT}")
+runtime_package_root = runtime_root / "eodinga"
 recipe_path = Path("${APPIMAGE_RECIPE}")
 rendered_recipe_path = Path("${RENDERED_RECIPE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
@@ -132,6 +148,15 @@ payload = {
         "desktop_icon_matches_asset": desktop_entries.get("Icon") == icon_path.stem,
         "matches_source_asset": icon_path.read_text(encoding="utf-8") == Path("${APPIMAGE_ICON}").read_text(encoding="utf-8"),
     },
+    "runtime_bundle": {
+        "path": str(runtime_root),
+        "exists": runtime_root.exists(),
+        "package_root": str(runtime_package_root),
+        "package_exists": runtime_package_root.exists(),
+        "package_init_exists": (runtime_package_root / "__init__.py").exists(),
+        "module_entry_exists": (runtime_package_root / "__main__.py").exists(),
+        "i18n_en_exists": (runtime_package_root / "i18n" / "en.json").exists(),
+    },
     "apprun": {
         "path": str(apprun_path),
         "is_executable": os.access(apprun_path, os.X_OK),
@@ -142,8 +167,9 @@ payload = {
         "path": str(launcher_path),
         "is_executable": os.access(launcher_path, os.X_OK),
         "has_strict_shell": "set -euo pipefail" in launcher_path.read_text(encoding="utf-8"),
-        "changes_to_project_root": 'cd "\${ROOT_DIR}"' in launcher_path.read_text(encoding="utf-8"),
-        "executes_python_module": "exec python3 -m eodinga" in launcher_path.read_text(encoding="utf-8"),
+        "uses_bundled_runtime": "/usr/lib/eodinga" in launcher_path.read_text(encoding="utf-8")
+        and "PYTHONPATH=" in launcher_path.read_text(encoding="utf-8"),
+        "executes_python_module": "exec python3 -Im eodinga" in launcher_path.read_text(encoding="utf-8"),
     },
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")
