@@ -102,6 +102,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Runtime Flow" in architecture
     assert "## Data Flow Diagram" in architecture
     assert "## Module Map" in architecture
+    assert "## Persistence Boundary" in architecture
     assert "## Index Storage" in architecture
     assert "## SQLite Schema Snapshot" in architecture
     assert "## Index Lifecycle Sequence" in architecture
@@ -111,8 +112,12 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Live Update Sequence" in architecture
     assert "## Documentation Asset Flow" in architecture
     assert "## Operator Debug Path" in architecture
+    assert "## Stats Snapshot Surface" in architecture
+    assert "## Debug Decision Matrix" in architecture
     assert "## Packaging Surfaces" in architecture
     assert "compressed changelog" in architecture
+    assert "Indexed roots are inputs, not writable workspace." in architecture
+    assert "`eodinga stats --json` is the shared architecture-facing summary" in architecture
     assert "scripts/generate_manpage.py" in architecture
     assert "scripts/render_docs_screenshots.py" in architecture
     assert "tests/unit/test_docs_assets.py" in architecture

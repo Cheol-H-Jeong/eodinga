@@ -67,6 +67,19 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 - `docs/man/eodinga.1` is generated from `eodinga.__main__._build_parser()` so packaged CLI help can be audited against the real argparse surface.
 - `docs/screenshots/*.png` are rendered from real Qt widgets via `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
 
+## Persistence Boundary
+
+`eodinga` deliberately keeps persistent state small and local:
+
+| Area | Default location | What lives there | Mutated by |
+| --- | --- | --- | --- |
+| Config | platform config directory | roots, launcher settings, UI preferences | `eodinga gui`, config load/save helpers |
+| Index database | platform data directory | SQLite metadata, FTS tables, staged rebuild sidecars, crash-recovery sidecars | `rebuild_index()`, `open_index()`, `IndexWriter` |
+| Logs and crash artifacts | platform cache/log area or env override | rotating runtime log plus `crash-<ts>.log` files | observability setup and uncaught-exception handler |
+| Indexed roots | user-selected filesystem roots | source files only | never mutated by runtime code |
+
+This separation matters for operator debugging: when behavior is wrong, inspect config, DB, and logs first. Indexed roots are inputs, not writable workspace.
+
 ## Index Storage
 
 - `files` is the source-of-truth table for root membership, timestamps, size, extension, and duplicate detection via `content_hash`.
@@ -161,6 +174,20 @@ index / watch / search command
             +--> eodinga stats --json
             |
             +--> rotating runtime logs / crash-<ts>.log
+
+## Stats Snapshot Surface
+
+`eodinga stats --json` is the shared architecture-facing summary across CLI and GUI troubleshooting.
+
+| Field family | Runtime source | Why operators care |
+| --- | --- | --- |
+| corpus counts | `eodinga.index.reader.stats()` | confirms the live database actually contains the expected files and parsed documents |
+| counters | `eodinga.observability.increment_counter()` call sites | shows whether queries, parser failures, watcher events, or command failures are accumulating |
+| histograms | `record_histogram()` snapshots | gives a coarse latency picture without parsing log files |
+| `db_path`, `roots` | config resolution plus index snapshot | catches wrong-config and wrong-database incidents first |
+| `log_path`, `crash_dir`, `file_logging_enabled` | observability path resolution | tells the operator where durable diagnostics will land |
+
+The command is intentionally architecture-shaped: storage state, then process metrics, then durable diagnostic paths.
 ```
 
 ## Documentation Asset Flow
@@ -269,3 +296,15 @@ When an operator reports stale or surprising results, the shortest architecture-
 3. `eodinga watch` or `eodinga index --rebuild` depending on whether the issue is live-update lag or a one-shot recovery need.
 
 That sequence mirrors the architecture itself: active DB selection, environment validation, then either watcher-driven incremental repair or staged rebuild.
+
+## Debug Decision Matrix
+
+| Symptom | First layer to inspect | Likely module family |
+| --- | --- | --- |
+| wrong result set but healthy startup | query snapshot and counters | `eodinga.query.*`, `eodinga.__main__`, `eodinga.observability` |
+| stale results after file changes | watcher events and commit path | `eodinga.core.watcher`, `eodinga.index.writer` |
+| startup recovery or WAL noise | staged swap and storage recovery | `eodinga.index.storage`, `eodinga.index.build` |
+| GUI or launcher-only mismatch | shared search output versus UI binding | `eodinga.gui.*`, `eodinga.launcher.*` |
+| packaged-build mismatch | generated docs and packaging recipes | `docs/man/eodinga.1`, `packaging/*`, `scripts/*` |
+
+Use the matrix to avoid jumping straight to rebuilds or package changes when the active failure is higher up the stack.
