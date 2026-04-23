@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.163 - 2026-04-23
+
+- Added open-ended ISO date windows to `date:`, `modified:`, and `created:`, so queries like `date:2026-04-01..` and `created:..2026-04-23` now compile directly into one-sided timestamp predicates.
+- Preserved ISO datetime precision for the same operators, so `modified:2026-04-23T09:15:30+00:00` and datetime ranges no longer collapse to whole-day matches.
+- Expanded query regressions and DSL docs to cover the new open-ended and datetime-aware timestamp filters.
+
 ## 0.1.161 - 2026-04-23
 
 - Expanded `date:` macros with `last-week` and `last-month`, and pinned their local-time behavior in compiler and executor regressions.

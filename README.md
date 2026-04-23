@@ -106,6 +106,8 @@ eodinga doctor
 - `ext:pdf invoice` : extension filter plus term
 - `path:projects content:"design review"` : path and content filters
 - `size:>10M modified:today` : size and date filters
+- `date:2026-04-01.. modified:..2026-04-23` : open-ended ISO ranges
+- `modified:2026-04-23T09:15:30+00:00` : exact ISO datetime filter
 - `date:yesterday is:duplicate` : relative date plus duplicate detection
 - `created:2026-04-23` : creation-time filter
 - `regex:true report-\\d+` : treat plain terms as regex
@@ -124,6 +126,9 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Restrict by extension | `ext:pdf invoice` |
 | Restrict by path | `path:projects content:"design review"` |
 | Find recent files | `date:this-week` |
+| Start from an ISO date | `date:2026-04-01..` |
+| Stop at an ISO date | `created:..2026-04-23` |
+| Match one instant | `modified:2026-04-23T09:15:30+00:00` |
 | Find size ranges | `size:100K..500K` |
 | Find duplicates | `is:duplicate` |
 | Exclude noisy trees | `-path:node_modules` |
