@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.289 - 2026-04-23
+
+- Restored the launcher preview pane to the actively selected result when a hover-only preview ends, so the sidebar no longer stays stuck on a stale hovered item.
+- Clamped restored frameless launcher geometry back onto a visible screen origin and persisted the corrected bounds, preventing saved popup positions from reopening off-screen after display changes.
+- Normalized launcher hotkey aliases and whitespace before rebinding, keeping runtime registration and saved config values in a canonical format like `ctrl+alt+k`.
+
 ## 0.1.287 - 2026-04-23
 
 - Expanded the tray controller so it now exposes explicit `Open eodinga`, `Show launcher`, and `Hide launcher` actions while keeping the launcher toggle text synchronized with the popup window state.
