@@ -24,6 +24,12 @@ def _dotted_name(node: ast.AST) -> str | None:
     return None
 
 
+def _literal_string(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    return None
+
+
 def test_fs_module_avoids_write_capable_calls() -> None:
     source = Path(fs.__file__).read_text(encoding="utf-8")
     tree = ast.parse(source, filename=fs.__file__ or "eodinga/core/fs.py")
@@ -34,12 +40,14 @@ def test_fs_module_avoids_write_capable_calls() -> None:
         "replace",
         "rmdir",
         "symlink",
+        "touch",
         "truncate",
         "unlink",
         "write_bytes",
         "write_text",
     }
     forbidden_calls = {
+        "open",
         "os.remove",
         "os.rename",
         "os.replace",
@@ -54,6 +62,16 @@ def test_fs_module_avoids_write_capable_calls() -> None:
         assert dotted not in forbidden_calls
         if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, (ast.Name, ast.Attribute)):
             assert node.func.attr not in forbidden_methods
+            if node.func.attr == "open":
+                mode: str | None = None
+                if len(node.args) >= 1:
+                    mode = _literal_string(node.args[0])
+                for keyword in node.keywords:
+                    if keyword.arg == "mode":
+                        mode = _literal_string(keyword.value)
+                        break
+                if mode is not None:
+                    assert all(flag not in mode for flag in ("w", "a", "+", "x"))
 
 
 @pytest.mark.parametrize("mode", ["w", "wb", "a", "ab", "x", "xb", "r+", "rb+", "a+"])
