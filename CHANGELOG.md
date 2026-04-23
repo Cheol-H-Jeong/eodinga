@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.810 - 2026-04-23
+## 0.1.813 - 2026-04-23
 
 - Avoided redundant Qt palette and stylesheet reapplication for the same `QApplication`, which removes the flaky GUI crash path hit during repeated launcher test setup.
 - Added keyboard-only navigation for pinned and recent launcher query chips, including `Tab`, `Shift+Tab`, arrow, `Home`, `End`, and chip-to-results transitions.
