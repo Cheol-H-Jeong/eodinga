@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.204 - 2026-04-23
+## 0.1.205 - 2026-04-23
 
 - Reworked the filesystem walker to carry `os.scandir()` stat data forward into traversal, avoiding redundant `lstat()` calls for discovered children while preserving the existing symlink-loop and alias handling.
 - Moved SQLite durability tuning to the staged rebuild path so rebuilds run with `PRAGMA synchronous=NORMAL` before the bulk transaction starts, while ordinary opens and post-rebuild idle state return to `FULL`.
