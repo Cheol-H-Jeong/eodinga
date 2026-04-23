@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.404 - 2026-04-23
+
+- Refreshed the shipped docs contract around runtime lifecycle, validation paths, release-input ownership, and docs-only acceptance so operators can audit the local-first search surface from `README.md` and the release guides without reverse-engineering command order.
+- Updated the architecture and performance guides with current-head restart/recovery flows, state-path ownership, release-input sequencing, and a freshly rerun opt-in perf baseline including the exact recorded benchmark summary lines.
+- Tightened contributor and acceptance guidance for docs-heavy rounds, including a docs change matrix, perf-doc refresh rules, docs-only release checks, and the evidence expected before handing a tagged worker branch back to the orchestrator.
+
 ## 0.1.385 - 2026-04-23
 
 - Fixed slash-delimited query parsing so top-level regex literals and spaced operator regex values now close correctly when the pattern ends with an even run of backslashes before the delimiter.
