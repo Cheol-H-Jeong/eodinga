@@ -143,6 +143,7 @@ class StatsSnapshot(BaseModel):
     parser_activity: dict[str, dict[str, int]] = Field(default_factory=dict)
     watcher_event_types: dict[str, int] = Field(default_factory=dict)
     watcher_failures: dict[str, dict[str, int]] = Field(default_factory=dict)
+    command_failure_reasons: dict[str, int] = Field(default_factory=dict)
     log_file_sources: dict[str, int] = Field(default_factory=dict)
     log_file_disabled_reasons: dict[str, int] = Field(default_factory=dict)
     counters: dict[str, int] = Field(default_factory=dict)

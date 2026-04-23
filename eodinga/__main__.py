@@ -247,6 +247,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         parser_activity=_parser_activity_summary(counters),
         watcher_event_types=_watcher_event_type_summary(counters),
         watcher_failures=_watcher_failure_summary(counters),
+        command_failure_reasons=_command_failure_reason_summary(counters),
         log_file_sources=_log_file_source_summary(counters),
         log_file_disabled_reasons=_log_file_disabled_reason_summary(counters),
         counters=counters,
@@ -326,11 +327,13 @@ def _run_command(args: argparse.Namespace) -> int:
         failure_reason = "interrupted"
         increment_counter("commands_interrupted", command=command)
         increment_counter(f"commands.{command}.interrupted")
+        increment_counter("commands.failure_reason.interrupted", command=command)
     except Exception:
         exit_code = 1
         failure_reason = "exception"
         increment_counter("commands_failed", command=command)
         increment_counter(f"commands.{command}.failed")
+        increment_counter("commands.failure_reason.exception", command=command)
         raise
     finally:
         elapsed_ms = max((monotonic() - started_at) * 1000, 0.0)
@@ -338,6 +341,9 @@ def _run_command(args: argparse.Namespace) -> int:
         if exit_code is not None:
             increment_counter(f"commands.exit_code.{exit_code}")
             if exit_code != 0:
+                if failure_reason is None:
+                    failure_reason = "nonzero_exit"
+                    increment_counter("commands.failure_reason.nonzero_exit", command=command)
                 record_snapshot(
                     "command.failure",
                     {
@@ -437,6 +443,14 @@ def _watcher_failure_summary(counters: dict[str, int]) -> dict[str, dict[str, in
     if "watcher_startup_rollbacks" in counters:
         summary["startup"] = {"rollbacks": counters["watcher_startup_rollbacks"]}
     return dict(sorted((name, dict(sorted(values.items()))) for name, values in summary.items()))
+
+
+def _command_failure_reason_summary(counters: dict[str, int]) -> dict[str, int]:
+    prefix = "commands.failure_reason."
+    reasons = {
+        name[len(prefix) :]: value for name, value in counters.items() if name.startswith(prefix)
+    }
+    return dict(sorted(reasons.items()))
 
 
 def _log_file_source_summary(counters: dict[str, int]) -> dict[str, int]:
