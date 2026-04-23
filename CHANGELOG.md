@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.142 - 2026-04-23
+## 0.1.143 - 2026-04-23
 
 - Preserved interrupted `.index.db.recover` and `.index.db.next` snapshots when resume swaps fail, so startup keeps a retriable staged database instead of deleting the only recovery artifact.
 - Applied stop-aware watcher queue backpressure with focused regressions, so forced flushes wait for queue capacity instead of relying on unbounded growth during bursts.
