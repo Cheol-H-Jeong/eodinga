@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.502 - 2026-04-23
+
+- Shared the integration watcher polling helpers across live-update and hot-restart suites so rename-path regressions exercise the same end-to-end event application loop instead of duplicated local copies.
+- Added real watchdog integration coverage for same-root file renames in both single-root and multi-root indexing, proving renamed files remain query-visible within the 500ms live-update budget and preserve root scoping.
+- Extended hot-restart coverage with same-root rename flows after reopen, pinning that reopened indexes continue to converge on the destination path without leaking stale source hits.
+
 ## 0.1.448 - 2026-04-23
 
 - Counted ordinary nonzero CLI exits as failed commands in observability metrics, so validation and syntax errors now appear in `commands_failed`, per-command failure tallies, and exit-code summaries without being misclassified as crashes.
