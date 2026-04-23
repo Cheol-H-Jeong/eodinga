@@ -24,10 +24,13 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 
 - `date:today`
 - `date:yesterday`
+- `date:tomorrow`
 - `date:this-week`
 - `date:last-week`
 - `date:this-month`
 - `date:last-month`
+- `date:this-year`
+- `date:last-year`
 - `date:2026-04-23`
 - `date:2026-04-01..2026-04-23`
 - `date:2026-04-01..`
@@ -39,10 +42,13 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 ```text
 ext:pdf content:"release notes"
 size:>10M date:this-month
+size:100..500K date:last-year
 modified:today created:2026-04-23
 date:2026-04-01.. modified:..2026-04-23
+date:tomorrow | date:this-year
 modified:2026-04-23T09:15:30+00:00
 regex:true report-\d+
+content:/launch\s+plan/ms
 -is:duplicate -path:node_modules
 (invoice | receipt) ext:pdf
 regex:/launch|ship/i path:docs
@@ -53,13 +59,15 @@ regex:/launch|ship/i path:docs
 
 - Path/name terms are case-insensitive unless `case:true` is set.
 - Content operators only match indexed document text; unsupported files fall back to filename/path search.
-- `date:`, `modified:`, and `created:` accept `today`, `yesterday`, `this-week`, `this-month`, a single ISO date, open-ended ISO ranges, full ISO ranges, and exact ISO datetimes.
+- `date:`, `modified:`, and `created:` accept `today`, `yesterday`, `tomorrow`, week/month/year aliases, a single ISO date, open-ended ISO ranges, full ISO ranges, and exact ISO datetimes.
 - `size:` comparisons use binary suffixes, so `10M` means `10 * 1024 * 1024` bytes.
+- `size:` also accepts closed and open-ended ranges such as `100..500K`, `..1M`, and `10G..`.
 - `is:duplicate` matches entries that share a content hash with at least one other indexed file.
 - `is:file` matches regular files only, `is:dir` matches non-symlink directories only, and `is:symlink` remains available when you want the link entries themselves.
 - `is:empty` matches zero-byte files and directories with no indexed descendants.
 - `regex:true` only changes how plain terms are interpreted; explicit `/pattern/flags` literals still work without it.
 - `regex:/pattern/flags` is an explicit alias for a path/name regex term when you want the query to read like an operator list.
+- Regex flags normalize to lowercase `ims` order, so `/todo/SM` and `/todo/ms` compile the same way.
 - Negation applies to the next term or the entire parenthesized group.
 
 ## Practical Limits
