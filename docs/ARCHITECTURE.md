@@ -53,6 +53,18 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 | Content extraction | `eodinga.content.*` | Parse supported document formats into searchable text. |
 | UI + CLI | `eodinga.__main__`, `eodinga.gui.*`, `eodinga.launcher.*` | Expose the same engine through commands, the main window, and the hotkey launcher. |
 
+## Storage Schema Snapshot
+
+| Table / structure | Purpose | Key fields |
+| --- | --- | --- |
+| `files` | Canonical metadata row for each indexed entry | root, path, name, extension, size, timestamps, `content_hash` |
+| `paths_fts` | FTS5 mirror for name and path lookups | filename, basename, relative path, root path |
+| `content_fts` | FTS5 mirror for parsed document text | extracted content payload |
+| `content_map` | Stable mapping between `files` rows and content FTS rows | file row id, content row id |
+| `*-wal` / `*-shm` sidecars | SQLite durability and concurrent-read state | managed by SQLite and startup recovery |
+| `.index.db.next` | Fully staged rebuild candidate | promoted only after validation and checkpoint |
+| `.index.db.recover` | Recovery-side working copy for interrupted swap/WAL replay | atomically replaces live DB after recovery succeeds |
+
 ## Why The Pieces Are Split This Way
 
 - `core.*` owns contact with the real filesystem so read-only guarantees stay centralized.
@@ -74,6 +86,16 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 - `content_fts` stores parsed document text when parser extras are installed.
 - `content_map` keeps the FTS row IDs stable across updates so incremental reindexing does not balloon the content index.
 - `eodinga.index.storage` owns WAL replay on startup and atomic staged-index replacement.
+
+## Lifecycle Ownership
+
+| Lifecycle | Main owner | Supporting modules | Operator-visible command or surface |
+| --- | --- | --- | --- |
+| Cold build | `eodinga.index.build` | `core.walker`, `index.writer`, `content.*` | `eodinga index`, GUI index controls |
+| Live refresh | `eodinga.core.watcher` | `index.writer`, `core.rules` | `eodinga watch`, GUI background indexing |
+| Search | `eodinga.query.executor` | `query.dsl`, `query.compiler`, `query.ranker` | `eodinga search`, launcher, GUI search tab |
+| Recovery | `eodinga.index.storage` | `doctor`, `index.schema` | startup path, `eodinga doctor` |
+| Diagnostics | `eodinga.doctor`, `eodinga.observability` | config, hotkey backends, storage | `eodinga doctor`, `eodinga stats --json` |
 
 ## Index Lifecycle Sequence
 
@@ -118,6 +140,16 @@ eodinga index --rebuild
 - Structured operators such as `ext:`, `path:`, `content:`, `size:`, `date:`, `modified:`, `created:`, and `is:` compile into SQLite predicates where possible.
 - Regex and mixed path/content terms are finalized in Python against the candidate set so the CLI and GUI share identical behavior.
 - `eodinga.query.ranker` applies reciprocal rank fusion, filename prefix boosts, and path deboosting for noisy trees such as `node_modules`.
+
+## Query Evaluation Boundaries
+
+| Stage | What happens there | Why it lives there |
+| --- | --- | --- |
+| Parse | Tokenize and build the AST from the raw query string | Syntax errors and grouping rules stay deterministic before any I/O |
+| Compile | Lower supported operators into SQL and FTS probes | Cheap predicates run close to SQLite and cut candidate volume early |
+| Fetch | Read candidate rows plus any needed joined metadata | Keeps one canonical record shape for CLI, launcher, and GUI |
+| Fallback evaluation | Apply regex and mixed-mode checks in Python | Handles cases SQLite cannot express without diverging semantics |
+| Rank | Merge path/name/content signals into final result order | Search surfaces stay consistent across every entry point |
 
 ## Query Sequence
 
@@ -198,6 +230,16 @@ startup
             +--> no: open live DB directly
 ```
 
+## Failure Boundaries
+
+| Failure point | Expected behavior | User-visible recovery path |
+| --- | --- | --- |
+| Parser fails on one file | File stays indexed by name/path; parser error is counted | Inspect `eodinga stats --json` and rerun after parser updates |
+| Watch burst exceeds normal pace | Events are coalesced and backpressure is applied instead of silent drop | Keep `eodinga watch` running and check watcher metrics/logs |
+| Rebuild interrupted mid-swap | Staged `.next` or `.recover` state is resumed on startup | Start the app again or run `eodinga doctor` |
+| Stale WAL present on startup | WAL is replayed into a staged copy before swap | Automatic at startup; rebuild only if recovery fails |
+| Unsupported content format | Filename/path search still works | Install parser extras only if content extraction matters |
+
 ## Packaging Surfaces
 
 - Editable local development targets `pip install -e .[all]` on Python 3.11.
@@ -219,10 +261,12 @@ startup
 
 ## UI Surfaces
 
-- `eodinga.__main__` exposes the seven subcommands required by the v0.1 contract.
-- `eodinga.gui.app.EodingaWindow` is the settings and diagnostics shell.
-- `eodinga.gui.launcher.LauncherWindow` is the hotkey-first search surface with keyboard navigation and match highlighting.
-- Both UI paths reuse the same query models from `eodinga.common`.
+| Surface | Primary module | Main responsibility |
+| --- | --- | --- |
+| CLI | `eodinga.__main__` | Exposes the seven v0.1 subcommands and top-level flags |
+| Main window | `eodinga.gui.app.EodingaWindow` | Root management, settings, diagnostics, and embedded search |
+| Launcher popup | `eodinga.gui.launcher.LauncherWindow` | Hotkey-first search, keyboard navigation, and result actions |
+| Shared models/widgets | `eodinga.common`, `eodinga.gui.widgets.*` | Reused result payloads, search controls, preview panes, and empty states |
 
 ## Safety Boundaries
 
