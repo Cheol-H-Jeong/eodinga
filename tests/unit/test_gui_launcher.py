@@ -471,6 +471,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
 
     assert launcher.empty_state.title_label.text() == "Type to search"
     assert "No recent queries yet" in launcher.empty_state.body_label.text()
+    assert "Suggested filters: ext:pdf, date:this-week, size:>10M." in launcher.empty_state.body_label.text()
     assert "Alt+Up" in launcher.empty_state.body_label.text()
     assert "Alt+P" in launcher.empty_state.body_label.text()
     assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
@@ -486,6 +487,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.status_chip.text() == "No results"
     assert launcher.empty_state.title_label.text() == 'No results for "missing"'
     assert "date:this-week" in launcher.empty_state.body_label.text()
+    assert "click a filter chip" in launcher.empty_state.body_label.text()
     assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
     assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
@@ -762,7 +764,9 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.pin_query_button.accessibleName() == "Pin current query"
+    assert launcher.pin_query_button.accessibleDescription() == "Save the current launcher query as a pinned chip."
     assert launcher.filter_suggestions_row.accessibleName() == "Suggested launcher filters"
+    assert launcher.filter_suggestions_row.buttons[0].accessibleName() == "Apply filter ext:pdf"
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"

@@ -64,6 +64,7 @@ class LauncherPanel(QWidget):
             "Filters",
             accessible_name="Suggested launcher filters",
             on_chip_clicked=self._apply_filter_suggestion,
+            button_accessible_name_prefix="Apply filter",
             parent=self,
         )
         self.pinned_queries_row = QueryChipRow(
@@ -345,18 +346,20 @@ class LauncherPanel(QWidget):
         has_results = self.model.rowCount() > 0
         query = self.query_field.text().strip()
         details = format_indexing_status(self._indexing_status)
+        suggested_filters = ", ".join(self._suggested_filters(query)[:3])
+        suggestions_text = f" Suggested filters: {suggested_filters}." if suggested_filters else ""
         if not query:
             recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
             pinned_queries = f" Pinned: {', '.join(self._pinned_queries[:3])}." if self._pinned_queries else ""
             self.empty_state.set_content(
                 "Type to search",
-                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up to recall recent queries, press Alt+P to pin the current filter, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
+                f"Recent: {recent_queries}.{pinned_queries}{suggestions_text} Click a launcher chip or press Alt+Up to recall recent queries, press Alt+P to pin the current filter, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
                 details,
             )
         else:
             self.empty_state.set_content(
                 f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Tab to jump back to the filter or Esc to hide the launcher.",
+                f"Try another term or click a filter chip like {suggested_filters or 'ext:pdf, date:this-week, or size:>10M'}. Press Tab to jump back to the filter or Esc to hide the launcher.",
                 details,
             )
         self.empty_state.setVisible(not has_results)
@@ -395,6 +398,11 @@ class LauncherPanel(QWidget):
         self.pin_query_button.setEnabled(bool(query))
         self.pin_query_button.setText("Unpin" if is_pinned else "Pin")
         self.pin_query_button.setAccessibleName("Unpin current query" if is_pinned else "Pin current query")
+        self.pin_query_button.setAccessibleDescription(
+            "Remove the current launcher query from pinned chips."
+            if is_pinned
+            else "Save the current launcher query as a pinned chip."
+        )
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()
