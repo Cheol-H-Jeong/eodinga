@@ -12,6 +12,7 @@ from typing import NamedTuple
 from pydantic import BaseModel, ConfigDict
 
 from eodinga.common import FileRecord
+from eodinga.core.fs import normalize_path_text
 from eodinga.observability import increment_counter, record_histogram
 from eodinga.query.compiler import CompiledBranch, CompiledQuery
 from eodinga.query.ranker import rank_results
@@ -348,11 +349,20 @@ def _escape_like_pattern(value: str) -> str:
 
 
 def _root_variants(root_text: str) -> tuple[str, ...]:
-    candidates = (
+    normalized = normalize_path_text(root_text).rstrip("/\\") or normalize_path_text(root_text)
+    normalized_windows = normalized.replace("/", "\\")
+    candidates = [
         root_text,
-        root_text.replace("\\", "/"),
-        root_text.replace("/", "\\"),
-    )
+        normalized,
+        normalized_windows,
+    ]
+    if len(normalized) >= 2 and normalized[1] == ":" and normalized[0].isalpha():
+        candidates.extend(
+            (
+                f"\\\\?\\{normalized}",
+                f"\\\\?\\{normalized_windows}",
+            )
+        )
     variants: dict[str, None] = {}
     for candidate in candidates:
         variants[candidate] = None
