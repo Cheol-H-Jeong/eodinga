@@ -463,3 +463,19 @@ def test_record_snapshot_keeps_recent_entries_bounded() -> None:
     counters = cast(dict[str, int], metrics["counters"])
     assert counters["snapshots_recorded"] == 25
     assert counters["snapshots_dropped"] == 5
+
+
+def test_recent_snapshots_return_isolated_payload_copies() -> None:
+    reset_metrics()
+    payload = {"query": {"text": "alpha", "filters": ["ext:txt"]}}
+
+    record_snapshot("command.search", payload)
+    payload["query"]["text"] = "mutated"
+    payload["query"]["filters"].append("size:>1M")
+
+    snapshots = recent_snapshots()
+    snapshots[0]["payload"]["query"]["text"] = "changed again"
+    snapshots[0]["payload"]["query"]["filters"].append("path:docs")
+
+    fresh_snapshots = recent_snapshots()
+    assert fresh_snapshots[0]["payload"] == {"query": {"text": "alpha", "filters": ["ext:txt"]}}

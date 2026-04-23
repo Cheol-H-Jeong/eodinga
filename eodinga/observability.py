@@ -4,6 +4,7 @@ import os
 import sys
 import threading
 import traceback
+from copy import deepcopy
 from collections import deque
 from dataclasses import dataclass, field
 from collections.abc import Mapping
@@ -253,7 +254,7 @@ def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
     record: SnapshotRecord = {
         "name": name,
         "recorded_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        "payload": dict(payload),
+        "payload": deepcopy(dict(payload)),
     }
     with _METRICS_LOCK:
         if len(_RECENT_SNAPSHOTS) == _RECENT_SNAPSHOT_LIMIT:
@@ -267,7 +268,14 @@ def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
 
 def recent_snapshots() -> list[SnapshotRecord]:
     with _METRICS_LOCK:
-        return list(_RECENT_SNAPSHOTS)
+        return [
+            {
+                "name": record["name"],
+                "recorded_at": record["recorded_at"],
+                "payload": deepcopy(record["payload"]),
+            }
+            for record in _RECENT_SNAPSHOTS
+        ]
 
 
 def recent_snapshot_capacity() -> int:
