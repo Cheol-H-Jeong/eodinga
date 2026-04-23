@@ -586,6 +586,29 @@ def test_execute_reuses_cached_sql_shapes_for_content_queries(
     assert executor_module._content_candidates_sql.cache_info().hits >= 1
 
 
+def test_fetch_content_texts_reuses_cached_chunk_sql(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    for index in range(260):
+        _insert_file(
+            tmp_db,
+            index + 1,
+            f"/workspace/docs/doc-{index:03d}.txt",
+            512,
+            now - index,
+            "txt",
+            body_text=f"body {index}",
+        )
+    tmp_db.commit()
+    executor_module._content_texts_sql.cache_clear()
+
+    first = executor_module._fetch_content_texts(tmp_db, range(1, 261))
+    second = executor_module._fetch_content_texts(tmp_db, range(1, 261))
+
+    assert len(first) == 260
+    assert first == second
+    assert executor_module._content_texts_sql.cache_info().hits >= 2
+
+
 def test_execute_path_filter_with_short_unix_basename_literal(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/tmp/log", 512, now, "", body_text="system log")
