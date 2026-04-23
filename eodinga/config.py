@@ -53,14 +53,14 @@ def _atomic_write_text(path: Path, contents: str) -> None:
 
 
 class GeneralConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     theme: str = "system"
     language: str = "auto"
 
 
 class LauncherConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     hotkey: str = "ctrl+shift+space"
     debounce_ms: int = 30
@@ -74,7 +74,7 @@ class LauncherConfig(BaseModel):
 
 
 class IndexConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     db_path: Path = Field(default_factory=lambda: default_db_path())
     content_enabled: bool = True
@@ -84,7 +84,7 @@ class IndexConfig(BaseModel):
 
 
 class RootConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     path: Path
     include: list[str] = Field(default_factory=lambda: ["**/*"])
@@ -98,7 +98,7 @@ class RootConfig(BaseModel):
 
 
 class AppConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     general: GeneralConfig = Field(default_factory=GeneralConfig)
     launcher: LauncherConfig = Field(default_factory=LauncherConfig)

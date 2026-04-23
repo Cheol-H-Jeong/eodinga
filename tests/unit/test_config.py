@@ -45,6 +45,31 @@ pinned_queries = ["ext:pdf", "size:>10M"]
     assert config.launcher.pinned_queries == ["ext:pdf", "size:>10M"]
 
 
+def test_load_ignores_unknown_config_fields(temp_config_path: Path) -> None:
+    temp_config_path.write_text(
+        """
+[launcher]
+hotkey = "ctrl+shift+space"
+frameless = true
+
+[index]
+content_enabled = true
+future_flag = "ignored"
+
+[[roots]]
+path = "/tmp/docs"
+priority = 10
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load(temp_config_path)
+
+    assert config.launcher.hotkey == "ctrl+shift+space"
+    assert config.index.content_enabled is True
+    assert [str(root.path) for root in config.roots] == ["/tmp/docs"]
+
+
 def test_config_save_is_atomic_and_cleans_temp_file_on_replace_failure(
     temp_config_path: Path,
     tmp_path: Path,
