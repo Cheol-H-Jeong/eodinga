@@ -31,8 +31,6 @@ class LauncherWindow(LauncherPanel):
         self._geometry_save_timer.timeout.connect(self._persist_geometry)
         self.setObjectName("surface")
         self.setAccessibleName("Launcher window")
-        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
-        self.setWindowFlag(Qt.WindowType.Tool, True)
         self._apply_window_behavior()
         width = self._config.launcher.window_width if self._config is not None else 640
         height = self._config.launcher.window_height if self._config is not None else 480
@@ -80,9 +78,19 @@ class LauncherWindow(LauncherPanel):
             self._config.launcher = self._config.launcher.model_copy(update={"always_on_top": enabled})
         self._apply_window_behavior()
 
+    def set_frameless(self, enabled: bool) -> None:
+        if self._config is not None:
+            self._config.launcher = self._config.launcher.model_copy(update={"frameless": enabled})
+        self._apply_window_behavior()
+
     def _apply_window_behavior(self) -> None:
         always_on_top = self._config.launcher.always_on_top if self._config is not None else False
-        flags = self.windowFlags() | Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint
+        frameless = self._config.launcher.frameless if self._config is not None else True
+        flags = self.windowFlags() | Qt.WindowType.Tool
+        if frameless:
+            flags |= Qt.WindowType.FramelessWindowHint
+        else:
+            flags &= ~Qt.WindowType.FramelessWindowHint
         if always_on_top:
             flags |= Qt.WindowType.WindowStaysOnTopHint
         else:

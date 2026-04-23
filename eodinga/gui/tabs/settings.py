@@ -9,6 +9,7 @@ from eodinga.gui.widgets import SecondaryButton
 class SettingsTab(QWidget):
     hotkey_change_requested = Signal(str)
     launcher_always_on_top_changed = Signal(bool)
+    launcher_frameless_changed = Signal(bool)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -24,6 +25,9 @@ class SettingsTab(QWidget):
         self.launcher_always_on_top_checkbox = QCheckBox("Keep launcher above other windows", self)
         self.launcher_always_on_top_checkbox.setAccessibleName("Keep launcher above other windows")
         self.launcher_always_on_top_checkbox.toggled.connect(self.launcher_always_on_top_changed.emit)
+        self.launcher_frameless_checkbox = QCheckBox("Use frameless launcher popup", self)
+        self.launcher_frameless_checkbox.setAccessibleName("Use frameless launcher popup")
+        self.launcher_frameless_checkbox.toggled.connect(self.launcher_frameless_changed.emit)
         self.hotkey_label = QLabel("", self)
         self.hotkey_label.setProperty("role", "secondary")
         self.hotkey_label.setAccessibleName("Current launcher hotkey")
@@ -36,6 +40,7 @@ class SettingsTab(QWidget):
         layout.addWidget(body)
         layout.addWidget(self.system_theme_checkbox)
         layout.addWidget(self.launcher_always_on_top_checkbox)
+        layout.addWidget(self.launcher_frameless_checkbox)
         layout.addWidget(self.hotkey_label)
         layout.addWidget(self.remap_hotkey_button)
         layout.addStretch(1)
@@ -48,6 +53,11 @@ class SettingsTab(QWidget):
         self.launcher_always_on_top_checkbox.blockSignals(True)
         self.launcher_always_on_top_checkbox.setChecked(enabled)
         self.launcher_always_on_top_checkbox.blockSignals(False)
+
+    def set_launcher_frameless(self, enabled: bool) -> None:
+        self.launcher_frameless_checkbox.blockSignals(True)
+        self.launcher_frameless_checkbox.setChecked(enabled)
+        self.launcher_frameless_checkbox.blockSignals(False)
 
     def _prompt_hotkey_combo(self) -> None:
         combo, accepted = QInputDialog.getText(
