@@ -133,6 +133,15 @@ def test_content_snippet_is_present(populated_db: sqlite3.Connection) -> None:
     assert "launch" in result.hits[0].snippet.lower()
 
 
+def test_execute_caches_content_text_lookup_sql(populated_db: sqlite3.Connection) -> None:
+    executor_module._content_texts_sql.cache_clear()
+
+    search(populated_db, "content:launch", limit=5)
+    search(populated_db, "content:launch", limit=5)
+
+    assert executor_module._content_texts_sql.cache_info().hits >= 1
+
+
 def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     local_now = datetime.now().astimezone()
     today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
