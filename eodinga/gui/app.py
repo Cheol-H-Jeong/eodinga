@@ -160,7 +160,9 @@ class EodingaWindow(QMainWindow):
         self._config = resolved_config
         self._config_path = resolved_config_path
         self.settings_tab.set_hotkey_combo(self._hotkey_controller.combo)
+        self.settings_tab.set_always_on_top(resolved_config.launcher.always_on_top)
         self.settings_tab.hotkey_change_requested.connect(self._change_hotkey)
+        self.settings_tab.always_on_top_changed.connect(self._change_always_on_top)
         self.launcher_state.indexing_status_changed.connect(self.index_tab.set_indexing_status)
         self.launcher_state.indexing_status_changed.connect(self.tray_indicator.set_indexing_status)
         self.set_indexing_status(IndexingStatus())
@@ -189,6 +191,12 @@ class EodingaWindow(QMainWindow):
         self._config.launcher = self._config.launcher.model_copy(update={"hotkey": self._hotkey_controller.combo})
         self._config.save(self._config_path)
         self.settings_tab.set_hotkey_combo(self._hotkey_controller.combo)
+
+    def _change_always_on_top(self, enabled: bool) -> None:
+        self.launcher_window.set_always_on_top(enabled)
+        self._config.launcher = self._config.launcher.model_copy(update={"always_on_top": enabled})
+        self._config.save(self._config_path)
+        self.settings_tab.set_always_on_top(enabled)
 
 def build_index_search_fn(db_path) -> SearchFn:
     def _search(query: str, limit: int) -> QueryResult:

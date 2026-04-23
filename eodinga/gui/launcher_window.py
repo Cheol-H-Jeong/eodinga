@@ -63,6 +63,19 @@ class LauncherWindow(LauncherPanel):
         super().resizeEvent(event)
         self._schedule_geometry_persist()
 
+    def set_always_on_top(self, enabled: bool) -> None:
+        current = bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
+        if current == enabled:
+            return
+        was_visible = self.isVisible()
+        position = self.pos()
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, enabled)
+        if was_visible:
+            self.show()
+            self.move(position)
+            self.raise_()
+            self.activateWindow()
+
     def hideEvent(self, event: QHideEvent) -> None:
         self._persist_geometry()
         super().hideEvent(event)
