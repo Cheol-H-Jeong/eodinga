@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.533 - 2026-04-23
+
+- Normalized Windows extended-length drive and UNC prefixes in query root scoping and `path:` filtering, so `\\?\` and `\\?\UNC\` inputs now match canonically indexed Windows paths.
+- Added unit and CLI regressions for drive-letter case, drive-prefixed long paths, and UNC-prefixed long paths to keep Windows query normalization stable.
+- Locked the helper’s Windows path variant ordering with direct unit tests so generated root-scope query parameters stay deterministic.
+
 ## 0.1.524 - 2026-04-23
 
 - Retained a bounded in-memory timeline of recent command snapshots and exposed it through `stats --json`, so operators can see the last successful index/search/stats/doctor/version activity without scraping debug logs.
