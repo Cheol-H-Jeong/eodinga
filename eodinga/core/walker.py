@@ -76,11 +76,11 @@ def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[lis
         current = queue.popleft()
         current_path = current.path
         cached_stat = current.stat_result
+        if not should_index(current_path, rules):
+            continue
         try:
             current_stat = cached_stat if cached_stat is not None else stat_safe(current_path)
         except OSError:
-            continue
-        if not should_index(current_path, rules):
             continue
         batch.append(
             _to_record(

@@ -124,6 +124,36 @@ def test_walk_batched_falls_back_to_stat_safe_when_scandir_metadata_is_missing(
     assert stat_calls.count(sample) == 1
 
 
+def test_walk_batched_skips_stat_for_excluded_children(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "tree"
+    ignored = root / "ignored"
+    nested = ignored / "nested"
+    sample = nested / "sample.txt"
+    nested.mkdir(parents=True)
+    sample.write_text("sample", encoding="utf-8")
+
+    stat_calls: list[Path] = []
+    original_stat_safe = walker_module.stat_safe
+
+    def counting_stat(path: Path) -> os.stat_result:
+        stat_calls.append(path)
+        return original_stat_safe(path)
+
+    monkeypatch.setattr(walker_module, "stat_safe", counting_stat)
+
+    rules = PathRules(
+        root=root,
+        include=(str(root), f"{root}/**"),
+        exclude=("**/ignored", "**/ignored/**"),
+    )
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+
+    assert {record.path for record in records} == {root}
+    assert stat_calls == [root]
+
+
 def test_walk_batched_only_resolves_root_for_regular_directories_without_symlink_ancestry(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
