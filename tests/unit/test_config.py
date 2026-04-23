@@ -45,6 +45,23 @@ pinned_queries = ["ext:pdf", "size:>10M"]
     assert config.launcher.pinned_queries == ["ext:pdf", "size:>10M"]
 
 
+def test_load_ignores_unknown_deprecated_config_keys(temp_config_path: Path) -> None:
+    temp_config_path.write_text(
+        """
+[launcher]
+hotkey = "ctrl+space"
+frameless = true
+unknown_toggle = false
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load(temp_config_path)
+
+    assert config.launcher.hotkey == "ctrl+space"
+    assert "frameless" not in config.launcher.model_dump()
+
+
 def test_config_save_is_atomic_and_cleans_temp_file_on_replace_failure(
     temp_config_path: Path,
     tmp_path: Path,

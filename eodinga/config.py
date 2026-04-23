@@ -5,6 +5,7 @@ import sys
 import tempfile
 import tomllib
 from pathlib import Path
+from typing import Any, get_args, get_origin
 
 import tomli_w
 from pydantic import BaseModel, ConfigDict, Field
@@ -50,6 +51,32 @@ def _atomic_write_text(path: Path, contents: str) -> None:
         except FileNotFoundError:
             pass
         raise
+
+
+def _prune_unknown_config_keys(model_type: type[BaseModel], value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    cleaned: dict[str, Any] = {}
+    for name, field in model_type.model_fields.items():
+        if name not in value:
+            continue
+        cleaned[name] = _prune_field_value(field.annotation, value[name])
+    return cleaned
+
+
+def _prune_field_value(annotation: Any, value: Any) -> Any:
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return _prune_unknown_config_keys(annotation, value)
+    origin = get_origin(annotation)
+    if origin is list:
+        (item_type,) = get_args(annotation) or (None,)
+        if (
+            isinstance(item_type, type)
+            and issubclass(item_type, BaseModel)
+            and isinstance(value, list)
+        ):
+            return [_prune_unknown_config_keys(item_type, item) for item in value]
+    return value
 
 
 class GeneralConfig(BaseModel):
@@ -163,4 +190,4 @@ def load(path: Path | None = None) -> AppConfig:
     if not config_path.exists():
         return AppConfig()
     raw = tomllib.loads(config_path.read_text(encoding="utf-8"))
-    return AppConfig.model_validate(raw)
+    return AppConfig.model_validate(_prune_unknown_config_keys(AppConfig, raw))
