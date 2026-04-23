@@ -122,6 +122,12 @@ def test_writer_caches_chunk_shaped_sql_templates() -> None:
     assert writer_module._select_existing_content_rows_sql.cache_info().hits >= 1
 
 
+def test_writer_chunks_large_path_batches_at_sqlite_safe_limit() -> None:
+    chunks = list(writer_module._chunked(tuple(range(1801))))
+
+    assert [len(chunk) for chunk in chunks] == [900, 900, 1]
+
+
 def test_writer_without_parser_skips_content_queries(tmp_db: Path, tmp_path: Path) -> None:
     conn = sqlite3.connect(tmp_db)
     conn.execute(
