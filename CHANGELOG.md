@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.441 - 2026-04-23
+
+- Tightened slash-delimited operator parsing so `content:/.../` and `regex:/.../` now reject invalid flag suffixes instead of silently degrading into plain word literals, while `path:/...` keeps its literal-path fallback.
+- Broadened query root scoping on Windows-style paths to match drive-letter case variants and `\\?\\` long-path aliases consistently, including end-to-end coverage against indexed backslash paths.
+- Expanded correctness coverage for boolean group negation so conjunction/disjunction truth tables stay pinned through both compile-time branch shaping and executor-level search behavior.
+
 ## 0.1.431 - 2026-04-23
 
 - Tightened the top-level operator docs so the README now points reviewers directly at `packaging/dist/`, the local release handoff sequence, and the acceptance recovery path when the one-command gate fails.
