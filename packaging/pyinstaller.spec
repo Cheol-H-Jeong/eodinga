@@ -67,6 +67,11 @@ REQUIRED_HIDDEN_IMPORTS = [
 ]
 
 
+def _module_with_parents(module_name: str) -> set[str]:
+    parts = module_name.split(".")
+    return {".".join(parts[:index]) for index in range(1, len(parts) + 1)}
+
+
 def _module_name_for_path(source_path: Path, source_root: Path) -> str:
     relative = source_path.relative_to(source_root.parent)
     parts = list(relative.parts)
@@ -153,7 +158,7 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
                 continue
             if not isinstance(node.args[0].value, str):
                 continue
-            discovered.add(node.args[0].value)
+            discovered.update(_module_with_parents(node.args[0].value))
     return sorted(discovered)
 
 
@@ -172,12 +177,12 @@ def _discover_source_hidden_imports(source_root: Path) -> list[str]:
                     module_name = alias.name
                     if module_name.startswith("eodinga.") or _is_stdlib_module(module_name):
                         continue
-                    discovered.add(module_name)
+                    discovered.update(_module_with_parents(module_name))
             elif isinstance(node, ast.ImportFrom):
                 module_name = node.module
                 if not module_name or module_name.startswith("eodinga") or _is_stdlib_module(module_name):
                     continue
-                discovered.add(module_name)
+                discovered.update(_module_with_parents(module_name))
                 for alias in node.names:
                     if alias.name == "*":
                         continue
@@ -187,7 +192,7 @@ def _discover_source_hidden_imports(source_root: Path) -> list[str]:
                     except (AttributeError, ModuleNotFoundError, ValueError):
                         spec = None
                     if spec is not None:
-                        discovered.add(candidate)
+                        discovered.update(_module_with_parents(candidate))
     return sorted(discovered)
 
 

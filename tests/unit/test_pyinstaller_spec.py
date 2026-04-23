@@ -19,6 +19,8 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     assert "watchdog" in hiddenimports
     assert "watchdog.observers.inotify" in hiddenimports
     assert "watchdog.observers.read_directory_changes" in hiddenimports
+    assert "ebooklib" in hiddenimports
+    assert "charset_normalizer" in hiddenimports
     assert "PySide6.QtWidgets" in hiddenimports
     assert "shiboken6" in hiddenimports
     assert "pypdf" in hiddenimports
@@ -29,9 +31,11 @@ def test_pyinstaller_spec_hidden_imports_include_required_modules() -> None:
     assert "eodinga.gui.widgets" in discovered_runtime_modules
     assert "eodinga.index.storage" in discovered_runtime_modules
     assert discovered_hiddenimports == [
+        "Xlib",
         "Xlib.X",
         "Xlib.XK",
         "Xlib.display",
+        "pynput",
         "pynput.keyboard",
     ]
     assert set(required_hiddenimports).issubset(set(hiddenimports))
@@ -100,4 +104,39 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
 
     discovered = discover_hidden_imports(source_root)
 
-    assert discovered == ["package.alpha", "package.beta", "package.gamma"]
+    assert discovered == [
+        "package",
+        "package.alpha",
+        "package.beta",
+        "package.gamma",
+    ]
+
+
+def test_pyinstaller_spec_discovers_parent_packages_for_source_imports(tmp_path: Path) -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_source_hidden_imports = cast(Callable[[Path], list[str]], namespace["_discover_source_hidden_imports"])
+
+    source_root = tmp_path / "eodinga"
+    source_root.mkdir()
+    (source_root / "__init__.py").write_text("", encoding="utf-8")
+    module_path = source_root / "third_party_imports.py"
+    module_path.write_text(
+        "\n".join(
+            [
+                "import charset_normalizer.md",
+                "from ebooklib import epub",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    discovered = discover_source_hidden_imports(source_root)
+
+    assert "charset_normalizer" in discovered
+    assert "charset_normalizer.md" in discovered
+    assert "ebooklib" in discovered
+    assert "ebooklib.epub" in discovered
