@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.522 - 2026-04-23
+
+- Reused cached SQL shapes for repeated content-text backfill reads in the query executor, chunking large `content_map` lookups so filtered searches stop generating one-off `IN (...)` statements.
+- Tuned rebuild-time SQLite write behavior to suspend WAL auto-checkpoint churn and cache spilling during bulk indexing, then restore the connection settings once the rebuild path exits.
+- Added unit coverage that locks in the new executor SQL-shape caching and the rebuild bulk-write tuning so the hot-path changes remain regression-tested.
+
 ## 0.1.518 - 2026-04-23
 
 - Scoped the Windows installer desktop shortcut to the per-user desktop so it matches the existing lowest-privilege install model instead of targeting a machine-wide desktop alias.
