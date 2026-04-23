@@ -101,3 +101,37 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
     discovered = discover_hidden_imports(source_root)
 
     assert discovered == ["package.alpha", "package.beta", "package.gamma"]
+
+
+def test_pyinstaller_spec_ignores_relative_source_imports_when_discovering_hidden_imports(tmp_path: Path) -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_source_hidden_imports = cast(Callable[[Path], list[str]], namespace["_discover_source_hidden_imports"])
+
+    source_root = tmp_path / "eodinga"
+    widgets_dir = source_root / "gui" / "widgets"
+    widgets_dir.mkdir(parents=True)
+    (source_root / "__init__.py").write_text("", encoding="utf-8")
+    (source_root / "gui" / "__init__.py").write_text("", encoding="utf-8")
+    (widgets_dir / "__init__.py").write_text("from .button import PrimaryButton\n", encoding="utf-8")
+    (widgets_dir / "button.py").write_text("class PrimaryButton: ...\n", encoding="utf-8")
+    (widgets_dir / "panel.py").write_text(
+        "\n".join(
+            [
+                "from .button import PrimaryButton",
+                "from selectolax.parser import HTMLParser",
+                "",
+                "BUTTON = PrimaryButton",
+                "PARSER = HTMLParser",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    discovered = discover_source_hidden_imports(source_root)
+
+    assert "button" not in discovered
+    assert "PrimaryButton" not in discovered
+    assert discovered == ["selectolax.parser"]
