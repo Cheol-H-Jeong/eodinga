@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.114 - 2026-04-23
+## 0.1.118 - 2026-04-23
 
 - Hardened staged rebuild recovery so startup only resumes `.index.db.next` databases that were explicitly marked complete, and incomplete staged builds are discarded instead of replacing the live index after an interrupt.
 - Added rebuild regressions for `KeyboardInterrupt` cleanup and incomplete staged-build startup handling, pinning the partial-bulk-insert recovery path that previously could promote an unfinished index.
