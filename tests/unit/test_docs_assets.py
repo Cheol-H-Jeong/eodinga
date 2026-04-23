@@ -88,6 +88,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "EODINGA_CRASH_DIR" in readme
     assert "Docs asset drift after CLI or UI changes" in readme
     assert "What should I inspect before cutting a docs-only release?" in readme
+    assert "If a same-round perf rerun is mixed or red" in readme
+    assert "Inspect `packaging/dist/`, `docs/man/eodinga.1`, and any regenerated screenshots" in readme
+    assert "What should I do if the perf suite is mixed or fails?" in readme
+    assert "When should I regenerate the man page?" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance

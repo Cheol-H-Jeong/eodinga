@@ -275,6 +275,8 @@ source .venv/bin/activate && EODINGA_RUN_PERF=1 pytest -q tests/perf -s
 
 Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/path lookups at about 0.06 ms p95, content queries at about 0.62 ms p95, and watch visibility at about 0.133 s p99.
 
+If a same-round perf rerun is mixed or red, keep the baseline table unchanged and capture the exact summary lines plus failing thresholds instead. [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md) includes a copy-ready mixed-result example and failure-note template.
+
 ## Packaging
 
 - Validate Windows packaging inputs with `python packaging/build.py --target windows-dry-run`.
@@ -325,8 +327,9 @@ Treat these as part of the shipped surface, not incidental repository files:
 
 1. Finish the docs, code, or packaging slice and keep each logical commit green with `pytest -q tests/unit`.
 2. Run the one-command acceptance pass from `docs/ACCEPTANCE.md`.
-3. Bump `pyproject.toml` and `eodinga/__init__.py`, add the new `CHANGELOG.md` entry, and create the local `v0.1.N` tag.
-4. Hand off the clean branch plus local tag; rebasing, pushing, and GitHub release publication stay outside the worker round.
+3. Inspect `packaging/dist/`, `docs/man/eodinga.1`, and any regenerated screenshots if the round changed shipped release inputs.
+4. Bump `pyproject.toml` and `eodinga/__init__.py`, add the new `CHANGELOG.md` entry, and create the local `v0.1.N` tag.
+5. Hand off the clean branch plus local tag; rebasing, pushing, and GitHub release publication stay outside the worker round.
 
 ## Recovery and Troubleshooting
 
@@ -451,6 +454,10 @@ Use `packaging/dist/`. Each packaging dry run writes its audit manifests or stag
 
 Check `tests/unit/test_docs_assets.py`, the matching GUI smoke or packaging dry run for the surface you documented, and the rendered payload under `packaging/dist/` when the docs describe packaged artifacts.
 
+### What should I do if the perf suite is mixed or fails?
+
+Leave the checked-in baseline table alone, keep the exact summary lines from stdout, and note the first failing threshold. Treat that as diagnostic evidence, not as a release baseline refresh.
+
 ### Which files are skipped by default?
 
 System and cache paths such as `/proc`, `/sys`, `/dev`, `/tmp`, `$HOME/.cache`, `C:\Windows`, and `%SystemRoot%` stay excluded unless the user explicitly opts in.
@@ -466,6 +473,10 @@ No. `0.1.x` is lexical only.
 ### Where is the CLI reference for packaged builds?
 
 Use `docs/man/eodinga.1`. It is generated from the parser in `eodinga.__main__`, so it stays aligned with `eodinga --help` instead of drifting as hand-written prose.
+
+### When should I regenerate the man page?
+
+After CLI parser changes and after the release metadata bump, because the checked-in man page includes the current version string as well as the argparse-derived command surface.
 
 ## Limitations
 
