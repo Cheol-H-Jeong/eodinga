@@ -31,6 +31,14 @@ pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summ
 
 After the focused slice is green, run the broader acceptance gate before release handoff.
 
+## Worktree And Sync Discipline
+
+- Prefer a dedicated git worktree per task instead of stacking unrelated edits in one checkout.
+- Sync from `origin/main` before starting substantive work so version bumps and changelog edits do not drift behind other rounds.
+- Keep one theme or subsystem per branch/worktree; if a fix spills into another area, stop and split it unless that cross-theme change is the minimum unblocker.
+- Re-run `pytest -q tests/unit` before every commit, not only before the final handoff.
+- If the tree moves under you while you are working, re-sync before touching release metadata so tags and patch versions stay monotonic.
+
 ## Quality Gates
 
 Default repository gate:
@@ -100,6 +108,8 @@ When a change affects the shipped contract, refresh docs in this order:
 - Use Conventional Commits.
 - Keep `CHANGELOG.md` append-only with the newest round at the top.
 - Patch releases use `0.1.N`; bump `pyproject.toml` and `eodinga/__init__.py` together.
+- Keep the version bump isolated to the final release-metadata commit for the round.
+- Confirm the candidate `v0.1.N` tag is still unused immediately before tagging; another worktree may have landed while your docs or code changes were in flight.
 - Local tags are created during the release-cut handoff flow documented in [RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md).
 - Docs-only rounds still require a changelog entry and local tag when the shipped contract changed.
 - If a change cannot stay inside one theme or one logical commit, stop and split it before proceeding.

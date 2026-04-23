@@ -67,6 +67,13 @@ pytest -q tests/unit/test_docs_assets.py
 
 These commands are required when CLI help, visible Qt surfaces, or operator-facing docs change.
 
+Docs-only rounds can use a narrower acceptance slice before the final tag:
+
+- wording-only README or guide edits: `pytest -q tests/unit/test_docs_assets.py`
+- CLI reference changes: `python scripts/generate_manpage.py && pytest -q tests/unit/test_docs_assets.py`
+- screenshot-visible GUI docs: `python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py`
+- packaging or release docs: `pytest -q tests/unit/test_docs_assets.py` plus the matching packaging dry run
+
 ## Documentation Contract
 
 The README is part of the acceptance surface. Before tagging a release, confirm it still documents:
@@ -88,5 +95,7 @@ For each improvement round:
 3. Create the local tag with `git tag v0.1.N`.
 
 For docs-only rounds, the changelog entry still needs to say which shipped guide or derived asset changed and why that matters to operators.
+
+If the chosen `v0.1.N` tag already exists by the time you cut the release, pick the next unused patch number instead of moving the existing tag.
 
 Publishing the GitHub Release stays outside this repository-local checklist, but the local tag and changelog entry are required before handing off to the orchestrator.

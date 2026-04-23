@@ -10,6 +10,15 @@ This document expands the short checklist in [ACCEPTANCE.md](/home/cheol/project
 4. Keep that version bump isolated to the release metadata commit for the round.
 5. Confirm the candidate tag does not already exist locally before creating it.
 
+## Multi-Worktree Release Discipline
+
+When multiple worktrees are landing rounds in parallel:
+
+1. Re-sync from `origin/main` before editing release metadata.
+2. Re-check `git tag -l | sort -V | tail -3` immediately before the release bump commit.
+3. Keep the version bump, changelog entry, and tag creation in the same final release-metadata step.
+4. If the intended patch number or local tag now exists, do not move it; pick the next unused patch version and regenerate the release metadata instead.
+
 ## Refresh Release Notes
 
 1. Add a new top entry in `CHANGELOG.md`.
@@ -75,6 +84,13 @@ Use the same release discipline for docs-only changes when the shipped operator 
 3. Re-run `pytest -q tests/unit/test_docs_assets.py` plus the matching packaging dry-run or GUI smoke command.
 4. Add a changelog entry that names the docs surface changed and why it matters.
 
+Minimal docs-only validation usually means one of these bundles:
+
+- README or guide wording only: `pytest -q tests/unit/test_docs_assets.py`
+- Packaging or release docs: `pytest -q tests/unit/test_docs_assets.py` plus the matching `packaging/build.py --target ...-dry-run`
+- CLI docs or manpage changes: `python scripts/generate_manpage.py` plus `pytest -q tests/unit/test_docs_assets.py`
+- Screenshot-bearing GUI docs: `python scripts/render_docs_screenshots.py`, `pytest -q tests/unit/test_docs_assets.py`, and the offscreen GUI smoke command
+
 ## Cut The Local Release
 
 1. Commit the release metadata changes.
@@ -90,6 +106,17 @@ git tag v0.1.N
 ```
 
 If `git tag -l "v0.1.N"` already returns a result, stop and pick the next unused patch version instead of moving the existing tag.
+
+## Tag Collision Recovery
+
+If a concurrent round claims your intended version between the start of your work and the final handoff:
+
+1. `git fetch origin main`
+2. Re-check the newest tags.
+3. Update `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py` to the next free `0.1.N`.
+4. Re-run at least `pytest -q tests/unit` before creating the replacement local tag.
+
+Do not delete or retarget an existing release tag to make an earlier patch number available again.
 
 ## Handoff Checklist
 

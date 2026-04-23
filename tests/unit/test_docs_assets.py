@@ -91,6 +91,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "docs/man/eodinga.1" in acceptance
     assert "## Derived Docs Checks" in acceptance
     assert "python scripts/render_docs_screenshots.py" in acceptance
+    assert "Docs-only rounds can use a narrower acceptance slice" in acceptance
+    assert "pick the next unused patch number" in acceptance
 
     assert "## Runtime Flow" in architecture
     assert "## Data Flow Diagram" in architecture
@@ -112,6 +114,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
+    assert "## Worktree And Sync Discipline" in contributing
     assert "## Quality Gates" in contributing
     assert "## Scope Guardrails" in contributing
     assert "## Documentation Expectations" in contributing
@@ -121,6 +124,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Docs Refresh Order" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
+    assert "Keep the version bump isolated to the final release-metadata commit" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
 
     assert "modified:today" in dsl
@@ -151,11 +155,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Profiling Workflow" in performance
 
     assert "## Pick The Version" in release
+    assert "## Multi-Worktree Release Discipline" in release
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
     assert "## Verify Shipped Docs" in release
     assert "## Docs-Only Rounds" in release
     assert "## Cut The Local Release" in release
+    assert "## Tag Collision Recovery" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release
     assert "python scripts/generate_manpage.py" in release
