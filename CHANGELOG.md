@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.710 - 2026-04-23
+## 0.1.717 - 2026-04-23
 
 - Cached compiled include/exclude `PathSpec` rules and root normalization inside `should_index()`, removing repeated glob compilation from the walker hot path while preserving denylist and explicit-root behavior.
 - Stabilized executor SQL shapes by moving dynamic query builders into a dedicated 128-entry cache and chunking content-text fetches to 128 ids, improving SQLite statement-cache reuse for repeated searches.
