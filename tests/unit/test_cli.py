@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import signal
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path, PureWindowsPath
@@ -8,6 +9,7 @@ from pathlib import Path, PureWindowsPath
 import pytest
 
 from eodinga import __version__
+import eodinga.__main__ as main_module
 from eodinga.__main__ import main
 from eodinga.common import WatchEvent
 from eodinga.content.base import ParserSpec
@@ -122,6 +124,19 @@ def test_all_subcommands_help_succeed(cli_runner) -> None:
         result = cli_runner(command, "--help")
         assert result.returncode == 0
         assert "usage:" in result.stdout.lower()
+
+
+def test_sigterm_handler_raises_keyboard_interrupt() -> None:
+    with pytest.raises(KeyboardInterrupt):
+        main_module._signal_as_keyboard_interrupt(signal.SIGTERM, None)
+
+
+def test_graceful_interrupt_signals_restores_previous_handlers() -> None:
+    previous_handler = signal.getsignal(signal.SIGTERM)
+    with main_module._graceful_interrupt_signals():
+        current_handler = signal.getsignal(signal.SIGTERM)
+        assert current_handler is main_module._signal_as_keyboard_interrupt
+    assert signal.getsignal(signal.SIGTERM) is previous_handler
 
 
 def test_search_json_returns_json(cli_runner) -> None:

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import eodinga.index.build as build_module
 from eodinga.index.schema import apply_schema
 from eodinga.index.storage import (
     SQLITE_CACHED_STATEMENTS,
@@ -438,6 +439,39 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     finally:
         reopened.close()
 
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.next-wal").exists()
+    assert not staged.with_name(".index.db.next-shm").exists()
+
+
+def test_rebuild_index_cleans_staged_build_on_keyboard_interrupt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "workspace"
+    root.mkdir()
+    (root / "notes.txt").write_text("interrupt me", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+    original_bulk_upsert = build_module.IndexWriter.bulk_upsert
+    interrupted = {"raised": False}
+
+    def interrupting_bulk_upsert(self, records):
+        indexed = original_bulk_upsert(self, records)
+        if not interrupted["raised"]:
+            interrupted["raised"] = True
+            raise KeyboardInterrupt
+        return indexed
+
+    monkeypatch.setattr(build_module.IndexWriter, "bulk_upsert", interrupting_bulk_upsert)
+
+    with pytest.raises(KeyboardInterrupt):
+        build_module.rebuild_index(
+            db_path,
+            [build_module.RootConfig(path=root)],
+            content_enabled=False,
+        )
+
+    assert not db_path.exists()
     assert not staged.exists()
     assert not staged.with_name(".index.db.next-wal").exists()
     assert not staged.with_name(".index.db.next-shm").exists()

@@ -4,8 +4,9 @@ import argparse
 import json
 import os
 import re
+import signal
 import sys
-from contextlib import closing
+from contextlib import closing, contextmanager
 from pathlib import Path
 from time import monotonic
 from typing import Any
@@ -87,6 +88,30 @@ def _emit(payload: Any, as_json: bool = False) -> int:
         return 0
     sys.stdout.write(f"{payload}\n")
     return 0
+
+
+def _signal_as_keyboard_interrupt(_signum: int, _frame: Any) -> None:
+    raise KeyboardInterrupt
+
+
+@contextmanager
+def _graceful_interrupt_signals():
+    handled_signals = [
+        signum
+        for signum in (getattr(signal, "SIGTERM", None),)
+        if signum is not None and signal.getsignal(signum) is not signal.SIG_IGN
+    ]
+    previous_handlers = {
+        signum: signal.getsignal(signum)
+        for signum in handled_signals
+    }
+    try:
+        for signum in handled_signals:
+            signal.signal(signum, _signal_as_keyboard_interrupt)
+        yield
+    finally:
+        for signum, previous in previous_handlers.items():
+            signal.signal(signum, previous)
 
 
 def _resolve_config(args: argparse.Namespace) -> AppConfig:
@@ -244,7 +269,8 @@ def main(argv: list[str] | None = None) -> int:
     configure_logging(args.log_level)
     install_crash_handlers()
     try:
-        return _run_command(args)
+        with _graceful_interrupt_signals():
+            return _run_command(args)
     except KeyboardInterrupt:
         raise
     except Exception as error:

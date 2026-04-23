@@ -93,7 +93,7 @@ def rebuild_index(
                     if indexed:
                         increment_counter("files_indexed", indexed, root=str(root.path))
             mark_staged_build_state(conn, complete=True)
-    except Exception:
+    except BaseException:
         conn.close()
         _cleanup_index_files(staged_path)
         raise
