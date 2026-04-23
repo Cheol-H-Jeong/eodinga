@@ -53,6 +53,13 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     discovered_source_hiddenimports = set(payload["pyinstaller_spec"]["discovered_source_hiddenimports"])
     assert discovered_source_hiddenimports
     assert discovered_source_hiddenimports <= set(payload["pyinstaller_spec"]["hiddenimports"])
+    command_plan = payload["pyinstaller_spec"]["command_plan"]
+    assert command_plan["cli_targets_entry"] is True
+    assert command_plan["gui_targets_entry"] is True
+    assert command_plan["gui_uses_windowed"] is True
+    assert command_plan["cli_keeps_console_mode"] is True
+    assert command_plan["cli"][-1] == str(Path("eodinga/__main__.py").resolve())
+    assert command_plan["gui"][-1] == str(Path("eodinga/__main__.py").resolve())
     datas = {tuple(item) for item in payload["pyinstaller_spec"]["datas"]}
     assert (str(Path("eodinga/i18n/en.json").resolve()), "eodinga/i18n") in datas
     assert (str(Path("eodinga/i18n/ko.json").resolve()), "eodinga/i18n") in datas
@@ -96,6 +103,8 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["contains_uninstall_purge_prompt"] is True
     assert payload["inno_setup"]["purge_prompt_is_opt_in"] is True
     assert payload["inno_setup"]["purge_targets_local_and_roaming_user_state"] is True
+    assert payload["inno_setup"]["command_targets_rendered_script"] is True
+    assert payload["inno_setup"]["command_outputs_to_render_dir"] is True
 
 
 def test_windows_audit_validator_rejects_version_mismatch() -> None:
@@ -129,6 +138,20 @@ def test_windows_audit_validator_rejects_missing_source_hidden_import_contract()
     errors = module._validate_windows_audit(payload)
 
     assert "PyInstaller hidden imports no longer include the source-derived modules" in errors
+
+
+def test_windows_audit_validator_rejects_command_plan_drift() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["pyinstaller_spec"]["command_plan"]["gui_uses_windowed"] = False
+    payload["pyinstaller_spec"]["command_plan"]["cli_targets_entry"] = False
+    payload["inno_setup"]["command_targets_rendered_script"] = False
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "PyInstaller GUI command no longer uses windowed mode" in errors
+    assert "PyInstaller CLI command no longer targets the CLI entrypoint" in errors
+    assert "Inno Setup command no longer targets the rendered script" in errors
 
 
 def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -> None:

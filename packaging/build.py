@@ -108,6 +108,30 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     cli_dist_path = PROJECT_ROOT / "dist" / cli_dist_name
     gui_exe_path = gui_dist_path / gui_exe_name
     cli_exe_path = cli_dist_path / cli_exe_name
+    hiddenimports = list(spec_namespace.get("HIDDEN_IMPORTS", []))
+    datas = [tuple(item) for item in spec_namespace.get("DATAS", [])]
+    cli_entry = str(spec_namespace.get("ENTRY_CLI", PROJECT_ROOT / "eodinga" / "__main__.py"))
+    gui_entry = str(spec_namespace.get("ENTRY_GUI", PROJECT_ROOT / "eodinga" / "__main__.py"))
+    cli_command = _windows_pyinstaller_command(
+        cli_entry,
+        dist_name=cli_dist_name,
+        windowed=False,
+        hiddenimports=hiddenimports,
+        datas=datas,
+    )
+    gui_command = _windows_pyinstaller_command(
+        gui_entry,
+        dist_name=gui_dist_name,
+        windowed=True,
+        hiddenimports=hiddenimports,
+        datas=datas,
+    )
+    inno_command = [
+        "iscc",
+        "/Qp",
+        f"/O{rendered_path.parent}",
+        str(rendered_path),
+    ]
     return {
         "target": "windows-dry-run",
         "version": version,
@@ -144,6 +168,14 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "discovered_source_hiddenimports": spec_namespace.get("DISCOVERED_SOURCE_HIDDEN_IMPORTS", []),
             "hiddenimports": spec_namespace.get("HIDDEN_IMPORTS", []),
             "datas": spec_namespace.get("DATAS", []),
+            "command_plan": {
+                "cli": cli_command,
+                "gui": gui_command,
+                "cli_targets_entry": cli_command[-1] == cli_entry,
+                "gui_targets_entry": gui_command[-1] == gui_entry,
+                "gui_uses_windowed": "--windowed" in gui_command,
+                "cli_keeps_console_mode": "--windowed" not in cli_command,
+            },
         },
         "inno_setup": {
             "path": str(INNO_SCRIPT),
@@ -199,6 +231,9 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             and "{commonappdata}" not in rendered_text,
             "installer_path": str(installer_path),
             "installer_exists": installer_path.exists(),
+            "command_plan": inno_command,
+            "command_targets_rendered_script": inno_command[-1] == str(rendered_path),
+            "command_outputs_to_render_dir": inno_command[2] == f"/O{rendered_path.parent}",
         },
     }
 
@@ -230,6 +265,15 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         errors.append("PyInstaller hidden imports no longer include the source-derived modules")
     if not spec_payload.get("datas"):
         errors.append("PyInstaller data files are empty")
+    command_plan = spec_payload.get("command_plan", {})
+    if not command_plan.get("cli_targets_entry"):
+        errors.append("PyInstaller CLI command no longer targets the CLI entrypoint")
+    if not command_plan.get("gui_targets_entry"):
+        errors.append("PyInstaller GUI command no longer targets the GUI entrypoint")
+    if not command_plan.get("gui_uses_windowed"):
+        errors.append("PyInstaller GUI command no longer uses windowed mode")
+    if not command_plan.get("cli_keeps_console_mode"):
+        errors.append("PyInstaller CLI command no longer keeps console mode")
     if payload.get("target") == "windows":
         dist_exists = spec_payload.get("dist_exists", {})
         exe_exists = spec_payload.get("exe_exists", {})
@@ -262,6 +306,10 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     for key, message in required_flags.items():
         if not inno_payload.get(key):
             errors.append(message)
+    if not inno_payload.get("command_targets_rendered_script"):
+        errors.append("Inno Setup command no longer targets the rendered script")
+    if not inno_payload.get("command_outputs_to_render_dir"):
+        errors.append("Inno Setup command no longer writes the installer to the render directory")
     if payload.get("target") == "windows" and not inno_payload.get("installer_exists"):
         errors.append("Windows build is missing the Inno Setup installer artifact")
     return errors
