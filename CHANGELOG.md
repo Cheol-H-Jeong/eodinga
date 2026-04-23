@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.540 - 2026-04-23
+## 0.1.542 - 2026-04-23
 
 - Fixed phrase fallback matching so quoted queries can cross underscore boundaries in both paths and indexed content, bringing `launch_checklist` into line with existing punctuation and whitespace handling.
 - Removed the old `100_000`-row ceiling from unicode path fallback scans, so large indexes no longer silently miss late matches when substring recovery is needed.
