@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.879 - 2026-04-23
+## 0.1.902 - 2026-04-23
 
 - Hardened the read-only filesystem safety audit to resolve simple module-level mode and flag constants, so write-capable access can no longer hide behind `WRITE_MODE` or `FLAGS` aliases.
 - Tightened the no-network source audit to catch literal command constants and keyword-style subprocess `args=` invocations, reducing false negatives in the offline safety contract.
