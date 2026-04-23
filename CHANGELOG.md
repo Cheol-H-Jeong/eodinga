@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.812 - 2026-04-23
+## 0.1.816 - 2026-04-23
 
 - Fixed scoped Windows searches so `--root` and internal root filters now normalize extended-length drive paths like `\\?\C:\workspace\reports` before matching indexed records.
 - Made Windows UNC root scoping case-insensitive across the full share path and normalized `\\?\UNC\server\share\...` inputs to the same stored-path form as ordinary UNC records.
