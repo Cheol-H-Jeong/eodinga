@@ -369,7 +369,8 @@ def _add_root_variant(variants: dict[str, None], candidate: str) -> None:
         for drive in (normalized[0].lower(), normalized[0].upper()):
             drive_variant = f"{drive}{normalized[1:]}"
             variants[drive_variant] = None
-            variants[f"\\\\?\\{drive_variant.replace('/', '\\')}"] = None
+            long_path_variant = drive_variant.replace("/", "\\")
+            variants[f"\\\\?\\{long_path_variant}"] = None
 
 
 def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:
