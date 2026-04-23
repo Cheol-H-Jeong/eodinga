@@ -127,6 +127,17 @@ When a change affects the shipped contract, refresh docs in this order:
 4. Re-run `pytest -q tests/unit/test_docs_assets.py` before the broader gate.
 5. Re-run any matching packaging dry run if the docs now describe packaging behavior or artifacts differently.
 
+## Docs Change Matrix
+
+Use this to decide the smallest legitimate refresh path instead of rerunning everything by habit:
+
+| If the round changed... | Minimum follow-up | Why |
+| --- | --- | --- |
+| CLI flags, help text, or command names | `python scripts/generate_manpage.py && pytest -q tests/unit/test_docs_assets.py` | Keeps `docs/man/eodinga.1` aligned with the real argparse surface. |
+| Screenshot-visible GUI text or layout | `python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` | The screenshot gallery is treated as a shipped artifact, not a mockup. |
+| README, release, or packaging prose that describes staged artifacts | the matching `python packaging/build.py --target ...-dry-run` command | The docs should only describe payloads and manifests the dry run actually emits. |
+| Architecture, workflow, or acceptance prose only | `pytest -q tests/unit/test_docs_assets.py` | Proves the expected shipped sections and generated docs asset contract still hold. |
+
 ## Docs Round Checklist
 
 Use this when the round is docs-only but still release-bearing:
@@ -137,6 +148,14 @@ Use this when the round is docs-only but still release-bearing:
 4. Re-run `pytest -q tests/unit/test_docs_assets.py`.
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
+
+## Review Hygiene
+
+- Keep feature or docs commits separate from the final release-metadata commit.
+- Prefer adding one documentation surface per commit instead of touching every guide in one sweep.
+- If a docs sentence claims a command, artifact path, or packaged file exists, verify it from the current tree before committing.
+- Treat `packaging/dist/` as the review surface for packaging prose; if the dry-run manifest disagrees with the guide, fix the guide or the dry run before tagging.
+- Do not bury version bumps or changelog edits inside earlier docs commits when the round still has more content work to land.
 
 ## Test Selection Guide
 
