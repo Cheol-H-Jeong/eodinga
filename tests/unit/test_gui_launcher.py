@@ -111,6 +111,34 @@ def test_launcher_tab_moves_focus_into_results_without_mouse(qapp) -> None:
     assert launcher.result_list.currentIndex().row() == 0
 
 
+def test_launcher_tab_moves_focus_into_query_chips_before_results(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+    _wait(10)
+
+    assert launcher.query_field.hasFocus()
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Tab)
+    _wait(10)
+
+    assert launcher.pinned_queries_row.buttons[0].hasFocus()
+    assert "Enter or Space applies the focused query chip" in launcher.shortcut_label.text()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[0], Qt.Key.Key_Tab)
+    _wait(10)
+    assert launcher.recent_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.recent_queries_row.buttons[0], Qt.Key.Key_Backtab)
+    _wait(10)
+    assert launcher.pinned_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[0], Qt.Key.Key_Backtab)
+    _wait(10)
+    assert launcher.query_field.hasFocus()
+    assert "Tab reaches pinned and recent queries" in launcher.shortcut_label.text()
+
+
 def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
@@ -441,6 +469,11 @@ def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> No
     launcher.show()
 
     assert "Pinned: ext:pdf, size:>10M." in launcher.empty_state.body_label.text()
+    assert "Press Tab or Shift+Tab to focus pinned and recent query chips" in launcher.empty_state.body_label.text()
+    assert (
+        launcher.shortcut_label.text()
+        == "Type a filename, path, or content term. Tab reaches pinned and recent queries. Alt+Up and Alt+Down browse recent queries."
+    )
 
 
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:
