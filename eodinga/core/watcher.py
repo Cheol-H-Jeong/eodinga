@@ -12,7 +12,7 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from eodinga.common import WatchEvent
-from eodinga.observability import get_logger, increment_counter, record_histogram
+from eodinga.observability import get_logger, increment_counter, record_histogram, record_snapshot
 
 _DEBOUNCE_SECONDS = 0.1
 _FLUSH_LIMIT = 500
@@ -134,9 +134,29 @@ class WatchService:
         observer = Observer()
         try:
             observer.schedule(_Handler(self, root), str(root), recursive=True)
+        except Exception:
+            increment_counter("watcher_observer_failures")
+            increment_counter("watcher_observer_failures.schedule")
+            increment_counter("watcher_startup_rollbacks")
+            record_snapshot(
+                "watcher.failure",
+                {"root": str(root), "stage": "schedule", "action": "start"},
+            )
+            self._dispose_observer(observer, root=root, during_startup=True)
+            if not self._observers:
+                self._stop_flush_thread()
+            raise
+        try:
             observer.start()
         except Exception:
-            self._dispose_observer(observer)
+            increment_counter("watcher_observer_failures")
+            increment_counter("watcher_observer_failures.start")
+            increment_counter("watcher_startup_rollbacks")
+            record_snapshot(
+                "watcher.failure",
+                {"root": str(root), "stage": "start", "action": "start"},
+            )
+            self._dispose_observer(observer, root=root, during_startup=True)
             if not self._observers:
                 self._stop_flush_thread()
             raise
@@ -149,6 +169,12 @@ class WatchService:
             try:
                 observer.stop()
             except Exception:
+                increment_counter("watcher_observer_cleanup_failures")
+                increment_counter("watcher_observer_cleanup_failures.stop")
+                record_snapshot(
+                    "watcher.failure",
+                    {"root": str(root), "stage": "stop", "action": "stop"},
+                )
                 self._logger.exception("failed stopping watcher observer for {}", root)
         if self._observers:
             increment_counter("watcher_observers_stopped", len(self._observers))
@@ -156,6 +182,12 @@ class WatchService:
             try:
                 observer.join(timeout=1)
             except Exception:
+                increment_counter("watcher_observer_cleanup_failures")
+                increment_counter("watcher_observer_cleanup_failures.join")
+                record_snapshot(
+                    "watcher.failure",
+                    {"root": str(root), "stage": "join", "action": "stop"},
+                )
                 self._logger.exception("failed joining watcher observer for {}", root)
         self._stop_flush_thread()
         self._observers.clear()
@@ -328,15 +360,48 @@ class WatchService:
                 self._flushed_retired_sources.difference_update(retired_sources)
             self._timestamps[event.path] = now
 
-    def _dispose_observer(self, observer: _ManagedObserver) -> None:
+    def _dispose_observer(
+        self,
+        observer: _ManagedObserver,
+        *,
+        root: Path | None = None,
+        during_startup: bool = False,
+    ) -> None:
+        stage_prefix = "watcher_observer_startup_cleanup_failures" if during_startup else "watcher_observer_cleanup_failures"
         try:
             observer.stop()
         except Exception:
-            self._logger.exception("failed stopping watcher observer during startup rollback")
+            increment_counter(stage_prefix)
+            increment_counter(f"{stage_prefix}.stop")
+            record_snapshot(
+                "watcher.failure",
+                {
+                    "root": str(root) if root is not None else None,
+                    "stage": "stop",
+                    "action": "startup_cleanup" if during_startup else "stop",
+                },
+            )
+            if during_startup:
+                self._logger.exception("failed stopping watcher observer during startup rollback")
+            else:
+                self._logger.exception("failed stopping watcher observer")
         try:
             observer.join(timeout=1)
         except Exception:
-            self._logger.exception("failed joining watcher observer during startup rollback")
+            increment_counter(stage_prefix)
+            increment_counter(f"{stage_prefix}.join")
+            record_snapshot(
+                "watcher.failure",
+                {
+                    "root": str(root) if root is not None else None,
+                    "stage": "join",
+                    "action": "startup_cleanup" if during_startup else "stop",
+                },
+            )
+            if during_startup:
+                self._logger.exception("failed joining watcher observer during startup rollback")
+            else:
+                self._logger.exception("failed joining watcher observer")
 
     def _stop_flush_thread(self) -> None:
         self._stop.set()

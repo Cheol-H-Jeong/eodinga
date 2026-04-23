@@ -10,7 +10,7 @@ from watchdog.events import FileMovedEvent
 
 from eodinga.common import WatchEvent
 from eodinga.core.watcher import WatchService, _Handler
-from eodinga.observability import reset_metrics, snapshot_metrics
+from eodinga.observability import recent_snapshots, reset_metrics, snapshot_metrics
 
 
 def test_watcher_handler_maps_move_leaving_root_to_delete(tmp_path: Path) -> None:
@@ -701,14 +701,24 @@ def test_watcher_start_cleans_up_flush_thread_after_observer_failure(
     monkeypatch.setattr(watcher_module, "Observer", FakeObserver)
 
     service = WatchService()
+    reset_metrics()
 
     with pytest.raises(RuntimeError, match=f"simulated {failure_stage} failure"):
         service.start(tmp_path)
 
+    metrics = snapshot_metrics()
     assert service._observers == {}
     assert service._flush_thread is None
     assert service._stop.is_set() is True
     assert lifecycle[-2:] == ["stop", "join"]
+    assert metrics["counters"]["watcher_observer_failures"] == 1
+    assert metrics["counters"][f"watcher_observer_failures.{failure_stage}"] == 1
+    assert metrics["counters"]["watcher_startup_rollbacks"] == 1
+    assert recent_snapshots()[-1]["payload"] == {
+        "root": str(tmp_path),
+        "stage": failure_stage,
+        "action": "start",
+    }
 
 
 def test_watcher_stop_continues_cleanup_when_observer_teardown_fails(
@@ -716,6 +726,7 @@ def test_watcher_stop_continues_cleanup_when_observer_teardown_fails(
 ) -> None:
     service = WatchService()
     observed: list[str] = []
+    reset_metrics()
 
     class FakeObserver:
         def __init__(self, name: str, *, fail_stop: bool = False, fail_join: bool = False) -> None:
@@ -764,11 +775,19 @@ def test_watcher_stop_continues_cleanup_when_observer_teardown_fails(
 
     service.stop()
 
+    metrics = snapshot_metrics()
     assert observed == ["one:stop", "two:stop", "one:join", "two:join"]
     assert flush_thread.joined is True
     assert service._observers == {}
     assert service._flush_thread is None
     assert service._stop.is_set() is True
+    assert metrics["counters"]["watcher_observer_cleanup_failures"] == 2
+    assert metrics["counters"]["watcher_observer_cleanup_failures.stop"] == 1
+    assert metrics["counters"]["watcher_observer_cleanup_failures.join"] == 1
+    assert [entry["payload"] for entry in recent_snapshots()] == [
+        {"root": str(tmp_path / "one"), "stage": "stop", "action": "stop"},
+        {"root": str(tmp_path / "one"), "stage": "join", "action": "stop"},
+    ]
     assert any("failed stopping watcher observer" in message for message in messages)
     assert any("failed joining watcher observer" in message for message in messages)
 
