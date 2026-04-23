@@ -117,6 +117,42 @@ def _build_search_db(db_path: Path) -> None:
         conn.close()
 
 
+def _build_iso_period_search_db(db_path: Path) -> None:
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        _insert_file(
+            conn,
+            1,
+            "/workspace/reports/april-plan.txt",
+            4_096,
+            int(datetime(2026, 4, 15, 12, 0).astimezone().timestamp()),
+            "txt",
+            body_text="period april planning note",
+        )
+        _insert_file(
+            conn,
+            2,
+            "/workspace/reports/june-summary.txt",
+            4_096,
+            int(datetime(2026, 6, 3, 12, 0).astimezone().timestamp()),
+            "txt",
+            body_text="period june planning note",
+        )
+        _insert_file(
+            conn,
+            3,
+            "/workspace/archive/previous-year.txt",
+            4_096,
+            int(datetime(2025, 12, 20, 12, 0).astimezone().timestamp()),
+            "txt",
+            body_text="period previous year note",
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def test_all_subcommands_help_succeed(cli_runner) -> None:
     for command in ("index", "watch", "search", "stats", "gui", "doctor", "version"):
         result = cli_runner(command, "--help")
@@ -205,6 +241,36 @@ def test_search_json_executes_regex_mode_query(cli_runner, tmp_path: Path) -> No
         "today-alpha-clone.txt",
         "today-alpha-copy.txt",
     ]
+
+
+def test_search_json_executes_iso_period_queries(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    _build_iso_period_search_db(db_path)
+
+    month_result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "period date:2026-04",
+        "--json",
+    )
+    year_result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "period date:2026",
+        "--json",
+    )
+
+    assert month_result.returncode == 0
+    assert year_result.returncode == 0
+    month_payload = json.loads(month_result.stdout)
+    year_payload = json.loads(year_result.stdout)
+    assert [Path(item["path"]).name for item in month_payload["results"]] == ["april-plan.txt"]
+    assert {Path(item["path"]).name for item in year_payload["results"]} == {
+        "june-summary.txt",
+        "april-plan.txt",
+    }
 
 
 def test_search_json_honors_root_filter(cli_runner, tmp_path: Path) -> None:

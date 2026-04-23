@@ -123,6 +123,37 @@ def test_e2e_index_search_accepts_short_slash_prefixed_path_literals(tmp_path: P
     assert hits == [short_path]
 
 
+def test_e2e_index_search_supports_iso_month_and_year_periods(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    _build_fixture_tree(root)
+    april_file = root / "reports" / "period-april.txt"
+    june_file = root / "reports" / "period-june.txt"
+    prior_year_file = root / "archive" / "period-previous-year.txt"
+    april_file.write_text("period april note\n", encoding="utf-8")
+    june_file.write_text("period june note\n", encoding="utf-8")
+    prior_year_file.write_text("period previous year note\n", encoding="utf-8")
+    dated_paths = [
+        (april_file, datetime(2026, 4, 15, 12, 0).astimezone().timestamp()),
+        (june_file, datetime(2026, 6, 15, 12, 0).astimezone().timestamp()),
+        (prior_year_file, datetime(2025, 12, 15, 12, 0).astimezone().timestamp()),
+    ]
+    for path, stamp in dated_paths:
+        os.utime(path, (stamp, stamp))
+    _index_tree(root, db_path)
+
+    conn = open_index(db_path)
+    try:
+        april_hits = [hit.file.name for hit in search(conn, "period date:2026-04", limit=5).hits]
+        year_hits = [hit.file.name for hit in search(conn, "period date:2026", limit=5).hits]
+    finally:
+        conn.close()
+
+    assert april_hits == ["period-april.txt"]
+    assert set(year_hits) >= {"period-april.txt", "period-june.txt"}
+    assert "period-previous-year.txt" not in year_hits
+
+
 def test_e2e_index_search_preserves_symlink_root_alias_paths(tmp_path: Path) -> None:
     real_root = tmp_path / "workspace-real"
     alias_root = tmp_path / "workspace"
