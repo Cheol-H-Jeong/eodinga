@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.252 - 2026-04-23
+
+- Allowed `date:` and `created:` ranges to use relative aliases like `today`, `yesterday`, `this-week`, and `last-month` as either endpoint, including open-ended forms such as `date:..last-week`.
+- Expanded `size:` parsing to accept human-readable binary suffixes like `KB`, `MB`, and `MiB`, plus decimal magnitudes such as `size:>=1.5MB`.
+- Added open-ended `size:` ranges so queries like `size:..10MB` and `size:500K..` compile and execute alongside the existing bounded range form.
+
 ## 0.1.244 - 2026-04-23
 
 - Hardened staged index recovery so interrupted `.recover` and `.next` snapshots must contain initialized schema before they can replace a live index, preventing empty or half-built files from being promoted during startup recovery.
