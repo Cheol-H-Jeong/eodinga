@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.364 - 2026-04-23
+## 0.1.366 - 2026-04-23
 
 - Preserved queued watcher flush state under backpressure so a blocked enqueue no longer drops later ready events or forgets moved-file source suppression before the retry succeeds.
 - Relaxed startup staged-index recovery so invalid `.recover` and `.next` artifacts that get cleaned during resume no longer block opening an otherwise healthy live index.
