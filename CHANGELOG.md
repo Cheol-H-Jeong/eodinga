@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.111 - 2026-04-23
+
+- Expanded the shipped README with an explicit feature inventory, a compact DSL cheatsheet, generated-screenshot provenance, and direct links to contributor and release workflows so the top-level product contract is easier to audit.
+- Added `docs/CONTRIBUTING.md` with the local setup, quality gates, scope guardrails, screenshot-refresh expectations, and targeted test-selection guidance used in this repository.
+- Added `docs/RELEASE.md` plus deeper architecture diagrams and lifecycle sequences, documenting the version-pick, changelog, gate, tag, rebuild, recovery, and live-update flows behind the `0.1.x` release process.
+
 ## 0.1.110 - 2026-04-23
 
 - Fixed launcher topmost behavior so the frameless popup now follows `launcher.always_on_top` from config instead of forcing a pinned-above-all-windows state on every run.
