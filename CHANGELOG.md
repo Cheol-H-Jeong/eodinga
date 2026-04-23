@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.120 - 2026-04-23
+
+- Let keyboard-only launcher use recover the current filter instantly from the results list with `Ctrl+A`, while also trimming the launcher module under the repository's 500-line ceiling by extracting shared support helpers.
+- Expanded the launcher’s empty-state and footer guidance so `Ctrl+A`, `Home` / `End`, quick-picks, and recent-query recall are visible in-context instead of being implicit keyboard contracts.
+- Added explicit accessible names across the main window, launcher status surfaces, empty-state labels, and tab-level controls so assistive tooling can identify the primary GUI actions reliably.
+
 ## 0.1.115 - 2026-04-23
 
 - Expanded the shipped README with an explicit feature inventory, a compact DSL cheatsheet, generated-screenshot provenance, and direct links to contributor and release workflows so the top-level product contract is easier to audit.
