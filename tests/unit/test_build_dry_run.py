@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import importlib.util
+import os
 import re
 import subprocess
 import sys
@@ -174,6 +175,46 @@ def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> N
     assert "AppImage launcher shim no longer executes the Python module" in errors
 
 
+def test_linux_appimage_audit_validator_rejects_missing_artifact_when_tool_exists() -> None:
+    module = _load_build_module()
+    payload = {
+        "target": "linux-appimage",
+        "version": __version__,
+        "recipe": {
+            "exists": True,
+            "references_desktop_entry": True,
+            "references_icon_asset": True,
+            "launches_gui": True,
+        },
+        "icon": {
+            "exists": True,
+            "diricon_exists": True,
+            "desktop_icon_matches_asset": True,
+        },
+        "apprun": {
+            "is_executable": True,
+            "launches_gui": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "executes_python_module": True,
+        },
+        "appimagetool": {
+            "available": True,
+        },
+        "artifact": {
+            "build_attempted": True,
+            "build_succeeded": False,
+            "exists": False,
+        },
+    }
+
+    errors = module._validate_linux_appimage_audit(payload, __version__)
+
+    assert "AppImage build did not finish successfully" in errors
+    assert "AppImage artifact is missing after a non-dry-run build" in errors
+
+
 def test_linux_appimage_dry_run_stages_recipe() -> None:
     result = subprocess.run(
         ["bash", "packaging/linux/appimage.sh", "--dry-run"],
@@ -190,6 +231,9 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["version"] == __version__
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
+    assert payload["artifact"]["build_attempted"] is False
+    assert payload["artifact"]["build_succeeded"] is False
+    assert payload["artifact"]["exists"] is False
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
@@ -206,6 +250,39 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["apprun"]["launches_gui"] is True
     assert payload["launcher"]["is_executable"] is True
     assert payload["launcher"]["executes_python_module"] is True
+
+
+def test_linux_appimage_build_target_uses_appimagetool_when_available(tmp_path: Path) -> None:
+    appimagetool = tmp_path / "appimagetool"
+    appimagetool.write_text(
+        "#!/usr/bin/env bash\nset -euo pipefail\nappdir=\"$1\"\nout=\"$2\"\nprintf 'fake AppImage from %s\\n' \"$appdir\" > \"$out\"\n",
+        encoding="utf-8",
+    )
+    appimagetool.chmod(0o755)
+
+    env = os.environ.copy()
+    env["APPIMAGETOOL_BIN"] = str(appimagetool)
+    result = subprocess.run(
+        [sys.executable, "packaging/build.py", "--target", "linux-appimage"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    manifest_path = Path("packaging/dist/linux-appimage-audit.json")
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    artifact_path = Path(payload["artifact"]["path"])
+
+    assert payload["target"] == "linux-appimage"
+    assert payload["dry_run"] is False
+    assert payload["appimagetool"]["available"] is True
+    assert payload["artifact"]["build_attempted"] is True
+    assert payload["artifact"]["build_succeeded"] is True
+    assert payload["artifact"]["exists"] is True
+    assert artifact_path.exists()
+    assert artifact_path.suffix == ".AppImage"
 
 
 def test_linux_deb_audit_validator_rejects_missing_docs() -> None:

@@ -220,6 +220,8 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], package_version: str
     icon_payload = payload.get("icon", {})
     apprun_payload = payload.get("apprun", {})
     launcher_payload = payload.get("launcher", {})
+    appimagetool_payload = payload.get("appimagetool", {})
+    artifact_payload = payload.get("artifact", {})
     required_flags = [
         (recipe_payload.get("exists"), "AppImage recipe is missing"),
         (recipe_payload.get("references_desktop_entry"), "AppImage recipe no longer references the desktop entry"),
@@ -236,6 +238,13 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], package_version: str
     for ok, message in required_flags:
         if not ok:
             errors.append(message)
+    if payload.get("target") == "linux-appimage" and appimagetool_payload.get("available"):
+        if not artifact_payload.get("build_attempted"):
+            errors.append("AppImage build skipped even though appimagetool is available")
+        if not artifact_payload.get("build_succeeded"):
+            errors.append("AppImage build did not finish successfully")
+        if not artifact_payload.get("exists"):
+            errors.append("AppImage artifact is missing after a non-dry-run build")
     return errors
 
 

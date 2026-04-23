@@ -19,13 +19,18 @@ print(match.group(1))
 PY
 )"
 ARCHIVE_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-appdir.tar.gz"
+APPIMAGE_OUTPUT_PATH="${DIST_DIR}/eodinga-${VERSION}-x86_64.AppImage"
+APPIMAGETOOL_BIN="${APPIMAGETOOL_BIN:-$(command -v appimagetool || true)}"
 DRY_RUN=0
+APPIMAGE_BUILD_ATTEMPTED=0
+APPIMAGE_BUILD_SUCCEEDED=0
 
 if [[ "${1:-}" == "--dry-run" ]]; then
   DRY_RUN=1
 fi
 
 rm -rf "${APPDIR}"
+rm -f "${APPIMAGE_OUTPUT_PATH}"
 mkdir -p "${APPDIR}/usr/bin" "${APPDIR}/usr/share/applications"
 mkdir -p "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
 mkdir -p "${DIST_DIR}"
@@ -49,6 +54,11 @@ EOF
 chmod +x "${APPDIR}/AppRun" "${APPDIR}/usr/bin/eodinga"
 
 tar -czf "${ARCHIVE_PATH}" -C "${DIST_DIR}" "$(basename "${APPDIR}")"
+if [[ "${DRY_RUN}" -eq 0 && -n "${APPIMAGETOOL_BIN}" ]]; then
+  APPIMAGE_BUILD_ATTEMPTED=1
+  "${APPIMAGETOOL_BIN}" "${APPDIR}" "${APPIMAGE_OUTPUT_PATH}"
+  APPIMAGE_BUILD_SUCCEEDED=1
+fi
 python3 - <<PY
 import json
 import os
@@ -69,12 +79,25 @@ icon_path = Path("${APPDIR}/usr/share/icons/hicolor/scalable/apps/eodinga.svg")
 diricon_path = Path("${APPDIR}/.DirIcon")
 recipe_path = Path("${APPIMAGE_RECIPE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
+appimagetool_path = Path("${APPIMAGETOOL_BIN}") if "${APPIMAGETOOL_BIN}" else None
+artifact_path = Path("${APPIMAGE_OUTPUT_PATH}")
 payload = {
     "target": "linux-appimage-dry-run" if ${DRY_RUN} else "linux-appimage",
     "version": "${VERSION}",
     "appdir": "${APPDIR}",
     "archive": "${ARCHIVE_PATH}",
+    "artifact_path": str(artifact_path),
     "dry_run": bool(${DRY_RUN}),
+    "appimagetool": {
+        "path": str(appimagetool_path) if appimagetool_path is not None else None,
+        "available": appimagetool_path is not None and appimagetool_path.exists(),
+    },
+    "artifact": {
+        "path": str(artifact_path),
+        "exists": artifact_path.exists(),
+        "build_attempted": bool(${APPIMAGE_BUILD_ATTEMPTED}),
+        "build_succeeded": bool(${APPIMAGE_BUILD_SUCCEEDED}),
+    },
     "desktop_entry": {
         "path": str(desktop_path),
         "name": desktop_entries.get("Name"),
@@ -113,6 +136,11 @@ PY
 
 if [[ "${DRY_RUN}" -eq 1 ]]; then
   echo "staged AppImage dry run at ${APPDIR}"
+  exit 0
+fi
+
+if [[ "${APPIMAGE_BUILD_SUCCEEDED}" -eq 1 ]]; then
+  echo "built AppImage at ${APPIMAGE_OUTPUT_PATH}"
   exit 0
 fi
 
