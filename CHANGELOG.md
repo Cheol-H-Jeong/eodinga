@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.183 - 2026-04-23
+
+- Fixed `path:` regex parsing for escaped-slash literals like `path:/foo\/bar/i`, so path filters no longer silently fall back to plain literal matching in that case.
+- Fixed Windows root scoping so an exact root entry still matches when the query root uses a different drive-letter case, preventing scoped `is:dir` queries from dropping the root itself.
+- Hardened path-query correctness with new boolean truth-table coverage and an ASCII middle-token fallback, so narrow terms like `gamma` now still find punctuation-delimited filenames such as `alpha-gamma.txt`.
+
 ## 0.1.174 - 2026-04-23
 
 - Expanded `README.md` with a clearer shipped feature matrix, more query examples, practical CLI workflows, and a completed FAQ covering local-only behavior, recovery, parser extras, and health checks.
