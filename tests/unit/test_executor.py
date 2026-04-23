@@ -522,6 +522,19 @@ def test_execute_decomposed_korean_content_query_keeps_snippets(
     assert "회의록" in result.hits[0].snippet
 
 
+def test_execute_decomposed_korean_path_filter_matches_normalized_paths(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    path = "/workspace/korean/회의록-봄.txt"
+    _insert_file(tmp_db, 1, path, 512, 1_713_528_000, "txt", body_text="normalized path")
+    tmp_db.commit()
+
+    decomposed = unicodedata.normalize("NFD", "회의록")
+    hits = [hit.file.path.as_posix() for hit in search(tmp_db, f"path:{decomposed}", limit=5).hits]
+
+    assert hits == [path]
+
+
 def test_execute_duplicate_and_negated_size_queries(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     duplicate_hash = b"same-content"
