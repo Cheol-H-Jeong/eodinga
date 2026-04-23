@@ -95,6 +95,17 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Pre-Tag Sanity Slice
+
+Use this short order when you need a fast signal before the full release gate:
+
+1. `pytest -q tests/unit`
+2. `pytest -q tests/unit/test_docs_assets.py` if README, guides, screenshots, or the man page changed
+3. the matching `packaging/build.py --target ...-dry-run` command if the round touched packaging docs or recipes
+4. the full gate from `## Run The Gate` before you cut the metadata commit
+
+This sequence is intentionally smaller than the full release pass. It is for branch assembly and review, not for replacing the final pre-tag gate.
+
 ## Tag Decision Path
 
 ```text
@@ -122,6 +133,14 @@ round changes assembled
 3. Create the local tag after that final commit.
 4. Do not push tags or release branches from a worker worktree.
 5. Hand the orchestrator a clean branch plus the final local tag to rebase and publish.
+
+## Metadata Cut Checklist
+
+- `git fetch origin main --tags` has been run recently enough to avoid stale patch numbers.
+- `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py` all agree on the same `0.1.N`.
+- `docs/man/eodinga.1` has been regenerated if the version changed or the CLI parser changed.
+- The local tag points at the metadata commit on the current worker branch tip.
+- `git status --short` is empty after the tag is created.
 
 ## Docs-Only Rounds
 

@@ -36,6 +36,16 @@ pytest -q tests
 ruff check eodinga tests
 ```
 
+## Worker Round Order
+
+Use this sequence when you are one of several workers landing in parallel:
+
+1. Refresh from `origin/main` before you inspect version tags or pick a patch number.
+2. Keep feature or docs commits free of release metadata so the final version retarget stays small.
+3. Re-run `pytest -q tests/unit` after every logical commit, not just at the end of the branch.
+4. Leave `CHANGELOG.md`, `pyproject.toml`, `eodinga/__init__.py`, and the local tag for the last commit of the round.
+5. If another worker lands the same patch number first, retarget only the final metadata commit and rerun the unit gate.
+
 ## Suggested Command Order
 
 Use one clean pass instead of ad-hoc retries:
@@ -145,6 +155,16 @@ Use this when the round is docs-only but still release-bearing:
 4. Re-run `pytest -q tests/unit/test_docs_assets.py`.
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
+
+## Review Surfaces By Theme
+
+| If your round changed... | Review here before handoff |
+| --- | --- |
+| README or guide wording | the rendered markdown diff plus `tests/unit/test_docs_assets.py` |
+| release or packaging docs | `packaging/dist/` after the matching dry run |
+| CLI reference wording | `docs/man/eodinga.1` regenerated from `scripts/generate_manpage.py` |
+| GUI screenshots or visible labels | `docs/screenshots/*.png` plus the offscreen GUI smoke path |
+| version metadata | `CHANGELOG.md`, `pyproject.toml`, `eodinga/__init__.py`, and the local tag target |
 
 ## Metadata Commit Discipline
 
