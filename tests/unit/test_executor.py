@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 import unicodedata
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -646,6 +646,171 @@ def test_execute_inline_phrase_path_filter_decodes_backslashes(tmp_db: sqlite3.C
     hits = [str(hit.file.path) for hit in search(tmp_db, r'path:"C:\\workspace\\notes"', limit=5).hits]
 
     assert hits == [r"C:\workspace\notes\alpha.txt"]
+
+
+def test_execute_windows_extended_length_path_filter_matches_canonical_path(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    raw_path = r"C:\workspace\notes\alpha.txt"
+    path_obj = PureWindowsPath(raw_path)
+    tmp_db.execute(
+        """
+        INSERT INTO files (
+          id, root_id, path, parent_path, name, name_lower, ext, size, mtime, ctime,
+          is_dir, is_symlink, content_hash, indexed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            1,
+            1,
+            raw_path,
+            str(path_obj.parent),
+            path_obj.name,
+            path_obj.name.lower(),
+            "txt",
+            512,
+            now,
+            now,
+            0,
+            0,
+            None,
+            now,
+        ),
+    )
+    tmp_db.execute(
+        "INSERT INTO paths_fts(rowid, name, parent_path, path) VALUES (?, ?, ?, ?)",
+        (1, path_obj.name, str(path_obj.parent), raw_path),
+    )
+    tmp_db.execute(
+        "INSERT INTO content_fts(rowid, title, head_text, body_text) VALUES (?, ?, ?, ?)",
+        (1, path_obj.name, "windows path", "windows path"),
+    )
+    tmp_db.execute(
+        """
+        INSERT INTO content_map(file_id, fts_rowid, parser, parsed_at, content_sha)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (1, 1, "text", now, b"sha-1"),
+    )
+    tmp_db.commit()
+
+    hits = [
+        str(hit.file.path)
+        for hit in search(tmp_db, r'path:"\\\\?\\C:\\workspace\\notes"', limit=5).hits
+    ]
+
+    assert hits == [raw_path]
+
+
+def test_execute_windows_extended_unc_path_filter_matches_canonical_path(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    raw_path = r"\\server\share\notes\alpha.txt"
+    path_obj = PureWindowsPath(raw_path)
+    tmp_db.execute(
+        """
+        INSERT INTO files (
+          id, root_id, path, parent_path, name, name_lower, ext, size, mtime, ctime,
+          is_dir, is_symlink, content_hash, indexed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            1,
+            1,
+            raw_path,
+            str(path_obj.parent),
+            path_obj.name,
+            path_obj.name.lower(),
+            "txt",
+            512,
+            now,
+            now,
+            0,
+            0,
+            None,
+            now,
+        ),
+    )
+    tmp_db.execute(
+        "INSERT INTO paths_fts(rowid, name, parent_path, path) VALUES (?, ?, ?, ?)",
+        (1, path_obj.name, str(path_obj.parent), raw_path),
+    )
+    tmp_db.execute(
+        "INSERT INTO content_fts(rowid, title, head_text, body_text) VALUES (?, ?, ?, ?)",
+        (1, path_obj.name, "windows unc path", "windows unc path"),
+    )
+    tmp_db.execute(
+        """
+        INSERT INTO content_map(file_id, fts_rowid, parser, parsed_at, content_sha)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (1, 1, "text", now, b"sha-unc-1"),
+    )
+    tmp_db.commit()
+
+    hits = [
+        str(hit.file.path)
+        for hit in search(tmp_db, r'path:"\\\\?\\UNC\\server\\share\\notes"', limit=5).hits
+    ]
+
+    assert hits == [raw_path]
+
+
+def test_execute_windows_extended_length_path_filter_ignores_drive_letter_case(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    raw_path = r"C:\workspace\notes\alpha.txt"
+    path_obj = PureWindowsPath(raw_path)
+    tmp_db.execute(
+        """
+        INSERT INTO files (
+          id, root_id, path, parent_path, name, name_lower, ext, size, mtime, ctime,
+          is_dir, is_symlink, content_hash, indexed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            1,
+            1,
+            raw_path,
+            str(path_obj.parent),
+            path_obj.name,
+            path_obj.name.lower(),
+            "txt",
+            512,
+            now,
+            now,
+            0,
+            0,
+            None,
+            now,
+        ),
+    )
+    tmp_db.execute(
+        "INSERT INTO paths_fts(rowid, name, parent_path, path) VALUES (?, ?, ?, ?)",
+        (1, path_obj.name, str(path_obj.parent), raw_path),
+    )
+    tmp_db.execute(
+        "INSERT INTO content_fts(rowid, title, head_text, body_text) VALUES (?, ?, ?, ?)",
+        (1, path_obj.name, "windows path", "windows path"),
+    )
+    tmp_db.execute(
+        """
+        INSERT INTO content_map(file_id, fts_rowid, parser, parsed_at, content_sha)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (1, 1, "text", now, b"sha-drive-case"),
+    )
+    tmp_db.commit()
+
+    hits = [
+        str(hit.file.path)
+        for hit in search(tmp_db, r'path:"\\\\?\\c:\\workspace\\notes"', limit=5).hits
+    ]
+
+    assert hits == [raw_path]
 
 
 def test_execute_unicode_python_path_scan_breaks_equal_name_ties_stably(

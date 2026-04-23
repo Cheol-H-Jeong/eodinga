@@ -19,6 +19,7 @@ from eodinga.query.dsl import (
     WordNode,
 )
 from eodinga.query.date_range import parse_date_range
+from eodinga.query.path_norm import strip_windows_extended_prefix
 from eodinga.query.ranker import RankingWeights
 
 
@@ -304,7 +305,7 @@ def _compile_branch(
                     )
                 )
             else:
-                normalized_value = _normalize_literal(term.value)
+                normalized_value = strip_windows_extended_prefix(_normalize_literal(term.value))
                 path_filters.append(
                     CompiledTextTerm(
                         value=normalized_value,
