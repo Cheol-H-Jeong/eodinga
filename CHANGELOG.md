@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.925 - 2026-04-24
+## 0.1.926 - 2026-04-24
 
 - Batched the query executor's Python fallback scan for phrase and Unicode path searches, avoiding the previous one-shot `100000`-row materialization and keeping the slower correctness path bounded in memory.
 - Cached compiled regex filters in the query executor, so repeated regex-heavy searches reuse the same compiled patterns instead of recompiling them for every candidate record.
