@@ -118,6 +118,15 @@ Use the same release discipline for docs-only changes when the shipped operator 
 3. Re-run `pytest -q tests/unit/test_docs_assets.py` plus the matching packaging dry-run or GUI smoke command.
 4. Add a changelog entry that names the docs surface changed and why it matters.
 
+## Docs-Only Validation Matrix
+
+| Docs surface changed | Minimum extra command before the metadata cut |
+| --- | --- |
+| README or `docs/DSL.md` wording only | `pytest -q tests/unit/test_docs_assets.py` |
+| Architecture, release, or contributing guide that names packaging outputs | matching `python packaging/build.py --target ...-dry-run` |
+| Visible GUI screenshots or launcher/main-window copy | `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` and `python scripts/render_docs_screenshots.py` |
+| CLI help or command reference | `python scripts/generate_manpage.py` and `pytest -q tests/unit/test_docs_assets.py` |
+
 ## Cut The Local Release
 
 1. Commit the release metadata changes.
@@ -145,6 +154,14 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - Never move or delete an existing local release tag just to reuse the version number.
 - If another worker landed the same candidate version first, fetch tags again, pick the next unused patch number, and update the release metadata commit instead of force-retagging.
 - If the final gate fails after the metadata commit, fix the issue in a new commit and recreate the local tag on the new tip only after the gate is green again.
+
+## Version Collision Recovery
+
+1. `git fetch --tags origin`
+2. Re-run `git tag -l | sort -V | tail -3`
+3. Pick the next unused `0.1.N`
+4. Amend the pending metadata files in a new commit rather than rewriting earlier docs or feature commits
+5. Create the local tag only after the refreshed metadata commit is in place
 
 ## Handoff Checklist
 

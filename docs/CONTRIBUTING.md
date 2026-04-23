@@ -138,6 +138,17 @@ Use this when the round is docs-only but still release-bearing:
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
 
+## Docs Drift Triage
+
+When documentation and runtime behavior disagree, fix the highest-signal source first:
+
+1. `README.md` when the public contract, keyboard flow, install path, or operator runbook changed.
+2. The matching deep guide under `docs/` when the top-level contract already points there.
+3. Derived assets such as `docs/man/eodinga.1` or `docs/screenshots/*.png` when the parser or visible UI changed.
+4. `tests/unit/test_docs_assets.py` only after the checked-in docs truth has been updated.
+
+Do not start by editing the docs-asset test to match stale prose; update the shipped docs and derived assets first, then tighten the test so it guards the new contract.
+
 ## Test Selection Guide
 
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`
@@ -162,3 +173,4 @@ Use this when the round is docs-only but still release-bearing:
 - README examples use the current query surface and current operator names.
 - Derived docs assets are regenerated from code, not edited by hand.
 - The final release metadata commit contains only the version/changelog/tag cut unless a same-round asset refresh is required.
+- Docs-only rounds still prove the matching runtime surface with `tests/unit/test_docs_assets.py` plus the relevant GUI smoke or packaging dry-run.
