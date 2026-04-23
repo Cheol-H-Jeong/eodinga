@@ -262,3 +262,84 @@ def test_hot_restart_reopen_keeps_queries_and_accepts_live_updates(tmp_path: Pat
 
     assert initial_hits == [existing]
     assert reopened_hits == [existing]
+
+
+def test_live_create_persists_after_reopen_without_rewalk(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        created = root / "persist-after-reopen.txt"
+        created.write_text("persisted after reopen live create\n", encoding="utf-8")
+        elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "persisted after reopen live create",
+            created,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    reopened = open_index(db_path)
+    try:
+        reopened_hits = [
+            hit.file.path
+            for hit in search(reopened, "persisted after reopen live create", limit=3).hits
+        ]
+    finally:
+        reopened.close()
+
+    assert elapsed <= 0.5
+    assert reopened_hits == [created]
+
+
+def test_live_delete_stays_deleted_after_reopen_without_rewalk(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    target = root / "delete-after-reopen.txt"
+    target.write_text("persisted after reopen live delete\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(conn, "persisted after reopen live delete", limit=3).hits]
+        target.unlink()
+        elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "persisted after reopen live delete",
+            target,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    reopened = open_index(db_path)
+    try:
+        reopened_hits = [
+            hit.file.path
+            for hit in search(reopened, "persisted after reopen live delete", limit=3).hits
+        ]
+    finally:
+        reopened.close()
+
+    assert initial_hits == [target]
+    assert elapsed <= 0.5
+    assert reopened_hits == []
