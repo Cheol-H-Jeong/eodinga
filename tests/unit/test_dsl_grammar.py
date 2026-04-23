@@ -135,6 +135,20 @@ def test_parse_inline_operator_empty_regex_errors(query: str) -> None:
         parse(query)
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "content:/todo/xyzq",
+        "content:/todo/i1",
+        "regex:/todo/imsx",
+        "regex:/todo/im1",
+    ],
+)
+def test_parse_inline_operator_invalid_regex_suffix_errors(query: str) -> None:
+    with pytest.raises(QuerySyntaxError, match="regex flag"):
+        parse(query)
+
+
 @pytest.mark.parametrize("query", ['""', 'content:""', 'path: ""'])
 def test_parse_empty_phrase_errors(query: str) -> None:
     with pytest.raises(QuerySyntaxError, match="empty phrase"):
@@ -166,6 +180,16 @@ def test_parse_slash_prefixed_path_literal_as_word_value(query: str) -> None:
 def test_parse_slash_prefixed_path_literal_does_not_treat_short_basename_as_regex_flags(
     query: str,
 ) -> None:
+    node = parse(query)
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "path"
+    assert node.value == query.removeprefix("path:")
+    assert node.value_kind == "word"
+
+
+@pytest.mark.parametrize("query", ["path:/tmp/imsx", "path:/tmp/i1"])
+def test_parse_slash_prefixed_path_literal_keeps_invalid_regex_suffix_as_word(query: str) -> None:
     node = parse(query)
 
     assert isinstance(node, OperatorNode)

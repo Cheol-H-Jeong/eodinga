@@ -252,8 +252,6 @@ class _Parser:
             if not pattern:
                 raise QuerySyntaxError("empty regex", self.index - len(value) + 1)
             suffix = value[last + 1 :]
-            if suffix and (len(suffix) > 3 or not suffix.isalpha()):
-                return value, "word", ""
             if (
                 name == "path"
                 and value.startswith("/")
@@ -263,11 +261,11 @@ class _Parser:
                 return value, "word", ""
             if name == "path" and suffix:
                 try:
-                    self._validate_regex_flags(suffix, self.index - len(value) + last + 1)
+                    self._validate_inline_regex_suffix(suffix, self.index - len(value) + last + 1)
                 except QuerySyntaxError:
                     return value, "word", ""
             flags = suffix
-            self._validate_regex_flags(flags, self.index - len(value) + last + 1)
+            self._validate_inline_regex_suffix(flags, self.index - len(value) + last + 1)
             return pattern, "regex", flags
         return value, "word", ""
 
@@ -349,6 +347,14 @@ class _Parser:
             if flag in seen:
                 raise QuerySyntaxError(f"duplicate regex flag: {flags[offset]}", position + offset)
             seen.add(flag)
+
+    def _validate_inline_regex_suffix(self, suffix: str, position: int) -> None:
+        for offset, flag in enumerate(suffix):
+            if not flag.isalpha():
+                raise QuerySyntaxError(f"unsupported regex flag: {flag}", position + offset)
+        if len(suffix) > 3:
+            raise QuerySyntaxError(f"unsupported regex flag: {suffix[3]}", position + 3)
+        self._validate_regex_flags(suffix, position)
 
     def _read_phrase_value(self, start: int) -> str:
         value_chars: list[str] = []
