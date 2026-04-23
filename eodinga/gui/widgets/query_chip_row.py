@@ -38,6 +38,7 @@ class QueryChipRow(QWidget):
         self._chips_layout = chips_layout
         self._buttons: list[SecondaryButton] = []
         self.setVisible(False)
+        self.setAccessibleDescription(f"No {self._label_text.lower()} launcher queries available.")
 
     def set_queries(self, queries: list[str]) -> None:
         while self._buttons:
@@ -48,13 +49,17 @@ class QueryChipRow(QWidget):
         for query in queries:
             button = SecondaryButton(query, self._chips_container)
             button.setAccessibleName(f"Use query {query}")
-            button.setAccessibleDescription(f"Apply the {self._label_text.lower()} launcher query")
+            button.setAccessibleDescription(f"Apply the {self._label_text.lower()} launcher query {query}")
             button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             button.clicked.connect(lambda checked=False, value=query: self._on_chip_clicked(value))
             self._chips_layout.addWidget(button)
             self._buttons.append(button)
 
         self.setVisible(bool(queries))
+        if queries:
+            self.setAccessibleDescription(f"{self._label_text} query suggestions: {', '.join(queries)}")
+        else:
+            self.setAccessibleDescription(f"No {self._label_text.lower()} launcher queries available.")
 
     @property
     def buttons(self) -> list[SecondaryButton]:

@@ -82,6 +82,7 @@ class LauncherPanel(QWidget):
         self.status_label = QLabel("0 results · 0.0 ms", self)
         self.status_label.setProperty("role", "secondary")
         self.status_label.setAccessibleName("Launcher result summary")
+        self.status_label.setAccessibleDescription(self.status_label.text())
         self.empty_state = EmptyState("Type to search", "Recent queries and indexing progress will appear here.", self)
         self.preview_pane = LauncherPreviewPane(self)
         self.preview_pane.setMinimumWidth(240)
@@ -308,23 +309,31 @@ class LauncherPanel(QWidget):
             else:
                 self.status_chip.setText("Idle")
                 self.status_label.setText("0 results · 0.0 ms")
+            self.status_label.setAccessibleDescription(self.status_label.text())
             return
         self.status_label.setText(f"{self._latest_result.total} results · {self._latest_result.elapsed_ms:.1f} ms")
         if self._latest_result.total > 0:
             self.status_chip.setText("Ready")
         else:
             self.status_chip.setText("No results")
+        self.status_label.setAccessibleDescription(self.status_label.text())
 
     def _refresh_empty_state(self) -> None:
         has_results = self.model.rowCount() > 0
         query = self.query_field.text().strip()
         details = format_indexing_status(self._indexing_status)
         if not query:
-            recent_queries = ", ".join(self._recent_queries[:3]) if self._recent_queries else "No recent queries yet."
-            pinned_queries = f" Pinned: {', '.join(self._pinned_queries[:3])}." if self._pinned_queries else ""
+            summary_parts = []
+            if self._recent_queries:
+                summary_parts.append(f"Recent: {', '.join(self._recent_queries[:3])}.")
+            else:
+                summary_parts.append("No recent queries yet.")
+            if self._pinned_queries:
+                summary_parts.append(f"Pinned: {', '.join(self._pinned_queries[:3])}.")
+            summary = " ".join(summary_parts)
             self.empty_state.set_content(
                 "Type to search",
-                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
+                f"{summary} Click a launcher chip or press Alt+Up to recall recent queries. Tab moves through launcher chips before results. Alt+1 through Alt+9 opens a top hit. Enter opens the top hit, and Ctrl+Enter reveals its folder.",
                 details,
             )
         else:
@@ -338,9 +347,17 @@ class LauncherPanel(QWidget):
 
     def _refresh_shortcut_hint(self) -> None:
         has_results = self.model.rowCount() > 0
-        if not has_results:
+        chip_has_focus = any(button.hasFocus() for button in self._query_chip_buttons())
+        if chip_has_focus:
+            if has_results:
+                hint = "Left/Right move through launcher chips. Enter applies. Up returns to the filter. Down jumps into results."
+            else:
+                hint = "Left/Right move through launcher chips. Enter applies. Up returns to the filter."
+        elif not has_results:
             if self.query_field.text().strip():
                 hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries."
+            elif self._query_chip_buttons():
+                hint = "Type a filename, path, or content term. Tab moves through launcher chips. Alt+Up recalls recent queries."
             else:
                 hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
         elif self.result_list.hasFocus():
@@ -348,6 +365,7 @@ class LauncherPanel(QWidget):
         else:
             hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
+        self.shortcut_label.setAccessibleDescription(hint)
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()

@@ -375,6 +375,19 @@ def test_launcher_query_chip_focus_can_jump_into_results(qapp) -> None:
     assert launcher.result_list.currentIndex().row() == 0
 
 
+def test_launcher_shortcut_hint_tracks_query_chip_focus(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+    qapp.processEvents()
+
+    launcher.pinned_queries_row.buttons[0].setFocus()
+    qapp.processEvents()
+
+    assert "Left/Right move through launcher chips" in launcher.shortcut_label.text()
+    assert launcher.shortcut_label.accessibleDescription() == launcher.shortcut_label.text()
+
+
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:
     revealed: list[str] = []
 
@@ -443,11 +456,14 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "No recent queries yet" in launcher.empty_state.body_label.text()
     assert "Alt+Up" in launcher.empty_state.body_label.text()
     assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
+    assert "Tab moves through launcher chips before results" in launcher.empty_state.body_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
     assert "(20%)" in launcher.empty_state.details_label.text()
     assert launcher.status_chip.text() == "Indexing"
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
     assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Alt+Up recalls recent queries."
+    assert launcher.empty_state.accessibleDescription().startswith("Type to search No recent queries yet.")
+    assert launcher.status_label.accessibleDescription() == "24/120 files · 20% indexed"
 
     launcher.query_field.setText("missing")
     _wait(60)
@@ -799,12 +815,15 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.query_field.accessibleDescription() == "Type a filename, path, or content term to search the index."
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
+    assert launcher.empty_state.accessibleDescription().startswith("Type to search")
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"
     assert launcher.empty_state.body_label.accessibleName() == "Launcher empty state guidance"
     assert launcher.empty_state.details_label.accessibleName() == "Launcher indexing details"
     assert launcher.pinned_queries_row.accessibleName() == "Pinned launcher queries"
     assert launcher.pinned_queries_row.buttons == []
+    assert launcher.pinned_queries_row.accessibleDescription() == "No pinned launcher queries available."
     assert launcher.recent_queries_row.accessibleName() == "Recent launcher queries"
+    assert launcher.recent_queries_row.accessibleDescription() == "No recent launcher queries available."
     assert launcher.preview_pane.accessibleName() == "Launcher preview pane"
     assert launcher.preview_pane.title_label.accessibleName() == "Previewed result name"
     assert launcher.preview_pane.path_label.accessibleName() == "Previewed result path"
@@ -821,7 +840,9 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.action_bar.properties_button.accessibleName() == "Show selected properties"
     assert launcher.action_bar.properties_button.accessibleDescription() == "Open selected result properties with Shift+Enter."
     assert launcher.shortcut_label.accessibleName() == "Launcher shortcut guidance"
+    assert launcher.shortcut_label.accessibleDescription() == launcher.shortcut_label.text()
     assert launcher.status_label.accessibleName() == "Launcher result summary"
+    assert launcher.status_label.accessibleDescription() == launcher.status_label.text()
     assert launcher.status_chip.accessibleName() == "Launcher status"
 
 
@@ -835,9 +856,11 @@ def test_launcher_query_chips_expose_accessible_context(qapp) -> None:
     recent_chip = launcher.recent_queries_row.buttons[0]
 
     assert pinned_chip.accessibleName() == "Use query ext:pdf"
-    assert pinned_chip.accessibleDescription() == "Apply the pinned launcher query"
+    assert pinned_chip.accessibleDescription() == "Apply the pinned launcher query ext:pdf"
+    assert launcher.pinned_queries_row.accessibleDescription() == "Pinned query suggestions: ext:pdf"
     assert recent_chip.accessibleName() == "Use query budget"
-    assert recent_chip.accessibleDescription() == "Apply the recent launcher query"
+    assert recent_chip.accessibleDescription() == "Apply the recent launcher query budget"
+    assert launcher.recent_queries_row.accessibleDescription() == "Recent query suggestions: budget"
 
 
 def test_launcher_result_markup_surfaces_top_nine_quick_pick_badges(qapp) -> None:
