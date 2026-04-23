@@ -636,6 +636,54 @@ def test_open_index_raises_when_interrupted_build_resume_fails(
         open_index(path)
 
 
+def test_open_index_ignores_cleaned_uninitialized_recovery_stage(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+
+    conn = sqlite3.connect(path)
+    apply_schema(conn)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    conn.commit()
+    conn.close()
+    staged.write_bytes(b"")
+
+    reopened = open_index(path)
+    try:
+        rows = reopened.execute("SELECT path FROM roots").fetchall()
+        assert [str(row[0]) for row in rows] == ["/live"]
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
+
+
+def test_open_index_ignores_cleaned_uninitialized_build_stage(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    conn = sqlite3.connect(path)
+    apply_schema(conn)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    conn.commit()
+    conn.close()
+    staged.write_bytes(b"")
+
+    reopened = open_index(path)
+    try:
+        rows = reopened.execute("SELECT path FROM roots").fetchall()
+        assert [str(row[0]) for row in rows] == ["/live"]
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
+
+
 def test_open_index_cleans_orphaned_recovery_sidecars_before_open(tmp_path: Path) -> None:
     path = tmp_path / "index.db"
     staged = tmp_path / ".index.db.recover"
