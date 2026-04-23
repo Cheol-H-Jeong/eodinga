@@ -50,6 +50,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Operator Checklist" in readme
     assert "## Recovery and Troubleshooting" in readme
     assert "### Quick Runbook" in readme
+    assert "## Role-Based Guide" in readme
+    assert "## Validation Recipes" in readme
     assert "## Limitations" in readme
     assert "## Packaging" in readme
     assert "## Contributing" in readme
@@ -58,6 +60,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Launcher | global hotkey" in readme
     assert "Packaging audit failed" in readme
     assert "eodinga search 'date:this-week ext:md' --limit 10" in readme
+    assert "Docs-only refresh:" in readme
+    assert "Those assets are versioned release inputs" in readme
     assert "docs/DSL.md" in readme
     assert "docs/ACCEPTANCE.md" in readme
     assert "docs/ARCHITECTURE.md" in readme

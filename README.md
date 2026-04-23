@@ -229,6 +229,15 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - `docs/RELEASE.md` is the local release-cut and handoff procedure.
 - `docs/man/eodinga.1` is the generated CLI reference derived from the real argparse surface.
 
+## Role-Based Guide
+
+| If you are... | Start here | Then use |
+| --- | --- | --- |
+| operating a local install | `README.md` | `docs/DSL.md` for query syntax and `docs/ACCEPTANCE.md` for full validation |
+| debugging stale or missing results | `README.md` recovery runbook | `docs/ARCHITECTURE.md` for index lifecycle and recovery flow |
+| contributing a code or docs change | `docs/CONTRIBUTING.md` | `docs/RELEASE.md` before tagging or handing off |
+| auditing a packaged build | `docs/ACCEPTANCE.md` | `docs/RELEASE.md` for dry-run order and tag handoff |
+
 ## Recovery and Troubleshooting
 
 - Startup automatically resumes interrupted staged rebuilds (`.index.db.next`), interrupted recovery swaps (`.index.db.recover`), and stale SQLite WAL replay before opening the live index.
@@ -245,6 +254,28 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 | Startup mentions recovery | `eodinga doctor` | check that the live DB path is writable and recovery sidecars are gone after startup |
 | Hotkey or launcher looks wrong | `eodinga doctor` | inspect detected hotkey backend and then re-open `eodinga gui` for settings/state |
 | Packaging audit failed | `python packaging/build.py --target windows-dry-run` | re-run the matching Linux dry run and workflow lint from `docs/ACCEPTANCE.md` |
+
+## Validation Recipes
+
+Use one clean pass for the situation you are in instead of piecing commands together from multiple guides.
+
+Developer gate:
+
+```bash
+source .venv/bin/activate && pytest -q tests/unit && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)"
+```
+
+Release gate:
+
+```bash
+source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)" && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run && yamllint .github/workflows/release-windows.yml && yamllint .github/workflows/release-linux.yml
+```
+
+Docs-only refresh:
+
+```bash
+source .venv/bin/activate && python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py
+```
 
 ## Config and Data Paths
 
@@ -311,6 +342,10 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 ### Which commands are most useful for a quick health check?
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
+
+### How do I validate shipped docs after CLI or GUI changes?
+
+Run `python scripts/generate_manpage.py`, `python scripts/render_docs_screenshots.py`, and `pytest -q tests/unit/test_docs_assets.py`. Those assets are versioned release inputs, not informal examples.
 
 ### Which files are skipped by default?
 
