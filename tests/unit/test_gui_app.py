@@ -236,6 +236,33 @@ def test_launcher_clamps_restored_geometry_to_available_screen(qapp, temp_config
     qapp.processEvents()
 
 
+def test_launcher_clamps_partially_visible_restored_geometry_to_available_screen(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(
+        update={
+            "window_x": -120,
+            "window_y": 40,
+            "window_width": 900,
+            "window_height": 520,
+        }
+    )
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher.show()
+    qapp.processEvents()
+
+    available = launcher.screen().availableGeometry()
+    assert available.contains(launcher.frameGeometry())
+    assert launcher.pos().x() >= available.x()
+    assert launcher.pos().y() >= available.y()
+
+    window.close()
+    qapp.processEvents()
+
+
 def test_launcher_prefers_saved_screen_when_restoring_geometry(
     monkeypatch,
     qapp,
