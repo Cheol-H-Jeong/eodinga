@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.162 - 2026-04-23
+
+- Expanded `docs/ARCHITECTURE.md` with design constraints, control-plane versus data-plane flow, storage-sidecar coverage, deeper query and watcher sequences, and explicit failure-domain recovery notes.
+- Expanded `docs/CONTRIBUTING.md` with a change-type gate matrix, a documentation trigger map, screenshot refresh workflow, and review hygiene expectations for parallel worktree rounds.
+- Expanded `docs/RELEASE.md` with artifact-input verification, intermediate unit-gate expectations, dry-run packaging signals, local-tag discipline, and rollback boundaries for invalid release candidates.
+
 ## 0.1.161 - 2026-04-23
 
 - Expanded `date:` macros with `last-week` and `last-month`, and pinned their local-time behavior in compiler and executor regressions.
