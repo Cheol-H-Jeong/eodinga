@@ -12,7 +12,7 @@ from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from eodinga.common import WatchEvent
-from eodinga.observability import increment_counter
+from eodinga.observability import increment_counter, record_histogram
 
 _DEBOUNCE_SECONDS = 0.1
 _FLUSH_LIMIT = 500
@@ -255,6 +255,7 @@ class WatchService:
 
     def _flush_ready(self, force: bool) -> None:
         now = monotonic()
+        flushed: list[WatchEvent] = []
         with self._lock:
             ready_paths = [
                 path
@@ -273,6 +274,14 @@ class WatchService:
                     if event.event_type in {"created", "modified", "deleted"}:
                         self._flushed_retired_sources.discard(event.path)
                     self.queue.put(event)
+                    flushed.append(event)
+        if flushed:
+            increment_counter("watcher_flushes")
+            increment_counter("watcher_events_flushed", len(flushed))
+            record_histogram("watch_flush_batch_size", float(len(flushed)))
+            for event in flushed:
+                lag_ms = max((now - event.happened_at) * 1000, 0.0)
+                record_histogram("watch_event_lag_ms", lag_ms, event_type=event.event_type)
 
     def _reset_state(self) -> None:
         with self._lock:

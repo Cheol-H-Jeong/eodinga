@@ -104,3 +104,26 @@ def test_watcher_event_counter_increments() -> None:
 
     counters = cast(dict[str, int], snapshot_metrics()["counters"])
     assert counters["watcher_events"] == 1
+
+
+def test_watcher_flush_metrics_increment(tmp_path: Path) -> None:
+    service = WatchService()
+    reset_metrics()
+
+    service.record(
+        WatchEvent(
+            event_type="modified",
+            path=tmp_path / "report.txt",
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
+    histograms = cast(dict[str, dict[str, object]], metrics["histograms"])
+    assert counters["watcher_flushes"] == 1
+    assert counters["watcher_events_flushed"] == 1
+    assert histograms["watch_flush_batch_size"]["count"] == 1
+    assert histograms["watch_event_lag_ms"]["count"] == 1
