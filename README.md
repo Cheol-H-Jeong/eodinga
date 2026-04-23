@@ -62,6 +62,16 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 - Atomic staged rebuild and startup recovery for interrupted index swaps and stale WAL state.
 - Packaging flows for Windows installer, Linux AppImage, and Linux `.deb`.
 
+## Surface Matrix
+
+| Surface | What it exposes | Primary operator flow |
+| --- | --- | --- |
+| CLI | Rebuild, watch, search, diagnostics, stats, version | `eodinga index`, `eodinga watch`, `eodinga search`, `eodinga doctor`, `eodinga stats --json` |
+| Main GUI | Root management, index settings, diagnostics, launcher settings | Launch `eodinga gui`, configure roots, then keep the launcher enabled |
+| Launcher | Global hotkey search popup with result actions | Press `Ctrl+Shift+Space`, type, then `Enter` / `Ctrl+Enter` / `Shift+Enter` |
+| Storage | SQLite + FTS5 lexical index with staged rebuild and recovery | Rebuild once, then let watcher updates keep the index current |
+| Packaging | Windows installer, Linux AppImage, Linux `.deb` | Validate with `packaging/build.py --target ...-dry-run` before release |
+
 ## Acceptance Quickcheck
 
 Use this when you want to validate the shipped v0.1 surface before cutting a release:
@@ -89,6 +99,18 @@ Global flags:
 - `--log-level`
 - `--config`
 - `--db`
+
+## Command Reference
+
+| Command | Purpose | Typical output |
+| --- | --- | --- |
+| `eodinga index --root PATH [--rebuild]` | Build or rebuild the on-disk index for one or more roots | JSON payload with `files_indexed`, roots, and database path |
+| `eodinga watch` | Start the local watcher service against the configured index | JSON payload naming the active database |
+| `eodinga search "query" [--json]` | Run a query through the shared compiler and ranker | Text or JSON result list with elapsed milliseconds |
+| `eodinga stats [--json]` | Show persisted index totals plus in-process counters/histograms | Text or JSON statistics snapshot |
+| `eodinga gui` | Open the desktop shell and launcher integration | Qt application window |
+| `eodinga doctor` | Run environment, path, and dependency diagnostics | JSON diagnostic report and non-zero exit on failures |
+| `eodinga version` | Print the current application version | Plain `0.1.x` string |
 
 Typical flows:
 
@@ -182,6 +204,13 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - Override either location with `--config` or `--db` when running CLI commands.
 - Runtime writes stay inside those config/database areas; indexed roots are treated as read-only inputs.
 
+## State and Logs
+
+- Rotating runtime logs default to `~/.local/state/eodinga/logs/eodinga.log` on Linux and `%LOCALAPPDATA%\\eodinga\\logs\\eodinga.log` on Windows.
+- Crash reports default to `~/.local/state/eodinga/crashes/` on Linux and `%LOCALAPPDATA%\\eodinga\\crashes\\` on Windows.
+- Override log and crash destinations with `EODINGA_LOG_PATH` and `EODINGA_CRASH_DIR` when you need to capture diagnostics outside the defaults.
+- Set `EODINGA_DISABLE_FILE_LOGGING=1` to keep the process stderr-only during local debugging.
+
 ## Diagnostics
 
 Run:
@@ -224,6 +253,14 @@ System and cache paths such as `/proc`, `/sys`, `/dev`, `/tmp`, `$HOME/.cache`, 
 ### Does uninstall delete my local index automatically?
 
 No. The Windows installer preserves `%LOCALAPPDATA%\eodinga\` unless the uninstall flow explicitly purges it.
+
+### Where do logs and crash reports go?
+
+By default, logs and crash reports live under the platform state directory: `~/.local/state/eodinga/` on Linux or `%LOCALAPPDATA%\\eodinga\\` on Windows.
+
+### Does `watch` replace `index --rebuild`?
+
+No. `eodinga index --rebuild` creates the baseline index. `eodinga watch` keeps that index fresh after the initial build.
 
 ### Is semantic search included?
 

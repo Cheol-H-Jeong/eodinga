@@ -39,11 +39,14 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Install" in readme
     assert "## Quick Start" in readme
     assert "## Feature Overview" in readme
+    assert "## Surface Matrix" in readme
     assert "## Acceptance Quickcheck" in readme
+    assert "## Command Reference" in readme
     assert "## DSL Cheatsheet" in readme
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
     assert "## Config and Data Paths" in readme
+    assert "## State and Logs" in readme
     assert "## Recovery and Troubleshooting" in readme
     assert "## Limitations" in readme
     assert "## Packaging" in readme
@@ -60,6 +63,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "python packaging/build.py --target windows-dry-run" in readme
     assert "yamllint .github/workflows/release-windows.yml" in readme
     assert "rendered offscreen from the real Qt surfaces" in readme
+    assert "EODINGA_LOG_PATH" in readme
+    assert "EODINGA_CRASH_DIR" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance
