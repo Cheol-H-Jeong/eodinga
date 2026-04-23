@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from eodinga.common import SearchHit
 from eodinga.gui.design import SPACE_4, SPACE_8, SPACE_16
-from eodinga.gui.launcher_file_preview import filesystem_preview_snippet
+from eodinga.gui.launcher_file_preview import filesystem_preview
 from eodinga.gui.widgets.button import SecondaryButton
 from eodinga.gui.widgets.result_item import format_preview_html
 
@@ -34,6 +34,11 @@ class LauncherPreviewPane(QWidget):
         self.path_label.setTextFormat(Qt.TextFormat.RichText)
         self.path_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.path_label.setAccessibleName("Previewed result path")
+        self.metadata_label = QLabel(self)
+        self.metadata_label.setProperty("role", "secondary")
+        self.metadata_label.setWordWrap(True)
+        self.metadata_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.metadata_label.setAccessibleName("Previewed result metadata")
         self.snippet_label = QLabel(self)
         self.snippet_label.setWordWrap(True)
         self.snippet_label.setTextFormat(Qt.TextFormat.RichText)
@@ -45,6 +50,7 @@ class LauncherPreviewPane(QWidget):
         layout.addWidget(eyebrow)
         layout.addWidget(self.title_label)
         layout.addWidget(self.path_label)
+        layout.addWidget(self.metadata_label)
         layout.addWidget(self.snippet_label, 1)
 
         self.set_hit(None)
@@ -56,18 +62,22 @@ class LauncherPreviewPane(QWidget):
     def set_hit(self, hit: SearchHit | None) -> None:
         self._current_hit = hit
         resolved_hit = hit
-        preview_snippet = filesystem_preview_snippet(hit) if hit is not None else None
-        if hit is not None and preview_snippet is not None:
-            resolved_hit = hit.model_copy(update={"snippet": preview_snippet})
+        preview = filesystem_preview(hit) if hit is not None else None
+        if hit is not None and preview is not None and preview.snippet is not None:
+            resolved_hit = hit.model_copy(update={"snippet": preview.snippet})
         title, path_text, snippet = format_preview_html(resolved_hit, self._query)
         self.title_label.setText(title)
         self.path_label.setText(path_text)
         self.snippet_label.setText(snippet)
+        self.metadata_label.setText(preview.metadata if preview is not None and preview.metadata is not None else "")
+        self.metadata_label.setVisible(bool(self.metadata_label.text()))
         if resolved_hit is None:
             self.setAccessibleDescription("No launcher result is selected for preview.")
             return
         snippet_text = (resolved_hit.snippet or "").replace("[", "").replace("]", "").strip()
         summary = f"Previewing {resolved_hit.name} at {resolved_hit.path}."
+        if preview is not None and preview.metadata:
+            summary = f"{summary} {preview.metadata}."
         if snippet_text:
             summary = f"{summary} Snippet: {snippet_text}"
         self.setAccessibleDescription(summary)

@@ -570,20 +570,25 @@ def test_launcher_shortcuts_cover_properties_and_copy_path(qapp) -> None:
     assert "Alt+N copies name" in launcher.shortcut_label.text()
 
 
-def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
+def test_launcher_preview_tracks_selection_and_hovered_result(qapp, tmp_path: Path) -> None:
+    alpha = tmp_path / "alpha.txt"
+    beta = tmp_path / "beta.txt"
+    alpha.write_text("Alpha release notes", encoding="utf-8")
+    beta.write_text("Beta launch checklist", encoding="utf-8")
+
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
             items=[
                 SearchHit(
-                    path=Path("/tmp/alpha.txt"),
-                    parent_path=Path("/tmp"),
-                    name="alpha.txt",
+                    path=alpha,
+                    parent_path=tmp_path,
+                    name=alpha.name,
                     snippet="Alpha release notes",
                 ),
                 SearchHit(
-                    path=Path("/tmp/beta.txt"),
-                    parent_path=Path("/tmp"),
-                    name="beta.txt",
+                    path=beta,
+                    parent_path=tmp_path,
+                    name=beta.name,
                     snippet="Beta launch checklist",
                 ),
             ][:limit],
@@ -601,7 +606,8 @@ def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
     _wait(60)
 
     assert launcher.preview_pane.title_label.text() == "alpha.txt"
-    assert "/tmp/alpha.txt" in launcher.preview_pane.path_label.text()
+    assert str(alpha) in launcher.preview_pane.path_label.text()
+    assert launcher.preview_pane.metadata_label.text().startswith("File · ")
     assert "Alpha release " in launcher.preview_pane.snippet_label.text()
     assert ">notes</mark>" in launcher.preview_pane.snippet_label.text()
     assert launcher.action_bar.open_button.isEnabled()
@@ -817,6 +823,7 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.preview_pane.accessibleName() == "Launcher preview pane"
     assert launcher.preview_pane.title_label.accessibleName() == "Previewed result name"
     assert launcher.preview_pane.path_label.accessibleName() == "Previewed result path"
+    assert launcher.preview_pane.metadata_label.accessibleName() == "Previewed result metadata"
     assert launcher.preview_pane.snippet_label.accessibleName() == "Previewed result snippet"
     assert launcher.action_bar.accessibleName() == "Launcher action bar"
     assert launcher.action_bar.open_button.accessibleName() == "Open selected result"
@@ -882,14 +889,17 @@ def test_launcher_result_markup_surfaces_top_nine_quick_pick_badges(qapp) -> Non
     assert "Alt+10" not in tenth_html
 
 
-def test_launcher_results_expose_accessible_text_and_preview_summary(qapp) -> None:
+def test_launcher_results_expose_accessible_text_and_preview_summary(qapp, tmp_path: Path) -> None:
+    target = tmp_path / "release-notes.txt"
+    target.write_text("release notes", encoding="utf-8")
+
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
             items=[
                 SearchHit(
-                    path=Path("/tmp/release-notes.txt"),
-                    parent_path=Path("/tmp"),
-                    name="release-notes.txt",
+                    path=target,
+                    parent_path=tmp_path,
+                    name=target.name,
                     ext="txt",
                     snippet="...the [release notes] are attached...",
                 )
@@ -908,12 +918,13 @@ def test_launcher_results_expose_accessible_text_and_preview_summary(qapp) -> No
     tooltip = cast(str, launcher.model.data(launcher.model.index(0, 0), Qt.ItemDataRole.ToolTipRole))
 
     assert "Quick pick Alt+1." in accessible_text
-    assert "Path /tmp/release-notes.txt." in accessible_text
+    assert f"Path {target}." in accessible_text
     assert tooltip == accessible_text
     assert launcher.result_list.accessibleDescription() == (
         "1 launcher results. Selected 1 of 1: release-notes.txt. Use Up and Down to move between results, Enter to open, and Alt+1 through Alt+9 for quick picks."
     )
-    assert "Previewing release-notes.txt at /tmp/release-notes.txt." in launcher.preview_pane.accessibleDescription()
+    assert f"Previewing release-notes.txt at {target}." in launcher.preview_pane.accessibleDescription()
+    assert "File · " in launcher.preview_pane.accessibleDescription()
     assert "Snippet: ...the release notes are attached..." in launcher.preview_pane.accessibleDescription()
     assert launcher.action_bar.accessibleDescription() == (
         "Actions for release-notes.txt: Enter opens, Ctrl+Enter reveals, Alt+C copies the path, Alt+N copies the name, and Shift+Enter shows properties."
