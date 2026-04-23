@@ -472,8 +472,16 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["parser_errors"] == 0
     assert payload["watcher_events"] == 0
     assert payload["query_latency_histogram"]["count"] == 1
+    assert payload["counters"]["commands_started"] == 2
+    assert payload["counters"]["commands.search.started"] == 1
+    assert payload["counters"]["commands_completed"] == 1
+    assert payload["counters"]["commands.search.completed"] == 1
+    assert payload["counters"]["commands.stats.started"] == 1
     assert payload["counters"]["queries_served"] == 1
+    assert payload["counters"]["query_results_returned"] == 2
+    assert payload["counters"]["query_matches_estimated"] == 2
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
+    assert payload["histograms"]["query_result_count"]["count"] == 1
     assert payload["session_started_at"].endswith("Z")
     assert payload["uptime_ms"] >= 0
     assert payload["pid"] > 0
@@ -524,6 +532,34 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["files_indexed"] == indexed_files
     assert payload["counters"]["parser_errors"] == 1
     assert payload["counters"]["parsers.broken.error"] == 1
+    assert payload["counters"]["commands_started"] == 3
+    assert payload["counters"]["commands.index.started"] == 1
+    assert payload["counters"]["commands.search.started"] == 1
+    assert payload["counters"]["commands_completed"] == 2
+    assert payload["counters"]["commands.stats.started"] == 1
     assert payload["counters"]["queries_served"] == 1
+    assert payload["counters"]["query_results_returned"] == 1
     assert payload["counters"]["watcher_events"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
+    assert payload["histograms"]["query_result_count"]["count"] == 1
+
+
+def test_stats_json_emits_failed_command_counters(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    search_exit = main(["--db", str(db_path), "search", "("])
+    search_output = capsys.readouterr()
+    assert search_exit == 2
+    assert "expected term at position 1" in search_output.err
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["counters"]["commands_started"] == 2
+    assert payload["counters"]["commands.search.started"] == 1
+    assert payload["counters"]["commands_failed"] == 1
+    assert payload["counters"]["commands.search.failed"] == 1
+    assert payload["counters"]["commands.stats.started"] == 1

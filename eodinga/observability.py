@@ -228,6 +228,7 @@ def write_crash_log(
         *traceback.format_exception(type(error), error, error.__traceback__),
     ]
     crash_path.write_text("".join(lines), encoding="utf-8")
+    increment_counter("crash_logs_written")
     return crash_path
 
 

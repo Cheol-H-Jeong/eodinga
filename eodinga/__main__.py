@@ -20,6 +20,7 @@ from eodinga.observability import (
     configure_logging,
     counter_value,
     histogram_snapshot,
+    increment_counter,
     session_snapshot,
     snapshot_metrics,
     write_crash_log,
@@ -212,15 +213,31 @@ def _cmd_version(args: argparse.Namespace) -> int:
     return _emit(__version__)
 
 
+def _record_command_start(command: str) -> None:
+    increment_counter("commands_started")
+    increment_counter(f"commands.{command}.started")
+
+
+def _record_command_finish(command: str, exit_code: int) -> None:
+    outcome = "completed" if exit_code == 0 else "failed"
+    increment_counter(f"commands_{outcome}")
+    increment_counter(f"commands.{command}.{outcome}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     configure_logging(args.log_level)
+    command_name = getattr(args, "command", "unknown")
+    _record_command_start(command_name)
     try:
-        return args.handler(args)
+        exit_code = int(args.handler(args))
+        _record_command_finish(command_name, exit_code)
+        return exit_code
     except KeyboardInterrupt:
         raise
     except Exception as error:
+        _record_command_finish(command_name, 1)
         command_argv = argv or sys.argv[1:]
         command = " ".join(command_argv) or "<interactive>"
         crash_path = write_crash_log(

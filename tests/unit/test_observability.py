@@ -69,6 +69,7 @@ def test_session_snapshot_reports_active_log_and_crash_targets(tmp_path: Path, m
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
+    reset_metrics()
     try:
         raise RuntimeError("boom")
     except RuntimeError as error:
@@ -83,6 +84,8 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert f"platform={sys.platform}" in contents
     assert f"cwd={Path.cwd()}" in contents
     assert 'argv=["search", "boom"]' in contents
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["crash_logs_written"] == 1
 
 
 def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
