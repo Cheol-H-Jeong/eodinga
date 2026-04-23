@@ -82,6 +82,8 @@ Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv`
 
 These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. This round removes the guaranteed-empty content-upsert pass whenever `IndexWriter` is running without a parser callback, which trims metadata-only indexing and makes the staged rebuild benchmark reflect the actual `content_enabled=False` fast path instead of paying for a no-op parser loop.
 
+When you update this section, prefer one benchmark family at a time. Mixing cold-start, query-latency, and watch-latency reruns from different local states makes the table harder to interpret than leaving one row untouched for another round.
+
 When you refresh this table, record:
 
 1. The command you ran.
@@ -105,6 +107,7 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 - Re-run the same benchmark at least twice if the first sample is noisy; filesystem cache warmth heavily affects cold-start throughput.
 - Treat query p95/p99 shifts as more meaningful than p50 for launcher responsiveness.
 - Watch latency is end-to-end, so a regression there can come from debounce, event coalescing, or index commit timing rather than raw filesystem speed.
+- Record whether parser extras were installed when you compare content-query results; the corpus shape and parser stack both affect the observed latency.
 
 ## Profiling Workflow
 
@@ -113,6 +116,12 @@ The benchmarks intentionally stay below the full SPEC-scale datasets so they are
 3. If the regression is in cold start, compare `test_cold_start.py` with `test_bulk_upsert.py` to decide whether the walker or writer moved.
 4. If the regression is in watch visibility, inspect coalescing, debounce, and commit timing before touching query ranking.
 5. Refresh this document only after you have rerun the benchmark in the same local environment and the result is stable enough to be explanatory.
+
+Minimal evidence to keep with a perf-doc refresh:
+- the exact command line,
+- the printed benchmark summary line,
+- any non-default `EODINGA_PERF_*` overrides,
+- whether the run was warm-cache or cold-cache.
 
 ## Practical Threshold Notes
 
