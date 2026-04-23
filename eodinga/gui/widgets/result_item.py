@@ -24,6 +24,8 @@ from eodinga.query.dsl import (
 
 HTML_MARGIN = 8
 _TARGET_ALL = frozenset({"name", "path", "snippet"})
+HIGHLIGHT_OPEN = "<mark style='background:#CCFBF1; color:#0F172A; padding:0 1px;'><strong>"
+HIGHLIGHT_CLOSE = "</strong></mark>"
 
 
 @dataclass(frozen=True)
@@ -191,7 +193,7 @@ def highlight_text(text: str, query: str, *, target: str = "name") -> str:
         if start < cursor:
             continue
         parts.append(escape(text[cursor:start]))
-        parts.append(f"<mark>{escape(text[start:end])}</mark>")
+        parts.append(f"{HIGHLIGHT_OPEN}{escape(text[start:end])}{HIGHLIGHT_CLOSE}")
         cursor = end
     parts.append(escape(text[cursor:]))
     return "".join(parts)
@@ -210,7 +212,7 @@ def _highlight_fts_snippet(snippet: str) -> str:
             parts.append(escape(snippet[cursor:]))
             break
         parts.append(escape(snippet[cursor:start]))
-        parts.append(f"<mark>{escape(snippet[start + 1:end])}</mark>")
+        parts.append(f"{HIGHLIGHT_OPEN}{escape(snippet[start + 1:end])}{HIGHLIGHT_CLOSE}")
         cursor = end + 1
     return "".join(parts)
 
