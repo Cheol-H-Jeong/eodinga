@@ -84,7 +84,11 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["app_id_is_guid_macro"] is True
     assert payload["inno_setup"]["app_version_macro"] == "@@APP_VERSION@@"
     assert payload["inno_setup"]["app_version_uses_template"] is True
+    assert payload["inno_setup"]["project_root_macro"] == "..\\\\..\\\\.."
+    assert payload["inno_setup"]["project_root_resolves_to_repo_root"] is True
     assert payload["inno_setup"]["contains_versioned_output_macro"] is True
+    assert payload["inno_setup"]["contains_local_output_dir"] is True
+    assert payload["inno_setup"]["license_file_entry_uses_project_root"] is True
     assert payload["inno_setup"]["contains_user_install_dir"] is True
     assert payload["inno_setup"]["contains_rendered_uninstall_display_icon"] is True
     assert payload["inno_setup"]["contains_start_menu_shortcut"] is True
@@ -92,13 +96,13 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["contains_user_desktop_shortcut"] is True
     assert payload["inno_setup"]["contains_postinstall_launch"] is True
     assert payload["inno_setup"]["source_entries"] == [
-        'dist\\\\@@GUI_DIST_NAME@@\\\\*',
-        'dist\\\\@@CLI_DIST_NAME@@\\\\*',
+        '{#ProjectRoot}\\\\dist\\\\@@GUI_DIST_NAME@@\\\\*',
+        '{#ProjectRoot}\\\\dist\\\\@@CLI_DIST_NAME@@\\\\*',
     ]
     assert payload["inno_setup"]["source_entries_match_pyinstaller_dist"] is True
     assert payload["inno_setup"]["rendered_source_entries"] == [
-        'dist\\\\eodinga-gui\\\\*',
-        'dist\\\\eodinga-cli\\\\*',
+        '{#ProjectRoot}\\\\dist\\\\eodinga-gui\\\\*',
+        '{#ProjectRoot}\\\\dist\\\\eodinga-cli\\\\*',
     ]
     assert payload["inno_setup"]["rendered_source_entries_match_pyinstaller_dist"] is True
     assert payload["inno_setup"]["privileges_lowest"] is True

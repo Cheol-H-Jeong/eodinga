@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
+from pathlib import PureWindowsPath
 from typing import Any
 
 
@@ -82,11 +83,16 @@ def _macro_value(text: str, macro_name: str) -> str | None:
     return match.group(1)
 
 
+def _resolve_windows_relative_path(base_dir: Path, raw_path: str) -> Path:
+    return (base_dir / Path(*PureWindowsPath(raw_path).parts)).resolve()
+
+
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     spec_namespace = _load_windows_spec_namespace()
     inno_text = INNO_SCRIPT.read_text(encoding="utf-8")
     app_id = _macro_value(inno_text, "AppId")
     app_version = _macro_value(inno_text, "AppVersion")
+    project_root_macro = _macro_value(inno_text, "ProjectRoot")
     cli_dist_name = str(spec_namespace.get("CLI_DIST_NAME", "eodinga-cli"))
     gui_dist_name = str(spec_namespace.get("GUI_DIST_NAME", "eodinga-gui"))
     cli_exe_name = str(spec_namespace.get("CLI_EXE_NAME", f"{cli_dist_name}.exe"))
@@ -101,17 +107,22 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     output_base_filename = f"eodinga-{version}-win-x64-setup"
     source_entries = _source_entries(inno_text)
     expected_source_entries = [
-        f"dist\\\\{INNO_GUI_DIST_TOKEN}\\\\*",
-        f"dist\\\\{INNO_CLI_DIST_TOKEN}\\\\*",
+        f"{{#ProjectRoot}}\\\\dist\\\\{INNO_GUI_DIST_TOKEN}\\\\*",
+        f"{{#ProjectRoot}}\\\\dist\\\\{INNO_CLI_DIST_TOKEN}\\\\*",
     ]
     rendered_source_entries = [
-        f"dist\\\\{gui_dist_name}\\\\*",
-        f"dist\\\\{cli_dist_name}\\\\*",
+        f"{{#ProjectRoot}}\\\\dist\\\\{gui_dist_name}\\\\*",
+        f"{{#ProjectRoot}}\\\\dist\\\\{cli_dist_name}\\\\*",
     ]
     gui_dist_path = PROJECT_ROOT / "dist" / gui_dist_name
     cli_dist_path = PROJECT_ROOT / "dist" / cli_dist_name
     gui_exe_path = gui_dist_path / gui_exe_name
     cli_exe_path = cli_dist_path / cli_exe_name
+    project_root_resolved = (
+        _resolve_windows_relative_path(rendered_path.parent, project_root_macro)
+        if project_root_macro is not None
+        else None
+    )
     return {
         "target": "windows-dry-run",
         "version": version,
@@ -156,6 +167,8 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "app_id_is_guid_macro": app_id is not None and bool(_INNO_APP_ID_PATTERN.fullmatch(app_id)),
             "app_version_macro": app_version,
             "app_version_uses_template": app_version == INNO_VERSION_TOKEN,
+            "project_root_macro": project_root_macro,
+            "project_root_resolves_to_repo_root": project_root_resolved == PROJECT_ROOT.resolve(),
             "source_entries": source_entries,
             "source_entries_match_pyinstaller_dist": source_entries == expected_source_entries,
             "contains_app_version_template": INNO_VERSION_TOKEN in inno_text,
@@ -164,6 +177,8 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "rendered_source_entries": _source_entries(rendered_text),
             "rendered_source_entries_match_pyinstaller_dist": _source_entries(rendered_text) == rendered_source_entries,
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
+            "contains_local_output_dir": "OutputDir=." in rendered_text,
+            "license_file_entry_uses_project_root": r"LicenseFile={#ProjectRoot}\LICENSE" in rendered_text,
             "license_file_exists": (PROJECT_ROOT / "LICENSE").exists(),
             "contains_user_install_dir": _inno_contains(rendered_text, r"DefaultDirName={userappdata}\eodinga"),
             "contains_rendered_uninstall_display_icon": _inno_contains(
@@ -255,9 +270,12 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     required_flags = {
         "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
         "app_version_uses_template": "Inno AppVersion macro no longer uses the template token",
+        "project_root_resolves_to_repo_root": "Inno ProjectRoot macro no longer resolves back to the repository root",
         "license_file_exists": "Inno setup no longer references a shipped LICENSE file",
+        "license_file_entry_uses_project_root": "Inno setup license path no longer resolves relative to the rendered script",
         "source_entries_match_pyinstaller_dist": "Inno source entries drifted from PyInstaller dist names",
         "rendered_source_entries_match_pyinstaller_dist": "Rendered Inno source entries drifted from PyInstaller dist names",
+        "contains_local_output_dir": "Inno output directory no longer stays beside the rendered script",
         "contains_rendered_uninstall_display_icon": "Rendered Inno uninstall icon does not point at the GUI executable",
         "contains_start_menu_shortcut": "Rendered Inno start menu shortcut is missing",
         "contains_user_desktop_shortcut": "Inno desktop shortcut no longer targets the per-user desktop",

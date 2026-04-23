@@ -3,6 +3,7 @@
 #define AppVersion "@@APP_VERSION@@"
 #define AppPublisher "Cheol-H-Jeong"
 #define AppId "{{B4D25A04-71A1-45A2-A0BB-7B3F612E9E68}"
+#define ProjectRoot "..\\..\\.."
 
 [Setup]
 AppId={#AppId}
@@ -14,11 +15,12 @@ DefaultGroupName=eodinga
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
+OutputDir=.
 OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup
 Compression=lzma
 SolidCompression=yes
 UninstallDisplayIcon={app}\@@GUI_EXE_NAME@@
-LicenseFile=LICENSE
+LicenseFile={#ProjectRoot}\LICENSE
 WizardStyle=modern
 
 [Languages]
@@ -30,8 +32,8 @@ Name: "autostart"; Description: "{cm:LaunchAtStartup,en} / {cm:LaunchAtStartup,k
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"
 
 [Files]
-Source: "dist\\@@GUI_DIST_NAME@@\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "dist\\@@CLI_DIST_NAME@@\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#ProjectRoot}\\dist\\@@GUI_DIST_NAME@@\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#ProjectRoot}\\dist\\@@CLI_DIST_NAME@@\\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Registry]
 Root: HKCU; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; ValueType: string; ValueName: "eodinga"; ValueData: """{app}\\@@GUI_EXE_NAME@@"""; Flags: uninsdeletevalue; Tasks: autostart
