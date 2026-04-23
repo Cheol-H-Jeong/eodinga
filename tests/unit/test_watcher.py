@@ -513,6 +513,61 @@ def test_watcher_move_round_trip_collapses_to_modify_and_ignores_intermediate_de
         service.queue.get_nowait()
 
 
+def test_watcher_flush_retry_preserves_remaining_ready_events(tmp_path: Path) -> None:
+    service = WatchService()
+    events = [
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "alpha.txt",
+            root_path=tmp_path,
+            happened_at=1.0,
+        ),
+        WatchEvent(
+            event_type="modified",
+            path=tmp_path / "beta.txt",
+            root_path=tmp_path,
+            happened_at=2.0,
+        ),
+        WatchEvent(
+            event_type="deleted",
+            path=tmp_path / "gamma.txt",
+            root_path=tmp_path,
+            happened_at=3.0,
+        ),
+    ]
+    for event in events:
+        service.record(event)
+
+    attempts: list[str] = []
+    fail_once = True
+
+    def flaky_enqueue(event: WatchEvent) -> bool:
+        nonlocal fail_once
+        attempts.append(event.path.name)
+        if event.path.name == "beta.txt" and fail_once:
+            fail_once = False
+            return False
+        service.queue.put_nowait(event)
+        return True
+
+    service._enqueue_event = flaky_enqueue  # type: ignore[method-assign]
+
+    service._flush_ready(force=True)
+
+    assert [service.queue.get_nowait().path.name] == ["alpha.txt"]
+
+    service._flush_ready(force=True)
+
+    assert attempts == ["alpha.txt", "beta.txt", "beta.txt", "gamma.txt"]
+    assert [service.queue.get_nowait().path.name, service.queue.get_nowait().path.name] == [
+        "beta.txt",
+        "gamma.txt",
+    ]
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+
 def test_watcher_reused_source_path_modify_then_delete_keeps_real_delete(tmp_path: Path) -> None:
     service = WatchService()
     source = tmp_path / "draft.txt"
