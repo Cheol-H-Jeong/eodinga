@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.951 - 2026-04-24
+
+- Added pinned-query management to the settings tab, including normalized multi-line editing, one-click clearing, shared-state updates, and config persistence without restarting the launcher.
+- Added recent-query visibility and a clear-history control in settings, so the popup and embedded search launcher stay in sync with history changes while giving users an explicit reset path.
+- Extracted launcher copy helpers and expanded empty-state accessibility descriptions, which keeps the launcher module under the size cap while making keyboard guidance and indexing context readable to assistive tools.
+
 ## 0.1.936 - 2026-04-24
 
 - Reused nested SQLite temporary PRAGMA overrides per connection, which cuts redundant PRAGMA reads and rewrites when rebuild and writer code stack the same fast-write mode.
