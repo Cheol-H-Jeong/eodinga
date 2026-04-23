@@ -31,7 +31,8 @@ class LauncherWindow(LauncherPanel):
         self._geometry_save_timer.timeout.connect(self._persist_geometry)
         self.setObjectName("surface")
         self.setAccessibleName("Launcher window")
-        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
+        frameless = self._config.launcher.frameless if self._config is not None else True
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, frameless)
         self.setWindowFlag(Qt.WindowType.Tool, True)
         always_on_top = self._config.launcher.always_on_top if self._config is not None else False
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, always_on_top)

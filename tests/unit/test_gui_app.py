@@ -204,6 +204,31 @@ def test_launcher_respects_always_on_top_config(qapp, temp_config_path: Path) ->
     qapp.processEvents()
 
 
+def test_launcher_respects_frameless_config(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"frameless": False})
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    assert not bool(launcher.windowFlags() & Qt.WindowType.FramelessWindowHint)
+
+    window.close()
+    qapp.processEvents()
+
+    config.launcher = config.launcher.model_copy(update={"frameless": True})
+    _, frameless_window, frameless_launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    assert bool(frameless_launcher.windowFlags() & Qt.WindowType.FramelessWindowHint)
+
+    frameless_window.close()
+    qapp.processEvents()
+
+
 def test_tray_activation_toggles_launcher_visibility(qapp) -> None:
     window = EodingaWindow()
 

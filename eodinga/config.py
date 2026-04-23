@@ -67,6 +67,7 @@ class LauncherConfig(BaseModel):
     max_results: int = 200
     pinned_queries: list[str] = Field(default_factory=list)
     always_on_top: bool = False
+    frameless: bool = True
     window_x: int | None = None
     window_y: int | None = None
     window_width: int = 640
