@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.234 - 2026-04-23
+
+- Fixed `path:/.../flags` parsing for patterns that contain escaped `/`, so queries like `path:/team\\/notes/i` now compile and execute as regexes instead of being misread as literal path filters.
+- Expanded Windows root scoping to match extended-length `\\\\?\\` paths against regular `--root C:/...` filters, keeping CLI and executor root filtering correct even when indexed paths use Win32 long-path prefixes.
+
 ## 0.1.233 - 2026-04-23
 
 - Expanded `README.md` with a surface matrix, a compact operator checklist, and a troubleshooting runbook so the top-level contract points operators to the right CLI and packaging checks faster.
