@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QPushButton
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.launcher import LauncherState
@@ -398,6 +399,8 @@ def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> No
     state.remember_query("budget")
 
     assert "budget, report" in launcher.empty_state.body_label.text()
+    assert launcher.recent_queries_row.isVisible()
+    assert launcher.recent_queries_row.findChildren(type(launcher.recent_queries_row.label))[0].text() == "Recent"
 
 
 def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> None:
@@ -406,6 +409,45 @@ def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> No
     launcher.show()
 
     assert "Pinned: ext:pdf, size:>10M." in launcher.empty_state.body_label.text()
+    assert launcher.pinned_queries_row.isVisible()
+
+
+def test_launcher_shows_active_filter_chips_for_operator_terms(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState())
+    launcher.show()
+
+    launcher.query_field.setText('report ext:pdf date:this-week content:"release notes"')
+    _wait(60)
+
+    assert launcher.active_filters_row.isVisible()
+    chip_texts = [button.text() for button in launcher.active_filters_row.findChildren(QPushButton)]
+    assert chip_texts == ["ext:pdf", "date:this-week", 'content:"release notes"']
+    assert not launcher.recent_queries_row.isVisible()
+    assert not launcher.pinned_queries_row.isVisible()
+
+
+def test_launcher_clicking_recent_and_pinned_query_chips_applies_query(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf", "size:>10M"])
+    state.remember_query("report")
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    recent_buttons = launcher.recent_queries_row.findChildren(QPushButton)
+    pinned_buttons = launcher.pinned_queries_row.findChildren(QPushButton)
+
+    assert [button.text() for button in recent_buttons] == ["report"]
+    assert [button.text() for button in pinned_buttons] == ["ext:pdf", "size:>10M"]
+
+    recent_buttons[0].click()
+    _wait(60)
+    assert launcher.query_field.text() == "report"
+
+    launcher.query_field.clear()
+    _wait(60)
+    pinned_buttons = launcher.pinned_queries_row.findChildren(QPushButton)
+    pinned_buttons[1].click()
+    _wait(60)
+    assert launcher.query_field.text() == "size:>10M"
 
 
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:
@@ -656,6 +698,9 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.result_list.accessibleName() == "Launcher results list"
+    assert launcher.active_filters_row.accessibleName() == "Active query filters"
+    assert launcher.recent_queries_row.accessibleName() == "Recent query chips"
+    assert launcher.pinned_queries_row.accessibleName() == "Pinned query chips"
     assert launcher.preview_pane.accessibleName() == "Launcher preview pane"
     assert launcher.action_bar.accessibleName() == "Launcher action bar"
     assert launcher.action_bar.open_button.accessibleName() == "Open selected result"

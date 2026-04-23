@@ -10,7 +10,16 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
-from eodinga.gui.widgets import EmptyState, LauncherActionBar, LauncherPreviewPane, ResultItemDelegate, SearchField, StatusChip
+from eodinga.gui.widgets import (
+    EmptyState,
+    LauncherActionBar,
+    LauncherPreviewPane,
+    QueryChipRow,
+    ResultItemDelegate,
+    SearchField,
+    StatusChip,
+    active_filter_chips,
+)
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
@@ -47,6 +56,9 @@ class LauncherPanel(QWidget):
 
         self.query_field = SearchField(parent=self)
         self.query_field.setAccessibleName("Launcher search field")
+        self.active_filters_row = QueryChipRow("Filters", accessible_name="Active query filters", parent=self)
+        self.recent_queries_row = QueryChipRow("Recent", accessible_name="Recent query chips", parent=self)
+        self.pinned_queries_row = QueryChipRow("Pinned", accessible_name="Pinned query chips", parent=self)
         self.result_list = QListView(self)
         self.result_list.setAccessibleName("Launcher results list")
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
@@ -77,6 +89,9 @@ class LauncherPanel(QWidget):
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
         layout.setSpacing(SPACE_8)
         layout.addWidget(self.query_field)
+        layout.addWidget(self.active_filters_row)
+        layout.addWidget(self.recent_queries_row)
+        layout.addWidget(self.pinned_queries_row)
 
         content = QHBoxLayout()
         content.setSpacing(SPACE_16)
@@ -103,9 +118,13 @@ class LauncherPanel(QWidget):
         layout.addLayout(footer)
 
         self.query_field.textChanged.connect(self._schedule_query)
+        self.query_field.textChanged.connect(self._refresh_query_chips)
         self.result_list.doubleClicked.connect(lambda index: self._emit_activation(index.row()))
         self.query_field.installEventFilter(self)
         self.result_list.installEventFilter(self)
+        self.active_filters_row.chip_activated.connect(self._replace_query_with_chip)
+        self.recent_queries_row.chip_activated.connect(self._replace_query_with_chip)
+        self.pinned_queries_row.chip_activated.connect(self._replace_query_with_chip)
 
         self._shortcuts = [
             QShortcut(QKeySequence(Qt.Key.Key_Return), self),
@@ -146,6 +165,7 @@ class LauncherPanel(QWidget):
             self.set_indexing_status(self._state.indexing_status)
 
         self._refresh_empty_state()
+        self._refresh_query_chips()
         self._refresh_shortcut_hint()
         self._refresh_preview()
 
@@ -155,9 +175,11 @@ class LauncherPanel(QWidget):
     def set_recent_queries(self, queries: list[str]) -> None:
         self._recent_queries = queries
         self._refresh_empty_state()
+        self._refresh_query_chips()
     def set_pinned_queries(self, queries: list[str]) -> None:
         self._pinned_queries = queries
         self._refresh_empty_state()
+        self._refresh_query_chips()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
@@ -307,6 +329,29 @@ class LauncherPanel(QWidget):
         else:
             hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
+
+    def _refresh_query_chips(self) -> None:
+        query = self.query_field.text().strip()
+        self.active_filters_row.set_chips(
+            active_filter_chips(query),
+            accessible_name_factory=lambda chip: f"Active filter {chip}",
+        )
+        show_history = not query
+        recent = self._recent_queries[:3] if show_history else []
+        pinned = self._pinned_queries[:3] if show_history else []
+        self.recent_queries_row.set_chips(
+            recent,
+            accessible_name_factory=lambda chip: f"Recent query {chip}",
+        )
+        self.pinned_queries_row.set_chips(
+            pinned,
+            accessible_name_factory=lambda chip: f"Pinned query {chip}",
+        )
+
+    def _replace_query_with_chip(self, query: str) -> None:
+        self.query_field.setFocus()
+        self.query_field.setText(query)
+        self.query_field.setCursorPosition(len(query))
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()
