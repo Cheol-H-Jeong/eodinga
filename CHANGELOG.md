@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.419 - 2026-04-23
+
+- Normalized repeated query negation on atomic terms and groups, so inputs such as `--alpha`, `- -"phrase"`, and `- -(alpha | beta)` now follow boolean truth-table semantics instead of being misread as stray hyphenated literals.
+- Made ranking deboost markers case-insensitive across path segments, so Windows-style paths containing `NODE_MODULES` or `.GIT` no longer evade the intended score penalty because of path casing alone.
+- Added parser, compiler, and ranker regressions that pin repeated-negation semantics and case-insensitive marker matching to keep these correctness fixes stable.
+
 ## 0.1.415 - 2026-04-23
 
 - Accepted spaced range syntax in query operators, so filters like `date:2026-01-01 .. 2026-01-03`, `date:.. 2026-01-03`, and `size:100 .. 500K` compile as intended instead of breaking into stray terms.
