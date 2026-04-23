@@ -23,6 +23,18 @@ git fetch origin main --tags && git tag -l | sort -V | tail -5
 - If another worker lands the same patch version before you tag, choose the next unused patch number and update the metadata commit instead of moving an existing tag.
 - Keep the version bump and changelog update in the last commit of the round so retargeting from `0.1.N` to `0.1.N+1` stays small and auditable.
 
+## Metadata Retarget Flow
+
+When another worker lands your candidate patch version first, keep the earlier docs or feature commits untouched and retarget only the final metadata change:
+
+1. `git fetch origin main --tags`
+2. choose the next unused `0.1.N`
+3. update `pyproject.toml`, `eodinga/__init__.py`, and the top `CHANGELOG.md` entry only
+4. rerun `pytest -q tests/unit`
+5. create the new local tag and leave the earlier feature/docs commits as-is
+
+This preserves reviewability: the only rewritten evidence is the release metadata that depended on the tag number.
+
 ## Refresh Release Notes
 
 1. Add a new top entry in `CHANGELOG.md`.
@@ -128,15 +140,15 @@ find packaging/dist -maxdepth 2 -type f | sort
 ```
 
 ```bash
-sed -n '1,200p' packaging/dist/windows-dry-run-manifest.json
+sed -n '1,200p' packaging/dist/windows-dry-run-audit.json
 ```
 
 ```bash
-sed -n '1,200p' packaging/dist/linux-appimage-dry-run-manifest.json
+sed -n '1,200p' packaging/dist/linux-appimage-audit.json
 ```
 
 ```bash
-sed -n '1,200p' packaging/dist/linux-deb-dry-run-manifest.json
+sed -n '1,200p' packaging/dist/linux-deb-audit.json
 ```
 
 If the exact filename changes, list the directory first and inspect the current manifest rather than relying on stale shell history.

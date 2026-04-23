@@ -146,6 +146,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Live Update Sequence" in architecture
     assert "## Documentation Asset Flow" in architecture
     assert "## Release Input Map" in architecture
+    assert "## Artifact Provenance Path" in architecture
     assert "## Docs-Only Change Path" in architecture
     assert "## State Ownership" in architecture
     assert "## Failure Domains" in architecture
@@ -155,6 +156,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Release Evidence Sequence" in architecture
     assert "## Derived Asset Ownership Matrix" in architecture
     assert "## Release Failure Isolation" in architecture
+    assert "is the index that points at the underlying Windows, AppImage, Debian, and workflow-lint evidence" in architecture
     assert "compressed changelog" in architecture
     assert "scripts/generate_manpage.py" in architecture
     assert "scripts/render_docs_screenshots.py" in architecture
@@ -240,6 +242,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
 
     assert "## Pick The Version" in release
     assert "## Version Collision Guard" in release
+    assert "## Metadata Retarget Flow" in release
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
     assert "## Failure Priority" in release
@@ -270,6 +273,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "packaging/dist/" in release
     assert "Single-shot metadata cut" in release
     assert "git fetch origin main --tags" in release
+    assert "sed -n '1,200p' packaging/dist/windows-dry-run-audit.json" in release
+    assert "sed -n '1,200p' packaging/dist/linux-appimage-audit.json" in release
+    assert "sed -n '1,200p' packaging/dist/linux-deb-audit.json" in release
     assert "A green dry run without a reviewed manifest is not a completed release check." in release
 
     assert ".TH EODINGA 1" in manpage

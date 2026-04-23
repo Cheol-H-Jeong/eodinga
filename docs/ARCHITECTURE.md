@@ -272,6 +272,29 @@ runtime code / CLI / UI changes
 - The release flow treats documentation, generated assets, and packaging manifests as part of the same shipped surface.
 - This is why docs-only rounds still run `tests/unit/test_docs_assets.py` and the matching dry-run or GUI smoke command instead of stopping at markdown edits.
 
+## Artifact Provenance Path
+
+```text
+Python package version
+    |
+    +--> packaging/build.py
+    |       |
+    |       +--> packaging/dist/windows-dry-run-audit.json
+    |       +--> packaging/dist/linux-appimage-audit.json
+    |       +--> packaging/dist/linux-deb-audit.json
+    |       +--> packaging/dist/release-dry-run-audit.json
+    |
+    +--> scripts/generate_manpage.py ------> docs/man/eodinga.1
+    |
+    +--> scripts/render_docs_screenshots.py -> docs/screenshots/*.png
+    |
+    +--> CHANGELOG.md + local tag ----------> worker handoff evidence
+```
+
+- `packaging/build.py` is the common entry point for Windows, AppImage, Debian, and release-wide audit payloads; review should start from those JSON artifacts instead of terminal scrollback.
+- The generated man page and screenshots are derived from live code paths, so they are release artifacts rather than illustrative docs.
+- The version bump, top changelog entry, and local tag are the provenance markers that tie the reviewed artifacts to one worker round.
+
 ## Release Failure Isolation
 
 | Failure signal | First owner to inspect | Typical repair scope |
@@ -395,6 +418,8 @@ startup
 2. Inspect the emitted manifest or staged payload summary under `packaging/dist/`.
 3. Compare the staged docs payload with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 4. Cut the local tag only after the dry-run output and shipped docs agree.
+
+Treat the platform-specific audit as the actionable source of truth. `packaging/dist/release-dry-run-audit.json` is the index that points at the underlying Windows, AppImage, Debian, and workflow-lint evidence; it should not replace reading the failing platform audit itself.
 
 ## Release Evidence Sequence
 
