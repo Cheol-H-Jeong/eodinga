@@ -10,7 +10,7 @@ from eodinga.common import PathRules
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga.index.build import rebuild_index
-from eodinga.index.storage import has_stale_wal, open_index
+from eodinga.index.storage import has_stale_wal, mark_staged_build_state, open_index
 from eodinga.index.writer import IndexWriter
 from eodinga.core.walker import walk_batched
 from eodinga.query import search
@@ -318,4 +318,35 @@ def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updat
 
     assert initial_hits == [existing]
     assert elapsed <= 0.5
+    assert not staged_db.exists()
+
+
+def test_hot_restart_ignores_incomplete_interrupted_build_stage(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    target_db = tmp_path / "database" / "index.db"
+    staged_db = tmp_path / "database" / ".index.db.next"
+    root.mkdir()
+    existing = root / "stable.txt"
+    existing.write_text("stable restart index\n", encoding="utf-8")
+
+    rebuild_index(target_db, [RootConfig(path=root)], content_enabled=True)
+
+    staged_conn = open_index(staged_db)
+    try:
+        mark_staged_build_state(staged_conn, complete=False)
+        staged_conn.execute(
+            "INSERT INTO roots(id, path, include, exclude, added_at) VALUES (?, ?, ?, ?, ?)",
+            (1, str(root), "[]", "[]", 1),
+        )
+        staged_conn.commit()
+    finally:
+        staged_conn.close()
+
+    reopened = open_index(target_db)
+    try:
+        hits = [hit.file.path for hit in search(reopened, "stable restart index", limit=3).hits]
+        assert hits == [existing]
+    finally:
+        reopened.close()
+
     assert not staged_db.exists()

@@ -10,6 +10,7 @@ from eodinga.index.schema import PRAGMAS
 from eodinga.observability import get_logger
 
 SQLITE_CACHED_STATEMENTS = 128
+_STAGED_BUILD_META_KEY = "staged_build_complete"
 
 
 def _sidecar(path: Path, suffix: str) -> Path:
@@ -115,6 +116,30 @@ def _cleanup_orphan_build_sidecars(path: Path) -> bool:
     return cleaned
 
 
+def mark_staged_build_state(conn: sqlite3.Connection, *, complete: bool) -> None:
+    conn.execute(
+        "INSERT INTO meta(key, value) VALUES(?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (_STAGED_BUILD_META_KEY, "1" if complete else "0"),
+    )
+
+
+def staged_build_complete(path: Path) -> bool:
+    if not path.exists():
+        return False
+    conn = connect_database(path, row_factory=None)
+    try:
+        row = conn.execute(
+            "SELECT value FROM meta WHERE key = ?",
+            (_STAGED_BUILD_META_KEY,),
+        ).fetchone()
+    except sqlite3.DatabaseError:
+        return False
+    finally:
+        conn.close()
+    return row is not None and str(row[0]) == "1"
+
+
 def _copy_index_with_sidecars(source_path: Path, target_path: Path) -> None:
     target_path.parent.mkdir(parents=True, exist_ok=True)
     _cleanup_index_files(target_path)
@@ -183,6 +208,10 @@ def recover_interrupted_build(path: Path) -> bool:
     if not staged_path.exists():
         return False
     logger = get_logger("index.storage")
+    if not staged_build_complete(staged_path):
+        logger.warning("discarding incomplete staged build for {}", path)
+        _cleanup_index_files(staged_path)
+        return False
     logger.warning("resuming interrupted staged build for {}", path)
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
@@ -203,8 +232,9 @@ def open_index(path: Path) -> sqlite3.Connection:
     recovery_staged = _staged_recovery_path(path).exists()
     if recovery_staged and not recover_interrupted_recovery(path):
         raise RuntimeError(f"failed to resume interrupted recovery for {path}")
-    build_staged = _staged_build_path(path).exists()
-    if build_staged and not recover_interrupted_build(path):
+    build_staged_path = _staged_build_path(path)
+    build_staged = build_staged_path.exists()
+    if build_staged and not recover_interrupted_build(path) and build_staged_path.exists():
         raise RuntimeError(f"failed to resume interrupted staged build for {path}")
     if has_stale_wal(path) and not recover_stale_wal(path):
         raise RuntimeError(f"failed to recover stale WAL for {path}")
@@ -233,8 +263,10 @@ __all__ = [
     "configure_connection",
     "connect_database",
     "has_stale_wal",
+    "mark_staged_build_state",
     "open_index",
     "recover_interrupted_build",
     "recover_interrupted_recovery",
     "recover_stale_wal",
+    "staged_build_complete",
 ]
