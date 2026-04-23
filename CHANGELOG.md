@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.154 - 2026-04-23
+
+- Reworked the filesystem walker to carry `os.scandir()` child stat metadata forward into batching, eliminating redundant per-child `lstat()` calls while preserving the existing symlink-loop and alias protections.
+- Cached the placeholder-shaped `content_map` lookup SQL used by query-time content text hydration and chunked those reads into fixed-size batches, reducing executor overhead during filtered scans and large result sets.
+- Added focused regressions that pin the new walker stat-reuse behavior, the exported filesystem helper surface, executor SQL-shape reuse, and large content-text batch fetch coverage.
+
 ## 0.1.149 - 2026-04-23
 
 - Expanded the Windows PyInstaller packaging spec so hidden imports now include third-party modules discovered directly from real `import` and `from ... import ...` usage across the `eodinga/` source tree, reducing dependence on a hand-maintained list.
