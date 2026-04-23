@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.105 - 2026-04-23
+
+- Fixed standalone `/.../flags` parsing so regexes with an even number of backslashes before the closing delimiter no longer fail as unterminated while inline operator regexes continue to parse consistently.
+- Stabilized same-name search ranking ties by using path-aware tie-breaks in both candidate ranking and final result ordering, eliminating rebuild-order drift for duplicate filenames without changing established ordering for distinct names.
+
 ## 0.1.100 - 2026-04-23
 
 - Added a real in-process observability registry so indexing, query execution, parser failures, and watcher ingress now increment stable counters instead of only emitting debug logs.
