@@ -12,9 +12,11 @@ from eodinga.core.watcher import WatchService
 from eodinga import __version__
 from eodinga.observability import (
     configure_logging,
+    counter_value,
     default_crash_dir,
     default_metrics_path,
     default_log_path,
+    latest_crash_log_path,
     reset_metrics,
     snapshot_metrics,
     write_crash_log,
@@ -70,6 +72,7 @@ def test_metrics_persist_via_env_override(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
+    reset_metrics()
     try:
         raise RuntimeError("boom")
     except RuntimeError as error:
@@ -84,6 +87,9 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert f"platform={sys.platform}" in contents
     assert f"cwd={Path.cwd()}" in contents
     assert 'argv=["search", "boom"]' in contents
+    assert counter_value("crashes_written") == 1
+    assert counter_value("crashes.RuntimeError") == 1
+    assert latest_crash_log_path(tmp_path) == crash_path
 
 
 def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:

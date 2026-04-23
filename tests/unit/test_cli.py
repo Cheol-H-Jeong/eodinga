@@ -14,7 +14,7 @@ from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga.index.schema import apply_schema
-from eodinga.observability import reset_metrics
+from eodinga.observability import reset_metrics, write_crash_log
 
 
 def _insert_file(
@@ -493,6 +493,27 @@ def test_stats_json_persists_runtime_counters_across_cli_processes(
     assert payload["queries_served"] == 1
     assert payload["counters"]["queries_served"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
+
+
+def test_stats_json_reports_crash_artifacts(tmp_path: Path, capsys, monkeypatch) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+    reset_metrics()
+    monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path / "crashes"))
+
+    try:
+        raise RuntimeError("stats crash")
+    except RuntimeError as error:
+        crash_path = write_crash_log(error, context="stats crash")
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["crashes_written"] == 1
+    assert payload["counters"]["crashes_written"] == 1
+    assert payload["counters"]["crashes.RuntimeError"] == 1
+    assert Path(payload["last_crash_log"]) == crash_path
 
 
 def test_stats_json_exposes_end_to_end_runtime_metrics(

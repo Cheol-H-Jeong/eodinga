@@ -20,6 +20,7 @@ from eodinga.observability import (
     configure_logging,
     counter_value,
     histogram_snapshot,
+    latest_crash_log_path,
     snapshot_metrics,
     write_crash_log,
 )
@@ -169,11 +170,13 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         queries_served=counter_value("queries_served"),
         parser_errors=counter_value("parser_errors"),
         watcher_events=counter_value("watcher_events"),
+        crashes_written=counter_value("crashes_written"),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
         counters=metrics["counters"],
         histograms=metrics["histograms"],
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
+        last_crash_log=latest_crash_log_path(),
     ).model_dump(mode="json")
     return _emit(snapshot, as_json=bool(args.json))
 

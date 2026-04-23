@@ -243,7 +243,20 @@ def write_crash_log(
         *traceback.format_exception(type(error), error, error.__traceback__),
     ]
     crash_path.write_text("".join(lines), encoding="utf-8")
+    increment_counter("crashes_written")
+    increment_counter(f"crashes.{type(error).__name__}")
     return crash_path
+
+
+def latest_crash_log_path(crash_dir: Path | None = None) -> Path | None:
+    override_dir = os.environ.get("EODINGA_CRASH_DIR")
+    target_dir = (crash_dir or (Path(override_dir) if override_dir else default_crash_dir())).expanduser()
+    if not target_dir.exists():
+        return None
+    candidates = sorted(target_dir.glob("crash-*.log"))
+    if not candidates:
+        return None
+    return candidates[-1]
 
 
 def _format_detail_value(value: object) -> str:
