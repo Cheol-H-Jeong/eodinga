@@ -740,6 +740,50 @@ def test_open_index_cleans_orphaned_live_sidecars_before_open(tmp_path: Path) ->
     assert not path.with_name("index.db-shm").exists()
 
 
+def test_cleanup_sidecars_tolerates_concurrent_unlink(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "index.db"
+    wal_path = path.with_name("index.db-wal")
+    shm_path = path.with_name("index.db-shm")
+    wal_path.write_bytes(b"orphaned")
+    shm_path.write_bytes(b"orphaned")
+
+    original_unlink = Path.unlink
+    unlinked: set[Path] = set()
+
+    def flaky_unlink(self: Path, *args: object, **kwargs: object) -> None:
+        if self == wal_path and self not in unlinked:
+            unlinked.add(self)
+            original_unlink(self, *args, **kwargs)
+            raise FileNotFoundError(self)
+        original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+
+    assert storage_module._cleanup_sidecars(path) is True
+    assert not wal_path.exists()
+    assert not shm_path.exists()
+
+
+def test_cleanup_index_files_tolerates_concurrent_unlink(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "index.db"
+    path.write_bytes(b"sqlite")
+
+    original_unlink = Path.unlink
+    unlinked: set[Path] = set()
+
+    def flaky_unlink(self: Path, *args: object, **kwargs: object) -> None:
+        if self == path and self not in unlinked:
+            unlinked.add(self)
+            original_unlink(self, *args, **kwargs)
+            raise FileNotFoundError(self)
+        original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+
+    assert storage_module._cleanup_index_files(path) is True
+    assert not path.exists()
+
+
 def test_open_index_cleans_partial_recovery_copy_before_open(tmp_path: Path) -> None:
     path = tmp_path / "index.db"
     partial = tmp_path / ".index.db.recover.partial"

@@ -16,6 +16,14 @@ def _sidecar(path: Path, suffix: str) -> Path:
     return path.with_name(f"{path.name}{suffix}")
 
 
+def _unlink_if_exists(path: Path) -> bool:
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return True
+    return True
+
+
 def configure_connection(
     conn: sqlite3.Connection, *, row_factory: type[sqlite3.Row] | None = sqlite3.Row
 ) -> sqlite3.Connection:
@@ -50,16 +58,14 @@ def _cleanup_sidecars(path: Path) -> bool:
     for suffix in ("-wal", "-shm"):
         sidecar = _sidecar(path, suffix)
         if sidecar.exists():
-            sidecar.unlink()
-            cleaned = True
+            cleaned = _unlink_if_exists(sidecar) or cleaned
     return cleaned
 
 
 def _cleanup_index_files(path: Path) -> bool:
     cleaned = False
     if path.exists():
-        path.unlink()
-        cleaned = True
+        cleaned = _unlink_if_exists(path)
     cleaned = _cleanup_sidecars(path) or cleaned
     return cleaned
 
@@ -107,8 +113,7 @@ def _cleanup_orphan_recovery_sidecars(path: Path, *, durable: bool = False) -> b
     for suffix in ("-wal", "-shm"):
         orphan = _sidecar(staged_path, suffix)
         if orphan.exists():
-            orphan.unlink()
-            cleaned = True
+            cleaned = _unlink_if_exists(orphan) or cleaned
     if cleaned and durable:
         _fsync_directory(path.parent)
     return cleaned
@@ -130,8 +135,7 @@ def _cleanup_orphan_build_sidecars(path: Path, *, durable: bool = False) -> bool
     for suffix in ("-wal", "-shm"):
         orphan = _sidecar(staged_path, suffix)
         if orphan.exists():
-            orphan.unlink()
-            cleaned = True
+            cleaned = _unlink_if_exists(orphan) or cleaned
     if cleaned and durable:
         _fsync_directory(path.parent)
     return cleaned
@@ -187,7 +191,7 @@ def _replay_stale_wal(path: Path) -> bool:
         if sidecar.exists() and sidecar.stat().st_size > 0:
             return False
         if sidecar.exists():
-            sidecar.unlink()
+            _unlink_if_exists(sidecar)
     return True
 
 
