@@ -69,12 +69,17 @@ class TrayIndicatorController:
     def _icon_for_state(self, state: str):
         if state == "indexing":
             return self._app.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload)
+        if state == "paused":
+            return self._app.style().standardIcon(QStyle.StandardPixmap.SP_MediaPause)
         return self._app.style().standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton)
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self.tooltip = format_indexing_status(status)
         self.status_text = self.tooltip
-        self.icon_state = "indexing" if status.phase == "indexing" else "idle"
+        if status.phase in {"indexing", "paused"}:
+            self.icon_state = status.phase
+        else:
+            self.icon_state = "idle"
         if hasattr(self, "_status_action"):
             self._status_action.setText(self.status_text)
         if self._tray is not None:

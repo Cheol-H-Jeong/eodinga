@@ -29,11 +29,13 @@ class IndexTab(QWidget):
         layout.addStretch(1)
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
-        if status.phase == "indexing":
+        if status.phase in {"indexing", "paused"}:
             total = status.total_files if status.total_files > 0 else "?"
             root_label = f" · {status.current_root}" if status.current_root is not None else ""
-            self.status_chip.setText("Indexing")
-            self.progress_label.setText(f"{status.processed_files}/{total} files indexed{root_label}")
+            state = "paused" if status.phase == "paused" else "indexed"
+            chip_text = "Paused" if status.phase == "paused" else "Indexing"
+            self.status_chip.setText(chip_text)
+            self.progress_label.setText(f"{status.processed_files}/{total} files {state}{root_label}")
             return
         self.status_chip.setText("Idle")
         self.progress_label.setText("Index is idle.")

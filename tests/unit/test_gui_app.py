@@ -94,6 +94,20 @@ def test_app_updates_index_status_in_tab_and_tray(qapp) -> None:
     assert window.tray_indicator.icon_state == "idle"
 
 
+def test_app_shows_paused_index_status_in_tab_and_tray(qapp) -> None:
+    window = EodingaWindow()
+    status = IndexingStatus(phase="paused", processed_files=12, total_files=40, current_root=Path("/tmp/docs"))
+
+    window.set_indexing_status(status)
+
+    assert window.index_tab.status_chip.text() == "Paused"
+    assert "12/40 files paused" in window.index_tab.progress_label.text()
+    assert "/tmp/docs" in window.tray_indicator.tooltip
+    assert "(30%)" in window.tray_indicator.status_text
+    assert "paused" in window.tray_indicator.status_text.lower()
+    assert window.tray_indicator.icon_state == "paused"
+
+
 def test_launcher_state_is_shared_between_popup_and_search_tab(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(

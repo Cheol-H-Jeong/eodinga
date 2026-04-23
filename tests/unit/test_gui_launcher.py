@@ -225,6 +225,21 @@ def test_launcher_query_field_home_end_and_page_keys_jump_into_results(qapp) -> 
     assert launcher.result_list.currentIndex().row() == 0
 
 
+def test_launcher_shows_paused_index_state_when_idle(qapp) -> None:
+    state = LauncherState()
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    state.set_indexing_status(
+        IndexingStatus(phase="paused", processed_files=24, total_files=120, current_root=Path("/tmp/archive"))
+    )
+    qapp.processEvents()
+
+    assert launcher.status_chip.text() == "Paused"
+    assert launcher.status_label.text() == "24/120 files · 20% indexed · paused"
+    assert "Indexing paused at 24/120 files (20%) in /tmp/archive." in launcher.empty_state.details_label.text()
+
+
 def test_launcher_up_from_query_field_selects_last_result(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(

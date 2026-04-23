@@ -23,7 +23,7 @@ def default_search(query: str, limit: int) -> QueryResult:
 
 
 def format_indexing_status(status: IndexingStatus) -> str:
-    if status.phase != "indexing":
+    if status.phase not in {"indexing", "paused"}:
         return "Indexing idle. Results update automatically when your roots change."
     total = str(status.total_files) if status.total_files > 0 else "?"
     progress = ""
@@ -31,11 +31,12 @@ def format_indexing_status(status: IndexingStatus) -> str:
         percent = round((status.processed_files / status.total_files) * 100)
         progress = f" ({percent}%)"
     root_label = f" in {status.current_root}" if status.current_root is not None else ""
-    return f"Indexing {status.processed_files}/{total} files{progress}{root_label}."
+    verb = "Indexing" if status.phase == "indexing" else "Indexing paused at"
+    return f"{verb} {status.processed_files}/{total} files{progress}{root_label}."
 
 
 def format_indexing_footer(status: IndexingStatus) -> str:
-    if status.phase != "indexing":
+    if status.phase not in {"indexing", "paused"}:
         return "0 results · 0.0 ms"
     total = str(status.total_files) if status.total_files > 0 else "?"
     parts = [f"{status.processed_files}/{total} files"]
@@ -44,6 +45,8 @@ def format_indexing_footer(status: IndexingStatus) -> str:
         parts.append(f"{percent}% indexed")
     else:
         parts.append("indexing")
+    if status.phase == "paused":
+        parts.append("paused")
     return " · ".join(parts)
 
 

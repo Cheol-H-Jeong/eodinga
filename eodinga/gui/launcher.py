@@ -298,8 +298,9 @@ class LauncherPanel(QWidget):
     def _refresh_status_footer(self) -> None:
         query = self.query_field.text().strip()
         if not query:
-            if self._indexing_status.phase == "indexing":
-                self.status_chip.setText("Indexing")
+            if self._indexing_status.phase in {"indexing", "paused"}:
+                label = "Paused" if self._indexing_status.phase == "paused" else "Indexing"
+                self.status_chip.setText(label)
                 self.status_label.setText(format_indexing_footer(self._indexing_status))
             else:
                 self.status_chip.setText("Idle")
