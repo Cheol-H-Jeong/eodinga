@@ -821,14 +821,19 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.action_bar.accessibleName() == "Launcher action bar"
     assert launcher.action_bar.open_button.accessibleName() == "Open selected result"
     assert launcher.action_bar.open_button.accessibleDescription() == "Open the selected result with Enter."
+    assert launcher.action_bar.open_button.toolTip() == "Open the selected result with Enter."
     assert launcher.action_bar.reveal_button.accessibleName() == "Reveal selected result"
     assert launcher.action_bar.reveal_button.accessibleDescription() == "Reveal the selected result with Ctrl+Enter."
+    assert launcher.action_bar.reveal_button.toolTip() == "Reveal the selected result with Ctrl+Enter."
     assert launcher.action_bar.copy_path_button.accessibleName() == "Copy selected path"
     assert launcher.action_bar.copy_path_button.accessibleDescription() == "Copy the selected result path with Alt+C."
+    assert launcher.action_bar.copy_path_button.toolTip() == "Copy the selected result path with Alt+C."
     assert launcher.action_bar.copy_name_button.accessibleName() == "Copy selected name"
     assert launcher.action_bar.copy_name_button.accessibleDescription() == "Copy the selected result name with Alt+N."
+    assert launcher.action_bar.copy_name_button.toolTip() == "Copy the selected result name with Alt+N."
     assert launcher.action_bar.properties_button.accessibleName() == "Show selected properties"
     assert launcher.action_bar.properties_button.accessibleDescription() == "Open selected result properties with Shift+Enter."
+    assert launcher.action_bar.properties_button.toolTip() == "Open selected result properties with Shift+Enter."
     assert launcher.action_bar.accessibleDescription() == (
         "No launcher result is selected, so result actions are unavailable."
     )
@@ -853,8 +858,10 @@ def test_launcher_query_chips_expose_accessible_context(qapp) -> None:
 
     assert pinned_chip.accessibleName() == "Use query ext:pdf"
     assert pinned_chip.accessibleDescription() == "Apply the pinned launcher query"
+    assert pinned_chip.toolTip() == "Apply query: ext:pdf"
     assert recent_chip.accessibleName() == "Use query budget"
     assert recent_chip.accessibleDescription() == "Apply the recent launcher query"
+    assert recent_chip.toolTip() == "Apply query: budget"
     assert launcher.pinned_queries_row.accessibleDescription() == "1 pinned launcher queries are available: ext:pdf."
     assert launcher.recent_queries_row.accessibleDescription() == "1 recent launcher queries are available: budget."
 

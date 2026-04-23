@@ -50,6 +50,7 @@ class QueryChipRow(QWidget):
             button = SecondaryButton(query, self._chips_container)
             button.setAccessibleName(f"Use query {query}")
             button.setAccessibleDescription(f"Apply the {self._label_text.lower()} launcher query")
+            button.setToolTip(f"Apply query: {query}")
             button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
             button.clicked.connect(lambda checked=False, value=query: self._on_chip_clicked(value))
             self._chips_layout.addWidget(button)

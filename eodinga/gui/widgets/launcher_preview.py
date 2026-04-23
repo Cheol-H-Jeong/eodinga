@@ -89,14 +89,19 @@ class LauncherActionBar(QWidget):
 
         self.open_button.setAccessibleName("Open selected result")
         self.open_button.setAccessibleDescription("Open the selected result with Enter.")
+        self.open_button.setToolTip("Open the selected result with Enter.")
         self.reveal_button.setAccessibleName("Reveal selected result")
         self.reveal_button.setAccessibleDescription("Reveal the selected result with Ctrl+Enter.")
+        self.reveal_button.setToolTip("Reveal the selected result with Ctrl+Enter.")
         self.copy_path_button.setAccessibleName("Copy selected path")
         self.copy_path_button.setAccessibleDescription("Copy the selected result path with Alt+C.")
+        self.copy_path_button.setToolTip("Copy the selected result path with Alt+C.")
         self.copy_name_button.setAccessibleName("Copy selected name")
         self.copy_name_button.setAccessibleDescription("Copy the selected result name with Alt+N.")
+        self.copy_name_button.setToolTip("Copy the selected result name with Alt+N.")
         self.properties_button.setAccessibleName("Show selected properties")
         self.properties_button.setAccessibleDescription("Open selected result properties with Shift+Enter.")
+        self.properties_button.setToolTip("Open selected result properties with Shift+Enter.")
 
         for button in (
             self.open_button,

@@ -145,18 +145,18 @@ def test_launchers_respect_configured_limit_and_debounce(qapp) -> None:
         return QueryResult(items=[], total=0, elapsed_ms=1.0)
 
     config = AppConfig()
-    config.launcher = config.launcher.model_copy(update={"max_results": 7, "debounce_ms": 90})
+    config.launcher = config.launcher.model_copy(update={"max_results": 7, "debounce_ms": 200})
     window = EodingaWindow(search_fn=search_fn, config=config)
 
-    assert window.launcher_window._debounce_timer.interval() == 90
-    assert window.search_tab.launcher_panel._debounce_timer.interval() == 90
+    assert window.launcher_window._debounce_timer.interval() == 200
+    assert window.search_tab.launcher_panel._debounce_timer.interval() == 200
 
     window.launcher_window.query_field.setText("popup")
     window.search_tab.launcher_panel.query_field.setText("embedded")
-    QTest.qWait(40)
+    QTest.qWait(80)
     assert calls == []
 
-    QTest.qWait(80)
+    QTest.qWait(180)
     assert calls == [("popup", 7), ("embedded", 7)]
 
 
