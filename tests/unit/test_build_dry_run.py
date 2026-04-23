@@ -76,6 +76,8 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert payload["inno_setup"]["contains_desktop_shortcut_task"] is True
     assert payload["inno_setup"]["contains_user_desktop_shortcut"] is True
     assert payload["inno_setup"]["contains_postinstall_launch"] is True
+    assert payload["inno_setup"]["limits_architecture_to_x64compatible"] is True
+    assert payload["inno_setup"]["installs_in_64bit_mode"] is True
     assert payload["inno_setup"]["source_entries"] == [
         'dist\\\\@@GUI_DIST_NAME@@\\\\*',
         'dist\\\\@@CLI_DIST_NAME@@\\\\*',
@@ -139,6 +141,18 @@ def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -
     errors = module._validate_windows_audit(payload)
 
     assert "Inno uninstall purge no longer targets both local data and roaming config" in errors
+
+
+def test_windows_audit_validator_rejects_architecture_contract_regression() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["inno_setup"]["limits_architecture_to_x64compatible"] = False
+    payload["inno_setup"]["installs_in_64bit_mode"] = False
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "Inno setup no longer restricts installation to x64-compatible hosts" in errors
+    assert "Inno setup no longer installs in 64-bit mode on x64-compatible hosts" in errors
 
 
 def test_build_preflight_reports_missing_windows_tool(monkeypatch) -> None:

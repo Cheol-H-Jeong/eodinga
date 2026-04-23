@@ -178,6 +178,14 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
                 rendered_text,
                 f'Filename: "{{app}}\\\\{gui_exe_name}"; Description: "{{cm:LaunchProgram,eodinga}}"; Flags: nowait postinstall skipifsilent',
             ),
+            "limits_architecture_to_x64compatible": _inno_contains(
+                rendered_text,
+                "ArchitecturesAllowed=x64compatible",
+            ),
+            "installs_in_64bit_mode": _inno_contains(
+                rendered_text,
+                "ArchitecturesInstallIn64BitMode=x64compatible",
+            ),
             "privileges_lowest": _inno_contains(rendered_text, "PrivilegesRequired=lowest"),
             "disables_program_group_page": _inno_contains(rendered_text, "DisableProgramGroupPage=yes"),
             "disables_dir_page": _inno_contains(rendered_text, "DisableDirPage=yes"),
@@ -249,6 +257,8 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         "contains_user_desktop_shortcut": "Inno desktop shortcut no longer targets the per-user desktop",
         "contains_rendered_desktop_shortcut": "Rendered Inno desktop shortcut does not point at the GUI executable",
         "contains_postinstall_launch": "Rendered Inno postinstall launch action is missing",
+        "limits_architecture_to_x64compatible": "Inno setup no longer restricts installation to x64-compatible hosts",
+        "installs_in_64bit_mode": "Inno setup no longer installs in 64-bit mode on x64-compatible hosts",
         "contains_autostart_registry": "Inno autostart registry entry is missing",
         "rendered_autostart_registry_matches_gui_exe": "Rendered Inno autostart registry entry does not point at the GUI executable",
         "contains_uninstall_purge_prompt": "Inno uninstall purge prompt is missing",

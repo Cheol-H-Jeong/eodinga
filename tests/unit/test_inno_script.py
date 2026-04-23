@@ -8,6 +8,8 @@ def test_inno_script_contains_required_fields() -> None:
     assert '#define AppId "{{B4D25A04-71A1-45A2-A0BB-7B3F612E9E68}"' in script
     assert '#define AppVersion "@@APP_VERSION@@"' in script
     assert "AppVersion={#AppVersion}" in script
+    assert "ArchitecturesAllowed=x64compatible" in script
+    assert "ArchitecturesInstallIn64BitMode=x64compatible" in script
     assert "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in script
     assert "LicenseFile=LICENSE" in script
     assert r"UninstallDisplayIcon={app}\@@GUI_EXE_NAME@@" in script

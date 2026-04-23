@@ -18,5 +18,7 @@ def test_windows_dry_run_preserves_license_and_desktop_shortcut_contract() -> No
     payload = json.loads(Path("packaging/dist/windows-dry-run-audit.json").read_text(encoding="utf-8"))
     assert payload["inno_setup"]["license_file_exists"] is True
     assert payload["inno_setup"]["contains_rendered_desktop_shortcut"] is True
+    assert payload["inno_setup"]["limits_architecture_to_x64compatible"] is True
+    assert payload["inno_setup"]["installs_in_64bit_mode"] is True
     assert payload["inno_setup"]["contains_user_desktop_shortcut"] is True
     assert payload["inno_setup"]["purge_targets_local_and_roaming_user_state"] is True
