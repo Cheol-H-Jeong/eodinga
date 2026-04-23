@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QTimer, Qt, Signal
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QCursor, QGuiApplication
 from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
 
 from eodinga.config import AppConfig
@@ -123,7 +123,7 @@ class LauncherWindow(LauncherPanel):
     def _restore_visible_geometry(self) -> None:
         if self._config is None:
             return
-        screen = self.screen() or QGuiApplication.primaryScreen()
+        screen = QGuiApplication.screenAt(QCursor.pos()) or self.screen() or QGuiApplication.primaryScreen()
         if screen is None:
             return
         available = screen.availableGeometry()
@@ -134,7 +134,9 @@ class LauncherWindow(LauncherPanel):
         x = self._config.launcher.window_x
         y = self._config.launcher.window_y
         if x is None or y is None:
-            self.resize(width, height)
+            centered_x = available.x() + max((available.width() - width) // 2, 0)
+            centered_y = available.y() + max((available.height() - height) // 2, 0)
+            self.setGeometry(centered_x, centered_y, width, height)
             return
         saved_rect = available.__class__(x, y, saved_width, saved_height)
         if saved_rect.intersects(available):
