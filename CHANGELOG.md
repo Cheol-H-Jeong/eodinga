@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.903 - 2026-04-23
+
+- Ignored created, modified, and deleted watcher events that fall outside the registered root, preventing stray symlink or mount-adjacent paths from leaking into the live update queue.
+- Aligned spaced operator regex parsing with inline operator regex parsing, so queries like `content: /회의\/록/[0-9]+/i` and `path: /tmp/log/i` now decode consistently.
+- Narrowed the slash-prefixed `path:` literal heuristic so escaped-backslash regex patterns keep regex semantics instead of being downgraded to plain words.
+
 ## 0.1.901 - 2026-04-23
 
 - Made the Linux AppImage packaging script emit and audit a versioned `.AppImage` payload on non-dry-run builds instead of stopping at the staged AppDir tarball.
