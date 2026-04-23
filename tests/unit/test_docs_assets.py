@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from eodinga.gui.docs import render_doc_screenshots
+from scripts.generate_manpage import render_manpage
 
 
 def _repo_root() -> Path:
@@ -29,6 +30,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     architecture = (root / "docs" / "ARCHITECTURE.md").read_text(encoding="utf-8")
     contributing = (root / "docs" / "CONTRIBUTING.md").read_text(encoding="utf-8")
     dsl = (root / "docs" / "DSL.md").read_text(encoding="utf-8")
+    manpage = (root / "docs" / "man" / "eodinga.1").read_text(encoding="utf-8")
     performance = (root / "docs" / "PERFORMANCE.md").read_text(encoding="utf-8")
     release = (root / "docs" / "RELEASE.md").read_text(encoding="utf-8")
 
@@ -56,6 +58,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "docs/CONTRIBUTING.md" in readme
     assert "docs/PERFORMANCE.md" in readme
     assert "docs/RELEASE.md" in readme
+    assert "docs/man/eodinga.1" in readme
     assert "pytest -q tests && ruff check eodinga tests" in readme
     assert "python packaging/build.py --target windows-dry-run" in readme
     assert "yamllint .github/workflows/release-windows.yml" in readme
@@ -76,6 +79,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "yamllint .github/workflows/release-windows.yml" in acceptance
     assert "README is part of the acceptance surface" in acceptance
     assert "git tag v0.1.N" in acceptance
+    assert "docs/man/eodinga.1" in acceptance
 
     assert "## Runtime Flow" in architecture
     assert "## Data Flow Diagram" in architecture
@@ -94,7 +98,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Quality Gates" in contributing
     assert "## Scope Guardrails" in contributing
     assert "## Documentation Expectations" in contributing
+    assert "scripts/generate_manpage.py" in contributing
     assert "scripts/render_docs_screenshots.py" in contributing
+    assert "## Docs Refresh Order" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
 
@@ -126,3 +132,18 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Cut The Local Release" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release
+    assert "python scripts/generate_manpage.py" in release
+
+    assert ".TH EODINGA 1" in manpage
+    assert ".SH COMMANDS" in manpage
+    assert ".SS search" in manpage
+    assert "docs/DSL.md" in manpage
+    assert "stats --json" in manpage
+
+
+def test_generated_manpage_matches_checked_in_asset() -> None:
+    root = _repo_root()
+    generated = render_manpage()
+    checked_in = (root / "docs" / "man" / "eodinga.1").read_text(encoding="utf-8")
+
+    assert checked_in == generated

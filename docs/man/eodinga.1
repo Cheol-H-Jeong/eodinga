@@ -1,0 +1,110 @@
+.TH EODINGA 1 "0.1.209" "eodinga 0.1.209" "User Commands"
+.SH NAME
+eodinga \- local-first instant file search for Windows and Linux
+.SH SYNOPSIS
+.B eodinga
+[-h] [--log-level LOG_LEVEL] [--config CONFIG] [--db DB] {index,watch,search,stats,gui,doctor,version} ...
+.SH DESCRIPTION
+eodinga indexes local filenames, paths, and supported document text, keeps the index fresh with filesystem notifications, and exposes the same engine through CLI, GUI, and launcher surfaces.
+.SH GLOBAL OPTIONS
+.TP
+\fB--log-level LOG_LEVEL\fR
+
+.TP
+\fB--config CONFIG\fR
+
+.TP
+\fB--db DB\fR
+
+.SH COMMANDS
+.TP
+\fBindex\fR
+[-h] [--root ROOT] [--rebuild]
+.TP
+\fBwatch\fR
+[-h]
+.TP
+\fBsearch\fR
+[-h] [--json] [--limit LIMIT] [--root ROOT] query
+.TP
+\fBstats\fR
+[-h] [--json]
+.TP
+\fBgui\fR
+[-h] [--test-mode]
+.TP
+\fBdoctor\fR
+[-h]
+.TP
+\fBversion\fR
+[-h]
+.SH COMMAND DETAILS
+.SS index
+.B Usage
+[-h] [--root ROOT] [--rebuild]
+.B Options
+.TP
+\fB--root ROOT\fR
+
+.TP
+\fB--rebuild\fR
+
+.SS watch
+.B Usage
+[-h]
+.SS search
+.B Usage
+[-h] [--json] [--limit LIMIT] [--root ROOT] query
+.B Options
+.TP
+\fBquery\fR
+
+.TP
+\fB--json\fR
+
+.TP
+\fB--limit LIMIT\fR
+
+.TP
+\fB--root ROOT\fR
+
+.SS stats
+.B Usage
+[-h] [--json]
+.B Options
+.TP
+\fB--json\fR
+
+.SS gui
+.B Usage
+[-h] [--test-mode]
+.B Options
+.TP
+\fB--test-mode\fR
+
+.SS doctor
+.B Usage
+[-h]
+.SS version
+.B Usage
+[-h]
+.SH EXAMPLES
+.TP
+\fBeodinga index --root ~/projects --root ~/docs\fR
+Build or refresh the index for multiple roots.
+.TP
+\fBeodinga search 'date:this-week ext:md roadmap' --limit 20\fR
+Run a CLI search using the shared query DSL.
+.TP
+\fBeodinga stats --json\fR
+Print the active index snapshot and in-memory counters as JSON.
+.TP
+\fBeodinga doctor\fR
+Check dependencies, writable paths, roots, and hotkey support.
+.SH FILES
+Linux config: ~/.config/eodinga/config.toml
+Linux database: ~/.local/share/eodinga/index.db
+Windows config: %APPDATA%\\eodinga\\config.toml
+Windows database: %LOCALAPPDATA%\\eodinga\\index.db
+.SH SEE ALSO
+README.md, docs/DSL.md, docs/ACCEPTANCE.md, docs/RELEASE.md

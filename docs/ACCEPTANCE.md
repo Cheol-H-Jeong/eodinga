@@ -59,6 +59,7 @@ The README is part of the acceptance surface. Before tagging a release, confirm 
 - the default launcher hotkey and keyboard actions
 - the DSL entry points and a link to `docs/DSL.md`
 - current limitations for lexical-only search, parser coverage, and watcher behavior
+- the generated CLI reference at `docs/man/eodinga.1` when the parser surface changes
 
 ## Release Cut
 
