@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import importlib.util
+import os
 import re
 import subprocess
 import sys
@@ -384,6 +385,21 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["launcher"]["executes_python_module"] is True
 
 
+def test_linux_appimage_dry_run_normalizes_amd64_architecture_alias() -> None:
+    result = subprocess.run(
+        ["bash", "packaging/linux/appimage.sh", "--dry-run"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "TARGET_ARCH": "amd64"},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    payload = json.loads(Path("packaging/dist/linux-appimage-audit.json").read_text(encoding="utf-8"))
+    assert payload["arch"] == "x86_64"
+    assert Path(payload["archive"]).name == f"eodinga-{__version__}-linux-x86_64-appdir.tar.gz"
+
+
 def test_linux_appimage_audit_validator_rejects_app_metadata_drift() -> None:
     module = _load_build_module()
     payload = {
@@ -478,6 +494,22 @@ def test_linux_deb_dry_run_renders_control_template() -> None:
     assert f"Version: {__version__}" in rendered_control
     assert "Architecture: amd64" in rendered_control
     assert payload["launcher"]["executes_python_module"] is True
+
+
+def test_linux_deb_dry_run_normalizes_x86_64_architecture_alias() -> None:
+    result = subprocess.run(
+        ["bash", "packaging/linux/deb.sh", "--dry-run"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "TARGET_ARCH": "x86_64"},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    payload = json.loads(Path("packaging/dist/linux-deb-audit.json").read_text(encoding="utf-8"))
+    assert payload["arch"] == "amd64"
+    assert Path(payload["archive"]).name == f"eodinga_{__version__}_amd64_debroot.tar.gz"
+    assert Path(payload["deb_path"]).name == f"eodinga_{__version__}_amd64.deb"
 
 
 def test_linux_deb_audit_validator_rejects_missing_docs() -> None:

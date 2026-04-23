@@ -22,7 +22,18 @@ if match is None:
 print(match.group(1))
 PY
 )"
-ARCH="${TARGET_ARCH:-amd64}"
+RAW_ARCH="${TARGET_ARCH:-amd64}"
+case "${RAW_ARCH}" in
+  amd64|x86_64)
+    ARCH="amd64"
+    ;;
+  arm64|aarch64)
+    ARCH="arm64"
+    ;;
+  *)
+    ARCH="${RAW_ARCH}"
+    ;;
+esac
 PACKAGE_DIR="${BUILD_ROOT}/eodinga_${VERSION}_${ARCH}"
 ARCHIVE_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}_debroot.tar.gz"
 DEB_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}.deb"

@@ -20,7 +20,18 @@ if match is None:
 print(match.group(1))
 PY
 )"
-ARCH="${TARGET_ARCH:-$(uname -m)}"
+RAW_ARCH="${TARGET_ARCH:-$(uname -m)}"
+case "${RAW_ARCH}" in
+  amd64|x86_64)
+    ARCH="x86_64"
+    ;;
+  arm64|aarch64)
+    ARCH="aarch64"
+    ;;
+  *)
+    ARCH="${RAW_ARCH}"
+    ;;
+esac
 ARCHIVE_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-${ARCH}-appdir.tar.gz"
 DRY_RUN=0
 
