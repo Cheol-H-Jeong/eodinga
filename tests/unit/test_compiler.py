@@ -196,6 +196,15 @@ def test_compile_negated_group_pushes_negation_to_leaf_terms() -> None:
     assert all(term.negated for term in branch.path_terms)
 
 
+def test_compile_negated_and_group_expands_to_or_of_negated_terms() -> None:
+    compiled = compile_query(parse("-(alpha beta)"))
+
+    assert len(compiled.branches) == 2
+    assert all(branch.path_match_sql is None for branch in compiled.branches)
+    assert {branch.path_terms[0].value for branch in compiled.branches} == {"alpha", "beta"}
+    assert all(branch.path_terms[0].negated for branch in compiled.branches)
+
+
 def test_compile_double_negated_group_restores_positive_branches() -> None:
     compiled = compile_query(parse("-(-(alpha | beta))"))
 
