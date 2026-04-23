@@ -1360,6 +1360,32 @@ def test_executor_caches_content_text_sql_templates_by_chunk_size() -> None:
     assert cache_info.currsize == 2
 
 
+def test_fetch_content_texts_chunks_large_id_sets_for_statement_reuse(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    executor_module._content_texts_sql.cache_clear()
+    for file_id in range(1, 301):
+        _insert_file(
+            tmp_db,
+            file_id,
+            f"/workspace/projects/doc-{file_id:03d}.txt",
+            1024,
+            now - file_id,
+            "txt",
+            body_text=f"content {file_id}",
+        )
+    tmp_db.commit()
+
+    texts = executor_module._fetch_content_texts(tmp_db, range(1, 301))
+
+    assert texts[1].endswith("content 1")
+    assert texts[300].endswith("content 300")
+    cache_info = executor_module._content_texts_sql.cache_info()
+    assert cache_info.hits >= 1
+    assert cache_info.currsize == 2
+
+
 def test_execute_double_negated_group_query(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/alpha.txt", 1024, now, "txt", body_text="alpha")

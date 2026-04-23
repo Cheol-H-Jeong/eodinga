@@ -39,6 +39,7 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+CONTENT_TEXT_CHUNK_SIZE = 128
 
 
 @lru_cache(maxsize=256)
@@ -581,13 +582,19 @@ def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[i
     id_list = tuple(dict.fromkeys(ids))
     if not id_list:
         return {}
-    rows = conn.execute(_content_texts_sql(len(id_list)), id_list).fetchall()
-    return {
-        row["file_id"]: " ".join(
-            part for part in (row["title"], row["head_text"], row["body_text"]) if part
+    texts: dict[int, str] = {}
+    for start in range(0, len(id_list), CONTENT_TEXT_CHUNK_SIZE):
+        chunk = id_list[start : start + CONTENT_TEXT_CHUNK_SIZE]
+        rows = conn.execute(_content_texts_sql(len(chunk)), chunk).fetchall()
+        texts.update(
+            {
+                row["file_id"]: " ".join(
+                    part for part in (row["title"], row["head_text"], row["body_text"]) if part
+                )
+                for row in rows
+            }
         )
-        for row in rows
-    }
+    return texts
 
 
 def _fetch_content_backfill(
