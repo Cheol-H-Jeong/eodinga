@@ -6,12 +6,18 @@ from pathlib import Path
 from os import stat_result
 from stat import S_ISDIR, S_ISLNK
 from time import time
+from typing import NamedTuple
 
 from eodinga.common import FileRecord, PathRules
-from eodinga.core.fs import resolve_safe, scandir_safe, stat_follow_safe, stat_safe
+from eodinga.core.fs import resolve_safe, scandir_with_stat_safe, stat_follow_safe, stat_safe
 from eodinga.core.rules import should_index
 
 BATCH_SIZE = 8192
+
+
+class _QueuedPath(NamedTuple):
+    path: Path
+    stat_result: stat_result | None = None
 
 
 def _to_record(root_id: int, path: Path, stat_result: stat_result) -> FileRecord:
@@ -50,29 +56,29 @@ def _should_descend(path: Path, root: Path, stat_result: stat_result) -> bool:
 
 
 def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[list[FileRecord]]:
-    queue: deque[Path] = deque([root])
+    queue: deque[_QueuedPath] = deque([_QueuedPath(root)])
     visited_dirs: set[tuple[int, int]] = set()
     visited_resolved_dirs: set[Path] = set()
     batch: list[FileRecord] = []
     while queue:
         current = queue.popleft()
         try:
-            stat_result = stat_safe(current)
+            current_stat = current.stat_result or stat_safe(current.path)
         except OSError:
             continue
-        if not should_index(current, rules):
+        if not should_index(current.path, rules):
             continue
-        batch.append(_to_record(root_id=root_id, path=current, stat_result=stat_result))
+        batch.append(_to_record(root_id=root_id, path=current.path, stat_result=current_stat))
         if len(batch) >= BATCH_SIZE:
             yield batch
             batch = []
-        if not _should_descend(current, root, stat_result):
+        if not _should_descend(current.path, root, current_stat):
             continue
-        inode_key = (stat_result.st_dev, stat_result.st_ino)
+        inode_key = (current_stat.st_dev, current_stat.st_ino)
         if inode_key in visited_dirs:
             continue
         try:
-            resolved_dir = resolve_safe(current)
+            resolved_dir = resolve_safe(current.path)
         except OSError:
             continue
         if resolved_dir in visited_resolved_dirs:
@@ -80,9 +86,9 @@ def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[lis
         visited_dirs.add(inode_key)
         visited_resolved_dirs.add(resolved_dir)
         try:
-            children = scandir_safe(current)
+            children = scandir_with_stat_safe(current.path)
         except OSError:
             continue
-        queue.extend(children)
+        queue.extend(_QueuedPath(path=path, stat_result=child_stat) for path, child_stat in children)
     if batch:
         yield batch
