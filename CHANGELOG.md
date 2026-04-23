@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.719 - 2026-04-23
+## 0.1.730 - 2026-04-23
 
 - Improved launcher keyboard flow when no results are visible by making `Tab` and `Shift+Tab` reach pinned and recent query chips before falling through the rest of the launcher surface.
 - Split launcher empty-state and shortcut copy into dedicated helpers, keeping the launcher panel under the module-size cap while clarifying chip-focused keyboard hints.
