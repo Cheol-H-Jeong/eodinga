@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.408 - 2026-04-23
+## 0.1.410 - 2026-04-23
 
 - Added average latency to histogram snapshots, so `stats --json` and crash metadata can report a stable mean alongside count, min, max, and bucket distribution.
 - Grouped runtime observability into subsystem summaries in `stats --json`, exposing parser, watcher, indexing, and logging metrics without requiring callers to parse flat counter namespaces.
