@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.432 - 2026-04-23
+
+- Added a dedicated `.[packaging]` extra for Windows release tooling and wired the Windows release workflow to install it explicitly instead of relying on ambient build dependencies.
+
 ## 0.1.431 - 2026-04-23
 
 - Tightened the top-level operator docs so the README now points reviewers directly at `packaging/dist/`, the local release handoff sequence, and the acceptance recovery path when the one-command gate fails.

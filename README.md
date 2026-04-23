@@ -42,6 +42,7 @@ The Linux release artifacts both launch `eodinga gui`; the `.deb` also installs 
 | Local development on Linux | `pip install -e .[all]` | Includes GUI, parser, hotkey, lint, and test extras. |
 | CLI-only hacking | `pip install -e .[dev]` | Enough for tests and lint when you do not need parser or GUI extras. |
 | Content parsing coverage | `pip install -e .[parsers]` | Adds optional document parsers on top of the base runtime. |
+| Windows packaging tooling | `pip install -e .[dev,parsers,gui,packaging]` | Adds the PyInstaller toolchain used by the Windows release workflow. |
 | Packaged Linux desktop install | AppImage or `.deb` artifact | Both launch the GUI; `.deb` also stages desktop metadata and packaged docs. |
 | Packaged Windows desktop install | `eodinga-0.1.x-win-x64-setup.exe` | Per-user install; uninstall preserves `%LOCALAPPDATA%\\eodinga\\` unless purge is chosen. |
 

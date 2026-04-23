@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install
-        run: pip install -e .[dev,parsers,gui]
+        run: pip install -e .[dev,parsers,gui,packaging]
       - name: Validate packaging inputs
         run: python packaging/build.py --target windows-dry-run
       - name: Build

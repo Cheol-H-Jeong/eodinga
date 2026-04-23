@@ -74,6 +74,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "yamllint .github/workflows/release-windows.yml" in readme
     assert "rendered offscreen from the real Qt surfaces" in readme
     assert "CLI-only hacking" in readme
+    assert "Windows packaging tooling" in readme
+    assert ".[dev,parsers,gui,packaging]" in readme
     assert "Refresh shipped docs assets" in readme
 
     assert "## Required Commands" in acceptance

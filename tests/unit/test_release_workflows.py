@@ -14,6 +14,7 @@ def test_release_linux_workflow_uses_linux_appimage_dry_run() -> None:
 
 def test_release_windows_workflow_runs_dry_run_before_build() -> None:
     workflow = Path(".github/workflows/release-windows.yml").read_text(encoding="utf-8")
+    assert "pip install -e .[dev,parsers,gui,packaging]" in workflow
     assert "python packaging/build.py --target windows-dry-run" in workflow
     assert "python packaging/build.py --target windows" in workflow
     assert workflow.index("Validate packaging inputs") < workflow.index("\n      - name: Build\n")
