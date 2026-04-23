@@ -298,6 +298,18 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
             "Debian control template binary package drifted from eodinga",
         ),
         (
+            control_template_payload.get("section") == control_payload.get("section"),
+            "Debian control template section drifted from the staged package",
+        ),
+        (
+            control_template_payload.get("priority") == control_payload.get("priority"),
+            "Debian control template priority drifted from the staged package",
+        ),
+        (
+            control_template_payload.get("maintainer") == control_payload.get("maintainer"),
+            "Debian control template maintainer drifted from the staged package",
+        ),
+        (
             control_template_payload.get("description") == control_payload.get("description"),
             "Debian control template description drifted from the staged package",
         ),
