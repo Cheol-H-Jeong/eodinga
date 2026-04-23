@@ -18,6 +18,8 @@ _DEFAULT_HISTOGRAM_BUCKETS_MS = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0
 _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
+_SESSION_STARTED_AT = datetime.now(UTC)
+_LAST_CRASH_PATH: Path | None = None
 
 
 class MetricsSnapshot(TypedDict):
@@ -168,6 +170,8 @@ def reset_metrics() -> None:
     with _METRICS_LOCK:
         _COUNTERS.clear()
         _HISTOGRAMS.clear()
+        global _LAST_CRASH_PATH
+        _LAST_CRASH_PATH = None
 
 
 def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
@@ -187,6 +191,29 @@ def histogram_snapshot(name: str) -> dict[str, object]:
         return state.snapshot()
 
 
+def session_started_at() -> datetime:
+    return _SESSION_STARTED_AT
+
+
+def session_uptime_seconds() -> float:
+    return max((datetime.now(UTC) - _SESSION_STARTED_AT).total_seconds(), 0.0)
+
+
+def last_crash_path() -> Path | None:
+    with _METRICS_LOCK:
+        return _LAST_CRASH_PATH
+
+
+def _reserve_crash_path(target_dir: Path, timestamp: str) -> Path:
+    base_name = f"crash-{timestamp}"
+    candidate = target_dir / f"{base_name}.log"
+    suffix = 1
+    while candidate.exists():
+        candidate = target_dir / f"{base_name}-{suffix}.log"
+        suffix += 1
+    return candidate
+
+
 def write_crash_log(
     error: BaseException,
     *,
@@ -199,7 +226,7 @@ def write_crash_log(
     target_dir = resolve_crash_dir(crash_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    crash_path = target_dir / f"crash-{timestamp}.log"
+    crash_path = _reserve_crash_path(target_dir, timestamp)
     metadata: dict[str, object] = {
         "timestamp": timestamp,
         "pid": os.getpid(),
@@ -218,6 +245,10 @@ def write_crash_log(
         *traceback.format_exception(type(error), error, error.__traceback__),
     ]
     crash_path.write_text("".join(lines), encoding="utf-8")
+    with _METRICS_LOCK:
+        global _LAST_CRASH_PATH
+        _LAST_CRASH_PATH = crash_path
+        _COUNTERS["crash_logs_written"] = _COUNTERS.get("crash_logs_written", 0) + 1
     return crash_path
 
 

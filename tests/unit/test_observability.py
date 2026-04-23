@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import threading
+from datetime import UTC
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -17,10 +18,13 @@ from eodinga.observability import (
     default_log_path,
     file_logging_enabled,
     install_crash_handlers,
+    last_crash_path,
     resolve_crash_dir,
     resolve_log_path,
     reset_metrics,
     report_crash,
+    session_started_at,
+    session_uptime_seconds,
     snapshot_metrics,
     write_crash_log,
 )
@@ -77,6 +81,7 @@ def test_log_resolution_returns_none_when_file_logging_disabled(monkeypatch) -> 
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
+    reset_metrics()
     try:
         raise RuntimeError("boom")
     except RuntimeError as error:
@@ -91,6 +96,18 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert f"platform={sys.platform}" in contents
     assert f"cwd={Path.cwd()}" in contents
     assert 'argv=["search", "boom"]' in contents
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["crash_logs_written"] == 1
+    assert last_crash_path() == crash_path
+
+
+def test_write_crash_log_uses_unique_name_within_same_second(tmp_path: Path) -> None:
+    reset_metrics()
+    first = write_crash_log(RuntimeError("first"), crash_dir=tmp_path)
+    second = write_crash_log(RuntimeError("second"), crash_dir=tmp_path)
+
+    assert first != second
+    assert second.stem.startswith(first.stem)
 
 
 def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
@@ -105,12 +122,20 @@ def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
 
 def test_report_crash_writes_log_and_stderr(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.setenv("EODINGA_CRASH_DIR", str(tmp_path))
+    reset_metrics()
 
     crash_path = report_crash(RuntimeError("boom"), context="reported crash")
 
     captured = capsys.readouterr()
     assert str(crash_path) in captured.err
     assert "reported crash" in crash_path.read_text(encoding="utf-8")
+
+
+def test_session_metadata_is_available() -> None:
+    started_at = session_started_at()
+
+    assert started_at.tzinfo is UTC
+    assert session_uptime_seconds() >= 0.0
 
 
 def test_install_crash_handlers_writes_thread_crash_log(
