@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.916 - 2026-04-24
+
+- Added staged file manifests to the Linux AppImage packaging audit and validator, so missing launcher, runtime, desktop-entry, or icon payloads fail the packaging contract with explicit file-level evidence.
+- Added staged file manifests to the Debian packaging audit and validator, making missing control/runtime/docs assets visible before release artifacts are accepted.
+- Expanded the PyInstaller packaging spec to discover constant-string dynamic imports and declared `project.entry-points` modules, reducing hidden-import drift for Windows packaging inputs.
+
 ## 0.1.911 - 2026-04-24
 
 - Normalized list-form subprocess command matching in the no-network source audit, so absolute-path invocations like `['/usr/bin/curl', ...]` and `wget.exe` tuples are rejected the same way as bare command names.
