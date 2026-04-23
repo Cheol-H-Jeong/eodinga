@@ -4,19 +4,24 @@ import argparse
 import json
 import os
 import re
+import stat
 import sys
 from contextlib import closing
 from pathlib import Path
-from time import monotonic
+from queue import Empty
+from time import monotonic, time
 from typing import Any
 
 from eodinga import __version__
-from eodinga.common import SearchResult, StatsSnapshot
+from eodinga.common import FileRecord, SearchResult, StatsSnapshot
 from eodinga.config import AppConfig, RootConfig, load
+from eodinga.content.registry import parse
+from eodinga.core.watcher import WatchService
 from eodinga.doctor import run_diagnostics
 from eodinga.index.build import rebuild_index
 from eodinga.index.reader import stats as read_index_stats
 from eodinga.index.storage import open_index
+from eodinga.index.writer import IndexWriter
 from eodinga.observability import (
     configure_logging,
     counter_value,
@@ -143,10 +148,102 @@ def _cmd_index(args: argparse.Namespace) -> int:
     return _emit(payload, as_json=True)
 
 
+def _load_watch_roots(conn) -> list[tuple[int, Path]]:
+    rows = conn.execute("SELECT id, path FROM roots WHERE enabled = 1 ORDER BY id").fetchall()
+    return [(int(row[0]), Path(row[1])) for row in rows]
+
+
+def _resolve_watch_root_id(
+    path: Path,
+    root_ids: dict[Path, int],
+    *,
+    event_root: Path | None = None,
+) -> int | None:
+    if event_root is not None:
+        root_id = root_ids.get(event_root)
+        if root_id is not None:
+            return root_id
+    candidates = sorted(root_ids.items(), key=lambda item: len(str(item[0])), reverse=True)
+    for root_path, root_id in candidates:
+        if path == root_path:
+            return root_id
+        try:
+            path.relative_to(root_path)
+        except ValueError:
+            continue
+        return root_id
+    return None
+
+
+def _watch_record_loader(
+    path: Path,
+    *,
+    root_ids: dict[Path, int],
+    event_root: Path | None = None,
+) -> FileRecord | None:
+    root_id = _resolve_watch_root_id(path, root_ids, event_root=event_root)
+    if root_id is None:
+        return None
+    try:
+        stat_result = path.lstat()
+    except OSError:
+        return None
+    return FileRecord(
+        root_id=root_id,
+        path=path,
+        parent_path=path.parent,
+        name=path.name,
+        name_lower=path.name.lower(),
+        ext=path.suffix.lower().lstrip("."),
+        size=stat_result.st_size,
+        mtime=int(stat_result.st_mtime),
+        ctime=int(stat_result.st_ctime),
+        is_dir=stat.S_ISDIR(stat_result.st_mode),
+        is_symlink=stat.S_ISLNK(stat_result.st_mode),
+        indexed_at=int(time()),
+    )
+
+
 def _cmd_watch(args: argparse.Namespace) -> int:
-    payload = {"command": "watch", "db": str(args.db) if args.db else None}
-    record_snapshot("command.watch", payload)
-    return _emit(payload, as_json=True)
+    config = _resolve_config(args)
+    db_path = args.db or config.index.db_path
+    with closing(open_index(db_path)) as conn:
+        roots = _load_watch_roots(conn)
+        if not roots:
+            sys.stderr.write("watch requires at least one indexed root\n")
+            return 2
+        payload = {
+            "command": "watch",
+            "db": str(db_path),
+            "roots": [str(root_path) for _, root_path in roots],
+        }
+        record_snapshot("command.watch", payload)
+        service = WatchService()
+        root_ids = {root_path: root_id for root_id, root_path in roots}
+        parser_callback = (
+            (lambda path: parse(path, max_body_chars=4096))
+            if config.index.content_enabled
+            else (lambda _path: None)
+        )
+        writer = IndexWriter(conn, parser_callback=parser_callback)
+        try:
+            for _, root_path in roots:
+                service.start(root_path)
+            while True:
+                try:
+                    event = service.queue.get(timeout=0.1)
+                except Empty:
+                    continue
+                writer.apply_events(
+                    [event],
+                    record_loader=lambda path: _watch_record_loader(
+                        path,
+                        root_ids=root_ids,
+                        event_root=event.root_path,
+                    ),
+                )
+        finally:
+            service.stop()
 
 
 def _cmd_search(args: argparse.Namespace) -> int:
