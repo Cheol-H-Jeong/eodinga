@@ -161,6 +161,65 @@ def test_watcher_create_then_move_ignores_late_source_delete(tmp_path: Path) -> 
         service.queue.get_nowait()
 
 
+def test_watcher_cross_root_move_then_modify_coalesces_to_single_create(tmp_path: Path) -> None:
+    service = WatchService()
+    root = tmp_path / "watched"
+    destination = root / "report.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=destination,
+            root_path=root,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="modified",
+            path=destination,
+            root_path=root,
+            happened_at=2.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    event = service.queue.get_nowait()
+    assert event.event_type == "created"
+    assert event.path == destination
+    assert event.src_path is None
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+
+def test_watcher_create_then_cross_root_move_out_coalesces_to_no_event(tmp_path: Path) -> None:
+    service = WatchService()
+    root = tmp_path / "watched"
+    source = root / "draft.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=source,
+            root_path=root,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="deleted",
+            path=source,
+            root_path=root,
+            happened_at=2.0,
+        )
+    )
+    service._flush_ready(force=True)
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+
 def test_watcher_move_then_modify_preserves_move_metadata(tmp_path: Path) -> None:
     service = WatchService()
     source = tmp_path / "before.txt"
