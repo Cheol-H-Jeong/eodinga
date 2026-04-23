@@ -246,6 +246,7 @@ def _run_command(args: argparse.Namespace) -> int:
     finally:
         elapsed_ms = max((monotonic() - started_at) * 1000, 0.0)
         record_histogram("command_latency_ms", elapsed_ms, command=command)
+        record_histogram(f"command_latency_ms.{command}", elapsed_ms)
         if exit_code is not None:
             increment_counter(f"commands.exit_code.{exit_code}")
     increment_counter("commands_completed", command=command)

@@ -86,6 +86,7 @@ def test_stats_json_loads_persisted_metrics_from_previous_command(
     assert payload["metrics_path"] == str(metrics_path)
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 1
+    assert payload["histograms"]["command_latency_ms.search"]["count"] == 1
 
 
 def test_invalid_metrics_snapshot_does_not_break_cli(
@@ -101,3 +102,36 @@ def test_invalid_metrics_snapshot_does_not_break_cli(
     exit_code = main(["version"])
 
     assert exit_code == 0
+
+
+def test_stats_json_breaks_out_command_latency_by_command(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    db_path = tmp_path / "index.db"
+    metrics_path = tmp_path / "runtime" / "metrics.json"
+    _build_search_db(db_path)
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+    reset_metrics()
+
+    search_exit = main(["--db", str(db_path), "search", "alpha", "--json"])
+    search_output = capsys.readouterr()
+    assert search_exit == 0
+    assert json.loads(search_output.out)["count"] == 1
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    first_payload = json.loads(stats_output.out)
+    assert first_payload["histograms"]["command_latency_ms"]["count"] == 1
+    assert first_payload["histograms"]["command_latency_ms.search"]["count"] == 1
+    assert "command_latency_ms.stats" not in first_payload["histograms"]
+
+    second_stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    second_stats_output = capsys.readouterr()
+    assert second_stats_exit == 0
+    second_payload = json.loads(second_stats_output.out)
+    assert second_payload["histograms"]["command_latency_ms"]["count"] == 2
+    assert second_payload["histograms"]["command_latency_ms.search"]["count"] == 1
+    assert second_payload["histograms"]["command_latency_ms.stats"]["count"] == 1
