@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.844 - 2026-04-23
+## 0.1.847 - 2026-04-23
 
 - Added a README release-evidence bundle matrix and expanded the FAQ so docs-only rounds now spell out when GUI smoke, packaging dry runs, and `packaging/dist/` review are required.
 - Expanded the DSL guide with evaluation rules and a symptom-driven troubleshooting table, making grouped negation, regex narrowing, parser-dependent content search, and local-date boundaries easier to audit.
