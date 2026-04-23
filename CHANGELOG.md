@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.133 - 2026-04-23
+
+- Expanded the top-level README with dependency-profile guidance, install verification steps, common index/watch/query flows, and a shorter release-validation entry point.
+- Added deeper architecture documentation for the live SQLite layout, query pipeline, hot-restart behavior, and multi-root result-scoping model behind the shared index.
+- Tightened contributor and release docs so screenshot refreshes, doc-update ownership, intermediate unit-test discipline, and the final local tag cut flow are documented explicitly.
+
 ## 0.1.130 - 2026-04-23
 
 - Expanded integration coverage so one live `WatchService` can monitor multiple configured roots while `search(..., root=...)` still isolates newly indexed results to the correct root.
