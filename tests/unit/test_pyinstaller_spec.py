@@ -101,3 +101,41 @@ def test_pyinstaller_spec_discovers_dynamic_hidden_import_patterns(tmp_path: Pat
     discovered = discover_hidden_imports(source_root)
 
     assert discovered == ["package.alpha", "package.beta", "package.gamma"]
+
+
+def test_pyinstaller_spec_source_hidden_imports_skip_internal_relative_modules(tmp_path: Path) -> None:
+    namespace: dict[str, object] = {}
+    spec_path = Path("packaging/pyinstaller.spec")
+    namespace["__file__"] = str(spec_path.resolve())
+    exec(spec_path.read_text(encoding="utf-8"), namespace)
+    discover_source_hidden_imports = cast(Callable[[Path], list[str]], namespace["_discover_source_hidden_imports"])
+
+    source_root = tmp_path / "eodinga"
+    (source_root / "gui" / "tabs").mkdir(parents=True)
+    (source_root / "gui" / "widgets").mkdir(parents=True)
+    for path in (
+        source_root / "__init__.py",
+        source_root / "gui" / "__init__.py",
+        source_root / "gui" / "tabs" / "__init__.py",
+        source_root / "gui" / "widgets" / "__init__.py",
+        source_root / "gui" / "widgets" / "button.py",
+    ):
+        path.write_text("", encoding="utf-8")
+    (source_root / "gui" / "tabs" / "search.py").write_text(
+        "\n".join(
+            [
+                "from ..widgets import button",
+                "from PySide6 import QtCore",
+                "from selectolax.parser import HTMLParser",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    discovered = discover_source_hidden_imports(source_root)
+
+    assert "button" not in discovered
+    assert "widgets" not in discovered
+    assert "PySide6" in discovered
+    assert "PySide6.QtCore" in discovered
+    assert "selectolax.parser" in discovered

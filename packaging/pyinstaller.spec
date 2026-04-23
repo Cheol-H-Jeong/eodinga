@@ -83,16 +83,20 @@ def _module_exists(module_name: str, project_root: Path) -> bool:
     return module_path.with_suffix(".py").exists() or (module_path / "__init__.py").exists()
 
 
+def _is_internal_module(module_name: str) -> bool:
+    return module_name == "eodinga" or module_name.startswith("eodinga.")
+
+
 def _resolve_imported_module(module_name: str | None, level: int, current_package: str) -> str | None:
     if level == 0:
         return module_name
-    package_parts = current_package.split(".")
-    if level > len(package_parts) + 1:
-        return None
-    anchor = package_parts[: len(package_parts) - level + 1]
+    relative_name = "." * level
     if module_name:
-        anchor.append(module_name)
-    return ".".join(anchor)
+        relative_name = f"{relative_name}{module_name}"
+    try:
+        return importlib.util.resolve_name(relative_name, current_package)
+    except ImportError:
+        return None
 
 
 def _discover_runtime_modules(source_root: Path) -> list[str]:
@@ -166,23 +170,25 @@ def _is_stdlib_module(module_name: str) -> bool:
 def _discover_source_hidden_imports(source_root: Path) -> list[str]:
     discovered: set[str] = set()
     for source_path in source_root.rglob("*.py"):
+        module_name = _module_name_for_path(source_path, source_root)
+        current_package = module_name if source_path.name == "__init__.py" else module_name.rpartition(".")[0]
         module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
         for node in ast.walk(module):
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     module_name = alias.name
-                    if module_name.startswith("eodinga.") or _is_stdlib_module(module_name):
+                    if _is_internal_module(module_name) or _is_stdlib_module(module_name):
                         continue
                     discovered.add(module_name)
             elif isinstance(node, ast.ImportFrom):
-                module_name = node.module
-                if not module_name or module_name.startswith("eodinga") or _is_stdlib_module(module_name):
+                resolved_module_name = _resolve_imported_module(node.module, node.level, current_package)
+                if not resolved_module_name or _is_internal_module(resolved_module_name) or _is_stdlib_module(resolved_module_name):
                     continue
-                discovered.add(module_name)
+                discovered.add(resolved_module_name)
                 for alias in node.names:
                     if alias.name == "*":
                         continue
-                    candidate = f"{module_name}.{alias.name}"
+                    candidate = f"{resolved_module_name}.{alias.name}"
                     try:
                         spec = importlib.util.find_spec(candidate)
                     except (AttributeError, ModuleNotFoundError, ValueError):
