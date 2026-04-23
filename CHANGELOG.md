@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.940 - 2026-04-24
+## 0.1.951 - 2026-04-24
 
 - Expanded query date parsing so `date:2026`, `date:2026-02`, and matching `modified:`/`created:` forms resolve to full ISO year and month spans instead of requiring day-level literals.
 - Added ISO week span support for date filters, including uppercase and lowercase week markers such as `date:2026-W17` and week-to-week ranges like `date:2026-w17..2026-w18`.
