@@ -206,6 +206,18 @@ def _spans_for_rule(text: str, rule: _HighlightRule) -> list[tuple[int, int]]:
     return [span for span in spans if span[0] != span[1]]
 
 
+def _merge_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    if not spans:
+        return []
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted(spans, key=lambda span: (span[0], span[1])):
+        if not merged or start > merged[-1][1]:
+            merged.append((start, end))
+            continue
+        merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+    return merged
+
+
 def highlight_text(text: str, query: str, *, target: str = "name") -> str:
     rules = tuple(rule for rule in _highlight_rules(query) if target in rule.targets)
     if not rules:
@@ -215,12 +227,10 @@ def highlight_text(text: str, query: str, *, target: str = "name") -> str:
         spans.extend(_spans_for_rule(text, rule))
     if not spans:
         return escape(text)
-    spans.sort(key=lambda span: (span[0], -(span[1] - span[0])))
+    spans = _merge_spans(spans)
     parts: list[str] = []
     cursor = 0
     for start, end in spans:
-        if start < cursor:
-            continue
         parts.append(escape(text[cursor:start]))
         parts.append(f"<mark>{escape(text[start:end])}</mark>")
         cursor = end

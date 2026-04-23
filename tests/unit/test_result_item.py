@@ -29,6 +29,12 @@ def test_highlight_text_marks_quoted_phrases() -> None:
     assert "<mark>release notes</mark>" in rendered
 
 
+def test_highlight_text_merges_overlapping_matches_into_one_span() -> None:
+    rendered = highlight_text("abcde", "abc bcd")
+
+    assert rendered == "<mark>abcd</mark>e"
+
+
 def test_highlight_text_marks_escaped_quoted_phrases() -> None:
     rendered = highlight_text('release "candidate" notes.txt', r'"release \"candidate\""')
 
