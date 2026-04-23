@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.130 - 2026-04-23
+## 0.1.135 - 2026-04-23
 
 - Added an explicit `.next.ready` completion marker for staged rebuilds so startup resumes only fully built replacement indexes and discards incomplete crash leftovers instead of risking promotion of a partial database.
 - Hardened staged-index promotion with a SQLite `PRAGMA quick_check(1)` validation step before the atomic swap, preventing a corrupt staged file from replacing the live index.
