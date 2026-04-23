@@ -28,7 +28,8 @@ def test_content_query_latency(tmp_path: Path) -> None:
     root = tmp_path / "docs"
     root.mkdir()
     tokens = [f"topic-{index:03d}" for index in range(100)]
-    conn = open_perf_db(tmp_path / "content-query.db")
+    db_path = tmp_path / "content-query.db"
+    conn = open_perf_db(db_path, bulk_writes=True)
     try:
         insert_root(conn, root)
         records = []
@@ -40,7 +41,11 @@ def test_content_query_latency(tmp_path: Path) -> None:
             parsed_map[path] = make_parsed(path, token)
         writer = IndexWriter(conn, parser_callback=lambda path: parsed_map.get(path))
         writer.bulk_upsert(records)
+    finally:
+        conn.close()
 
+    conn = open_perf_db(db_path)
+    try:
         queries = [f"content:{random.choice(tokens)}" for _ in range(QUERY_COUNT)]
         latencies_ms: list[float] = []
         for query in queries:

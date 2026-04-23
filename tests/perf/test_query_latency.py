@@ -26,7 +26,8 @@ P95_LIMIT_MS = perf_float_env("EODINGA_PERF_QUERY_P95_MS", 30.0)
 def test_name_query_latency(tmp_path: Path) -> None:
     root = tmp_path / "tree"
     root.mkdir()
-    conn = open_perf_db(tmp_path / "query-latency.db")
+    db_path = tmp_path / "query-latency.db"
+    conn = open_perf_db(db_path, bulk_writes=True)
     try:
         insert_root(conn, root)
         writer = IndexWriter(conn)
@@ -36,7 +37,11 @@ def test_name_query_latency(tmp_path: Path) -> None:
             name = f"report-{index:05d}.txt" if index % 5 == 0 else f"note-{index:05d}.txt"
             records.append(make_file_record(group / name, size=index))
         writer.bulk_upsert(records)
+    finally:
+        conn.close()
 
+    conn = open_perf_db(db_path)
+    try:
         queries = [f"report-{random.randrange(FILE_COUNT // 5) * 5:05d}" for _ in range(QUERY_COUNT)]
         latencies_ms: list[float] = []
         for query in queries:

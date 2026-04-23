@@ -40,7 +40,7 @@ def test_cold_start_throughput(tmp_path: Path) -> None:
     root = tmp_path / "tree"
     created = _populate_tree(root)
 
-    conn = open_perf_db(tmp_path / "cold-start.db")
+    conn = open_perf_db(tmp_path / "cold-start.db", bulk_writes=True)
     try:
         insert_root(conn, root)
         writer = IndexWriter(conn)

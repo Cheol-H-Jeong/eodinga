@@ -22,7 +22,7 @@ MIN_RECORDS_PER_SECOND = perf_float_env("EODINGA_PERF_BULK_MIN_RPS", 20_000.0)
 def test_bulk_upsert_throughput(tmp_path: Path) -> None:
     root = tmp_path / "bulk"
     root.mkdir()
-    conn = open_perf_db(tmp_path / "bulk-upsert.db")
+    conn = open_perf_db(tmp_path / "bulk-upsert.db", bulk_writes=True)
     try:
         insert_root(conn, root)
         writer = IndexWriter(conn)

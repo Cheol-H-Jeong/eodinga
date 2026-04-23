@@ -9,7 +9,7 @@ import pytest
 
 from eodinga.common import FileRecord, PathRules
 from eodinga.content.base import ParsedContent
-from eodinga.index.schema import apply_schema
+from eodinga.index.schema import BULK_SYNCHRONOUS, DEFAULT_SYNCHRONOUS, apply_schema
 from eodinga.index.storage import connect_database
 
 RUN_PERF = os.getenv("EODINGA_RUN_PERF") == "1"
@@ -36,9 +36,12 @@ def perf_float_env(name: str, default: float) -> float:
     return value
 
 
-def open_perf_db(path: Path) -> sqlite3.Connection:
-    conn = connect_database(path)
-    apply_schema(conn)
+def open_perf_db(path: Path, *, bulk_writes: bool = False) -> sqlite3.Connection:
+    conn = connect_database(path, bulk_writes=bulk_writes)
+    apply_schema(
+        conn,
+        synchronous=BULK_SYNCHRONOUS if bulk_writes else DEFAULT_SYNCHRONOUS,
+    )
     return conn
 
 
