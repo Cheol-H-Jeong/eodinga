@@ -24,6 +24,14 @@ def _escape_phrase(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
+def _is_valid_regex_pattern(value: str) -> bool:
+    try:
+        re.compile(value)
+    except re.error:
+        return False
+    return True
+
+
 @pytest.mark.parametrize(
     ("query", "expected_type"),
     [
@@ -366,8 +374,19 @@ NEGATABLE_OPERATOR_ATOMS = st.one_of(
     st.builds(lambda value: f"-{value}", st.sampled_from(["ext:pdf", "is:symlink", "path:archive"])),
 )
 
+NEGATABLE_WORD_ATOMS = st.text(
+    st.characters(blacklist_characters='()|" /', blacklist_categories=("Cs",)),
+    min_size=1,
+    max_size=12,
+).filter(lambda value: value.strip() and value != "-" and _is_valid_regex_pattern(value))
+
+NEGATABLE_PHRASE_ATOMS = st.builds(
+    lambda value: f'"{_escape_phrase(value)}"',
+    PHRASE_TEXT.filter(_is_valid_regex_pattern),
+)
+
 NEGATABLE_VALID_QUERY_STRATEGY = st.recursive(
-    st.one_of(ATOMS, NEGATABLE_OPERATOR_ATOMS).map(str),
+    st.one_of(NEGATABLE_WORD_ATOMS, NEGATABLE_PHRASE_ATOMS, OPERATOR_ATOMS, NEGATABLE_OPERATOR_ATOMS).map(str),
     lambda children: st.one_of(
         st.builds(lambda items: " ".join(items), st.lists(children, min_size=2, max_size=3)),
         st.builds(lambda items: " | ".join(items), st.lists(children, min_size=2, max_size=3)),
@@ -421,10 +440,3 @@ def test_negated_boolean_operator_fuzz_inverts_compiled_mode(
         assert negated.regex_mode is (not enabled.regex_mode)
         assert negated.case_sensitive is enabled.case_sensitive
 
-
-def _is_valid_regex_pattern(value: str) -> bool:
-    try:
-        re.compile(value)
-    except re.error:
-        return False
-    return True
