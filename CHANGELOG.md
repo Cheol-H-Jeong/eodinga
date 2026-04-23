@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.703 - 2026-04-23
+## 0.1.704 - 2026-04-23
 
 - Normalized observability log and crash destinations into stable absolute runtime paths, so relative overrides and platform-specific state roots no longer depend on the caller's working directory.
 - Recorded bounded `crash.report` timeline entries for both successful crash-log writes and write failures, keeping postmortem status visible through `stats --json` even when the log artifact could not be created.
