@@ -74,7 +74,7 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.launcher_window.empty_state.accessibleName() == "Launcher empty state"
     assert window.launcher_window.preview_pane.accessibleName() == "Launcher preview pane"
     assert window.search_tab.launcher_panel.action_bar.accessibleName() == "Launcher action bar"
-    assert window.search_tab.launcher_panel.status_chip.accessibleName() == "Status"
+    assert window.search_tab.launcher_panel.status_chip.accessibleName() == "Launcher status"
 
 
 def test_app_updates_index_status_in_tab_and_tray(qapp) -> None:
