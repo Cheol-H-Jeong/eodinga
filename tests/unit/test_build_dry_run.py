@@ -80,13 +80,22 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert "@@CLI_DIST_NAME@@" not in rendered_text
     assert "@@GUI_EXE_NAME@@" not in rendered_text
     assert payload["inno_setup"]["output_base_filename"] == f"eodinga-{__version__}-win-x64-setup"
+    assert payload["inno_setup"]["app_name"] == "eodinga"
+    assert payload["inno_setup"]["app_name_matches_package"] is True
     assert payload["inno_setup"]["app_id"] == "{{B4D25A04-71A1-45A2-A0BB-7B3F612E9E68}"
     assert payload["inno_setup"]["app_id_is_guid_macro"] is True
+    assert payload["inno_setup"]["app_publisher"] == "Cheol-H-Jeong"
+    assert payload["inno_setup"]["app_publisher_matches_expected"] is True
     assert payload["inno_setup"]["app_version_macro"] == "@@APP_VERSION@@"
     assert payload["inno_setup"]["app_version_uses_template"] is True
     assert payload["inno_setup"]["contains_versioned_output_macro"] is True
     assert payload["inno_setup"]["contains_user_install_dir"] is True
+    assert payload["inno_setup"]["uses_lzma_compression"] is True
+    assert payload["inno_setup"]["uses_solid_compression"] is True
+    assert payload["inno_setup"]["uses_modern_wizard"] is True
     assert payload["inno_setup"]["contains_rendered_uninstall_display_icon"] is True
+    assert payload["inno_setup"]["contains_recursive_gui_payload_entry"] is True
+    assert payload["inno_setup"]["contains_recursive_cli_payload_entry"] is True
     assert payload["inno_setup"]["contains_start_menu_shortcut"] is True
     assert payload["inno_setup"]["contains_desktop_shortcut_task"] is True
     assert payload["inno_setup"]["contains_user_desktop_shortcut"] is True
@@ -154,6 +163,18 @@ def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -
     errors = module._validate_windows_audit(payload)
 
     assert "Inno uninstall purge no longer targets both local data and roaming config" in errors
+
+
+def test_windows_audit_validator_rejects_inno_metadata_regression() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["inno_setup"]["app_publisher_matches_expected"] = False
+    payload["inno_setup"]["contains_recursive_cli_payload_entry"] = False
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "Inno AppPublisher macro drifted from Cheol-H-Jeong" in errors
+    assert "Rendered Inno CLI payload entry is missing recursive staging flags" in errors
 
 
 def test_build_preflight_reports_missing_windows_tool(monkeypatch) -> None:
