@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.870 - 2026-04-23
+
+- Clarified the shipped docs contract in `README.md` with an artifact-to-review map, a release-input evidence matrix, and a narrower docs-only recovery path for contract drift.
+- Expanded the architecture, contributing, and release guides with docs-asset trigger matrices, docs-review loops, docs-round anti-patterns, and a cleaner parallel-worker retarget checklist.
+- Tightened the release handoff guidance so docs-only rounds point reviewers to the exact screenshots, manpage, or `packaging/dist/` manifests that prove the changed claim.
+
 ## 0.1.863 - 2026-04-23
 
 - Expanded the launcher’s inline and empty-state keyboard guidance to cover both `Alt+Up` and `Alt+Down`, so recent-query browsing is explained consistently anywhere the user can get stuck.
