@@ -340,6 +340,11 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
             launcher_payload.get("help_mentions_search_command"),
             "AppImage launcher smoke test output no longer exposes the CLI commands",
         ),
+        (launcher_payload.get("version_exit_code") == 0, "AppImage launcher version smoke test exited non-zero"),
+        (
+            launcher_payload.get("version_matches_package"),
+            "AppImage launcher version smoke test no longer matches the packaged version",
+        ),
         (payload.get("archive_entries_sorted"), "AppImage archive entries are no longer sorted"),
         (payload.get("archive_mtime_zero"), "AppImage archive member mtimes are no longer reproducible"),
         (payload.get("archive_numeric_owner_zero"), "AppImage archive ownership is no longer reproducible"),
@@ -434,6 +439,11 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (
             launcher_payload.get("help_mentions_search_command"),
             "Debian launcher smoke test output no longer exposes the CLI commands",
+        ),
+        (launcher_payload.get("version_exit_code") == 0, "Debian launcher version smoke test exited non-zero"),
+        (
+            launcher_payload.get("version_matches_package"),
+            "Debian launcher version smoke test no longer matches the packaged version",
         ),
         (docs_payload.get("license_exists"), "Debian package no longer ships the license"),
         (docs_payload.get("changelog_exists"), "Debian package no longer ships the changelog"),

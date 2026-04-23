@@ -105,6 +105,17 @@ launcher_help = subprocess.run(
     },
 )
 launcher_help_output = launcher_help.stdout + launcher_help.stderr
+launcher_version = subprocess.run(
+    [str(launcher_path), "version"],
+    capture_output=True,
+    text=True,
+    check=False,
+    cwd="/",
+    env={
+        "HOME": str(Path("${DIST_DIR}").resolve()),
+        "PATH": os.environ.get("PATH", ""),
+    },
+)
 with tarfile.open("${ARCHIVE_PATH}", mode="r:gz") as archive:
     members = archive.getmembers()
 payload = {
@@ -175,6 +186,8 @@ payload = {
         "executes_python_module": "exec python3 -Im eodinga" in launcher_path.read_text(encoding="utf-8"),
         "help_exit_code": launcher_help.returncode,
         "help_mentions_search_command": "{index,watch,search,stats,gui,doctor,version}" in launcher_help_output,
+        "version_exit_code": launcher_version.returncode,
+        "version_matches_package": launcher_version.stdout.strip() == "${VERSION}",
     },
 }
 Path("${AUDIT_PATH}").write_text(json.dumps(payload, indent=2), encoding="utf-8")
