@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt, Signal
+from PySide6.QtCore import QPoint, QRect, QTimer, Qt, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
 
@@ -123,7 +123,7 @@ class LauncherWindow(LauncherPanel):
     def _restore_visible_geometry(self) -> None:
         if self._config is None:
             return
-        screen = self.screen() or QGuiApplication.primaryScreen()
+        screen = self._screen_for_saved_geometry()
         if screen is None:
             return
         available = screen.availableGeometry()
@@ -134,9 +134,9 @@ class LauncherWindow(LauncherPanel):
         x = self._config.launcher.window_x
         y = self._config.launcher.window_y
         if x is None or y is None:
-            self.resize(width, height)
+            self.setGeometry(self._centered_geometry(available, width, height))
             return
-        saved_rect = available.__class__(x, y, saved_width, saved_height)
+        saved_rect = QRect(x, y, saved_width, saved_height)
         if saved_rect.intersects(available):
             self.setGeometry(x, y, width, height)
             return
@@ -145,3 +145,20 @@ class LauncherWindow(LauncherPanel):
         clamped_x = min(max(x, available.x()), max_x)
         clamped_y = min(max(y, available.y()), max_y)
         self.setGeometry(clamped_x, clamped_y, width, height)
+
+    def _screen_for_saved_geometry(self):
+        if self._config is None:
+            return self.screen() or QGuiApplication.primaryScreen()
+        x = self._config.launcher.window_x
+        y = self._config.launcher.window_y
+        if x is not None and y is not None:
+            probe = QPoint(x + max(self.width() // 2, 1), y + max(self.height() // 2, 1))
+            screen = QGuiApplication.screenAt(probe)
+            if screen is not None:
+                return screen
+        return self.screen() or QGuiApplication.primaryScreen()
+
+    def _centered_geometry(self, available: QRect, width: int, height: int) -> QRect:
+        x = available.x() + max((available.width() - width) // 2, 0)
+        y = available.y() + max((available.height() - height) // 2, 0)
+        return QRect(x, y, width, height)

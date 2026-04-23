@@ -4,7 +4,7 @@ from pathlib import Path
 import sqlite3
 from typing import cast
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QMessageBox, QSystemTrayIcon
 
@@ -230,6 +230,60 @@ def test_launcher_clamps_restored_geometry_to_available_screen(qapp, temp_config
     assert available.contains(launcher.frameGeometry())
     assert launcher.width() <= available.width()
     assert launcher.height() <= available.height()
+
+    window.close()
+    qapp.processEvents()
+
+
+def test_launcher_centers_geometry_when_no_saved_position(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"window_x": None, "window_y": None})
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher._restore_visible_geometry()
+
+    available = launcher.screen().availableGeometry()
+    assert launcher.geometry().center() == available.center()
+
+    window.close()
+    qapp.processEvents()
+
+
+def test_launcher_restore_prefers_screen_at_saved_position(monkeypatch, qapp, temp_config_path: Path) -> None:
+    class _FakeScreen:
+        def availableGeometry(self):
+            return launcher.screen().availableGeometry().__class__(2048, 64, 1280, 720)
+
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(
+        update={
+            "window_x": 2200,
+            "window_y": 120,
+            "window_width": 640,
+            "window_height": 480,
+        }
+    )
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+    fake_screen = _FakeScreen()
+    seen_probe_points: list[QPoint] = []
+
+    def _screen_at(point: QPoint):
+        seen_probe_points.append(QPoint(point))
+        return fake_screen
+
+    monkeypatch.setattr("eodinga.gui.launcher_window.QGuiApplication.screenAt", staticmethod(_screen_at))
+
+    launcher._restore_visible_geometry()
+
+    assert seen_probe_points == [QPoint(2520, 360)]
+    assert launcher.geometry().x() == 2200
+    assert launcher.geometry().y() == 120
 
     window.close()
     qapp.processEvents()
