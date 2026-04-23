@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.360 - 2026-04-23
+
+- Fixed bare and whitespace-separated `/regex/flags` parsing so closing delimiters after an even run of backslashes are no longer misread as escaped, keeping direct regex queries and `path:` or `content:` regex operators compilable.
+- Stabilized metadata-only query ordering for duplicate filenames by breaking same-name ties with the full path before row id, so filters like `ext:txt` stop depending on insertion order.
+- Avoided reapplying the same Qt theme on repeated `launch_gui()` calls against an existing `QApplication`, which keeps the unit GUI launch path from crashing during the full test run.
+
 ## 0.1.353 - 2026-04-23
 
 - Expanded the README with an install matrix, a fuller feature inventory, task-focused command recipes, and a packaged-artifacts summary so the shipped operator contract is easier to audit from one page.
