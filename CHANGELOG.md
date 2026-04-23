@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.981 - 2026-04-24
+
+- Expanded integration coverage for reopened indexes after multi-root rebuild pruning, pinning that removed roots stay absent after reopen while the surviving root still accepts live watcher-driven updates within the existing latency budget.
+- Added reopened-index regressions for swapped multi-root sets, confirming that replacing one root with another survives reopen, preserves root-scoped query boundaries, and accepts live updates only from the retained roots.
+
 ## 0.1.979 - 2026-04-24
 
 - Hardened the Windows packaging dry-run audit so it now rejects missing CLI/GUI entrypoints, missing required hidden imports, dropped runtime modules, and staged data drift before those regressions can leak into a release build.
