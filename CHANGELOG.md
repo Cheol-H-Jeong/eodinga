@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.449 - 2026-04-23
+
+- Replaced the stubbed `eodinga watch` subcommand with a real watchdog-backed live-update loop that keeps the SQLite index fresh until interrupted, matching the documented CLI surface.
+- Added subprocess integration coverage for the full CLI watch path, including single-root live refresh, multi-root root-scoped updates, and restart-without-rebuild behavior.
+- Regenerated the checked-in man page so the documented CLI options stay aligned with the live `watch` command, including the new `--root` override.
+
 ## 0.1.448 - 2026-04-23
 
 - Counted ordinary nonzero CLI exits as failed commands in observability metrics, so validation and syntax errors now appear in `commands_failed`, per-command failure tallies, and exit-code summaries without being misclassified as crashes.
