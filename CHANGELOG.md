@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.744 - 2026-04-23
+## 0.1.749 - 2026-04-23
 
 - Strengthened launcher match emphasis so highlighted name, path, and snippet fragments render with explicit bold treatment inside the existing highlight pill instead of relying on background color alone.
 - Added inline filter summaries inside the launcher search field, keeping parsed DSL filters visible while typing and exposing the same context through accessibility descriptions.
