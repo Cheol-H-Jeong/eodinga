@@ -163,6 +163,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Release Evidence Sequence" in architecture
     assert "## Derived Asset Ownership Matrix" in architecture
     assert "## Release Failure Isolation" in architecture
+    assert "## Symptom-To-Layer Map" in architecture
+    assert "## Command-To-Subsystem Map" in architecture
     assert "is the index that points at the underlying Windows, AppImage, Debian, and workflow-lint evidence" in architecture
     assert "compressed changelog" in architecture
     assert "scripts/generate_manpage.py" in architecture
@@ -171,6 +173,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "packaging/dist/" in architecture
     assert "EODINGA_LOG_PATH" in architecture
     assert "crash-<ts>.log" in architecture
+    assert "stale search results" in architecture
+    assert "launcher differs from CLI" in architecture
+    assert "filesystem changes do not appear" in architecture
+    assert "When a command and its owning subsystem disagree" in architecture
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
