@@ -185,6 +185,15 @@ def test_compile_non_ascii_path_filter_uses_python_normalized_scan() -> None:
     assert branch.where_params == ("txt",)
 
 
+def test_compile_path_regex_with_embedded_escaped_slash() -> None:
+    compiled = compile_query(parse(r"path:/team\/notes/i"))
+    branch = compiled.branches[0]
+
+    assert not branch.path_filters
+    assert branch.path_regex_terms[0].pattern == r"team\/notes"
+    assert branch.path_regex_terms[0].flags == "i"
+
+
 def test_compile_negated_group_pushes_negation_to_leaf_terms() -> None:
     compiled = compile_query(parse("-(alpha | beta) ext:txt"))
     branch = compiled.branches[0]

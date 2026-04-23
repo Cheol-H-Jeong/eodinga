@@ -256,7 +256,9 @@ class _Parser:
             suffix = value[last + 1 :]
             if suffix and (len(suffix) > 3 or not suffix.isalpha()):
                 return value, "word", ""
-            if name == "path" and value.startswith("/") and (len(delimiters) < 3 or not suffix):
+            if name == "path" and value.startswith("/") and (
+                not suffix or (len(delimiters) < 3 and r"\/" not in pattern)
+            ):
                 return value, "word", ""
             if name == "path" and suffix:
                 try:
