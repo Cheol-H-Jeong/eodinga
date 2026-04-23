@@ -655,6 +655,86 @@ def test_watcher_start_ignores_duplicate_root_registration(
     assert metrics["counters"]["watcher_observers_stopped"] == 1
 
 
+def test_watcher_start_cleans_flush_thread_when_observer_start_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import eodinga.core.watcher as watcher_module
+
+    flush_threads: list[FakeThread] = []
+
+    class FakeThread:
+        def __init__(self, _target) -> None:
+            self.started = False
+            self.joined: list[float | None] = []
+            self.alive = False
+
+        def start(self) -> None:
+            self.started = True
+            self.alive = True
+
+        def is_alive(self) -> bool:
+            return self.alive
+
+        def join(self, timeout: float | None = None) -> None:
+            self.joined.append(timeout)
+            self.alive = False
+
+    def fake_spawn_thread(target):
+        thread = FakeThread(target)
+        flush_threads.append(thread)
+        return thread
+
+    starts: list[Path] = []
+    stops: list[Path] = []
+    joins: list[tuple[Path, float | None]] = []
+
+    class FakeObserver:
+        attempts = 0
+
+        def __init__(self) -> None:
+            self.root: Path | None = None
+
+        def schedule(self, _handler: object, root_text: str, recursive: bool = True) -> None:
+            assert recursive is True
+            self.root = Path(root_text)
+
+        def start(self) -> None:
+            assert self.root is not None
+            starts.append(self.root)
+            type(self).attempts += 1
+            if type(self).attempts == 1:
+                raise RuntimeError("simulated observer start failure")
+
+        def stop(self) -> None:
+            assert self.root is not None
+            stops.append(self.root)
+
+        def join(self, timeout: float | None = None) -> None:
+            assert self.root is not None
+            joins.append((self.root, timeout))
+
+    monkeypatch.setattr(watcher_module, "_spawn_thread", fake_spawn_thread)
+    monkeypatch.setattr(watcher_module, "Observer", FakeObserver)
+
+    service = WatchService()
+
+    with pytest.raises(RuntimeError, match="simulated observer start failure"):
+        service.start(tmp_path)
+
+    assert len(flush_threads) == 1
+    assert flush_threads[0].started is True
+    assert flush_threads[0].joined == [1]
+    assert service._flush_thread is None
+    assert service._observers == {}
+
+    service.start(tmp_path)
+    service.stop()
+
+    assert starts == [tmp_path, tmp_path]
+    assert stops == [tmp_path, tmp_path]
+    assert joins == [(tmp_path, 1), (tmp_path, 1)]
+
+
 def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path) -> None:
     service = WatchService(queue_maxsize=1)
     first = tmp_path / "first.txt"
