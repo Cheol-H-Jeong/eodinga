@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.249 - 2026-04-23
+
+- Restricted ranking deboost markers like `node_modules` and `.git` to full path segments, preventing unrelated paths such as `node_modules_backup` or `git-cache` from being unfairly pushed down.
+- Stabilized the Unicode path-scan fallback so equal-score duplicate filenames now break ties deterministically by path and id instead of depending on insertion order.
+- Expanded DSL regressions around empty quoted phrases and Korean regex literals with escaped `/`, keeping parser edge cases pinned as the query grammar evolves.
+
 ## 0.1.244 - 2026-04-23
 
 - Hardened staged index recovery so interrupted `.recover` and `.next` snapshots must contain initialized schema before they can replace a live index, preventing empty or half-built files from being promoted during startup recovery.
