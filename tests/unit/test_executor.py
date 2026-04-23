@@ -914,6 +914,21 @@ def test_execute_is_empty_queries(tmp_db: sqlite3.Connection) -> None:
     assert "/workspace/non-empty-dir/note.txt" in non_empty_hits
 
 
+def test_execute_is_empty_treats_like_wildcards_in_directory_names_as_literals(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/100%_cache", 0, now, "", is_dir=True)
+    _insert_file(tmp_db, 2, "/workspace/100xa_cache", 0, now - 60, "", is_dir=True)
+    _insert_file(tmp_db, 3, "/workspace/100xa_cache/note.txt", 1, now - 120, "txt", body_text="child")
+    tmp_db.commit()
+
+    empty_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "is:empty", limit=10).hits]
+
+    assert "/workspace/100%_cache" in empty_hits
+    assert "/workspace/100xa_cache" not in empty_hits
+
+
 def test_execute_is_alias_queries(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/alpha.txt", 1, now, "txt", body_text="file")

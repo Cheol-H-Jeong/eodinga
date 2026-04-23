@@ -334,6 +334,14 @@ def test_compile_path_filter_escapes_like_wildcards() -> None:
     assert branch.where_params == (r"%100^%^_complete^^notes%",)
 
 
+def test_compile_is_empty_escapes_descendant_like_patterns() -> None:
+    compiled = compile_query(parse("is:empty"))
+    branch = compiled.branches[0]
+
+    assert "ESCAPE '^'" in branch.where_sql
+    assert "REPLACE(REPLACE(REPLACE(files.path, '^', '^^'), '%', '^%'), '_', '^_')" in branch.where_sql
+
+
 @pytest.mark.parametrize(
     "query",
     [

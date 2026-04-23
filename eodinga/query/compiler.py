@@ -126,6 +126,12 @@ def _escape_like_pattern(value: str) -> str:
     return value.replace("^", "^^").replace("%", "^%").replace("_", "^_")
 
 
+def _escaped_like_sql(expr: str) -> str:
+    return (
+        f"REPLACE(REPLACE(REPLACE({expr}, '^', '^^'), '%', '^%'), '_', '^_')"
+    )
+
+
 def _has_non_ascii(value: str) -> bool:
     return any(ord(char) > 127 for char in value)
 
@@ -250,6 +256,7 @@ def _normalize_is_value(value: str) -> str:
 
 
 def _empty_clause(negated: bool) -> str:
+    escaped_path = _escaped_like_sql("files.path")
     clause = (
         "("
         "(files.is_dir = 0 AND files.size = 0) OR "
@@ -257,8 +264,8 @@ def _empty_clause(negated: bool) -> str:
         "files.is_dir = 1 AND NOT EXISTS ("
         "SELECT 1 FROM files AS descendants "
         "WHERE descendants.id != files.id "
-        "AND (descendants.path LIKE (files.path || '/%') "
-        "OR descendants.path LIKE (files.path || '\\%'))"
+        f"AND (descendants.path LIKE ({escaped_path} || '/%') ESCAPE '^' "
+        f"OR descendants.path LIKE ({escaped_path} || '\\%') ESCAPE '^')"
         ")"
         ")"
         ")"
