@@ -156,6 +156,9 @@ def test_parse_slash_prefixed_path_regex_with_valid_flags() -> None:
         ('content: "hello world"', "content", "hello world", "phrase"),
         ('path:"문서 보관"', "path", "문서 보관", "phrase"),
         ("date: 2026-01-01..2026-01-03", "date", "2026-01-01..2026-01-03", "word"),
+        ("date: 2026-01-01 .. 2026-01-03", "date", "2026-01-01..2026-01-03", "word"),
+        ("created: .. 2026-01-03", "created", "..2026-01-03", "word"),
+        ("size: 100 .. 500K", "size", "100..500K", "word"),
     ],
 )
 def test_parse_operator_values_with_spacing_and_phrases(

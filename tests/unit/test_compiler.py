@@ -127,6 +127,26 @@ def test_compile_open_ended_date_ranges(
     assert isinstance(branch.where_params[param_index], int)
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_sql", "expected_param_count"),
+    [
+        ("date:2026-01-01 .. 2026-01-03", "files.mtime >= ? AND files.mtime < ?", 2),
+        ("created: .. 2026-01-03", "files.ctime < ?", 1),
+        ("size: 100 .. 500K", "files.size >= ? AND files.size <= ?", 2),
+    ],
+)
+def test_compile_range_operators_accept_optional_spacing(
+    query: str,
+    expected_sql: str,
+    expected_param_count: int,
+) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == expected_sql
+    assert len(branch.where_params) == expected_param_count
+
+
 def test_compile_datetime_literals_preserve_instant_granularity() -> None:
     compiled = compile_query(parse("modified:2026-01-03T09:15:30"))
     branch = compiled.branches[0]

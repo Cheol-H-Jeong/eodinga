@@ -603,10 +603,12 @@ def test_execute_size_range_queries(tmp_db: sqlite3.Connection) -> None:
     tmp_db.commit()
 
     hits = [hit.file.name for hit in search(tmp_db, "size:100..500K", limit=10).hits]
+    spaced_hits = [hit.file.name for hit in search(tmp_db, "size:100 .. 500K", limit=10).hits]
     reversed_hits = [hit.file.name for hit in search(tmp_db, "size:500K..100", limit=10).hits]
     negated_hits = [hit.file.name for hit in search(tmp_db, "-size:100..500K", limit=10).hits]
 
     assert hits == ["in-range-high.txt", "in-range-low.txt"]
+    assert spaced_hits == hits
     assert reversed_hits == hits
     assert negated_hits == ["tiny.txt", "too-large.txt"]
 

@@ -79,6 +79,8 @@ class QuerySyntaxError(ValueError):
 
 
 class _Parser:
+    RANGE_OPERATORS = frozenset({"date", "modified", "created", "size"})
+
     def __init__(self, source: str) -> None:
         self.source = source
         self.length = len(source)
@@ -156,6 +158,8 @@ class _Parser:
     def _parse_operator(self, name: str, initial_value: str, negated: bool) -> OperatorNode:
         if initial_value:
             value, value_kind, regex_flags = self._decode_inline_value(name, initial_value)
+            if value_kind == "word":
+                value = self._consume_range_tail(name, value)
             return OperatorNode(
                 name=name,
                 value=value,
@@ -182,7 +186,22 @@ class _Parser:
         value = self._read_token()
         if not value:
             raise QuerySyntaxError("expected operator value", self.index)
+        value = self._consume_range_tail(name, value)
         return OperatorNode(name=name, value=value, value_kind="word", negated=negated)
+
+    def _consume_range_tail(self, name: str, value: str) -> str:
+        if name not in self.RANGE_OPERATORS:
+            return value
+        if ".." in value and not value.endswith(".."):
+            return value
+        if value.endswith(".."):
+            return f"{value}{self._read_range_endpoint()}"
+        range_start = self._scan_range_separator()
+        if range_start is None:
+            return value
+        self.index = range_start + 2
+        tail = self._read_range_endpoint()
+        return f"{value}..{tail}"
 
     def _parse_phrase(self) -> PhraseNode:
         start = self.index
@@ -306,6 +325,21 @@ class _Parser:
         while (char := self._peek()) is not None and char.isspace():
             self.index += 1
         return self.index > start
+
+    def _read_range_endpoint(self) -> str:
+        self._skip_ws()
+        char = self._peek()
+        if char is None or char in "|)":
+            return ""
+        return self._read_token()
+
+    def _scan_range_separator(self) -> int | None:
+        probe = self.index
+        while probe < self.length and self.source[probe].isspace():
+            probe += 1
+        if self.source[probe : probe + 2] != "..":
+            return None
+        return probe
 
     def _validate_regex_flags(self, flags: str, position: int) -> None:
         allowed = {"i", "m", "s"}
