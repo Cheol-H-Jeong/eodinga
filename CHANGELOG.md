@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.116 - 2026-04-23
+## 0.1.121 - 2026-04-23
 
 - Expanded the PyInstaller hidden-import audit to discover real `eodinga` package imports from the source tree, reducing drift between the spec's manual list and the modules the app actually loads.
 - Tightened `packaging/build.py --target windows-dry-run` so it now fails on version mismatches or unresolved Inno template tokens while still writing a machine-readable audit for CI triage.
