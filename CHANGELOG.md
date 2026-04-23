@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.540 - 2026-04-23
+
+- Clarified the README and DSL guide around query scoping, grouped negation, and regex-versus-structured-operator behavior, giving operators more precise recipes for narrowing ambiguous searches.
+- Expanded the architecture guide with storage responsibilities, query cost notes, and explicit release-input review roles so docs, generated assets, and packaging audits read as one shipped surface.
+- Tightened contributor and release workflow docs around metadata-only version cuts, worker handoff boundaries, and version-collision recovery, reducing ambiguity when multiple worktrees cut release-bearing rounds concurrently.
+
 ## 0.1.535 - 2026-04-23
 
 - Added live observer integration coverage for same-root renames, asserting that search hits move to the new path within 500ms and stale path filters disappear.
