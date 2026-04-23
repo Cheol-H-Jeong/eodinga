@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.184 - 2026-04-23
+
+- Wired `launcher.debounce_ms` and `launcher.max_results` into both launcher surfaces, so the popup and embedded search panel now respect the configured debounce window and result cap instead of hard-coded defaults.
+- Surfaced configured `launcher.pinned_queries` in the shared launcher empty state, making pinned search macros visible anywhere the launcher UI appears without duplicating state.
+- Moved the `Alt+N` copy-name action into the launcher panel itself and updated the inline shortcut hints so copy-name, copy-path, reveal, and properties actions are all discoverable from the popup.
+
 ## 0.1.178 - 2026-04-23
 
 - Enriched `crash-<ts>.log` artifacts with stable runtime metadata including version, platform, current working directory, and argv so unhandled failures are easier to reproduce from one file.
