@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.711 - 2026-04-23
+
+- Improved launcher keyboard flow when no results are visible by making `Tab` and `Shift+Tab` reach pinned and recent query chips before falling through the rest of the launcher surface.
+- Split launcher empty-state and shortcut copy into dedicated helpers, keeping the launcher panel under the module-size cap while clarifying chip-focused keyboard hints.
+- Expanded accessibility descriptions across the main GUI tabs and launcher-adjacent controls so assistive technologies expose purpose, progress, and action context instead of only control labels.
+
 ## 0.1.707 - 2026-04-23
 
 - Added explicit `regex:` pattern handling to the query compiler, so `regex:/todo|fixme/i` and `regex:report-\d+` now behave as real path/name regex filters while `regex:true|false` still controls regex mode.
