@@ -462,6 +462,27 @@ def test_launcher_flag_toggles_preserve_geometry(qapp, temp_config_path: Path) -
     assert launcher.geometry() == before
 
 
+def test_launcher_direct_flag_toggles_persist_config(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"frameless": True, "always_on_top": False})
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    launcher = window.launcher_window
+    launcher.show()
+    qapp.processEvents()
+
+    launcher.set_always_on_top(True)
+    qapp.processEvents()
+    stored = load(temp_config_path)
+    assert stored.launcher.always_on_top is True
+    assert stored.launcher.frameless is True
+
+    launcher.set_frameless(False)
+    qapp.processEvents()
+    stored = load(temp_config_path)
+    assert stored.launcher.always_on_top is True
+    assert stored.launcher.frameless is False
+
+
 class _ActionSpy:
     def __init__(self) -> None:
         self.opened: list[str] = []
