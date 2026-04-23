@@ -19,6 +19,12 @@ class EmptyState(QWidget):
         self.body_label.setWordWrap(True)
         self.body_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.body_label.setAccessibleName("Launcher empty state guidance")
+        self.shortcuts_label = QLabel("", self)
+        self.shortcuts_label.setProperty("role", "secondary")
+        self.shortcuts_label.setWordWrap(True)
+        self.shortcuts_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.shortcuts_label.setAccessibleName("Launcher empty state shortcuts")
+        self.shortcuts_label.setVisible(False)
         self.details_label = QLabel("", self)
         self.details_label.setProperty("role", "secondary")
         self.details_label.setWordWrap(True)
@@ -28,10 +34,13 @@ class EmptyState(QWidget):
 
         layout.addWidget(self.title_label)
         layout.addWidget(self.body_label)
+        layout.addWidget(self.shortcuts_label)
         layout.addWidget(self.details_label)
 
-    def set_content(self, title: str, body: str, details: str = "") -> None:
+    def set_content(self, title: str, body: str, details: str = "", shortcuts: str = "") -> None:
         self.title_label.setText(title)
         self.body_label.setText(body)
+        self.shortcuts_label.setText(shortcuts)
+        self.shortcuts_label.setVisible(bool(shortcuts))
         self.details_label.setText(details)
         self.details_label.setVisible(bool(details))

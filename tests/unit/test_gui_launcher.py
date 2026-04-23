@@ -435,8 +435,9 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
 
     assert launcher.empty_state.title_label.text() == "Type to search"
     assert "No recent queries yet" in launcher.empty_state.body_label.text()
-    assert "Alt+Up" in launcher.empty_state.body_label.text()
-    assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
+    assert "Click a launcher chip" in launcher.empty_state.body_label.text()
+    assert "Alt+Up" in launcher.empty_state.shortcuts_label.text()
+    assert "Ctrl+Enter" in launcher.empty_state.shortcuts_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
     assert "(20%)" in launcher.empty_state.details_label.text()
     assert launcher.status_chip.text() == "Indexing"
@@ -449,7 +450,8 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.status_chip.text() == "No results"
     assert launcher.empty_state.title_label.text() == 'No results for "missing"'
     assert "date:this-week" in launcher.empty_state.body_label.text()
-    assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
+    assert "Esc hides the launcher" in launcher.empty_state.shortcuts_label.text()
+    assert "Tab returns to the filter" in launcher.empty_state.shortcuts_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
     assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
     assert "Alt+Up recalls recent queries" in launcher.shortcut_label.text()
@@ -712,7 +714,7 @@ def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     launcher = LauncherWindow(state=LauncherState())
     launcher.show()
 
-    assert "Alt+1 through Alt+9" in launcher.empty_state.body_label.text()
+    assert "Alt+1..9" in launcher.empty_state.shortcuts_label.text()
 
 
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:

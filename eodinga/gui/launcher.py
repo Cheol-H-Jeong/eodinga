@@ -310,14 +310,16 @@ class LauncherPanel(QWidget):
             pinned_queries = f" Pinned: {', '.join(self._pinned_queries[:3])}." if self._pinned_queries else ""
             self.empty_state.set_content(
                 "Type to search",
-                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip or press Alt+Up to recall recent queries, Alt+1 through Alt+9 to open a top hit, Tab to move to results, Enter to open the top hit, and Ctrl+Enter to reveal its folder.",
+                f"Recent: {recent_queries}.{pinned_queries} Click a launcher chip to reuse a pinned or recent search instantly.",
                 details,
+                "Alt+Up recalls recent queries. Alt+1..9 opens a top hit. Tab moves into results. Enter opens the top hit. Ctrl+Enter reveals its folder.",
             )
         else:
             self.empty_state.set_content(
                 f'No results for "{query}"',
-                "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. Press Tab to jump back to the filter or Esc to hide the launcher.",
+                "Try another term or refine with filters like ext:pdf, date:this-week, size:>10M, or content:launch.",
                 details,
+                "Tab returns to the filter. Alt+Up recalls recent queries. Esc hides the launcher.",
             )
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
