@@ -10,6 +10,7 @@ from eodinga.index.schema import PRAGMAS
 from eodinga.observability import get_logger
 
 SQLITE_CACHED_STATEMENTS = 128
+BUILD_COMPLETE_META_KEY = "build_complete"
 
 
 def _sidecar(path: Path, suffix: str) -> Path:
@@ -33,6 +34,30 @@ def connect_database(
         sqlite3.connect(path, cached_statements=SQLITE_CACHED_STATEMENTS),
         row_factory=row_factory,
     )
+
+
+def mark_build_complete(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "INSERT INTO meta(key, value) VALUES(?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (BUILD_COMPLETE_META_KEY, "1"),
+    )
+
+
+def build_is_complete(path: Path) -> bool:
+    if not path.exists():
+        return False
+    conn = connect_database(path, row_factory=None)
+    try:
+        row = conn.execute(
+            "SELECT value FROM meta WHERE key = ?",
+            (BUILD_COMPLETE_META_KEY,),
+        ).fetchone()
+    except sqlite3.DatabaseError:
+        return False
+    finally:
+        conn.close()
+    return bool(row and row[0] == "1")
 
 
 def _checkpoint_wal(path: Path) -> None:
@@ -183,6 +208,10 @@ def recover_interrupted_build(path: Path) -> bool:
     if not staged_path.exists():
         return False
     logger = get_logger("index.storage")
+    if not build_is_complete(staged_path):
+        logger.warning("discarding incomplete staged build for {}", path)
+        _cleanup_index_files(staged_path)
+        return False
     logger.warning("resuming interrupted staged build for {}", path)
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
@@ -226,9 +255,11 @@ def atomic_replace_index(staged_path: Path, target_path: Path) -> None:
 
 __all__ = [
     "atomic_replace_index",
+    "build_is_complete",
     "configure_connection",
     "connect_database",
     "has_stale_wal",
+    "mark_build_complete",
     "open_index",
     "recover_interrupted_build",
     "recover_interrupted_recovery",

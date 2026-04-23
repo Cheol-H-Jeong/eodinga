@@ -11,8 +11,10 @@ from eodinga.index.schema import apply_schema
 from eodinga.index.storage import (
     SQLITE_CACHED_STATEMENTS,
     atomic_replace_index,
+    build_is_complete,
     connect_database,
     has_stale_wal,
+    mark_build_complete,
     open_index,
     recover_interrupted_build,
     recover_interrupted_recovery,
@@ -397,6 +399,7 @@ def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         ("/rebuilt", "[]", "[]", 1),
     )
+    mark_build_complete(staged_conn)
     staged_conn.commit()
     staged_conn.close()
 
@@ -424,6 +427,7 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         ("/rebuilt-startup", "[]", "[]", 1),
     )
+    mark_build_complete(staged_conn)
     staged_conn.commit()
     staged_conn.close()
 
@@ -437,6 +441,34 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     assert not staged.exists()
     assert not staged.with_name(".index.db.next-wal").exists()
     assert not staged.with_name(".index.db.next-shm").exists()
+
+
+def test_recover_interrupted_build_discards_incomplete_staged_database(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/partial", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    assert build_is_complete(staged) is False
+    assert recover_interrupted_build(target) is False
+    assert _read_root_paths(target) == ["/live"]
+    assert not staged.exists()
 
 
 def test_open_index_resumes_interrupted_recovery_with_staged_wal(tmp_path: Path) -> None:
