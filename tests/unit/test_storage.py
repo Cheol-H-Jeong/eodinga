@@ -208,6 +208,41 @@ def test_atomic_replace_index_preserves_live_sidecars_when_swap_fails(
     assert _read_root_paths(target) == ["/live"]
 
 
+def test_cleanup_sidecars_ignores_raced_removal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "index.db"
+    wal = path.with_name("index.db-wal")
+    wal.write_bytes(b"stale")
+    original_unlink = Path.unlink
+
+    def flaky_unlink(self: Path, missing_ok: bool = False) -> None:
+        if self == wal:
+            original_unlink(self, missing_ok=missing_ok)
+            raise FileNotFoundError(self)
+        original_unlink(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+
+    assert storage_module._cleanup_sidecars(path) is True
+    assert not wal.exists()
+
+
+def test_cleanup_index_files_ignores_raced_removal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "index.db"
+    path.write_bytes(b"sqlite")
+    original_unlink = Path.unlink
+
+    def flaky_unlink(self: Path, missing_ok: bool = False) -> None:
+        if self == path:
+            original_unlink(self, missing_ok=missing_ok)
+            raise FileNotFoundError(self)
+        original_unlink(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", flaky_unlink)
+
+    assert storage_module._cleanup_index_files(path) is True
+    assert not path.exists()
+
+
 def test_open_index_replays_stale_wal_on_startup(tmp_path: Path) -> None:
     source = tmp_path / "source.db"
     snapshot = tmp_path / "snapshot.db"
