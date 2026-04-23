@@ -24,9 +24,11 @@ class QueryChipRow(QWidget):
         self._label = QLabel(label, self)
         self._label.setProperty("role", "secondary")
         self._label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self._label.setAccessibleName(f"{label} query group label")
         layout.addWidget(self._label)
 
         self._chips_container = QWidget(self)
+        self._chips_container.setAccessibleName(f"{label} query shortcuts")
         chips_layout = QHBoxLayout(self._chips_container)
         chips_layout.setContentsMargins(0, 0, 0, 0)
         chips_layout.setSpacing(SPACE_4)
