@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.526 - 2026-04-23
+## 0.1.529 - 2026-04-23
 
 - Extended the launcher keyboard cycle so `Tab` now reaches pinned and recent query chips before search results, and continues from results into the action bar instead of skipping those controls entirely.
 - Added direct keyboard navigation across launcher chips and actions, with focus-aware shortcut guidance that explains what Enter, Tab, and Shift+Tab do on each surface.
