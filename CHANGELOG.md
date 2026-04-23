@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.733 - 2026-04-23
+
+- Preserved watcher flush tails under queue backpressure, so undelivered events and move-source retirement metadata are re-queued instead of being silently dropped mid-flush.
+- Expanded the no-network source safety gate to flag `bash -lc`, `sh -c`, and `cmd /c` subprocess wrappers that still launch banned network clients like `curl` and `wget`.
+
 ## 0.1.718 - 2026-04-23
 
 - Let `size:` filters accept comparator-separated values like `size:> 10M`, so spaced numeric input now parses the same way as the compact form.
