@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.979 - 2026-04-24
+
+- Added launcher result-list context actions so right-clicking a hit now follows the clicked row and exposes open, reveal, copy-path, copy-name, and properties flows without leaving the keyboard-first surface.
+- Surfaced live launcher hotkey backend status in Settings, making it clear whether remaps apply immediately or are only being saved for a future session when the backend is unavailable.
+- Expanded the tray launcher menu with dedicated indexing progress and current-root rows so popup-state monitoring no longer depends on hover-only tooltip text.
+
 ## 0.1.974 - 2026-04-24
 
 - Added a symptom-first README troubleshooting guide plus FAQ clarifications that point operators to the shortest command or audit artifact before they rerun broader release checks.
