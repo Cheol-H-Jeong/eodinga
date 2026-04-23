@@ -693,3 +693,66 @@ def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path)
 
     second_event = service.queue.get_nowait()
     assert second_event.path == second
+
+
+def test_watcher_flush_requeues_entire_undelivered_tail_on_enqueue_abort(tmp_path: Path) -> None:
+    service = WatchService()
+    first = tmp_path / "first.txt"
+    second = tmp_path / "second.txt"
+    third = tmp_path / "third.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=first,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=second,
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=third,
+            root_path=tmp_path,
+            happened_at=3.0,
+        )
+    )
+
+    delivered: list[Path] = []
+    attempts = {"count": 0}
+
+    def fail_on_second_enqueue(event: WatchEvent) -> bool:
+        attempts["count"] += 1
+        if attempts["count"] == 2:
+            return False
+        delivered.append(event.path)
+        return True
+
+    service._enqueue_event = fail_on_second_enqueue  # type: ignore[method-assign]
+
+    service._flush_ready(force=True)
+
+    assert delivered == [first]
+    assert service._pending == {
+        second: WatchEvent(
+            event_type="created",
+            path=second,
+            root_path=tmp_path,
+            happened_at=2.0,
+        ),
+        third: WatchEvent(
+            event_type="created",
+            path=third,
+            root_path=tmp_path,
+            happened_at=3.0,
+        ),
+    }
+    assert set(service._timestamps) == {second, third}
