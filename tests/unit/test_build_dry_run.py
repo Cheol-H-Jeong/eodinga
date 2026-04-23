@@ -412,6 +412,8 @@ def test_linux_appimage_audit_validator_rejects_launcher_help_regression() -> No
             "name": "eodinga",
             "exec": "eodinga gui",
             "icon": "eodinga",
+            "type": "Application",
+            "terminal": "false",
             "categories": "Utility;FileTools;",
             "startup_notify": "true",
         },
@@ -479,6 +481,8 @@ def test_linux_appimage_audit_validator_rejects_launcher_version_regression() ->
             "name": "eodinga",
             "exec": "eodinga gui",
             "icon": "eodinga",
+            "type": "Application",
+            "terminal": "false",
             "categories": "Utility;FileTools;",
             "startup_notify": "true",
         },
@@ -584,6 +588,8 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
+    assert payload["desktop_entry"]["type"] == "Application"
+    assert payload["desktop_entry"]["terminal"] == "false"
     assert payload["desktop_entry"]["categories"] == "Utility;FileTools;"
     assert payload["desktop_entry"]["startup_notify"] == "true"
     assert payload["recipe"]["exists"] is True
@@ -858,6 +864,8 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert payload["desktop_entry"]["name"] == "eodinga"
     assert payload["desktop_entry"]["exec"] == "eodinga gui"
     assert payload["desktop_entry"]["icon"] == "eodinga"
+    assert payload["desktop_entry"]["type"] == "Application"
+    assert payload["desktop_entry"]["terminal"] == "false"
     assert payload["desktop_entry"]["categories"] == "Utility;FileTools;"
     assert payload["desktop_entry"]["startup_notify"] == "true"
     assert payload["desktop_entry"]["launches_gui"] is True
@@ -943,6 +951,8 @@ def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadat
             "name": "eodinga",
             "exec": "eodinga gui",
             "icon": "eodinga",
+            "type": "Application",
+            "terminal": "false",
             "categories": "Utility;FileTools;",
             "startup_notify": "true",
         },
@@ -1097,6 +1107,8 @@ def test_linux_deb_audit_validator_rejects_missing_artifact_metadata() -> None:
         "desktop_entry": {
             "matches_source_asset": True,
             "name": "eodinga",
+            "type": "Application",
+            "terminal": "false",
             "launches_gui": True,
             "icon_matches_package": True,
             "categories": "Utility;FileTools;",

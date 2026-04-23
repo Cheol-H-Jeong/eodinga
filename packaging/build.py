@@ -320,6 +320,14 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
             payload.get("desktop_entry", {}).get("startup_notify") == "true",
             "AppImage desktop entry no longer enables startup notifications",
         ),
+        (
+            payload.get("desktop_entry", {}).get("type") == "Application",
+            "AppImage desktop entry type drifted from Application",
+        ),
+        (
+            payload.get("desktop_entry", {}).get("terminal") == "false",
+            "AppImage desktop entry no longer disables terminal launch",
+        ),
         (icon_payload.get("exists"), "AppImage icon asset is missing from the staged AppDir"),
         (icon_payload.get("diricon_exists"), "AppImage .DirIcon is missing"),
         (icon_payload.get("desktop_icon_matches_asset"), "AppImage desktop icon no longer matches the shipped asset"),
@@ -440,6 +448,14 @@ def _validate_linux_deb_audit(payload: dict[str, Any], project_version: str, pac
         (
             desktop_payload.get("startup_notify") == "true",
             "Debian desktop entry no longer enables startup notifications",
+        ),
+        (
+            desktop_payload.get("type") == "Application",
+            "Debian desktop entry type drifted from Application",
+        ),
+        (
+            desktop_payload.get("terminal") == "false",
+            "Debian desktop entry no longer disables terminal launch",
         ),
         (icon_payload.get("exists"), "Debian icon asset is missing from the package tree"),
         (icon_payload.get("desktop_icon_matches_asset"), "Debian desktop icon no longer matches the shipped asset"),

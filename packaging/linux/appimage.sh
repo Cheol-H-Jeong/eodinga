@@ -151,6 +151,8 @@ payload = {
         "name": desktop_entries.get("Name"),
         "exec": desktop_entries.get("Exec"),
         "icon": desktop_entries.get("Icon"),
+        "type": desktop_entries.get("Type"),
+        "terminal": desktop_entries.get("Terminal"),
         "categories": desktop_entries.get("Categories"),
         "startup_notify": desktop_entries.get("StartupNotify"),
         "matches_source_asset": desktop_path.read_text(encoding="utf-8") == Path("${ROOT_DIR}/packaging/linux/eodinga.desktop").read_text(encoding="utf-8"),
