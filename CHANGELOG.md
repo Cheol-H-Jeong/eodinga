@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.816 - 2026-04-23
+
+- Added a query-planning guide and release-evidence bundle to the README so operators can pick the right DSL/operator family and verify docs-only release inputs faster.
+- Documented surface state resolution and the release evidence loop in the architecture guide, making config/index-path debugging and docs-to-packaging review easier to follow.
+- Tightened contributor and release workflow docs around single-shot worker loops, artifact-first review, and metadata-retarget steps for parallel patch-version collisions.
+
 ## 0.1.809 - 2026-04-23
 
 - Added a scoped SQLite pragma override helper so performance-sensitive write paths can raise cache budgets or relax sync policy temporarily without leaking connection state afterward.
