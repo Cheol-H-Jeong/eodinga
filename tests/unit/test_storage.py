@@ -10,6 +10,7 @@ import pytest
 from eodinga.index.schema import apply_schema
 from eodinga.index.storage import (
     SQLITE_CACHED_STATEMENTS,
+    SQLITE_TIMEOUT_SECONDS,
     atomic_replace_index,
     connect_database,
     has_stale_wal,
@@ -33,6 +34,10 @@ def _make_recovery_snapshot(source: Path, snapshot: Path) -> None:
     shutil.copy2(source, snapshot)
     shutil.copy2(source.with_name(f"{source.name}-wal"), snapshot.with_name(f"{snapshot.name}-wal"))
     shutil.copy2(source.with_name(f"{source.name}-shm"), snapshot.with_name(f"{snapshot.name}-shm"))
+
+
+def _mark_ready(path: Path) -> None:
+    path.with_name(f"{path.name}.ready").write_text("ready\n", encoding="utf-8")
 
 
 def test_atomic_replace_index_swaps_in_staged_database(tmp_path: Path) -> None:
@@ -217,8 +222,11 @@ def test_connect_database_applies_row_factory_and_pragmas(tmp_path: Path) -> Non
     try:
         assert conn.row_factory is sqlite3.Row
         cache_size = conn.execute("PRAGMA cache_size;").fetchone()
+        busy_timeout = conn.execute("PRAGMA busy_timeout;").fetchone()
         assert cache_size is not None
+        assert busy_timeout is not None
         assert int(cache_size[0]) == -64000
+        assert int(busy_timeout[0]) == int(SQLITE_TIMEOUT_SECONDS * 1000)
     finally:
         conn.close()
 
@@ -241,6 +249,7 @@ def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, m
     def fake_connect(database: str | bytes | Path, *args: Any, **kwargs: Any) -> sqlite3.Connection:
         seen["database"] = database
         seen["cached_statements"] = kwargs.get("cached_statements")
+        seen["timeout"] = kwargs.get("timeout")
         return original_connect(database, *args, **kwargs)
 
     monkeypatch.setattr(sqlite3, "connect", fake_connect)
@@ -249,6 +258,7 @@ def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, m
     try:
         assert seen["database"] == path
         assert seen["cached_statements"] == SQLITE_CACHED_STATEMENTS
+        assert seen["timeout"] == SQLITE_TIMEOUT_SECONDS
     finally:
         conn.close()
 
@@ -372,10 +382,12 @@ def test_recover_interrupted_recovery_swaps_existing_staged_database(tmp_path: P
     )
     staged_conn.commit()
     staged_conn.close()
+    _mark_ready(staged)
 
     assert recover_interrupted_recovery(target) is True
     assert _read_root_paths(target) == ["/resumed"]
     assert not staged.exists()
+    assert not staged.with_name(".index.db.recover.ready").exists()
 
 
 def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path) -> None:
@@ -399,10 +411,12 @@ def test_recover_interrupted_build_swaps_existing_staged_database(tmp_path: Path
     )
     staged_conn.commit()
     staged_conn.close()
+    _mark_ready(staged)
 
     assert recover_interrupted_build(target) is True
     assert _read_root_paths(target) == ["/rebuilt"]
     assert not staged.exists()
+    assert not staged.with_name(".index.db.next.ready").exists()
 
 
 def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
@@ -426,6 +440,7 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     )
     staged_conn.commit()
     staged_conn.close()
+    _mark_ready(staged)
 
     reopened = open_index(target)
     try:
@@ -437,6 +452,7 @@ def test_open_index_resumes_interrupted_staged_build(tmp_path: Path) -> None:
     assert not staged.exists()
     assert not staged.with_name(".index.db.next-wal").exists()
     assert not staged.with_name(".index.db.next-shm").exists()
+    assert not staged.with_name(".index.db.next.ready").exists()
 
 
 def test_open_index_resumes_interrupted_recovery_with_staged_wal(tmp_path: Path) -> None:
@@ -463,6 +479,7 @@ def test_open_index_resumes_interrupted_recovery_with_staged_wal(tmp_path: Path)
     source_conn.commit()
     _make_recovery_snapshot(source, staged)
     source_conn.close()
+    _mark_ready(staged)
 
     reopened = open_index(target)
     try:
@@ -474,6 +491,113 @@ def test_open_index_resumes_interrupted_recovery_with_staged_wal(tmp_path: Path)
     assert not staged.exists()
     assert not staged.with_name(".index.db.recover-wal").exists()
     assert not staged.with_name(".index.db.recover-shm").exists()
+    assert not staged.with_name(".index.db.recover.ready").exists()
+
+
+def test_recover_interrupted_build_discards_incomplete_staged_database(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/partial", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    assert recover_interrupted_build(target) is False
+    assert _read_root_paths(target) == ["/live"]
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.next.ready").exists()
+
+
+def test_recover_interrupted_recovery_discards_incomplete_staged_database(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged_conn = sqlite3.connect(staged)
+    apply_schema(staged_conn)
+    staged_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/partial", "[]", "[]", 1),
+    )
+    staged_conn.commit()
+    staged_conn.close()
+
+    assert recover_interrupted_recovery(target) is False
+    assert _read_root_paths(target) == ["/live"]
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.recover.ready").exists()
+
+
+def test_open_index_discards_incomplete_staged_build_before_open(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    conn = sqlite3.connect(staged)
+    apply_schema(conn)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/partial-build", "[]", "[]", 1),
+    )
+    conn.commit()
+    conn.close()
+
+    reopened = open_index(path)
+    try:
+        rows = reopened.execute("SELECT COUNT(*) FROM roots").fetchone()
+        assert rows is not None
+        assert int(rows[0]) == 0
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.next.ready").exists()
+
+
+def test_open_index_discards_incomplete_staged_recovery_before_open(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+
+    conn = sqlite3.connect(staged)
+    apply_schema(conn)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/partial-recovery", "[]", "[]", 1),
+    )
+    conn.commit()
+    conn.close()
+
+    reopened = open_index(path)
+    try:
+        rows = reopened.execute("SELECT COUNT(*) FROM roots").fetchone()
+        assert rows is not None
+        assert int(rows[0]) == 0
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.recover.ready").exists()
 
 
 def test_open_index_raises_when_interrupted_recovery_resume_fails(
@@ -482,6 +606,7 @@ def test_open_index_raises_when_interrupted_recovery_resume_fails(
     path = tmp_path / "index.db"
     staged = tmp_path / ".index.db.recover"
     staged.write_bytes(b"sqlite")
+    _mark_ready(staged)
 
     monkeypatch.setattr("eodinga.index.storage.recover_interrupted_recovery", lambda _path: False)
 
@@ -495,6 +620,7 @@ def test_open_index_raises_when_interrupted_build_resume_fails(
     path = tmp_path / "index.db"
     staged = tmp_path / ".index.db.next"
     staged.write_bytes(b"sqlite")
+    _mark_ready(staged)
 
     monkeypatch.setattr("eodinga.index.storage.recover_interrupted_build", lambda _path: False)
 
@@ -507,6 +633,7 @@ def test_open_index_cleans_orphaned_recovery_sidecars_before_open(tmp_path: Path
     staged = tmp_path / ".index.db.recover"
     staged.with_name(".index.db.recover-wal").write_bytes(b"orphaned")
     staged.with_name(".index.db.recover-shm").write_bytes(b"orphaned")
+    staged.with_name(".index.db.recover.ready").write_text("ready\n", encoding="utf-8")
 
     reopened = open_index(path)
     try:
@@ -519,6 +646,7 @@ def test_open_index_cleans_orphaned_recovery_sidecars_before_open(tmp_path: Path
     assert not staged.exists()
     assert not staged.with_name(".index.db.recover-wal").exists()
     assert not staged.with_name(".index.db.recover-shm").exists()
+    assert not staged.with_name(".index.db.recover.ready").exists()
 
 
 def test_open_index_cleans_orphaned_build_sidecars_before_open(tmp_path: Path) -> None:
@@ -526,6 +654,7 @@ def test_open_index_cleans_orphaned_build_sidecars_before_open(tmp_path: Path) -
     staged = tmp_path / ".index.db.next"
     staged.with_name(".index.db.next-wal").write_bytes(b"orphaned")
     staged.with_name(".index.db.next-shm").write_bytes(b"orphaned")
+    staged.with_name(".index.db.next.ready").write_text("ready\n", encoding="utf-8")
 
     reopened = open_index(path)
     try:
@@ -538,3 +667,4 @@ def test_open_index_cleans_orphaned_build_sidecars_before_open(tmp_path: Path) -
     assert not staged.exists()
     assert not staged.with_name(".index.db.next-wal").exists()
     assert not staged.with_name(".index.db.next-shm").exists()
+    assert not staged.with_name(".index.db.next.ready").exists()

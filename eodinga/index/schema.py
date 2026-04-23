@@ -5,6 +5,7 @@ import sqlite3
 PRAGMAS = (
     "PRAGMA journal_mode=WAL;",
     "PRAGMA synchronous=NORMAL;",
+    "PRAGMA busy_timeout=5000;",
     "PRAGMA mmap_size=1073741824;",
     "PRAGMA temp_store=MEMORY;",
     "PRAGMA cache_size=-64000;",

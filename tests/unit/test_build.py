@@ -77,6 +77,7 @@ def test_rebuild_index_failure_keeps_existing_target_database(
     staged_path = db_path.with_name(".index.db.next")
     assert not staged_path.exists()
     assert not staged_path.with_name(".index.db.next-wal").exists()
+    assert not staged_path.with_name(".index.db.next.ready").exists()
 
 
 def test_rebuild_index_records_runtime_metrics(tmp_path: Path) -> None:
@@ -96,3 +97,4 @@ def test_rebuild_index_records_runtime_metrics(tmp_path: Path) -> None:
     assert metrics["counters"]["files_indexed"] == 3
     assert metrics["histograms"]["index_rebuild_latency_ms"]["count"] == 1
     assert cast(int, batch_histogram["count"]) >= 1
+    assert not db_path.with_name(".index.db.next.ready").exists()

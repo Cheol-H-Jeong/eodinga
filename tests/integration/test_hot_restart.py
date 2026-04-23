@@ -17,6 +17,10 @@ from eodinga.query import search
 from tests.conftest import make_record
 
 
+def _mark_ready(path: Path) -> None:
+    path.with_name(f"{path.name}.ready").write_text("ready\n", encoding="utf-8")
+
+
 def _wait_for_query_hit(
     conn,
     service: WatchService,
@@ -149,6 +153,7 @@ def test_hot_restart_resumes_interrupted_recovery_stage(tmp_path: Path) -> None:
         shutil.copy2(source.with_name("source.db-shm"), staged_db.with_name(".index.db.recover-shm"))
     finally:
         source_conn.close()
+    _mark_ready(staged_db)
 
     reopened = open_index(target_db)
     try:
@@ -294,6 +299,7 @@ def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updat
     rebuild_index(staged_db, [RootConfig(path=root)], content_enabled=True)
     target_db.unlink()
     assert staged_db.exists()
+    _mark_ready(staged_db)
 
     reopened = open_index(target_db)
     service = WatchService()

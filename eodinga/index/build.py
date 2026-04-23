@@ -9,7 +9,13 @@ from eodinga.common import PathRules
 from eodinga.config import RootConfig
 from eodinga.content.registry import parse
 from eodinga.core.walker import walk_batched
-from eodinga.index.storage import _cleanup_index_files, atomic_replace_index, connect_database
+from eodinga.index.storage import (
+    _cleanup_index_files,
+    _cleanup_staged_artifacts,
+    _mark_staged_ready,
+    atomic_replace_index,
+    connect_database,
+)
 from eodinga.index.writer import IndexWriter
 from eodinga.observability import increment_counter, record_histogram
 
@@ -92,10 +98,12 @@ def rebuild_index(
         raise
     conn.close()
     try:
+        _mark_staged_ready(staged_path)
         atomic_replace_index(staged_path, target_path)
     except Exception:
-        _cleanup_index_files(staged_path)
+        _cleanup_staged_artifacts(staged_path)
         raise
+    _cleanup_staged_artifacts(staged_path)
     elapsed_ms = (perf_counter() - started) * 1000
     increment_counter("index_rebuilds_completed")
     record_histogram(

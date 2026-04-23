@@ -9,6 +9,10 @@ from eodinga.doctor import run_diagnostics
 from eodinga.index.schema import apply_schema
 
 
+def _mark_ready(path: Path) -> None:
+    path.with_name(f"{path.name}.ready").write_text("ready\n", encoding="utf-8")
+
+
 def test_doctor_returns_expected_shape(tmp_path: Path) -> None:
     config = AppConfig(roots=[RootConfig(path=tmp_path)])
     report, exit_code = run_diagnostics(config=config, db_path=tmp_path / "index.db")
@@ -92,6 +96,7 @@ def test_doctor_resumes_interrupted_recovery_before_reporting(tmp_path: Path) ->
     )
     conn.commit()
     conn.close()
+    _mark_ready(staged_path)
 
     report, exit_code = run_diagnostics(config=AppConfig(), db_path=db_path)
 
@@ -117,6 +122,7 @@ def test_doctor_resumes_interrupted_build_before_reporting(tmp_path: Path) -> No
     )
     conn.commit()
     conn.close()
+    _mark_ready(staged_path)
 
     report, exit_code = run_diagnostics(config=AppConfig(), db_path=db_path)
 
