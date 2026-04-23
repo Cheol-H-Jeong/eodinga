@@ -58,22 +58,23 @@ def _parse_iso_endpoint(value: str) -> DateRange:
 
 def parse_date_range(value: str) -> DateRange:
     today = datetime.now().astimezone().date()
-    if value == "today":
+    normalized = value.casefold()
+    if normalized == "today":
         return _day_bounds(today)
-    if value == "yesterday":
+    if normalized == "yesterday":
         return _day_bounds(today - timedelta(days=1))
-    if value == "this-week":
+    if normalized == "this-week":
         start = today - timedelta(days=today.weekday())
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(start + timedelta(days=7)).start)
-    if value == "last-week":
+    if normalized == "last-week":
         end = today - timedelta(days=today.weekday())
         start = end - timedelta(days=7)
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(end).start)
-    if value == "this-month":
+    if normalized == "this-month":
         start = _month_start(today)
         next_month = _next_month_start(start)
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(next_month).start)
-    if value == "last-month":
+    if normalized == "last-month":
         this_month = _month_start(today)
         last_month = _month_start(this_month - timedelta(days=1))
         return DateRange(start=_day_bounds(last_month).start, end=_day_bounds(this_month).start)

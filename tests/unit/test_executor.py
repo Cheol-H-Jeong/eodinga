@@ -184,6 +184,23 @@ def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     assert "old.txt" in last_month_hits
 
 
+def test_execute_relative_date_aliases_are_case_insensitive(tmp_db: sqlite3.Connection) -> None:
+    local_now = datetime.now().astimezone()
+    today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    this_week_start = today_start - local_now.weekday() * 86_400
+
+    _insert_file(tmp_db, 1, "/workspace/today.txt", 512, today_start + 60, "txt", body_text="today note")
+    _insert_file(tmp_db, 2, "/workspace/week.txt", 512, this_week_start + 120, "txt", body_text="week note")
+    tmp_db.commit()
+
+    today_hits = [hit.file.name for hit in search(tmp_db, "date:TODAY", limit=10).hits]
+    this_week_hits = [hit.file.name for hit in search(tmp_db, "date:This-Week", limit=10).hits]
+
+    assert today_hits == ["today.txt"]
+    assert "today.txt" in this_week_hits
+    assert "week.txt" in this_week_hits
+
+
 def test_execute_previous_period_date_queries_use_local_boundaries(
     tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:

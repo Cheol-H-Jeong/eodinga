@@ -84,6 +84,15 @@ def test_compile_date_alias_uses_mtime_range() -> None:
     assert len(branch.where_params) == 2
 
 
+@pytest.mark.parametrize("query", ["date:TODAY", "date:This-Week", "date:LAST-MONTH"])
+def test_compile_date_aliases_are_case_insensitive(query: str) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert len(branch.where_params) == 2
+
+
 @pytest.mark.parametrize("query", ["date:last-week", "date:last-month"])
 def test_compile_previous_period_date_aliases_use_mtime_ranges(query: str) -> None:
     compiled = compile_query(parse(query))
