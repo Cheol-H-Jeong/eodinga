@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -49,6 +50,25 @@ def _load_windows_spec_namespace() -> dict[str, Any]:
     return spec_namespace
 
 
+def _write_windows_bootstrap(name: str, command: str | None) -> Path:
+    bootstrap_dir = DIST_DIR / "windows"
+    bootstrap_dir.mkdir(parents=True, exist_ok=True)
+    bootstrap_path = bootstrap_dir / f"{name}-bootstrap.py"
+    argv_insert = "" if command is None else f'    sys.argv.insert(1, "{command}")\n'
+    bootstrap_path.write_text(
+        (
+            "from __future__ import annotations\n\n"
+            "import sys\n\n"
+            "from eodinga.__main__ import main\n\n\n"
+            "if __name__ == \"__main__\":\n"
+            f"{argv_insert}"
+            "    raise SystemExit(main())\n"
+        ),
+        encoding="utf-8",
+    )
+    return bootstrap_path
+
+
 def _render_inno_script(version: str, *, gui_dist_name: str, cli_dist_name: str, gui_exe_name: str) -> Path:
     rendered = INNO_SCRIPT.read_text(encoding="utf-8")
     rendered = rendered.replace(INNO_VERSION_TOKEN, version)
@@ -85,6 +105,8 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     gui_dist_name = str(spec_namespace.get("GUI_DIST_NAME", "eodinga-gui"))
     cli_exe_name = str(spec_namespace.get("CLI_EXE_NAME", f"{cli_dist_name}.exe"))
     gui_exe_name = str(spec_namespace.get("GUI_EXE_NAME", f"{gui_dist_name}.exe"))
+    cli_bootstrap = _write_windows_bootstrap(cli_dist_name, None)
+    gui_bootstrap = _write_windows_bootstrap(gui_dist_name, "gui")
     rendered_path = _render_inno_script(
         version,
         gui_dist_name=gui_dist_name,
@@ -117,6 +139,16 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "exe_names": {
                 "cli": cli_exe_name,
                 "gui": gui_exe_name,
+            },
+            "bootstrap_entries": {
+                "cli": str(cli_bootstrap),
+                "gui": str(gui_bootstrap),
+            },
+            "bootstrap_contract": {
+                "cli_exists": cli_bootstrap.exists(),
+                "gui_exists": gui_bootstrap.exists(),
+                "cli_preserves_argv": "sys.argv.insert(1, " not in cli_bootstrap.read_text(encoding="utf-8"),
+                "gui_launches_gui": 'sys.argv.insert(1, "gui")' in gui_bootstrap.read_text(encoding="utf-8"),
             },
             "required_hiddenimports": spec_namespace.get("REQUIRED_HIDDEN_IMPORTS", []),
             "discovered_source_hiddenimports": spec_namespace.get("DISCOVERED_SOURCE_HIDDEN_IMPORTS", []),
@@ -195,6 +227,15 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         errors.append("PyInstaller spec is missing")
     if not spec_payload.get("hiddenimports"):
         errors.append("PyInstaller hidden imports are empty")
+    bootstrap_payload = spec_payload.get("bootstrap_contract", {})
+    if not bootstrap_payload.get("cli_exists"):
+        errors.append("PyInstaller CLI bootstrap entry is missing")
+    if not bootstrap_payload.get("gui_exists"):
+        errors.append("PyInstaller GUI bootstrap entry is missing")
+    if not bootstrap_payload.get("cli_preserves_argv"):
+        errors.append("PyInstaller CLI bootstrap entry no longer preserves argv")
+    if not bootstrap_payload.get("gui_launches_gui"):
+        errors.append("PyInstaller GUI bootstrap entry no longer injects the gui command")
     discovered_source_hiddenimports = spec_payload.get("discovered_source_hiddenimports", [])
     if not discovered_source_hiddenimports:
         errors.append("PyInstaller source-derived hidden imports are empty")
@@ -344,6 +385,50 @@ def _preflight_required_commands(target: str, commands: list[str]) -> int:
     )
 
 
+def _pyinstaller_add_data_args(datas: list[tuple[str, str]]) -> list[str]:
+    args: list[str] = []
+    separator = os.pathsep
+    for source, destination in datas:
+        args.extend(["--add-data", f"{source}{separator}{destination}"])
+    return args
+
+
+def _run_subprocess(command: list[str], *, cwd: Path) -> int:
+    result = subprocess.run(command, cwd=cwd, check=False)
+    return int(result.returncode)
+
+
+def _build_windows_pyinstaller_command(
+    *,
+    bootstrap_path: str,
+    dist_name: str,
+    hiddenimports: list[str],
+    datas: list[tuple[str, str]],
+    windowed: bool,
+) -> list[str]:
+    command = [
+        "pyinstaller",
+        "--noconfirm",
+        "--clean",
+        "--onedir",
+        "--distpath",
+        str(DIST_DIR),
+        "--workpath",
+        str(DIST_DIR / "windows" / "pyinstaller-build"),
+        "--specpath",
+        str(DIST_DIR / "windows" / "spec"),
+        "--name",
+        dist_name,
+    ]
+    if windowed:
+        command.append("--windowed")
+    for hiddenimport in hiddenimports:
+        command.extend(["--hidden-import", hiddenimport])
+    command.extend(_pyinstaller_add_data_args(datas))
+    command.append(bootstrap_path)
+    return command
+
+
 def _run_windows_dry_run() -> int:
     version = _read_project_version()
     package_version = _read_package_version()
@@ -361,7 +446,32 @@ def _run_windows() -> int:
     payload = _audit_windows_inputs(version, package_version)
     payload["platform_tools"] = ["pyinstaller", "iscc"]
     _write_audit(payload)
-    return _report_validation_errors("windows", _validate_windows_audit(payload))
+    validation = _validate_windows_audit(payload)
+    if validation:
+        return _report_validation_errors("windows", validation)
+    spec_payload = payload["pyinstaller_spec"]
+    bootstrap_entries = spec_payload["bootstrap_entries"]
+    hiddenimports = list(spec_payload["hiddenimports"])
+    datas = [tuple(item) for item in spec_payload["datas"]]
+    cli_command = _build_windows_pyinstaller_command(
+        bootstrap_path=str(bootstrap_entries["cli"]),
+        dist_name=str(spec_payload["dist_names"]["cli"]),
+        hiddenimports=hiddenimports,
+        datas=datas,
+        windowed=False,
+    )
+    gui_command = _build_windows_pyinstaller_command(
+        bootstrap_path=str(bootstrap_entries["gui"]),
+        dist_name=str(spec_payload["dist_names"]["gui"]),
+        hiddenimports=hiddenimports,
+        datas=datas,
+        windowed=True,
+    )
+    for command in (cli_command, gui_command, ["iscc", str(payload["inno_setup"]["rendered_path"])]):
+        return_code = _run_subprocess(command, cwd=PROJECT_ROOT)
+        if return_code != 0:
+            return return_code
+    return 0
 
 
 def _run_linux_appimage_dry_run() -> int:

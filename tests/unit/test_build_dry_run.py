@@ -42,6 +42,18 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
         "cli": "eodinga-cli.exe",
         "gui": "eodinga-gui.exe",
     }
+    assert payload["pyinstaller_spec"]["bootstrap_contract"] == {
+        "cli_exists": True,
+        "gui_exists": True,
+        "cli_preserves_argv": True,
+        "gui_launches_gui": True,
+    }
+    cli_bootstrap = Path(payload["pyinstaller_spec"]["bootstrap_entries"]["cli"])
+    gui_bootstrap = Path(payload["pyinstaller_spec"]["bootstrap_entries"]["gui"])
+    assert cli_bootstrap.exists()
+    assert gui_bootstrap.exists()
+    assert 'sys.argv.insert(1, "gui")' not in cli_bootstrap.read_text(encoding="utf-8")
+    assert 'sys.argv.insert(1, "gui")' in gui_bootstrap.read_text(encoding="utf-8")
     discovered_source_hiddenimports = set(payload["pyinstaller_spec"]["discovered_source_hiddenimports"])
     assert discovered_source_hiddenimports
     assert discovered_source_hiddenimports <= set(payload["pyinstaller_spec"]["hiddenimports"])
@@ -146,6 +158,45 @@ def test_build_preflight_reports_missing_linux_deb_tool(monkeypatch) -> None:
     result = module._run_linux_deb()
 
     assert result == 1
+
+
+def test_windows_audit_validator_rejects_missing_bootstrap_contract() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["pyinstaller_spec"]["bootstrap_contract"]["gui_launches_gui"] = False
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "PyInstaller GUI bootstrap entry no longer injects the gui command" in errors
+
+
+def test_windows_build_runs_pyinstaller_for_cli_and_gui_then_inno(monkeypatch) -> None:
+    module = _load_build_module()
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(module, "_preflight_required_commands", lambda target, tools: 0)
+    monkeypatch.setattr(module, "_read_project_version", lambda: __version__)
+    monkeypatch.setattr(module, "_read_package_version", lambda: __version__)
+
+    def fake_run_subprocess(command: list[str], *, cwd: Path) -> int:
+        commands.append(command)
+        assert cwd == Path(".").resolve()
+        return 0
+
+    monkeypatch.setattr(module, "_run_subprocess", fake_run_subprocess)
+
+    result = module._run_windows()
+
+    assert result == 0
+    assert len(commands) == 3
+    assert commands[0][0] == "pyinstaller"
+    assert commands[0][-1].endswith("eodinga-cli-bootstrap.py")
+    assert "--windowed" not in commands[0]
+    assert commands[1][0] == "pyinstaller"
+    assert commands[1][-1].endswith("eodinga-gui-bootstrap.py")
+    assert "--windowed" in commands[1]
+    assert commands[2][0] == "iscc"
+    assert commands[2][1].endswith("packaging/dist/windows/eodinga.iss")
 
 
 def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
