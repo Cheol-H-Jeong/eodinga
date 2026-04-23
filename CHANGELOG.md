@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.234 - 2026-04-23
+
+- Corrected the PyInstaller source-import scan so relative package imports no longer get misclassified as third-party hidden imports, which keeps the Windows packaging audit focused on real bundle dependencies.
+- Staged the checked-in `eodinga/` package tree inside the AppImage AppDir and made its launcher export the bundled Python path before running `python3 -m eodinga`, so the Linux AppImage dry run now audits a self-contained runtime surface.
+- Staged the same `eodinga/` package tree inside the Debian package root and hardened the `.deb` audit around the packaged launcher and shipped `i18n` assets, closing a gap where the Linux package artifacts omitted the application code entirely.
+
 ## 0.1.233 - 2026-04-23
 
 - Expanded `README.md` with a surface matrix, a compact operator checklist, and a troubleshooting runbook so the top-level contract points operators to the right CLI and packaging checks faster.
