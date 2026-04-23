@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt, Signal
+from PySide6.QtCore import QRect, QTimer, Qt, Signal
 from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
 
 from eodinga.config import AppConfig
@@ -54,6 +54,7 @@ class LauncherWindow(LauncherPanel):
             if self._config.launcher.window_x is not None and self._config.launcher.window_y is not None:
                 self.move(self._config.launcher.window_x, self._config.launcher.window_y)
             self._geometry_restored = True
+        self._ensure_visible_geometry()
         self.query_field.setFocus()
         self.query_field.selectAll()
         self.visibility_changed.emit(True)
@@ -76,6 +77,7 @@ class LauncherWindow(LauncherPanel):
         if was_visible:
             self.show()
             self.move(position)
+            self._ensure_visible_geometry()
             self.raise_()
             self.activateWindow()
 
@@ -111,3 +113,30 @@ class LauncherWindow(LauncherPanel):
             return
         self._config.launcher = self._config.launcher.model_copy(update=geometry)
         self._config.save(self._config_path)
+
+    def _ensure_visible_geometry(self) -> None:
+        available = self._available_geometry()
+        if available is None or available.isEmpty():
+            return
+        original = (self.x(), self.y(), self.width(), self.height())
+        requested_width = min(self.width(), available.width())
+        requested_height = min(self.height(), available.height())
+        if requested_width != self.width() or requested_height != self.height():
+            self.resize(requested_width, requested_height)
+        x = self.x()
+        y = self.y()
+        if x < available.left() or x > available.right():
+            x = available.left()
+        if y < available.top() or y > available.bottom():
+            y = available.top()
+        changed = original != (x, y, self.width(), self.height())
+        if not changed:
+            return
+        self.move(x, y)
+        self._persist_geometry()
+
+    def _available_geometry(self) -> QRect | None:
+        screen = self.screen()
+        if screen is None:
+            return None
+        return screen.availableGeometry()

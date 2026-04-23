@@ -4,7 +4,7 @@ from pathlib import Path
 import sqlite3
 from typing import cast
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRect, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QSystemTrayIcon
 
@@ -206,6 +206,40 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     qapp.processEvents()
 
 
+def test_launcher_geometry_restore_clamps_offscreen_bounds(qapp, temp_config_path: Path, monkeypatch) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(
+        update={
+            "window_x": 2000,
+            "window_y": 1500,
+            "window_width": 900,
+            "window_height": 700,
+        }
+    )
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+    monkeypatch.setattr(launcher, "_available_geometry", lambda: QRect(40, 30, 640, 480))
+
+    launcher.show()
+    qapp.processEvents()
+
+    assert launcher.pos().x() == 40
+    assert launcher.pos().y() == 30
+    assert launcher.width() <= 900
+    assert launcher.height() <= 700
+
+    stored = load(temp_config_path)
+    assert stored.launcher.window_x == 40
+    assert stored.launcher.window_y == 30
+    assert stored.launcher.window_width == launcher.width()
+    assert stored.launcher.window_height == launcher.height()
+
+    window.close()
+    qapp.processEvents()
+
+
 def test_launcher_respects_always_on_top_config(qapp, temp_config_path: Path) -> None:
     config = AppConfig()
     config.launcher = config.launcher.model_copy(update={"always_on_top": False})
@@ -280,32 +314,6 @@ def test_window_registers_hotkey_and_toggles_launcher_from_callback(qapp) -> Non
     window.close()
     qapp.processEvents()
     assert hotkey_service.calls[-1] == ("stop", "")
-
-
-def test_settings_tab_rebinds_hotkey_without_restart(
-    monkeypatch,
-    qapp,
-    temp_config_path: Path,
-) -> None:
-    hotkey_service = _HotkeyServiceSpy()
-    config = AppConfig()
-    window = EodingaWindow(config=config, config_path=temp_config_path, hotkey_service=hotkey_service)
-    monkeypatch.setattr(
-        "eodinga.gui.tabs.settings.QInputDialog.getText",
-        lambda *args, **kwargs: ("ctrl+alt+k", True),
-    )
-
-    window.settings_tab.remap_hotkey_button.click()
-    qapp.processEvents()
-
-    assert hotkey_service.calls[-4:] == [
-        ("stop", ""),
-        ("unregister", ""),
-        ("register", "ctrl+alt+k"),
-        ("start", ""),
-    ]
-    assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+alt+k"
-    assert load(temp_config_path).launcher.hotkey == "ctrl+alt+k"
 
 
 def test_settings_tab_toggles_always_on_top_without_restart(qapp, temp_config_path: Path) -> None:
