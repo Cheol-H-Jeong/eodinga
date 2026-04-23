@@ -32,6 +32,7 @@ _BANNED_CALLS = {
 }
 _BANNED_EXEC_CALLS = {"asyncio.create_subprocess_exec"}
 _BANNED_SUBPROCESS_COMMANDS = {"curl", "wget"}
+_SHELL_WRAPPER_COMMANDS = {"bash", "cmd", "fish", "powershell", "pwsh", "sh", "zsh"}
 _SKIPPED_DIRS = {".git", ".pytest_cache", ".venv", "__pycache__"}
 _SKIPPED_PATHS = {"tests/safety/test_no_network.py"}
 _SKIPPED_PREFIXES = {"packaging/dist/", "tests/fixtures/"}
@@ -101,7 +102,14 @@ def _string_literal(node: ast.AST) -> str | None:
 
 def _subprocess_command_name(node: ast.AST) -> str | None:
     if isinstance(node, (ast.List, ast.Tuple)) and node.elts:
-        return _string_literal(node.elts[0])
+        elements = [_string_literal(element) for element in node.elts]
+        command_parts = [part for part in elements if part is not None]
+        if not command_parts:
+            return None
+        command_name = _normalize_command_name(command_parts[0])
+        if command_name == "env" and len(command_parts) >= 2:
+            return command_parts[1]
+        return command_parts[0]
     return _string_literal(node)
 
 
@@ -124,6 +132,37 @@ def _normalize_command_name(command: str) -> str:
     if base.endswith(".exe"):
         return base[:-4]
     return base
+
+
+def _wrapped_shell_command(node: ast.AST) -> str | None:
+    return _wrapped_shell_command_parts([node])
+
+
+def _wrapped_shell_command_parts(nodes: list[ast.AST]) -> str | None:
+    command_parts: list[str] = []
+    for node in nodes:
+        if isinstance(node, (ast.List, ast.Tuple)):
+            command_parts.extend(
+                part for part in (_string_literal(element) for element in node.elts) if part is not None
+            )
+            continue
+        literal = _string_literal(node)
+        if literal is not None:
+            command_parts.append(literal)
+    if not command_parts:
+        return None
+    wrapper_index = 0
+    command_name = _normalize_command_name(command_parts[wrapper_index])
+    if command_name == "env" and len(command_parts) >= 2:
+        wrapper_index = 1
+        command_name = _normalize_command_name(command_parts[wrapper_index])
+    if command_name not in _SHELL_WRAPPER_COMMANDS:
+        return None
+    for argument in command_parts[wrapper_index + 1 :]:
+        wrapped_command = _shell_uses_banned_command(argument)
+        if wrapped_command is not None:
+            return wrapped_command
+    return None
 
 
 def _scan_python_source(path: Path, root: Path) -> list[str]:
@@ -152,6 +191,12 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
             dotted = _resolve_dotted_name(node.func, aliases)
             if dotted in _BANNED_CALLS:
                 if node.args:
+                    wrapped_command = _wrapped_shell_command(node.args[0])
+                    if wrapped_command is not None:
+                        violations.append(
+                            f"{path.relative_to(root)}:{node.lineno}:subprocess {wrapped_command}"
+                        )
+                        continue
                     command = _subprocess_command_name(node.args[0])
                     if command is not None:
                         shell_command = _shell_uses_banned_command(command)
@@ -162,6 +207,12 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                             continue
                 violations.append(f"{path.relative_to(root)}:{node.lineno}:{dotted}")
             if dotted in _BANNED_EXEC_CALLS and node.args:
+                wrapped_command = _wrapped_shell_command_parts(list(node.args))
+                if wrapped_command is not None:
+                    violations.append(
+                        f"{path.relative_to(root)}:{node.lineno}:subprocess {wrapped_command}"
+                    )
+                    continue
                 command = _subprocess_command_name(node.args[0])
                 if command is not None and _normalize_command_name(command) in _BANNED_SUBPROCESS_COMMANDS:
                     violations.append(
@@ -175,6 +226,12 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                 "subprocess.check_output",
                 "subprocess.Popen",
             } and node.args:
+                wrapped_command = _wrapped_shell_command(node.args[0])
+                if wrapped_command is not None:
+                    violations.append(
+                        f"{path.relative_to(root)}:{node.lineno}:subprocess {wrapped_command}"
+                    )
+                    continue
                 command = _subprocess_command_name(node.args[0])
                 normalized_command = (
                     _normalize_command_name(command) if command is not None else None
@@ -242,6 +299,23 @@ def test_python_source_scan_flags_list_form_network_commands_with_absolute_paths
     ]
 
 
+def test_python_source_scan_flags_env_wrapped_network_commands(tmp_path: Path) -> None:
+    source = tmp_path / "candidate.py"
+    source.write_text(
+        "import subprocess\n"
+        "subprocess.run(['/usr/bin/env', 'curl', 'https://example.com'])\n"
+        "subprocess.Popen(['env.exe', 'wget.exe', 'https://example.com'])\n",
+        encoding="utf-8",
+    )
+
+    violations = _scan_python_source(source, tmp_path)
+
+    assert violations == [
+        "candidate.py:2:subprocess curl",
+        "candidate.py:3:subprocess wget",
+    ]
+
+
 def test_python_source_scan_flags_shell_wrapped_network_commands_outside_subprocess(
     tmp_path: Path,
 ) -> None:
@@ -252,6 +326,26 @@ def test_python_source_scan_flags_shell_wrapped_network_commands_outside_subproc
         "os.system('curl https://example.com')\n"
         "os.popen('wget https://example.com')\n"
         "asyncio.create_subprocess_shell('curl https://example.com')\n",
+        encoding="utf-8",
+    )
+
+    violations = _scan_python_source(source, tmp_path)
+
+    assert violations == [
+        "candidate.py:3:subprocess curl",
+        "candidate.py:4:subprocess wget",
+        "candidate.py:5:subprocess curl",
+    ]
+
+
+def test_python_source_scan_flags_shell_wrapper_argument_vectors(tmp_path: Path) -> None:
+    source = tmp_path / "candidate.py"
+    source.write_text(
+        "import asyncio\n"
+        "import subprocess\n"
+        "subprocess.run(['bash', '-lc', 'curl https://example.com'])\n"
+        "subprocess.Popen(['pwsh', '-Command', 'wget https://example.com'])\n"
+        "asyncio.create_subprocess_exec('/usr/bin/env', 'sh', '-c', 'curl https://example.com')\n",
         encoding="utf-8",
     )
 
