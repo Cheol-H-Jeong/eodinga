@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.537 - 2026-04-23
+
+- Fixed phrase fallback matching so quoted queries can cross underscore boundaries in both paths and indexed content, bringing `launch_checklist` into line with existing punctuation and whitespace handling.
+- Removed the old `100_000`-row ceiling from unicode path fallback scans, so large indexes no longer silently miss late matches when substring recovery is needed.
+- Preserved snippets for python-scanned content hits, which keeps fallback content matches useful in the CLI and launcher instead of returning empty snippet fields.
+
 ## 0.1.525 - 2026-04-23
 
 - Counted successful parser runs alongside existing skip and error paths, so `stats --json` now reports fuller per-parser activity instead of only failures.

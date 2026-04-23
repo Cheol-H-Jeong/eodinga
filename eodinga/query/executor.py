@@ -487,7 +487,7 @@ def _fetch_path_candidates_python_scan(
 
 def _fetch_content_candidates(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
-) -> tuple[list[int], dict[int, FileRecord], dict[int, str]]:
+) -> tuple[list[int], dict[int, FileRecord], dict[int, str | None]]:
     if not branch.content_match_sql:
         return [], {}, {}
     params: list[object] = list(branch.content_match_params)
@@ -517,7 +517,7 @@ def _fetch_content_candidates(
 
 def _fetch_auto_content_candidates(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
-) -> tuple[list[int], dict[int, FileRecord], dict[int, str]]:
+) -> tuple[list[int], dict[int, FileRecord], dict[int, str | None]]:
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if branch.content_required or not positive_terms:
         return [], {}, {}
