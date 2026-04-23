@@ -29,6 +29,13 @@ def test_linux_appimage_dry_run_preserves_source_assets() -> None:
     assert payload["appimage_artifact"]["path"] == payload["appimage_path"]
     assert payload["appimage_artifact"]["exists"] is False
     assert payload["appimage_artifact"]["build_tool"] == "appimagetool"
+    assert {
+        ".DirIcon",
+        "AppRun",
+        "usr/bin/eodinga",
+        "usr/share/applications/eodinga.desktop",
+        "usr/share/icons/hicolor/scalable/apps/eodinga.svg",
+    } <= set(payload["appdir_manifest"])
 
 
 def test_linux_appimage_build_writes_appimage_artifact(tmp_path: Path) -> None:

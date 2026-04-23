@@ -173,11 +173,15 @@ def test_build_preflight_reports_missing_windows_tool(monkeypatch) -> None:
 
 def test_windows_build_target_relabels_audit_and_requires_built_artifacts(monkeypatch) -> None:
     module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["pyinstaller_spec"]["dist_exists"] = {"cli": False, "gui": False}
+    payload["pyinstaller_spec"]["exe_exists"] = {"cli": False, "gui": False}
 
     def fake_which(command: str) -> str | None:
         return f"/usr/bin/{command}"
 
     monkeypatch.setattr(module.shutil, "which", fake_which)
+    monkeypatch.setattr(module, "_audit_windows_inputs", lambda version, package_version: payload)
 
     result = module._run_windows()
 
@@ -574,6 +578,15 @@ def test_linux_appimage_dry_run_stages_recipe() -> None:
     assert Path(payload["appdir"]).exists()
     assert Path(payload["archive"]).exists()
     assert Path(payload["archive"]).name == f"eodinga-{__version__}-linux-{payload['arch']}-appdir.tar.gz"
+    assert {
+        ".DirIcon",
+        "AppRun",
+        "usr/bin/eodinga",
+        "usr/lib/eodinga/eodinga/__init__.py",
+        "usr/lib/eodinga/eodinga/__main__.py",
+        "usr/share/applications/eodinga.desktop",
+        "usr/share/icons/hicolor/scalable/apps/eodinga.svg",
+    } <= set(payload["appdir_manifest"])
     assert payload["archive_entries_sorted"] is True
     assert payload["archive_mtime_zero"] is True
     assert payload["archive_numeric_owner_zero"] is True
@@ -976,6 +989,73 @@ def test_linux_appimage_audit_validator_rejects_missing_archive_artifact_metadat
 
     assert "AppImage archive size is missing" in errors
     assert "AppImage archive digest is missing" in errors
+
+
+def test_linux_appimage_audit_validator_rejects_missing_appdir_manifest() -> None:
+    module = _load_build_module()
+    payload = {
+        "version": __version__,
+        "arch": "x86_64",
+        "archive": f"packaging/dist/eodinga-{__version__}-linux-x86_64-appdir.tar.gz",
+        "appdir_manifest": ["AppRun"],
+        "archive_entries_sorted": True,
+        "archive_mtime_zero": True,
+        "archive_numeric_owner_zero": True,
+        "archive_artifact": {
+            "exists": True,
+            "size_bytes": 1,
+            "sha256": "0" * 64,
+        },
+        "recipe": {
+            "exists": True,
+            "contains_version_template": True,
+            "rendered_exists": True,
+            "rendered_version_matches_package": True,
+            "references_desktop_entry": True,
+            "references_icon_asset": True,
+            "launches_gui": True,
+        },
+        "desktop_entry": {
+            "matches_source_asset": True,
+            "name": "eodinga",
+            "exec": "eodinga gui",
+            "icon": "eodinga",
+            "categories": "Utility;FileTools;",
+            "startup_notify": "true",
+        },
+        "icon": {
+            "exists": True,
+            "diricon_exists": True,
+            "desktop_icon_matches_asset": True,
+            "matches_source_asset": True,
+        },
+        "runtime_bundle": {
+            "exists": True,
+            "package_exists": True,
+            "package_init_exists": True,
+            "module_entry_exists": True,
+            "i18n_en_exists": True,
+        },
+        "apprun": {
+            "is_executable": True,
+            "launches_gui": True,
+            "has_strict_shell": True,
+        },
+        "launcher": {
+            "is_executable": True,
+            "has_strict_shell": True,
+            "uses_bundled_runtime": True,
+            "executes_python_module": True,
+            "help_exit_code": 0,
+            "help_mentions_search_command": True,
+            "version_exit_code": 0,
+            "version_matches_package": True,
+        },
+    }
+
+    errors = module._validate_linux_appimage_audit(payload, __version__, __version__)
+
+    assert "AppImage AppDir manifest is missing required packaged files" in errors
 
 
 def test_linux_appimage_audit_validator_rejects_missing_appimage_payload_metadata() -> None:

@@ -96,6 +96,12 @@ rendered_recipe_path = Path("${RENDERED_RECIPE}")
 recipe_text = recipe_path.read_text(encoding="utf-8")
 rendered_recipe_text = rendered_recipe_path.read_text(encoding="utf-8")
 archive_path = Path("${ARCHIVE_PATH}")
+appdir_root = Path("${APPDIR}")
+appdir_manifest = sorted(
+    str(path.relative_to(appdir_root))
+    for path in appdir_root.rglob("*")
+    if path.is_file()
+)
 launcher_help = subprocess.run(
     [str(launcher_path), "--help"],
     capture_output=True,
@@ -128,6 +134,7 @@ payload = {
     "appdir": "${APPDIR}",
     "archive": "${ARCHIVE_PATH}",
     "appimage_path": "${APPIMAGE_PATH}",
+    "appdir_manifest": appdir_manifest,
     "archive_entries_sorted": [member.name for member in members] == sorted(member.name for member in members),
     "archive_mtime_zero": all(member.mtime == 0 for member in members),
     "archive_numeric_owner_zero": all(member.uid == 0 and member.gid == 0 for member in members),

@@ -289,6 +289,7 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
     if Path(str(archive_path)).name != expected_archive_name:
         errors.append("AppImage archive filename does not match the package version")
     archive_artifact = payload.get("archive_artifact", {})
+    appdir_manifest = set(payload.get("appdir_manifest", []))
     recipe_payload = payload.get("recipe", {})
     icon_payload = payload.get("icon", {})
     runtime_payload = payload.get("runtime_bundle", {})
@@ -302,6 +303,19 @@ def _validate_linux_appimage_audit(payload: dict[str, Any], project_version: str
         (recipe_payload.get("references_desktop_entry"), "AppImage recipe no longer references the desktop entry"),
         (recipe_payload.get("references_icon_asset"), "AppImage recipe no longer references the icon asset"),
         (recipe_payload.get("launches_gui"), "AppImage recipe no longer launches the GUI target"),
+        (bool(appdir_manifest), "AppImage AppDir manifest is missing"),
+        (
+            {
+                ".DirIcon",
+                "AppRun",
+                "usr/bin/eodinga",
+                "usr/lib/eodinga/eodinga/__init__.py",
+                "usr/lib/eodinga/eodinga/__main__.py",
+                "usr/share/applications/eodinga.desktop",
+                "usr/share/icons/hicolor/scalable/apps/eodinga.svg",
+            }.issubset(appdir_manifest),
+            "AppImage AppDir manifest is missing required packaged files",
+        ),
         (payload.get("desktop_entry", {}).get("matches_source_asset"), "AppImage desktop entry no longer matches the shipped asset"),
         (payload.get("desktop_entry", {}).get("name") == "eodinga", "AppImage desktop entry name drifted from eodinga"),
         (
