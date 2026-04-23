@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.173 - 2026-04-23
+## 0.1.178 - 2026-04-23
 
 - Added a public live-update shutdown helper that drains flushed watcher events before teardown, so callers can persist in-flight filesystem changes without waiting for the normal debounce window.
 - Added hot-restart integration coverage for queued create and delete events, proving a graceful shutdown preserves search correctness after reopen without a full rewalk.
