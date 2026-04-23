@@ -58,18 +58,8 @@ class LauncherPanel(QWidget):
         self.query_field = SearchField(parent=self)
         self.query_field.setAccessibleName("Launcher search field")
         self.active_filter_row = ActiveFilterRow(self)
-        self.pinned_queries_row = QueryChipRow(
-            "Pinned",
-            accessible_name="Pinned launcher queries",
-            on_chip_clicked=self._apply_query_chip,
-            parent=self,
-        )
-        self.recent_queries_row = QueryChipRow(
-            "Recent",
-            accessible_name="Recent launcher queries",
-            on_chip_clicked=self._apply_query_chip,
-            parent=self,
-        )
+        self.pinned_queries_row = QueryChipRow("Pinned", accessible_name="Pinned launcher queries", on_chip_clicked=self._apply_query_chip, parent=self)
+        self.recent_queries_row = QueryChipRow("Recent", accessible_name="Recent launcher queries", on_chip_clicked=self._apply_query_chip, parent=self)
         self.result_list = QListView(self)
         self.result_list.setAccessibleName("Launcher results list")
         self.result_list.setSelectionMode(QListView.SelectionMode.SingleSelection)
@@ -163,11 +153,6 @@ class LauncherPanel(QWidget):
         self.action_bar.copy_path_button.clicked.connect(self.emit_copy_path)
         self.action_bar.copy_name_button.clicked.connect(self.emit_copy_name)
         self.action_bar.properties_button.clicked.connect(self.emit_show_properties)
-        self._quick_pick_shortcuts: list[QShortcut] = []
-        for index in range(9):
-            shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
-            shortcut.activated.connect(lambda row=index: self.activate_result_at(row))
-            self._quick_pick_shortcuts.append(shortcut)
         if self._state is not None:
             self._state.recent_queries_changed.connect(self.set_recent_queries)
             self._state.pinned_queries_changed.connect(self.set_pinned_queries)
@@ -355,6 +340,8 @@ class LauncherPanel(QWidget):
     def _handle_query_field_keypress(self, event: QKeyEvent) -> bool:
         if self.model.rowCount() == 0:
             return False
+        if self._handle_quick_pick_keypress(event):
+            return True
         if event.key() == Qt.Key.Key_Down:
             self.result_list.setFocus()
             if not self.result_list.currentIndex().isValid():
@@ -394,6 +381,8 @@ class LauncherPanel(QWidget):
         return False
 
     def _handle_result_list_keypress(self, event: QKeyEvent) -> bool:
+        if self._handle_quick_pick_keypress(event):
+            return True
         if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
             self.query_field.setFocus()
             return True
@@ -414,6 +403,14 @@ class LauncherPanel(QWidget):
             return True
         if event.key() == Qt.Key.Key_PageUp:
             self._move_selection(-self._page_step())
+            return True
+        return False
+
+    def _handle_quick_pick_keypress(self, event: QKeyEvent) -> bool:
+        if not event.modifiers() & Qt.KeyboardModifier.AltModifier:
+            return False
+        if Qt.Key.Key_1 <= event.key() <= Qt.Key.Key_9:
+            self.activate_result_at(event.key() - Qt.Key.Key_1)
             return True
         return False
 

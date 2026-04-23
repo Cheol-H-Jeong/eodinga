@@ -163,6 +163,7 @@ class LauncherWindow(LauncherPanel):
         if x is None or y is None:
             self.resize(width, height)
             return
+        assert saved_rect is not None
         if saved_rect.intersects(available):
             self.setGeometry(x, y, width, height)
             return
