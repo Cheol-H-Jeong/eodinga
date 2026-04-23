@@ -3,13 +3,26 @@ from __future__ import annotations
 import os
 import sqlite3
 import shutil
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
+from typing import NamedTuple
 
 from eodinga.index.migrations import migrate
 from eodinga.index.schema import PRAGMAS, current_schema_version
 from eodinga.observability import get_logger
 
 SQLITE_CACHED_STATEMENTS = 128
+SQLITE_SYNCHRONOUS_NORMAL = 1
+SQLITE_SYNCHRONOUS_FULL = 2
+
+
+class _BulkWriteState(NamedTuple):
+    depth: int
+    original_synchronous: int
+
+
+_BULK_WRITE_STATES: dict[int, _BulkWriteState] = {}
 
 
 def _sidecar(path: Path, suffix: str) -> Path:
@@ -33,6 +46,59 @@ def connect_database(
         sqlite3.connect(path, cached_statements=SQLITE_CACHED_STATEMENTS),
         row_factory=row_factory,
     )
+
+
+def _read_synchronous_mode(conn: sqlite3.Connection) -> int:
+    row = conn.execute("PRAGMA synchronous;").fetchone()
+    if row is None:
+        return SQLITE_SYNCHRONOUS_FULL
+    return int(row[0])
+
+
+def _write_synchronous_mode(conn: sqlite3.Connection, level: int) -> None:
+    if level == SQLITE_SYNCHRONOUS_NORMAL:
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        return
+    if level == SQLITE_SYNCHRONOUS_FULL:
+        conn.execute("PRAGMA synchronous=FULL;")
+        return
+    conn.execute(f"PRAGMA synchronous={int(level)};")
+
+
+@contextmanager
+def bulk_write_mode(conn: sqlite3.Connection) -> Iterator[None]:
+    key = id(conn)
+    state = _BULK_WRITE_STATES.get(key)
+    if state is None:
+        original_synchronous = _read_synchronous_mode(conn)
+        _BULK_WRITE_STATES[key] = _BulkWriteState(
+            depth=1,
+            original_synchronous=original_synchronous,
+        )
+        if original_synchronous != SQLITE_SYNCHRONOUS_NORMAL:
+            _write_synchronous_mode(conn, SQLITE_SYNCHRONOUS_NORMAL)
+    else:
+        _BULK_WRITE_STATES[key] = _BulkWriteState(
+            depth=state.depth + 1,
+            original_synchronous=state.original_synchronous,
+        )
+    try:
+        yield
+    finally:
+        current = _BULK_WRITE_STATES.get(key)
+        if current is None:
+            return
+        if current.depth > 1:
+            _BULK_WRITE_STATES[key] = _BulkWriteState(
+                depth=current.depth - 1,
+                original_synchronous=current.original_synchronous,
+            )
+            return
+        try:
+            if current.original_synchronous != SQLITE_SYNCHRONOUS_NORMAL:
+                _write_synchronous_mode(conn, current.original_synchronous)
+        finally:
+            _BULK_WRITE_STATES.pop(key, None)
 
 
 def _checkpoint_wal(path: Path) -> None:
@@ -284,6 +350,7 @@ def atomic_replace_index(staged_path: Path, target_path: Path) -> None:
 
 __all__ = [
     "atomic_replace_index",
+    "bulk_write_mode",
     "configure_connection",
     "connect_database",
     "has_stale_wal",

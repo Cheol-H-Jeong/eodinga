@@ -11,7 +11,10 @@ import eodinga.index.storage as storage_module
 from eodinga.index.schema import apply_schema
 from eodinga.index.storage import (
     SQLITE_CACHED_STATEMENTS,
+    SQLITE_SYNCHRONOUS_FULL,
+    SQLITE_SYNCHRONOUS_NORMAL,
     atomic_replace_index,
+    bulk_write_mode,
     connect_database,
     has_stale_wal,
     open_index,
@@ -257,6 +260,9 @@ def test_connect_database_applies_row_factory_and_pragmas(tmp_path: Path) -> Non
         cache_size = conn.execute("PRAGMA cache_size;").fetchone()
         assert cache_size is not None
         assert int(cache_size[0]) == -64000
+        synchronous = conn.execute("PRAGMA synchronous;").fetchone()
+        assert synchronous is not None
+        assert int(synchronous[0]) == SQLITE_SYNCHRONOUS_FULL
     finally:
         conn.close()
 
@@ -288,6 +294,43 @@ def test_connect_database_uses_explicit_statement_cache_budget(tmp_path: Path, m
         assert seen["database"] == path
         assert seen["cached_statements"] == SQLITE_CACHED_STATEMENTS
     finally:
+        conn.close()
+
+
+def test_bulk_write_mode_switches_connection_to_normal_then_restores(tmp_path: Path) -> None:
+    conn = connect_database(tmp_path / "index.db")
+    try:
+        original = conn.execute("PRAGMA synchronous;").fetchone()
+        assert original is not None
+        assert int(original[0]) == SQLITE_SYNCHRONOUS_FULL
+        with bulk_write_mode(conn):
+            current = conn.execute("PRAGMA synchronous;").fetchone()
+            assert current is not None
+            assert int(current[0]) == SQLITE_SYNCHRONOUS_NORMAL
+        restored = conn.execute("PRAGMA synchronous;").fetchone()
+        assert restored is not None
+        assert int(restored[0]) == SQLITE_SYNCHRONOUS_FULL
+    finally:
+        conn.close()
+
+
+def test_bulk_write_mode_is_nested_and_restores_once(tmp_path: Path) -> None:
+    conn = connect_database(tmp_path / "index.db")
+    statements: list[str] = []
+    conn.set_trace_callback(statements.append)
+    try:
+        with bulk_write_mode(conn):
+            with bulk_write_mode(conn):
+                current = conn.execute("PRAGMA synchronous;").fetchone()
+                assert current is not None
+                assert int(current[0]) == SQLITE_SYNCHRONOUS_NORMAL
+        pragma_statements = [statement for statement in statements if statement.startswith("PRAGMA synchronous=")]
+        assert pragma_statements == [
+            "PRAGMA synchronous=NORMAL;",
+            "PRAGMA synchronous=FULL;",
+        ]
+    finally:
+        conn.set_trace_callback(None)
         conn.close()
 
 
