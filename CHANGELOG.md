@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.879 - 2026-04-23
+
+- Fixed phrase path-candidate scans to keep paging past the first batch, so cross-separator phrase queries no longer miss later records in large indexes.
+- Accepted spaced relative date macros such as `date:this week` and `date:last month`, normalizing them onto the existing relative-date query behavior.
+- Accepted spaced size units such as `size:>10 MB` and `size:100 .. 500 K`, so natural-language size filters parse the same as their compact forms.
+
 ## 0.1.874 - 2026-04-23
 
 - Added a README release-evidence matrix and safe asset-refresh guidance so docs-only and release-facing rounds can pick the smallest proof command without guessing.
