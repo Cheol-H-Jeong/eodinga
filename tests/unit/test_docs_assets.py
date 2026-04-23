@@ -169,6 +169,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage
     assert ".SS search" in manpage
+    assert ".SH ENVIRONMENT" in manpage
+    assert "Set the runtime log verbosity for this invocation." in manpage
+    assert "EODINGA_RUN_PERF=1" in manpage
     assert "docs/DSL.md" in manpage
     assert "stats --json" in manpage
 

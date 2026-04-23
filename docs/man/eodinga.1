@@ -9,34 +9,41 @@ eodinga indexes local filenames, paths, and supported document text, keeps the i
 .SH GLOBAL OPTIONS
 .TP
 \fB--log-level LOG_LEVEL\fR
-
+Set the runtime log verbosity for this invocation.
 .TP
 \fB--config CONFIG\fR
-
+Use an explicit config file instead of the platform default path.
 .TP
 \fB--db DB\fR
-
+Use an explicit SQLite index path instead of the configured default.
 .SH COMMANDS
 .TP
 \fBindex\fR
+Build or rebuild the on-disk index for one or more configured roots.
 [-h] [--root ROOT] [--rebuild]
 .TP
 \fBwatch\fR
+Start the filesystem watch loop that feeds live updates into the index.
 [-h]
 .TP
 \fBsearch\fR
+Run a DSL query against the current index and print matches.
 [-h] [--json] [--limit LIMIT] [--root ROOT] query
 .TP
 \fBstats\fR
+Print index counts plus runtime counters and histograms.
 [-h] [--json]
 .TP
 \fBgui\fR
+Launch the Qt application or run the offscreen GUI smoke path.
 [-h] [--test-mode]
 .TP
 \fBdoctor\fR
+Report environment, dependency, and path diagnostics as JSON.
 [-h]
 .TP
 \fBversion\fR
+Print the current eodinga version and exit.
 [-h]
 .SH COMMAND DETAILS
 .SS index
@@ -45,10 +52,10 @@ eodinga indexes local filenames, paths, and supported document text, keeps the i
 .B Options
 .TP
 \fB--root ROOT\fR
-
+Add one root for this run; repeat the flag to override configured roots.
 .TP
 \fB--rebuild\fR
-
+Force a staged rebuild instead of reusing the existing index snapshot.
 .SS watch
 .B Usage
 [-h]
@@ -58,30 +65,30 @@ eodinga indexes local filenames, paths, and supported document text, keeps the i
 .B Options
 .TP
 \fBquery\fR
-
+Query string in the shared DSL used by the CLI, GUI, and launcher.
 .TP
 \fB--json\fR
-
+Emit structured JSON instead of the default plain-text payload.
 .TP
 \fB--limit LIMIT\fR
-
+Cap the number of returned hits after ranking.
 .TP
 \fB--root ROOT\fR
-
+Restrict matches to one indexed root path.
 .SS stats
 .B Usage
 [-h] [--json]
 .B Options
 .TP
 \fB--json\fR
-
+Emit the full structured stats snapshot as JSON.
 .SS gui
 .B Usage
 [-h] [--test-mode]
 .B Options
 .TP
 \fB--test-mode\fR
-
+Launch the GUI in test mode and exit after processing pending events.
 .SS doctor
 .B Usage
 [-h]
@@ -96,11 +103,19 @@ Build or refresh the index for multiple roots.
 \fBeodinga search 'date:this-week ext:md roadmap' --limit 20\fR
 Run a CLI search using the shared query DSL.
 .TP
+\fBQT_QPA_PLATFORM=offscreen eodinga gui --test-mode\fR
+Run the packaged GUI smoke path without requiring a visible desktop session.
+.TP
 \fBeodinga stats --json\fR
 Print the active index snapshot and in-memory counters as JSON.
 .TP
 \fBeodinga doctor\fR
 Check dependencies, writable paths, roots, and hotkey support.
+.SH ENVIRONMENT
+QT_QPA_PLATFORM=offscreen: force the Qt GUI smoke path for headless checks.
+EODINGA_LOG_PATH: override the rotating file-log destination.
+EODINGA_CRASH_DIR: override where crash-<ts>.log artifacts are written.
+EODINGA_RUN_PERF=1: enable the opt-in perf suite under tests/perf/.
 .SH FILES
 Linux config: ~/.config/eodinga/config.toml
 Linux database: ~/.local/share/eodinga/index.db
