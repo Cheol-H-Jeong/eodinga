@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.446 - 2026-04-23
+
+- Clarified the top-level README with a single-pass docs refresh command plus additional FAQ coverage for docs regeneration, packaging dry runs, and launcher/backend validation.
+- Added a contributor-facing docs change matrix so workers can choose the smallest legitimate asset-refresh and dry-run path for docs-only rounds without guessing.
+- Expanded the architecture and release guides with subsystem ownership, release artifact ownership, pre-tag review targets, and first-failure triage for local release passes.
+
 ## 0.1.442 - 2026-04-23
 
 - Added a dedicated `.[packaging]` extra for Windows release tooling and wired the Windows release workflow to install it explicitly instead of relying on ambient build dependencies.
