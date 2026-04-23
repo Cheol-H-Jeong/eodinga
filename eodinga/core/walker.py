@@ -15,7 +15,7 @@ BATCH_SIZE = 8192
 WalkTarget = Path | ScanEntry
 
 
-def _to_record(root_id: int, path: Path, stat_result: stat_result) -> FileRecord:
+def _to_record(root_id: int, path: Path, stat_result: stat_result, *, indexed_at: int) -> FileRecord:
     is_symlink = S_ISLNK(stat_result.st_mode)
     is_dir = S_ISDIR(stat_result.st_mode)
     if is_symlink and not is_dir:
@@ -35,7 +35,7 @@ def _to_record(root_id: int, path: Path, stat_result: stat_result) -> FileRecord
         ctime=int(stat_result.st_ctime),
         is_dir=is_dir,
         is_symlink=is_symlink,
-        indexed_at=int(time()),
+        indexed_at=indexed_at,
     )
 
 
@@ -55,6 +55,7 @@ def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[lis
     visited_dirs: set[tuple[int, int]] = set()
     visited_resolved_dirs: set[Path] = set()
     batch: list[FileRecord] = []
+    batch_indexed_at: int | None = None
     while queue:
         current = queue.popleft()
         if isinstance(current, ScanEntry):
@@ -69,10 +70,20 @@ def walk_batched(root: Path, rules: PathRules, root_id: int = 0) -> Iterator[lis
             continue
         if not should_index(current_path, rules):
             continue
-        batch.append(_to_record(root_id=root_id, path=current_path, stat_result=current_stat))
+        if batch_indexed_at is None:
+            batch_indexed_at = int(time())
+        batch.append(
+            _to_record(
+                root_id=root_id,
+                path=current_path,
+                stat_result=current_stat,
+                indexed_at=batch_indexed_at,
+            )
+        )
         if len(batch) >= BATCH_SIZE:
             yield batch
             batch = []
+            batch_indexed_at = None
         if not _should_descend(current_path, root, current_stat):
             continue
         inode_key = (current_stat.st_dev, current_stat.st_ino)

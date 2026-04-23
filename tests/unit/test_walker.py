@@ -98,6 +98,25 @@ def test_walk_batched_falls_back_to_stat_safe_when_scandir_metadata_is_missing(
     assert stat_calls.count(sample) == 1
 
 
+def test_walk_batched_reuses_one_indexed_at_timestamp_per_batch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "tree"
+    root.mkdir()
+    for index in range(walker_module.BATCH_SIZE + 3):
+        (root / f"file-{index:05d}.txt").write_text("sample", encoding="utf-8")
+
+    timestamps = iter((101, 202))
+    monkeypatch.setattr(walker_module, "time", lambda: next(timestamps))
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+    batches = list(walk_batched(root, rules))
+
+    assert len(batches) == 2
+    assert {record.indexed_at for record in batches[0]} == {101}
+    assert {record.indexed_at for record in batches[1]} == {202}
+
+
 def test_walk_batched_uses_fs_wrapper_to_detect_symlinked_directories(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
