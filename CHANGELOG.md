@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.506 - 2026-04-23
+
+- Normalized launcher hotkey combos before binding them, with shared validation and broader named-key support so remaps behave consistently across Linux and Windows backends.
+- Added a no-restart path to disable the global launcher hotkey from Settings and persisted the disabled state cleanly in config.
+- Recovered launcher windows from unreachable saved coordinates by clamping fully off-screen popup geometry back onto an available display during restore.
+
 ## 0.1.503 - 2026-04-23
 
 - Hardened the AppImage dry-run and build audits so staged Linux releases now fail on desktop-entry drift, missing strict-shell launchers, or launcher shims that stop returning to the project root before invoking `python -m eodinga`.
