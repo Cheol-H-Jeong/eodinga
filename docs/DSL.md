@@ -33,6 +33,25 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 - `created:..2026-04-23`
 - `modified:2026-04-23T09:15:30+00:00`
 
+## Operator Matrix
+
+| Operator | Accepted values | Notes |
+| --- | --- | --- |
+| `ext:` | extension token such as `pdf`, `md`, `py` | Matches the normalized stored extension, without a leading dot. |
+| `path:` | substring or quoted phrase | Best when combined with a positive term so broad path-only scans stay cheap. |
+| `content:` | substring or quoted phrase | Requires parsed content; unsupported files still participate in name/path search only. |
+| `size:` | `>`, `>=`, `<`, `<=`, `=`, or `A..B` with `B/K/M/G/T` suffixes | `size:100..500K` and `size:>10M` both use binary units. |
+| `date:` / `modified:` / `created:` | relative macro, ISO date, ISO datetime, open or closed range | Range endpoints may mix absolute and relative values. |
+| `is:` | `file`, `dir`, `symlink`, `empty`, `duplicate` | Structural filters can be stacked, such as `is:dir is:empty`. |
+| `case:` | `true`, `false` | Affects term and phrase matching; explicit regex literals keep their own flags. |
+| `regex:` | `true`, `false`, or `/pattern/flags` | Use the literal form when you want regex flags attached to one term only. |
+
+## Regex Flags
+
+- `i`: case-insensitive regex matching such as `regex:/todo|fixme/i`
+- `m`: multi-line anchors for line-oriented content scans such as `regex:/^TODO:/m`
+- `s`: dot-all mode when a pattern needs to cross newline boundaries
+
 ## Common Combos
 
 ```text
@@ -46,6 +65,16 @@ regex:true report-\d+
 (invoice | receipt) ext:pdf
 regex:/launch|ship/i path:docs
 ```
+
+## Grouping and Negation Patterns
+
+```text
+(invoice | receipt) ext:pdf
+-(archive | backup) path:projects
+date:last-month -(is:duplicate | path:tmp)
+```
+
+Use parentheses when the exclusion or OR branch should stay logically tied together. Without grouping, negation only applies to the next term.
 
 ## Operator Notes
 

@@ -180,6 +180,19 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Exclude noisy trees | `-path:node_modules` |
 | Run regex | `regex:/todo|fixme/i` |
 
+## Query Playbook
+
+| Job | Query | Why this shape works |
+| --- | --- | --- |
+| Review this week's markdown work | `date:this-week ext:md` | Starts with the calendar window, then narrows to one format. |
+| Find duplicate large assets to clean up | `is:duplicate size:>10M` | Uses duplicate detection and a size floor so the result set stays actionable. |
+| Audit one subtree without vendor noise | `path:src -path:node_modules -path:.venv` | Keeps path scoping explicit instead of relying on plain terms to do both jobs. |
+| Search release notes text inside PDFs | `ext:pdf content:"release notes"` | `content:` makes the requirement obvious when filename matches are not enough. |
+| Inspect exact issue key patterns | `regex:/ENG-\d+/ path:docs` | Regex stays narrow by pairing it with a path filter. |
+| Revisit a bounded historical window | `date:2026-04-01..2026-04-23 ext:docx` | Closed ISO ranges are easier to audit than relative dates for release work. |
+| Keep only empty directories visible | `is:empty is:dir` | Structural filters are clearer than relying on size or extension heuristics. |
+| Exclude a whole branch of intent | `-(invoice | receipt) ext:pdf` | Group negation keeps the exclusion readable when several terms belong together. |
+
 ## Supported Content Types
 
 - Plain text and source code: `.txt`, `.md`, `.py`, and similar text-first formats.
@@ -230,6 +243,13 @@ eodinga index --rebuild
 | Search docs with regex | `eodinga search 'regex:/todo|fixme/i path:docs' --json` |
 | Confirm runtime health | `eodinga doctor && eodinga stats --json` |
 | Refresh shipped docs assets | `python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` |
+
+Task recipe guidance:
+
+- Prefer one `eodinga search ...` command with explicit operators over several broad ad-hoc probes.
+- Start with path, date, or type operators before adding regex so SQLite can cut the candidate set earlier.
+- Use `--json` when you need to diff or audit results across runs; stick to text output for quick launcher-style checks.
+- Refresh docs assets only after a visible CLI or GUI surface changed; text-only guide edits only need `pytest -q tests/unit/test_docs_assets.py`.
 
 ## Architecture
 
