@@ -399,6 +399,44 @@ def test_launcher_empty_state_shows_recent_queries_from_shared_state(qapp) -> No
     assert "budget, report" in launcher.empty_state.body_label.text()
 
 
+def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> None:
+    state = LauncherState()
+    state.set_pinned_queries(["ext:pdf", "date:this-week"])
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    assert "Pinned: ext:pdf, date:this-week" in launcher.empty_state.body_label.text()
+    assert launcher.query_chip_row.isVisible()
+    assert [button.text() for button in launcher.query_chip_row.buttons] == ["ext:pdf", "date:this-week"]
+
+
+def test_launcher_clicking_pinned_chip_applies_query(qapp) -> None:
+    state = LauncherState()
+    state.set_pinned_queries(["ext:md"])
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    launcher.query_chip_row.buttons[0].click()
+
+    assert launcher.query_field.text() == "ext:md"
+
+
+def test_launcher_query_chip_row_surfaces_active_filters(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState())
+    launcher.show()
+
+    launcher.query_field.setText('report ext:pdf date:this-week -path:"archive"')
+    _wait(10)
+
+    assert launcher.query_chip_row.isVisible()
+    assert [button.text() for button in launcher.query_chip_row.buttons] == [
+        "ext:pdf",
+        "date:this-week",
+        '-path:"archive"',
+    ]
+    assert launcher.shortcut_label.text() == "Active filters stay visible above results. Alt+Up recalls recent queries."
+
+
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
@@ -561,3 +599,4 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.result_list.accessibleName() == "Launcher results list"
+    assert launcher.query_chip_row.accessibleName() == "Launcher query chips"

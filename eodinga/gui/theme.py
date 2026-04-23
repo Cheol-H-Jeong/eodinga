@@ -96,6 +96,18 @@ def build_qss(palette: Palette) -> str:
         padding: 4px 10px;
         border: {BORDER_1}px solid {palette.border};
     }}
+    QPushButton[chip="true"] {{
+        min-height: 0;
+        padding: 4px 10px;
+        border-radius: 10px;
+        background: {palette.surface_muted};
+        border: {BORDER_1}px solid {palette.border};
+        color: {palette.text};
+        font-size: {FONT_11}px;
+    }}
+    QPushButton[chip="true"][chipKind="pinned"] {{
+        background: {palette.surface};
+    }}
     QListView {{
         background: transparent;
         border: none;
@@ -122,4 +134,3 @@ def apply_theme(app: QApplication, theme_name: str = "light") -> Palette:
     apply_palette(app, palette)
     app.setStyleSheet(build_qss(palette))
     return palette
-
