@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.527 - 2026-04-23
+
+- Split SQLite connection tuning between steady-state and bulk-ingest profiles so normal opens now restore `PRAGMA synchronous=FULL` while rebuilds and perf fixtures keep `NORMAL` for faster staged writes.
+- Cached and chunked executor content-text lookups to reuse a small set of `IN (...)` SQL shapes instead of rebuilding an oversized statement for every candidate set.
+- Reduced repeated query-side normalization work when ranking path candidates, cutting avoidable string folding in prefix, name-hit, and path-hit scoring.
+
 ## 0.1.518 - 2026-04-23
 
 - Scoped the Windows installer desktop shortcut to the per-user desktop so it matches the existing lowest-privilege install model instead of targeting a machine-wide desktop alias.
