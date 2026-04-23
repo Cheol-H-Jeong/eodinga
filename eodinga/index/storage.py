@@ -183,7 +183,13 @@ def recover_interrupted_build(path: Path) -> bool:
     if not staged_path.exists():
         return False
     logger = get_logger("index.storage")
-    if not _is_complete_staged_build(staged_path):
+    try:
+        is_complete = _is_complete_staged_build(staged_path)
+    except (OSError, sqlite3.DatabaseError, ValueError):
+        logger.exception("discarding unreadable staged build for {}", path)
+        _cleanup_index_files(staged_path)
+        return False
+    if not is_complete:
         logger.warning("discarding incomplete staged build for {}", path)
         _cleanup_index_files(staged_path)
         return False

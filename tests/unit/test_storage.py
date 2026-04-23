@@ -576,3 +576,50 @@ def test_open_index_discards_incomplete_staged_build_before_open(tmp_path: Path)
     assert not staged.exists()
     assert not staged.with_name(".index.db.next-wal").exists()
     assert not staged.with_name(".index.db.next-shm").exists()
+
+
+def test_recover_interrupted_build_discards_unreadable_staged_database(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged.write_text("not a sqlite database", encoding="utf-8")
+    staged.with_name(".index.db.next-wal").write_bytes(b"stale")
+
+    assert recover_interrupted_build(target) is False
+    assert _read_root_paths(target) == ["/live"]
+    assert not staged.exists()
+    assert not staged.with_name(".index.db.next-wal").exists()
+
+
+def test_open_index_discards_unreadable_staged_build_before_open(tmp_path: Path) -> None:
+    target = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+
+    target_conn = sqlite3.connect(target)
+    apply_schema(target_conn)
+    target_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/live", "[]", "[]", 1),
+    )
+    target_conn.commit()
+    target_conn.close()
+
+    staged.write_text("not a sqlite database", encoding="utf-8")
+
+    reopened = open_index(target)
+    try:
+        rows = reopened.execute("SELECT path FROM roots ORDER BY path").fetchall()
+        assert [str(row[0]) for row in rows] == ["/live"]
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
