@@ -338,9 +338,9 @@ def _compile_branch(
         if term.name == "size":
             condition_sql, condition_params = _size_to_condition(term.value)
             if term.negated:
-                where_parts.append(f"NOT (files.size {condition_sql})")
+                where_parts.append(f"files.is_dir = 0 AND NOT (files.size {condition_sql})")
             else:
-                where_parts.append(f"files.size {condition_sql}")
+                where_parts.append(f"files.is_dir = 0 AND files.size {condition_sql}")
             where_params.extend(condition_params)
             continue
         if term.name == "is":

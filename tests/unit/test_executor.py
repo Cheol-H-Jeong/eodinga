@@ -456,6 +456,7 @@ def test_execute_duplicate_and_negated_size_queries(tmp_db: sqlite3.Connection) 
 
 def test_execute_size_range_query(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
+    _insert_file(tmp_db, 0, "/workspace", 4_096, now - 180, "", is_dir=1)
     _insert_file(tmp_db, 1, "/workspace/tiny.txt", 99, now, "txt", body_text="tiny")
     _insert_file(tmp_db, 2, "/workspace/mid.txt", 100 * 1024, now - 60, "txt", body_text="mid")
     _insert_file(tmp_db, 3, "/workspace/large.txt", 600 * 1024, now - 120, "txt", body_text="large")
