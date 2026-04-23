@@ -92,6 +92,7 @@ class IndexWriter:
         self._conn = conn
         self._parser_callback = parser_callback
         self._savepoint_index = 0
+        self._next_content_rowid_cache: int | None = None
         if current_schema_version(self._conn) == 0:
             apply_schema(self._conn)
 
@@ -279,6 +280,7 @@ class IndexWriter:
                 "UPDATE files SET content_hash = ? WHERE id = ?",
                 hash_rows,
             )
+            self._next_content_rowid_cache = next_rowid
 
     def _select_existing_content_rows(self, paths: Sequence[str]) -> dict[str, ExistingContentRow]:
         results: dict[str, ExistingContentRow] = {}
@@ -297,8 +299,12 @@ class IndexWriter:
         return results
 
     def _next_content_rowid(self) -> int:
+        if self._next_content_rowid_cache is not None:
+            return self._next_content_rowid_cache
         row = self._conn.execute("SELECT COALESCE(MAX(rowid), 0) + 1 FROM content_fts").fetchone()
-        return int(row[0])
+        next_rowid = int(row[0])
+        self._next_content_rowid_cache = next_rowid
+        return next_rowid
 
     def _delete_content_rows(self, rowids: Sequence[int]) -> None:
         for chunk in _chunked(tuple(dict.fromkeys(rowids))):

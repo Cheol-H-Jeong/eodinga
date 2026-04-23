@@ -371,6 +371,40 @@ def test_writer_bulk_upsert_skips_next_rowid_probe_for_unchanged_content(
     assert not any("SELECT COALESCE(MAX(rowid), 0) + 1 FROM content_fts" in statement for statement in statements)
 
 
+def test_writer_bulk_upsert_reuses_cached_next_rowid_across_batches(
+    tmp_db: Path, tmp_path: Path
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    first = _synthetic_record(1, tmp_path)
+    second = _synthetic_record(2, tmp_path)
+
+    def parsed_for(path: Path) -> ParsedContent:
+        return ParsedContent(
+            title=path.name,
+            head_text=f"head {path.name}",
+            body_text=f"body {path.name}",
+            content_sha=f"sha-{path.name}".encode(),
+        )
+
+    writer = IndexWriter(conn, parser_callback=parsed_for)
+    assert writer.bulk_upsert([first]) == 1
+
+    statements: list[str] = []
+    conn.set_trace_callback(statements.append)
+    try:
+        assert writer.bulk_upsert([second]) == 1
+    finally:
+        conn.set_trace_callback(None)
+
+    assert not any("SELECT COALESCE(MAX(rowid), 0) + 1 FROM content_fts" in statement for statement in statements)
+    rowids = conn.execute("SELECT fts_rowid FROM content_map ORDER BY file_id").fetchall()
+    assert rowids == [(1,), (2,)]
+
+
 def test_writer_bulk_upsert_preserves_existing_content_hash_when_record_has_none(
     tmp_db: Path, tmp_path: Path
 ) -> None:
