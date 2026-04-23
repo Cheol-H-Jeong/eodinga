@@ -124,10 +124,30 @@ def _discover_hidden_imports(source_root: Path) -> list[str]:
     discovered: set[str] = set()
     for source_path in source_root.rglob("*.py"):
         module = ast.parse(source_path.read_text(encoding="utf-8"), filename=str(source_path))
+        import_module_aliases = {"import_module"}
+        importlib_module_aliases = {"importlib"}
+        for node in ast.walk(module):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "importlib":
+                        importlib_module_aliases.add(alias.asname or alias.name)
+            elif isinstance(node, ast.ImportFrom) and node.module == "importlib":
+                for alias in node.names:
+                    if alias.name == "import_module":
+                        import_module_aliases.add(alias.asname or alias.name)
         for node in ast.walk(module):
             if not isinstance(node, ast.Call):
                 continue
-            if not isinstance(node.func, ast.Name) or node.func.id != "import_module":
+            if isinstance(node.func, ast.Name):
+                if node.func.id not in import_module_aliases and node.func.id != "__import__":
+                    continue
+            elif isinstance(node.func, ast.Attribute):
+                if node.func.attr != "import_module":
+                    continue
+                base = node.func.value
+                if not isinstance(base, ast.Name) or base.id not in importlib_module_aliases:
+                    continue
+            else:
                 continue
             if not node.args or not isinstance(node.args[0], ast.Constant):
                 continue
