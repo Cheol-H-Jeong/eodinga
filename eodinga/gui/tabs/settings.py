@@ -31,7 +31,10 @@ class SettingsTab(QWidget):
         self.hotkey_label.setAccessibleName("Current launcher hotkey")
         self.remap_hotkey_button = SecondaryButton("Remap hotkey", self)
         self.remap_hotkey_button.setAccessibleName("Remap hotkey")
+        self.disable_hotkey_button = SecondaryButton("Disable hotkey", self)
+        self.disable_hotkey_button.setAccessibleName("Disable hotkey")
         self.remap_hotkey_button.clicked.connect(self._prompt_hotkey_combo)
+        self.disable_hotkey_button.clicked.connect(lambda: self.hotkey_change_requested.emit(""))
         self.frameless_checkbox.toggled.connect(self.frameless_changed.emit)
         self.always_on_top_checkbox.toggled.connect(self.always_on_top_changed.emit)
         self.set_hotkey_combo(self._hotkey_combo)
@@ -43,11 +46,17 @@ class SettingsTab(QWidget):
         layout.addWidget(self.always_on_top_checkbox)
         layout.addWidget(self.hotkey_label)
         layout.addWidget(self.remap_hotkey_button)
+        layout.addWidget(self.disable_hotkey_button)
         layout.addStretch(1)
 
     def set_hotkey_combo(self, combo: str) -> None:
         self._hotkey_combo = combo
-        self.hotkey_label.setText(f"Launcher hotkey: {combo}")
+        if combo:
+            self.hotkey_label.setText(f"Launcher hotkey: {combo}")
+            self.disable_hotkey_button.setEnabled(True)
+            return
+        self.hotkey_label.setText("Launcher hotkey: disabled")
+        self.disable_hotkey_button.setEnabled(False)
 
     def set_always_on_top(self, enabled: bool) -> None:
         self.always_on_top_checkbox.blockSignals(True)

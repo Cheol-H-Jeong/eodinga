@@ -68,6 +68,7 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.settings_tab.always_on_top_checkbox.accessibleName() == "Keep launcher always on top"
     assert window.settings_tab.hotkey_label.accessibleName() == "Current launcher hotkey"
     assert window.settings_tab.remap_hotkey_button.accessibleName() == "Remap hotkey"
+    assert window.settings_tab.disable_hotkey_button.accessibleName() == "Disable hotkey"
     assert window.about_tab.accessibleName() == "About tab"
     assert window.launcher_window.pinned_queries_row.accessibleName() == "Pinned launcher queries"
     assert window.launcher_window.recent_queries_row.accessibleName() == "Recent launcher queries"
@@ -332,6 +333,20 @@ def test_settings_tab_rebinds_hotkey_without_restart(
     ]
     assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+alt+k"
     assert load(temp_config_path).launcher.hotkey == "ctrl+alt+k"
+
+
+def test_settings_tab_disables_hotkey_without_restart(qapp, temp_config_path: Path) -> None:
+    hotkey_service = _HotkeyServiceSpy()
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path, hotkey_service=hotkey_service)
+
+    window.settings_tab.disable_hotkey_button.click()
+    qapp.processEvents()
+
+    assert hotkey_service.calls[-2:] == [("stop", ""), ("unregister", "")]
+    assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: disabled"
+    assert not window.settings_tab.disable_hotkey_button.isEnabled()
+    assert load(temp_config_path).launcher.hotkey == ""
 
 
 def test_settings_tab_toggles_always_on_top_without_restart(qapp, temp_config_path: Path) -> None:
