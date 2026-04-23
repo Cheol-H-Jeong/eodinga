@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.586 - 2026-04-23
+## 0.1.587 - 2026-04-23
 
 - Normalized scoped-search root matching across Windows path families, so `search --root` and executor root filters now treat `C:\...`, `\\?\C:\...`, and slash-swapped forms as the same scope instead of silently dropping matches.
 - Hardened reciprocal-rank fusion against duplicate ids inside a single ranking channel, preventing repeated file ids from inflating their own score and shifting tied result ordering.
