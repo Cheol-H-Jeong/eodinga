@@ -484,3 +484,31 @@ def test_record_snapshot_keeps_recent_entries_bounded() -> None:
     assert len(snapshots) == 20
     assert snapshots[0]["payload"]["index"] == 5
     assert snapshots[-1]["payload"]["index"] == 24
+
+
+def test_record_snapshot_truncates_large_payload_values() -> None:
+    reset_metrics()
+
+    record_snapshot(
+        "command.search",
+        {
+            "text": "x" * 400,
+            "items": list(range(30)),
+            "nested": {
+                f"key-{index}": {"value": "y" * 400, "numbers": list(range(30))}
+                for index in range(25)
+            },
+        },
+    )
+
+    snapshots = recent_snapshots()
+    payload = cast(dict[str, Any], snapshots[0]["payload"])
+    nested = cast(dict[str, Any], payload["nested"])
+    first_nested = cast(dict[str, Any], nested["key-0"])
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert cast(str, payload["text"]).endswith("chars)")
+    assert cast(list[object], payload["items"])[-1] == {"__truncated_items__": 10}
+    assert nested["__truncated_items__"] == 5
+    assert cast(str, first_nested["value"]).endswith("chars)")
+    assert cast(list[object], first_nested["numbers"])[-1] == {"__truncated_items__": 10}
+    assert counters["snapshot_payload_truncations"] >= 4

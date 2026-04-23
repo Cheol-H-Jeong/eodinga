@@ -24,6 +24,9 @@ _DEFAULT_HISTOGRAM_BUCKETS_MS = (1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0
 _DEFAULT_LOG_ROTATION: str | int = "5 MB"
 _DEFAULT_LOG_RETENTION: str | int = 5
 _RECENT_SNAPSHOT_LIMIT = 20
+_SNAPSHOT_MAX_DEPTH = 4
+_SNAPSHOT_MAX_STRING_LENGTH = 240
+_SNAPSHOT_MAX_ITEMS = 20
 _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
@@ -268,7 +271,9 @@ def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
     record: SnapshotRecord = {
         "name": name,
         "recorded_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        "payload": dict(payload),
+        "payload": {
+            str(key): _normalize_snapshot_value(value, depth=0) for key, value in payload.items()
+        },
     }
     with _METRICS_LOCK:
         _RECENT_SNAPSHOTS.append(record)
@@ -441,6 +446,48 @@ def _parse_log_policy_value(raw: str) -> str | int:
     if value.isdigit():
         return int(value)
     return value
+
+
+def _normalize_snapshot_value(value: object, *, depth: int) -> object:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return _truncate_snapshot_string(value) if isinstance(value, str) else value
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        return _normalize_snapshot_value(model_dump(mode="json"), depth=depth)
+    if depth >= _SNAPSHOT_MAX_DEPTH:
+        increment_counter("snapshot_payload_truncations")
+        return _truncate_snapshot_string(repr(value))
+    if isinstance(value, Mapping):
+        items = list(value.items())
+        normalized = {
+            str(key): _normalize_snapshot_value(item, depth=depth + 1)
+            for key, item in items[:_SNAPSHOT_MAX_ITEMS]
+        }
+        if len(items) > _SNAPSHOT_MAX_ITEMS:
+            increment_counter("snapshot_payload_truncations")
+            normalized["__truncated_items__"] = len(items) - _SNAPSHOT_MAX_ITEMS
+        return normalized
+    if isinstance(value, (list, tuple, set, frozenset, deque)):
+        items = list(value)
+        normalized_items = [
+            _normalize_snapshot_value(item, depth=depth + 1)
+            for item in items[:_SNAPSHOT_MAX_ITEMS]
+        ]
+        if len(items) > _SNAPSHOT_MAX_ITEMS:
+            increment_counter("snapshot_payload_truncations")
+            normalized_items.append({"__truncated_items__": len(items) - _SNAPSHOT_MAX_ITEMS})
+        return normalized_items
+    return _truncate_snapshot_string(repr(value))
+
+
+def _truncate_snapshot_string(value: str) -> str:
+    if len(value) <= _SNAPSHOT_MAX_STRING_LENGTH:
+        return value
+    increment_counter("snapshot_payload_truncations")
+    omitted = len(value) - _SNAPSHOT_MAX_STRING_LENGTH
+    return f"{value[:_SNAPSHOT_MAX_STRING_LENGTH]}... (+{omitted} chars)"
 
 
 def _rss_bytes() -> int | None:
