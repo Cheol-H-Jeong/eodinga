@@ -5,6 +5,7 @@ from pathlib import Path
 from time import perf_counter, time
 
 import eodinga.index.writer as writer_module
+import pytest
 from eodinga.content.base import ParsedContent
 from eodinga.common import FileRecord, WatchEvent
 from eodinga.index.writer import IndexWriter
@@ -395,6 +396,35 @@ def test_writer_bulk_upsert_preserves_existing_content_hash_when_record_has_none
 
     file_hash = conn.execute("SELECT content_hash FROM files WHERE path = ?", (str(record.path),)).fetchone()
     assert file_hash == (b"sha-one",)
+
+
+def test_writer_bulk_upsert_rolls_back_partial_parser_failure(tmp_db: Path, tmp_path: Path) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    first = _synthetic_record(1, tmp_path)
+    second = _synthetic_record(2, tmp_path)
+
+    def parse_or_fail(path: Path) -> ParsedContent:
+        if path == second.path:
+            raise RuntimeError("parser boom")
+        return ParsedContent(
+            title=path.name,
+            head_text=f"head {path.name}",
+            body_text=f"body {path.name}",
+            content_sha=f"sha-{path.name}".encode(),
+        )
+
+    writer = IndexWriter(conn, parser_callback=parse_or_fail)
+
+    with pytest.raises(RuntimeError, match="parser boom"):
+        writer.bulk_upsert([first, second])
+
+    assert conn.execute("SELECT COUNT(*) FROM files").fetchone() == (0,)
+    assert conn.execute("SELECT COUNT(*) FROM content_map").fetchone() == (0,)
+    assert conn.execute("SELECT COUNT(*) FROM content_fts").fetchone() == (0,)
 
 
 def test_writer_clears_file_content_hash_for_empty_parsed_content(tmp_db: Path, tmp_path: Path) -> None:
