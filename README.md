@@ -20,6 +20,13 @@ All screenshots in this repository are rendered offscreen from the real Qt surfa
 
 ## Install
 
+| Surface | Best for | Command or artifact |
+| --- | --- | --- |
+| Editable source install | Local development, tests, docs refresh | `python3.11 -m venv .venv && source .venv/bin/activate && pip install -e .[all]` |
+| Windows packaged install | Per-user desktop install with wizard | `eodinga-0.1.x-win-x64-setup.exe` |
+| Linux AppImage | Portable GUI launch without system package install | `eodinga-0.1.x-linux-x86_64.AppImage` |
+| Linux Debian package | Desktop entry plus packaged docs on Debian-family systems | `eodinga_0.1.x_amd64.deb` |
+
 ### Linux
 
 ```bash
@@ -91,6 +98,18 @@ Global flags:
 - `--log-level`
 - `--config`
 - `--db`
+
+Command reference:
+
+| Command | Purpose | Notes |
+| --- | --- | --- |
+| `eodinga index` | Build or rebuild the on-disk index for the configured roots. | Use `--root` to override roots for the command and `--rebuild` for a cold staged rebuild. |
+| `eodinga watch` | Keep the existing index fresh from live filesystem events. | Run after a successful index build if you want live updates outside the GUI-managed flow. |
+| `eodinga search` | Execute one query from the shared DSL and print ranked hits. | Supports `--json`, `--limit`, and `--root` for scripting and scoped queries. |
+| `eodinga stats` | Show runtime and persisted index counters. | Use `--json` for machine-readable observability output. |
+| `eodinga gui` | Launch the main Qt application surface. | Supports `--test-mode` for offscreen GUI smoke checks. |
+| `eodinga doctor` | Run environment and storage diagnostics. | Use this first when search looks stale or packaging validation fails locally. |
+| `eodinga version` | Print the packaged application version. | Useful in release validation and support reports. |
 
 Typical flows:
 
@@ -208,6 +227,13 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - A one-shot recovery path is `eodinga index --rebuild`; live updates still require `eodinga watch` or the packaged background service flow.
 - Documentation and screenshots are part of the shipped contract; refresh the gallery with `python scripts/render_docs_screenshots.py` after visible UI changes.
 
+Operator path when freshness matters:
+
+1. Run `eodinga doctor` to catch config, dependency, root-readability, or database-path drift.
+2. Run `eodinga stats --json` to confirm the live database location and current counters.
+3. Use `eodinga watch` for ongoing live refresh, or `eodinga index --rebuild` for a one-shot full rebuild.
+4. Re-run the query from the CLI before assuming a GUI-only rendering bug.
+
 ## Config and Data Paths
 
 - Linux config defaults to `~/.config/eodinga/config.toml` and the index database to `~/.local/share/eodinga/index.db`.
@@ -235,6 +261,7 @@ If search looks stale, run `eodinga stats` to confirm the active database path, 
 - [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, current baselines, and profiling workflow.
 - [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md): local workflow, guardrails, and doc/screenshot expectations for contributors.
 - [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md): release-candidate workflow, tagging, packaging validation, and handoff.
+- `docs/eodinga.1`: generated command reference for shell users and package maintainers.
 
 ## Contributing
 
@@ -257,6 +284,10 @@ Startup resumes interrupted staged rebuilds and recovery swaps automatically. If
 ### Do I need parser extras for basic filename search?
 
 No. Filename and path indexing work without parser extras. The `parsers` extra only expands content extraction for supported document formats.
+
+### How do I keep results fresh after the first build?
+
+Use `eodinga watch` if you want incremental updates from filesystem events. If the watcher was not running or you suspect drift after a crash, run `eodinga doctor`, check `eodinga stats --json`, and then use `eodinga index --rebuild` for a clean staged rebuild.
 
 ### Which commands are most useful for a quick health check?
 
