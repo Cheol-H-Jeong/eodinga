@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.522 - 2026-04-23
+
+- Retained a bounded in-memory timeline of recent command snapshots and exposed it through `stats --json`, so operators can see the last successful index/search/stats/doctor/version activity without scraping debug logs.
+- Captured nonzero exits, interruptions, and top-level crashes as dedicated runtime snapshots, making failure paths visible in the same stats surface as successful commands.
+- Classified crashes by exception type in observability counters and embedded the recent snapshot timeline into `crash-*.log` artifacts so postmortems have both the failure and the immediately preceding runtime context.
+
 ## 0.1.518 - 2026-04-23
 
 - Scoped the Windows installer desktop shortcut to the per-user desktop so it matches the existing lowest-privilege install model instead of targeting a machine-wide desktop alias.
