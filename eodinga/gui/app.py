@@ -187,6 +187,7 @@ class EodingaWindow(QMainWindow):
         self.settings_tab.frameless_changed.connect(self._change_frameless)
         self.settings_tab.always_on_top_changed.connect(self._change_always_on_top)
         self.launcher_state.recent_queries_changed.connect(self._persist_launcher_recent_queries)
+        self.launcher_state.pinned_queries_changed.connect(self._persist_launcher_pinned_queries)
         self.launcher_state.indexing_status_changed.connect(self.index_tab.set_indexing_status)
         self.launcher_state.indexing_status_changed.connect(self.tray_indicator.set_indexing_status)
         self.set_indexing_status(IndexingStatus())
@@ -197,11 +198,13 @@ class EodingaWindow(QMainWindow):
         launcher.show_properties.connect(self.desktop_actions.show_properties)
         launcher.copy_path_requested.connect(self.desktop_actions.copy_hit_path)
         launcher.copy_name_requested.connect(self.desktop_actions.copy_hit_name)
+        launcher.pin_query_requested.connect(self._toggle_pinned_query)
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self.launcher_state.set_indexing_status(status)
 
     def closeEvent(self, event) -> None:
+        self.launcher_window.close()
         self._hotkey_controller.stop()
         super().closeEvent(event)
 
@@ -233,6 +236,15 @@ class EodingaWindow(QMainWindow):
             return
         self._config.launcher = self._config.launcher.model_copy(update={"recent_queries": queries})
         self._config.save(self._config_path)
+
+    def _persist_launcher_pinned_queries(self, queries: list[str]) -> None:
+        if self._config.launcher.pinned_queries == queries:
+            return
+        self._config.launcher = self._config.launcher.model_copy(update={"pinned_queries": queries})
+        self._config.save(self._config_path)
+
+    def _toggle_pinned_query(self, query: str) -> None:
+        self.launcher_state.toggle_pinned_query(query)
 
 def build_index_search_fn(db_path) -> SearchFn:
     def _search(query: str, limit: int) -> QueryResult:

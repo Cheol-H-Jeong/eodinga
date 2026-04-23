@@ -132,6 +132,25 @@ def test_launcher_recent_queries_restore_from_config_and_persist_updates(qapp, t
     assert stored.launcher.recent_queries == ["retro", "budget", "release notes"]
 
 
+def test_launcher_alt_p_toggles_pinned_queries_across_surfaces_and_config(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+
+    window.launcher_window.query_field.setText("ext:pdf")
+    QTest.keyClick(window.launcher_window.query_field, Qt.Key.Key_P, Qt.KeyboardModifier.AltModifier)
+
+    assert [button.text() for button in window.launcher_window.pinned_queries_row.buttons] == ["ext:pdf"]
+    assert [button.text() for button in window.search_tab.launcher_panel.pinned_queries_row.buttons] == ["ext:pdf"]
+    assert load(temp_config_path).launcher.pinned_queries == ["ext:pdf"]
+
+    window.search_tab.launcher_panel.query_field.setText("ext:pdf")
+    QTest.keyClick(window.search_tab.launcher_panel.query_field, Qt.Key.Key_P, Qt.KeyboardModifier.AltModifier)
+
+    assert window.launcher_window.pinned_queries_row.buttons == []
+    assert window.search_tab.launcher_panel.pinned_queries_row.buttons == []
+    assert load(temp_config_path).launcher.pinned_queries == []
+
+
 def test_launchers_respect_configured_limit_and_debounce(qapp) -> None:
     calls: list[tuple[str, int]] = []
 
@@ -224,6 +243,26 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
 
     restored_window.close()
     qapp.processEvents()
+
+
+def test_closing_main_window_closes_popup_launcher_and_cancels_pending_queries(qapp) -> None:
+    calls: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        del limit
+        calls.append(query)
+        return QueryResult(items=[], total=0, elapsed_ms=1.0)
+
+    window = EodingaWindow(search_fn=search_fn)
+    window.launcher_window.show()
+    window.launcher_window.query_field.setText("release")
+
+    window.close()
+    qapp.processEvents()
+    QTest.qWait(80)
+
+    assert not window.launcher_window.isVisible()
+    assert calls == []
 
 
 def test_launcher_clamps_restored_geometry_to_available_screen(qapp, temp_config_path: Path) -> None:

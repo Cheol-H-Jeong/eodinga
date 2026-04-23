@@ -333,6 +333,32 @@ def test_launcher_query_chip_applies_query_and_runs_search(qapp) -> None:
     assert calls == ["ext:pdf"]
 
 
+def test_launcher_alt_p_emits_pin_request_for_current_query(qapp) -> None:
+    pinned_queries: list[str] = []
+    launcher = LauncherWindow()
+    launcher.pin_query_requested.connect(pinned_queries.append)
+    launcher.show()
+
+    launcher.query_field.setText("ext:pdf")
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_P, Qt.KeyboardModifier.AltModifier)
+
+    assert pinned_queries == ["ext:pdf"]
+
+
+def test_launcher_alt_p_ignores_blank_query(qapp) -> None:
+    pinned_queries: list[str] = []
+    launcher = LauncherWindow()
+    launcher.pin_query_requested.connect(pinned_queries.append)
+    launcher.show()
+
+    launcher.query_field.setText("   ")
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_P, Qt.KeyboardModifier.AltModifier)
+
+    assert pinned_queries == []
+
+
 def test_launcher_reveal_flushes_debounced_query_before_opening_folder(qapp) -> None:
     revealed: list[str] = []
 
@@ -401,6 +427,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "No recent queries yet" in launcher.empty_state.body_label.text()
     assert "Alt+Up" in launcher.empty_state.body_label.text()
     assert "Alt+Down" in launcher.empty_state.body_label.text()
+    assert "Alt+P" in launcher.empty_state.body_label.text()
     assert "Ctrl+Enter" in launcher.empty_state.body_label.text()
     assert "24/120" in launcher.empty_state.details_label.text()
     assert "(20%)" in launcher.empty_state.details_label.text()
@@ -417,10 +444,12 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert launcher.status_chip.text() == "No results"
     assert launcher.empty_state.title_label.text() == 'No results for "missing"'
     assert "date:this-week" in launcher.empty_state.body_label.text()
+    assert "Alt+P" in launcher.empty_state.body_label.text()
     assert "Esc to hide the launcher" in launcher.empty_state.body_label.text()
     assert "Alt+Down" in launcher.empty_state.body_label.text()
     assert "/tmp/archive" in launcher.empty_state.details_label.text()
     assert "ext:, date:, size:, or content:" in launcher.shortcut_label.text()
+    assert "Alt+P pins the current query" in launcher.shortcut_label.text()
     assert "Alt+Up and Alt+Down browse recent queries" in launcher.shortcut_label.text()
 
 
