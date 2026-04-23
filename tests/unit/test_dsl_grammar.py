@@ -297,8 +297,22 @@ def test_parse_slash_prefixed_path_regex_with_escaped_slash(
     [
         ('content: "hello world"', "content", "hello world", "phrase"),
         ('path:"문서 보관"', "path", "문서 보관", "phrase"),
+        ("date:this month", "date", "this-month", "word"),
+        ("date:last week", "date", "last-week", "word"),
         ("date: 2026-01-01..2026-01-03", "date", "2026-01-01..2026-01-03", "word"),
         ("date:2026-01-01 .. 2026-01-03", "date", "2026-01-01..2026-01-03", "word"),
+        (
+            "modified:2026-01-03 09:15:30",
+            "modified",
+            "2026-01-03 09:15:30",
+            "word",
+        ),
+        (
+            "created:2026-01-03 09:15:30 .. 2026-01-03 09:16:00",
+            "created",
+            "2026-01-03 09:15:30..2026-01-03 09:16:00",
+            "word",
+        ),
         ("size:100 .. 500K", "size", "100..500K", "word"),
         ("date:.. 2026-01-03", "date", "..2026-01-03", "word"),
         ("date:2026-01-02 ..", "date", "2026-01-02..", "word"),

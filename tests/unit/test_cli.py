@@ -209,6 +209,65 @@ def test_search_json_executes_regex_mode_query(cli_runner, tmp_path: Path) -> No
     ]
 
 
+def test_search_json_executes_spaced_datetime_query(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        base = int(datetime(2026, 1, 3, 9, 15, 30, tzinfo=datetime.now().astimezone().tzinfo).timestamp())
+        _insert_file(conn, 1, "/workspace/exact-second.txt", 512, base, "txt", body_text="exact")
+        _insert_file(conn, 2, "/workspace/later-second.txt", 512, base + 30, "txt", body_text="later")
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "modified:2026-01-03 09:15:30 .. 2026-01-03 09:16:00",
+        "--json",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == [
+        "exact-second.txt",
+        "later-second.txt",
+    ]
+
+
+def test_search_json_executes_dotall_content_regex_query(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    conn = sqlite3.connect(db_path)
+    try:
+        apply_schema(conn)
+        _insert_file(
+            conn,
+            1,
+            "/workspace/notes.txt",
+            512,
+            1_713_528_000,
+            "txt",
+            body_text="alpha section\nbeta section",
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        r"content:/alpha.*beta/s",
+        "--json",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == ["notes.txt"]
+
+
 def test_search_json_honors_root_filter(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)

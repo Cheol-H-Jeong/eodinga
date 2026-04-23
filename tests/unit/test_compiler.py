@@ -189,6 +189,19 @@ def test_compile_datetime_ranges_preserve_exact_endpoints() -> None:
     assert end - start == 31
 
 
+def test_compile_spaced_datetime_range_preserves_exact_endpoints() -> None:
+    compiled = compile_query(
+        parse("created:2026-01-03 09:15:30 .. 2026-01-03 09:16:00")
+    )
+    branch = compiled.branches[0]
+    start, end = branch.where_params
+
+    assert branch.where_sql == "files.ctime >= ? AND files.ctime < ?"
+    assert isinstance(start, int)
+    assert isinstance(end, int)
+    assert end - start == 31
+
+
 def test_compile_size_range_normalizes_bounds() -> None:
     compiled = compile_query(parse("size:500K..100"))
     branch = compiled.branches[0]

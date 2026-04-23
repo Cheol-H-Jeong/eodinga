@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Literal
+import re
+from typing import Callable, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -81,6 +82,10 @@ class QuerySyntaxError(ValueError):
 
 
 class _Parser:
+    _TEMPORAL_NAMES = {"date", "modified", "created"}
+    _DATE_MACRO_HEADS = {"this", "last"}
+    _DATE_MACRO_TAILS = {"week", "month"}
+
     def __init__(self, source: str) -> None:
         self.source = source
         self.length = len(source)
@@ -159,6 +164,7 @@ class _Parser:
         if initial_value:
             value, value_kind, regex_flags = self._decode_inline_value(name, initial_value)
             if value_kind == "word":
+                value = self._maybe_extend_temporal_value(name, value)
                 value = self._maybe_extend_range_value(name, value)
                 value = self._maybe_extend_operator_value(name, value)
             return OperatorNode(
@@ -187,6 +193,7 @@ class _Parser:
         value = self._read_token()
         if not value:
             raise QuerySyntaxError("expected operator value", self.index)
+        value = self._maybe_extend_temporal_value(name, value)
         value = self._maybe_extend_range_value(name, value)
         value = self._maybe_extend_operator_value(name, value)
         return OperatorNode(name=name, value=value, value_kind="word", negated=negated)
@@ -310,7 +317,7 @@ class _Parser:
             if char is None or char in {"|", ")"}:
                 self.index = checkpoint
                 return value
-            suffix = self._read_token()
+            suffix = self._read_range_endpoint(name)
             if not suffix:
                 self.index = checkpoint
                 return value
@@ -325,7 +332,7 @@ class _Parser:
         char = self._peek()
         if char is None or char in {"|", ")"}:
             return f"{value}.."
-        suffix = self._read_token()
+        suffix = self._read_range_endpoint(name)
         if not suffix:
             return f"{value}.."
         return f"{value}..{suffix}"
@@ -344,6 +351,67 @@ class _Parser:
             self.index = checkpoint
             return value
         return f"{value}{suffix}"
+
+    def _maybe_extend_temporal_value(self, name: str, value: str) -> str:
+        if name not in self._TEMPORAL_NAMES:
+            return value
+        value = self._maybe_extend_date_macro(value)
+        return self._maybe_extend_datetime_endpoint(value)
+
+    def _maybe_extend_date_macro(self, value: str) -> str:
+        if value.casefold() not in self._DATE_MACRO_HEADS:
+            return value
+        checkpoint = self.index
+        self._skip_ws()
+        char = self._peek()
+        if char is None or char in {"|", ")"}:
+            self.index = checkpoint
+            return value
+        suffix = self._read_token()
+        if suffix.casefold() not in self._DATE_MACRO_TAILS:
+            self.index = checkpoint
+            return value
+        return f"{value}-{suffix}"
+
+    def _maybe_extend_datetime_endpoint(self, value: str) -> str:
+        if not self._looks_like_iso_day(value):
+            return value
+        value = self._consume_temporal_token(value, self._looks_like_time_token)
+        return self._consume_temporal_token(value, self._looks_like_timezone_token)
+
+    def _consume_temporal_token(self, value: str, predicate: Callable[[str], bool]) -> str:
+        checkpoint = self.index
+        self._skip_ws()
+        char = self._peek()
+        if char is None or char in {"|", ")"}:
+            self.index = checkpoint
+            return value
+        suffix = self._read_token()
+        if not predicate(suffix):
+            self.index = checkpoint
+            return value
+        return f"{value} {suffix}"
+
+    def _read_range_endpoint(self, name: str) -> str:
+        value = self._read_token()
+        if not value or name not in self._TEMPORAL_NAMES:
+            return value
+        value = self._maybe_extend_date_macro(value)
+        return self._maybe_extend_datetime_endpoint(value)
+
+    def _looks_like_iso_day(self, value: str) -> bool:
+        return bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", value))
+
+    def _looks_like_time_token(self, value: str) -> bool:
+        return bool(
+            re.fullmatch(
+                r"\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:[+-]\d{2}:\d{2}|[Zz])?",
+                value,
+            )
+        )
+
+    def _looks_like_timezone_token(self, value: str) -> bool:
+        return bool(re.fullmatch(r"[+-]\d{2}:\d{2}|[Zz]", value))
 
     def _peek(self, *, offset: int = 0) -> str | None:
         index = self.index + offset

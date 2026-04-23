@@ -592,6 +592,53 @@ def test_execute_datetime_query_accepts_lowercase_utc_suffix(tmp_db: sqlite3.Con
     assert hits == ["exact-second.txt"]
 
 
+def test_execute_spaced_datetime_literal_and_range_queries(tmp_db: sqlite3.Connection) -> None:
+    base = int(datetime(2026, 1, 3, 9, 15, 30, tzinfo=UTC).timestamp())
+    _insert_file(tmp_db, 1, "/workspace/exact-second.txt", 512, base, "txt", body_text="exact")
+    _insert_file(tmp_db, 2, "/workspace/later-second.txt", 512, base + 30, "txt", body_text="later")
+    _insert_file(tmp_db, 3, "/workspace/day-neighbor.txt", 512, base + 300, "txt", body_text="neighbor")
+    tmp_db.commit()
+
+    exact_hits = [
+        hit.file.name for hit in search(tmp_db, "modified:2026-01-03 09:15:30+00:00", limit=10).hits
+    ]
+    range_hits = [
+        hit.file.name
+        for hit in search(
+            tmp_db,
+            "modified:2026-01-03 09:15:30+00:00 .. 2026-01-03 09:16:00+00:00",
+            limit=10,
+        ).hits
+    ]
+
+    assert exact_hits == ["exact-second.txt"]
+    assert range_hits == ["exact-second.txt", "later-second.txt"]
+
+
+def test_execute_spaced_relative_date_macros(tmp_db: sqlite3.Connection) -> None:
+    local_now = datetime.now().astimezone()
+    today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
+    yesterday_start = today_start - 86_400
+
+    _insert_file(tmp_db, 1, "/workspace/today.txt", 512, today_start + 60, "txt", body_text="today note")
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/yesterday.txt",
+        512,
+        yesterday_start + 60,
+        "txt",
+        body_text="yesterday note",
+    )
+    tmp_db.commit()
+
+    this_month_hits = [hit.file.name for hit in search(tmp_db, "date:this month", limit=10).hits]
+    last_week_hits = [hit.file.name for hit in search(tmp_db, "date:last week", limit=10).hits]
+
+    assert "today.txt" in this_month_hits
+    assert "yesterday.txt" not in last_week_hits
+
+
 def test_execute_decomposed_korean_path_filter_matches_nfc_paths(
     tmp_db: sqlite3.Connection,
 ) -> None:
