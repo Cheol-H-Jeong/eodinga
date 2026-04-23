@@ -31,6 +31,7 @@ def test_build_dry_run_returns_zero_and_writes_audit() -> None:
     assert audit_path.exists()
     payload = json.loads(audit_path.read_text(encoding="utf-8"))
     assert payload["target"] == "windows-dry-run"
+    assert payload["toolchain"] == []
     assert payload["version"] == __version__
     assert payload["version_matches_package"] is True
     assert payload["pyinstaller_spec"]["exists"] is True
@@ -155,6 +156,17 @@ def test_build_preflight_reports_missing_windows_tool(monkeypatch) -> None:
     result = module._run_windows()
 
     assert result == 1
+    payload = json.loads(Path("packaging/dist/windows-audit.json").read_text(encoding="utf-8"))
+    assert payload == {
+        "target": "windows",
+        "stage": "preflight",
+        "required_commands": [
+            {"command": "pyinstaller", "path": "/usr/bin/pyinstaller", "present": True},
+            {"command": "iscc", "path": None, "present": False},
+        ],
+        "missing_commands": ["iscc"],
+        "success": False,
+    }
 
 
 def test_windows_build_target_relabels_audit_and_requires_built_artifacts(monkeypatch) -> None:
@@ -170,6 +182,10 @@ def test_windows_build_target_relabels_audit_and_requires_built_artifacts(monkey
     assert result == 1
     payload = json.loads(Path("packaging/dist/windows-audit.json").read_text(encoding="utf-8"))
     assert payload["target"] == "windows"
+    assert payload["toolchain"] == [
+        {"command": "pyinstaller", "path": "/usr/bin/pyinstaller", "present": True},
+        {"command": "iscc", "path": "/usr/bin/iscc", "present": True},
+    ]
 
 
 def test_build_preflight_reports_missing_linux_deb_tool(monkeypatch) -> None:
@@ -185,6 +201,19 @@ def test_build_preflight_reports_missing_linux_deb_tool(monkeypatch) -> None:
     result = module._run_linux_deb()
 
     assert result == 1
+    payload = json.loads(Path("packaging/dist/linux-deb-audit.json").read_text(encoding="utf-8"))
+    assert payload == {
+        "target": "linux-deb",
+        "stage": "preflight",
+        "required_commands": [
+            {"command": "bash", "path": "/usr/bin/bash", "present": True},
+            {"command": "dpkg-deb", "path": None, "present": False},
+            {"command": "python3", "path": "/usr/bin/python3", "present": True},
+            {"command": "tar", "path": "/usr/bin/tar", "present": True},
+        ],
+        "missing_commands": ["dpkg-deb"],
+        "success": False,
+    }
 
 
 def test_windows_dry_run_covers_dynamic_hotkey_hidden_imports() -> None:
@@ -305,6 +334,13 @@ def test_workflows_lint_target_writes_audit() -> None:
         str(Path(".github/workflows/release-windows.yml").resolve()),
         str(Path(".github/workflows/release-linux.yml").resolve()),
     ]
+    assert payload["toolchain"] == [
+        {
+            "command": "yamllint",
+            "path": payload["toolchain"][0]["path"],
+            "present": True,
+        }
+    ]
     assert payload["files"] == [
         str(Path(".github/workflows/release-windows.yml").resolve()),
         str(Path(".github/workflows/release-linux.yml").resolve()),
@@ -327,6 +363,16 @@ def test_workflows_lint_preflight_reports_missing_yamllint(monkeypatch) -> None:
     result = module._run_workflows_lint()
 
     assert result == 1
+    payload = json.loads(Path("packaging/dist/workflows-lint-audit.json").read_text(encoding="utf-8"))
+    assert payload == {
+        "target": "workflows-lint",
+        "stage": "preflight",
+        "required_commands": [
+            {"command": "yamllint", "path": None, "present": False},
+        ],
+        "missing_commands": ["yamllint"],
+        "success": False,
+    }
 
 
 def test_linux_appimage_audit_validator_rejects_missing_launcher_contract() -> None:
@@ -778,6 +824,8 @@ def test_linux_appimage_build_target_writes_non_dry_run_audit() -> None:
     assert manifest_path.exists()
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-appimage"
+    assert [item["command"] for item in payload["toolchain"]] == ["bash", "python3", "tar"]
+    assert all(item["present"] is True for item in payload["toolchain"])
     assert payload["dry_run"] is False
     assert payload["arch"]
     assert Path(payload["appdir"]).exists()
@@ -798,6 +846,8 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
     assert manifest_path.exists()
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-deb-dry-run"
+    assert [item["command"] for item in payload["toolchain"]] == ["bash", "python3", "tar"]
+    assert all(item["present"] is True for item in payload["toolchain"])
     assert payload["version"] == __version__
     assert payload["arch"] == "amd64"
     assert Path(payload["package_dir"]).exists()
@@ -871,6 +921,8 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert manifest_path.exists()
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["target"] == "linux-deb"
+    assert [item["command"] for item in payload["toolchain"]] == ["bash", "dpkg-deb", "python3", "tar"]
+    assert all(item["present"] is True for item in payload["toolchain"])
     assert payload["dry_run"] is False
     assert Path(payload["package_dir"]).exists()
     assert Path(payload["control_path"]).exists()

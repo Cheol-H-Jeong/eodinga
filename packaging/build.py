@@ -211,6 +211,12 @@ def _write_audit(payload: dict[str, Any]) -> Path:
     return target
 
 
+def _overwrite_audit(path: Path, payload: dict[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
+
+
 def _load_audit(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -221,6 +227,20 @@ def _audit_status(path: Path, result: int) -> dict[str, Any]:
         "exists": path.exists(),
         "result": result,
     }
+
+
+def _resolve_command_info(commands: list[str]) -> list[dict[str, Any]]:
+    toolchain: list[dict[str, Any]] = []
+    for command in commands:
+        resolved_path = shutil.which(command)
+        toolchain.append(
+            {
+                "command": command,
+                "path": resolved_path,
+                "present": resolved_path is not None,
+            }
+        )
+    return toolchain
 
 
 def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
@@ -485,11 +505,21 @@ def _report_validation_errors(target: str, errors: list[str]) -> int:
 
 
 def _missing_required_commands(commands: list[str]) -> list[str]:
-    return sorted(command for command in commands if shutil.which(command) is None)
+    return sorted(info["command"] for info in _resolve_command_info(commands) if not info["present"])
 
 
 def _preflight_required_commands(target: str, commands: list[str]) -> int:
-    missing = _missing_required_commands(commands)
+    toolchain = _resolve_command_info(commands)
+    missing = sorted(info["command"] for info in toolchain if not info["present"])
+    _write_audit(
+        {
+            "target": target,
+            "stage": "preflight",
+            "required_commands": toolchain,
+            "missing_commands": missing,
+            "success": not missing,
+        }
+    )
     if not missing:
         return 0
     return _report_validation_errors(
@@ -502,25 +532,28 @@ def _run_windows_dry_run() -> int:
     version = _read_project_version()
     package_version = _read_package_version()
     payload = _audit_windows_inputs(version, package_version)
+    payload["toolchain"] = []
     _write_audit(payload)
     return _report_validation_errors("windows-dry-run", _validate_windows_audit(payload))
 
 
 def _run_windows() -> int:
-    preflight = _preflight_required_commands("windows", ["pyinstaller", "iscc"])
+    required_commands = ["pyinstaller", "iscc"]
+    preflight = _preflight_required_commands("windows", required_commands)
     if preflight != 0:
         return preflight
     version = _read_project_version()
     package_version = _read_package_version()
     payload = _audit_windows_inputs(version, package_version)
     payload["target"] = "windows"
-    payload["platform_tools"] = ["pyinstaller", "iscc"]
+    payload["toolchain"] = _resolve_command_info(required_commands)
     _write_audit(payload)
     return _report_validation_errors("windows", _validate_windows_audit(payload))
 
 
 def _run_linux_appimage_dry_run() -> int:
-    preflight = _preflight_required_commands("linux-appimage-dry-run", ["bash", "python3", "tar"])
+    required_commands = ["bash", "python3", "tar"]
+    preflight = _preflight_required_commands("linux-appimage-dry-run", required_commands)
     if preflight != 0:
         return preflight
     result = subprocess.run(
@@ -530,7 +563,10 @@ def _run_linux_appimage_dry_run() -> int:
     )
     if result.returncode != 0:
         return result.returncode
-    payload = _load_audit(DIST_DIR / "linux-appimage-audit.json")
+    audit_path = DIST_DIR / "linux-appimage-audit.json"
+    payload = _load_audit(audit_path)
+    payload["toolchain"] = _resolve_command_info(required_commands)
+    _overwrite_audit(audit_path, payload)
     project_version = _read_project_version()
     package_version = _read_package_version()
     return _report_validation_errors(
@@ -540,7 +576,8 @@ def _run_linux_appimage_dry_run() -> int:
 
 
 def _run_linux_appimage() -> int:
-    preflight = _preflight_required_commands("linux-appimage", ["bash", "python3", "tar"])
+    required_commands = ["bash", "python3", "tar"]
+    preflight = _preflight_required_commands("linux-appimage", required_commands)
     if preflight != 0:
         return preflight
     result = subprocess.run(
@@ -550,7 +587,10 @@ def _run_linux_appimage() -> int:
     )
     if result.returncode != 0:
         return result.returncode
-    payload = _load_audit(DIST_DIR / "linux-appimage-audit.json")
+    audit_path = DIST_DIR / "linux-appimage-audit.json"
+    payload = _load_audit(audit_path)
+    payload["toolchain"] = _resolve_command_info(required_commands)
+    _overwrite_audit(audit_path, payload)
     project_version = _read_project_version()
     package_version = _read_package_version()
     return _report_validation_errors(
@@ -560,7 +600,8 @@ def _run_linux_appimage() -> int:
 
 
 def _run_linux_deb_dry_run() -> int:
-    preflight = _preflight_required_commands("linux-deb-dry-run", ["bash", "python3", "tar"])
+    required_commands = ["bash", "python3", "tar"]
+    preflight = _preflight_required_commands("linux-deb-dry-run", required_commands)
     if preflight != 0:
         return preflight
     result = subprocess.run(
@@ -570,7 +611,10 @@ def _run_linux_deb_dry_run() -> int:
     )
     if result.returncode != 0:
         return result.returncode
-    payload = _load_audit(DIST_DIR / "linux-deb-audit.json")
+    audit_path = DIST_DIR / "linux-deb-audit.json"
+    payload = _load_audit(audit_path)
+    payload["toolchain"] = _resolve_command_info(required_commands)
+    _overwrite_audit(audit_path, payload)
     project_version = _read_project_version()
     package_version = _read_package_version()
     return _report_validation_errors(
@@ -580,7 +624,8 @@ def _run_linux_deb_dry_run() -> int:
 
 
 def _run_linux_deb() -> int:
-    preflight = _preflight_required_commands("linux-deb", ["bash", "dpkg-deb", "python3", "tar"])
+    required_commands = ["bash", "dpkg-deb", "python3", "tar"]
+    preflight = _preflight_required_commands("linux-deb", required_commands)
     if preflight != 0:
         return preflight
     result = subprocess.run(
@@ -590,7 +635,10 @@ def _run_linux_deb() -> int:
     )
     if result.returncode != 0:
         return result.returncode
-    payload = _load_audit(DIST_DIR / "linux-deb-audit.json")
+    audit_path = DIST_DIR / "linux-deb-audit.json"
+    payload = _load_audit(audit_path)
+    payload["toolchain"] = _resolve_command_info(required_commands)
+    _overwrite_audit(audit_path, payload)
     project_version = _read_project_version()
     package_version = _read_package_version()
     return _report_validation_errors(
@@ -622,7 +670,8 @@ def _run_release_dry_run() -> int:
 
 
 def _run_workflows_lint() -> int:
-    preflight = _preflight_required_commands("workflows-lint", ["yamllint"])
+    required_commands = ["yamllint"]
+    preflight = _preflight_required_commands("workflows-lint", required_commands)
     if preflight != 0:
         return preflight
     command = ["yamllint", *(str(path) for path in RELEASE_WORKFLOWS)]
@@ -637,6 +686,7 @@ def _run_workflows_lint() -> int:
         "target": "workflows-lint",
         "command": command,
         "files": [str(path) for path in RELEASE_WORKFLOWS],
+        "toolchain": _resolve_command_info(required_commands),
         "stdout": result.stdout,
         "stderr": result.stderr,
         "success": result.returncode == 0,
