@@ -10,6 +10,21 @@
 4. `eodinga.query.dsl.parse()` and `eodinga.query.compiler.compile_query()` lower the DSL into SQLite filters plus in-memory fallback checks.
 5. `eodinga.query.executor.search()` fetches candidates, merges name/path/content rankings, and returns hits to the CLI or GUI.
 
+## End-to-End Request Path
+
+```text
+user types query / invokes CLI
+    |
+    v
+query parser ---> compiler ---> SQLite candidate fetch ---> ranker ---> rendered result row
+                    |                    |                       |
+                    |                    |                       +--> launcher / GUI / CLI formatting
+                    |                    |
+                    |                    +--> files + paths_fts + content_fts
+                    |
+                    +--> in-memory fallback checks for regex, mixed path/content, and negation edges
+```
+
 ## Data Flow Diagram
 
 ```text
@@ -37,6 +52,13 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 | Query engine | `eodinga.query.dsl`, `eodinga.query.compiler`, `eodinga.query.executor`, `eodinga.query.ranker` | Parse the DSL and turn it into ranked candidate results. |
 | Content extraction | `eodinga.content.*` | Parse supported document formats into searchable text. |
 | UI + CLI | `eodinga.__main__`, `eodinga.gui.*`, `eodinga.launcher.*` | Expose the same engine through commands, the main window, and the hotkey launcher. |
+
+## Why The Pieces Are Split This Way
+
+- `core.*` owns contact with the real filesystem so read-only guarantees stay centralized.
+- `index.*` isolates SQLite lifecycle, FTS maintenance, and crash recovery from the query/UI layers.
+- `query.*` keeps the DSL, SQL lowering, and ranking logic reusable across CLI, GUI, and launcher searches.
+- `gui.*` and `launcher.*` stay thin enough that UI changes do not require a second search implementation.
 
 ## Index Storage
 
@@ -90,6 +112,27 @@ eodinga index --rebuild
 - Regex and mixed path/content terms are finalized in Python against the candidate set so the CLI and GUI share identical behavior.
 - `eodinga.query.ranker` applies reciprocal rank fusion, filename prefix boosts, and path deboosting for noisy trees such as `node_modules`.
 
+## Query Sequence
+
+```text
+raw query string
+    |
+    +--> dsl.parse()
+            |
+            +--> AST with terms / groups / filters / regex nodes
+                    |
+                    +--> compiler.compile_query()
+                            |
+                            +--> SQL predicates + FTS probes + fallback predicates
+                                    |
+                                    +--> executor.search()
+                                            |
+                                            +--> reader fetch
+                                            +--> Python fallback evaluation
+                                            +--> ranker.rerank()
+                                            +--> normalized result objects
+```
+
 ## Operational Model
 
 - Cold start is walker-driven: discover roots, write metadata in bulk, then parse supported documents for content rows.
@@ -116,6 +159,26 @@ IndexWriter.apply_events()
 next query sees updated results
 ```
 
+## Recovery Decision Tree
+
+```text
+startup
+    |
+    +--> staged rebuild present (.next)?
+    |       |
+    |       +--> yes: validate and promote staged database
+    |
+    +--> interrupted recovery present (.recover)?
+    |       |
+    |       +--> yes: resume swap before opening live DB
+    |
+    +--> stale WAL sidecar present?
+            |
+            +--> yes: replay into staged copy, checkpoint, atomically replace live DB
+            |
+            +--> no: open live DB directly
+```
+
 ## Packaging Surfaces
 
 - Editable local development targets `pip install -e .[all]` on Python 3.11.
@@ -123,6 +186,16 @@ next query sees updated results
 - The Debian recipe stages the launcher shim, desktop entry, SVG icon, license, and compressed changelog into the package root before emitting the audit manifest.
 - Windows packaging uses `packaging/pyinstaller.spec`, `packaging/windows/eodinga.iss`, and `packaging/build.py --target windows-dry-run`.
 - Documentation screenshots are rendered from the real Qt surfaces through `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
+
+## Platform Surface Summary
+
+| Surface | Entry point | Purpose |
+| --- | --- | --- |
+| CLI | `eodinga.__main__` | Indexing, watch mode, diagnostics, and scripted search. |
+| Main window | `eodinga.gui.app` | Root management, diagnostics, and settings. |
+| Launcher | `eodinga.gui.launcher` | Hotkey-first search with quick keyboard actions. |
+| Linux packages | `packaging/linux/*` | AppImage and `.deb` dry-run and release artifacts. |
+| Windows package | `packaging/windows/eodinga.iss` | Per-user installer generated from the PyInstaller build output. |
 
 ## UI Surfaces
 
