@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from json import dumps as json_dumps
 from pathlib import Path
 from threading import Lock
+from time import monotonic
 from typing import IO, Any, TypedDict
 
 from loguru import logger
@@ -173,18 +174,26 @@ def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None
     if target is None:
         increment_counter("log_sinks.file.disabled")
         return
-    target.parent.mkdir(parents=True, exist_ok=True)
-    logger.add(
-        target,
-        rotation=resolve_log_rotation(),
-        retention=resolve_log_retention(),
-        compression=resolve_log_compression(),
-        encoding="utf-8",
-        delay=True,
-        backtrace=False,
-        diagnose=False,
-        level=level.upper(),
-    )
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        logger.add(
+            target,
+            rotation=resolve_log_rotation(),
+            retention=resolve_log_retention(),
+            compression=resolve_log_compression(),
+            encoding="utf-8",
+            delay=True,
+            backtrace=False,
+            diagnose=False,
+            level=level.upper(),
+        )
+    except Exception as error:
+        increment_counter("log_sinks.file.failed")
+        sys.stderr.write(
+            "warning: failed to configure file logging at "
+            f"{target}: {type(error).__name__}: {error}\n"
+        )
+        return
     increment_counter("log_sinks.file.configured")
 
 
@@ -255,13 +264,20 @@ def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
         "payload": dict(payload),
     }
     with _METRICS_LOCK:
+        if len(_RECENT_SNAPSHOTS) == _RECENT_SNAPSHOT_LIMIT:
+            _COUNTERS["snapshots_dropped"] = _COUNTERS.get("snapshots_dropped", 0) + 1
         _RECENT_SNAPSHOTS.append(record)
+        _COUNTERS["snapshots_recorded"] = _COUNTERS.get("snapshots_recorded", 0) + 1
     logger.bind(metric=name, payload=record["payload"]).debug("snapshot recorded")
 
 
 def recent_snapshots() -> list[SnapshotRecord]:
     with _METRICS_LOCK:
         return list(_RECENT_SNAPSHOTS)
+
+
+def recent_snapshot_limit() -> int:
+    return _RECENT_SNAPSHOT_LIMIT
 
 
 def counter_value(name: str) -> int:
@@ -284,6 +300,7 @@ def write_crash_log(
     context: str = "Unhandled exception",
     details: Mapping[str, object] | None = None,
 ) -> Path:
+    started_at = monotonic()
     target_dir = resolve_crash_dir(crash_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
     occurred_at = datetime.now(UTC)
@@ -327,6 +344,7 @@ def write_crash_log(
     ]
     crash_path.write_text("".join(lines), encoding="utf-8")
     increment_counter("crash_logs_written")
+    record_histogram("crash_log_write_latency_ms", max((monotonic() - started_at) * 1000, 0.0))
     return crash_path
 
 

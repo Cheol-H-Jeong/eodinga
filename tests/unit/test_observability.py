@@ -118,6 +118,29 @@ def test_log_resolution_returns_none_when_file_logging_disabled(monkeypatch) -> 
     assert "log_sinks.file.configured" not in counters
 
 
+def test_configure_logging_records_file_sink_failure_without_raising(
+    monkeypatch: Any, tmp_path: Path, capsys
+) -> None:
+    log_path = tmp_path / "logs" / "app.log"
+    reset_metrics()
+
+    def _fail_mkdir(self: Path, *_args: object, **_kwargs: object) -> None:
+        raise OSError("read only")
+
+    monkeypatch.setattr(Path, "mkdir", _fail_mkdir)
+
+    configure_logging("INFO", log_path=log_path)
+
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    captured = capsys.readouterr()
+    assert "failed to configure file logging" in captured.err
+    assert "read only" in captured.err
+    assert counters["logging_configurations"] == 1
+    assert counters["log_sinks.stderr.configured"] == 1
+    assert counters["log_sinks.file.failed"] == 1
+    assert "log_sinks.file.configured" not in counters
+
+
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     try:
         raise RuntimeError("boom")
@@ -183,10 +206,26 @@ def test_write_crash_log_records_runtime_metrics(tmp_path: Path) -> None:
         crash_path = write_crash_log(error, crash_dir=tmp_path)
 
     contents = crash_path.read_text(encoding="utf-8")
-    assert 'metrics_counters={"queries_served": 2}' in contents
+    assert '"queries_served": 2' in contents
     assert '"query_latency_ms"' in contents
     assert "metrics_generated_at=" in contents
     assert 'recent_snapshots=[{"name": "command.search"' in contents
+
+
+def test_record_snapshot_tracks_bounded_history_overflow() -> None:
+    reset_metrics()
+
+    for index in range(25):
+        record_snapshot("command.search", {"index": index})
+
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
+    snapshots = recent_snapshots()
+    assert counters["snapshots_recorded"] == 25
+    assert counters["snapshots_dropped"] == 5
+    assert len(snapshots) == 20
+    assert snapshots[0]["payload"]["index"] == 5
+    assert snapshots[-1]["payload"]["index"] == 24
 
 
 def test_write_crash_log_uses_unique_path_when_timestamp_collides(tmp_path: Path) -> None:
@@ -217,6 +256,19 @@ def test_report_crash_writes_log_and_stderr(tmp_path: Path, monkeypatch, capsys)
     assert "reported crash" in crash_path.read_text(encoding="utf-8")
     counters = cast(dict[str, int], snapshot_metrics()["counters"])
     assert counters["crashes.RuntimeError"] == 1
+
+
+def test_write_crash_log_records_latency_histogram(tmp_path: Path) -> None:
+    reset_metrics()
+
+    try:
+        raise RuntimeError("timed boom")
+    except RuntimeError as error:
+        write_crash_log(error, crash_dir=tmp_path)
+
+    histograms = cast(dict[str, dict[str, object]], snapshot_metrics()["histograms"])
+    assert histograms["crash_log_write_latency_ms"]["count"] == 1
+    assert cast(float, histograms["crash_log_write_latency_ms"]["max_ms"]) >= 0.0
 
 
 def test_report_crash_records_write_failure_without_raising(monkeypatch, capsys) -> None:

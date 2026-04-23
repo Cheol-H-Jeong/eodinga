@@ -27,6 +27,7 @@ from eodinga.observability import (
     record_snapshot,
     record_histogram,
     recent_snapshots,
+    recent_snapshot_limit,
     resolve_crash_dir,
     resolve_log_path,
     snapshot_metrics,
@@ -232,9 +233,13 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         log_sinks_stderr_configured=counter_value("log_sinks.stderr.configured"),
         log_sinks_file_configured=counter_value("log_sinks.file.configured"),
         log_sinks_file_disabled=counter_value("log_sinks.file.disabled"),
+        log_sinks_file_failed=counter_value("log_sinks.file.failed"),
+        snapshots_recorded=counter_value("snapshots_recorded"),
+        snapshots_dropped=counter_value("snapshots_dropped"),
         query_latency_histogram=histogram_snapshot("query_latency_ms"),
         query_result_count_histogram=histogram_snapshot("query_result_count"),
         command_latency_histogram=histogram_snapshot("command_latency_ms"),
+        crash_log_write_latency_histogram=histogram_snapshot("crash_log_write_latency_ms"),
         watch_flush_batch_histogram=histogram_snapshot("watch_flush_batch_size"),
         watch_event_lag_histogram=histogram_snapshot("watch_event_lag_ms"),
         watcher_queue_backpressure_histogram=histogram_snapshot("watcher_queue_backpressure_ms"),
@@ -245,6 +250,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         crash_types=_crash_type_summary(counters),
         parser_activity=_parser_activity_summary(counters),
         watcher_event_types=_watcher_event_type_summary(counters),
+        log_sinks=_log_sink_summary(counters),
+        snapshot_activity=_snapshot_activity_summary(counters),
         counters=counters,
         histograms=metrics["histograms"],
         recent_snapshots=[dict(entry) for entry in recent_snapshots()],
@@ -411,6 +418,26 @@ def _watcher_event_type_summary(counters: dict[str, int]) -> dict[str, int]:
         if name.startswith(prefix)
     }
     return dict(sorted(event_types.items()))
+
+
+def _log_sink_summary(counters: dict[str, int]) -> dict[str, int | bool]:
+    return {
+        "stderr_configured": counters.get("log_sinks.stderr.configured", 0),
+        "file_configured": counters.get("log_sinks.file.configured", 0),
+        "file_disabled": counters.get("log_sinks.file.disabled", 0),
+        "file_failed": counters.get("log_sinks.file.failed", 0),
+        "file_logging_enabled": file_logging_enabled(),
+    }
+
+
+def _snapshot_activity_summary(counters: dict[str, int]) -> dict[str, int]:
+    snapshots = recent_snapshots()
+    return {
+        "recorded": counters.get("snapshots_recorded", 0),
+        "dropped": counters.get("snapshots_dropped", 0),
+        "retained": len(snapshots),
+        "limit": recent_snapshot_limit(),
+    }
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -16,7 +16,7 @@ from eodinga.content.base import ParserSpec
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga.index.schema import apply_schema
-from eodinga.observability import reset_metrics, snapshot_metrics
+from eodinga.observability import record_snapshot, reset_metrics, snapshot_metrics
 
 
 def _insert_file(
@@ -507,9 +507,13 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_sinks_stderr_configured"] == 2
     assert payload["log_sinks_file_configured"] == 0
     assert payload["log_sinks_file_disabled"] == 2
+    assert payload["log_sinks_file_failed"] == 0
+    assert payload["snapshots_recorded"] == 1
+    assert payload["snapshots_dropped"] == 0
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["query_result_count_histogram"]["count"] == 1
     assert payload["command_latency_histogram"]["count"] == 1
+    assert payload["crash_log_write_latency_histogram"] == {}
     assert payload["watch_flush_batch_histogram"] == {}
     assert payload["watch_event_lag_histogram"] == {}
     assert payload["watcher_queue_backpressure_histogram"] == {}
@@ -522,6 +526,19 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["crash_types"] == {}
     assert payload["parser_activity"] == {}
     assert payload["watcher_event_types"] == {}
+    assert payload["log_sinks"] == {
+        "stderr_configured": 2,
+        "file_configured": 0,
+        "file_disabled": 2,
+        "file_failed": 0,
+        "file_logging_enabled": True,
+    }
+    assert payload["snapshot_activity"] == {
+        "recorded": 1,
+        "dropped": 0,
+        "retained": 1,
+        "limit": 20,
+    }
     assert len(payload["recent_snapshots"]) == 1
     assert payload["recent_snapshots"][0]["name"] == "command.search"
     assert payload["recent_snapshots"][0]["payload"]["query"] == "duplicate"
@@ -646,6 +663,9 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["log_sinks_stderr_configured"] == 3
     assert payload["log_sinks_file_configured"] == 0
     assert payload["log_sinks_file_disabled"] == 3
+    assert payload["log_sinks_file_failed"] == 0
+    assert payload["snapshots_recorded"] == 2
+    assert payload["snapshots_dropped"] == 0
     assert payload["commands_started"] == 3
     assert payload["commands_completed"] == 2
     assert payload["commands_failed"] == 0
@@ -664,6 +684,19 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["parser_activity"]["broken"]["errors"] == 1
     assert payload["parser_activity"]["text"]["parsed"] >= 2
     assert payload["watcher_event_types"] == {"created": 1, "modified": 1}
+    assert payload["log_sinks"] == {
+        "stderr_configured": 3,
+        "file_configured": 0,
+        "file_disabled": 3,
+        "file_failed": 0,
+        "file_logging_enabled": True,
+    }
+    assert payload["snapshot_activity"] == {
+        "recorded": 2,
+        "dropped": 0,
+        "retained": 2,
+        "limit": 20,
+    }
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_retention"] == 5
     assert payload["log_compression"] is None
@@ -671,6 +704,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["histograms"]["query_result_count"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 2
     assert payload["query_result_count_histogram"]["count"] == 1
+    assert payload["crash_log_write_latency_histogram"] == {}
     assert payload["watch_flush_batch_histogram"]["count"] == 2
     assert payload["watch_event_lag_histogram"]["count"] == 2
     assert payload["watcher_queue_backpressure_histogram"]["count"] == 1
@@ -834,6 +868,13 @@ def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Pat
     assert payload["commands"]["version"]["started"] == 1
     assert payload["exit_codes"]["1"] == 1
     assert payload["crash_types"] == {"RuntimeError": 1}
+    assert payload["crash_log_write_latency_histogram"]["count"] == 1
+    assert payload["snapshot_activity"] == {
+        "recorded": 2,
+        "dropped": 0,
+        "retained": 2,
+        "limit": 20,
+    }
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
         "command.failure",
         "command.crash",
@@ -931,3 +972,49 @@ def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> 
     assert payload["recent_snapshots"][0]["name"] == "command.failure"
     assert payload["recent_snapshots"][0]["payload"]["command"] == "search"
     assert payload["recent_snapshots"][0]["payload"]["reason"] == "nonzero_exit"
+
+
+def test_stats_json_exposes_snapshot_overflow_and_log_sink_failures(
+    tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db_path = tmp_path / "index.db"
+    log_path = tmp_path / "logs" / "eodinga.log"
+    _build_search_db(db_path)
+    reset_metrics()
+
+    def _fail_mkdir(self: Path, *_args: object, **_kwargs: object) -> None:
+        if self == log_path.parent:
+            raise OSError("read only")
+        return None
+
+    monkeypatch.setattr(Path, "mkdir", _fail_mkdir)
+    monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+
+    for index in range(25):
+        record_snapshot("command.search", {"index": index})
+
+    stats_exit = main(["--db", str(db_path), "--log-level", "DEBUG", "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    assert "failed to configure file logging" in stats_output.err
+    payload = json.loads(stats_output.out)
+    assert payload["log_sinks_file_failed"] == 1
+    assert payload["snapshots_recorded"] == 25
+    assert payload["snapshots_dropped"] == 5
+    assert payload["log_sinks"] == {
+        "stderr_configured": 1,
+        "file_configured": 0,
+        "file_disabled": 0,
+        "file_failed": 1,
+        "file_logging_enabled": True,
+    }
+    assert payload["snapshot_activity"] == {
+        "recorded": 25,
+        "dropped": 5,
+        "retained": 20,
+        "limit": 20,
+    }
+    assert len(payload["recent_snapshots"]) == 20
+    assert payload["recent_snapshots"][0]["payload"]["index"] == 5
+    assert payload["recent_snapshots"][-1]["payload"]["index"] == 24
