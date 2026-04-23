@@ -20,6 +20,7 @@ print(match.group(1))
 PY
 )"
 ARCH="${TARGET_ARCH:-amd64}"
+RUNTIME_DEPENDS="${PYTHON_RUNTIME_DEPENDS:-python3 (>= 3.11)}"
 PACKAGE_DIR="${BUILD_ROOT}/eodinga_${VERSION}_${ARCH}"
 ARCHIVE_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}_debroot.tar.gz"
 DEB_PATH="${DIST_DIR}/eodinga_${VERSION}_${ARCH}.deb"
@@ -33,16 +34,30 @@ rm -rf "${PACKAGE_DIR}"
 mkdir -p "${PACKAGE_DIR}/DEBIAN" "${PACKAGE_DIR}/usr/bin" "${PACKAGE_DIR}/usr/share/applications" "${PACKAGE_DIR}/usr/share/doc/eodinga"
 mkdir -p "${PACKAGE_DIR}/usr/share/icons/hicolor/scalable/apps"
 
-cat > "${PACKAGE_DIR}/DEBIAN/control" <<EOF
-Package: eodinga
-Version: ${VERSION}
-Section: utils
-Priority: optional
-Architecture: ${ARCH}
-Maintainer: Cheol-H-Jeong
-Depends: python3 (>= 3.11)
-Description: Instant lexical file search for Windows and Linux
-EOF
+python3 - <<PY
+from pathlib import Path
+
+template_path = Path("${DEBIAN_CONTROL_TEMPLATE}")
+target_path = Path("${PACKAGE_DIR}/DEBIAN/control")
+template_entries: dict[str, str] = {}
+for line in template_path.read_text(encoding="utf-8").splitlines():
+    if not line or line.startswith(" ") or ":" not in line:
+        continue
+    key, value = line.split(":", 1)
+    template_entries[key] = value.strip()
+
+target_lines = [
+    f"Package: {template_entries.get('Package', 'eodinga')}",
+    f"Version: ${VERSION}",
+    f"Section: {template_entries.get('Section', 'utils')}",
+    f"Priority: {template_entries.get('Priority', 'optional')}",
+    f"Architecture: ${ARCH}",
+    f"Maintainer: {template_entries.get('Maintainer', 'Cheol-H-Jeong')}",
+    f"Depends: ${RUNTIME_DEPENDS}",
+    f"Description: {template_entries.get('Description', 'Instant lexical file search for Windows and Linux')}",
+]
+target_path.write_text("\\n".join(target_lines) + "\\n", encoding="utf-8")
+PY
 
 cat > "${PACKAGE_DIR}/usr/bin/eodinga" <<'EOF'
 #!/usr/bin/env bash
@@ -112,6 +127,7 @@ payload = {
         "package": control_entries.get("Package"),
         "version": control_entries.get("Version"),
         "architecture": control_entries.get("Architecture"),
+        "maintainer": control_entries.get("Maintainer"),
         "depends": control_entries.get("Depends"),
         "description": control_entries.get("Description"),
     },

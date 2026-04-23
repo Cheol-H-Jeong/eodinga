@@ -381,6 +381,7 @@ def test_linux_deb_dry_run_stages_recipe() -> None:
         "package": "eodinga",
         "version": __version__,
         "architecture": "amd64",
+        "maintainer": "Cheol-H-Jeong",
         "depends": "python3 (>= 3.11)",
         "description": "Instant lexical file search for Windows and Linux",
     }
