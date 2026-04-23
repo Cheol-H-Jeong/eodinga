@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.859 - 2026-04-23
+
+- Split Windows packaging into explicit CLI and GUI wrapper entry scripts, so the two staged executables now map to real launch modes instead of sharing a single ambiguous entrypoint.
+- Taught `packaging/build.py --target windows` to execute the audited PyInstaller and Inno Setup commands and to fail unless the current release's versioned setup artifact is actually produced.
+- Cleared current-version Windows dist directories and installer outputs before rebuilding, preventing stale artifacts from masking failed release invocations.
+
 ## 0.1.855 - 2026-04-23
 
 - Avoided redundant stylesheet reapplication on the shared Qt application instance, eliminating the test-mode launcher relaunch crash path seen under the offscreen backend.
