@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.186 - 2026-04-23
+## 0.1.189 - 2026-04-23
 
 - Split SQLite connection setup into explicit idle and bulk-write profiles so staged rebuilds keep `synchronous=NORMAL` while steady-state opens restore `synchronous=FULL`.
 - Reused `os.scandir()` child metadata during walker traversal, which removes follow-up `lstat()` calls for directory entries without changing traversal semantics.
