@@ -533,6 +533,62 @@ def test_hot_restart_reopen_same_root_move_updates_query_and_path_hits(tmp_path:
     assert destination_path_hits == [destination]
 
 
+def test_hot_restart_reopen_same_root_directory_move_updates_nested_query_and_path_hits(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    source_dir = root / "drafts"
+    nested_dir = source_dir / "chapter"
+    nested_dir.mkdir(parents=True)
+    target = nested_dir / "story.txt"
+    target.write_text("reopen directory move nested marker\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    reopened = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        initial_hits = [hit.file.path for hit in search(reopened, "directory move nested", limit=5).hits]
+        destination_dir = root / "published"
+        source_dir.rename(destination_dir)
+        moved = destination_dir / "chapter" / "story.txt"
+
+        appeared_elapsed = _wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "directory move nested",
+            moved,
+            deadline_seconds=0.5,
+        )
+        removed_elapsed = _wait_for_query_miss(
+            reopened,
+            service,
+            writer,
+            "directory move nested",
+            target,
+            deadline_seconds=0.5,
+        )
+        source_path_hits = {
+            hit.file.path for hit in search(reopened, "path:drafts/chapter", limit=5).hits
+        }
+        destination_path_hits = {
+            hit.file.path for hit in search(reopened, "path:published/chapter", limit=5).hits
+        }
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == [target]
+    assert appeared_elapsed <= 0.5
+    assert removed_elapsed <= 0.5
+    assert source_path_hits == set()
+    assert destination_path_hits == {destination_dir / "chapter", moved}
+
+
 def test_hot_restart_reopen_cross_root_move_updates_scope_and_global_hits(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
