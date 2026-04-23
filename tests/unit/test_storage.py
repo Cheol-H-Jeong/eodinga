@@ -515,6 +515,33 @@ def test_recover_stale_wal_cleans_orphaned_partial_stage_before_retry(tmp_path: 
     assert not partial.with_name(".index.db.recover.partial-shm").exists()
 
 
+def test_recover_stale_wal_cleans_orphaned_recovery_sidecars_before_retry(tmp_path: Path) -> None:
+    source = tmp_path / "source.db"
+    path = tmp_path / "index.db"
+
+    source_conn = sqlite3.connect(source)
+    apply_schema(source_conn)
+    source_conn.execute("PRAGMA wal_autocheckpoint=0;")
+    source_conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/resumed", "[]", "[]", 1),
+    )
+    source_conn.commit()
+    shutil.copy2(source, path)
+    shutil.copy2(source.with_name("source.db-wal"), path.with_name("index.db-wal"))
+    shutil.copy2(source.with_name("source.db-shm"), path.with_name("index.db-shm"))
+    source_conn.close()
+
+    orphan_wal = tmp_path / ".index.db.recover-wal"
+    orphan_shm = tmp_path / ".index.db.recover-shm"
+    orphan_wal.write_bytes(b"orphaned")
+    orphan_shm.write_bytes(b"orphaned")
+
+    assert recover_stale_wal(path) is True
+    assert not orphan_wal.exists()
+    assert not orphan_shm.exists()
+
+
 def test_open_index_raises_when_stale_wal_recovery_fails(tmp_path: Path, monkeypatch) -> None:
     path = tmp_path / "index.db"
     conn = sqlite3.connect(path)

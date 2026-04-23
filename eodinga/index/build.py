@@ -13,6 +13,8 @@ from eodinga.config import RootConfig
 from eodinga.content.registry import parse
 from eodinga.core.walker import walk_batched
 from eodinga.index.storage import (
+    _cleanup_orphan_build_sidecars,
+    _cleanup_partial_copy_artifacts,
     _cleanup_index_files,
     atomic_replace_index,
     connect_database,
@@ -123,6 +125,8 @@ def rebuild_index(
     target_path = db_path.expanduser()
     target_path.parent.mkdir(parents=True, exist_ok=True)
     staged_path = _staged_build_path(target_path)
+    _cleanup_partial_copy_artifacts(staged_path)
+    _cleanup_orphan_build_sidecars(target_path)
     _cleanup_index_files(staged_path)
 
     conn = connect_database(staged_path)

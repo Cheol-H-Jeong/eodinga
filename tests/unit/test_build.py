@@ -199,6 +199,32 @@ def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
         resumed.close()
 
 
+def test_rebuild_index_cleans_orphaned_staged_build_artifacts_before_restart(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    partial = tmp_path / ".index.db.next.partial"
+    partial.write_bytes(b"orphaned")
+    partial.with_name(".index.db.next.partial-wal").write_bytes(b"orphaned")
+    partial.with_name(".index.db.next.partial-shm").write_bytes(b"orphaned")
+    orphan_wal = tmp_path / ".index.db.next-wal"
+    orphan_shm = tmp_path / ".index.db.next-shm"
+    orphan_wal.write_bytes(b"orphaned")
+    orphan_shm.write_bytes(b"orphaned")
+
+    result = rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    assert result.files_indexed == 2
+    assert not partial.exists()
+    assert not partial.with_name(".index.db.next.partial-wal").exists()
+    assert not partial.with_name(".index.db.next.partial-shm").exists()
+    assert not orphan_wal.exists()
+    assert not orphan_shm.exists()
+
+
 def test_rebuild_index_installs_sigint_and_sigterm_handlers_on_main_thread(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
