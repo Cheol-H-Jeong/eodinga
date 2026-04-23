@@ -441,6 +441,32 @@ def test_execute_iso_year_literals_match_full_calendar_year(tmp_db: sqlite3.Conn
     assert hits == ["in-year.txt"]
 
 
+def test_execute_iso_month_literals_match_full_calendar_month(tmp_db: sqlite3.Connection) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/in-month.txt",
+        512,
+        int(datetime(2026, 4, 15, 12, 0, tzinfo=UTC).timestamp()),
+        "txt",
+        body_text="inside 2026-04",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/out-month.txt",
+        512,
+        int(datetime(2026, 5, 1, 12, 0, tzinfo=UTC).timestamp()),
+        "txt",
+        body_text="outside 2026-04",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "date:2026-04", limit=10).hits]
+
+    assert hits == ["in-month.txt"]
+
+
 def test_execute_negated_case_true_restores_case_insensitive_matching(
     tmp_db: sqlite3.Connection,
 ) -> None:

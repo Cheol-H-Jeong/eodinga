@@ -56,6 +56,13 @@ def _parse_iso_period(value: str) -> DateRange | None:
         year = int(value)
         start = date(year, 1, 1)
         return _period_bounds(start, date(year + 1, 1, 1))
+    if match := re.fullmatch(r"(\d{4})-(\d{2})", value):
+        year = int(match.group(1))
+        month = int(match.group(2))
+        if not 1 <= month <= 12:
+            raise QuerySyntaxError(f"invalid date literal: {value}", 0)
+        start = date(year, month, 1)
+        return _period_bounds(start, _next_month_start(start))
     return None
 
 
