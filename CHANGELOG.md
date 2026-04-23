@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.731 - 2026-04-23
+
+- Persisted observability counters, histograms, and recent command snapshots to a state file so `eodinga stats --json` now reports activity across separate CLI invocations instead of only the current process.
+- Exposed metrics persistence state in `stats --json`, including the resolved metrics path and whether persistence is enabled for the current runtime.
+- Hardened metrics-store startup so corrupt state is quarantined, load/write failures are counted, and observability stays available instead of failing closed on bad JSON.
+
 ## 0.1.718 - 2026-04-23
 
 - Let `size:` filters accept comparator-separated values like `size:> 10M`, so spaced numeric input now parses the same way as the compact form.
