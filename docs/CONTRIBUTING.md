@@ -138,6 +138,12 @@ Use this when the round is docs-only but still release-bearing:
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
 
+## Metadata Commit Discipline
+
+- Keep the final metadata commit reviewable: version bump, changelog entry, and local tag cut only.
+- If the patch number changes because another worker landed first, retarget just that final metadata commit instead of rewriting earlier docs or feature commits.
+- Re-run `pytest -q tests/unit` after retargeting the metadata commit so the branch tip stays demonstrably green.
+
 ## Test Selection Guide
 
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`

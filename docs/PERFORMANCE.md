@@ -69,7 +69,7 @@ The defaults currently checked into the suite are:
 
 ## Baseline
 
-Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed after the 0.1.69 writer no-parser fast-path round:
+Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv` dependencies installed on the branch that originally introduced the current no-parser indexing fast path:
 
 | Benchmark | Dataset | Result |
 | --- | --- | --- |
@@ -80,7 +80,7 @@ Measured on 2026-04-23 in this repository’s Linux dev environment with `.venv`
 | Content query latency | 500 queries / 5k docs | p50 0.60 ms, p95 0.63 ms, p99 0.67 ms |
 | Watch latency | 25 created files | p99 0.133 s |
 
-These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. This round removes the guaranteed-empty content-upsert pass whenever `IndexWriter` is running without a parser callback, which trims metadata-only indexing and makes the staged rebuild benchmark reflect the actual `content_enabled=False` fast path instead of paying for a no-op parser loop.
+These numbers are informational for v0.1, not release-blocking. The thresholds in `tests/perf/*` are set to catch clear regressions on a normal developer workstation rather than to enforce the SPEC’s reference-box targets. The benchmark set reflects the checked-in no-parser fast path, where metadata-only indexing avoids the guaranteed-empty content upsert pass when no parser callback is installed.
 
 When you refresh this table, record:
 
@@ -88,6 +88,13 @@ When you refresh this table, record:
 2. The printed benchmark summary line.
 3. Any non-default env overrides that changed dataset size or gate thresholds.
 4. Whether the run was warm-cache or after a cold filesystem cache reset.
+
+## Baseline Freshness Policy
+
+- Treat the table above as a recorded benchmark sample, not an implicit claim about the current `HEAD`.
+- If you did not rerun the perf suite in the same round, leave the numeric table untouched and document your change elsewhere.
+- If you do rerun the suite, update the measurement date, note the exact command, and describe the code or docs change that explains the new sample.
+- When a README or release guide cites the perf baseline, describe it as the "current checked-in baseline" unless the benchmark was rerun at the same commit being released.
 
 ## Repro Checklist
 

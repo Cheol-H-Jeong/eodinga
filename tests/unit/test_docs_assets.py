@@ -144,6 +144,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "scripts/render_docs_screenshots.py" in contributing
     assert "## Docs Refresh Order" in contributing
     assert "## Docs Round Checklist" in contributing
+    assert "## Metadata Commit Discipline" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
     assert "## Review Checklist" in contributing
@@ -175,14 +176,17 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "EODINGA_PERF_REBUILD_MIN_FPS" in performance
     assert "## Running the Suite" in performance
     assert "## Baseline" in performance
+    assert "## Baseline Freshness Policy" in performance
     assert "## Repro Checklist" in performance
     assert "## Profiling Workflow" in performance
     assert "## Release Use" in performance
     assert "Each benchmark prints a structured summary line to stdout." in performance
     assert "The defaults currently checked into the suite are:" in performance
     assert "The printed benchmark summary line." in performance
+    assert "current checked-in baseline" in performance
 
     assert "## Pick The Version" in release
+    assert "## Version Collision Guard" in release
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
     assert "## Artifact Inventory" in release
@@ -199,6 +203,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Collision check example" in release
     assert "Do not push tags or release branches from a worker worktree." in release
     assert "packaging/dist/" in release
+    assert "Single-shot metadata cut" in release
+    assert "git fetch origin main --tags" in release
 
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage

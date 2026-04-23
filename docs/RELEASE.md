@@ -11,6 +11,18 @@ This document expands the short checklist in [ACCEPTANCE.md](/home/cheol/project
 5. Confirm the candidate tag does not already exist locally before creating it.
 6. In worker worktrees, fetch and reset to `origin/main` before starting the round so the chosen patch number is based on the latest landed tags.
 
+## Version Collision Guard
+
+Use one explicit refresh before you cut the metadata commit:
+
+```bash
+git fetch origin main --tags && git tag -l | sort -V | tail -5
+```
+
+- Pick `0.1.N` only after that tag refresh, not from a stale local clone.
+- If another worker lands the same patch version before you tag, choose the next unused patch number and update the metadata commit instead of moving an existing tag.
+- Keep the version bump and changelog update in the last commit of the round so retargeting from `0.1.N` to `0.1.N+1` stays small and auditable.
+
 ## Refresh Release Notes
 
 1. Add a new top entry in `CHANGELOG.md`.
@@ -123,6 +135,12 @@ Use the same release discipline for docs-only changes when the shipped operator 
 1. Commit the release metadata changes.
 2. Create the local tag with `git tag v0.1.N`.
 3. Stop after the local tag; the orchestrator owns any later rebase, push, and publication steps.
+
+Single-shot metadata cut:
+
+```bash
+git add CHANGELOG.md pyproject.toml eodinga/__init__.py && git commit -m "chore(release): bump to v0.1.N" && git tag v0.1.N
+```
 
 Example:
 
