@@ -58,6 +58,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "### Quick Runbook" in readme
     assert "## Limitations" in readme
     assert "## Packaging" in readme
+    assert "## Packaging Audit Checklist" in readme
     assert "## Contributing" in readme
     assert "## Release Process" in readme
     assert "linux-deb-dry-run" in readme
@@ -81,7 +82,12 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Refresh shipped docs assets" in readme
     assert "docs only" in readme
     assert "packaging/dist/" in readme
+    assert "Review the dry-run output before tagging." in readme
+    assert "### State Directory Summary" in readme
+    assert "EODINGA_LOG_PATH" in readme
+    assert "EODINGA_CRASH_DIR" in readme
     assert "Docs asset drift after CLI or UI changes" in readme
+    assert "What should I inspect before cutting a docs-only release?" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance

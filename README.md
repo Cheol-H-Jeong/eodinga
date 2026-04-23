@@ -282,6 +282,18 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - Validate Linux Debian packaging with `python packaging/build.py --target linux-deb-dry-run`.
 - Audit the rendered manifests and staged payload descriptions under `packaging/dist/` after each dry run; that directory is the review surface for release packaging changes.
 
+## Packaging Audit Checklist
+
+Use this quick review after any release-facing docs or packaging change:
+
+| Target | Command | Inspect in `packaging/dist/` |
+| --- | --- | --- |
+| Windows installer inputs | `python packaging/build.py --target windows-dry-run` | PyInstaller summary, Inno Setup script rendering, staged docs payload |
+| Linux AppImage inputs | `python packaging/build.py --target linux-appimage-dry-run` | rendered AppImage recipe, versioned artifact name, bundled docs list |
+| Linux `.deb` inputs | `python packaging/build.py --target linux-deb-dry-run` | staged desktop files, SVG icon, compressed changelog, package manifest |
+
+Review the dry-run output before tagging. If the staged payload disagrees with `README.md`, `docs/ACCEPTANCE.md`, or `docs/man/eodinga.1`, treat that as a release-input failure instead of a docs-only nit.
+
 ## Operator References
 
 - `docs/DSL.md` is the complete query reference.
@@ -340,6 +352,15 @@ Treat these as part of the shipped surface, not incidental repository files:
 - Windows uses `%APPDATA%\\eodinga\\config.toml` for config and `%LOCALAPPDATA%\\eodinga\\index.db` for the database.
 - Override either location with `--config` or `--db` when running CLI commands.
 - Runtime writes stay inside those config/database areas; indexed roots are treated as read-only inputs.
+
+### State Directory Summary
+
+| Kind | Linux default | Windows default | Override |
+| --- | --- | --- | --- |
+| Config | `~/.config/eodinga/config.toml` | `%APPDATA%\\eodinga\\config.toml` | `--config` |
+| Index database | `~/.local/share/eodinga/index.db` | `%LOCALAPPDATA%\\eodinga\\index.db` | `--db` |
+| Runtime log file | platform app log path | `%LOCALAPPDATA%\\eodinga\\logs\\` | `EODINGA_LOG_PATH` |
+| Crash reports | platform app data path | `%LOCALAPPDATA%\\eodinga\\crash-*.log` | `EODINGA_CRASH_DIR` |
 
 Launcher-specific options live under the `launcher` table in `config.toml`. Example:
 
@@ -410,6 +431,10 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
 
+### Where do logs and crash reports go?
+
+By default they stay under the platform app-data area next to the local index. Use `EODINGA_LOG_PATH` to redirect the rotating runtime log and `EODINGA_CRASH_DIR` to redirect `crash-<ts>.log` artifacts.
+
 ### When do I need `eodinga watch`?
 
 Use it when you want CLI-driven live updates after the initial index build. `eodinga index` is a one-shot crawl; it does not keep monitoring for later filesystem changes.
@@ -421,6 +446,10 @@ From the `launcher.pinned_queries` list in `config.toml`. The launcher also keep
 ### Where do I inspect packaging outputs before a release?
 
 Use `packaging/dist/`. Each packaging dry run writes its audit manifests or staged output summary there so the release review can inspect generated inputs without running the installer.
+
+### What should I inspect before cutting a docs-only release?
+
+Check `tests/unit/test_docs_assets.py`, the matching GUI smoke or packaging dry run for the surface you documented, and the rendered payload under `packaging/dist/` when the docs describe packaged artifacts.
 
 ### Which files are skipped by default?
 
