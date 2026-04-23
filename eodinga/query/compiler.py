@@ -285,7 +285,7 @@ def _empty_clause(negated: bool) -> str:
 
 def _compile_branch(
     terms: list[WordNode | PhraseNode | RegexNode | OperatorNode],
-) -> CompiledBranch:
+) -> CompiledBranch | None:
     where_parts: list[str] = []
     where_params: list[object] = []
     path_terms: list[CompiledTextTerm] = []
@@ -293,8 +293,8 @@ def _compile_branch(
     path_regex_terms: list[CompiledRegexTerm] = []
     content_regex_terms: list[CompiledRegexTerm] = []
     path_filters: list[CompiledTextTerm] = []
-    case_sensitive = False
-    regex_mode = False
+    case_sensitive: bool | None = None
+    regex_mode: bool | None = None
 
     for term in terms:
         if isinstance(term, WordNode):
@@ -422,9 +422,12 @@ def _compile_branch(
             where_parts.append(f"NOT ({clause})" if term.negated else clause)
             continue
         if term.name == "case":
-            case_sensitive = _parse_bool(term.value)
+            requested = _parse_bool(term.value)
             if term.negated:
-                case_sensitive = not case_sensitive
+                requested = not requested
+            if case_sensitive is not None and case_sensitive != requested:
+                return None
+            case_sensitive = requested
             continue
         if term.name == "regex":
             bool_value = (
@@ -433,9 +436,11 @@ def _compile_branch(
                 else None
             )
             if bool_value is not None:
-                regex_mode = bool_value
                 if term.negated:
-                    regex_mode = not regex_mode
+                    bool_value = not bool_value
+                if regex_mode is not None and regex_mode != bool_value:
+                    return None
+                regex_mode = bool_value
                 continue
             _validate_regex_pattern(term.value, term.regex_flags)
             path_regex_terms.append(
@@ -447,6 +452,9 @@ def _compile_branch(
             )
             continue
         raise QuerySyntaxError(f"unsupported operator: {term.name}", 0)
+
+    regex_mode = False if regex_mode is None else regex_mode
+    case_sensitive = False if case_sensitive is None else case_sensitive
 
     if regex_mode and path_terms:
         regex_terms = []
@@ -484,7 +492,11 @@ def _compile_branch(
 
 def compile_query(ast: AstNode) -> CompiledQuery:
     normalized = _to_nnf(ast)
-    branches = tuple(_compile_branch(branch) for branch in _to_dnf(normalized))
+    branches = tuple(
+        compiled
+        for branch in _to_dnf(normalized)
+        if (compiled := _compile_branch(branch)) is not None
+    )
     return CompiledQuery(branches=branches)
 
 

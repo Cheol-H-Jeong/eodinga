@@ -444,6 +444,28 @@ def test_execute_negated_regex_true_restores_literal_term_matching(
     assert literal_hits == ["report-[0-9]+.txt"]
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "case:true case:false Alpha",
+        "regex:true regex:false Alpha",
+        "regex:false -regex:false Alpha",
+        "-(case:true | case:false) Alpha",
+    ],
+)
+def test_execute_conflicting_boolean_mode_terms_return_no_hits(
+    tmp_db: sqlite3.Connection,
+    query: str,
+) -> None:
+    _insert_file(tmp_db, 1, "/workspace/Alpha.txt", 512, 1_713_528_000, "txt", body_text="alpha")
+    tmp_db.commit()
+
+    result = search(tmp_db, query, limit=10)
+
+    assert result.hits == []
+    assert result.total_estimate == 0
+
+
 def test_execute_escaped_phrase_query_matches_literal_quotes_and_backslashes(
     tmp_db: sqlite3.Connection,
 ) -> None:

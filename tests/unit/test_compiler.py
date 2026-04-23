@@ -320,6 +320,22 @@ def test_compile_group_negation_truth_table_matches_equivalent_form(
     assert _branch_signature(compiled) == _branch_signature(equivalent_compiled)
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "case:true case:false",
+        "case:true -case:true",
+        "regex:true regex:false",
+        "regex:false -regex:false",
+        "-(case:true | case:false)",
+    ],
+)
+def test_compile_conflicting_boolean_mode_terms_drop_unsatisfiable_branches(query: str) -> None:
+    compiled = compile_query(parse(query))
+
+    assert compiled.branches == ()
+
+
 def test_compile_reuses_cached_queries() -> None:
     first = compile("report ext:pdf")
     second = compile("report ext:pdf")
