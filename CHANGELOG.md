@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.933 - 2026-04-24
+## 0.1.934 - 2026-04-24
 
 - Cached the query executor's fully formatted SQL statements behind a 128-entry LRU, reducing repeated string formatting and keeping SQLite statement reuse stable across repeated search shapes.
 - Widened writer-side delete, content lookup, and content row cleanup batches from the old 500-row default to 2048 rows, trimming round-trips during large bulk upserts and delete-heavy watcher event bursts.
