@@ -385,6 +385,51 @@ def test_execute_phrase_query_matches_across_punctuation_in_path_and_content(
     assert content_hits == ["launch-checklist.txt"]
 
 
+def test_execute_phrase_query_matches_across_underscore_boundaries(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/launch_checklist.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="launch_checklist approved",
+    )
+    tmp_db.commit()
+
+    path_hits = [hit.file.name for hit in search(tmp_db, '"launch checklist"', limit=5).hits]
+    content_hits = [hit.file.name for hit in search(tmp_db, 'content:"launch checklist"', limit=5).hits]
+
+    assert path_hits == ["launch_checklist.txt"]
+    assert content_hits == ["launch_checklist.txt"]
+
+
+def test_execute_phrase_query_matches_mixed_separator_boundaries(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/release_candidate-notes.txt",
+        512,
+        1_713_528_000,
+        "txt",
+        body_text="release_candidate\nnotes approved",
+    )
+    tmp_db.commit()
+
+    path_hits = [hit.file.name for hit in search(tmp_db, '"release candidate notes"', limit=5).hits]
+    content_hits = [
+        hit.file.name
+        for hit in search(tmp_db, 'content:"release candidate notes"', limit=5).hits
+    ]
+
+    assert path_hits == ["release_candidate-notes.txt"]
+    assert content_hits == ["release_candidate-notes.txt"]
+
+
 def test_execute_decomposed_korean_phrase_query_matches_across_punctuation(
     tmp_db: sqlite3.Connection,
 ) -> None:

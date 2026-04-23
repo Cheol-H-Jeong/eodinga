@@ -22,8 +22,16 @@ def test_compile_content_query_shape() -> None:
     compiled = compile_query(parse('content:"hello world" -path:node_modules'))
     branch = compiled.branches[0]
     assert branch.content_match_sql == "content_fts MATCH ?"
-    assert branch.content_match_params == ('"hello world"',)
+    assert branch.content_match_params == ('"hello" "world"',)
     assert "files.path NOT LIKE ?" in branch.where_sql
+
+
+def test_compile_phrase_queries_expand_fts_candidates_by_separator_tokens() -> None:
+    compiled = compile_query(parse('"launch checklist" content:"release candidate"'))
+    branch = compiled.branches[0]
+
+    assert branch.path_match_params == ('"launch" "checklist"',)
+    assert branch.content_match_params == ('"release" "candidate"',)
 
 
 def test_compile_or_to_multiple_branches() -> None:

@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 import sqlite3
 import time
-import unicodedata
 from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from pathlib import Path
@@ -15,6 +14,7 @@ from eodinga.common import FileRecord
 from eodinga.observability import increment_counter, record_histogram
 from eodinga.query.compiler import CompiledBranch, CompiledQuery
 from eodinga.query.ranker import rank_results
+from eodinga.query.text import normalize_search_text, phrase_matches
 
 
 class SearchHit(BaseModel):
@@ -163,21 +163,13 @@ def _make_flags(flag_text: str) -> int:
 
 
 def _text_matches(value: str, needle: str, case_sensitive: bool) -> bool:
-    haystack = _normalize_search_text(value, case_sensitive=case_sensitive)
-    normalized_needle = _normalize_search_text(needle, case_sensitive=case_sensitive)
+    haystack = normalize_search_text(value, case_sensitive=case_sensitive)
+    normalized_needle = normalize_search_text(needle, case_sensitive=case_sensitive)
     return normalized_needle in haystack
 
 
 def _phrase_matches(value: str, phrase: str, case_sensitive: bool) -> bool:
-    normalized_phrase = _normalize_search_text(phrase, case_sensitive=case_sensitive)
-    normalized_value = _normalize_search_text(value, case_sensitive=case_sensitive)
-    if normalized_phrase in normalized_value:
-        return True
-    tokens = tuple(token for token in re.split(r"\s+", normalized_phrase) if token)
-    if len(tokens) < 2:
-        return False
-    pattern = r"\W+".join(re.escape(token) for token in tokens)
-    return bool(re.search(pattern, normalized_value))
+    return phrase_matches(value, phrase, case_sensitive=case_sensitive)
 
 
 def _term_matches(
@@ -190,11 +182,6 @@ def _term_matches(
     if kind == "phrase":
         return _phrase_matches(value, term_value, case_sensitive=case_sensitive)
     return _text_matches(value, term_value, case_sensitive=case_sensitive)
-
-
-def _normalize_search_text(value: str, case_sensitive: bool) -> str:
-    normalized = unicodedata.normalize("NFC", value)
-    return normalized if case_sensitive else normalized.casefold()
 
 
 def _fts_prefix_literal(value: str) -> str:
@@ -368,6 +355,8 @@ def _should_scan_path_candidates(branch: CompiledBranch, fts_ids: list[int]) -> 
         return False
     if not fts_ids:
         return True
+    if any(term.kind == "phrase" for term in positive_terms):
+        return True
     # Keep the scan supplement for scripts where unicode token boundaries are less predictable.
     return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
 
@@ -403,7 +392,9 @@ def _fetch_path_candidates_scan(
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return [], {}
-    if any(any(ord(char) > 127 for char in term.value) for term in positive_terms):
+    if any(term.kind == "phrase" for term in positive_terms) or any(
+        any(ord(char) > 127 for char in term.value) for term in positive_terms
+    ):
         return _fetch_path_candidates_python_scan(conn, branch, limit)
     params: list[object] = []
     prefix_term = positive_terms[0].value if positive_terms else ""
@@ -434,8 +425,13 @@ def _fetch_path_candidates_python_scan(
         file_id: record
         for file_id, record in records.items()
         if all(
-            _text_matches(record.name, term.value, branch.case_sensitive)
-            or _text_matches(str(record.path), term.value, branch.case_sensitive)
+            _term_matches(record.name, term.value, kind=term.kind, case_sensitive=branch.case_sensitive)
+            or _term_matches(
+                str(record.path),
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
             for term in positive_terms
         )
     }
@@ -444,8 +440,8 @@ def _fetch_path_candidates_python_scan(
         key=lambda record: (
             0
             if any(
-                _normalize_search_text(record.name, case_sensitive=branch.case_sensitive).startswith(
-                    _normalize_search_text(term.value, case_sensitive=branch.case_sensitive)
+                normalize_search_text(record.name, case_sensitive=branch.case_sensitive).startswith(
+                    normalize_search_text(term.value, case_sensitive=branch.case_sensitive)
                 )
                 for term in positive_terms
             )
@@ -677,9 +673,9 @@ def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> l
         return []
     hits: list[int] = []
     for file_id, record in records.items():
-        check_name = _normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
+        check_name = normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
         for term in positives:
-            needle = _normalize_search_text(term, case_sensitive=branch.case_sensitive)
+            needle = normalize_search_text(term, case_sensitive=branch.case_sensitive)
             if check_name.startswith(needle):
                 hits.append(file_id)
                 break
@@ -740,12 +736,22 @@ def _derive_name_path_hits(
         target_name = record.name
         target_path = str(record.path)
         if any(
-            _text_matches(target_name, term.value, branch.case_sensitive)
+            _term_matches(
+                target_name,
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
             for term in positive_terms
         ):
             name_hits.append(record.id)
         if any(
-            _text_matches(target_path, term.value, branch.case_sensitive)
+            _term_matches(
+                target_path,
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
             for term in positive_terms
         ):
             path_hits.append(record.id)

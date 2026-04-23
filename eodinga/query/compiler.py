@@ -20,6 +20,7 @@ from eodinga.query.dsl import (
 )
 from eodinga.query.date_range import parse_date_range
 from eodinga.query.ranker import RankingWeights
+from eodinga.query.text import fts_literal
 
 
 class CompiledTextTerm(BaseModel):
@@ -111,11 +112,6 @@ def _to_nnf(node: AstNode, negated: bool = False) -> AstNode:
         clauses = tuple(_to_nnf(child, negated) for child in node.clauses)
         return AndNode(clauses=clauses) if negated else OrNode(clauses=clauses)
     raise TypeError(f"unsupported node: {type(node)!r}")
-
-
-def _fts_literal(value: str, kind: Literal["word", "phrase"]) -> str:
-    escaped = value.replace('"', '""')
-    return f'"{escaped}"'
 
 
 def _normalize_literal(value: str) -> str:
@@ -397,8 +393,8 @@ def _compile_branch(
     positive_content_terms = tuple(term for term in content_terms if not term.negated)
     path_match_sql = "paths_fts MATCH ?" if positive_path_terms else None
     content_match_sql = "content_fts MATCH ?" if positive_content_terms else None
-    path_query = " ".join(_fts_literal(term.value, term.kind) for term in positive_path_terms)
-    content_query = " ".join(_fts_literal(term.value, term.kind) for term in positive_content_terms)
+    path_query = " ".join(fts_literal(term.value, term.kind) for term in positive_path_terms)
+    content_query = " ".join(fts_literal(term.value, term.kind) for term in positive_content_terms)
     return CompiledBranch(
         path_match_sql=path_match_sql,
         path_match_params=((path_query,) if path_query else ()),
