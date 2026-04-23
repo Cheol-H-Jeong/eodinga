@@ -19,6 +19,18 @@ def test_summarize_active_filters_hides_invalid_queries() -> None:
     assert summarize_active_filters('path:"unterminated') == []
 
 
+def test_summarize_active_filters_preserves_negated_group_filters() -> None:
+    filters = summarize_active_filters("-(ext:pdf | date:today) report")
+
+    assert filters == ["-ext:pdf", "-date:today"]
+
+
+def test_summarize_active_filters_flips_nested_negation_inside_groups() -> None:
+    filters = summarize_active_filters("-(-ext:pdf | path:archive)")
+
+    assert filters == ["ext:pdf", "-path:archive"]
+
+
 def test_summarize_active_filters_can_return_full_filter_list() -> None:
     filters = summarize_active_filters("ext:pdf date:today size:>10M path:reports is:file regex:true", limit=None)
 
