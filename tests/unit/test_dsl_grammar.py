@@ -109,6 +109,26 @@ def test_parse_phrase_supports_escaped_quotes_and_backslashes(
     assert node.value == expected_value
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_name", "expected_value"),
+    [
+        ('content:"a\\"b"', "content", 'a"b'),
+        ('path:"dir\\\\name"', "path", r"dir\name"),
+    ],
+)
+def test_parse_inline_phrase_without_whitespace_decodes_escapes(
+    query: str,
+    expected_name: str,
+    expected_value: str,
+) -> None:
+    node = parse(query)
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == expected_name
+    assert node.value_kind == "phrase"
+    assert node.value == expected_value
+
+
 @pytest.mark.parametrize("query", ["content://i", "path://", "regex://i"])
 def test_parse_inline_operator_empty_regex_errors(query: str) -> None:
     with pytest.raises(QuerySyntaxError, match="empty regex"):
@@ -156,6 +176,27 @@ def test_parse_slash_prefixed_path_regex_with_valid_flags() -> None:
     assert node.value == "tmp/log"
     assert node.value_kind == "regex"
     assert node.regex_flags == "i"
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_pattern", "expected_flags"),
+    [
+        (r"path:/tmp\/logs/i", r"tmp\/logs", "i"),
+        (r"path:/문서\/보관/ms", r"문서\/보관", "ms"),
+    ],
+)
+def test_parse_slash_prefixed_path_regex_with_escaped_slash(
+    query: str,
+    expected_pattern: str,
+    expected_flags: str,
+) -> None:
+    node = parse(query)
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "path"
+    assert node.value == expected_pattern
+    assert node.value_kind == "regex"
+    assert node.regex_flags == expected_flags
 
 
 @pytest.mark.parametrize(

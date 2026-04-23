@@ -190,24 +190,9 @@ class _Parser:
             raise QuerySyntaxError('expected \'"\'', start)
         self.index += 1
         phrase_start = self.index
-        value_chars: list[str] = []
-        while True:
-            char = self._peek()
-            if char is None:
-                raise QuerySyntaxError("unterminated phrase", start)
-            if char == '"':
-                break
-            if char == "\\":
-                next_char = self._peek(offset=1)
-                if next_char in {'"', "\\"}:
-                    value_chars.append(next_char)
-                    self.index += 2
-                    continue
-            value_chars.append(char)
-            self.index += 1
+        value = self._read_phrase_value(start)
         if self._peek() != '"':
             raise QuerySyntaxError("unterminated phrase", start)
-        value = "".join(value_chars)
         self.index += 1
         if not value:
             raise QuerySyntaxError("empty phrase", phrase_start)
@@ -244,7 +229,10 @@ class _Parser:
             start = self.index - len(value)
             if not value.endswith('"') or len(value) == 1:
                 raise QuerySyntaxError("unterminated phrase", start)
-            return value[1:-1], "phrase", ""
+            decoded = self._decode_phrase_text(value[1:-1], start + 1)
+            if not decoded:
+                raise QuerySyntaxError("empty phrase", start + 1)
+            return decoded, "phrase", ""
         if value.startswith("/"):
             delimiters = self._regex_delimiters(value)
             if len(delimiters) < 2 or value.endswith("\\"):
@@ -256,7 +244,12 @@ class _Parser:
             suffix = value[last + 1 :]
             if suffix and (len(suffix) > 3 or not suffix.isalpha()):
                 return value, "word", ""
-            if name == "path" and value.startswith("/") and (len(delimiters) < 3 or not suffix):
+            if (
+                name == "path"
+                and value.startswith("/")
+                and (len(delimiters) < 3 or not suffix)
+                and not self._has_escaped_regex_slash(pattern)
+            ):
                 return value, "word", ""
             if name == "path" and suffix:
                 try:
@@ -316,6 +309,48 @@ class _Parser:
             if flag in seen:
                 raise QuerySyntaxError(f"duplicate regex flag: {flags[offset]}", position + offset)
             seen.add(flag)
+
+    def _read_phrase_value(self, start: int) -> str:
+        value_chars: list[str] = []
+        while True:
+            char = self._peek()
+            if char is None:
+                raise QuerySyntaxError("unterminated phrase", start)
+            if char == '"':
+                break
+            if char == "\\":
+                next_char = self._peek(offset=1)
+                if next_char in {'"', "\\"}:
+                    value_chars.append(next_char)
+                    self.index += 2
+                    continue
+            value_chars.append(char)
+            self.index += 1
+        return "".join(value_chars)
+
+    def _decode_phrase_text(self, value: str, position: int) -> str:
+        decoded_chars: list[str] = []
+        index = 0
+        while index < len(value):
+            char = value[index]
+            if char == "\\" and index + 1 < len(value) and value[index + 1] in {'"', "\\"}:
+                decoded_chars.append(value[index + 1])
+                index += 2
+                continue
+            decoded_chars.append(char)
+            index += 1
+        return "".join(decoded_chars)
+
+    def _has_escaped_regex_slash(self, value: str) -> bool:
+        backslashes = 0
+        for char in value:
+            if char == "\\":
+                backslashes += 1
+                continue
+            if char == "/" and backslashes % 2 == 1:
+                return True
+            backslashes = 0
+        return False
 
 
 def parse(source: str) -> AstNode:
