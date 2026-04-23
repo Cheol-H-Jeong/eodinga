@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.531 - 2026-04-23
+## 0.1.535 - 2026-04-23
 
 - Added live observer integration coverage for same-root renames, asserting that search hits move to the new path within 500ms and stale path filters disappear.
 - Added hot-restart integration coverage for reopened indexes handling same-root renames, so restart boundaries now exercise the same live-update contract as fresh sessions.
