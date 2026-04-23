@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.710 - 2026-04-23
+
+- Cached compiled include/exclude `PathSpec` rules and root normalization inside `should_index()`, removing repeated glob compilation from the walker hot path while preserving denylist and explicit-root behavior.
+- Stabilized executor SQL shapes by moving dynamic query builders into a dedicated 128-entry cache and chunking content-text fetches to 128 ids, improving SQLite statement-cache reuse for repeated searches.
+- Added a perf-only filtered-content latency benchmark behind `EODINGA_RUN_PERF=1`, so negated content/path query shapes now have explicit regression coverage alongside the existing perf suite.
+
 ## 0.1.706 - 2026-04-23
 
 - Added a live launcher filter summary row that parses DSL operators into visible chips, so `ext:`, `date:`, `size:`, `path:`, `content:`, and related filters stay discoverable while typing instead of disappearing into raw query text.
