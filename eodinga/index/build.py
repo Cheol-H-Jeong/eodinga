@@ -114,14 +114,13 @@ def rebuild_index(
                 )
                 for batch in walk_batched(root.path, rules, root_id=root_id):
                     stop.raise_if_requested()
-                    with conn:
-                        indexed = writer.bulk_upsert(batch)
-                        if batch:
-                            record_histogram(
-                                "index_batch_size",
-                                float(len(batch)),
-                                root=str(root.path),
-                            )
+                    indexed = writer.bulk_upsert(batch)
+                    if batch:
+                        record_histogram(
+                            "index_batch_size",
+                            float(len(batch)),
+                            root=str(root.path),
+                        )
                     files_indexed += indexed
                     if indexed:
                         increment_counter("files_indexed", indexed, root=str(root.path))

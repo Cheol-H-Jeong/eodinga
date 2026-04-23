@@ -99,6 +99,30 @@ def test_rebuild_index_records_runtime_metrics(tmp_path: Path) -> None:
     assert cast(int, batch_histogram["count"]) >= 1
 
 
+def test_rebuild_index_calls_bulk_upsert_without_outer_transaction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+
+    original_bulk_upsert = build_module.IndexWriter.bulk_upsert
+    transaction_states: list[bool] = []
+
+    def recording_bulk_upsert(self, records):
+        transaction_states.append(self._conn.in_transaction)
+        return original_bulk_upsert(self, records)
+
+    monkeypatch.setattr(build_module.IndexWriter, "bulk_upsert", recording_bulk_upsert)
+
+    result = rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    assert result.files_indexed == 2
+    assert transaction_states
+    assert transaction_states == [False]
+
+
 def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
