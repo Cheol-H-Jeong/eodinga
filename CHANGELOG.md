@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.385 - 2026-04-23
+## 0.1.390 - 2026-04-23
 
 - Allowed `date:` ranges to mix relative aliases like `today`, `yesterday`, `last-week`, and `this-month` with ISO endpoints, including open-ended forms such as `date:..today`.
 - Added open-ended `size:` range filters so queries like `size:..500K`, `size:100..`, and their negated forms compile and execute alongside the existing comparator and closed-range syntax.
