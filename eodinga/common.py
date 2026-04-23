@@ -126,6 +126,8 @@ class StatsSnapshot(BaseModel):
     log_sinks_file_disabled: int = 0
     query_latency_histogram: dict[str, object] = Field(default_factory=dict)
     command_latency_histogram: dict[str, object] = Field(default_factory=dict)
+    index_rebuild_latency_histogram: dict[str, object] = Field(default_factory=dict)
+    index_batch_size_histogram: dict[str, object] = Field(default_factory=dict)
     watch_flush_batch_histogram: dict[str, object] = Field(default_factory=dict)
     watch_event_lag_histogram: dict[str, object] = Field(default_factory=dict)
     watcher_queue_backpressure_histogram: dict[str, object] = Field(default_factory=dict)
