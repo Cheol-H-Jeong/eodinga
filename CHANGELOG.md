@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.244 - 2026-04-23
+
+- Hardened staged index recovery so interrupted `.recover` and `.next` snapshots must contain initialized schema before they can replace a live index, preventing empty or half-built files from being promoted during startup recovery.
+- Made stale-WAL recovery publish its staged snapshot atomically, carrying the copied `-wal` and `-shm` sidecars through the same promotion path and cleaning orphaned `.recover.partial*` artifacts before retries.
+- Expanded storage regressions to cover uninitialized staged snapshots, atomic staged-copy failures, orphaned partial recovery cleanup, and durability of promoted recovery sidecars.
+
 ## 0.1.242 - 2026-04-23
 
 - Hardened crash observability so same-second failures no longer overwrite prior `crash-*.log` files, unraisable exceptions now flow through the same crash-report path, and crash counters are visible in runtime stats.
