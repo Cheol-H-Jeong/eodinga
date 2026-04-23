@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QTimer, Qt, Signal
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
 
 from eodinga.config import AppConfig
@@ -52,8 +53,7 @@ class LauncherWindow(LauncherPanel):
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
         if not self._geometry_restored and self._config is not None:
-            if self._config.launcher.window_x is not None and self._config.launcher.window_y is not None:
-                self.move(self._config.launcher.window_x, self._config.launcher.window_y)
+            self._restore_visible_geometry()
             self._geometry_restored = True
         self.query_field.setFocus()
         self.query_field.selectAll()
@@ -119,3 +119,29 @@ class LauncherWindow(LauncherPanel):
             return
         self._config.launcher = self._config.launcher.model_copy(update=geometry)
         self._config.save(self._config_path)
+
+    def _restore_visible_geometry(self) -> None:
+        if self._config is None:
+            return
+        screen = self.screen() or QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        available = screen.availableGeometry()
+        saved_width = max(self.width(), 1)
+        saved_height = max(self.height(), 1)
+        width = min(saved_width, available.width())
+        height = min(saved_height, available.height())
+        x = self._config.launcher.window_x
+        y = self._config.launcher.window_y
+        if x is None or y is None:
+            self.resize(width, height)
+            return
+        saved_rect = available.__class__(x, y, saved_width, saved_height)
+        if saved_rect.intersects(available):
+            self.setGeometry(x, y, width, height)
+            return
+        max_x = available.x() + max(available.width() - width, 0)
+        max_y = available.y() + max(available.height() - height, 0)
+        clamped_x = min(max(x, available.x()), max_x)
+        clamped_y = min(max(y, available.y()), max_y)
+        self.setGeometry(clamped_x, clamped_y, width, height)

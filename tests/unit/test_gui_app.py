@@ -207,6 +207,33 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     qapp.processEvents()
 
 
+def test_launcher_clamps_restored_geometry_to_available_screen(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(
+        update={
+            "window_x": 50_000,
+            "window_y": 50_000,
+            "window_width": 50_000,
+            "window_height": 50_000,
+        }
+    )
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher.show()
+    qapp.processEvents()
+
+    available = launcher.screen().availableGeometry()
+    assert available.contains(launcher.frameGeometry())
+    assert launcher.width() <= available.width()
+    assert launcher.height() <= available.height()
+
+    window.close()
+    qapp.processEvents()
+
+
 def test_launcher_respects_always_on_top_config(qapp, temp_config_path: Path) -> None:
     config = AppConfig()
     config.launcher = config.launcher.model_copy(update={"always_on_top": False})
