@@ -47,6 +47,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Acceptance Quickcheck" in readme
     assert "## Validation Paths" in readme
     assert "## DSL Cheatsheet" in readme
+    assert "## Query Planning Guide" in readme
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
     assert "## Task Recipes" in readme
@@ -59,6 +60,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Limitations" in readme
     assert "## Packaging" in readme
     assert "## Packaging Audit Checklist" in readme
+    assert "## Release Evidence Bundle" in readme
     assert "## Contributing" in readme
     assert "## Release Process" in readme
     assert "linux-deb-dry-run" in readme
@@ -83,6 +85,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "docs only" in readme
     assert "packaging/dist/" in readme
     assert "Review the dry-run output before tagging." in readme
+    assert "find by filename or obvious keyword" in readme
+    assert "catch regex-shaped names or paths" in readme
+    assert "review these surfaces together" in readme
     assert "### State Directory Summary" in readme
     assert "EODINGA_LOG_PATH" in readme
     assert "EODINGA_CRASH_DIR" in readme

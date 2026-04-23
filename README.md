@@ -204,6 +204,21 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Exclude noisy trees | `-path:node_modules` |
 | Run regex | `/todo|fixme/i` |
 
+## Query Planning Guide
+
+Use this when you know the search intent but do not remember which operator family narrows it fastest:
+
+| If you are trying to... | Start with | Add next when needed |
+| --- | --- | --- |
+| find by filename or obvious keyword | plain term such as `roadmap` | `ext:` or `path:` to cut noise |
+| search inside document bodies | `content:"quoted phrase"` | `ext:` or `date:` if the corpus is broad |
+| narrow to one folder tree | `path:projects` | combine with plain terms or `content:` |
+| catch regex-shaped names or paths | `regex:/todo|fixme/i` | `-path:` or grouped negation to drop noisy trees |
+| find only recent or historical files | `date:this-week` or `created:2026-04-23` | `size:` or `ext:` to narrow the slice |
+| isolate duplicates or empty entries | `is:duplicate` or `is:empty` | `size:` or `path:` to turn it into an action list |
+
+The complete operator reference stays in [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md). The table above is meant to answer "which operator family should I reach for first?" without reading the full guide.
+
 ## Supported Content Types
 
 - Plain text and source code: `.txt`, `.md`, `.py`, and similar text-first formats.
@@ -293,6 +308,19 @@ Use this quick review after any release-facing docs or packaging change:
 | Linux `.deb` inputs | `python packaging/build.py --target linux-deb-dry-run` | staged desktop files, SVG icon, compressed changelog, package manifest |
 
 Review the dry-run output before tagging. If the staged payload disagrees with `README.md`, `docs/ACCEPTANCE.md`, or `docs/man/eodinga.1`, treat that as a release-input failure instead of a docs-only nit.
+
+## Release Evidence Bundle
+
+Before cutting a local tag, expect to review these surfaces together instead of trusting one green command in isolation:
+
+| Evidence | Why it matters | How to refresh or inspect it |
+| --- | --- | --- |
+| `README.md` and `docs/*.md` | define the shipped operator contract | edit directly, then run `pytest -q tests/unit/test_docs_assets.py` |
+| `docs/man/eodinga.1` | generated CLI reference for packaged reviews | `python scripts/generate_manpage.py` |
+| `docs/screenshots/*.png` | proof that the documented Qt surfaces still match the app | `python scripts/render_docs_screenshots.py` |
+| `packaging/dist/` manifests | review surface for Windows and Linux dry runs | run the matching `packaging/build.py --target ...-dry-run` command |
+
+This keeps docs-only rounds honest: if the docs describe shipped packaging or UI behavior, review the corresponding generated asset or dry-run manifest before tagging.
 
 ## Operator References
 
