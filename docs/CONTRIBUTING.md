@@ -257,6 +257,19 @@ Before handing off a docs-heavy round, gather one small review packet instead of
 
 That packet gives the next reviewer a direct path to the same evidence without replaying the entire round.
 
+## Handoff Packet Template
+
+Use this shape when you want the smallest factual handoff that still lets the next reviewer replay the evidence:
+
+| Field | What to record |
+| --- | --- |
+| command bundle | the exact single-line command or test bundle that was run |
+| reviewed artifact | the generated file or `packaging/dist/` manifest that was actually inspected |
+| changed contract | the README or `docs/*.md` headings/examples that moved |
+| skipped evidence | any validation step intentionally not run, with the concrete reason |
+
+Keep it terse. The point is to eliminate ambiguity, not to narrate the whole round.
+
 ## Packaging Review Checklist
 
 - Run only the dry-run targets that match the packaging surface you changed.
@@ -270,3 +283,15 @@ That packet gives the next reviewer a direct path to the same evidence without r
 - Avoid interactive prompts in contributor docs unless the workflow genuinely requires them.
 - When a command can emit benign noise during setup, suppress it so copy-paste runs stay readable.
 - If a docs-only round depends on a packaged artifact, document the exact dry-run command instead of sending the reader to guess between targets.
+
+## Release Audit Selection
+
+Choose the audit command that matches the question you need answered:
+
+| If you need to know... | Command | Why |
+| --- | --- | --- |
+| whether one platform recipe still matches the docs | `python packaging/build.py --target windows-dry-run` or the matching Linux target | platform audits contain the actionable payload details |
+| whether the coordinator release pass still points at every platform audit | `python packaging/build.py --target release-dry-run` | the summary audit links the Windows, AppImage, Debian, and workflow-lint evidence from one run |
+| whether a docs-only round refreshed its proofs | `pytest -q tests/unit/test_docs_assets.py` plus the matching GUI smoke or platform dry run | docs contract and derived evidence should move together |
+
+Prefer the narrow audit first. Use the release-wide audit when you need a summary, not when you are chasing one failing manifest.

@@ -203,8 +203,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Commit and Release Notes" in contributing
     assert "## Review Checklist" in contributing
     assert "## Docs Review Packet" in contributing
+    assert "## Handoff Packet Template" in contributing
     assert "## Packaging Review Checklist" in contributing
     assert "## Command Hygiene" in contributing
+    assert "## Release Audit Selection" in contributing
     assert "treat the requested module spec as a hard scope boundary" in contributing
     assert "The exact command bundle you ran." in contributing
     assert "docs-ready baseline refresh" in contributing
@@ -213,6 +215,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "The final release commit for a round should carry the version bump" in contributing
     assert "Do not rewrite earlier docs or feature commits" in contributing
     assert "Prefer one explicit evidence bundle over ad-hoc retries." in contributing
+    assert "Use this shape when you want the smallest factual handoff" in contributing
+    assert "whether the coordinator release pass still points at every platform audit" in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl
@@ -271,6 +275,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Artifact Inventory" in release
     assert "## Verify Shipped Docs" in release
     assert "## Packaging Audit Checklist" in release
+    assert "## Release Audit Selection" in release
     assert "## Release Notes Template" in release
     assert "## Tag Decision Path" in release
     assert "## Worker Handoff Rules" in release
@@ -282,6 +287,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Tag Provenance" in release
     assert "## Retargeting Metadata After A Collision" in release
     assert "## Handoff Checklist" in release
+    assert "## Worker Report Template" in release
     assert "git tag v0.1.N" in release
     assert "python scripts/generate_manpage.py" in release
     assert "git tag -l \"v0.1.N\"" in release
@@ -296,6 +302,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "sed -n '1,200p' packaging/dist/linux-appimage-audit.json" in release
     assert "sed -n '1,200p' packaging/dist/linux-deb-audit.json" in release
     assert "A green dry run without a reviewed manifest is not a completed release check." in release
+    assert "Did the release-wide pass point at all expected audits?" in release
+    assert "That is enough for the orchestrator or reviewer to replay the proof" in release
 
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage

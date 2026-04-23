@@ -164,6 +164,18 @@ Use these prompts against the actual files under `packaging/dist/` before cuttin
 | Windows dry run | does the staged payload list the docs and launcher/runtime files the release docs claim exist? |
 | Linux AppImage / `.deb` dry runs | do artifact names, packaged docs, and compressed changelog outputs match the release notes and README wording? |
 
+## Release Audit Selection
+
+Pick the audit command by the scope of the question:
+
+| Question | Command | Inspect first |
+| --- | --- | --- |
+| "Did one platform target stage the right payload?" | `python packaging/build.py --target windows-dry-run` or the matching Linux target | the matching platform-specific `packaging/dist/*-audit.json` file |
+| "Did the release-wide pass point at all expected audits?" | `python packaging/build.py --target release-dry-run` | `packaging/dist/release-dry-run-audit.json` |
+| "Did a docs-only round refresh the right derived evidence?" | `pytest -q tests/unit/test_docs_assets.py` plus the matching GUI smoke or platform dry run | the derived asset path or platform audit referenced by the changed docs |
+
+Prefer the platform-specific audit when one target failed. The release-wide audit is the coordinator summary, not a replacement for reading the failing manifest itself.
+
 ## Release Notes Template
 
 Keep the changelog wording short and evidence-backed:
@@ -309,3 +321,14 @@ Do not rewrite unrelated docs or code just to refresh one generated asset family
 - The local tag points at the final commit for the round, not an earlier docs or feature commit.
 - The final release commit remains reviewable on its own and does not hide unrelated feature edits.
 - `packaging/dist/` has been reviewed for the dry-run targets touched by the round.
+
+## Worker Report Template
+
+Keep the final worker handoff factual and short:
+
+1. the exact command bundle that was run
+2. the artifact or manifest paths inspected
+3. the changed docs or release-contract sections
+4. any skipped validation step with the reason
+
+That is enough for the orchestrator or reviewer to replay the proof without reconstructing the round from git history alone.
