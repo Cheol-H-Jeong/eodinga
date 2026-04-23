@@ -4,7 +4,7 @@ from pathlib import Path
 import sqlite3
 from typing import cast
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QSystemTrayIcon
 
@@ -72,6 +72,8 @@ def test_app_accessible_names_cover_main_interactive_widgets(qapp) -> None:
     assert window.launcher_window.pinned_queries_row.accessibleName() == "Pinned launcher queries"
     assert window.launcher_window.recent_queries_row.accessibleName() == "Recent launcher queries"
     assert window.launcher_window.empty_state.accessibleName() == "Launcher empty state"
+    assert window.launcher_window.drag_handle.accessibleName() == "Launcher drag handle"
+    assert window.launcher_window.resize_grip.accessibleName() == "Launcher resize grip"
     assert window.launcher_window.preview_pane.accessibleName() == "Launcher preview pane"
     assert window.search_tab.launcher_panel.action_bar.accessibleName() == "Launcher action bar"
     assert window.search_tab.launcher_panel.status_chip.accessibleName() == "Launcher status"
@@ -485,6 +487,50 @@ def test_launcher_flag_toggles_preserve_geometry(qapp, temp_config_path: Path) -
     launcher.set_frameless(False)
     qapp.processEvents()
     assert launcher.geometry() == before
+
+
+def test_launcher_frameless_controls_follow_runtime_setting(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(update={"frameless": True})
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    launcher = window.launcher_window
+    launcher.show()
+    qapp.processEvents()
+
+    assert launcher.drag_handle.isVisible()
+    assert launcher.resize_grip.isVisible()
+
+    launcher.set_frameless(False)
+    qapp.processEvents()
+    assert not launcher.drag_handle.isVisible()
+    assert not launcher.resize_grip.isVisible()
+
+    launcher.set_frameless(True)
+    qapp.processEvents()
+    assert launcher.drag_handle.isVisible()
+    assert launcher.resize_grip.isVisible()
+
+
+def test_launcher_drag_handle_moves_popup(qapp, temp_config_path: Path) -> None:
+    window = EodingaWindow(config=AppConfig(), config_path=temp_config_path)
+    launcher = window.launcher_window
+    launcher.show()
+    qapp.processEvents()
+
+    start = launcher.pos()
+    center = launcher.drag_handle.rect().center()
+    end = center + QPoint(48, 36)
+    QTest.mousePress(launcher.drag_handle, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, center)
+    QTest.mouseMove(launcher.drag_handle, end)
+    QTest.mouseRelease(
+        launcher.drag_handle,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+        end,
+    )
+    qapp.processEvents()
+
+    assert launcher.pos() != start
 
 
 class _ActionSpy:

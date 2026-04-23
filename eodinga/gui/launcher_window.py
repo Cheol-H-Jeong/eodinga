@@ -1,14 +1,64 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
-from PySide6.QtCore import QTimer, Qt, Signal
+from PySide6.QtCore import QPoint, QTimer, Qt, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizeGrip, QVBoxLayout, QWidget
 
 from eodinga.config import AppConfig
 from eodinga.gui.design import MOTION_DEBOUNCE_MS
 from eodinga.gui.launcher import LauncherPanel, LauncherState, SearchFn
+
+
+class _FramelessDragHandle(QWidget):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setAccessibleName("Launcher drag handle")
+        self.setCursor(Qt.CursorShape.OpenHandCursor)
+        self._drag_origin: QPoint | None = None
+        self._window_origin: QPoint | None = None
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        title = QLabel("Launcher", self)
+        title.setProperty("role", "secondary")
+        title.setAccessibleName("Launcher drag handle title")
+        hint = QLabel("Drag to move", self)
+        hint.setProperty("role", "secondary")
+        hint.setAccessibleName("Launcher drag handle hint")
+        layout.addWidget(title)
+        layout.addStretch(1)
+        layout.addWidget(hint)
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() != Qt.MouseButton.LeftButton:
+            super().mousePressEvent(event)
+            return
+        window = self.window()
+        self._drag_origin = event.globalPosition().toPoint()
+        self._window_origin = window.pos()
+        self.setCursor(Qt.CursorShape.ClosedHandCursor)
+        event.accept()
+
+    def mouseMoveEvent(self, event) -> None:
+        if self._drag_origin is None or self._window_origin is None or not event.buttons() & Qt.MouseButton.LeftButton:
+            super().mouseMoveEvent(event)
+            return
+        delta = event.globalPosition().toPoint() - self._drag_origin
+        self.window().move(self._window_origin + delta)
+        event.accept()
+
+    def mouseReleaseEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_origin = None
+            self._window_origin = None
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
 
 
 class LauncherWindow(LauncherPanel):
@@ -41,7 +91,20 @@ class LauncherWindow(LauncherPanel):
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, always_on_top)
         width = self._config.launcher.window_width if self._config is not None else 640
         height = self._config.launcher.window_height if self._config is not None else 480
+        self._drag_handle = _FramelessDragHandle(self)
+        self._size_grip = QSizeGrip(self)
+        self._size_grip.setAccessibleName("Launcher resize grip")
+        self._install_frameless_controls()
+        self._set_frameless_controls_visible(frameless)
         self.resize(width, height)
+
+    @property
+    def drag_handle(self) -> QWidget:
+        return self._drag_handle
+
+    @property
+    def resize_grip(self) -> QSizeGrip:
+        return self._size_grip
 
     def keyPressEvent(self, event) -> None:
         if event.key() == Qt.Key.Key_Escape:
@@ -72,6 +135,7 @@ class LauncherWindow(LauncherPanel):
 
     def set_frameless(self, enabled: bool) -> None:
         self._set_window_flag_preserving_visibility(Qt.WindowType.FramelessWindowHint, enabled)
+        self._set_frameless_controls_visible(enabled)
 
     def hideEvent(self, event: QHideEvent) -> None:
         self._persist_geometry()
@@ -150,3 +214,12 @@ class LauncherWindow(LauncherPanel):
         centered_x = available.x() + max((available.width() - width) // 2, 0)
         centered_y = available.y() + max((available.height() - height) // 2, 0)
         self.setGeometry(centered_x, centered_y, width, height)
+
+    def _install_frameless_controls(self) -> None:
+        layout = cast(QVBoxLayout, self.layout())
+        layout.insertWidget(0, self._drag_handle)
+        layout.addWidget(self._size_grip, 0, Qt.AlignmentFlag.AlignRight)
+
+    def _set_frameless_controls_visible(self, enabled: bool) -> None:
+        self._drag_handle.setVisible(enabled)
+        self._size_grip.setVisible(enabled)
