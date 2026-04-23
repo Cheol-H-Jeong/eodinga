@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.124 - 2026-04-23
+
+- Added a launcher preview pane shared by the popup launcher and Search tab so the currently selected or hovered result now exposes its snippet immediately instead of forcing a blind open.
+- Added a copy-name launcher action alongside the existing open, reveal, properties, and copy-path flows, wiring the new shortcut through the desktop action layer and clipboard regressions.
+- Added a runtime launcher hotkey controller that registers the configured combo on startup, persists hotkey changes through `EodingaWindow.set_launcher_hotkey(...)`, and rebinds the active shortcut without requiring an app restart.
+
 ## 0.1.120 - 2026-04-23
 
 - Centralized SQLite connection setup behind a shared helper that keeps the runtime PRAGMA profile consistent while explicitly reserving a 128-statement cache for index rebuilds, stale-WAL recovery, normal opens, and the opt-in perf harness.
