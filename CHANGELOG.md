@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.568 - 2026-04-23
+
+- Centered the launcher popup on the cursor's display on first show, and taught geometry restore to prefer the previously used named screen instead of clamping blindly to the primary display.
+- Persisted the resolved popup geometry immediately after first-show restore and after visible window-mode flag toggles, so screen-aware placement survives without waiting for a later hide or manual move.
+- Derived the saved launcher screen name from popup geometry when Qt does not provide a stable current-screen name, keeping multi-display metadata intact across reopen cycles.
+
 ## 0.1.562 - 2026-04-23
 
 - Expanded the top-level README with a validation-path matrix, release-input map, and docs-asset drift runbook entry so operators can pick the right verification path faster.
