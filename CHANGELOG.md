@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.287 - 2026-04-23
+## 0.1.301 - 2026-04-23
 
 - Added an active-query summary row to the launcher so typed terms, filters, negations, and syntax mistakes stay visible while you refine a search.
 - Surfaced `Alt+1` through `Alt+9` quick-pick badges directly in launcher results and strengthened inline hit highlighting so the top matches scan faster.
