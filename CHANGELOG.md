@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.262 - 2026-04-23
+## 0.1.263 - 2026-04-23
 
 - Added a live "Keep launcher on top" setting that updates the frameless launcher window immediately and persists the preference without requiring an app restart.
 - Tightened launcher hover behavior so the preview pane, active result, and action targets stay aligned as the pointer moves through search results.
