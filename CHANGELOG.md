@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.251 - 2026-04-23
+
+- Extended `date:`, `modified:`, and `created:` range parsing so relative macros like `today`, `yesterday`, `this-week`, and `last-month` now work anywhere an endpoint is accepted, including open-ended and mixed ISO-relative windows.
+- Added executor regressions for macro-backed ranges such as `date:yesterday..today`, `date:..today`, `date:last-week..`, and `date:2026-04-22..today` to keep the user-visible query surface stable.
+- Added parser-level boundary tests that pin reversed relative windows and mixed ISO-relative endpoint math in local time.
+
 ## 0.1.244 - 2026-04-23
 
 - Hardened staged index recovery so interrupted `.recover` and `.next` snapshots must contain initialized schema before they can replace a live index, preventing empty or half-built files from being promoted during startup recovery.
