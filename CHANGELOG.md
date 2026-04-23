@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.748 - 2026-04-23
+## 0.1.802 - 2026-04-23
 
 - Rolled back watcher startup cleanly when observer scheduling or startup fails, so failed registration no longer leaves a stray flush thread or half-started observer behind.
 - Hardened index-file and sidecar cleanup against already-removed files, preventing harmless cleanup races from turning into stale-WAL recovery or staged-swap failures.
