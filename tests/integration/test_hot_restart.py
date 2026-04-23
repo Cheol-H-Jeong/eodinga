@@ -265,3 +265,54 @@ def test_hot_restart_shutdown_persists_pending_delete_without_rewalk(tmp_path: P
 
     assert drained.drained_events >= 1
     assert hits == []
+
+
+def test_hot_restart_shutdown_persists_pending_multi_root_create_without_rewalk(tmp_path: Path) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    db_path = tmp_path / "database" / "index.db"
+    root_a.mkdir()
+    root_b.mkdir()
+    (root_a / "alpha.txt").write_text("alpha baseline\n", encoding="utf-8")
+    rebuild_index(
+        db_path,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+        sleep(0.05)
+
+        created = root_b / "pending-beta.txt"
+        created.write_text("restart beta pending create\n", encoding="utf-8")
+        sleep(0.05)
+
+        drained = shutdown_live_updates(service, writer, record_loader=make_record)
+    finally:
+        conn.close()
+
+    reopened = open_index(db_path)
+    try:
+        hits = {
+            hit.file.path for hit in search(reopened, "restart beta pending create", limit=5).hits
+        }
+        beta_hits = {
+            hit.file.path
+            for hit in search(reopened, "restart beta pending create", limit=5, root=root_b).hits
+        }
+        alpha_hits = {
+            hit.file.path
+            for hit in search(reopened, "restart beta pending create", limit=5, root=root_a).hits
+        }
+    finally:
+        reopened.close()
+
+    assert drained.drained_events >= 1
+    assert hits == {created}
+    assert beta_hits == {created}
+    assert alpha_hits == set()
