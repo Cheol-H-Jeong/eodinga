@@ -116,7 +116,8 @@ class ResultListModel(QAbstractListModel):
             return None
         item = self._items[index.row()]
         if role == Qt.ItemDataRole.DisplayRole:
-            return format_hit_html(item, self._query)
+            quick_pick_rank = index.row() + 1 if index.row() < 9 else None
+            return format_hit_html(item, self._query, quick_pick_rank=quick_pick_rank)
         if role == Qt.ItemDataRole.UserRole:
             return item
         return None
