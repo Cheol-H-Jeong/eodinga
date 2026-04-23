@@ -116,8 +116,10 @@ class StatsSnapshot(BaseModel):
     roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None
     log_path: Path | None = None
+    metrics_path: Path | None = None
     crash_dir: Path | None = None
     file_logging_enabled: bool = True
+    metrics_persistence_enabled: bool = False
 
 
 __all__ = [

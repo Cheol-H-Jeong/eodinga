@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
+import subprocess
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path, PureWindowsPath
 
@@ -487,6 +490,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["exit_codes"]["0"] == 1
     assert payload["file_logging_enabled"] is True
     assert payload["log_path"] is None
+    assert payload["metrics_persistence_enabled"] is False
+    assert payload["metrics_path"] is None
     assert payload["crash_dir"]
     assert payload["counters"]["queries_served"] == 1
     assert payload["counters"]["commands_started"] == 2
@@ -600,3 +605,44 @@ def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Pat
     assert payload["commands"]["version"]["failed"] == 1
     assert payload["commands"]["version"]["started"] == 1
     assert payload["exit_codes"]["1"] == 1
+
+
+def test_stats_json_persists_metrics_across_cli_processes(tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    metrics_path = tmp_path / "state" / "metrics.json"
+    _build_search_db(db_path)
+    env = os.environ.copy()
+    env["QT_QPA_PLATFORM"] = "offscreen"
+    env["EODINGA_METRICS_PATH"] = str(metrics_path)
+
+    search_result = subprocess.run(
+        [sys.executable, "-m", "eodinga", "--db", str(db_path), "search", "duplicate", "--json"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert search_result.returncode == 0
+    assert json.loads(search_result.stdout)["count"] == 2
+
+    stats_result = subprocess.run(
+        [sys.executable, "-m", "eodinga", "--db", str(db_path), "stats", "--json"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert stats_result.returncode == 0
+    payload = json.loads(stats_result.stdout)
+    assert payload["queries_served"] == 1
+    assert payload["commands_started"] == 2
+    assert payload["commands_completed"] == 1
+    assert payload["commands"]["search"]["completed"] == 1
+    assert payload["commands"]["stats"]["started"] == 1
+    assert payload["metrics_persistence_enabled"] is True
+    assert payload["metrics_path"] == str(metrics_path)
+    assert metrics_path.exists()

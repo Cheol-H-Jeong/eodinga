@@ -18,12 +18,16 @@ from eodinga.observability import (
     default_log_path,
     file_logging_enabled,
     install_crash_handlers,
+    metrics_persistence_enabled,
     resolve_crash_dir,
     resolve_log_path,
+    resolve_metrics_path,
     reset_metrics,
     report_crash,
+    record_histogram,
     snapshot_metrics,
     write_crash_log,
+    increment_counter,
 )
 
 
@@ -75,6 +79,29 @@ def test_log_resolution_returns_none_when_file_logging_disabled(monkeypatch) -> 
 
     assert file_logging_enabled() is False
     assert resolve_log_path() is None
+
+
+def test_metrics_persistence_is_disabled_under_pytest_without_override() -> None:
+    assert metrics_persistence_enabled() is False
+    assert resolve_metrics_path() is None
+
+
+def test_reset_metrics_clears_persisted_metrics(tmp_path: Path, monkeypatch) -> None:
+    metrics_path = tmp_path / "metrics" / "runtime.json"
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+
+    reset_metrics()
+    increment_counter("queries_served")
+    record_histogram("query_latency_ms", 12.5)
+    snapshot_before = snapshot_metrics()
+    assert snapshot_before["counters"]["queries_served"] == 1
+    assert snapshot_before["histograms"]["query_latency_ms"]["count"] == 1
+    assert metrics_path.exists()
+
+    reset_metrics()
+    snapshot_after = snapshot_metrics()
+    assert snapshot_after["counters"] == {}
+    assert snapshot_after["histograms"] == {}
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:

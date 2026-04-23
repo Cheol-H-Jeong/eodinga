@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 import threading
 import traceback
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from json import dumps as json_dumps
+from json import loads as json_loads
 from pathlib import Path
 from threading import Lock
-from typing import IO, Any, TypedDict
+from time import monotonic, sleep, time
+from typing import IO, Any, Callable, TypedDict
 
 from loguru import logger
 
@@ -26,6 +30,20 @@ class MetricsSnapshot(TypedDict):
     histograms: dict[str, dict[str, object]]
     generated_at: str
     uptime_ms: float
+
+
+class _PersistedHistogram(TypedDict):
+    buckets_ms: list[float]
+    count: int
+    sum_ms: float
+    min_ms: float | None
+    max_ms: float | None
+    bucket_hits: dict[str, int]
+
+
+class _PersistedMetrics(TypedDict):
+    counters: dict[str, int]
+    histograms: dict[str, _PersistedHistogram]
 
 
 @dataclass
@@ -96,6 +114,23 @@ def file_logging_enabled() -> bool:
     return os.environ.get("EODINGA_DISABLE_FILE_LOGGING") != "1"
 
 
+def resolve_metrics_path(metrics_path: Path | None = None) -> Path | None:
+    if os.environ.get("EODINGA_DISABLE_METRICS_PERSISTENCE") == "1":
+        return None
+    if metrics_path is not None:
+        return metrics_path.expanduser()
+    override_path = os.environ.get("EODINGA_METRICS_PATH")
+    if override_path:
+        return Path(override_path).expanduser()
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return None
+    return default_state_dir() / "metrics.json"
+
+
+def metrics_persistence_enabled() -> bool:
+    return resolve_metrics_path() is not None
+
+
 def resolve_log_path(log_path: Path | None = None) -> Path | None:
     if not file_logging_enabled():
         return None
@@ -133,8 +168,10 @@ def get_logger(name: str | None = None) -> Any:
 
 
 def increment_counter(name: str, value: int = 1, **fields: object) -> None:
-    with _METRICS_LOCK:
+    def _mutate() -> None:
         _COUNTERS[name] = _COUNTERS.get(name, 0) + value
+
+    _mutate_metrics(_mutate)
     logger.bind(metric=name, **fields).debug("counter +{value}", value=value)
 
 
@@ -149,17 +186,20 @@ def record_histogram(
     buckets_ms: tuple[float, ...] = _DEFAULT_HISTOGRAM_BUCKETS_MS,
     **fields: object,
 ) -> None:
-    with _METRICS_LOCK:
+    def _mutate() -> None:
         state = _HISTOGRAMS.get(name)
         if state is None:
             state = _HistogramState(buckets_ms=buckets_ms)
             _HISTOGRAMS[name] = state
         state.observe(value_ms)
+
+    _mutate_metrics(_mutate)
     logger.bind(metric=name, **fields).debug("histogram {value_ms:.3f}ms", value_ms=value_ms)
 
 
 def snapshot_metrics() -> MetricsSnapshot:
     with _METRICS_LOCK:
+        _refresh_metrics_from_disk_unlocked()
         counters = dict(sorted(_COUNTERS.items()))
         histograms: dict[str, dict[str, object]] = {
             name: state.snapshot() for name, state in sorted(_HISTOGRAMS.items())
@@ -175,8 +215,8 @@ def snapshot_metrics() -> MetricsSnapshot:
 
 def reset_metrics() -> None:
     with _METRICS_LOCK:
-        _COUNTERS.clear()
-        _HISTOGRAMS.clear()
+        _clear_metrics_unlocked()
+        _persist_metrics_unlocked()
 
 
 def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
@@ -185,11 +225,13 @@ def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
 
 def counter_value(name: str) -> int:
     with _METRICS_LOCK:
+        _refresh_metrics_from_disk_unlocked()
         return _COUNTERS.get(name, 0)
 
 
 def histogram_snapshot(name: str) -> dict[str, object]:
     with _METRICS_LOCK:
+        _refresh_metrics_from_disk_unlocked()
         state = _HISTOGRAMS.get(name)
         if state is None:
             return {}
@@ -305,3 +347,176 @@ def _format_detail_value(value: object) -> str:
     if isinstance(value, (str, int, float, bool)) or value is None:
         return str(value)
     return json_dumps(value, sort_keys=True)
+
+
+def _mutate_metrics(mutator: Callable[[], None]) -> None:
+    with _METRICS_LOCK:
+        path = resolve_metrics_path()
+        if path is None:
+            mutator()
+            return
+        try:
+            with _metrics_path_lock(path):
+                _load_metrics_from_disk_unlocked(path)
+                mutator()
+                _write_metrics_to_disk_unlocked(path)
+        except OSError:
+            mutator()
+
+
+def _persist_metrics_unlocked() -> None:
+    path = resolve_metrics_path()
+    if path is None:
+        return
+    try:
+        with _metrics_path_lock(path):
+            _write_metrics_to_disk_unlocked(path)
+    except OSError:
+        return
+
+
+def _refresh_metrics_from_disk_unlocked() -> None:
+    path = resolve_metrics_path()
+    if path is None:
+        return
+    try:
+        with _metrics_path_lock(path):
+            _load_metrics_from_disk_unlocked(path)
+    except OSError:
+        return
+
+
+def _clear_metrics_unlocked() -> None:
+    _COUNTERS.clear()
+    _HISTOGRAMS.clear()
+
+
+def _load_metrics_from_disk_unlocked(path: Path) -> None:
+    payload = _read_metrics_file(path)
+    _clear_metrics_unlocked()
+    _COUNTERS.update(payload["counters"])
+    for name, histogram in payload["histograms"].items():
+        _HISTOGRAMS[name] = _deserialize_histogram(histogram)
+
+
+def _write_metrics_to_disk_unlocked(path: Path) -> None:
+    payload: _PersistedMetrics = {
+        "counters": dict(sorted(_COUNTERS.items())),
+        "histograms": {
+            name: _serialize_histogram(state) for name, state in sorted(_HISTOGRAMS.items())
+        },
+    }
+    _atomic_write_text(path, json_dumps(payload, sort_keys=True))
+
+
+def _read_metrics_file(path: Path) -> _PersistedMetrics:
+    if not path.exists():
+        return {"counters": {}, "histograms": {}}
+    raw = json_loads(path.read_text(encoding="utf-8"))
+    counters_raw = raw.get("counters", {})
+    histograms_raw = raw.get("histograms", {})
+    counters = {str(name): int(value) for name, value in counters_raw.items()}
+    histograms: dict[str, _PersistedHistogram] = {}
+    for name, payload in histograms_raw.items():
+        if not isinstance(payload, dict):
+            continue
+        histograms[str(name)] = {
+            "buckets_ms": [float(bucket) for bucket in payload.get("buckets_ms", [])],
+            "count": int(payload.get("count", 0)),
+            "sum_ms": float(payload.get("sum_ms", 0.0)),
+            "min_ms": float(payload["min_ms"]) if payload.get("min_ms") is not None else None,
+            "max_ms": float(payload["max_ms"]) if payload.get("max_ms") is not None else None,
+            "bucket_hits": {
+                str(label): int(count) for label, count in payload.get("bucket_hits", {}).items()
+            },
+        }
+    return {"counters": counters, "histograms": histograms}
+
+
+def _serialize_histogram(state: _HistogramState) -> _PersistedHistogram:
+    return {
+        "buckets_ms": [float(bucket) for bucket in state.buckets_ms],
+        "count": state.count,
+        "sum_ms": state.sum_ms,
+        "min_ms": state.min_ms,
+        "max_ms": state.max_ms,
+        "bucket_hits": dict(sorted(state.bucket_hits.items())),
+    }
+
+
+def _deserialize_histogram(payload: _PersistedHistogram) -> _HistogramState:
+    return _HistogramState(
+        buckets_ms=tuple(payload["buckets_ms"]) or _DEFAULT_HISTOGRAM_BUCKETS_MS,
+        count=payload["count"],
+        sum_ms=payload["sum_ms"],
+        min_ms=payload["min_ms"],
+        max_ms=payload["max_ms"],
+        bucket_hits=dict(payload["bucket_hits"]),
+    )
+
+
+def _atomic_write_text(path: Path, contents: str) -> None:
+    directory = path.parent
+    directory.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=directory,
+        text=True,
+    )
+    temp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(contents)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
+        _fsync_directory(directory)
+    except Exception:
+        try:
+            temp_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def _fsync_directory(path: Path) -> None:
+    try:
+        fd = os.open(path, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)
+
+
+@contextmanager
+def _metrics_path_lock(path: Path, *, timeout_s: float = 2.0):
+    lock_path = path.with_name(f"{path.name}.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    started = monotonic()
+    while True:
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_RDWR)
+            break
+        except FileExistsError:
+            try:
+                if time() - lock_path.stat().st_mtime > timeout_s:
+                    lock_path.unlink()
+                    continue
+            except FileNotFoundError:
+                continue
+            if monotonic() - started >= timeout_s:
+                raise TimeoutError(f"timed out acquiring metrics lock for {path}")
+            sleep(0.01)
+    try:
+        yield
+    finally:
+        os.close(fd)
+        try:
+            lock_path.unlink()
+        except FileNotFoundError:
+            pass
