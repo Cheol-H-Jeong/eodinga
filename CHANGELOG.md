@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.857 - 2026-04-23
+## 0.1.858 - 2026-04-23
 
 - Tightened the Windows release audit so `python packaging/build.py --target windows` now fails unless the staged GUI bundle, CLI bundle, and rendered installer executable are all present together.
 - Clarified the release-facing packaging docs with explicit dry-run versus release-target expectations, including which files in `packaging/dist/` reviewers should inspect for Windows, AppImage, and Debian outputs.
