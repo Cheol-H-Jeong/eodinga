@@ -24,6 +24,9 @@ class DesktopActions:
         if sys.platform.startswith("win"):
             if self._spawn(["explorer", f"/select,{hit.path}"]):
                 return
+        if sys.platform == "darwin":
+            if self._spawn(["open", "-R", str(hit.path)]):
+                return
         self._open_path(hit.parent_path)
 
     def show_properties(self, hit: SearchHit) -> None:
@@ -45,6 +48,14 @@ class DesktopActions:
                     str(hit.path),
                 ]
             ):
+                return
+        if sys.platform == "darwin":
+            script = (
+                'tell application "Finder" to activate\n'
+                f'tell application "Finder" to reveal POSIX file "{self._escape_applescript_path(hit.path)}"\n'
+                'tell application "System Events" to keystroke "i" using command down'
+            )
+            if self._spawn(["osascript", "-e", script]):
                 return
         self.reveal_hit(hit)
 
@@ -72,6 +83,9 @@ class DesktopActions:
             get_logger().warning("failed to launch desktop action {}", argv[0])
             return False
         return True
+
+    def _escape_applescript_path(self, path: Path) -> str:
+        return str(path).replace("\\", "\\\\").replace('"', '\\"')
 
 
 __all__ = ["DesktopActions"]

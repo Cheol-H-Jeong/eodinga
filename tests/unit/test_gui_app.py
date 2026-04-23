@@ -752,6 +752,56 @@ def test_desktop_actions_copy_name_updates_clipboard(qapp) -> None:
     assert qapp.clipboard().text() == "report.txt"
 
 
+def test_desktop_actions_reveal_uses_finder_select_on_macos(monkeypatch, qapp) -> None:
+    actions = DesktopActions(qapp)
+    hit = SearchHit(path=Path("/tmp/report.txt"), parent_path=Path("/tmp"), name="report.txt")
+    launched: list[list[str]] = []
+    opened: list[Path] = []
+    monkeypatch.setattr("eodinga.gui.actions.sys.platform", "darwin")
+    monkeypatch.setattr(actions, "_spawn", lambda argv: launched.append(argv) or True)
+    monkeypatch.setattr(actions, "_open_path", lambda path: opened.append(path))
+
+    actions.reveal_hit(hit)
+
+    assert launched == [["open", "-R", "/tmp/report.txt"]]
+    assert opened == []
+
+
+def test_desktop_actions_show_properties_uses_finder_info_on_macos(monkeypatch, qapp) -> None:
+    actions = DesktopActions(qapp)
+    hit = SearchHit(path=Path('/tmp/report "final".txt'), parent_path=Path("/tmp"), name='report "final".txt')
+    launched: list[list[str]] = []
+    revealed: list[str] = []
+    monkeypatch.setattr("eodinga.gui.actions.sys.platform", "darwin")
+    monkeypatch.setattr(actions, "_spawn", lambda argv: launched.append(argv) or True)
+    monkeypatch.setattr(actions, "reveal_hit", lambda current_hit: revealed.append(current_hit.name))
+
+    actions.show_properties(hit)
+
+    assert len(launched) == 1
+    assert launched[0][0] == "osascript"
+    assert launched[0][1] == "-e"
+    assert 'reveal POSIX file "/tmp/report \\"final\\".txt"' in launched[0][2]
+    assert 'keystroke "i" using command down' in launched[0][2]
+    assert revealed == []
+
+
+def test_desktop_actions_show_properties_falls_back_to_reveal_when_macos_script_fails(monkeypatch, qapp) -> None:
+    actions = DesktopActions(qapp)
+    hit = SearchHit(path=Path("/tmp/report.txt"), parent_path=Path("/tmp"), name="report.txt")
+    launched: list[list[str]] = []
+    revealed: list[str] = []
+    monkeypatch.setattr("eodinga.gui.actions.sys.platform", "darwin")
+    monkeypatch.setattr(actions, "_spawn", lambda argv: launched.append(argv) or False)
+    monkeypatch.setattr(actions, "reveal_hit", lambda current_hit: revealed.append(current_hit.name))
+
+    actions.show_properties(hit)
+
+    assert len(launched) == 1
+    assert launched[0][0] == "osascript"
+    assert revealed == ["report.txt"]
+
+
 def test_build_index_search_fn_queries_real_index(tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     conn = sqlite3.connect(db_path)
