@@ -331,3 +331,25 @@ def test_linux_deb_build_target_writes_non_dry_run_audit() -> None:
     assert Path(payload["deb_path"]).exists()
     assert payload["icon"]["exists"] is True
     assert payload["docs"]["changelog_exists"] is True
+
+
+def test_release_dry_run_runs_every_packaging_audit() -> None:
+    result = subprocess.run(
+        [sys.executable, "packaging/build.py", "--target", "release-dry-run"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    audit_path = Path("packaging/dist/release-dry-run-audit.json")
+    assert audit_path.exists()
+    payload = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert payload["target"] == "release-dry-run"
+    assert payload["version"] == __version__
+    assert payload["all_passed"] is True
+    assert payload["results"] == [
+        {"target": "windows-dry-run", "returncode": 0},
+        {"target": "linux-appimage-dry-run", "returncode": 0},
+        {"target": "linux-deb-dry-run", "returncode": 0},
+    ]

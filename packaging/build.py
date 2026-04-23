@@ -397,11 +397,35 @@ def _run_linux_deb() -> int:
     )
 
 
+def _run_release_dry_run() -> int:
+    targets = [
+        ("windows-dry-run", _run_windows_dry_run),
+        ("linux-appimage-dry-run", _run_linux_appimage_dry_run),
+        ("linux-deb-dry-run", _run_linux_deb_dry_run),
+    ]
+    results: list[dict[str, Any]] = []
+    exit_code = 0
+    for target, runner in targets:
+        returncode = runner()
+        results.append({"target": target, "returncode": returncode})
+        if returncode != 0 and exit_code == 0:
+            exit_code = returncode
+    payload = {
+        "target": "release-dry-run",
+        "version": _read_project_version(),
+        "results": results,
+        "all_passed": all(item["returncode"] == 0 for item in results),
+    }
+    _write_audit(payload)
+    return exit_code
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--target",
         choices=(
+            "release-dry-run",
             "linux-appimage-dry-run",
             "linux-appimage",
             "linux-deb-dry-run",
@@ -412,6 +436,8 @@ def main(argv: list[str] | None = None) -> int:
         required=True,
     )
     args = parser.parse_args(argv)
+    if args.target == "release-dry-run":
+        return _run_release_dry_run()
     if args.target == "linux-appimage-dry-run":
         return _run_linux_appimage_dry_run()
     if args.target == "linux-appimage":
