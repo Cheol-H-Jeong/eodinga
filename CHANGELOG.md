@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.939 - 2026-04-24
+
+- Added derived observability summaries to `eodinga stats --json`, including query and command failure rates plus average values for the existing latency and batch-size histograms.
+- Added `recent_snapshot_counts` so stats consumers can see recent command/crash activity by snapshot name without reparsing the full snapshot list.
+- Stabilized the Windows packaging dry-run unit test against worktrees that already contain staged `dist/` artifacts, keeping the required unit gate deterministic for this release.
+
 ## 0.1.936 - 2026-04-24
 
 - Reused nested SQLite temporary PRAGMA overrides per connection, which cuts redundant PRAGMA reads and rewrites when rebuild and writer code stack the same fast-write mode.
