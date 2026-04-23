@@ -15,10 +15,14 @@ from eodinga import __version__
 from eodinga.observability import (
     configure_logging,
     default_crash_dir,
+    default_metrics_path,
     default_log_path,
     file_logging_enabled,
+    flush_metrics,
     install_crash_handlers,
+    load_metrics,
     resolve_crash_dir,
+    resolve_metrics_path,
     resolve_log_path,
     reset_metrics,
     report_crash,
@@ -31,6 +35,7 @@ def test_default_log_and_crash_paths_follow_platform_state_dirs(monkeypatch) -> 
     monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setenv("XDG_STATE_HOME", "/tmp/eodinga-state")
     assert default_log_path() == Path("/tmp/eodinga-state/eodinga/logs/eodinga.log")
+    assert default_metrics_path() == Path("/tmp/eodinga-state/eodinga/metrics.json")
     assert default_crash_dir() == Path("/tmp/eodinga-state/eodinga/crashes")
 
     monkeypatch.setattr(sys, "platform", "win32")
@@ -60,12 +65,15 @@ def test_configure_logging_uses_env_override(tmp_path: Path, monkeypatch) -> Non
 
 def test_log_and_crash_resolution_respect_runtime_overrides(tmp_path: Path, monkeypatch) -> None:
     log_path = tmp_path / "logs" / "custom.log"
+    metrics_path = tmp_path / "state" / "metrics.json"
     crash_dir = tmp_path / "crashes"
     monkeypatch.setenv("EODINGA_LOG_PATH", str(log_path))
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
     monkeypatch.setenv("EODINGA_CRASH_DIR", str(crash_dir))
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
 
     assert resolve_log_path() == log_path
+    assert resolve_metrics_path() == metrics_path
     assert resolve_crash_dir() == crash_dir
     assert file_logging_enabled() is True
 
@@ -75,6 +83,47 @@ def test_log_resolution_returns_none_when_file_logging_disabled(monkeypatch) -> 
 
     assert file_logging_enabled() is False
     assert resolve_log_path() is None
+
+
+def test_metrics_resolution_returns_none_during_pytest_without_override(monkeypatch) -> None:
+    monkeypatch.delenv("EODINGA_METRICS_PATH", raising=False)
+
+    assert resolve_metrics_path() is None
+
+
+def test_flush_and_load_metrics_round_trip(tmp_path: Path, monkeypatch) -> None:
+    metrics_path = tmp_path / "state" / "metrics.json"
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+    reset_metrics()
+
+    service = WatchService()
+    service.record(WatchEvent(event_type="created", path=tmp_path / "alpha.txt"))
+    flush_metrics()
+    persisted = metrics_path.read_text(encoding="utf-8")
+    assert '"watcher_events": 1' in persisted
+
+    reset_metrics()
+    assert snapshot_metrics()["counters"] == {}
+
+    load_metrics()
+
+    metrics = snapshot_metrics()
+    counters = cast(dict[str, int], metrics["counters"])
+    assert counters["watcher_events"] == 1
+
+
+def test_load_metrics_ignores_invalid_payload(tmp_path: Path, monkeypatch) -> None:
+    metrics_path = tmp_path / "state" / "metrics.json"
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics_path.write_text('{"counters": "bad", "histograms": []}', encoding="utf-8")
+    monkeypatch.setenv("EODINGA_METRICS_PATH", str(metrics_path))
+    reset_metrics()
+
+    load_metrics()
+
+    metrics = snapshot_metrics()
+    assert metrics["counters"] == {}
+    assert metrics["histograms"] == {}
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:

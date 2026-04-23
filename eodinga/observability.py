@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 import threading
 import traceback
 from dataclasses import dataclass, field
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from json import dumps as json_dumps
+from json import dumps as json_dumps, loads as json_loads
 from pathlib import Path
 from threading import Lock
 from typing import IO, Any, TypedDict
@@ -19,6 +20,7 @@ _METRICS_LOCK = Lock()
 _COUNTERS: dict[str, int] = {}
 _HISTOGRAMS: dict[str, _HistogramState] = {}
 _PROCESS_STARTED_AT = datetime.now(UTC)
+_METRICS_SCHEMA_VERSION = 1
 
 
 class MetricsSnapshot(TypedDict):
@@ -86,6 +88,10 @@ def default_log_path() -> Path:
     return default_logs_dir() / "eodinga.log"
 
 
+def default_metrics_path() -> Path:
+    return default_state_dir() / "metrics.json"
+
+
 def default_crash_dir() -> Path:
     if sys.platform == "darwin":
         return default_logs_dir() / "crashes"
@@ -116,6 +122,17 @@ def resolve_crash_dir(crash_dir: Path | None = None) -> Path:
     if override_dir:
         return Path(override_dir).expanduser()
     return default_crash_dir()
+
+
+def resolve_metrics_path(metrics_path: Path | None = None) -> Path | None:
+    if metrics_path is not None:
+        return metrics_path.expanduser()
+    override_path = os.environ.get("EODINGA_METRICS_PATH")
+    if override_path:
+        return Path(override_path).expanduser()
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return None
+    return default_metrics_path()
 
 
 def configure_logging(level: str = "INFO", log_path: Path | None = None) -> None:
@@ -177,6 +194,33 @@ def reset_metrics() -> None:
     with _METRICS_LOCK:
         _COUNTERS.clear()
         _HISTOGRAMS.clear()
+
+
+def flush_metrics(metrics_path: Path | None = None) -> Path | None:
+    target = resolve_metrics_path(metrics_path)
+    if target is None:
+        return None
+    payload = _serialize_metrics()
+    _atomic_write_text(target, json_dumps(payload, sort_keys=True))
+    return target
+
+
+def load_metrics(metrics_path: Path | None = None) -> Path | None:
+    target = resolve_metrics_path(metrics_path)
+    if target is None or not target.exists():
+        return target
+    raw = json_loads(target.read_text(encoding="utf-8"))
+    counters = _coerce_counters(raw.get("counters"))
+    histograms = _coerce_histograms(raw.get("histograms"))
+    process_started_at = _coerce_process_started_at(raw.get("process_started_at"))
+    with _METRICS_LOCK:
+        _COUNTERS.clear()
+        _COUNTERS.update(counters)
+        _HISTOGRAMS.clear()
+        _HISTOGRAMS.update(histograms)
+    global _PROCESS_STARTED_AT
+    _PROCESS_STARTED_AT = process_started_at
+    return target
 
 
 def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
@@ -305,3 +349,108 @@ def _format_detail_value(value: object) -> str:
     if isinstance(value, (str, int, float, bool)) or value is None:
         return str(value)
     return json_dumps(value, sort_keys=True)
+
+
+def _serialize_metrics() -> dict[str, object]:
+    snapshot = snapshot_metrics()
+    return {
+        "schema_version": _METRICS_SCHEMA_VERSION,
+        "process_started_at": _PROCESS_STARTED_AT.isoformat().replace("+00:00", "Z"),
+        "generated_at": snapshot["generated_at"],
+        "uptime_ms": snapshot["uptime_ms"],
+        "counters": snapshot["counters"],
+        "histograms": snapshot["histograms"],
+    }
+
+
+def _coerce_counters(raw: object) -> dict[str, int]:
+    if not isinstance(raw, dict):
+        return {}
+    counters: dict[str, int] = {}
+    for key, value in raw.items():
+        if isinstance(key, str) and isinstance(value, int):
+            counters[key] = value
+    return counters
+
+
+def _coerce_histograms(raw: object) -> dict[str, _HistogramState]:
+    if not isinstance(raw, dict):
+        return {}
+    histograms: dict[str, _HistogramState] = {}
+    for name, payload in raw.items():
+        if not isinstance(name, str) or not isinstance(payload, dict):
+            continue
+        state = _histogram_state_from_payload(payload)
+        if state is not None:
+            histograms[name] = state
+    return histograms
+
+
+def _histogram_state_from_payload(payload: dict[object, object]) -> _HistogramState | None:
+    count = payload.get("count")
+    sum_ms = payload.get("sum_ms")
+    min_ms = payload.get("min_ms")
+    max_ms = payload.get("max_ms")
+    buckets = payload.get("buckets")
+    if not isinstance(count, int) or not isinstance(sum_ms, (int, float)):
+        return None
+    bucket_hits: dict[str, int] = {}
+    if isinstance(buckets, dict):
+        for key, value in buckets.items():
+            if isinstance(key, str) and isinstance(value, int):
+                bucket_hits[key] = value
+    return _HistogramState(
+        buckets_ms=_DEFAULT_HISTOGRAM_BUCKETS_MS,
+        count=count,
+        sum_ms=float(sum_ms),
+        min_ms=float(min_ms) if isinstance(min_ms, (int, float)) else None,
+        max_ms=float(max_ms) if isinstance(max_ms, (int, float)) else None,
+        bucket_hits=bucket_hits,
+    )
+
+
+def _coerce_process_started_at(raw: object) -> datetime:
+    if not isinstance(raw, str):
+        return datetime.now(UTC)
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).astimezone(UTC)
+    except ValueError:
+        return datetime.now(UTC)
+
+
+def _atomic_write_text(path: Path, contents: str) -> None:
+    directory = path.parent
+    directory.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=directory,
+        text=True,
+    )
+    temp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(contents)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
+        _fsync_directory(directory)
+    except Exception:
+        try:
+            temp_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def _fsync_directory(path: Path) -> None:
+    try:
+        fd = os.open(path, os.O_RDONLY)
+    except OSError:
+        return
+    try:
+        os.fsync(fd)
+    except OSError:
+        pass
+    finally:
+        os.close(fd)
