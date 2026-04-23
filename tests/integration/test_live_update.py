@@ -28,8 +28,9 @@ def _wait_for_query_hit(
         try:
             event = service.queue.get(timeout=0.05)
         except Empty:
-            continue
-        writer.apply_events([event], record_loader=make_record)
+            pass
+        else:
+            writer.apply_events([event], record_loader=make_record)
         hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
         if expected_path in hits:
             return monotonic() - started
@@ -50,8 +51,9 @@ def _wait_for_query_miss(
         try:
             event = service.queue.get(timeout=0.05)
         except Empty:
-            continue
-        writer.apply_events([event], record_loader=make_record)
+            pass
+        else:
+            writer.apply_events([event], record_loader=make_record)
         hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
         if missing_path not in hits:
             return monotonic() - started
@@ -119,6 +121,42 @@ def test_live_delete_removed_from_search_within_500ms(tmp_path: Path) -> None:
 
     assert initial_hits == [target]
     assert elapsed <= 0.5
+
+
+def test_live_rename_updates_search_visibility_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    source = root / "alpha-draft.txt"
+    renamed = root / "beta-final.txt"
+    source.write_text("rename visibility coverage\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        source.rename(renamed)
+
+        hit_elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "beta-final",
+            renamed,
+            deadline_seconds=0.5,
+        )
+        renamed_hits = [hit.file.path for hit in search(conn, "beta-final", limit=5).hits]
+        source_hits = [hit.file.path for hit in search(conn, "alpha-draft", limit=5).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert hit_elapsed <= 0.5
+    assert renamed_hits == [renamed]
+    assert source_hits == []
 
 
 def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
