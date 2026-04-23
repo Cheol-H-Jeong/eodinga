@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.870 - 2026-04-23
+
+- Forwarded live watcher create and delete events for directories, so empty folders now appear and disappear correctly in `is:empty` results without a full reindex.
+- Added end-to-end and handler-level coverage for directory watcher events, including same-root directory moves, to lock in the expected index updates for live filesystem changes.
+
 ## 0.1.863 - 2026-04-23
 
 - Expanded the launcher’s inline and empty-state keyboard guidance to cover both `Alt+Up` and `Alt+Down`, so recent-query browsing is explained consistently anywhere the user can get stuck.

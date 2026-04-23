@@ -516,7 +516,10 @@ def _run_windows() -> int:
     payload["target"] = "windows"
     payload["platform_tools"] = ["pyinstaller", "iscc"]
     _write_audit(payload)
-    return _report_validation_errors("windows", _validate_windows_audit(payload))
+    errors = _validate_windows_audit(payload)
+    if sys.platform != "win32":
+        errors.append("Windows build target requires a Windows host")
+    return _report_validation_errors("windows", errors)
 
 
 def _run_linux_appimage_dry_run() -> int:
