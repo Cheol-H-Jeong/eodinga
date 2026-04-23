@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.141 - 2026-04-23
+## 0.1.148 - 2026-04-23
 
 - Fixed slash-delimited regex parsing so top-level and spaced operator regexes now accept embedded `/` segments and valid closing delimiters after an even run of backslashes instead of misreporting them as unterminated.
 - Stabilized query ranking for same-name hits by preserving the existing branch ordering semantics while breaking identical-name ties by path, preventing insertion order from leaking into RRF scores and final search results.
