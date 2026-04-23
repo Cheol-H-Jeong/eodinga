@@ -9,6 +9,10 @@ import pytest
 
 from eodinga import __version__
 from eodinga.__main__ import main
+from eodinga.common import WatchEvent
+from eodinga.content.base import ParserSpec
+from eodinga.content.registry import parse
+from eodinga.core.watcher import WatchService
 from eodinga.index.schema import apply_schema
 from eodinga.observability import reset_metrics
 
@@ -469,4 +473,53 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["watcher_events"] == 0
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["counters"]["queries_served"] == 1
+    assert payload["histograms"]["query_latency_ms"]["count"] == 1
+
+
+def test_stats_json_exposes_end_to_end_runtime_metrics(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "alpha.txt").write_text("alpha launch note\n", encoding="utf-8")
+    (docs / "beta.txt").write_text("beta launch note\n", encoding="utf-8")
+    broken = tmp_path / "broken.txt"
+    broken.write_text("broken parser input\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    reset_metrics()
+
+    index_exit = main(["--db", str(db_path), "index", "--root", str(docs), "--rebuild"])
+    index_output = capsys.readouterr()
+    assert index_exit == 0
+    indexed_files = json.loads(index_output.out)["files_indexed"]
+    assert indexed_files >= 2
+
+    spec = ParserSpec(
+        name="broken",
+        parse=lambda _path, _max_chars: (_ for _ in ()).throw(ValueError("parse failed")),
+        extensions=frozenset({"txt"}),
+        max_bytes=1024,
+    )
+    monkeypatch.setattr("eodinga.content.registry.get_spec_for", lambda _path: spec)
+    parse(broken, max_body_chars=128)
+
+    service = WatchService()
+    service.record(WatchEvent(event_type="created", path=docs / "gamma.txt"))
+
+    search_exit = main(["--db", str(db_path), "search", "alpha", "--json"])
+    search_output = capsys.readouterr()
+    assert search_exit == 0
+    assert json.loads(search_output.out)["count"] == 1
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["counters"]["files_indexed"] == indexed_files
+    assert payload["counters"]["parser_errors"] == 1
+    assert payload["counters"]["parsers.broken.error"] == 1
+    assert payload["counters"]["queries_served"] == 1
+    assert payload["counters"]["watcher_events"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
