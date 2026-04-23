@@ -179,6 +179,57 @@ def test_content_snippet_is_present(populated_db: sqlite3.Connection) -> None:
     assert "launch" in result.hits[0].snippet.lower()
 
 
+def test_fetch_content_texts_uses_fixed_size_batches(
+    populated_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    chunk_sizes: list[int] = []
+    original_sql_builder = executor_module._content_texts_sql
+
+    def recording_sql_builder(chunk_size: int) -> str:
+        chunk_sizes.append(chunk_size)
+        return original_sql_builder(chunk_size)
+
+    monkeypatch.setattr(executor_module, "_content_texts_sql", recording_sql_builder)
+
+    content_ids = tuple(range(1, 200))
+    texts = executor_module._fetch_content_texts(populated_db, content_ids)
+
+    assert len(texts) == len(content_ids)
+    assert chunk_sizes == [len(content_ids)]
+
+
+def test_fetch_content_texts_splits_large_batches_for_statement_reuse(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    chunk_sizes: list[int] = []
+    original_sql_builder = executor_module._content_texts_sql
+
+    def recording_sql_builder(chunk_size: int) -> str:
+        chunk_sizes.append(chunk_size)
+        return original_sql_builder(chunk_size)
+
+    monkeypatch.setattr(executor_module, "_content_texts_sql", recording_sql_builder)
+
+    now = 1_713_528_000
+    for index in range(1, 401):
+        _insert_file(
+            tmp_db,
+            index,
+            f"/workspace/projects/doc-{index:03d}.txt",
+            1024,
+            now - index,
+            "txt",
+            body_text=f"payload {index}",
+        )
+    tmp_db.commit()
+
+    content_ids = tuple(range(1, 401))
+    texts = executor_module._fetch_content_texts(tmp_db, content_ids)
+
+    assert len(texts) == len(content_ids)
+    assert chunk_sizes == [256, 144]
+
+
 def test_execute_relative_date_queries(tmp_db: sqlite3.Connection) -> None:
     local_now = datetime.now().astimezone()
     today_start = int(local_now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
