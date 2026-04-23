@@ -243,7 +243,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         watcher_event_types=_watcher_event_type_summary(counters),
         counters=counters,
         histograms=metrics["histograms"],
-        recent_snapshots=recent_snapshots(),
+        recent_snapshots=[dict(entry) for entry in recent_snapshots()],
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
         log_path=resolve_log_path(),
