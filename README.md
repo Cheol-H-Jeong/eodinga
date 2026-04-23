@@ -177,6 +177,16 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Exclude noisy trees | `-path:node_modules` |
 | Run regex | `regex:/todo|fixme/i` |
 
+### Search Playbook
+
+| If you want to... | Start with... | Why |
+| --- | --- | --- |
+| Narrow by file type and a recent window | `ext:pdf date:this-month invoice` | Lets SQLite reduce the candidate set before ranking. |
+| Check whether content indexing is the missing piece | `content:"release checklist"` | Proves whether the document body, not just the path/name, is indexed. |
+| Exclude noisy roots while keeping the same term | `roadmap -path:node_modules -path:.git` | Removes predictable path spam without changing the lexical term. |
+| Audit duplicates before cleanup | `is:duplicate size:>10M` | Combines structural filtering with a practical size threshold. |
+| Verify a regex without switching the whole query to regex mode | `regex:/todo|fixme/i path:docs` | Keeps only the explicit literal as regex and leaves the path filter structured. |
+
 ## Supported Content Types
 
 - Plain text and source code: `.txt`, `.md`, `.py`, and similar text-first formats.
@@ -282,6 +292,16 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 | Hotkey or launcher looks wrong | `eodinga doctor` | inspect detected hotkey backend and then re-open `eodinga gui` for settings/state |
 | Packaging audit failed | `python packaging/build.py --target windows-dry-run` | re-run the matching Linux dry run and workflow lint from `docs/ACCEPTANCE.md` |
 
+### Query Triage
+
+| Symptom | What to try | Why it helps |
+| --- | --- | --- |
+| A phrase query only finds filenames | `content:"exact phrase"` | Confirms whether the missing hit is outside the parsed content index. |
+| Too many broad matches | add `ext:`, `path:`, `date:`, or `size:` first | Structured operators cut the candidate set before fallback checks. |
+| Regex feels slow | start with `path:` or `ext:` plus the regex literal | Regex runs on the reduced candidate set, not the full index. |
+| Duplicate audit misses a file | compare with `is:file path:...` | Unsupported content can still index by path/name without duplicate hashing. |
+| Results look tied or noisy | add a more specific second term | Lexical ranking is deterministic, but broad one-word queries naturally surface near-ties. |
+
 ## Config and Data Paths
 
 - Linux config defaults to `~/.config/eodinga/config.toml` and the index database to `~/.local/share/eodinga/index.db`.
@@ -347,6 +367,10 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 ### Which commands are most useful for a quick health check?
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
+
+### Why would `content:` or an exact phrase return fewer hits than a plain term?
+
+Plain terms search filename, path, and any parsed document text. `content:` and document-body phrases depend on parser support plus content indexing being enabled for that root, so they are intentionally narrower.
 
 ### Which files are skipped by default?
 

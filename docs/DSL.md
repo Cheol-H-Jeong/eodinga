@@ -47,6 +47,16 @@ regex:true report-\d+
 regex:/launch|ship/i path:docs
 ```
 
+## Decision Guide
+
+| Goal | Prefer | Avoid |
+| --- | --- | --- |
+| Fast narrowing of a large corpus | `ext:`, `path:`, `date:`, `size:` | starting with a bare regex over the whole index |
+| Exact document-body verification | `content:"phrase"` | assuming a plain quoted phrase only checks parsed content |
+| Regex on one clause only | `regex:/todo|fixme/i path:docs` | `regex:true` unless you want every plain term treated as regex |
+| Duplicate cleanup | `is:duplicate size:...` | relying on filename similarity alone |
+| Excluding noisy trees | `-path:node_modules -path:.git` | broad negated plain terms that can remove unrelated hits |
+
 ## Operator Notes
 
 - Path/name terms are case-insensitive unless `case:true` is set.
