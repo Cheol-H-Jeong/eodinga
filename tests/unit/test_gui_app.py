@@ -166,6 +166,8 @@ def test_tray_indicator_exposes_open_window_and_toggle_launcher_actions(qapp) ->
     window.hide()
 
     assert window.tray_indicator.open_app_action.text() == "Open eodinga"
+    assert window.tray_indicator.pause_resume_action.text() == "Pause indexing"
+    assert not window.tray_indicator.pause_resume_action.isEnabled()
     assert window.tray_indicator.toggle_launcher_action.text() == "Show launcher"
 
     window.tray_indicator.show_main_window()
@@ -181,6 +183,44 @@ def test_tray_indicator_exposes_open_window_and_toggle_launcher_actions(qapp) ->
     qapp.processEvents()
     assert not window.launcher_window.isVisible()
     assert window.tray_indicator.toggle_launcher_action.text() == "Show launcher"
+
+
+def test_tray_indicator_pause_action_tracks_indexing_phase(qapp) -> None:
+    window = EodingaWindow()
+
+    assert not window.tray_indicator.pause_resume_action.isEnabled()
+
+    window.set_indexing_status(IndexingStatus(phase="indexing", processed_files=12, total_files=40))
+    assert window.tray_indicator.pause_resume_action.text() == "Pause indexing"
+    assert window.tray_indicator.pause_resume_action.isEnabled()
+
+    window.set_indexing_status(IndexingStatus(phase="paused", processed_files=12, total_files=40))
+    assert window.tray_indicator.pause_resume_action.text() == "Resume indexing"
+    assert window.tray_indicator.pause_resume_action.isEnabled()
+
+    window.set_indexing_status(IndexingStatus())
+    assert window.tray_indicator.pause_resume_action.text() == "Pause indexing"
+    assert not window.tray_indicator.pause_resume_action.isEnabled()
+
+
+def test_tray_indicator_emits_pause_and_resume_requests(qapp) -> None:
+    paused: list[str] = []
+    resumed: list[str] = []
+    window = EodingaWindow()
+    window.pause_indexing_requested.connect(lambda: paused.append("pause"))
+    window.resume_indexing_requested.connect(lambda: resumed.append("resume"))
+
+    window.set_indexing_status(IndexingStatus(phase="indexing", processed_files=12, total_files=40))
+    window.tray_indicator.pause_resume_action.trigger()
+
+    window.set_indexing_status(IndexingStatus(phase="paused", processed_files=12, total_files=40))
+    window.tray_indicator.pause_resume_action.trigger()
+
+    window.set_indexing_status(IndexingStatus())
+    window.tray_indicator.pause_resume_action.trigger()
+
+    assert paused == ["pause"]
+    assert resumed == ["resume"]
 
 
 def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_path: Path) -> None:

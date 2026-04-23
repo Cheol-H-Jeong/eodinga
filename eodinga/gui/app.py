@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from contextlib import closing
 import sys
+from collections.abc import Callable
 from typing import Literal, Protocol, cast, overload
 
+from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QMessageBox, QStyle, QSystemTrayIcon, QTabWidget, QVBoxLayout, QWidget
 
@@ -28,16 +30,31 @@ class _DesktopActionsLike(Protocol):
 
 
 class TrayIndicatorController:
-    def __init__(self, app: QApplication, launcher_window: LauncherWindow, main_window: QMainWindow, parent: QWidget) -> None:
+    def __init__(
+        self,
+        app: QApplication,
+        launcher_window: LauncherWindow,
+        main_window: QMainWindow,
+        parent: QWidget,
+        *,
+        pause_indexing: Callable[[], None],
+        resume_indexing: Callable[[], None],
+    ) -> None:
         self._app = app
         self._launcher_window = launcher_window
         self._main_window = main_window
+        self._pause_indexing = pause_indexing
+        self._resume_indexing = resume_indexing
         self._tray: QSystemTrayIcon | None = None
         self.tooltip = format_indexing_status(IndexingStatus())
         self.status_text = self.tooltip
         self.icon_state = "idle"
+        self._indexing_phase = "idle"
         self._status_action = QAction(self.status_text, parent)
         self._status_action.setEnabled(False)
+        self.pause_resume_action = QAction("Pause indexing", parent)
+        self.pause_resume_action.setEnabled(False)
+        self.pause_resume_action.triggered.connect(self._toggle_indexing)
         self.open_app_action = QAction("Open eodinga", parent)
         self.open_app_action.triggered.connect(self.show_main_window)
         self.toggle_launcher_action = QAction("", parent)
@@ -52,6 +69,7 @@ class TrayIndicatorController:
         tray = QSystemTrayIcon(icon, parent)
         menu = QMenu(parent)
         menu.addAction(self._status_action)
+        menu.addAction(self.pause_resume_action)
         menu.addSeparator()
         menu.addAction(self.open_app_action)
         menu.addAction(self.toggle_launcher_action)
@@ -76,12 +94,22 @@ class TrayIndicatorController:
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self.tooltip = format_indexing_status(status)
         self.status_text = self.tooltip
+        self._indexing_phase = status.phase
         if status.phase in {"indexing", "paused"}:
             self.icon_state = status.phase
         else:
             self.icon_state = "idle"
         if hasattr(self, "_status_action"):
             self._status_action.setText(self.status_text)
+        if status.phase == "indexing":
+            self.pause_resume_action.setText("Pause indexing")
+            self.pause_resume_action.setEnabled(True)
+        elif status.phase == "paused":
+            self.pause_resume_action.setText("Resume indexing")
+            self.pause_resume_action.setEnabled(True)
+        else:
+            self.pause_resume_action.setText("Pause indexing")
+            self.pause_resume_action.setEnabled(False)
         if self._tray is not None:
             self._tray.setIcon(self._icon_for_state(self.icon_state))
             self._tray.setToolTip(self.tooltip)
@@ -115,8 +143,18 @@ class TrayIndicatorController:
         }:
             self.toggle_launcher()
 
+    def _toggle_indexing(self) -> None:
+        if self._indexing_phase == "indexing":
+            self._pause_indexing()
+            return
+        if self._indexing_phase == "paused":
+            self._resume_indexing()
+
 
 class EodingaWindow(QMainWindow):
+    pause_indexing_requested = Signal()
+    resume_indexing_requested = Signal()
+
     def __init__(
         self,
         search_fn: SearchFn | None = None,
@@ -172,7 +210,14 @@ class EodingaWindow(QMainWindow):
         self.desktop_actions = desktop_actions or DesktopActions(app)
         self._connect_launcher_actions(self.launcher_window)
         self._connect_launcher_actions(self.search_tab.launcher_panel)
-        self.tray_indicator = TrayIndicatorController(app, self.launcher_window, self, self)
+        self.tray_indicator = TrayIndicatorController(
+            app,
+            self.launcher_window,
+            self,
+            self,
+            pause_indexing=self.pause_indexing_requested.emit,
+            resume_indexing=self.resume_indexing_requested.emit,
+        )
         self._hotkey_controller = LauncherHotkeyController(
             self.launcher_window,
             resolved_config.launcher.hotkey,
