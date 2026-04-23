@@ -22,6 +22,7 @@ class QueryChipRow(QWidget):
         layout.setSpacing(SPACE_8)
 
         self._label = QLabel(label, self)
+        self._label.setAccessibleName(f"{label} launcher query group")
         self._label.setProperty("role", "secondary")
         self._label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(self._label)

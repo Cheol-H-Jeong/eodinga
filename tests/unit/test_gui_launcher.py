@@ -689,6 +689,27 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.result_list.accessibleName() == "Launcher results list"
+    assert launcher.status_chip.accessibleName() == "Launcher status"
+    assert launcher.shortcut_label.accessibleName() == "Launcher shortcut hints"
+    assert launcher.status_label.accessibleName() == "Launcher result summary"
+    assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"
+    assert launcher.empty_state.body_label.accessibleName() == "Launcher empty state guidance"
+    assert launcher.empty_state.details_label.accessibleName() == "Launcher empty state details"
+    assert launcher.pinned_queries_row.buttons == []
+    assert launcher.pinned_queries_row.accessibleName() == "Pinned launcher queries"
     assert launcher.preview_pane.accessibleName() == "Launcher preview pane"
+    assert launcher.preview_pane.title_label.accessibleName() == "Launcher preview title"
+    assert launcher.preview_pane.path_label.accessibleName() == "Launcher preview path"
+    assert launcher.preview_pane.snippet_label.accessibleName() == "Launcher preview snippet"
     assert launcher.action_bar.accessibleName() == "Launcher action bar"
     assert launcher.action_bar.open_button.accessibleName() == "Open selected result"
+
+
+def test_launcher_query_chip_groups_and_buttons_have_accessible_names(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("release notes")
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    assert launcher.pinned_queries_row.buttons[0].accessibleName() == "Use query ext:pdf"
+    assert launcher.recent_queries_row.buttons[0].accessibleName() == "Use query release notes"
