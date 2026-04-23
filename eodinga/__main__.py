@@ -11,12 +11,12 @@ from time import monotonic
 from typing import Any
 
 from eodinga import __version__
-from eodinga.common import SearchResult, StatsSnapshot
+from eodinga.common import IndexStats, SearchResult, StatsSnapshot
 from eodinga.config import AppConfig, RootConfig, load
 from eodinga.doctor import run_diagnostics
 from eodinga.index.build import rebuild_index
 from eodinga.index.reader import stats as read_index_stats
-from eodinga.index.storage import open_index
+from eodinga.index.storage import connect_database_readonly, open_index
 from eodinga.observability import (
     configure_logging,
     counter_value,
@@ -32,6 +32,7 @@ from eodinga.observability import (
     resolve_log_compression,
     resolve_log_retention,
     resolve_log_rotation,
+    snapshot_runtime,
 )
 from eodinga.query import QuerySyntaxError, search as run_search
 
@@ -170,13 +171,21 @@ def _cmd_search(args: argparse.Namespace) -> int:
 def _cmd_stats(args: argparse.Namespace) -> int:
     config = _resolve_config(args)
     db_path = args.db or config.index.db_path
-    with closing(open_index(db_path)) as conn:
-        index_snapshot = read_index_stats(conn)
     metrics = snapshot_metrics()
+    runtime = snapshot_runtime(argv=["stats", *([] if not args.json else ["--json"])])
+    index_snapshot, db_exists, db_error = _read_index_stats_snapshot(db_path)
     counters = metrics["counters"]
     snapshot = StatsSnapshot(
         generated_at=metrics["generated_at"],
-        uptime_ms=float(metrics["uptime_ms"]),
+        process_started_at=runtime["process_started_at"],
+        uptime_ms=float(runtime["uptime_ms"]),
+        pid=runtime["pid"],
+        version=runtime["version"],
+        platform=runtime["platform"],
+        python=runtime["python"],
+        executable=runtime["executable"],
+        cwd=Path(runtime["cwd"]),
+        argv=runtime["argv"],
         files_indexed=index_snapshot.file_count,
         documents_indexed=index_snapshot.content_count,
         queries_served=counter_value("queries_served"),
@@ -207,6 +216,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         histograms=metrics["histograms"],
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
+        db_exists=db_exists,
+        db_error=db_error,
         log_path=resolve_log_path(),
         log_rotation=resolve_log_rotation(),
         log_retention=resolve_log_retention(),
@@ -215,6 +226,17 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         file_logging_enabled=file_logging_enabled(),
     ).model_dump(mode="json")
     return _emit(snapshot, as_json=bool(args.json))
+
+
+def _read_index_stats_snapshot(db_path: Path) -> tuple[IndexStats, bool, str | None]:
+    resolved_path = db_path.expanduser()
+    if not resolved_path.exists():
+        return IndexStats(), False, None
+    try:
+        with closing(connect_database_readonly(resolved_path)) as conn:
+            return read_index_stats(conn), True, None
+    except Exception as error:
+        return IndexStats(), True, str(error)
 
 
 def _cmd_gui(args: argparse.Namespace) -> int:

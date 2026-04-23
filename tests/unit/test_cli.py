@@ -480,8 +480,17 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert stats_exit == 0
     payload = json.loads(stats_output.out)
     generated_at = datetime.fromisoformat(payload["generated_at"].replace("Z", "+00:00"))
+    process_started_at = datetime.fromisoformat(payload["process_started_at"].replace("Z", "+00:00"))
     assert generated_at.tzinfo is not None
+    assert process_started_at.tzinfo is not None
     assert payload["uptime_ms"] >= 0
+    assert payload["pid"] > 0
+    assert payload["version"] == __version__
+    assert payload["platform"]
+    assert payload["python"]
+    assert payload["executable"]
+    assert payload["cwd"] == str(Path.cwd())
+    assert payload["argv"] == ["stats", "--json"]
     assert payload["files_indexed"] == 3
     assert payload["documents_indexed"] == 3
     assert payload["queries_served"] == 1
@@ -510,6 +519,8 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["commands"]["stats"]["started"] == 1
     assert payload["exit_codes"]["0"] == 1
     assert payload["file_logging_enabled"] is True
+    assert payload["db_exists"] is True
+    assert payload["db_error"] is None
     assert payload["log_path"] is None
     assert payload["log_rotation"] == "5 MB"
     assert payload["log_retention"] == 5
@@ -524,6 +535,38 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["counters"]["commands.stats.started"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
     assert payload["histograms"]["command_latency_ms"]["count"] == 1
+
+
+def test_stats_json_does_not_create_missing_db(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "missing.db"
+    reset_metrics()
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["db_exists"] is False
+    assert payload["db_error"] is None
+    assert payload["files_indexed"] == 0
+    assert payload["documents_indexed"] == 0
+    assert not db_path.exists()
+
+
+def test_stats_json_reports_db_read_errors(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "broken.db"
+    db_path.write_text("not sqlite", encoding="utf-8")
+    reset_metrics()
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["db_exists"] is True
+    assert payload["db_error"]
+    assert payload["files_indexed"] == 0
+    assert payload["documents_indexed"] == 0
 
 
 def test_stats_json_exposes_end_to_end_runtime_metrics(

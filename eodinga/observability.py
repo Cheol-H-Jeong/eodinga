@@ -30,6 +30,18 @@ class MetricsSnapshot(TypedDict):
     uptime_ms: float
 
 
+class RuntimeSnapshot(TypedDict):
+    process_started_at: str
+    uptime_ms: float
+    pid: int
+    version: str
+    platform: str
+    python: str
+    executable: str
+    cwd: str
+    argv: list[str]
+
+
 @dataclass
 class _HistogramState:
     buckets_ms: tuple[float, ...]
@@ -211,6 +223,23 @@ def snapshot_metrics() -> MetricsSnapshot:
     }
 
 
+def snapshot_runtime(*, argv: list[str] | None = None) -> RuntimeSnapshot:
+    from eodinga import __version__
+
+    metrics = snapshot_metrics()
+    return {
+        "process_started_at": _PROCESS_STARTED_AT.isoformat().replace("+00:00", "Z"),
+        "uptime_ms": metrics["uptime_ms"],
+        "pid": os.getpid(),
+        "version": __version__,
+        "platform": sys.platform,
+        "python": sys.version.split()[0],
+        "executable": sys.executable,
+        "cwd": str(Path.cwd()),
+        "argv": list(sys.argv[1:] if argv is None else argv),
+    }
+
+
 def reset_metrics() -> None:
     with _METRICS_LOCK:
         _COUNTERS.clear()
@@ -241,26 +270,25 @@ def write_crash_log(
     context: str = "Unhandled exception",
     details: Mapping[str, object] | None = None,
 ) -> Path:
-    from eodinga import __version__
-
     target_dir = resolve_crash_dir(crash_dir)
     target_dir.mkdir(parents=True, exist_ok=True)
     occurred_at = datetime.now(UTC)
     timestamp = occurred_at.strftime("%Y%m%dT%H%M%S.%fZ")
     crash_path = _next_crash_path(target_dir, timestamp)
     metrics = snapshot_metrics()
+    runtime = snapshot_runtime()
     metadata: dict[str, object] = {
         "timestamp": timestamp,
-        "process_started_at": _PROCESS_STARTED_AT.isoformat().replace("+00:00", "Z"),
-        "uptime_ms": metrics["uptime_ms"],
-        "pid": os.getpid(),
-        "version": __version__,
-        "platform": sys.platform,
-        "python": sys.version.split()[0],
+        "process_started_at": runtime["process_started_at"],
+        "uptime_ms": runtime["uptime_ms"],
+        "pid": runtime["pid"],
+        "version": runtime["version"],
+        "platform": runtime["platform"],
+        "python": runtime["python"],
         "thread": threading.current_thread().name,
-        "executable": sys.executable,
-        "argv": sys.argv[1:],
-        "cwd": str(Path.cwd()),
+        "executable": runtime["executable"],
+        "argv": runtime["argv"],
+        "cwd": runtime["cwd"],
         "file_logging_enabled": file_logging_enabled(),
         "log_path": resolve_log_path(),
         "log_rotation": resolve_log_rotation(),

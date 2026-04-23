@@ -96,7 +96,15 @@ class StatsSnapshot(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     generated_at: str | None = None
+    process_started_at: str | None = None
     uptime_ms: float = 0.0
+    pid: int = 0
+    version: str | None = None
+    platform: str | None = None
+    python: str | None = None
+    executable: str | None = None
+    cwd: Path | None = None
+    argv: list[str] = Field(default_factory=list)
     files_indexed: int = 0
     documents_indexed: int = 0
     queries_served: int = 0
@@ -127,6 +135,8 @@ class StatsSnapshot(BaseModel):
     histograms: dict[str, dict[str, object]] = Field(default_factory=dict)
     roots: list[Path] = Field(default_factory=list)
     db_path: Path | None = None
+    db_exists: bool = False
+    db_error: str | None = None
     log_path: Path | None = None
     log_rotation: str | int | None = None
     log_retention: str | int | None = None

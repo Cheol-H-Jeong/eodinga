@@ -35,6 +35,16 @@ def connect_database(
     )
 
 
+def connect_database_readonly(
+    path: Path, *, row_factory: type[sqlite3.Row] | None = sqlite3.Row
+) -> sqlite3.Connection:
+    uri = f"file:{path.expanduser().resolve().as_posix()}?mode=ro"
+    conn = sqlite3.connect(uri, uri=True, cached_statements=SQLITE_CACHED_STATEMENTS)
+    if row_factory is not None:
+        conn.row_factory = row_factory
+    return conn
+
+
 def _checkpoint_wal(path: Path) -> None:
     if not path.exists():
         return
@@ -302,6 +312,7 @@ __all__ = [
     "atomic_replace_index",
     "configure_connection",
     "connect_database",
+    "connect_database_readonly",
     "has_stale_wal",
     "open_index",
     "recover_interrupted_build",

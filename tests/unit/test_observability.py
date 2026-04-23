@@ -27,6 +27,7 @@ from eodinga.observability import (
     resolve_log_rotation,
     reset_metrics,
     report_crash,
+    snapshot_runtime,
     snapshot_metrics,
     write_crash_log,
 )
@@ -362,3 +363,17 @@ def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:
 
     assert metrics["generated_at"].endswith("Z")
     assert metrics["uptime_ms"] >= 0
+
+
+def test_snapshot_runtime_exposes_process_identity() -> None:
+    runtime = snapshot_runtime(argv=["stats", "--json"])
+
+    assert runtime["process_started_at"].endswith("Z")
+    assert runtime["uptime_ms"] >= 0
+    assert runtime["pid"] > 0
+    assert runtime["version"] == __version__
+    assert runtime["platform"] == sys.platform
+    assert runtime["python"] == sys.version.split()[0]
+    assert runtime["executable"] == sys.executable
+    assert runtime["cwd"] == str(Path.cwd())
+    assert runtime["argv"] == ["stats", "--json"]
