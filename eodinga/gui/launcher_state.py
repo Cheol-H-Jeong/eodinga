@@ -104,6 +104,10 @@ class LauncherState(QObject):
         self._pinned_queries = deque(items[: self._pinned_queries.maxlen], maxlen=self._pinned_queries.maxlen)
         self.pinned_queries_changed.emit(self.pinned_queries)
 
+    def is_pinned_query(self, query: str) -> bool:
+        normalized = query.strip()
+        return any(item == normalized for item in self._pinned_queries)
+
     def set_indexing_status(self, status: IndexingStatus) -> None:
         self._indexing_status = status
         self.indexing_status_changed.emit(status)

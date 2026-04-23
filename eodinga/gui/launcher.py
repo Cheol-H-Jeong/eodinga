@@ -263,7 +263,13 @@ class LauncherPanel(QWidget):
     def _refresh_empty_state(self) -> None:
         has_results = self.model.rowCount() > 0
         query = self.query_field.text().strip()
-        title, body, details = build_empty_state_content(query, self._recent_queries, self._pinned_queries, self._indexing_status)
+        title, body, details = build_empty_state_content(
+            query,
+            self._recent_queries,
+            self._pinned_queries,
+            self._indexing_status,
+            query_is_pinned=self._state.is_pinned_query(query) if self._state is not None else False,
+        )
         self.empty_state.set_content(title, body, details)
         self.empty_state.setVisible(not has_results)
         self.result_list.setVisible(has_results)
@@ -274,6 +280,9 @@ class LauncherPanel(QWidget):
                 has_results=self.model.rowCount() > 0,
                 has_query=bool(self.query_field.text().strip()),
                 result_list_has_focus=self.result_list.hasFocus(),
+                query_is_pinned=(
+                    self._state.is_pinned_query(self.query_field.text()) if self._state is not None else False
+                ),
             )
         )
 

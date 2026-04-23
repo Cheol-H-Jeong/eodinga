@@ -10,6 +10,8 @@ def build_empty_state_content(
     recent_queries: list[str],
     pinned_queries: list[str],
     status: IndexingStatus,
+    *,
+    query_is_pinned: bool = False,
 ) -> tuple[str, str, str]:
     details = format_indexing_status(status)
     if not query:
@@ -21,17 +23,19 @@ def build_empty_state_content(
             "Enter to open the top hit, and Ctrl+Enter to reveal its folder."
         )
         return ("Type to search", body, details)
+    pin_hint = "Alt+P to unpin this query" if query_is_pinned else "Alt+P to pin this query"
     body = (
         "Try another term or refine with filters like ext:pdf, date:this-week, and size:>10M. "
-        "Press Alt+P to pin this query, Tab to jump back to the filter, or Esc to hide the launcher."
+        f"Press {pin_hint}, Tab to jump back to the filter, or Esc to hide the launcher."
     )
     return (f'No results for "{query}"', body, details)
 
 
-def build_shortcut_hint(*, has_results: bool, has_query: bool, result_list_has_focus: bool) -> str:
+def build_shortcut_hint(*, has_results: bool, has_query: bool, result_list_has_focus: bool, query_is_pinned: bool) -> str:
+    pin_hint = "Alt+P unpins this query" if query_is_pinned else "Alt+P pins this query"
     if not has_results:
         if has_query:
-            return "Refine with ext:, date:, size:, or content: filters. Alt+P pins this query. Alt+Up recalls recent queries."
+            return f"Refine with ext:, date:, size:, or content: filters. {pin_hint}. Alt+Up recalls recent queries."
         return "Type a filename, path, or content term. Alt+P pins the current query. Alt+Up recalls recent queries."
     if result_list_has_focus:
         return (
@@ -40,5 +44,5 @@ def build_shortcut_hint(*, has_results: bool, has_query: bool, result_list_has_f
         )
     return (
         "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. "
-        "Enter opens the top hit. Alt+1..9 quick-picks. Alt+P pins the current query. Alt+Up recalls recent queries."
+        f"Enter opens the top hit. Alt+1..9 quick-picks. {pin_hint}. Alt+Up recalls recent queries."
     )

@@ -418,6 +418,9 @@ def test_launcher_alt_p_toggles_pinned_queries_from_shared_state(qapp) -> None:
     assert "ext:pdf report" in launcher.empty_state.body_label.text()
 
     launcher.query_field.setText("ext:pdf report")
+    _wait(60)
+    assert "Alt+P to unpin this query" in launcher.empty_state.body_label.text()
+    assert "Alt+P unpins this query" in launcher.shortcut_label.text()
     launcher.query_field.pin_toggle_requested.emit()
 
     assert state.pinned_queries == []
