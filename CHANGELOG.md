@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.133 - 2026-04-23
+
+- Added `date:last-week` and `date:last-month`, keeping the relative date filters aligned with local calendar boundaries instead of forcing explicit ISO ranges for recent history lookups.
+- Added inclusive `size:` windows like `100..500K` and scoped size filters to files so directory stat noise does not outrank real file hits.
+- Added `is:empty` for zero-byte files and empty directories, plus CLI, fuzz, unit, and end-to-end coverage for the expanded query surface.
+
 ## 0.1.120 - 2026-04-23
 
 - Centralized SQLite connection setup behind a shared helper that keeps the runtime PRAGMA profile consistent while explicitly reserving a 128-statement cache for index rebuilds, stale-WAL recovery, normal opens, and the opt-in perf harness.
