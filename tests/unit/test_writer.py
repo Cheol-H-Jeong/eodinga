@@ -11,6 +11,14 @@ from eodinga.index.writer import IndexWriter
 from tests.conftest import make_record
 
 
+class _FakeConnection:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, list[tuple[object, ...]]]] = []
+
+    def executemany(self, sql: str, rows) -> None:
+        self.calls.append((sql, list(rows)))
+
+
 def _synthetic_record(index: int, root: Path) -> FileRecord:
     path = root / f"file-{index}.txt"
     return FileRecord(
@@ -76,6 +84,27 @@ def test_writer_caches_chunk_shaped_sql_templates() -> None:
     assert writer_module._delete_content_rows_sql.cache_info().hits >= 1
     assert writer_module._select_deleted_content_rowids_sql.cache_info().hits >= 1
     assert writer_module._select_existing_content_rows_sql.cache_info().hits >= 1
+
+
+def test_executemany_batched_splits_large_row_sets() -> None:
+    conn = _FakeConnection()
+    rows = [(index,) for index in range(5)]
+
+    writer_module._executemany_batched(conn, "INSERT", rows, batch_size=2)
+
+    assert [chunk for _sql, chunk in conn.calls] == [
+        [(0,), (1,)],
+        [(2,), (3,)],
+        [(4,)],
+    ]
+
+
+def test_executemany_batched_skips_empty_row_sets() -> None:
+    conn = _FakeConnection()
+
+    writer_module._executemany_batched(conn, "INSERT", [], batch_size=2)
+
+    assert conn.calls == []
 
 
 def test_writer_without_parser_skips_content_queries(tmp_db: Path, tmp_path: Path) -> None:
