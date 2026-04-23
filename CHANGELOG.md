@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.375 - 2026-04-23
+
+- Added ISO year (`date:2026`) and year-month (`date:2026-04`) period filters for `date:`, `modified:`, and `created:` queries, including open-ended and reversed range handling.
+- Expanded query compiler and executor coverage so partial ISO periods stay bounded to local calendar windows and continue to work through CLI and indexed end-to-end search flows.
+
 ## 0.1.369 - 2026-04-23
 
 - Expanded live-update integration coverage to prove in-place content rewrites and cross-root moves both converge in search within the 500ms watcher budget, including root-scoped query visibility.
