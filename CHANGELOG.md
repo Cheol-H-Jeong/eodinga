@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.286 - 2026-04-23
+
+- Made quoted phrase matching more forgiving across whitespace boundaries, so `content:"alpha project"` and bare `"alpha project"` searches can recover hits where content is split by newlines or repeated spacing.
+- Kept phrase queries on the Python scan supplement path even when FTS returns partial candidates, closing the recall gap where only some whitespace-separated phrase matches surfaced.
+- Accepted lowercase `z` UTC suffixes and case-insensitive relative date aliases like `date:TODAY` and `date:This-Week`, with compiler and executor regressions covering the expanded ISO/date-macro surface.
+
 ## 0.1.282 - 2026-04-23
 
 - Tightened the contributor and release guides around parallel worker worktrees, one-commit-at-a-time unit gates, and the final local-tag handoff flow so docs rounds remain reproducible under concurrent landing.
