@@ -384,7 +384,10 @@ def _fetch_path_candidates_scan(
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return [], {}
-    if any(any(ord(char) > 127 for char in term.value) for term in positive_terms):
+    if any(
+        term.kind == "phrase" or any(ord(char) > 127 for char in term.value)
+        for term in positive_terms
+    ):
         return _fetch_path_candidates_python_scan(conn, branch, limit)
     params: list[object] = []
     prefix_term = positive_terms[0].value if positive_terms else ""
