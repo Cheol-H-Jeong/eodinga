@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -87,6 +88,15 @@ def _resolve_windows_relative_path(base_dir: Path, raw_path: str) -> Path:
     return (base_dir / Path(*PureWindowsPath(raw_path).parts)).resolve()
 
 
+def _artifact_metadata(path: Path) -> dict[str, Any]:
+    return {
+        "path": str(path),
+        "exists": path.exists(),
+        "size_bytes": path.stat().st_size if path.exists() else None,
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None,
+    }
+
+
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     spec_namespace = _load_windows_spec_namespace()
     inno_text = INNO_SCRIPT.read_text(encoding="utf-8")
@@ -118,6 +128,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     cli_dist_path = PROJECT_ROOT / "dist" / cli_dist_name
     gui_exe_path = gui_dist_path / gui_exe_name
     cli_exe_path = cli_dist_path / cli_exe_name
+    installer_path = rendered_path.parent / f"{output_base_filename}.exe"
     project_root_resolved = (
         _resolve_windows_relative_path(rendered_path.parent, project_root_macro)
         if project_root_macro is not None
@@ -216,6 +227,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "purge_targets_local_and_roaming_user_state": r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);" in rendered_text
             and r"DelTree(ExpandConstant('{userappdata}\\eodinga'), True, True, True);" in rendered_text
             and "{commonappdata}" not in rendered_text,
+            "installer_artifact": _artifact_metadata(installer_path),
         },
     }
 
@@ -255,6 +267,7 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         errors.append("PyInstaller hidden imports no longer include the source-derived modules")
     if not spec_payload.get("datas"):
         errors.append("PyInstaller data files are empty")
+    inno_payload = payload.get("inno_setup", {})
     if payload.get("target") == "windows":
         dist_exists = spec_payload.get("dist_exists", {})
         exe_exists = spec_payload.get("exe_exists", {})
@@ -266,7 +279,13 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
             errors.append("Windows build is missing the staged GUI executable")
         if not exe_exists.get("cli"):
             errors.append("Windows build is missing the staged CLI executable")
-    inno_payload = payload.get("inno_setup", {})
+        installer_artifact = inno_payload.get("installer_artifact", {})
+        if not installer_artifact.get("exists"):
+            errors.append("Windows build is missing the staged installer executable")
+        if not isinstance(installer_artifact.get("size_bytes"), int) or installer_artifact.get("size_bytes", 0) <= 0:
+            errors.append("Windows installer size is missing")
+        if not installer_artifact.get("sha256"):
+            errors.append("Windows installer digest is missing")
     required_flags = {
         "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
         "app_version_uses_template": "Inno AppVersion macro no longer uses the template token",
@@ -557,11 +576,20 @@ def _run_windows() -> int:
     preflight = _preflight_required_commands("windows", ["pyinstaller", "iscc"])
     if preflight != 0:
         return preflight
-    version = _read_project_version()
-    package_version = _read_package_version()
-    payload = _audit_windows_inputs(version, package_version)
+    payload = _audit_windows_inputs(_read_project_version(), _read_package_version())
+    rendered_path = Path(payload["inno_setup"]["rendered_path"])
+    build_commands = [
+        ["pyinstaller", "--noconfirm", "--clean", str(WINDOWS_SPEC)],
+        ["iscc", str(rendered_path)],
+    ]
+    for command in build_commands:
+        result = subprocess.run(command, cwd=PROJECT_ROOT, check=False)
+        if result.returncode != 0:
+            return result.returncode
+    payload = _audit_windows_inputs(_read_project_version(), _read_package_version())
     payload["target"] = "windows"
     payload["platform_tools"] = ["pyinstaller", "iscc"]
+    payload["build_commands"] = build_commands
     _write_audit(payload)
     return _report_validation_errors("windows", _validate_windows_audit(payload))
 

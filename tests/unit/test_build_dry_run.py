@@ -132,12 +132,21 @@ def test_windows_audit_validator_rejects_missing_built_artifacts_for_release_tar
     payload["target"] = "windows"
     payload["pyinstaller_spec"]["dist_exists"] = {"cli": False, "gui": True}
     payload["pyinstaller_spec"]["exe_exists"] = {"cli": False, "gui": False}
+    payload["inno_setup"]["installer_artifact"] = {
+        "path": "packaging/dist/windows/eodinga-setup.exe",
+        "exists": False,
+        "size_bytes": None,
+        "sha256": None,
+    }
 
     errors = module._validate_windows_audit(payload)
 
     assert "Windows build is missing the staged CLI dist directory" in errors
     assert "Windows build is missing the staged GUI executable" in errors
     assert "Windows build is missing the staged CLI executable" in errors
+    assert "Windows build is missing the staged installer executable" in errors
+    assert "Windows installer size is missing" in errors
+    assert "Windows installer digest is missing" in errors
 
 
 def test_windows_audit_validator_rejects_missing_source_hidden_import_contract() -> None:
@@ -175,19 +184,47 @@ def test_build_preflight_reports_missing_windows_tool(monkeypatch) -> None:
     assert result == 1
 
 
-def test_windows_build_target_relabels_audit_and_requires_built_artifacts(monkeypatch) -> None:
+def test_windows_build_target_runs_pyinstaller_and_iscc_and_writes_release_audit(monkeypatch, tmp_path: Path) -> None:
     module = _load_build_module()
 
     def fake_which(command: str) -> str | None:
         return f"/usr/bin/{command}"
 
+    def fake_run(command: list[str], cwd: Path, check: bool = False, **_: object):
+        assert check is False
+        assert cwd == Path(".").resolve()
+        if command[0] == "pyinstaller":
+            gui_dist = Path("dist/eodinga-gui")
+            cli_dist = Path("dist/eodinga-cli")
+            gui_dist.mkdir(parents=True, exist_ok=True)
+            cli_dist.mkdir(parents=True, exist_ok=True)
+            (gui_dist / "eodinga-gui.exe").write_text("gui", encoding="utf-8")
+            (cli_dist / "eodinga-cli.exe").write_text("cli", encoding="utf-8")
+            return subprocess.CompletedProcess(command, 0)
+        if command[0] == "iscc":
+            rendered_script = Path(command[1])
+            installer_path = rendered_script.parent / f"eodinga-{__version__}-win-x64-setup.exe"
+            installer_path.write_text("setup", encoding="utf-8")
+            return subprocess.CompletedProcess(command, 0)
+        raise AssertionError(command)
+
     monkeypatch.setattr(module.shutil, "which", fake_which)
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
 
     result = module._run_windows()
 
-    assert result == 1
+    assert result == 0
     payload = json.loads(Path("packaging/dist/windows-audit.json").read_text(encoding="utf-8"))
     assert payload["target"] == "windows"
+    assert payload["build_commands"] == [
+        ["pyinstaller", "--noconfirm", "--clean", str(Path("packaging/pyinstaller.spec").resolve())],
+        ["iscc", str(Path("packaging/dist/windows/eodinga.iss").resolve())],
+    ]
+    assert payload["pyinstaller_spec"]["dist_exists"] == {"cli": True, "gui": True}
+    assert payload["pyinstaller_spec"]["exe_exists"] == {"cli": True, "gui": True}
+    assert payload["inno_setup"]["installer_artifact"]["exists"] is True
+    assert payload["inno_setup"]["installer_artifact"]["size_bytes"] > 0
+    assert payload["inno_setup"]["installer_artifact"]["sha256"]
 
 
 def test_build_preflight_reports_missing_linux_deb_tool(monkeypatch) -> None:
