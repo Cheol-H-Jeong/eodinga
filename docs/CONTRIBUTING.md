@@ -154,7 +154,7 @@ Collect the smallest reviewable evidence set that matches the docs you changed:
 | --- | --- |
 | CLI surface or examples | `python scripts/generate_manpage.py` plus `pytest -q tests/unit/test_docs_assets.py` |
 | Visible GUI or launcher behavior | `python scripts/render_docs_screenshots.py`, `pytest -q tests/unit/test_docs_assets.py`, and `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
-| Packaged artifacts or release payloads | matching `python packaging/build.py --target ...-dry-run` command plus manifest review under `packaging/dist/` |
+| Packaged artifacts or release payloads | matching `python packaging/build.py --target ...-dry-run` command plus manifest review under `packaging/dist/`; use the release target as well when the docs claim a final installer or package file exists |
 | Pure prose or workflow guidance | `pytest -q tests/unit/test_docs_assets.py`, and the nearest matching dry run if the text names shipped artifacts |
 
 Prefer one explicit evidence bundle over ad-hoc retries. The handoff should show why the docs match the runtime, not just that Markdown changed.
@@ -206,6 +206,7 @@ Do not rewrite earlier docs or feature commits just to retarget the patch number
 
 - Run only the dry-run targets that match the packaging surface you changed.
 - Inspect `packaging/dist/` instead of trusting command exit status alone.
+- Match the review file to the claim: `windows-dry-run-audit.json` for installer inputs, `windows-audit.json` for the final Windows installer, and the Linux audit JSON files for archive and package metadata.
 - Confirm the staged docs payload still matches `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 - If the docs describe a packaged artifact, rerun the corresponding dry run before handoff.
 

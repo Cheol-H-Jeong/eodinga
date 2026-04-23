@@ -362,7 +362,9 @@ startup
 - Editable local development targets `pip install -e .[all]` on Python 3.11.
 - Linux packaging lives under `packaging/linux/` for `.deb` and AppImage recipes.
 - The Debian recipe stages the launcher shim, desktop entry, SVG icon, license, and compressed changelog into the package root before emitting the audit manifest.
-- Windows packaging uses `packaging/pyinstaller.spec`, `packaging/windows/eodinga.iss`, and `packaging/build.py --target windows-dry-run`.
+- Windows packaging uses `packaging/pyinstaller.spec`, `packaging/windows/eodinga.iss`, and `packaging/build.py`.
+- `windows-dry-run` validates the PyInstaller and Inno Setup inputs and writes reviewable metadata under `packaging/dist/`.
+- `windows` is a release audit over staged outputs: it only passes once the GUI bundle, CLI bundle, and the rendered installer executable exist together.
 - Documentation screenshots are rendered from the real Qt surfaces through `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
 - Release docs also ship a generated CLI man page under `docs/man/` so packaged audits can verify the command surface without importing the project interactively.
 
@@ -370,8 +372,9 @@ startup
 
 1. Run the matching `packaging/build.py --target ...-dry-run` command.
 2. Inspect the emitted manifest or staged payload summary under `packaging/dist/`.
-3. Compare the staged docs payload with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
-4. Cut the local tag only after the dry-run output and shipped docs agree.
+3. For Windows, treat `windows-dry-run-audit.json` plus `windows/eodinga.iss` as input review only; use `windows-audit.json` when you need proof that the installer executable itself exists.
+4. Compare the staged docs payload with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
+5. Cut the local tag only after the dry-run output and shipped docs agree.
 
 ## Release Evidence Sequence
 
