@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.901 - 2026-04-23
+## 0.1.903 - 2026-04-23
 
 - Added explicit `stats --json` summaries for watcher observer failures, command failure reasons, and file-log source and disable-reason breakdowns, so operators can inspect the high-signal state without decoding raw counter names.
 - Bounded recent snapshot payloads before they enter in-memory history, debug logs, and crash reports, preventing oversized values from turning observability artifacts into unbounded dumps.
