@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.267 - 2026-04-23
+
+- Expanded `docs/DSL.md` with operator precedence, regex and escaping examples, an operator input matrix, and query-shape troubleshooting so the shared search language is easier to use accurately.
+- Tightened `docs/CONTRIBUTING.md`, `docs/RELEASE.md`, and `docs/ACCEPTANCE.md` around concurrent worktree sync, patch-version/tag collision handling, and minimal docs-only validation bundles.
+- Clarified `README.md` with an install-extras matrix and a fast docs-maintenance path so contributors can choose the right local dependency set without reverse-engineering `pyproject.toml`.
+
 ## 0.1.262 - 2026-04-23
 
 - Restricted ranking deboost markers like `node_modules` and `.git` to full path segments, preventing unrelated paths such as `node_modules_backup` or `git-cache` from being unfairly pushed down.
