@@ -126,6 +126,15 @@ def _normalize_command_name(command: str) -> str:
     return base
 
 
+def _call_argument(node: ast.Call, position: int, keyword: str) -> ast.AST | None:
+    if len(node.args) > position:
+        return node.args[position]
+    for item in node.keywords:
+        if item.arg == keyword:
+            return item.value
+    return None
+
+
 def _scan_python_source(path: Path, root: Path) -> list[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     aliases = _collect_import_aliases(tree)
@@ -151,8 +160,9 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
         elif isinstance(node, ast.Call):
             dotted = _resolve_dotted_name(node.func, aliases)
             if dotted in _BANNED_CALLS:
-                if node.args:
-                    command = _subprocess_command_name(node.args[0])
+                command_arg = _call_argument(node, 0, "cmd")
+                if command_arg is not None:
+                    command = _subprocess_command_name(command_arg)
                     if command is not None:
                         shell_command = _shell_uses_banned_command(command)
                         if shell_command is not None:
@@ -161,8 +171,9 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                             )
                             continue
                 violations.append(f"{path.relative_to(root)}:{node.lineno}:{dotted}")
-            if dotted in _BANNED_EXEC_CALLS and node.args:
-                command = _subprocess_command_name(node.args[0])
+            if dotted in _BANNED_EXEC_CALLS:
+                command_arg = _call_argument(node, 0, "program")
+                command = _subprocess_command_name(command_arg) if command_arg is not None else None
                 if command is not None and _normalize_command_name(command) in _BANNED_SUBPROCESS_COMMANDS:
                     violations.append(
                         f"{path.relative_to(root)}:{node.lineno}:subprocess {_normalize_command_name(command)}"
@@ -174,11 +185,13 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                 "subprocess.check_call",
                 "subprocess.check_output",
                 "subprocess.Popen",
-            } and node.args:
-                command = _subprocess_command_name(node.args[0])
-                if command in _BANNED_SUBPROCESS_COMMANDS:
+            }:
+                command_arg = _call_argument(node, 0, "args")
+                command = _subprocess_command_name(command_arg) if command_arg is not None else None
+                normalized_command = _normalize_command_name(command) if command is not None else None
+                if normalized_command in _BANNED_SUBPROCESS_COMMANDS:
                     violations.append(
-                        f"{path.relative_to(root)}:{node.lineno}:subprocess {command}"
+                        f"{path.relative_to(root)}:{node.lineno}:subprocess {normalized_command}"
                     )
                     continue
                 shell_mode = any(
@@ -248,6 +261,25 @@ def test_python_source_scan_flags_exec_style_network_commands(tmp_path: Path) ->
         "import asyncio\n"
         "asyncio.create_subprocess_exec('curl', 'https://example.com')\n"
         "asyncio.create_subprocess_exec('wget.exe', 'https://example.com')\n",
+        encoding="utf-8",
+    )
+
+    violations = _scan_python_source(source, tmp_path)
+
+    assert violations == [
+        "candidate.py:2:subprocess curl",
+        "candidate.py:3:subprocess wget",
+    ]
+
+
+def test_python_source_scan_flags_keyword_and_absolute_path_subprocess_commands(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "candidate.py"
+    source.write_text(
+        "import subprocess\n"
+        "subprocess.run(args=['/usr/bin/curl', 'https://example.com'])\n"
+        "subprocess.Popen(args=('C:/Windows/System32/wget.exe', 'https://example.com'))\n",
         encoding="utf-8",
     )
 

@@ -56,6 +56,10 @@ def _literal_string(node: ast.AST) -> str | None:
     return None
 
 
+def _mode_is_write_capable(mode: str | None) -> bool:
+    return mode is None or any(flag in mode for flag in ("w", "a", "+", "x", "U"))
+
+
 def _contains_write_open_flags(node: ast.AST, aliases: dict[str, str] | None = None) -> bool:
     aliases = {} if aliases is None else aliases
     write_flags = {
@@ -97,6 +101,7 @@ def test_fs_module_avoids_write_capable_calls() -> None:
     }
     forbidden_calls = {
         "open",
+        "os.fdopen",
         "os.open",
         "os.remove",
         "os.rename",
@@ -112,6 +117,16 @@ def test_fs_module_avoids_write_capable_calls() -> None:
         if dotted == "os.open" and len(node.args) >= 2:
             assert not _contains_write_open_flags(node.args[1], aliases)
             continue
+        if dotted == "os.fdopen":
+            mode: str | None = None
+            if len(node.args) >= 2:
+                mode = _literal_string(node.args[1])
+            for keyword in node.keywords:
+                if keyword.arg == "mode":
+                    mode = _literal_string(keyword.value)
+                    break
+            assert not _mode_is_write_capable(mode)
+            continue
         assert dotted not in forbidden_calls
         if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, (ast.Name, ast.Attribute)):
             assert node.func.attr not in forbidden_methods
@@ -124,7 +139,7 @@ def test_fs_module_avoids_write_capable_calls() -> None:
                         mode = _literal_string(keyword.value)
                         break
                 if mode is not None:
-                    assert all(flag not in mode for flag in ("w", "a", "+", "x"))
+                    assert not _mode_is_write_capable(mode)
 
 
 def test_write_flag_detector_catches_os_open_write_modes() -> None:
@@ -157,6 +172,12 @@ def test_alias_resolution_catches_imported_write_calls() -> None:
     assert isinstance(node.value, ast.Call)
 
     assert _resolve_dotted_name(node.value.func, aliases) == "os.open"
+
+
+def test_mode_detector_treats_fdopen_without_literal_mode_as_write_capable() -> None:
+    assert _mode_is_write_capable(None) is True
+    assert _mode_is_write_capable("rb") is False
+    assert _mode_is_write_capable("w") is True
 
 
 @pytest.mark.parametrize("mode", ["w", "wb", "a", "ab", "x", "xb", "r+", "rb+", "a+"])
