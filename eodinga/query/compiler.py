@@ -162,7 +162,25 @@ def _validate_regex_pattern(pattern: str, flags: str = "") -> None:
 
 
 def _parse_size_number(number_text: str, unit: str, original: str) -> int:
-    factor = {"B": 1, "K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}.get(unit)
+    normalized_unit = unit.strip().casefold()
+    factor = {
+        "": 1,
+        "b": 1,
+        "byte": 1,
+        "bytes": 1,
+        "k": 1024,
+        "kb": 1024,
+        "kib": 1024,
+        "m": 1024**2,
+        "mb": 1024**2,
+        "mib": 1024**2,
+        "g": 1024**3,
+        "gb": 1024**3,
+        "gib": 1024**3,
+        "t": 1024**4,
+        "tb": 1024**4,
+        "tib": 1024**4,
+    }.get(normalized_unit)
     if factor is None:
         raise QuerySyntaxError(f"invalid size literal: {original}", 0)
     try:
@@ -179,24 +197,21 @@ def _size_to_bytes(value: str) -> tuple[str, int]:
             comparator = prefix
             text = text[len(prefix) :]
             break
-    unit = text[-1].upper() if text and text[-1].isalpha() else "B"
-    number_text = text[:-1] if unit != "B" or (text and text[-1].isalpha()) else text
-    return comparator, _parse_size_number(number_text, unit, value)
+    match = re.fullmatch(r"(?P<number>\d+(?:\.\d+)?)(?P<unit>[A-Za-z]*)", text)
+    if match is None:
+        raise QuerySyntaxError(f"invalid size literal: {value}", 0)
+    return comparator, _parse_size_number(match.group("number"), match.group("unit"), value)
 
 
-def _size_to_range(value: str) -> tuple[int, int] | None:
+def _size_to_range(value: str) -> tuple[int | None, int | None] | None:
     if ".." not in value:
         return None
     left, right = (part.strip() for part in value.split("..", 1))
-    if not left or not right:
+    if not left and not right:
         raise QuerySyntaxError(f"invalid size literal: {value}", 0)
-    left_unit = left[-1].upper() if left[-1].isalpha() else "B"
-    right_unit = right[-1].upper() if right[-1].isalpha() else "B"
-    left_number = left[:-1] if left[-1].isalpha() else left
-    right_number = right[:-1] if right[-1].isalpha() else right
-    start = _parse_size_number(left_number, left_unit, value)
-    end = _parse_size_number(right_number, right_unit, value)
-    if end < start:
+    start = _size_to_bytes(left)[1] if left else None
+    end = _size_to_bytes(right)[1] if right else None
+    if start is not None and end is not None and end < start:
         start, end = end, start
     return start, end
 
@@ -348,11 +363,18 @@ def _compile_branch(
             size_range = _size_to_range(term.value)
             if size_range is not None:
                 start, end = size_range
+                clauses: list[str] = []
+                if start is not None:
+                    clauses.append("files.size >= ?")
+                    where_params.append(start)
+                if end is not None:
+                    clauses.append("files.size <= ?")
+                    where_params.append(end)
+                clause_sql = " AND ".join(clauses)
                 if term.negated:
-                    where_parts.append("NOT (files.size >= ? AND files.size <= ?)")
+                    where_parts.append(f"NOT ({clause_sql})")
                 else:
-                    where_parts.append("files.size >= ? AND files.size <= ?")
-                where_params.extend([start, end])
+                    where_parts.append(clause_sql)
                 continue
             comparator, size_bytes = _size_to_bytes(term.value)
             if term.negated:

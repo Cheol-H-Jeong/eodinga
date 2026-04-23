@@ -197,6 +197,44 @@ def test_compile_size_range_normalizes_bounds() -> None:
     assert branch.where_params == (100, 500 * 1024)
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_sql", "expected_params"),
+    [
+        ("size:..500K", "files.size <= ?", (500 * 1024,)),
+        ("size:100..", "files.size >= ?", (100,)),
+    ],
+)
+def test_compile_open_ended_size_ranges(
+    query: str,
+    expected_sql: str,
+    expected_params: tuple[int, ...],
+) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == expected_sql
+    assert branch.where_params == expected_params
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_sql", "expected_param"),
+    [
+        ("size:>1.5MB", "files.size > ?", int(1.5 * 1024**2)),
+        ("size:<=512KiB", "files.size <= ?", 512 * 1024),
+    ],
+)
+def test_compile_size_aliases_accept_common_binary_suffixes(
+    query: str,
+    expected_sql: str,
+    expected_param: int,
+) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == expected_sql
+    assert branch.where_params == (expected_param,)
+
+
 def test_compile_duplicate_filter_shape() -> None:
     compiled = compile_query(parse("is:duplicate -is:symlink"))
     branch = compiled.branches[0]
