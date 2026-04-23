@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.867 - 2026-04-23
+
+- Expanded launcher preview fallback decoding to read BOM and BOM-less UTF-16 text files, so hovered file previews stay useful for common Windows-authored notes instead of going blank.
+- Surfaced launcher hotkey backend availability in Settings, marking saved-only hotkeys clearly when the global hotkey service is unavailable while still preserving remapped combos in config.
+- Added contextual launcher action-button tooltips for both disabled and selected states, so Open, Reveal, Copy Path, Copy Name, and Properties each describe their current target and shortcut.
+
 ## 0.1.863 - 2026-04-23
 
 - Expanded the launcher’s inline and empty-state keyboard guidance to cover both `Alt+Up` and `Alt+Down`, so recent-query browsing is explained consistently anywhere the user can get stuck.
