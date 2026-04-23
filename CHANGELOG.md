@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.200 - 2026-04-23
+## 0.1.203 - 2026-04-23
 
 - Fixed `path:/.../` parsing so slash-delimited path regex terms without explicit flags are compiled as regex filters instead of falling back to literal path text.
 - Expanded parser, compiler, and executor regressions around path-regex ambiguity, boolean `case:` and `regex:` truth tables, and quoted operator phrase round-trips.
