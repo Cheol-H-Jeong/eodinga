@@ -251,7 +251,7 @@ OPERATOR_ATOMS = st.one_of(
     st.builds(lambda value: f"ext:{value}", st.sampled_from(["pdf", "txt", "md"])),
     st.builds(lambda value: f"is:{value}", st.sampled_from(["file", "dir", "symlink", "duplicate"])),
     st.builds(lambda value: f"path:{value}", st.sampled_from(["workspace", "프로젝트", '"team notes"'])),
-    st.builds(lambda value: f"size:{value}", st.sampled_from([">10M", "<=42K", "=512B"])),
+    st.builds(lambda value: f"size:{value}", st.sampled_from([">10M", "<=42K", "=512B", "100K..500K"])),
 )
 
 ATOMS = st.one_of(

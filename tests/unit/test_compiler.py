@@ -117,6 +117,21 @@ def test_compile_duplicate_filter_shape() -> None:
     assert "NOT (files.is_symlink = 1)" in branch.where_sql
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_sql", "expected_params"),
+    [
+        ("size:100K..500K", "files.size >= ? AND files.size <= ?", (100 * 1024, 500 * 1024)),
+        ("-size:500K..100K", "NOT (files.size >= ? AND files.size <= ?)", (100 * 1024, 500 * 1024)),
+    ],
+)
+def test_compile_size_range_queries(query: str, expected_sql: str, expected_params: tuple[int, int]) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+
+    assert branch.where_sql == expected_sql
+    assert branch.where_params == expected_params
+
+
 def test_compile_non_ascii_path_filter_uses_python_normalized_scan() -> None:
     compiled = compile_query(parse("path:회의록 ext:txt"))
     branch = compiled.branches[0]
@@ -160,6 +175,7 @@ def test_compile_reuses_cached_queries() -> None:
         "/[a-/",
         "regex:true [a-",
         "size:>tenM report",
+        "size:100..bogus report",
         "date:2026-01-01..bogus report",
         "is:folder report",
     ],

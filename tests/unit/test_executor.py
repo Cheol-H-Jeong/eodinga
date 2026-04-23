@@ -481,6 +481,20 @@ def test_execute_duplicate_and_negated_size_queries(tmp_db: sqlite3.Connection) 
     assert unique_hits == ["beta.txt"]
 
 
+def test_execute_size_range_queries(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/small.txt", 80 * 1024, now, "txt", body_text="small")
+    _insert_file(tmp_db, 2, "/workspace/medium.txt", 250 * 1024, now - 60, "txt", body_text="medium")
+    _insert_file(tmp_db, 3, "/workspace/large.txt", 700 * 1024, now - 120, "txt", body_text="large")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "size:100K..500K", limit=10).hits]
+    assert hits == ["medium.txt"]
+
+    negated_hits = [hit.file.name for hit in search(tmp_db, "-size:500K..100K", limit=10).hits]
+    assert negated_hits == ["large.txt", "small.txt"]
+
+
 def test_execute_metadata_only_query_reports_uncapped_total_estimate(
     tmp_db: sqlite3.Connection,
 ) -> None:
