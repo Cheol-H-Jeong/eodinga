@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.369 - 2026-04-23
+## 0.1.371 - 2026-04-23
 
 - Normalized root-scoped Windows searches across drive-letter variants, so exact-root filters now treat `C:\...` and `c:\...` as the same root instead of dropping the matching directory record.
 - Made vendor-path deboost markers case-insensitive across path segments, keeping Windows-style `NODE_MODULES` and `.GIT` directories ranked consistently with lowercase paths.
