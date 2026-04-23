@@ -46,7 +46,7 @@ def _record_batch_sql(has_where: bool) -> str:
     sql = "SELECT files.* FROM files"
     if has_where:
         sql += " WHERE {where_sql}"
-    sql += " ORDER BY files.name_lower ASC LIMIT ? OFFSET ?"
+    sql += " ORDER BY files.name_lower ASC, files.path ASC, files.id ASC LIMIT ? OFFSET ?"
     return sql
 
 
@@ -72,7 +72,7 @@ def _path_candidates_fts_sql(
     prefix_expr = "files.name LIKE ?" if case_sensitive else "files.name_lower LIKE ?"
     sql += (
         f" ORDER BY CASE WHEN {prefix_expr} THEN 0 ELSE 1 END,"
-        f" bm25(paths_fts, 8.0, 2.0, 1.0) ASC, {order_expr} ASC LIMIT ?"
+        f" bm25(paths_fts, 8.0, 2.0, 1.0) ASC, {order_expr} ASC, files.path ASC, files.id ASC LIMIT ?"
     )
     return sql
 
@@ -96,7 +96,10 @@ def _path_candidates_scan_sql(
         sql += " WHERE " + " AND ".join(filters)
     order_expr = "files.name" if case_sensitive else "files.name_lower"
     prefix_expr = "files.name LIKE ?" if case_sensitive else "files.name_lower LIKE ?"
-    sql += f" ORDER BY CASE WHEN {prefix_expr} THEN 0 ELSE 1 END, {order_expr} ASC LIMIT ?"
+    sql += (
+        f" ORDER BY CASE WHEN {prefix_expr} THEN 0 ELSE 1 END,"
+        f" {order_expr} ASC, files.path ASC, files.id ASC LIMIT ?"
+    )
     return sql
 
 
@@ -111,7 +114,7 @@ def _content_candidates_sql(has_where_sql: bool) -> str:
     """
     if has_where_sql:
         sql += " AND {where_sql}"
-    sql += " ORDER BY bm25(content_fts, 3.0, 1.5, 1.0) ASC LIMIT ?"
+    sql += " ORDER BY bm25(content_fts, 3.0, 1.5, 1.0) ASC, files.name_lower ASC, files.path ASC, files.id ASC LIMIT ?"
     return sql
 
 
@@ -126,7 +129,7 @@ def _auto_content_candidates_sql(has_where_sql: bool) -> str:
     """
     if has_where_sql:
         sql += " AND {where_sql}"
-    sql += " ORDER BY bm25(content_fts, 3.0, 1.5, 1.0) ASC LIMIT ?"
+    sql += " ORDER BY bm25(content_fts, 3.0, 1.5, 1.0) ASC, files.name_lower ASC, files.path ASC, files.id ASC LIMIT ?"
     return sql
 
 
@@ -139,7 +142,7 @@ def _content_backfill_sql(has_where_sql: bool) -> str:
     """
     if has_where_sql:
         sql += " WHERE {where_sql}"
-    sql += " ORDER BY files.name_lower ASC LIMIT ? OFFSET ?"
+    sql += " ORDER BY files.name_lower ASC, files.path ASC, files.id ASC LIMIT ? OFFSET ?"
     return sql
 
 
@@ -160,6 +163,12 @@ def _make_flags(flag_text: str) -> int:
         if flag == "s":
             flags |= re.DOTALL
     return flags
+
+
+def _record_order_key(record: FileRecord, *, case_sensitive: bool) -> tuple[str, str, int]:
+    name = record.name if case_sensitive else record.name_lower
+    file_id = -1 if record.id is None else record.id
+    return name, str(record.path), file_id
 
 
 def _text_matches(value: str, needle: str, case_sensitive: bool) -> bool:
@@ -450,9 +459,7 @@ def _fetch_path_candidates_python_scan(
                 for term in positive_terms
             )
             else 1,
-            record.name if branch.case_sensitive else record.name_lower,
-            str(record.path),
-            -1 if record.id is None else record.id,
+            *_record_order_key(record, case_sensitive=branch.case_sensitive),
         ),
     )[:limit]
     ids = [record.id for record in ordered if record.id is not None]
@@ -731,7 +738,10 @@ def _derive_name_path_hits(
     name_hits: list[int] = []
     path_hits: list[int] = []
     if not positive_terms:
-        ordered = sorted(records.values(), key=lambda item: item.name_lower)
+        ordered = sorted(
+            records.values(),
+            key=lambda item: _record_order_key(item, case_sensitive=branch.case_sensitive),
+        )
         ids = [record.id for record in ordered if record.id is not None]
         return ids, ids
     for record in records.values():
@@ -855,7 +865,10 @@ def execute(
                 merged_snippets[file_id] = snippet
     ordered_ids = sorted(
         merged_scores,
-        key=lambda file_id: (-merged_scores[file_id], merged_records[file_id].name_lower, file_id),
+        key=lambda file_id: (
+            -merged_scores[file_id],
+            *_record_order_key(merged_records[file_id], case_sensitive=False),
+        ),
     )[:limit]
     hits = [
         SearchHit(

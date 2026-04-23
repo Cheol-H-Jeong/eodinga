@@ -127,6 +127,52 @@ def test_node_modules_are_deboosted(populated_db: sqlite3.Connection) -> None:
     assert preferred.hits[0].file.name == "doc-018.txt"
 
 
+def test_execute_metadata_only_query_breaks_same_name_ties_by_path(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 20, "/workspace/zeta/shared.txt", 1024, now, "txt", body_text="zeta")
+    _insert_file(tmp_db, 10, "/workspace/alpha/shared.txt", 1024, now - 60, "txt", body_text="alpha")
+    _insert_file(tmp_db, 30, "/workspace/mid/shared.txt", 1024, now - 120, "txt", body_text="mid")
+    tmp_db.commit()
+
+    hits = [hit.file.path for hit in search(tmp_db, "ext:txt", limit=10).hits]
+
+    assert hits[:3] == [
+        Path("/workspace/alpha/shared.txt"),
+        Path("/workspace/mid/shared.txt"),
+        Path("/workspace/zeta/shared.txt"),
+    ]
+
+
+def test_execute_score_ties_break_same_name_results_by_path(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        20,
+        "/workspace/zeta/duplicate.txt",
+        1024,
+        now,
+        "txt",
+        body_text="launch note",
+    )
+    _insert_file(
+        tmp_db,
+        10,
+        "/workspace/alpha/duplicate.txt",
+        1024,
+        now - 60,
+        "txt",
+        body_text="launch note",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.path for hit in search(tmp_db, 'content:"launch note"', limit=10).hits]
+
+    assert hits == [
+        Path("/workspace/alpha/duplicate.txt"),
+        Path("/workspace/zeta/duplicate.txt"),
+    ]
+
+
 def test_content_snippet_is_present(populated_db: sqlite3.Connection) -> None:
     result = search(populated_db, "content:launch", limit=5)
     assert result.hits[0].snippet is not None
