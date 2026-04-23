@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.157 - 2026-04-23
+## 0.1.162 - 2026-04-23
 
 - Added pinned launcher queries backed by shared launcher state and persisted config, plus keyboard-driven recall so saved filters stay one shortcut away in both the popup and the Search tab.
 - Refined the launcher empty state and shortcut guidance to surface pinned queries, recent queries, and the new pinning flow without requiring mouse exploration.
