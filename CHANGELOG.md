@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.717 - 2026-04-23
+## 0.1.731 - 2026-04-23
 
 - Persisted launcher recent-query history into config and restored it on startup, so launcher chips and `Alt+Up` recall survive closing and reopening the app instead of resetting every session.
 - Centered the popup launcher on the active screen when no saved geometry exists, keeping the first-run and reset-geometry experience predictable on multi-monitor setups.
