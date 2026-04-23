@@ -53,6 +53,28 @@ def _result_names(payload: dict[str, object]) -> list[str]:
     return names
 
 
+def _wait_for_query_miss(
+    conn,
+    service: WatchService,
+    writer: IndexWriter,
+    query: str,
+    missing_path: Path,
+    deadline_seconds: float,
+) -> float:
+    started = monotonic()
+    deadline = started + deadline_seconds
+    while monotonic() < deadline:
+        try:
+            event = service.queue.get(timeout=0.05)
+        except Empty:
+            continue
+        writer.apply_events([event], record_loader=make_record)
+        hits = [hit.file.path for hit in search(conn, query, limit=5).hits]
+        if missing_path not in hits:
+            return min(monotonic() - started, deadline_seconds)
+    raise AssertionError(f"{missing_path} remained query-visible after {deadline_seconds:.3f}s")
+
+
 def test_cli_index_search_live_update_research_flow(cli_runner, tmp_path: Path) -> None:
     root = tmp_path / "workspace"
     root.mkdir()
@@ -178,3 +200,103 @@ def test_cli_search_recovers_stale_wal_and_preserves_followup_queries(
     assert _result_names(json.loads(second_search.stdout)) == ["restart-notes.txt"]
     for suffix in ("-wal", "-shm"):
         assert not snapshot.with_name(f"{snapshot.name}{suffix}").exists()
+
+
+def test_cli_multi_root_cross_root_move_research_stays_root_scoped(
+    cli_runner,
+    tmp_path: Path,
+) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    root_a.mkdir()
+    root_b.mkdir()
+    moved = root_a / "alpha-note.txt"
+    survivor = root_b / "beta-note.txt"
+    moved.write_text("cli multi root move marker\n", encoding="utf-8")
+    survivor.write_text("cli multi root stay put\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+
+    index_result = cli_runner(
+        "--db",
+        str(db_path),
+        "index",
+        "--root",
+        str(root_a),
+        "--root",
+        str(root_b),
+        "--rebuild",
+    )
+
+    assert index_result.returncode == 0
+
+    before_alpha = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "cli multi root move marker",
+        "--json",
+        "--root",
+        str(root_a),
+    )
+
+    assert before_alpha.returncode == 0
+    assert _result_names(json.loads(before_alpha.stdout)) == ["alpha-note.txt"]
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        service.start(root_b)
+
+        destination = root_b / moved.name
+        moved.rename(destination)
+        appeared_elapsed = _wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "cli multi root move marker",
+            destination,
+            deadline_seconds=0.5,
+        )
+        removed_elapsed = _wait_for_query_miss(
+            conn,
+            service,
+            writer,
+            "cli multi root move marker",
+            moved,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        conn.close()
+
+    assert appeared_elapsed <= 0.5
+    assert removed_elapsed <= 0.5
+
+    after_alpha = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "cli multi root move marker",
+        "--json",
+        "--root",
+        str(root_a),
+    )
+    after_beta = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "cli multi root move marker",
+        "--json",
+        "--root",
+        str(root_b),
+    )
+    global_search = cli_runner("--db", str(db_path), "search", "cli multi root move marker", "--json")
+
+    assert after_alpha.returncode == 0
+    assert after_beta.returncode == 0
+    assert global_search.returncode == 0
+    assert _result_names(json.loads(after_alpha.stdout)) == []
+    assert _result_names(json.loads(after_beta.stdout)) == ["alpha-note.txt"]
+    assert _result_names(json.loads(global_search.stdout)) == ["alpha-note.txt"]
