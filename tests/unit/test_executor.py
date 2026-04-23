@@ -494,6 +494,24 @@ def test_execute_duplicate_and_negated_size_queries(tmp_db: sqlite3.Connection) 
     assert unique_hits == ["beta.txt"]
 
 
+def test_execute_is_empty_queries(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/empty-file.txt", 0, now, "txt", body_text="")
+    _insert_file(tmp_db, 2, "/workspace/full-file.txt", 1, now - 60, "txt", body_text="x")
+    _insert_file(tmp_db, 3, "/workspace/empty-dir", 0, now - 120, "", is_dir=True)
+    _insert_file(tmp_db, 4, "/workspace/non-empty-dir", 0, now - 180, "", is_dir=True)
+    _insert_file(tmp_db, 5, "/workspace/non-empty-dir/note.txt", 1, now - 240, "txt", body_text="child")
+    tmp_db.commit()
+
+    empty_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "is:empty", limit=10).hits]
+    non_empty_hits = [hit.file.path.as_posix() for hit in search(tmp_db, "-is:empty", limit=10).hits]
+
+    assert empty_hits == ["/workspace/empty-dir", "/workspace/empty-file.txt"]
+    assert "/workspace/non-empty-dir" in non_empty_hits
+    assert "/workspace/full-file.txt" in non_empty_hits
+    assert "/workspace/non-empty-dir/note.txt" in non_empty_hits
+
+
 def test_execute_size_range_queries(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/workspace/tiny.txt", 99, now, "txt", body_text="tiny")

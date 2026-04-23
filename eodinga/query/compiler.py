@@ -257,6 +257,23 @@ def _duplicate_clause(negated: bool) -> str:
     return f"NOT ({clause})" if negated else clause
 
 
+def _empty_clause(negated: bool) -> str:
+    clause = (
+        "("
+        "(files.is_dir = 0 AND files.size = 0) OR "
+        "("
+        "files.is_dir = 1 AND NOT EXISTS ("
+        "SELECT 1 FROM files AS descendants "
+        "WHERE descendants.id != files.id "
+        "AND (descendants.path LIKE (files.path || '/%') "
+        "OR descendants.path LIKE (files.path || '\\%'))"
+        ")"
+        ")"
+        ")"
+    )
+    return f"NOT ({clause})" if negated else clause
+
+
 def _compile_branch(
     terms: list[WordNode | PhraseNode | RegexNode | OperatorNode],
 ) -> CompiledBranch:
@@ -373,6 +390,9 @@ def _compile_branch(
                 clause = "files.is_dir = 0"
             elif normalized == "symlink":
                 clause = "files.is_symlink = 1"
+            elif normalized == "empty":
+                where_parts.append(_empty_clause(term.negated))
+                continue
             elif normalized == "duplicate":
                 clause = _duplicate_clause(term.negated)
                 where_parts.append(clause)
