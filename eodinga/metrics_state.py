@@ -113,10 +113,10 @@ def _coerce_histograms(value: object) -> dict[str, dict[str, object]]:
         if not isinstance(payload, Mapping):
             raise ValueError(f"histogram {name!r} payload must be an object")
         histogram = {
-            "count": int(payload.get("count", 0)),
-            "sum_ms": round(float(payload.get("sum_ms", 0.0)), 3),
-            "min_ms": round(float(payload.get("min_ms", 0.0)), 3),
-            "max_ms": round(float(payload.get("max_ms", 0.0)), 3),
+            "count": _int_value(payload.get("count", 0)),
+            "sum_ms": round(_float_value(payload.get("sum_ms", 0.0)), 3),
+            "min_ms": round(_float_value(payload.get("min_ms", 0.0)), 3),
+            "max_ms": round(_float_value(payload.get("max_ms", 0.0)), 3),
             "buckets": _coerce_histogram_buckets(payload.get("buckets", {})),
         }
         histograms[str(name)] = histogram
@@ -146,14 +146,14 @@ def _merge_histogram_snapshot(
 ) -> dict[str, object]:
     if persisted is None:
         return {
-            "count": int(current.get("count", 0)),
-            "sum_ms": round(float(current.get("sum_ms", 0.0)), 3),
-            "min_ms": round(float(current.get("min_ms", 0.0)), 3),
-            "max_ms": round(float(current.get("max_ms", 0.0)), 3),
+            "count": _int_value(current.get("count", 0)),
+            "sum_ms": round(_float_value(current.get("sum_ms", 0.0)), 3),
+            "min_ms": round(_float_value(current.get("min_ms", 0.0)), 3),
+            "max_ms": round(_float_value(current.get("max_ms", 0.0)), 3),
             "buckets": _coerce_histogram_buckets(current.get("buckets", {})),
         }
-    persisted_count = int(persisted.get("count", 0))
-    current_count = int(current.get("count", 0))
+    persisted_count = _int_value(persisted.get("count", 0))
+    current_count = _int_value(current.get("count", 0))
     merged_count = persisted_count + current_count
     merged_min = _merge_histogram_min(
         persisted.get("min_ms"),
@@ -172,7 +172,10 @@ def _merge_histogram_snapshot(
         buckets[label] = buckets.get(label, 0) + count
     return {
         "count": merged_count,
-        "sum_ms": round(float(persisted.get("sum_ms", 0.0)) + float(current.get("sum_ms", 0.0)), 3),
+        "sum_ms": round(
+            _float_value(persisted.get("sum_ms", 0.0)) + _float_value(current.get("sum_ms", 0.0)),
+            3,
+        ),
         "min_ms": round(merged_min, 3),
         "max_ms": round(merged_max, 3),
         "buckets": dict(sorted(buckets.items())),
@@ -187,10 +190,10 @@ def _merge_histogram_min(
     current_count: int,
 ) -> float:
     if persisted_count <= 0:
-        return float(current_min or 0.0)
+        return _float_value(current_min)
     if current_count <= 0:
-        return float(persisted_min or 0.0)
-    return min(float(persisted_min or 0.0), float(current_min or 0.0))
+        return _float_value(persisted_min)
+    return min(_float_value(persisted_min), _float_value(current_min))
 
 
 def _merge_histogram_max(
@@ -201,7 +204,31 @@ def _merge_histogram_max(
     current_count: int,
 ) -> float:
     if persisted_count <= 0:
-        return float(current_max or 0.0)
+        return _float_value(current_max)
     if current_count <= 0:
-        return float(persisted_max or 0.0)
-    return max(float(persisted_max or 0.0), float(current_max or 0.0))
+        return _float_value(persisted_max)
+    return max(_float_value(persisted_max), _float_value(current_max))
+
+
+def _int_value(value: object) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        return int(value)
+    raise ValueError(f"unsupported integer value: {value!r}")
+
+
+def _float_value(value: object) -> float:
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        return float(value)
+    if value is None:
+        return 0.0
+    raise ValueError(f"unsupported float value: {value!r}")

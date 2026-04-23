@@ -71,6 +71,13 @@ class MetricsSnapshot(TypedDict):
     uptime_ms: float
 
 
+class CurrentMetricsState(TypedDict):
+    generated_at: str
+    counters: dict[str, int]
+    histograms: dict[str, dict[str, object]]
+    recent_snapshots: list[dict[str, object]]
+
+
 class SnapshotRecord(TypedDict):
     name: str
     recorded_at: str
@@ -253,7 +260,7 @@ def snapshot_metrics() -> MetricsSnapshot:
     }
 
 
-def current_metrics_state() -> dict[str, object]:
+def current_metrics_state() -> CurrentMetricsState:
     metrics = snapshot_metrics()
     return {
         "generated_at": metrics["generated_at"],
