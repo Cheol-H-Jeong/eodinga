@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.209 - 2026-04-23
+
+- Fixed slash-delimited regex parsing so top-level and spaced operator regex literals now terminate correctly when the closing `/` follows an even-length backslash run, matching the existing inline-regex behavior.
+- Normalized scoped Windows search roots across drive-letter case and `\\?\` device-path aliases, so `search(..., root=...)` now matches the same indexed tree regardless of separator style or long-path spelling.
+- Added grouped-boolean compiler and executor regressions that pin De Morgan expansion for `-(...)` and double-negated groups, preventing silent query-semantics drift.
+
 ## 0.1.197 - 2026-04-23
 
 - Bounded watcher delivery with explicit backpressure, so a full consumer queue now blocks producers visibly instead of growing silently under load; added metrics and regressions for both the pressure path and its observability surface.
