@@ -105,6 +105,18 @@ pytest -q tests/unit
 | README or guide wording only | `pytest -q tests/unit/test_docs_assets.py` |
 | Packaging or release docs | the matching `packaging/build.py --target ...-dry-run` command plus `pytest -q tests/unit/test_docs_assets.py` |
 
+## Documentation Ownership Map
+
+| File | Primary purpose | Refresh when... |
+| --- | --- | --- |
+| `README.md` | shipped user/operator contract | install, query, packaging, recovery, or launcher behavior changed |
+| `docs/ARCHITECTURE.md` | runtime and packaging mental model | data flow, index lifecycle, release inputs, or debug path changed |
+| `docs/PERFORMANCE.md` | benchmark method and current baseline | perf numbers were rerun locally and are being updated intentionally |
+| `docs/RELEASE.md` | version bump, gate, tag, and handoff procedure | release sequencing or packaging checks changed |
+| `docs/CONTRIBUTING.md` | day-to-day worker and reviewer workflow | start gate, test order, theme guardrails, or docs refresh rules changed |
+| `docs/man/eodinga.1` | generated CLI reference | argparse surface changed |
+| `docs/screenshots/*.png` | evidence of current UI state | visible Qt docs surfaces changed |
+
 ## Theme-Sized Test Guide
 
 Use the smallest green slice that proves the change:
@@ -127,6 +139,8 @@ When a change affects the shipped contract, refresh docs in this order:
 4. Re-run `pytest -q tests/unit/test_docs_assets.py` before the broader gate.
 5. Re-run any matching packaging dry run if the docs now describe packaging behavior or artifacts differently.
 
+When the round is docs-only, stop after the smallest matching validation step that proves the changed claim, then widen to the full release gate only once the round is assembled.
+
 ## Docs Round Checklist
 
 Use this when the round is docs-only but still release-bearing:
@@ -137,6 +151,12 @@ Use this when the round is docs-only but still release-bearing:
 4. Re-run `pytest -q tests/unit/test_docs_assets.py`.
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
+
+Useful docs-only pairings:
+
+- README or guide wording only: `pytest -q tests/unit/test_docs_assets.py`
+- Packaging docs: `pytest -q tests/unit/test_docs_assets.py` plus the matching `packaging/build.py --target ...-dry-run`
+- UI docs or screenshots: `pytest -q tests/unit/test_docs_assets.py` plus `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"`
 
 ## Test Selection Guide
 
@@ -162,3 +182,4 @@ Use this when the round is docs-only but still release-bearing:
 - README examples use the current query surface and current operator names.
 - Derived docs assets are regenerated from code, not edited by hand.
 - The final release metadata commit contains only the version/changelog/tag cut unless a same-round asset refresh is required.
+- A docs-only round still demonstrates the changed claim with the smallest matching command before the final gate.

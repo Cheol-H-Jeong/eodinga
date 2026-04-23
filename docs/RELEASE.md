@@ -49,6 +49,8 @@ Recommended order:
 2. `pytest -q tests` once the candidate release branch is assembled.
 3. `ruff`, `pyright`, GUI smoke, packaging dry-runs, and workflow lint after the full test pass.
 
+Docs-only rounds still follow the same order, but the per-commit proof can stay focused on `tests/unit/test_docs_assets.py` plus the matching asset-specific command until the final assembled pass.
+
 ## Artifact Inventory
 
 Before tagging, know which release inputs this repository expects to exist:
@@ -79,6 +81,17 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Release Input Matrix
+
+| Input | Validation command | Why it blocks a tag |
+| --- | --- | --- |
+| Python runtime and tests | `pytest -q tests` | proves the shipped code and docs regressions still agree |
+| Lint and typing | `ruff check eodinga tests` and `pyright --outputjson ...` | catches source and docs-derived drift before packaging |
+| GUI launch path | `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` | proves the documented desktop entry still starts |
+| Windows packaging | `python packaging/build.py --target windows-dry-run` | validates installer metadata and PyInstaller staging |
+| Linux packaging | `python packaging/build.py --target linux-appimage-dry-run` and `python packaging/build.py --target linux-deb-dry-run` | validates Linux release recipes and staged docs payload |
+| Workflow files | `yamllint .github/workflows/release-windows.yml` and `yamllint .github/workflows/release-linux.yml` | keeps release automation inputs lint-clean |
+
 ## Worker Handoff Rules
 
 1. Keep feature or docs commits separate from the final metadata commit.
@@ -86,6 +99,8 @@ Treat docs assets as versioned release inputs: do not cut a tag when the checked
 3. Create the local tag after that final commit.
 4. Do not push tags or release branches from a worker worktree.
 5. Hand the orchestrator a clean branch plus the final local tag to rebase and publish.
+
+If another worker lands a higher release tag while your round is in flight, fetch tags again before the metadata commit and retarget to the next unused patch number instead of rewriting earlier docs commits.
 
 ## Docs-Only Rounds
 
@@ -132,3 +147,4 @@ if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
 - `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py` all agree on `0.1.N`.
 - The local tag points at the final commit for the round, not an earlier docs or feature commit.
 - The final release commit remains reviewable on its own and does not hide unrelated feature edits.
+- The release-input matrix above has been satisfied for every surface the round changed.
