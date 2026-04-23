@@ -55,7 +55,7 @@ Recommended order:
 
 Before tagging, know which release inputs this repository expects to exist:
 
-- `README.md`, `docs/ACCEPTANCE.md`, `docs/ARCHITECTURE.md`, `docs/CONTRIBUTING.md`, `docs/PERFORMANCE.md`, and `docs/RELEASE.md` as the shipped operator docs set.
+- `README.md`, `docs/ACCEPTANCE.md`, `docs/ARCHITECTURE.md`, `docs/OPERATIONS.md`, `docs/CONTRIBUTING.md`, `docs/PERFORMANCE.md`, and `docs/RELEASE.md` as the shipped operator docs set.
 - `docs/man/eodinga.1` as the generated CLI reference derived from the current argparse surface.
 - `docs/screenshots/*.png` as offscreen-rendered evidence of the current Qt surfaces.
 - `packaging/dist/` dry-run manifests for Windows, AppImage, and Debian audits.
@@ -67,6 +67,7 @@ Before tagging, confirm:
 
 - `README.md` still matches the current install, CLI, launcher, and DSL behavior.
 - `docs/ARCHITECTURE.md` still matches the index lifecycle and packaging surfaces.
+- `docs/OPERATIONS.md` still matches the runtime path defaults, env overrides, crash/log behavior, and operator troubleshooting flow.
 - `docs/PERFORMANCE.md` numbers come from a rerun at the documented HEAD.
 - `docs/man/eodinga.1` has been regenerated if `eodinga.__main__` changed.
 - Screenshot assets under `docs/screenshots/` still match the current UI, or have been refreshed with `python scripts/render_docs_screenshots.py`.
@@ -114,9 +115,10 @@ round changes assembled
 Use the same release discipline for docs-only changes when the shipped operator contract moved:
 
 1. Update `README.md` and the deeper guide that explains the changed behavior.
-2. Regenerate any derived docs assets touched by the round.
-3. Re-run `pytest -q tests/unit/test_docs_assets.py` plus the matching packaging dry-run or GUI smoke command.
-4. Add a changelog entry that names the docs surface changed and why it matters.
+2. Update `docs/OPERATIONS.md` when the shipped contract changed any operator-visible path, override, or recovery guidance.
+3. Regenerate any derived docs assets touched by the round.
+4. Re-run `pytest -q tests/unit/test_docs_assets.py` plus the matching packaging dry-run or GUI smoke command.
+5. Add a changelog entry that names the docs surface changed and why it matters.
 
 ## Cut The Local Release
 

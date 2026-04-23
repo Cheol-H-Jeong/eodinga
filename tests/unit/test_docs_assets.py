@@ -100,6 +100,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "yamllint .github/workflows/release-windows.yml" in acceptance
     assert "yamllint .github/workflows/release-linux.yml" in acceptance
     assert "README is part of the acceptance surface" in acceptance
+    assert "docs/OPERATIONS.md" in acceptance
+    assert "config/data/log/crash path locations" in acceptance
     assert "git tag v0.1.N" in acceptance
     assert "docs/man/eodinga.1" in acceptance
     assert "## Derived Docs Checks" in acceptance
@@ -158,6 +160,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Commit-level minimum" in contributing
     assert "scripts/generate_manpage.py" in contributing
     assert "scripts/render_docs_screenshots.py" in contributing
+    assert "docs/OPERATIONS.md" in contributing
     assert "## Docs Refresh Order" in contributing
     assert "## Docs Round Checklist" in contributing
     assert "## Test Selection Guide" in contributing
@@ -215,6 +218,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Collision check example" in release
     assert "Do not push tags or release branches from a worker worktree." in release
     assert "packaging/dist/" in release
+    assert "docs/OPERATIONS.md" in release
 
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage

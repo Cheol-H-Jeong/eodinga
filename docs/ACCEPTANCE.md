@@ -92,9 +92,12 @@ The README is part of the acceptance surface. Before tagging a release, confirm 
 - the default launcher hotkey and keyboard actions
 - the DSL entry points and a link to `docs/DSL.md`
 - current limitations for lexical-only search, parser coverage, and watcher behavior
+- the operator runbook and default config/data/log/crash path locations
 - the generated CLI reference at `docs/man/eodinga.1` when the parser surface changes
 - the release-gate commands for Windows and Linux packaging dry runs
-- the operator runbook and config/data path locations
+- the operator runbook in `docs/OPERATIONS.md`
+
+Treat `docs/OPERATIONS.md` as part of the shipped release surface whenever path defaults, env overrides, logging behavior, crash handling, or first-response troubleshooting changes.
 
 ## Release Cut
 

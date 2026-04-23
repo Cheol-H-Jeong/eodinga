@@ -90,6 +90,7 @@ pytest -q tests/unit
 
 - Update `README.md` when installation, query syntax, keyboard behavior, supported formats, packaging, or recovery behavior changes.
 - Refresh `docs/ARCHITECTURE.md` when data flow, rebuild/recovery, or packaging surfaces change materially.
+- Refresh `docs/OPERATIONS.md` when default paths, env overrides, crash/log handling, or symptom-driven troubleshooting changes.
 - Refresh `docs/PERFORMANCE.md` only after rerunning the benchmark you are documenting in the same local environment.
 - Regenerate the shipped screenshots with `python scripts/render_docs_screenshots.py` after visible GUI changes.
 - Regenerate `docs/man/eodinga.1` with `python scripts/generate_manpage.py` after CLI parser changes.
@@ -102,7 +103,7 @@ pytest -q tests/unit
 | --- | --- |
 | CLI parser, flags, or subcommands | `python scripts/generate_manpage.py` and `pytest -q tests/unit/test_docs_assets.py` |
 | Visible GUI text or layout used in docs | `python scripts/render_docs_screenshots.py` and `pytest -q tests/unit/test_docs_assets.py` |
-| README or guide wording only | `pytest -q tests/unit/test_docs_assets.py` |
+| README, `docs/OPERATIONS.md`, or guide wording only | `pytest -q tests/unit/test_docs_assets.py` |
 | Packaging or release docs | the matching `packaging/build.py --target ...-dry-run` command plus `pytest -q tests/unit/test_docs_assets.py` |
 
 ## Theme-Sized Test Guide
@@ -122,7 +123,7 @@ Use the smallest green slice that proves the change:
 When a change affects the shipped contract, refresh docs in this order:
 
 1. Update the primary contract in `README.md`.
-2. Update the deeper reference in the relevant `docs/*.md` guide.
+2. Update the deeper reference in the relevant `docs/*.md` guide, including `docs/OPERATIONS.md` for operator-path or troubleshooting changes.
 3. Regenerate derived assets such as screenshots or `docs/man/eodinga.1`.
 4. Re-run `pytest -q tests/unit/test_docs_assets.py` before the broader gate.
 5. Re-run any matching packaging dry run if the docs now describe packaging behavior or artifacts differently.
@@ -133,10 +134,11 @@ Use this when the round is docs-only but still release-bearing:
 
 1. Update the top-level contract in `README.md`.
 2. Update the deeper guide under `docs/` that explains the same surface in more detail.
-3. Refresh `docs/man/eodinga.1` or screenshots if the documented CLI or UI changed.
-4. Re-run `pytest -q tests/unit/test_docs_assets.py`.
-5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
-6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
+3. Update `docs/OPERATIONS.md` if the user-visible effect changes runtime paths, logging/crash behavior, or troubleshooting guidance.
+4. Refresh `docs/man/eodinga.1` or screenshots if the documented CLI or UI changed.
+5. Re-run `pytest -q tests/unit/test_docs_assets.py`.
+6. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
+7. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
 
 ## Test Selection Guide
 
