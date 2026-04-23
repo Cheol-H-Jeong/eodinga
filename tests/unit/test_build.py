@@ -199,6 +199,47 @@ def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
         resumed.close()
 
 
+def test_rebuild_index_interrupt_after_root_insert_preserves_committed_stage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    staged_path = db_path.with_name(".index.db.next")
+
+    current_stop: build_module._SignalStop | None = None
+    original_enter = build_module._SignalStop.__enter__
+    original_insert_roots = build_module._insert_roots
+
+    def recording_enter(self: build_module._SignalStop) -> build_module._SignalStop:
+        nonlocal current_stop
+        current_stop = self
+        return original_enter(self)
+
+    def interrupting_insert_roots(conn: sqlite3.Connection, roots: list[RootConfig]) -> None:
+        original_insert_roots(conn, roots)
+        stop = current_stop
+        assert stop is not None
+        stop._handle_signal(signal.SIGTERM, None)
+
+    monkeypatch.setattr(build_module._SignalStop, "__enter__", recording_enter)
+    monkeypatch.setattr(build_module, "_insert_roots", interrupting_insert_roots)
+
+    with pytest.raises(KeyboardInterrupt):
+        rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    assert staged_path.exists()
+    resumed = sqlite3.connect(staged_path)
+    try:
+        rows = resumed.execute("SELECT path FROM roots ORDER BY id").fetchall()
+        assert [str(row[0]) for row in rows] == [str(root)]
+        file_rows = resumed.execute("SELECT path FROM files ORDER BY path").fetchall()
+        assert file_rows == []
+    finally:
+        resumed.close()
+
+
 def test_rebuild_index_installs_sigint_and_sigterm_handlers_on_main_thread(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
