@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.142 - 2026-04-23
+
+- Preserved interrupted `.index.db.recover` and `.index.db.next` snapshots when resume swaps fail, so startup keeps a retriable staged database instead of deleting the only recovery artifact.
+- Applied stop-aware watcher queue backpressure with focused regressions, so forced flushes wait for queue capacity instead of relying on unbounded growth during bursts.
+- Accepted persisted `launcher.pinned_queries` in config loads and pinned the retryability edge cases for interrupted recovery replay, restoring the CLI/unit gate in environments with newer local config state.
+
 ## 0.1.136 - 2026-04-23
 
 - Added a dedicated launcher hotkey controller that binds the configured global shortcut at GUI startup, toggles the popup on the callback path, and shuts the backend down cleanly when the main window exits.
