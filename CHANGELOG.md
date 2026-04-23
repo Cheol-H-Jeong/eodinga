@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.407 - 2026-04-23
+
+- Expanded `stats --json` so the typed payload now exposes watcher flush/backpressure metrics and logging sink counters directly, without forcing operators to decode raw counter keys.
+- Enriched `crash-*.log` artifacts with process start time, uptime, effective log policy, and a point-in-time metrics snapshot so failures are easier to correlate after the fact.
+- Added end-to-end CLI and crash-log regressions that pin the new observability surface under real watcher pressure and runtime metric activity.
+
 ## 0.1.406 - 2026-04-23
 
 - Exposed the effective file log sink policy in `stats --json`, including rotation, retention, compression, and whether file logging is active for the current process.
