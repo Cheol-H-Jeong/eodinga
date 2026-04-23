@@ -63,6 +63,32 @@ def test_walk_batched_reuses_scandir_stat_results_for_discovered_children(
     assert sample not in stat_calls
 
 
+def test_walk_batched_snapshots_indexed_at_once_per_emitted_batch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "tree"
+    nested = root / "nested"
+    sample = nested / "sample.txt"
+    nested.mkdir(parents=True)
+    sample.write_text("sample", encoding="utf-8")
+
+    time_calls = 0
+
+    def fake_time() -> float:
+        nonlocal time_calls
+        time_calls += 1
+        return 1_713_528_000 + time_calls
+
+    monkeypatch.setattr(walker_module, "time", fake_time)
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+
+    assert {record.path for record in records} == {root, nested, sample}
+    assert {record.indexed_at for record in records} == {1_713_528_001}
+    assert time_calls == 1
+
+
 def test_walk_batched_falls_back_to_stat_safe_when_scandir_metadata_is_missing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
