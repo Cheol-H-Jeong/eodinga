@@ -51,6 +51,15 @@ pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summ
 
 After the focused slice is green, run the broader acceptance gate before release handoff.
 
+## Theme Planning Heuristic
+
+When the assigned theme has several possible slices, prefer the smallest change that improves one shipped surface end to end:
+
+1. Pick one user-facing or operator-facing contract to tighten.
+2. Update only the docs, tests, or assets that prove that contract.
+3. Keep release metadata for the final commit only.
+4. Stop expanding scope once the chosen contract is measurably better and the gate is green.
+
 ## Quality Gates
 
 Default repository gate:
@@ -138,6 +147,13 @@ Use this when the round is docs-only but still release-bearing:
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
 
+## Release Metadata Discipline
+
+- Do not bump `pyproject.toml`, `eodinga/__init__.py`, or `CHANGELOG.md` in the middle of a docs or feature round.
+- Keep those files untouched until the working commits are complete and the gate is already green.
+- Create the local tag only after the metadata commit so rebases and reviews do not have to drag stale release numbers through earlier commits.
+- If another worker lands the version you planned to use, refresh tags and move only the metadata commit instead of rewriting the earlier logical commits.
+
 ## Test Selection Guide
 
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`
@@ -162,3 +178,4 @@ Use this when the round is docs-only but still release-bearing:
 - README examples use the current query surface and current operator names.
 - Derived docs assets are regenerated from code, not edited by hand.
 - The final release metadata commit contains only the version/changelog/tag cut unless a same-round asset refresh is required.
+- Earlier feature or docs commits remain readable without the release bump mixed into them.

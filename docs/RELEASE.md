@@ -51,6 +51,15 @@ Recommended order:
 2. `pytest -q tests` once the candidate release branch is assembled.
 3. `ruff`, `pyright`, GUI smoke, packaging dry-runs, and workflow lint after the full test pass.
 
+## Round Assembly Strategy
+
+Before the release metadata commit exists, the branch should already look like a reviewable stack:
+
+1. Docs or feature commits first, each independently green on `pytest -q tests/unit`.
+2. Asset refresh commits only when the same round changed the underlying CLI or UI surface.
+3. One final metadata commit carrying the version bump and changelog entry.
+4. The local tag created on that final commit only.
+
 ## Artifact Inventory
 
 Before tagging, know which release inputs this repository expects to exist:
@@ -108,6 +117,15 @@ round changes assembled
 3. Create the local tag after that final commit.
 4. Do not push tags or release branches from a worker worktree.
 5. Hand the orchestrator a clean branch plus the final local tag to rebase and publish.
+
+## Version Collision Playbook
+
+When several workers are cutting tags in parallel:
+
+1. Re-check `git tag -l | sort -V | tail -3` immediately before the metadata commit.
+2. If your planned version is now taken, change only `pyproject.toml`, `eodinga/__init__.py`, `CHANGELOG.md`, and the local tag target.
+3. Do not rewrite earlier docs or feature commits just to carry the newer patch number through history.
+4. Re-run the minimum gate after the version change so the final tagged tip is still verified.
 
 ## Docs-Only Rounds
 
