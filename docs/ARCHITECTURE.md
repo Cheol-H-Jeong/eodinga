@@ -225,7 +225,28 @@ runtime code / CLI / UI changes
 | Lexical path lookup | `paths_fts` | Fast candidate generation for filename and path matches. |
 | Parsed document text | `content_fts` + `content_map` | Stable full-text rows for content phrases and parser-backed search. |
 | Runtime settings | config file under platform app dirs | Keeps user-visible launcher/gui behavior outside the index. |
+| Runtime logs | state-dir log sink from `eodinga.observability` | Gives operators a rotating file sink without writing into indexed roots. |
+| Crash reports | `crash-<ts>.log` under the resolved crash dir | Preserves post-failure context separately from the main index and config state. |
 | Derived docs assets | `docs/man/` and `docs/screenshots/` | Versioned release inputs audited by tests instead of ad-hoc notes. |
+
+## Runtime Path Resolution
+
+```text
+CLI flags / env overrides
+    |
+    +--> --config / --db -----------------> config.toml / index.db
+    |
+    +--> EODINGA_LOG_PATH ----------------> rotating file log
+    |
+    +--> EODINGA_CRASH_DIR ---------------> crash-<ts>.log artifacts
+    |
+    +--> platform defaults ---------------> XDG / APPDATA / LOCALAPPDATA paths
+```
+
+- `eodinga.config` resolves config and database defaults from XDG paths on Linux and roaming/local AppData on Windows.
+- `eodinga.observability` resolves logs and crash artifacts from the state/log directories, with env overrides for packaging or support scenarios.
+- `eodinga stats --json` surfaces the resolved `db_path`, `log_path`, and `crash_dir`, so operators can confirm the active state location without reading the source tree.
+- [docs/OPERATIONS.md](/home/cheol/projects/eodinga/docs/OPERATIONS.md) is the operator-facing companion to this section when you need the exact commands and default paths.
 
 ## Operational Model
 
@@ -328,3 +349,5 @@ When an operator reports stale or surprising results, the shortest architecture-
 3. `eodinga watch` or `eodinga index --rebuild` depending on whether the issue is live-update lag or a one-shot recovery need.
 
 That sequence mirrors the architecture itself: active DB selection, environment validation, then either watcher-driven incremental repair or staged rebuild.
+
+If the issue looks like a crash or packaging mismatch instead of stale search state, branch to [docs/OPERATIONS.md](/home/cheol/projects/eodinga/docs/OPERATIONS.md) for the log/crash path lookup and `packaging/dist/` review flow.

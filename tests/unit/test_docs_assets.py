@@ -120,6 +120,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Documentation Asset Flow" in architecture
     assert "## Release Input Map" in architecture
     assert "## State Ownership" in architecture
+    assert "## Runtime Path Resolution" in architecture
     assert "## Failure Domains" in architecture
     assert "## Operator Debug Path" in architecture
     assert "## Packaging Surfaces" in architecture
@@ -129,6 +130,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "scripts/render_docs_screenshots.py" in architecture
     assert "tests/unit/test_docs_assets.py" in architecture
     assert "packaging/dist/" in architecture
+    assert "EODINGA_LOG_PATH" in architecture
+    assert "docs/OPERATIONS.md" in architecture
 
     assert "## Quick Commands" in operations
     assert "## Default Paths" in operations
