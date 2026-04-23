@@ -32,6 +32,12 @@ yamllint .github/workflows/release-windows.yml
 yamllint .github/workflows/release-linux.yml
 ```
 
+One-command local release pass:
+
+```bash
+source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)" && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run && yamllint .github/workflows/release-windows.yml && yamllint .github/workflows/release-linux.yml
+```
+
 Recommended order:
 
 1. `pytest -q tests/unit` after every logical commit.
@@ -45,7 +51,16 @@ Before tagging, confirm:
 - `README.md` still matches the current install, CLI, launcher, and DSL behavior.
 - `docs/ARCHITECTURE.md` still matches the index lifecycle and packaging surfaces.
 - `docs/PERFORMANCE.md` numbers come from a rerun at the documented HEAD.
+- `docs/man/eodinga.1` has been regenerated if `eodinga.__main__` changed.
 - Screenshot assets under `docs/screenshots/` still match the current UI, or have been refreshed with `python scripts/render_docs_screenshots.py`.
+
+Documentation refresh commands:
+
+```bash
+python scripts/generate_manpage.py
+python scripts/render_docs_screenshots.py
+pytest -q tests/unit/test_docs_assets.py
+```
 
 ## Cut The Local Release
 

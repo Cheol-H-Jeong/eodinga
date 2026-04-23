@@ -60,6 +60,13 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 - `query.*` keeps the DSL, SQL lowering, and ranking logic reusable across CLI, GUI, and launcher searches.
 - `gui.*` and `launcher.*` stay thin enough that UI changes do not require a second search implementation.
 
+## Documentation And Operator Surface
+
+- `README.md` is the user-facing overview and quick-start contract for install, launcher behavior, query examples, and recovery expectations.
+- `docs/DSL.md`, `docs/ACCEPTANCE.md`, `docs/RELEASE.md`, and `docs/CONTRIBUTING.md` are treated as shipped operator documentation, not incidental notes.
+- `docs/man/eodinga.1` is generated from `eodinga.__main__._build_parser()` so packaged CLI help can be audited against the real argparse surface.
+- `docs/screenshots/*.png` are rendered from real Qt widgets via `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
+
 ## Index Storage
 
 - `files` is the source-of-truth table for root membership, timestamps, size, extension, and duplicate detection via `content_hash`.
@@ -133,6 +140,18 @@ raw query string
                                             +--> normalized result objects
 ```
 
+## Observability Flow
+
+```text
+index / watch / search command
+    |
+    +--> observability counters + histograms
+            |
+            +--> eodinga stats --json
+            |
+            +--> rotating runtime logs / crash-<ts>.log
+```
+
 ## Operational Model
 
 - Cold start is walker-driven: discover roots, write metadata in bulk, then parse supported documents for content rows.
@@ -186,6 +205,7 @@ startup
 - The Debian recipe stages the launcher shim, desktop entry, SVG icon, license, and compressed changelog into the package root before emitting the audit manifest.
 - Windows packaging uses `packaging/pyinstaller.spec`, `packaging/windows/eodinga.iss`, and `packaging/build.py --target windows-dry-run`.
 - Documentation screenshots are rendered from the real Qt surfaces through `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
+- Release docs also ship a generated CLI man page under `docs/man/` so packaged audits can verify the command surface without importing the project interactively.
 
 ## Platform Surface Summary
 
