@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 
 from eodinga.index.migrations import migrate
-from eodinga.index.schema import PRAGMAS
+from eodinga.index.schema import PRAGMAS, STAGED_BUILD_COMPLETE_KEY, get_meta_value
 from eodinga.observability import get_logger
 
 SQLITE_CACHED_STATEMENTS = 128
@@ -183,6 +183,10 @@ def recover_interrupted_build(path: Path) -> bool:
     if not staged_path.exists():
         return False
     logger = get_logger("index.storage")
+    if not _is_complete_staged_build(staged_path):
+        logger.warning("discarding incomplete staged build for {}", path)
+        _cleanup_index_files(staged_path)
+        return False
     logger.warning("resuming interrupted staged build for {}", path)
     try:
         if has_stale_wal(staged_path) and not _replay_stale_wal(staged_path):
@@ -194,6 +198,15 @@ def recover_interrupted_build(path: Path) -> bool:
     finally:
         _cleanup_index_files(staged_path)
     return path.exists() and not staged_path.exists() and not has_stale_wal(path)
+
+
+def _is_complete_staged_build(path: Path) -> bool:
+    conn = connect_database(path)
+    try:
+        migrate(conn)
+        return get_meta_value(conn, STAGED_BUILD_COMPLETE_KEY) == "1"
+    finally:
+        conn.close()
 
 
 def open_index(path: Path) -> sqlite3.Connection:

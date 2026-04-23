@@ -9,6 +9,7 @@ from eodinga.common import PathRules
 from eodinga.config import RootConfig
 from eodinga.content.registry import parse
 from eodinga.core.walker import walk_batched
+from eodinga.index.schema import STAGED_BUILD_COMPLETE_KEY, set_meta_value
 from eodinga.index.storage import _cleanup_index_files, atomic_replace_index, connect_database
 from eodinga.index.writer import IndexWriter
 from eodinga.observability import increment_counter, record_histogram
@@ -91,6 +92,12 @@ def rebuild_index(
         _cleanup_index_files(staged_path)
         raise
     conn.close()
+    conn = connect_database(staged_path)
+    try:
+        with conn:
+            set_meta_value(conn, STAGED_BUILD_COMPLETE_KEY, "1")
+    finally:
+        conn.close()
     try:
         atomic_replace_index(staged_path, target_path)
     except Exception:

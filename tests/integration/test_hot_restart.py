@@ -163,6 +163,50 @@ def test_hot_restart_resumes_interrupted_recovery_stage(tmp_path: Path) -> None:
         assert not sidecar.exists()
 
 
+def test_hot_restart_discards_incomplete_staged_build(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    root.mkdir()
+    live = root / "live.txt"
+    live.write_text("persisted live result\n", encoding="utf-8")
+
+    target_db = tmp_path / "index.db"
+    staged_db = tmp_path / ".index.db.next"
+
+    rebuild_index(target_db, [RootConfig(path=root)], content_enabled=True)
+    partial = root / "partial.txt"
+    partial.write_text("partial staged result\n", encoding="utf-8")
+
+    staged_conn = open_index(staged_db)
+    try:
+        staged_conn.execute(
+            "INSERT INTO roots(id, path, include, exclude, added_at) VALUES (?, ?, ?, ?, ?)",
+            (1, str(root), "[]", "[]", 1),
+        )
+        staged_conn.commit()
+        writer = IndexWriter(staged_conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+        records = [
+            record
+            for batch in walk_batched(root, rules, root_id=1)
+            for record in batch
+            if record.path == partial
+        ]
+        assert writer.bulk_upsert(records) == 1
+    finally:
+        staged_conn.close()
+
+    reopened = open_index(target_db)
+    try:
+        live_hits = [hit.file.name for hit in search(reopened, "persisted live result", limit=3).hits]
+        partial_hits = [hit.file.name for hit in search(reopened, "partial staged result", limit=3).hits]
+    finally:
+        reopened.close()
+
+    assert live_hits == ["live.txt"]
+    assert partial_hits == []
+    assert not staged_db.exists()
+
+
 def test_hot_restart_reopen_multi_root_keeps_queries_and_accepts_live_updates(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"

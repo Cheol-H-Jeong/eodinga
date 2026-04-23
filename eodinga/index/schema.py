@@ -11,6 +11,7 @@ PRAGMAS = (
     "PRAGMA foreign_keys=ON;",
 )
 
+STAGED_BUILD_COMPLETE_KEY = "staged_build_complete"
 SCHEMA_VERSION = 2
 
 SCHEMA_SQL = """
@@ -102,9 +103,24 @@ def apply_schema(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def get_meta_value(conn: sqlite3.Connection, key: str) -> str | None:
+    row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+    if row is None:
+        return None
+    return str(row[0])
+
+
+def set_meta_value(conn: sqlite3.Connection, key: str, value: str) -> None:
+    conn.execute(
+        "INSERT INTO meta(key, value) VALUES(?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, value),
+    )
+
+
 def current_schema_version(conn: sqlite3.Connection) -> int:
     try:
-        row = conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
+        value = get_meta_value(conn, "schema_version")
     except sqlite3.OperationalError:
         return 0
-    return int(row[0]) if row else 0
+    return int(value) if value else 0
