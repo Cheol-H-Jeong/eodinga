@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.172 - 2026-04-23
+
+- Hardened the Debian packaging audit so `packaging/build.py --target linux-deb-dry-run` now fails if control metadata or desktop-entry launch fields drift from the staged recipe.
+- Added deterministic `DEBIAN/md5sums` generation to the Linux `.deb` recipe and validated that the launcher, desktop entry, icon, license, and changelog are all covered.
+- Expanded the AppImage dry-run audit to inspect the produced archive contents, proving the packaged launcher shims and desktop assets are present in the staged artifact.
+
 ## 0.1.163 - 2026-04-23
 
 - Added open-ended ISO date windows to `date:`, `modified:`, and `created:`, so queries like `date:2026-04-01..` and `created:..2026-04-23` now compile directly into one-sided timestamp predicates.
