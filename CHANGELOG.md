@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.275 - 2026-04-23
+
+- Reused `os.scandir()` metadata during tree walks so discovered children no longer pay an extra `lstat()` before indexing, while preserving the existing fallback path for entries whose metadata cannot be read during directory enumeration.
+- Cached the next `content_fts` rowid inside each `IndexWriter`, avoiding repeated `MAX(rowid)` probes across consecutive parsed-content batches on the same connection.
+
 ## 0.1.272 - 2026-04-23
 
 - Made staged index rebuilds stop cleanly on `SIGINT` and `SIGTERM` batch boundaries, preserving the `.next` snapshot for later resume instead of discarding already committed work mid-rebuild.

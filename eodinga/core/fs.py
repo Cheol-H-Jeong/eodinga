@@ -92,7 +92,6 @@ __all__ = [
     "is_hidden",
     "open_readonly",
     "resolve_safe",
-    "ScanEntry",
     "scandir_safe",
     "stat_follow_safe",
     "stat_safe",
