@@ -333,6 +333,8 @@ Use this table when you want the shortest proof that written docs still match th
 | Packaged artifacts, installer docs, or release payload claims | `python packaging/build.py --target windows-dry-run` or the matching Linux dry run | manifest review under `packaging/dist/` |
 | Docs-only release handoff | `source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run` | docs contract, GUI smoke, and dry-run payload evidence in one pass |
 
+When one change touches multiple evidence families, run the smallest bundle that still proves the highest-risk surface. For example, a README edit that changes packaged artifact wording still needs the matching packaging dry run even if the prose itself passes `tests/unit/test_docs_assets.py`.
+
 ## Release Handoff
 
 1. Finish the docs, code, or packaging slice and keep each logical commit green with `pytest -q tests/unit`.
@@ -364,6 +366,12 @@ Parallel workers can consume the same candidate patch version. Before cutting th
 2. If `v0.1.N` now exists, retarget only `pyproject.toml`, `eodinga/__init__.py`, and the top `CHANGELOG.md` entry.
 3. Re-run `pytest -q tests/unit` and recreate the local tag on the new metadata commit only.
 
+Use this when you want the retarget step to stay explicit and reviewable:
+
+```bash
+git fetch origin main --tags && git tag -l | sort -V | tail -5 && pytest -q tests/unit
+```
+
 ## Recovery and Troubleshooting
 
 - Startup automatically resumes interrupted staged rebuilds (`.index.db.next`), interrupted recovery swaps (`.index.db.recover`), and stale SQLite WAL replay before opening the live index.
@@ -381,6 +389,8 @@ Parallel workers can consume the same candidate patch version. Before cutting th
 | Hotkey or launcher looks wrong | `eodinga doctor` | inspect detected hotkey backend and then re-open `eodinga gui` for settings/state |
 | Packaging audit failed | `python packaging/build.py --target windows-dry-run` | re-run the matching Linux dry run and workflow lint from `docs/ACCEPTANCE.md` |
 | Docs asset drift after CLI or UI changes | `pytest -q tests/unit/test_docs_assets.py` | regenerate `docs/man/eodinga.1` or `docs/screenshots/*.png`, then rerun the docs-assets test |
+
+If the first command is green but the symptom remains, move laterally to the next evidence source instead of rerunning the same command. A stale-result report usually needs `eodinga stats --json` or `eodinga watch`, while a docs or packaging mismatch usually needs a generated asset refresh or `packaging/dist/` review.
 
 ## Config and Data Paths
 
@@ -407,6 +417,14 @@ pinned_queries = ["ext:pdf", "date:this-week", "size:>10M"]
 always_on_top = false
 frameless = true
 ```
+
+Operationally, the split matters because most "wrong results" reports come from one of three places:
+
+- the surface is reading a different config file than expected
+- the surface is reading a different database than expected
+- the documented package payload does not match what the dry run staged under `packaging/dist/`
+
+Start by proving the active config and DB paths before changing query syntax, packaging docs, or launcher settings.
 
 ## Diagnostics
 
@@ -467,6 +485,8 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
 
+For docs-only or release-facing rounds, add `pytest -q tests/unit/test_docs_assets.py` and the matching dry run under `packaging/build.py --target ...-dry-run` so the written contract and packaged artifact claims are both covered.
+
 ### Where do logs and crash reports go?
 
 By default they stay under the platform app-data area next to the local index. Use `EODINGA_LOG_PATH` to redirect the rotating runtime log and `EODINGA_CRASH_DIR` to redirect `crash-<ts>.log` artifacts.
@@ -486,6 +506,8 @@ Use `packaging/dist/`. Each packaging dry run writes its audit manifests or stag
 ### What should I inspect before cutting a docs-only release?
 
 Check `tests/unit/test_docs_assets.py`, the matching GUI smoke or packaging dry run for the surface you documented, and the rendered payload under `packaging/dist/` when the docs describe packaged artifacts.
+
+Use the same order every time: docs-assets test first, then derived asset refresh if needed, then GUI smoke or packaging dry run, then metadata/tag cut. That keeps the local tag attached to an already-proven tree.
 
 ### How do I refresh screenshots and the man page without missing a validation step?
 
@@ -514,6 +536,7 @@ Use `docs/man/eodinga.1`. It is generated from the parser in `eodinga.__main__`,
 - Content search only covers the parser set bundled in `.[parsers]`; unsupported or encrypted documents fall back to filename/path-only search.
 - Live indexing depends on the local watchdog backend. Very large bursty file operations may appear after the debounce window rather than instantly.
 - Duplicate detection is content-hash based, so files without parsed content or stable hashes may only match by name/path.
+- Docs and packaging evidence are repository-local. A dry run proves the staged payload and generated manifests, not an external installer execution on every target OS.
 
 ## Uninstall
 

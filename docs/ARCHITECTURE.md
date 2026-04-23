@@ -225,6 +225,19 @@ index / watch / search command
 | launcher/hotkey mismatch | `eodinga doctor` plus config path | confirms backend detection and launcher-specific settings before blaming query logic |
 | release-doc drift | `tests/unit/test_docs_assets.py` and `packaging/dist/` | catches mismatches between runtime docs, generated assets, and packaged payloads |
 
+## Symptom-To-Subsystem Map
+
+| Symptom | Most likely boundary | First module or artifact to inspect |
+| --- | --- | --- |
+| query returns nothing but filename should match | query compiler or active DB path | `eodinga.query.compiler`, `eodinga.query.executor`, then `eodinga stats --json` |
+| launcher differs from CLI for the same query | shared query engine or per-surface DB selection | `eodinga.query.*`, launcher config, active DB path |
+| files changed on disk but results lag | watcher debounce or writer commit path | `eodinga.core.watcher`, `eodinga.index.writer`, watch counters |
+| restart prints recovery warnings | storage recovery boundary | `eodinga.index.storage`, `.next`, `.recover`, `index.db-wal` |
+| packaged docs or screenshots look stale | derived docs asset boundary | `scripts/generate_manpage.py`, `scripts/render_docs_screenshots.py`, `tests/unit/test_docs_assets.py` |
+| dry run claims missing payload files | packaging boundary | `packaging/build.py`, staged manifest under `packaging/dist/` |
+
+The map is intentionally boundary-first: confirm whether the issue is query, storage, watcher, docs, or packaging shaped before digging into implementation details.
+
 ## Documentation Asset Flow
 
 ```text
@@ -272,6 +285,26 @@ runtime code / CLI / UI changes
 - The release flow treats documentation, generated assets, and packaging manifests as part of the same shipped surface.
 - This is why docs-only rounds still run `tests/unit/test_docs_assets.py` and the matching dry-run or GUI smoke command instead of stopping at markdown edits.
 
+## Release Input Dependency View
+
+```text
+README / docs change
+    |
+    +--> docs-assets contract test
+    |
+    +--> derived asset refresh when CLI or UI changed
+    |       |
+    |       +--> docs/man/eodinga.1
+    |       +--> docs/screenshots/*.png
+    |
+    +--> packaging dry-run when shipped artifact claims changed
+            |
+            +--> packaging/dist/* manifest review
+```
+
+- A README edit that changes install or package wording is not "just prose"; it changes the claimed release surface and therefore depends on packaging evidence.
+- A docs-only round can stay theme-scoped while still touching real runtime evidence because the generated man page and screenshots are derived directly from code.
+
 ## Release Failure Isolation
 
 | Failure signal | First owner to inspect | Typical repair scope |
@@ -283,6 +316,15 @@ runtime code / CLI / UI changes
 
 - This keeps release debugging narrow: start at the contract that failed instead of re-running the entire gate blindly.
 - The same isolation rule applies to docs-only rounds, where the failing evidence usually points directly at one derived asset family.
+
+## Narrowing Order
+
+1. Prove the active config or DB path if the symptom is runtime-facing.
+2. Prove the derived docs asset if the symptom is documentation-facing.
+3. Prove the staged packaging manifest if the symptom is release-facing.
+4. Only then widen to full test, GUI smoke, or packaging sweeps.
+
+This order keeps operators from mutating settings or rerunning broad gates before they know which boundary actually drifted.
 
 ## Docs-Only Change Path
 
@@ -437,6 +479,28 @@ docs/runtime change
 - Performance tests exist under `tests/perf`, but they stay opt-in for v0.1 so the default gate remains deterministic on developer machines.
 
 ## Operator Debug Path
+
+```text
+reported issue
+    |
+    +--> runtime query problem?
+    |       |
+    |       +--> eodinga stats --json
+    |       +--> eodinga doctor
+    |
+    +--> docs or screenshot mismatch?
+    |       |
+    |       +--> tests/unit/test_docs_assets.py
+    |       +--> regenerate man page / screenshots if needed
+    |
+    +--> packaging or installer mismatch?
+            |
+            +--> packaging/build.py --target ...-dry-run
+            +--> inspect packaging/dist/
+```
+
+- The debug path starts with evidence already produced by the architecture: config/database state, generated docs assets, or staged packaging manifests.
+- If one branch proves clean, move to the neighboring boundary instead of broadening the same check.
 
 When an operator reports stale or surprising results, the shortest architecture-aware path is:
 
