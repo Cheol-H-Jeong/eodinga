@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.707 - 2026-04-23
+
+- Added explicit `regex:` pattern handling to the query compiler, so `regex:/todo|fixme/i` and `regex:report-\d+` now behave as real path/name regex filters while `regex:true|false` still controls regex mode.
+- Covered the new operator form in compiler and executor tests, locking in both regex-literal and bare-pattern behavior.
+- Updated the README, DSL guide, and generated man page to document the explicit regex alias and grouped-negation query examples consistently.
+
 ## 0.1.706 - 2026-04-23
 
 - Added a live launcher filter summary row that parses DSL operators into visible chips, so `ext:`, `date:`, `size:`, `path:`, `content:`, and related filters stay discoverable while typing instead of disappearing into raw query text.
