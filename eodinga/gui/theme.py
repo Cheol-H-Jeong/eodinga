@@ -118,8 +118,11 @@ def apply_palette(app: QApplication, palette: Palette) -> None:
 
 
 def apply_theme(app: QApplication, theme_name: str = "light") -> Palette:
+    current_theme = app.property("eodinga_theme")
+    if current_theme == theme_name:
+        return PALETTES.get(theme_name, PALETTES["light"])
     palette = PALETTES.get(theme_name, PALETTES["light"])
     apply_palette(app, palette)
     app.setStyleSheet(build_qss(palette))
+    app.setProperty("eodinga_theme", theme_name)
     return palette
-
