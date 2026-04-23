@@ -84,6 +84,37 @@ def test_format_hit_html_renders_extension_badge() -> None:
     assert ">/tmp</div>" in rendered
 
 
+def test_format_hit_html_surfaces_quick_pick_badge_for_top_results() -> None:
+    rendered = format_hit_html(
+        SearchHit(
+            path=Path("/tmp/report.pdf"),
+            parent_path=Path("/tmp"),
+            name="report.pdf",
+            ext="pdf",
+        ),
+        "report",
+        rank=2,
+    )
+
+    assert "background:#DBEAFE" in rendered
+    assert ">3</span>" in rendered
+
+
+def test_format_hit_html_omits_quick_pick_badge_after_top_nine() -> None:
+    rendered = format_hit_html(
+        SearchHit(
+            path=Path("/tmp/report.pdf"),
+            parent_path=Path("/tmp"),
+            name="report.pdf",
+            ext="pdf",
+        ),
+        "report",
+        rank=9,
+    )
+
+    assert "background:#DBEAFE" not in rendered
+
+
 def test_format_hit_html_renders_highlighted_snippet() -> None:
     rendered = format_hit_html(
         SearchHit(

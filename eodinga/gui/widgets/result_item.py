@@ -220,7 +220,19 @@ def _style_marks(html: str) -> str:
     return html.replace("<mark>", MARK_OPEN)
 
 
-def format_hit_html(hit: SearchHit, query: str) -> str:
+def _quick_pick_badge(rank: int | None) -> str:
+    if rank is None or not 0 <= rank < 9:
+        return ""
+    return (
+        "<span style='display:inline-block; min-width:18px; margin-right:8px; padding:2px 0; "
+        "border-radius:999px; text-align:center; font-size:11px; font-weight:700; "
+        "color:#1D4ED8; background:#DBEAFE'>"
+        f"{rank + 1}"
+        "</span>"
+    )
+
+
+def format_hit_html(hit: SearchHit, query: str, *, rank: int | None = None) -> str:
     primary = _style_marks(hit.highlighted_name or highlight_text(hit.name, query, target="name"))
     secondary = _style_marks(hit.highlighted_path or highlight_text(str(hit.parent_path), query, target="path"))
     snippet_html = ""
@@ -241,8 +253,9 @@ def format_hit_html(hit: SearchHit, query: str) -> str:
             f"{ext_html}"
             "</span>"
         )
+    quick_pick_badge = _quick_pick_badge(rank)
     return (
-        f"<div style='font-size:15px; font-weight:600'>{primary}{ext_badge}</div>"
+        f"<div style='font-size:15px; font-weight:600'>{quick_pick_badge}{primary}{ext_badge}</div>"
         f"<div style='font-size:11px; color:#6B7280'>{secondary}</div>"
         f"{snippet_html}"
     )
