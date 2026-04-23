@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.803 - 2026-04-23
+
+- Added explicit recent-snapshot overflow accounting, so `eodinga stats --json` now reports the retained count, in-memory capacity, and how many older snapshots have already been dropped.
+- Expanded `stats --json` with filesystem-facing observability for the configured log target and crash directory, including log existence/size and crash-log inventory totals plus the newest crash artifact path.
+- Recorded crash-log byte volume as both a counter and histogram, giving the runtime metrics surface a direct view of crash artifact size instead of just crash counts.
+
 ## 0.1.801 - 2026-04-23
 
 - Expanded the shipped operator docs with a packaging audit checklist, state-directory summary, and FAQ entries for logs, crash reports, docs-only release checks, and packaged payload review.
