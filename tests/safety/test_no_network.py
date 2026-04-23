@@ -126,6 +126,15 @@ def _normalize_command_name(command: str) -> str:
     return base
 
 
+def _banned_subprocess_command(command: str | None) -> str | None:
+    if command is None:
+        return None
+    normalized = _normalize_command_name(command)
+    if normalized in _BANNED_SUBPROCESS_COMMANDS:
+        return normalized
+    return None
+
+
 def _scan_python_source(path: Path, root: Path) -> list[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     aliases = _collect_import_aliases(tree)
@@ -163,9 +172,10 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                 violations.append(f"{path.relative_to(root)}:{node.lineno}:{dotted}")
             if dotted in _BANNED_EXEC_CALLS and node.args:
                 command = _subprocess_command_name(node.args[0])
-                if command is not None and _normalize_command_name(command) in _BANNED_SUBPROCESS_COMMANDS:
+                banned_command = _banned_subprocess_command(command)
+                if banned_command is not None:
                     violations.append(
-                        f"{path.relative_to(root)}:{node.lineno}:subprocess {_normalize_command_name(command)}"
+                        f"{path.relative_to(root)}:{node.lineno}:subprocess {banned_command}"
                     )
                     continue
             if dotted in {
@@ -176,9 +186,10 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                 "subprocess.Popen",
             } and node.args:
                 command = _subprocess_command_name(node.args[0])
-                if command in _BANNED_SUBPROCESS_COMMANDS:
+                banned_command = _banned_subprocess_command(command)
+                if banned_command is not None:
                     violations.append(
-                        f"{path.relative_to(root)}:{node.lineno}:subprocess {command}"
+                        f"{path.relative_to(root)}:{node.lineno}:subprocess {banned_command}"
                     )
                     continue
                 shell_mode = any(
@@ -256,6 +267,26 @@ def test_python_source_scan_flags_exec_style_network_commands(tmp_path: Path) ->
     assert violations == [
         "candidate.py:2:subprocess curl",
         "candidate.py:3:subprocess wget",
+    ]
+
+
+def test_python_source_scan_flags_path_qualified_network_commands(tmp_path: Path) -> None:
+    source = tmp_path / "candidate.py"
+    source.write_text(
+        "import asyncio\n"
+        "import subprocess\n"
+        "subprocess.run(['/usr/bin/curl', 'https://example.com'])\n"
+        "subprocess.check_output(('C:/Tools/wget.exe', 'https://example.com'))\n"
+        "asyncio.create_subprocess_exec('/opt/bin/curl', 'https://example.com')\n",
+        encoding="utf-8",
+    )
+
+    violations = _scan_python_source(source, tmp_path)
+
+    assert violations == [
+        "candidate.py:3:subprocess curl",
+        "candidate.py:4:subprocess wget",
+        "candidate.py:5:subprocess curl",
     ]
 
 
