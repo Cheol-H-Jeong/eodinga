@@ -343,6 +343,56 @@ def test_execute_phrase_query_matches_across_punctuation_in_path_and_content(
     assert content_hits == ["launch-checklist.txt"]
 
 
+def test_execute_content_phrase_query_keeps_separator_matches_when_fts_returns_partial_hits(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(
+        tmp_db,
+        1,
+        "/workspace/exact-phrase.txt",
+        512,
+        now,
+        "txt",
+        body_text="launch checklist shipped",
+    )
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/punctuation-phrase.txt",
+        512,
+        now - 60,
+        "txt",
+        body_text="launch/checklist shipped",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, 'content:"launch checklist"', limit=10).hits]
+
+    assert hits == ["exact-phrase.txt", "punctuation-phrase.txt"]
+
+
+def test_execute_path_phrase_query_keeps_separator_matches_when_fts_returns_partial_hits(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/launch checklist.txt", 512, now, "txt", body_text="exact path")
+    _insert_file(
+        tmp_db,
+        2,
+        "/workspace/launch-checklist.txt",
+        512,
+        now - 60,
+        "txt",
+        body_text="punctuation path",
+    )
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, '"launch checklist"', limit=10).hits]
+
+    assert hits == ["launch checklist.txt", "launch-checklist.txt"]
+
+
 def test_execute_relative_date_queries_use_local_day_boundaries(
     tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:

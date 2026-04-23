@@ -367,8 +367,12 @@ def _should_scan_path_candidates(branch: CompiledBranch, fts_ids: list[int]) -> 
         return False
     if not fts_ids:
         return True
-    # Keep the scan supplement for scripts where unicode token boundaries are less predictable.
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    # Keep the scan supplement for queries whose substring or separator-aware semantics
+    # are broader than FTS token matching.
+    return any(
+        term.kind == "phrase" or any(ord(char) > 127 for char in term.value)
+        for term in positive_terms
+    )
 
 
 def _fetch_path_candidates_fts(
@@ -402,7 +406,7 @@ def _fetch_path_candidates_scan(
     positive_terms = [term for term in branch.path_terms if not term.negated]
     if not positive_terms:
         return [], {}
-    if any(any(ord(char) > 127 for char in term.value) for term in positive_terms):
+    if any(term.kind == "phrase" or any(ord(char) > 127 for char in term.value) for term in positive_terms):
         return _fetch_path_candidates_python_scan(conn, branch, limit)
     params: list[object] = []
     prefix_term = positive_terms[0].value if positive_terms else ""
@@ -433,8 +437,18 @@ def _fetch_path_candidates_python_scan(
         file_id: record
         for file_id, record in records.items()
         if all(
-            _text_matches(record.name, term.value, branch.case_sensitive)
-            or _text_matches(str(record.path), term.value, branch.case_sensitive)
+            _term_matches(
+                record.name,
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
+            or _term_matches(
+                str(record.path),
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
             for term in positive_terms
         )
     }
@@ -523,7 +537,10 @@ def _should_scan_content_candidates(branch: CompiledBranch, fts_ids: list[int]) 
         return False
     if not fts_ids:
         return True
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return any(
+        term.kind == "phrase" or any(ord(char) > 127 for char in term.value)
+        for term in positive_terms
+    )
 
 
 def _should_scan_auto_content_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
@@ -532,7 +549,10 @@ def _should_scan_auto_content_candidates(branch: CompiledBranch, fts_ids: list[i
         return False
     if not fts_ids:
         return True
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return any(
+        term.kind == "phrase" or any(ord(char) > 127 for char in term.value)
+        for term in positive_terms
+    )
 
 
 def _has_indexed_content(conn: sqlite3.Connection) -> bool:
@@ -739,12 +759,22 @@ def _derive_name_path_hits(
         target_name = record.name
         target_path = str(record.path)
         if any(
-            _text_matches(target_name, term.value, branch.case_sensitive)
+            _term_matches(
+                target_name,
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
             for term in positive_terms
         ):
             name_hits.append(record.id)
         if any(
-            _text_matches(target_path, term.value, branch.case_sensitive)
+            _term_matches(
+                target_path,
+                term.value,
+                kind=term.kind,
+                case_sensitive=branch.case_sensitive,
+            )
             for term in positive_terms
         ):
             path_hits.append(record.id)
