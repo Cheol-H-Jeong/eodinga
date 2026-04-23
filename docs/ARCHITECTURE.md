@@ -318,6 +318,44 @@ docs edit
 - Search is read-only against the index: CLI, launcher, and embedded search tab all call the same compiler and executor stack.
 - Packaging keeps the app local-first: no network services, no daemon dependency outside the local watchdog flow, and no writes outside config/database state.
 
+## CLI Command Lifecycle
+
+```text
+shell command
+    |
+    +--> eodinga.__main__ argparse parser
+            |
+            +--> config/db path resolution
+                    |
+                    +--> command handler (index / watch / search / stats / gui / doctor / version)
+                            |
+                            +--> shared runtime modules
+                                    |
+                                    +--> terminal text or JSON response
+```
+
+- The CLI does not own a separate query or index implementation; it is only the first dispatcher for the same runtime modules used elsewhere.
+- `search`, `stats`, and `doctor` are the shortest evidence paths because they avoid Qt state while still exercising real config and database selection.
+- `gui` is still launched through the CLI parser, which is why the generated man page remains a release input even for desktop-heavy changes.
+
+## GUI And Launcher Lifecycle
+
+```text
+desktop launch / hotkey
+    |
+    +--> config load + path detection
+            |
+            +--> main window or launcher window
+                    |
+                    +--> shared query models / shared result actions
+                            |
+                            +--> open / reveal / copy / properties actions
+```
+
+- The main window owns root management, diagnostics, and long-lived settings such as launcher preferences.
+- The launcher owns keyboard-first search and action dispatch, but it still reads the same config and database locations as the CLI.
+- A launcher/GUI mismatch should therefore be debugged first as config, state, or packaged-payload drift before assuming two different search engines exist.
+
 ## Failure Domains
 
 - Walker failures should stay scoped to the current root entry; unreadable files are skipped without widening writes outside the index path.
@@ -388,6 +426,24 @@ startup
 - Windows packaging uses `packaging/pyinstaller.spec`, `packaging/windows/eodinga.iss`, and `packaging/build.py --target windows-dry-run`.
 - Documentation screenshots are rendered from the real Qt surfaces through `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
 - Release docs also ship a generated CLI man page under `docs/man/` so packaged audits can verify the command surface without importing the project interactively.
+
+## Packaging Provenance Chain
+
+```text
+pyproject version + source tree
+    |
+    +--> packaging/build.py target selection
+            |
+            +--> PyInstaller / AppImage / .deb staging
+                    |
+                    +--> packaging/dist/ audit manifests
+                            |
+                            +--> README / docs / local tag review
+```
+
+- The dry-run manifests are the concrete provenance record for release claims about docs payloads, launcher entrypoints, and artifact names.
+- This is why docs that mention packaged behavior should be reviewed against `packaging/dist/` instead of against hand-written expectations alone.
+- The local tag belongs after that provenance chain is green, not before, because the tag is meant to identify a tree whose packaged evidence has already been reviewed.
 
 ## Packaging Review Path
 

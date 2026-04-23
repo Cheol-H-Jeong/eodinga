@@ -151,8 +151,11 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Docs-Only Change Path" in architecture
     assert "## State Ownership" in architecture
     assert "## Failure Domains" in architecture
+    assert "## CLI Command Lifecycle" in architecture
+    assert "## GUI And Launcher Lifecycle" in architecture
     assert "## Operator Debug Path" in architecture
     assert "## Packaging Surfaces" in architecture
+    assert "## Packaging Provenance Chain" in architecture
     assert "## Packaging Review Path" in architecture
     assert "## Release Evidence Sequence" in architecture
     assert "## Derived Asset Ownership Matrix" in architecture
@@ -164,6 +167,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "packaging/dist/" in architecture
     assert "EODINGA_LOG_PATH" in architecture
     assert "crash-<ts>.log" in architecture
+    assert "terminal text or JSON response" in architecture
+    assert "shared query models / shared result actions" in architecture
+    assert "packaging/dist/ audit manifests" in architecture
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
