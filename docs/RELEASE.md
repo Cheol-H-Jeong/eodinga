@@ -95,6 +95,17 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Docs Trigger Matrix
+
+| If the round changed... | Refresh or review... |
+| --- | --- |
+| CLI help, command list, examples, or env flags | `python scripts/generate_manpage.py`, `pytest -q tests/unit/test_docs_assets.py`, and `eodinga --help` |
+| visible GUI or launcher wording/layout | `python scripts/render_docs_screenshots.py`, docs-assets test, and offscreen GUI smoke |
+| packaged docs or artifact descriptions | matching `packaging/build.py --target ...-dry-run` plus `packaging/dist/` review |
+| prose-only release workflow guidance | docs-assets test, then only the nearest matching dry run if the text names packaged artifacts |
+
+Use the matrix to keep docs-only release rounds narrow. The goal is to refresh only the evidence that proves the changed claim.
+
 ## Packaging Audit Checklist
 
 Use this review table after each matching dry run:
@@ -135,6 +146,13 @@ round changes assembled
 4. Do not push tags or release branches from a worker worktree.
 5. Hand the orchestrator a clean branch plus the final local tag to rebase and publish.
 
+For docs rounds, describe the handoff as:
+
+- which shipped docs surface changed
+- which evidence bundle you ran
+- whether any derived asset was regenerated
+- which dry-run manifest or screenshot set a reviewer should inspect first
+
 ## Docs-Only Rounds
 
 Use the same release discipline for docs-only changes when the shipped operator contract moved:
@@ -154,6 +172,17 @@ source .venv/bin/activate && pytest -q tests/unit/test_docs_assets.py && QT_QPA_
 ```
 
 If CLI help or visible GUI surfaces changed, regenerate the man page or screenshots before running that pass. Do not tag a docs-only round from stale derived assets.
+
+## Docs-Only Failure Routing
+
+Use the first failing stage to decide the next action instead of rerunning the whole pass:
+
+| First failing stage | Next action |
+| --- | --- |
+| `tests/unit/test_docs_assets.py` | fix the written contract or regenerate the missing derived asset |
+| GUI smoke | inspect screenshot drift or visible Qt changes before touching packaging docs |
+| packaging dry run | inspect `packaging/dist/` and reconcile the staged payload with the written docs |
+| metadata/tag step | refresh tags, retarget the patch version, and rerun `pytest -q tests/unit` |
 
 ## Evidence Review Questions
 
@@ -215,6 +244,14 @@ When a parallel worker lands your planned patch number first:
 5. recreate the local `v0.1.N` tag on the new metadata commit
 
 Keep the earlier docs or feature commits unchanged so the round stays reviewable and easy to rebase.
+
+## Parallel Worker Retarget Checklist
+
+1. `git fetch origin main --tags`
+2. confirm the new highest tag with `git tag -l | sort -V | tail -5`
+3. update only `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py`
+4. rerun `pytest -q tests/unit`
+5. recreate the local tag on the metadata commit tip only
 
 ## Handoff Checklist
 

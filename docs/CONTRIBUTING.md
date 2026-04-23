@@ -146,6 +146,13 @@ Use this when the round is docs-only but still release-bearing:
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
 
+## Docs Round Anti-Patterns
+
+- Do not refresh screenshots just because Markdown changed; only regenerate them when a visible Qt surface moved.
+- Do not refresh `docs/PERFORMANCE.md` numbers unless the benchmark was rerun in the same round and the output was captured.
+- Do not describe a packaged artifact from memory; verify it through the matching dry run and `packaging/dist/`.
+- Do not mix the metadata bump into an earlier docs commit; keep retargeting possible when another worker lands the same patch version first.
+
 ## Docs Evidence Bundle
 
 Collect the smallest reviewable evidence set that matches the docs you changed:
@@ -158,6 +165,13 @@ Collect the smallest reviewable evidence set that matches the docs you changed:
 | Pure prose or workflow guidance | `pytest -q tests/unit/test_docs_assets.py`, and the nearest matching dry run if the text names shipped artifacts |
 
 Prefer one explicit evidence bundle over ad-hoc retries. The handoff should show why the docs match the runtime, not just that Markdown changed.
+
+Before you stop a docs round, make sure the evidence bundle answers these questions:
+
+1. Which runtime surface changed: CLI, GUI, packaging, or workflow only?
+2. Which derived asset actually moved, if any?
+3. Which command produced the reviewable evidence for that surface?
+4. Which file should a reviewer inspect first: screenshot, man page, or `packaging/dist/` manifest?
 
 ## Metadata Commit Discipline
 
@@ -208,6 +222,12 @@ Do not rewrite earlier docs or feature commits just to retarget the patch number
 - Inspect `packaging/dist/` instead of trusting command exit status alone.
 - Confirm the staged docs payload still matches `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 - If the docs describe a packaged artifact, rerun the corresponding dry run before handoff.
+
+## Docs Handoff Notes
+
+- Summarize docs rounds by shipped surface, not by prose file count.
+- Call out when the round was docs-only so downstream release notes do not imply runtime behavior changed.
+- If you had to retarget the patch version, mention that only the metadata commit moved.
 
 ## Command Hygiene
 

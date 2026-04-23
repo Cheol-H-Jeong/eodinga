@@ -244,6 +244,17 @@ runtime surface changes
 - `scripts/render_docs_screenshots.py` renders offscreen Qt widgets through `eodinga.gui.docs`, keeping screenshots tied to real UI state instead of mock assets.
 - `tests/unit/test_docs_assets.py` pins the presence of the shipped sections and checks that the derived man page still matches the checked-in artifact.
 
+## Docs Asset Trigger Matrix
+
+| Surface change | Regenerate | Re-verify |
+| --- | --- | --- |
+| argparse, examples, environment flags | `docs/man/eodinga.1` | `tests/unit/test_docs_assets.py` and the CLI help path |
+| visible main-window or launcher text/layout | `docs/screenshots/*.png` | screenshot render plus offscreen GUI smoke |
+| packaging claims or shipped docs payload | `packaging/dist/` dry-run manifests | matching packaging dry run and manifest review |
+| prose-only workflow guidance | no derived asset unless a documented surface moved | `tests/unit/test_docs_assets.py` and the nearest matching dry run |
+
+The trigger matrix exists because docs rounds still cross runtime boundaries. The contract lives in Markdown, but the evidence comes from generated assets, Qt smoke, and packaging manifests.
+
 ## Release Input Map
 
 ```text
@@ -277,6 +288,23 @@ docs edit
 
 - A docs-only round still crosses runtime boundaries because screenshots, the generated man page, and packaging manifests are derived from the real codebase.
 - That is why a docs change can stay in the `docs` theme while still requiring evidence from Qt smoke or packaging dry-run paths.
+
+## Docs Review Loop
+
+```text
+written contract updated
+    |
+    +--> choose the smallest matching evidence bundle
+    |
+    +--> regenerate only the derived assets whose source surface moved
+    |
+    +--> re-run docs-assets test
+    |
+    +--> review packaging/dist/ or screenshots before tagging
+```
+
+- The shortest correct review path starts from the documented surface, not from a habit of rerunning the entire gate.
+- This keeps docs-only rounds factual: a packaging claim is proven by dry-run manifests, while a launcher wording claim is proven by screenshots and Qt smoke.
 
 ## State Ownership
 
@@ -372,6 +400,8 @@ startup
 2. Inspect the emitted manifest or staged payload summary under `packaging/dist/`.
 3. Compare the staged docs payload with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 4. Cut the local tag only after the dry-run output and shipped docs agree.
+
+The review step matters because the architecture intentionally keeps packaging evidence outside the live runtime tree. `packaging/dist/` is where docs claims about shipped payloads become concrete.
 
 ## Release Evidence Sequence
 
