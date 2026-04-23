@@ -459,6 +459,46 @@ def test_launcher_flag_toggles_preserve_geometry(qapp, temp_config_path: Path) -
     assert launcher.geometry() == before
 
 
+def test_hidden_launcher_always_on_top_toggle_preserves_geometry_on_next_show(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    launcher = window.launcher_window
+    launcher.show()
+    launcher.move(210, 120)
+    launcher.resize(760, 540)
+    qapp.processEvents()
+    before = launcher.geometry()
+
+    launcher.hide()
+    qapp.processEvents()
+    launcher.set_always_on_top(True)
+    launcher.show()
+    qapp.processEvents()
+
+    assert bool(launcher.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
+    assert launcher.geometry() == before
+
+
+def test_hidden_launcher_frameless_toggle_preserves_geometry_on_next_show(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    launcher = window.launcher_window
+    launcher.show()
+    launcher.move(240, 150)
+    launcher.resize(720, 500)
+    qapp.processEvents()
+    before = launcher.geometry()
+
+    launcher.hide()
+    qapp.processEvents()
+    launcher.set_frameless(False)
+    launcher.show()
+    qapp.processEvents()
+
+    assert not bool(launcher.windowFlags() & Qt.WindowType.FramelessWindowHint)
+    assert launcher.geometry() == before
+
+
 class _ActionSpy:
     def __init__(self) -> None:
         self.opened: list[str] = []

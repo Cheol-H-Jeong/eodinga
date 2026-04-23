@@ -28,6 +28,7 @@ class LauncherWindow(LauncherPanel):
         self._config = config
         self._config_path = config_path.expanduser() if config_path is not None else None
         self._geometry_restored = False
+        self._pending_geometry = None
         self._geometry_save_timer = QTimer(self)
         self._geometry_save_timer.setSingleShot(True)
         self._geometry_save_timer.setInterval(150)
@@ -60,6 +61,9 @@ class LauncherWindow(LauncherPanel):
         if not self._geometry_restored and self._config is not None:
             self._restore_visible_geometry()
             self._geometry_restored = True
+        if self._pending_geometry is not None:
+            self.setGeometry(self._pending_geometry)
+            self._pending_geometry = None
         self.query_field.setFocus()
         self.query_field.selectAll()
         self.visibility_changed.emit(True)
@@ -100,6 +104,8 @@ class LauncherWindow(LauncherPanel):
         geometry = self.geometry()
         self.setWindowFlag(flag, enabled)
         if not was_visible:
+            if self._geometry_restored:
+                self._pending_geometry = geometry
             return
         self.show()
         self.setGeometry(geometry)
