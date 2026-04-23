@@ -209,7 +209,8 @@ def test_write_crash_log_records_runtime_metrics(tmp_path: Path) -> None:
         crash_path = write_crash_log(error, crash_dir=tmp_path)
 
     contents = crash_path.read_text(encoding="utf-8")
-    assert 'metrics_counters={"queries_served": 2}' in contents
+    assert '"queries_served": 2' in contents
+    assert '"snapshots.command.search": 1' in contents
     assert '"query_latency_ms"' in contents
     assert "metrics_generated_at=" in contents
     assert 'recent_snapshots=[{"name": "command.search"' in contents
@@ -508,7 +509,10 @@ def test_record_snapshot_keeps_recent_entries_bounded() -> None:
     for index in range(25):
         record_snapshot("command.search", {"index": index})
 
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
     snapshots = recent_snapshots()
+    assert counters["snapshots_recorded"] == 25
+    assert counters["snapshots.command.search"] == 25
     assert len(snapshots) == 20
     assert snapshots[0]["payload"]["index"] == 5
     assert snapshots[-1]["payload"]["index"] == 24

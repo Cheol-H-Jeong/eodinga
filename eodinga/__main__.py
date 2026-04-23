@@ -43,6 +43,7 @@ from eodinga.stats_summary import (
     log_sink_file_disabled_reason_summary,
     log_sink_file_source_summary,
     parser_activity_summary,
+    snapshot_type_summary,
     watcher_failure_summary,
     watcher_event_type_summary,
 )
@@ -266,6 +267,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         watcher_failures=watcher_failure_summary(counters),
         log_sink_file_sources=log_sink_file_source_summary(counters),
         log_sink_file_disabled_reasons=log_sink_file_disabled_reason_summary(counters),
+        snapshot_types=snapshot_type_summary(counters),
         counters=counters,
         histograms=metrics["histograms"],
         recent_snapshots=[dict(entry) for entry in recent_snapshots()],

@@ -82,6 +82,10 @@ def log_sink_file_disabled_reason_summary(counters: dict[str, int]) -> dict[str,
     return _suffix_summary(counters, "log_sinks.file.disabled.")
 
 
+def snapshot_type_summary(counters: dict[str, int]) -> dict[str, int]:
+    return _suffix_summary(counters, "snapshots.")
+
+
 def _suffix_summary(counters: dict[str, int], prefix: str) -> dict[str, int]:
     return dict(
         sorted(

@@ -272,6 +272,9 @@ def record_snapshot(name: str, payload: Mapping[str, object]) -> None:
     }
     with _METRICS_LOCK:
         _RECENT_SNAPSHOTS.append(record)
+        _COUNTERS["snapshots_recorded"] = _COUNTERS.get("snapshots_recorded", 0) + 1
+        snapshot_key = f"snapshots.{name}"
+        _COUNTERS[snapshot_key] = _COUNTERS.get(snapshot_key, 0) + 1
     logger.bind(metric=name, payload=record["payload"]).debug("snapshot recorded")
 
 
