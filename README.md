@@ -167,9 +167,11 @@ eodinga doctor
 - `created:2026-04-23` : creation-time filter
 - `is:file -is:empty` : non-empty regular files only
 - `regex:true report-\\d+` : treat plain terms as regex
-- `regex:/todo|fixme/i` : regex search
+- `/todo|fixme/i` : bare regex term
+- `regex:/todo|fixme/i` : explicit path/name regex alias
 - `ext:py | ext:rs` : OR
 - `-path:node_modules` : negation
+- `-(invoice | receipt) ext:pdf` : group negation
 - `(invoice | receipt) ext:pdf` : grouping
 
 Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eodinga/docs/DSL.md).
@@ -191,7 +193,7 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Find duplicates | `is:duplicate` |
 | Find the previous calendar month | `date:last-month ext:pdf` |
 | Exclude noisy trees | `-path:node_modules` |
-| Run regex | `regex:/todo|fixme/i` |
+| Run regex | `/todo|fixme/i` |
 
 ## Supported Content Types
 
@@ -223,6 +225,7 @@ eodinga index --root ~/projects --root ~/docs && eodinga watch
 ```bash
 eodinga search 'date:this-week ext:md roadmap' --limit 20
 eodinga search 'regex:/todo|fixme/i path:src' --json
+eodinga search '-(draft | scratch) /todo|fixme/i' --limit 20
 eodinga search 'is:duplicate size:>10M' --limit 50
 ```
 
@@ -241,6 +244,7 @@ eodinga index --rebuild
 | Find documents changed this week | `eodinga search 'date:this-week ext:md' --limit 10` |
 | Audit large duplicate media | `eodinga search 'is:duplicate size:>10M' --limit 50` |
 | Search docs with regex | `eodinga search 'regex:/todo|fixme/i path:docs' --json` |
+| Exclude grouped terms before regex | `eodinga search '-(draft | scratch) /todo|fixme/i' --limit 20` |
 | Confirm runtime health | `eodinga doctor && eodinga stats --json` |
 | Refresh shipped docs assets | `python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` |
 

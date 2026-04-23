@@ -167,6 +167,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "is:empty" in dsl
     assert "is:duplicate" in dsl
     assert "regex:true" in dsl
+    assert "regex:/todo|fixme/i" in dsl
+    assert "-(draft | scratch) /todo|fixme/i" in dsl
     assert "-path:node_modules" in dsl
     assert "## Operator Notes" in dsl
 
@@ -214,6 +216,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "EODINGA_RUN_PERF=1" in manpage
     assert "docs/DSL.md" in manpage
     assert "stats --json" in manpage
+    assert "regex:/todo|fixme/i path:src" in manpage
 
 
 def test_generated_manpage_matches_checked_in_asset() -> None:

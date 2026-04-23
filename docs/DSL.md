@@ -7,6 +7,7 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 | plain term | Match filename, path, or parsed text | `report` |
 | phrase | Exact text span | `"design review"` |
 | regex | Regex search with optional flags | `/todo|fixme/i` |
+| regex alias | Explicit path/name regex operator | `regex:/todo|fixme/i` |
 | extension | Restrict by file extension | `ext:pdf invoice` |
 | path filter | Restrict to a path substring | `path:projects release` |
 | content filter | Require parsed document text | `content:"launch checklist"` |
@@ -45,6 +46,7 @@ regex:true report-\d+
 -is:duplicate -path:node_modules
 (invoice | receipt) ext:pdf
 regex:/launch|ship/i path:docs
+-(draft | scratch) /todo|fixme/i
 ```
 
 ## Operator Notes
@@ -57,6 +59,7 @@ regex:/launch|ship/i path:docs
 - `is:file` matches regular files only, `is:dir` matches non-symlink directories only, and `is:symlink` remains available when you want the link entries themselves.
 - `is:empty` matches zero-byte files and directories with no indexed descendants.
 - `regex:true` only changes how plain terms are interpreted; explicit `/pattern/flags` literals still work without it.
+- `regex:/pattern/flags` is an explicit alias for a path/name regex term when you want the query to read like an operator list.
 - Negation applies to the next term or the entire parenthesized group.
 
 ## Practical Limits
