@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.377 - 2026-04-23
+## 0.1.379 - 2026-04-23
 
 - Rolled back watcher startup cleanly when the filesystem observer fails during bootstrap, avoiding a leaked flush thread and leaving the watch service restartable after the failed start attempt.
 - Made index-storage directory `fsync` best-effort on platforms that cannot open or sync directory handles, so staged index swaps and stale-WAL recovery no longer fail only because directory sync is unsupported.
