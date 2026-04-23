@@ -280,7 +280,7 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
         normalized.replace("/", "\\"),
     ]
     raw_variants = list(slash_variants)
-    drive, separator, tail = normalized[:1], normalized[1:3], normalized[3:]
+    drive, separator = normalized[:1], normalized[1:3]
     if separator in {":\\", ":/"} and drive.isalpha():
         raw_variants.extend(f"{case_drive}{variant[1:]}" for variant in slash_variants for case_drive in (drive.upper(), drive.lower()))
     variants = tuple(dict.fromkeys(raw_variants))
