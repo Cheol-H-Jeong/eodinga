@@ -723,6 +723,67 @@ def test_launcher_action_bar_triggers_result_actions(qapp) -> None:
     assert properties == ["release-notes.txt"]
 
 
+def test_launcher_result_context_menu_targets_clicked_result(qapp) -> None:
+    activated: list[str] = []
+    revealed: list[str] = []
+    copied_paths: list[str] = []
+    copied_names: list[str] = []
+    properties: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+            ][:limit],
+            total=2,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: activated.append(hit.name))
+    launcher.open_containing_folder.connect(lambda hit: revealed.append(hit.name))
+    launcher.copy_path_requested.connect(lambda hit: copied_paths.append(str(hit.path)))
+    launcher.copy_name_requested.connect(lambda hit: copied_names.append(hit.name))
+    launcher.show_properties.connect(lambda hit: properties.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("notes")
+    _wait(60)
+
+    index = launcher.model.index(1, 0)
+    rect = launcher.result_list.visualRect(index)
+    launcher._prepare_result_context_menu(rect.center())
+
+    assert launcher.result_list.currentIndex().row() == 1
+    assert launcher.open_result_action.isEnabled()
+
+    launcher.open_result_action.trigger()
+    launcher.reveal_result_action.trigger()
+    launcher.copy_result_path_action.trigger()
+    launcher.copy_result_name_action.trigger()
+    launcher.show_result_properties_action.trigger()
+
+    assert activated == ["beta.txt"]
+    assert revealed == ["beta.txt"]
+    assert copied_paths == ["/tmp/beta.txt"]
+    assert copied_names == ["beta.txt"]
+    assert properties == ["beta.txt"]
+
+
+def test_launcher_result_context_menu_disables_actions_without_results(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher._prepare_result_context_menu(launcher.result_list.rect().center())
+
+    assert not launcher.open_result_action.isEnabled()
+    assert not launcher.reveal_result_action.isEnabled()
+    assert not launcher.copy_result_path_action.isEnabled()
+    assert not launcher.copy_result_name_action.isEnabled()
+    assert not launcher.show_result_properties_action.isEnabled()
+
+
 def test_launcher_alt_number_quick_picks_results(qapp) -> None:
     activated: list[str] = []
 
