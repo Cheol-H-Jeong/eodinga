@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.281 - 2026-04-23
+## 0.1.283 - 2026-04-23
 
 - Expanded `README.md` with an install matrix, command-surface table, query recipes, launcher action table, and a tighter troubleshooting matrix so the top-level operator contract is faster to audit.
 - Deepened `docs/ARCHITECTURE.md` with explicit runtime boundaries, persistent-state surfaces, query capability mapping, release artifact flow, and packaging input matrices tied to the shipped runtime.
