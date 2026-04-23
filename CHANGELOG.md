@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.813 - 2026-04-23
+
+- Hardened the PyInstaller hidden-import audit so packaging now discovers relative `import_module(...)` targets and legacy `__import__(..., fromlist=...)` submodules before Windows bundles drift.
+- Added an audited Debian `postrm` maintainer script that keeps user home-state untouched on `remove` and only purges package-owned system paths during explicit `purge`.
+
 ## 0.1.806 - 2026-04-23
 
 - Preserved watcher move-source suppression across queue backpressure, so a delayed `moved` flush no longer leaks a false follow-up `deleted` event for the retired source path.
