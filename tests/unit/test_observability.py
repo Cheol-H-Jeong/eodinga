@@ -18,6 +18,7 @@ from eodinga.observability import (
     default_log_path,
     file_logging_enabled,
     install_crash_handlers,
+    record_histogram,
     resolve_crash_dir,
     resolve_log_path,
     reset_metrics,
@@ -293,3 +294,20 @@ def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:
 
     assert metrics["generated_at"].endswith("Z")
     assert metrics["uptime_ms"] >= 0
+
+
+def test_histogram_snapshot_includes_summary_statistics() -> None:
+    reset_metrics()
+
+    for value_ms in (2.0, 4.0, 20.0, 600.0):
+        record_histogram("query_latency_ms", value_ms)
+
+    histogram = cast(dict[str, object], snapshot_metrics()["histograms"]["query_latency_ms"])
+    assert histogram["count"] == 4
+    assert histogram["sum_ms"] == 626.0
+    assert histogram["avg_ms"] == 156.5
+    assert histogram["min_ms"] == 2.0
+    assert histogram["max_ms"] == 600.0
+    assert histogram["p50_ms"] == 5.0
+    assert histogram["p95_ms"] == 1000.0
+    assert histogram["p99_ms"] == 1000.0

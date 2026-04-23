@@ -46,11 +46,16 @@ class _HistogramState:
         self.bucket_hits[label] = self.bucket_hits.get(label, 0) + 1
 
     def snapshot(self) -> dict[str, object]:
+        average_ms = round(self.sum_ms / self.count, 3) if self.count else 0.0
         return {
             "count": self.count,
             "sum_ms": round(self.sum_ms, 3),
+            "avg_ms": average_ms,
             "min_ms": round(self.min_ms, 3) if self.min_ms is not None else 0.0,
             "max_ms": round(self.max_ms, 3) if self.max_ms is not None else 0.0,
+            "p50_ms": _percentile_upper_bound_ms(self.bucket_hits, self.buckets_ms, percentile=0.50),
+            "p95_ms": _percentile_upper_bound_ms(self.bucket_hits, self.buckets_ms, percentile=0.95),
+            "p99_ms": _percentile_upper_bound_ms(self.bucket_hits, self.buckets_ms, percentile=0.99),
             "buckets": dict(sorted(self.bucket_hits.items())),
         }
 
@@ -60,6 +65,28 @@ def _bucket_label(value_ms: float, buckets_ms: tuple[float, ...]) -> str:
         if value_ms <= upper_bound:
             return f"<= {upper_bound:g}ms"
     return f"> {buckets_ms[-1]:g}ms"
+
+
+def _percentile_upper_bound_ms(
+    bucket_hits: Mapping[str, int],
+    buckets_ms: tuple[float, ...],
+    *,
+    percentile: float,
+) -> float:
+    total = sum(bucket_hits.values())
+    if total <= 0:
+        return 0.0
+    threshold = max(total * percentile, 1.0)
+    cumulative = 0
+    ordered_labels = [f"<= {upper_bound:g}ms" for upper_bound in buckets_ms]
+    ordered_labels.append(f"> {buckets_ms[-1]:g}ms")
+    for index, label in enumerate(ordered_labels):
+        cumulative += bucket_hits.get(label, 0)
+        if cumulative >= threshold:
+            if index < len(buckets_ms):
+                return float(buckets_ms[index])
+            break
+    return float(buckets_ms[-1])
 
 
 def default_state_dir() -> Path:
