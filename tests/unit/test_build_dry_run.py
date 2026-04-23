@@ -141,6 +141,20 @@ def test_windows_audit_validator_rejects_uninstall_purge_contract_regression() -
     assert "Inno uninstall purge no longer targets both local data and roaming config" in errors
 
 
+def test_windows_audit_validator_rejects_per_user_installer_contract_regression() -> None:
+    module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["inno_setup"]["contains_user_install_dir"] = False
+    payload["inno_setup"]["privileges_lowest"] = False
+    payload["inno_setup"]["includes_korean_language"] = False
+
+    errors = module._validate_windows_audit(payload)
+
+    assert "Rendered Inno install directory no longer targets the per-user appdata path" in errors
+    assert "Rendered Inno installer no longer runs with lowest privileges" in errors
+    assert "Rendered Inno installer no longer ships the Korean language pack" in errors
+
+
 def test_build_preflight_reports_missing_windows_tool(monkeypatch) -> None:
     module = _load_build_module()
 
