@@ -608,6 +608,59 @@ def test_launcher_preview_tracks_selection_and_hovered_result(qapp) -> None:
     assert launcher.result_list.currentIndex().row() == 1
 
 
+def test_launcher_preview_falls_back_to_live_file_text_when_index_snippet_missing(tmp_path: Path, qapp) -> None:
+    target = tmp_path / "release-notes.txt"
+    target.write_text("Quarterly release notes\nShip the launcher preview polish.\n", encoding="utf-8")
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=target,
+                    parent_path=target.parent,
+                    name=target.name,
+                )
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("preview")
+    _wait(60)
+
+    assert "Quarterly release notes Ship the launcher " in launcher.preview_pane.snippet_label.text()
+    assert ">preview</mark>" in launcher.preview_pane.snippet_label.text()
+
+
+def test_launcher_preview_reports_binary_files_when_index_snippet_missing(tmp_path: Path, qapp) -> None:
+    target = tmp_path / "archive.bin"
+    target.write_bytes(b"\x00\x10\x80launcher")
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=target,
+                    parent_path=target.parent,
+                    name=target.name,
+                )
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("launcher")
+    _wait(60)
+
+    assert "Binary file preview is unavailable" in launcher.preview_pane.snippet_label.text()
+
+
 def test_launcher_active_filter_row_tracks_visible_query_filters(qapp) -> None:
     launcher = LauncherWindow()
     launcher.show()

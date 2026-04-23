@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections import OrderedDict
+from pathlib import Path
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
@@ -8,12 +11,40 @@ from eodinga.gui.design import SPACE_4, SPACE_8, SPACE_16
 from eodinga.gui.widgets.button import SecondaryButton
 from eodinga.gui.widgets.result_item import format_preview_html
 
+_PREVIEW_CACHE_LIMIT = 64
+_PREVIEW_READ_BYTES = 8192
+
+
+def _normalize_preview_text(raw: str) -> str:
+    lines = [line.strip() for line in raw.replace("\r", "\n").split("\n")]
+    collapsed = " ".join(line for line in lines if line)
+    return collapsed[:600].strip()
+
+
+def _load_preview_fallback(path: Path) -> str | None:
+    try:
+        if path.is_dir():
+            return "This result is a folder. Open or reveal it to inspect its contents."
+        if not path.is_file():
+            return None
+        sample = path.read_bytes()[:_PREVIEW_READ_BYTES]
+    except OSError:
+        return None
+    if not sample:
+        return "This file is empty."
+    if b"\x00" in sample:
+        return "Binary file preview is unavailable for this result."
+    decoded = sample.decode("utf-8", errors="replace")
+    normalized = _normalize_preview_text(decoded)
+    return normalized or "No readable preview text is available for this result."
+
 
 class LauncherPreviewPane(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._current_hit: SearchHit | None = None
         self._query = ""
+        self._preview_cache: OrderedDict[Path, str] = OrderedDict()
         self.setAccessibleName("Launcher preview pane")
         layout = QVBoxLayout(self)
         layout.setContentsMargins(SPACE_16, SPACE_16, SPACE_16, SPACE_16)
@@ -54,10 +85,26 @@ class LauncherPreviewPane(QWidget):
 
     def set_hit(self, hit: SearchHit | None) -> None:
         self._current_hit = hit
-        title, path_text, snippet = format_preview_html(hit, self._query)
+        preview_hit = self._preview_hit(hit)
+        title, path_text, snippet = format_preview_html(preview_hit, self._query)
         self.title_label.setText(title)
         self.path_label.setText(path_text)
         self.snippet_label.setText(snippet)
+
+    def _preview_hit(self, hit: SearchHit | None) -> SearchHit | None:
+        if hit is None or (hit.snippet or "").strip():
+            return hit
+        fallback = self._preview_cache.get(hit.path)
+        if fallback is None:
+            fallback = _load_preview_fallback(hit.path)
+            if fallback is None:
+                return hit
+            self._preview_cache[hit.path] = fallback
+            while len(self._preview_cache) > _PREVIEW_CACHE_LIMIT:
+                self._preview_cache.popitem(last=False)
+        else:
+            self._preview_cache.move_to_end(hit.path)
+        return hit.model_copy(update={"snippet": fallback})
 
 
 class LauncherActionBar(QWidget):
