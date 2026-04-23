@@ -138,6 +138,7 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "rendered_source_entries": _source_entries(rendered_text),
             "rendered_source_entries_match_pyinstaller_dist": _source_entries(rendered_text) == rendered_source_entries,
             "contains_versioned_output_macro": "OutputBaseFilename=eodinga-{#AppVersion}-win-x64-setup" in rendered_text,
+            "license_file_exists": (PROJECT_ROOT / "LICENSE").exists(),
             "contains_user_install_dir": _inno_contains(rendered_text, r"DefaultDirName={userappdata}\eodinga"),
             "contains_rendered_uninstall_display_icon": _inno_contains(
                 rendered_text,
@@ -148,6 +149,10 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
                 f'Name: "{{group}}\\\\eodinga"; Filename: "{{app}}\\\\{gui_exe_name}"',
             ),
             "contains_desktop_shortcut_task": _inno_contains(inno_text, 'Name: "desktopicon"'),
+            "contains_rendered_desktop_shortcut": _inno_contains(
+                rendered_text,
+                f'Name: "{{commondesktop}}\\\\eodinga"; Filename: "{{app}}\\\\{gui_exe_name}"; Tasks: desktopicon',
+            ),
             "contains_postinstall_launch": _inno_contains(
                 rendered_text,
                 f'Filename: "{{app}}\\\\{gui_exe_name}"; Description: "{{cm:LaunchProgram,eodinga}}"; Flags: nowait postinstall skipifsilent',
@@ -201,10 +206,12 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     required_flags = {
         "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
         "app_version_uses_template": "Inno AppVersion macro no longer uses the template token",
+        "license_file_exists": "Inno setup no longer references a shipped LICENSE file",
         "source_entries_match_pyinstaller_dist": "Inno source entries drifted from PyInstaller dist names",
         "rendered_source_entries_match_pyinstaller_dist": "Rendered Inno source entries drifted from PyInstaller dist names",
         "contains_rendered_uninstall_display_icon": "Rendered Inno uninstall icon does not point at the GUI executable",
         "contains_start_menu_shortcut": "Rendered Inno start menu shortcut is missing",
+        "contains_rendered_desktop_shortcut": "Rendered Inno desktop shortcut does not point at the GUI executable",
         "contains_postinstall_launch": "Rendered Inno postinstall launch action is missing",
         "contains_autostart_registry": "Inno autostart registry entry is missing",
         "rendered_autostart_registry_matches_gui_exe": "Rendered Inno autostart registry entry does not point at the GUI executable",
