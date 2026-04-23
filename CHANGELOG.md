@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.842 - 2026-04-23
+
+- Added a compact inline filter summary inside the launcher search field so active `ext:`, `date:`, `size:`, and similar DSL filters stay visible while you keep typing.
+- Made the launcher's active-filter chips actionable: clicking a visible chip now returns focus to the query field and selects that exact filter token for fast editing.
+- Stabilized the Windows packaging preflight unit test so release-audit coverage no longer depends on whatever stale `dist/` artifacts happen to exist in the local worktree.
+
 ## 0.1.840 - 2026-04-23
 
 - Preserved the launcher popup geometry when toggling `always_on_top` or `frameless` while the window is hidden, so the next show no longer jumps back to a default Qt position.
