@@ -160,6 +160,16 @@ def test_parse_empty_phrase_errors(query: str) -> None:
         parse(query)
 
 
+@given(st.sampled_from([" ", "\t", "  \t  "]))
+def test_parse_whitespace_only_phrase_payloads_remain_non_empty(payload: str) -> None:
+    node = parse(f'content:"{payload}"')
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == "content"
+    assert node.value_kind == "phrase"
+    assert node.value == payload
+
+
 @pytest.mark.parametrize("query", ["/todo/x", "content:/todo/mii", "regex:/todo/ix"])
 def test_parse_regex_flags_must_be_supported_and_unique(query: str) -> None:
     with pytest.raises(QuerySyntaxError, match="regex flag"):
@@ -251,6 +261,35 @@ def test_parse_regex_with_multiple_escaped_slashes_and_korean_segments(
     ],
 )
 def test_parse_regex_closes_after_even_backslashes(
+    query: str,
+    expected_name: str | None,
+    expected_pattern: str,
+    expected_flags: str,
+) -> None:
+    node = parse(query)
+
+    if expected_name is None:
+        assert isinstance(node, RegexNode)
+        assert node.pattern == expected_pattern
+        assert node.flags == expected_flags
+        return
+
+    assert isinstance(node, OperatorNode)
+    assert node.name == expected_name
+    assert node.value == expected_pattern
+    assert node.value_kind == "regex"
+    assert node.regex_flags == expected_flags
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_name", "expected_pattern", "expected_flags"),
+    [
+        (r"/foo/bar/baz/", None, r"foo/bar/baz", ""),
+        (r"content:/foo/bar/baz/ms", "content", r"foo/bar/baz", "ms"),
+        (r"regex:/회의/록/[0-9]+/i", "regex", r"회의/록/[0-9]+", "i"),
+    ],
+)
+def test_parse_regex_with_multiple_unescaped_slashes_uses_last_delimiter(
     query: str,
     expected_name: str | None,
     expected_pattern: str,

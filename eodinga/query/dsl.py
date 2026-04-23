@@ -210,26 +210,34 @@ class _Parser:
         if self._peek() != "/":
             raise QuerySyntaxError("expected regex", start)
         self.index += 1
-        pattern_start = self.index
+        closing_index: int | None = None
+        flags_end: int | None = None
         backslashes = 0
-        while True:
-            char = self._peek()
-            if char is None:
-                raise QuerySyntaxError("unterminated regex", start)
-            if char == "/" and backslashes % 2 == 0:
-                break
+        scan_index = self.index
+        while scan_index < self.length:
+            char = self.source[scan_index]
             if char == "\\":
                 backslashes += 1
-            else:
-                backslashes = 0
-            self.index += 1
-        pattern = self.source[pattern_start:self.index]
-        self.index += 1
+                scan_index += 1
+                continue
+            if char == "/" and backslashes % 2 == 0:
+                candidate_end = scan_index + 1
+                while candidate_end < self.length and self.source[candidate_end].isalpha():
+                    candidate_end += 1
+                terminator = self.source[candidate_end] if candidate_end < self.length else None
+                if terminator is None or terminator.isspace() or terminator in {"|", ")"}:
+                    closing_index = scan_index
+                    flags_end = candidate_end
+            backslashes = 0
+            scan_index += 1
+        if closing_index is None or flags_end is None:
+            raise QuerySyntaxError("unterminated regex", start)
+        pattern = self.source[self.index:closing_index]
+        self.index = closing_index + 1
         flags_start = self.index
-        while (char := self._peek()) is not None and char.isalpha():
-            self.index += 1
+        self.index = flags_end
         if not pattern:
-            raise QuerySyntaxError("empty regex", pattern_start)
+            raise QuerySyntaxError("empty regex", start + 1)
         flags = self.source[flags_start:self.index]
         self._validate_regex_flags(flags, flags_start)
         return RegexNode(pattern=pattern, flags=flags)
