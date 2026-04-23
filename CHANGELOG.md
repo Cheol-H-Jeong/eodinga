@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.857 - 2026-04-23
+## 0.1.866 - 2026-04-23
 
 - Added CLI end-to-end integration coverage for `index`, `search`, and `stats`, including multi-root root-scoped queries and rebuilds that trim removed roots from the search surface.
 - Added longer round-trip integration sequences that verify live updates can create, replace, move, and delete results without leaving stale global or root-scoped hits behind.
