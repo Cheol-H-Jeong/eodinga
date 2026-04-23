@@ -69,6 +69,15 @@ yamllint .github/workflows/release-linux.yml
 - Regenerate `docs/man/eodinga.1` with `python scripts/generate_manpage.py` after CLI parser changes.
 - Keep `CHANGELOG.md` aligned with landed behavior only; avoid speculative release notes.
 
+## Derived Asset Matrix
+
+| If you changed... | Refresh or rerun... |
+| --- | --- |
+| CLI parser, flags, or subcommands | `python scripts/generate_manpage.py` and `pytest -q tests/unit/test_docs_assets.py` |
+| Visible GUI text or layout used in docs | `python scripts/render_docs_screenshots.py` and `pytest -q tests/unit/test_docs_assets.py` |
+| README or guide wording only | `pytest -q tests/unit/test_docs_assets.py` |
+| Packaging or release docs | the matching `packaging/build.py --target ...-dry-run` command plus `pytest -q tests/unit/test_docs_assets.py` |
+
 ## Docs Refresh Order
 
 When a change affects the shipped contract, refresh docs in this order:
@@ -77,6 +86,7 @@ When a change affects the shipped contract, refresh docs in this order:
 2. Update the deeper reference in the relevant `docs/*.md` guide.
 3. Regenerate derived assets such as screenshots or `docs/man/eodinga.1`.
 4. Re-run `pytest -q tests/unit/test_docs_assets.py` before the broader gate.
+5. Re-run any matching packaging dry run if the docs now describe packaging behavior or artifacts differently.
 
 ## Test Selection Guide
 
@@ -91,4 +101,5 @@ When a change affects the shipped contract, refresh docs in this order:
 - Keep `CHANGELOG.md` append-only with the newest round at the top.
 - Patch releases use `0.1.N`; bump `pyproject.toml` and `eodinga/__init__.py` together.
 - Local tags are created during the release-cut handoff flow documented in [RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md).
+- Docs-only rounds still require a changelog entry and local tag when the shipped contract changed.
 - If a change cannot stay inside one theme or one logical commit, stop and split it before proceeding.

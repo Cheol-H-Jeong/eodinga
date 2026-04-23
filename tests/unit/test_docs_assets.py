@@ -82,10 +82,15 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "version" in acceptance
     assert "QT_QPA_PLATFORM=offscreen" in acceptance
     assert "windows-dry-run" in acceptance
+    assert "linux-appimage-dry-run" in acceptance
+    assert "linux-deb-dry-run" in acceptance
     assert "yamllint .github/workflows/release-windows.yml" in acceptance
+    assert "yamllint .github/workflows/release-linux.yml" in acceptance
     assert "README is part of the acceptance surface" in acceptance
     assert "git tag v0.1.N" in acceptance
     assert "docs/man/eodinga.1" in acceptance
+    assert "## Derived Docs Checks" in acceptance
+    assert "python scripts/render_docs_screenshots.py" in acceptance
 
     assert "## Runtime Flow" in architecture
     assert "## Data Flow Diagram" in architecture
@@ -110,11 +115,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Quality Gates" in contributing
     assert "## Scope Guardrails" in contributing
     assert "## Documentation Expectations" in contributing
+    assert "## Derived Asset Matrix" in contributing
     assert "scripts/generate_manpage.py" in contributing
     assert "scripts/render_docs_screenshots.py" in contributing
     assert "## Docs Refresh Order" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
+    assert "Docs-only rounds still require a changelog entry and local tag" in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl
@@ -141,10 +148,12 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
     assert "## Verify Shipped Docs" in release
+    assert "## Docs-Only Rounds" in release
     assert "## Cut The Local Release" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release
     assert "python scripts/generate_manpage.py" in release
+    assert "git tag -l \"v0.1.N\"" in release
 
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage

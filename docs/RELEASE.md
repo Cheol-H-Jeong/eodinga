@@ -8,6 +8,7 @@ This document expands the short checklist in [ACCEPTANCE.md](/home/cheol/project
 2. Choose the next unused patch version as `0.1.N`.
 3. Bump both `pyproject.toml` and `eodinga/__init__.py` to that version.
 4. Keep that version bump isolated to the release metadata commit for the round.
+5. Confirm the candidate tag does not already exist locally before creating it.
 
 ## Refresh Release Notes
 
@@ -15,6 +16,7 @@ This document expands the short checklist in [ACCEPTANCE.md](/home/cheol/project
 2. Summarize only the measurable user-facing or operator-facing changes that landed in the round.
 3. Keep the changelog entry aligned with the final commit set instead of speculative future work.
 4. Mention docs-only rounds explicitly when the shipped contract changed but runtime code did not.
+5. If a cross-theme unblocker landed to restore the gate, call it out briefly so the release notes explain why it exists.
 
 ## Run The Gate
 
@@ -62,6 +64,17 @@ python scripts/render_docs_screenshots.py
 pytest -q tests/unit/test_docs_assets.py
 ```
 
+Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
+
+## Docs-Only Rounds
+
+Use the same release discipline for docs-only changes when the shipped operator contract moved:
+
+1. Update `README.md` and the deeper guide that explains the changed behavior.
+2. Regenerate any derived docs assets touched by the round.
+3. Re-run `pytest -q tests/unit/test_docs_assets.py` plus the matching packaging dry-run or GUI smoke command.
+4. Add a changelog entry that names the docs surface changed and why it matters.
+
 ## Cut The Local Release
 
 1. Commit the release metadata changes.
@@ -75,6 +88,8 @@ git add CHANGELOG.md pyproject.toml eodinga/__init__.py
 git commit -m "chore(release): bump to v0.1.N"
 git tag v0.1.N
 ```
+
+If `git tag -l "v0.1.N"` already returns a result, stop and pick the next unused patch version instead of moving the existing tag.
 
 ## Handoff Checklist
 
