@@ -638,6 +638,21 @@ def test_execute_size_queries_accept_multiletter_units(tmp_db: sqlite3.Connectio
     assert mib_hits == ["one-point-five-m.txt", "two-m.txt"]
 
 
+def test_execute_open_ended_size_ranges(tmp_db: sqlite3.Connection) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/tiny.txt", 99, now, "txt", body_text="tiny")
+    _insert_file(tmp_db, 2, "/workspace/exact-low.txt", 100, now - 60, "txt", body_text="low")
+    _insert_file(tmp_db, 3, "/workspace/mid.txt", 500, now - 120, "txt", body_text="mid")
+    _insert_file(tmp_db, 4, "/workspace/high.txt", 1_024, now - 180, "txt", body_text="high")
+    tmp_db.commit()
+
+    at_most_hits = [hit.file.name for hit in search(tmp_db, "size:..100", limit=10).hits]
+    at_least_hits = [hit.file.name for hit in search(tmp_db, "size:500..", limit=10).hits]
+
+    assert at_most_hits == ["exact-low.txt", "tiny.txt"]
+    assert at_least_hits == ["high.txt", "mid.txt"]
+
+
 def test_execute_metadata_only_query_reports_uncapped_total_estimate(
     tmp_db: sqlite3.Connection,
 ) -> None:

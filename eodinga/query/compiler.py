@@ -204,16 +204,22 @@ def _size_to_bytes(value: str) -> tuple[str, int]:
     return comparator, _parse_size_number(number_text, unit, value)
 
 
-def _size_to_range(value: str) -> tuple[int, int] | None:
+def _size_to_range(value: str) -> tuple[int | None, int | None] | None:
     if ".." not in value:
         return None
     left, right = (part.strip() for part in value.split("..", 1))
-    if not left or not right:
+    if not left and not right:
         raise QuerySyntaxError(f"invalid size literal: {value}", 0)
-    left_number, left_unit = _split_size_literal(left, value)
-    right_number, right_unit = _split_size_literal(right, value)
-    start = _parse_size_number(left_number, left_unit, value)
-    end = _parse_size_number(right_number, right_unit, value)
+    start: int | None = None
+    end: int | None = None
+    if left:
+        left_number, left_unit = _split_size_literal(left, value)
+        start = _parse_size_number(left_number, left_unit, value)
+    if right:
+        right_number, right_unit = _split_size_literal(right, value)
+        end = _parse_size_number(right_number, right_unit, value)
+    if start is None or end is None:
+        return start, end
     if end < start:
         start, end = end, start
     return start, end
@@ -347,11 +353,15 @@ def _compile_branch(
             size_range = _size_to_range(term.value)
             if size_range is not None:
                 start, end = size_range
-                if term.negated:
-                    where_parts.append("NOT (files.size >= ? AND files.size <= ?)")
-                else:
-                    where_parts.append("files.size >= ? AND files.size <= ?")
-                where_params.extend([start, end])
+                clauses: list[str] = []
+                if start is not None:
+                    clauses.append("files.size >= ?")
+                    where_params.append(start)
+                if end is not None:
+                    clauses.append("files.size <= ?")
+                    where_params.append(end)
+                clause_sql = " AND ".join(clauses)
+                where_parts.append(f"NOT ({clause_sql})" if term.negated else clause_sql)
                 continue
             comparator, size_bytes = _size_to_bytes(term.value)
             if term.negated:

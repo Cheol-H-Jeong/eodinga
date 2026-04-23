@@ -228,6 +228,23 @@ def test_search_json_accepts_multiletter_size_units(cli_runner, tmp_path: Path) 
     ]
 
 
+def test_search_json_accepts_open_ended_size_ranges(cli_runner, tmp_path: Path) -> None:
+    db_path = tmp_path / "index.db"
+    _build_search_db(db_path)
+
+    result = cli_runner(
+        "--db",
+        str(db_path),
+        "search",
+        "size:..10MB",
+        "--json",
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert [Path(item["path"]).name for item in payload["results"]] == ["yesterday-beta.txt"]
+
+
 def test_search_json_executes_regex_mode_query(cli_runner, tmp_path: Path) -> None:
     db_path = tmp_path / "index.db"
     _build_search_db(db_path)
