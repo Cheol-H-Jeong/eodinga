@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.448 - 2026-04-23
+## 0.1.451 - 2026-04-23
 
 - Enriched runtime histogram snapshots with average plus bucket-derived `p50`, `p95`, and `p99` upper-bound latency summaries so `stats --json` exposes more actionable distributions without storing every sample.
 - Added explicit logging sink state reporting, including whether file logging was requested, which path was targeted, gzip rotation settings, and whether the file sink is active.
