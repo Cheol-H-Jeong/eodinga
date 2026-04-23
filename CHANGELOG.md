@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.216 - 2026-04-23
+## 0.1.217 - 2026-04-23
 
 - Normalized observability destination resolution behind shared helpers so file logging, explicit log targets, crash directories, and pytest/env overrides all resolve through one test-covered path.
 - Expanded `eodinga stats --json` with runtime diagnostic destinations, exposing whether file logging is active plus the effective log path and crash directory for the current process.
