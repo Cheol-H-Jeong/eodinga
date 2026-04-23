@@ -459,6 +459,34 @@ def test_watcher_backpressure_metrics_increment(tmp_path: Path) -> None:
     assert histograms["watcher_queue_backpressure_ms"]["count"] == 1
 
 
+def test_watcher_stop_counts_discarded_pending_and_queued_events(tmp_path: Path) -> None:
+    service = WatchService()
+    reset_metrics()
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=tmp_path / "queued.txt",
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service._flush_ready(force=True)
+    service.record(
+        WatchEvent(
+            event_type="modified",
+            path=tmp_path / "pending.txt",
+            root_path=tmp_path,
+            happened_at=2.0,
+        )
+    )
+
+    service.stop()
+
+    counters = cast(dict[str, int], snapshot_metrics()["counters"])
+    assert counters["watcher_events_discarded_on_stop"] == 2
+
+
 def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:
     reset_metrics()
 

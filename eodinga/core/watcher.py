@@ -415,16 +415,23 @@ class WatchService:
         self._flush_thread = None
 
     def _reset_state(self) -> None:
+        pending_discarded = 0
         with self._lock:
+            pending_discarded = len(self._pending)
             self._pending.clear()
             self._retired_sources.clear()
             self._flushed_retired_sources.clear()
             self._timestamps.clear()
+        queued_discarded = 0
         while True:
             try:
                 self.queue.get_nowait()
+                queued_discarded += 1
             except Empty:
                 break
+        discarded = pending_discarded + queued_discarded
+        if discarded:
+            increment_counter("watcher_events_discarded_on_stop", discarded)
 
     def _enqueue_event(self, event: WatchEvent) -> bool:
         blocked_at: float | None = None

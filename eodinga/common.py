@@ -114,6 +114,7 @@ class StatsSnapshot(BaseModel):
     watcher_events_flushed: int = 0
     watcher_queue_full: int = 0
     watcher_enqueue_aborted: int = 0
+    watcher_events_discarded_on_stop: int = 0
     watcher_observers_started: int = 0
     watcher_observers_stopped: int = 0
     watcher_observer_failures: int = 0

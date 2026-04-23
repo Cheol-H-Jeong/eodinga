@@ -228,6 +228,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         watcher_events_flushed=counter_value("watcher_events_flushed"),
         watcher_queue_full=counter_value("watcher_queue_full"),
         watcher_enqueue_aborted=counter_value("watcher_enqueue_aborted"),
+        watcher_events_discarded_on_stop=counter_value("watcher_events_discarded_on_stop"),
         watcher_observers_started=counter_value("watcher_observers_started"),
         watcher_observers_stopped=counter_value("watcher_observers_stopped"),
         watcher_observer_failures=counter_value("watcher_observer_failures"),

@@ -497,6 +497,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["watcher_events_flushed"] == 0
     assert payload["watcher_queue_full"] == 0
     assert payload["watcher_enqueue_aborted"] == 0
+    assert payload["watcher_events_discarded_on_stop"] == 0
     assert payload["watcher_observer_failures"] == 0
     assert payload["watcher_observer_cleanup_failures"] == 0
     assert payload["watcher_observer_startup_cleanup_failures"] == 0
@@ -642,11 +643,13 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["counters"]["watcher_events_flushed"] == 2
     assert payload["counters"]["watcher_queue_full"] == 1
     assert "watcher_enqueue_aborted" not in payload["counters"]
+    assert "watcher_events_discarded_on_stop" not in payload["counters"]
     assert payload["watcher_events"] == 2
     assert payload["watcher_flushes"] == 2
     assert payload["watcher_events_flushed"] == 2
     assert payload["watcher_queue_full"] == 1
     assert payload["watcher_enqueue_aborted"] == 0
+    assert payload["watcher_events_discarded_on_stop"] == 0
     assert payload["watcher_observer_failures"] == 0
     assert payload["watcher_observer_cleanup_failures"] == 0
     assert payload["watcher_observer_startup_cleanup_failures"] == 0
