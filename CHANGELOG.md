@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.277 - 2026-04-23
+
+- Persisted runtime counters and histograms to a dedicated observability state file, so `eodinga stats --json` now reflects prior CLI runs instead of only the current Python process.
+- Surfaced metrics persistence status and the active metrics-state path directly in `stats --json`, making it clear when runtime telemetry is durable versus test-local or in-memory only.
+- Expanded `doctor` to report the active log, crash, and metrics destinations so operators can verify observability paths and overrides without reverse-engineering platform defaults.
+
 ## 0.1.272 - 2026-04-23
 
 - Made staged index rebuilds stop cleanly on `SIGINT` and `SIGTERM` batch boundaries, preserving the `.next` snapshot for later resume instead of discarding already committed work mid-rebuild.
