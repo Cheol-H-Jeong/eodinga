@@ -18,7 +18,7 @@ from eodinga.query.dsl import (
     RegexNode,
     WordNode,
 )
-from eodinga.query.date_range import parse_date_range
+from eodinga.query.date_range import has_relative_date_component, parse_date_range
 from eodinga.query.ranker import RankingWeights
 
 
@@ -62,6 +62,18 @@ class CompiledQuery(BaseModel):
 
     branches: tuple[CompiledBranch, ...]
     weights: RankingWeights = Field(default_factory=RankingWeights)
+
+
+def has_dynamic_date_filters(node: AstNode) -> bool:
+    if isinstance(node, OperatorNode):
+        return node.name in {"date", "modified", "created"} and has_relative_date_component(node.value)
+    if isinstance(node, (WordNode, PhraseNode, RegexNode)):
+        return False
+    if isinstance(node, NotNode):
+        return has_dynamic_date_filters(node.clause)
+    if isinstance(node, (AndNode, OrNode)):
+        return any(has_dynamic_date_filters(child) for child in node.clauses)
+    raise TypeError(f"unsupported node: {type(node)!r}")
 
 
 def _to_dnf(node: AstNode) -> list[list[WordNode | PhraseNode | RegexNode | OperatorNode]]:

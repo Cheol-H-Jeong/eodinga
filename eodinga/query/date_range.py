@@ -99,6 +99,16 @@ def _relative_range(value: str) -> DateRange | None:
     return None
 
 
+def has_relative_date_component(value: str) -> bool:
+    stripped = value.strip()
+    if not stripped:
+        return False
+    if ".." in stripped:
+        left, right = (part.strip() for part in stripped.split("..", 1))
+        return any(has_relative_date_component(part) for part in (left, right) if part)
+    return _relative_range(stripped) is not None
+
+
 def parse_date_range(value: str) -> DateRange:
     stripped = value.strip()
     relative = _relative_range(stripped)

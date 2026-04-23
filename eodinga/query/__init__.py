@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from sqlite3 import Connection
 
-from eodinga.query.compiler import CompiledQuery, compile_query
+from eodinga.query.compiler import CompiledQuery, compile_query, has_dynamic_date_filters
 from eodinga.query.dsl import QuerySyntaxError, parse
 from eodinga.query.executor import QueryResult, execute
 
@@ -15,6 +15,9 @@ def _compile_cached(query: str) -> CompiledQuery:
 
 
 def compile(query: str) -> CompiledQuery:
+    tree = parse(query)
+    if has_dynamic_date_filters(tree):
+        return compile_query(tree)
     return _compile_cached(query)
 
 
