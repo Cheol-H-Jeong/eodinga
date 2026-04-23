@@ -692,6 +692,19 @@ def test_launcher_shows_active_filter_chips_for_current_query(qapp) -> None:
     assert [label.text() for label in launcher.active_filters_row.labels] == ["ext:pdf", "date:this-week"]
 
 
+def test_launcher_active_filter_chip_selects_matching_query_segment(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText('report ext:pdf content:"release notes"')
+    _wait(60)
+
+    launcher.active_filters_row.labels[1].click()
+
+    assert launcher.query_field.hasFocus()
+    assert launcher.query_field.selectedText() == 'content:"release notes"'
+
+
 def test_launcher_empty_state_mentions_alt_number_quick_picks(qapp) -> None:
     launcher = LauncherWindow(state=LauncherState())
     launcher.show()
@@ -728,10 +741,13 @@ def test_launcher_preview_highlights_current_query(qapp) -> None:
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     launcher = LauncherWindow()
     launcher.show()
+    launcher.query_field.setText("ext:pdf")
+    _wait(60)
 
     assert launcher.accessibleName() == "Launcher window"
     assert launcher.query_field.accessibleName() == "Launcher search field"
     assert launcher.active_filters_row.accessibleName() == "Active launcher filters"
+    assert launcher.active_filters_row.labels[0].accessibleName() == "Edit active filter ext:pdf"
     assert launcher.result_list.accessibleName() == "Launcher results list"
     assert launcher.empty_state.accessibleName() == "Launcher empty state"
     assert launcher.empty_state.title_label.accessibleName() == "Launcher empty state title"

@@ -97,7 +97,12 @@ class LauncherPanel(QWidget):
 
         self.query_field = SearchField(parent=self)
         self.query_field.setAccessibleName("Launcher search field")
-        self.active_filters_row = StaticChipRow("Filters", accessible_name="Active launcher filters", parent=self)
+        self.active_filters_row = StaticChipRow(
+            "Filters",
+            accessible_name="Active launcher filters",
+            on_chip_clicked=self._focus_active_filter,
+            parent=self,
+        )
         self.pinned_queries_row = QueryChipRow(
             "Pinned",
             accessible_name="Pinned launcher queries",
@@ -388,6 +393,51 @@ class LauncherPanel(QWidget):
 
     def _refresh_active_filters(self) -> None:
         self.active_filters_row.set_chips(list(active_filter_chips(self.query_field.text())))
+
+    def _focus_active_filter(self, chip: str) -> None:
+        query = self.query_field.text()
+        span = self._find_filter_span(query, chip)
+        self.query_field.setFocus()
+        if span is None:
+            self.query_field.selectAll()
+            return
+        start, end = span
+        self.query_field.setSelection(start, end - start)
+
+    def _find_filter_span(self, query: str, chip: str) -> tuple[int, int] | None:
+        exact_start = query.find(chip)
+        if exact_start >= 0:
+            return (exact_start, exact_start + len(chip))
+        raw_name = chip.removeprefix("-").split(":", 1)[0]
+        prefixes = [f"{raw_name}:", f"-{raw_name}:"]
+        for prefix in prefixes:
+            start = query.find(prefix)
+            if start < 0:
+                continue
+            end = start + len(prefix)
+            if end >= len(query):
+                return (start, end)
+            if query[end] == '"':
+                end += 1
+                while end < len(query):
+                    if query[end] == '"' and query[end - 1] != "\\":
+                        return (start, end + 1)
+                    end += 1
+                return (start, len(query))
+            if query[end] == "/":
+                end += 1
+                while end < len(query):
+                    if query[end] == "/" and query[end - 1] != "\\":
+                        end += 1
+                        while end < len(query) and query[end].isalpha():
+                            end += 1
+                        return (start, end)
+                    end += 1
+                return (start, len(query))
+            while end < len(query) and not query[end].isspace():
+                end += 1
+            return (start, end)
+        return None
 
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()

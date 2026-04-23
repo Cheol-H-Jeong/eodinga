@@ -58,8 +58,16 @@ class QueryChipRow(QWidget):
 
 
 class StaticChipRow(QWidget):
-    def __init__(self, label: str, *, accessible_name: str, parent=None) -> None:
+    def __init__(
+        self,
+        label: str,
+        *,
+        accessible_name: str,
+        on_chip_clicked: ChipHandler | None = None,
+        parent=None,
+    ) -> None:
         super().__init__(parent)
+        self._on_chip_clicked = on_chip_clicked
         self.setAccessibleName(accessible_name)
 
         layout = QHBoxLayout(self)
@@ -78,7 +86,7 @@ class StaticChipRow(QWidget):
         layout.addWidget(self._chips_container, 1)
         layout.addStretch(1)
         self._chips_layout = chips_layout
-        self._labels: list[QLabel] = []
+        self._labels: list[SecondaryButton] = []
         self.setVisible(False)
 
     def set_chips(self, chips: list[str]) -> None:
@@ -88,10 +96,11 @@ class StaticChipRow(QWidget):
             label.deleteLater()
 
         for chip in chips:
-            label = QLabel(chip, self._chips_container)
-            label.setProperty("chip", True)
-            label.setProperty("role", "secondary")
-            label.setAccessibleName(f"Active filter {chip}")
+            label = SecondaryButton(chip, self._chips_container)
+            label.setAccessibleName(f"Edit active filter {chip}")
+            label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+            if self._on_chip_clicked is not None:
+                label.clicked.connect(lambda checked=False, value=chip: self._on_chip_clicked(value))
             self._chips_layout.addWidget(label)
             self._labels.append(label)
 
