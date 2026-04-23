@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, cast
 
@@ -25,6 +26,12 @@ DENYLIST = (
 
 _HIDDEN_NAMES = {".git", ".hg", ".svn", ".cache", "__pycache__"}
 _WINDOWS_ABS_RE = re.compile(r"^[A-Za-z]:[\\/]")
+
+
+@dataclass(frozen=True)
+class ScandirEntry:
+    path: Path
+    stat_result: os.stat_result | None = None
 
 
 def open_readonly(path: Path, mode: str = "rb", encoding: str | None = None) -> IO[str] | IO[bytes]:
@@ -67,10 +74,14 @@ def stat_follow_safe(path: Path) -> os.stat_result:
     return path.stat()
 
 
-def scandir_safe(path: Path) -> Iterator[Path]:
+def scandir_safe(path: Path) -> Iterator[ScandirEntry]:
     with os.scandir(path) as entries:
         for entry in entries:
-            yield Path(entry.path)
+            try:
+                stat_result = entry.stat(follow_symlinks=False)
+            except OSError:
+                stat_result = None
+            yield ScandirEntry(path=Path(entry.path), stat_result=stat_result)
 
 
 def is_hidden(path: Path) -> bool:

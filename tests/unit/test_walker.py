@@ -59,8 +59,8 @@ def test_walk_batched_reuses_discovery_stat_result(
 
     assert {record.path for record in records} == {root, nested, sample}
     assert stat_calls.count(root) == 1
-    assert stat_calls.count(nested) == 1
-    assert stat_calls.count(sample) == 1
+    assert nested not in stat_calls
+    assert sample not in stat_calls
 
 
 def test_walk_batched_uses_fs_wrapper_to_detect_symlinked_directories(
@@ -93,6 +93,33 @@ def test_walk_batched_uses_fs_wrapper_to_detect_symlinked_directories(
     assert alias_record.is_symlink is True
     assert alias_record.is_dir is True
     assert follow_calls == [alias]
+
+
+def test_walk_batched_uses_cached_scandir_stat_for_symlink_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "tree"
+    root.mkdir()
+    target = root / "target.txt"
+    target.write_text("sample", encoding="utf-8")
+    alias = root / "alias.txt"
+    alias.symlink_to(target)
+
+    stat_calls: list[Path] = []
+    original_stat_safe = walker_module.stat_safe
+
+    def counting_stat(path: Path) -> os.stat_result:
+        stat_calls.append(path)
+        return original_stat_safe(path)
+
+    monkeypatch.setattr(walker_module, "stat_safe", counting_stat)
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=())
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+    alias_record = next(record for record in records if record.path == alias)
+
+    assert alias_record.is_symlink is True
+    assert alias not in stat_calls
 
 
 def test_walk_batched_keeps_distinct_hardlink_paths(tmp_path: Path) -> None:
