@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.142 - 2026-04-23
+
+- Restored launcher config compatibility for persisted `pinned_queries`, which stops CLI and GUI startup paths from crashing on existing user configs while keeping the strict schema intact.
+- Optimized the filesystem walker to carry `os.scandir()` metadata forward, avoiding an extra `lstat()` for discovered children, and added an opt-in perf regression that pins minimum `walk_batched` throughput behind `EODINGA_RUN_PERF=1`.
+- Cached the dynamic `content_map.file_id IN (...)` SQL shape used by filtered query evaluation, reducing repeated statement reconstruction on query paths that need indexed content text lookups.
+
 ## 0.1.136 - 2026-04-23
 
 - Added a dedicated launcher hotkey controller that binds the configured global shortcut at GUI startup, toggles the popup on the callback path, and shuts the backend down cleanly when the main window exits.
