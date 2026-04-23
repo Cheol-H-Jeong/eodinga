@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.937 - 2026-04-24
+## 0.1.939 - 2026-04-24
 
 - Let keyboard users tab through launcher history chips, results, and result actions in one deterministic cycle, with reverse travel on `Shift+Tab`.
 - Updated launcher shortcut copy and accessibility text so the search field, results list, chip rows, and action bar all describe the same focus path and available shortcuts.
