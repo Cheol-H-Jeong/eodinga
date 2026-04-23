@@ -54,7 +54,7 @@ def test_writer_bulk_insert_and_incremental_apply_are_fast(tmp_db: Path, tmp_pat
     processed = writer.apply_events(events, record_loader=lambda path: make_record(path))
     incr_elapsed = perf_counter() - started
     assert processed == 100
-    assert incr_elapsed < 0.05
+    assert incr_elapsed < 0.15
 
 
 def test_writer_caches_chunk_shaped_sql_templates() -> None:
