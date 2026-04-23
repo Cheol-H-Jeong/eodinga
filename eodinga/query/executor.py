@@ -331,17 +331,7 @@ def _fetch_record_batch(
 def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
-    root_text = str(root)
-    normalized = root_text.rstrip("/\\") or root_text
-    variants = tuple(
-        dict.fromkeys(
-            (
-                normalized,
-                normalized.replace("\\", "/"),
-                normalized.replace("/", "\\"),
-            )
-        )
-    )
+    variants = _root_scope_variants(root)
     exact_params = variants
     like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
         f"{variant}\\%" for variant in variants
@@ -349,6 +339,34 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
     like_clause = " OR ".join("files.path LIKE ?" for _ in like_params)
     return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
+
+
+def _root_scope_variants(root: Path) -> tuple[str, ...]:
+    root_text = str(root)
+    normalized = root_text.rstrip("/\\") or root_text
+    variants: dict[str, None] = {}
+    for base in _windows_scope_bases(normalized):
+        for candidate in (base, base.replace("\\", "/"), base.replace("/", "\\")):
+            variants.setdefault(candidate)
+    return tuple(variants)
+
+
+def _windows_scope_bases(path_text: str) -> tuple[str, ...]:
+    normalized = _strip_windows_extended_prefix(path_text)
+    candidates: dict[str, None] = {normalized: None}
+    if normalized.startswith("\\\\"):
+        candidates.setdefault("\\\\?\\UNC\\" + normalized.lstrip("\\"))
+    elif re.match(r"^[A-Za-z]:[\\/]", normalized):
+        candidates.setdefault(f"\\\\?\\{normalized}")
+    return tuple(candidates)
+
+
+def _strip_windows_extended_prefix(path_text: str) -> str:
+    if path_text.startswith("\\\\?\\UNC\\"):
+        return f"\\\\{path_text[8:]}"
+    if path_text.startswith("\\\\?\\"):
+        return path_text[4:]
+    return path_text
 
 
 def _scoped_branch(branch: CompiledBranch, root: Path | None) -> CompiledBranch:
