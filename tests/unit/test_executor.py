@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from eodinga.query import executor as executor_module
+from eodinga import query as query_module
 from eodinga.query import search
 
 
@@ -621,6 +622,33 @@ def test_execute_relative_date_queries_use_local_day_boundaries(
 
     assert today_hits == ["local-today.txt"]
     assert yesterday_hits == ["local-yesterday.txt"]
+
+
+def test_relative_date_queries_bypass_stale_compile_cache(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    query_module._compile_cached.cache_clear()
+    search(tmp_db, "date:today", limit=10)
+
+    seoul = ZoneInfo("Asia/Seoul")
+    frozen_now = datetime(2026, 4, 23, 0, 30, tzinfo=seoul)
+    today_hit = int(datetime(2026, 4, 23, 12, 0, tzinfo=seoul).timestamp())
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+
+    _insert_file(tmp_db, 1, "/workspace/local-today.txt", 512, today_hit, "txt", body_text="today note")
+    tmp_db.commit()
+
+    hits = [hit.file.name for hit in search(tmp_db, "date:today", limit=10).hits]
+
+    assert hits == ["local-today.txt"]
 
 
 def test_execute_reversed_date_range_query(tmp_db: sqlite3.Connection) -> None:
