@@ -3,6 +3,7 @@
 ## 0.1.845 - 2026-04-23
 
 - Restored the watcher flush tail when queue backpressure interrupts a multi-event delivery, so undelivered ready events stay pending instead of disappearing after the first blocked enqueue.
+- Gave pure create bursts a slightly longer watcher settle window without delaying create-followed-by-write traffic, reducing flaky create-to-rename races while preserving create/move/delete sequences for real edits.
 - Extended staged rebuild signal handling to cover root metadata insertion, ensuring SIGINT and SIGTERM still leave a resumable staged database with committed root rows.
 - Hardened the no-network source audit to flag path-qualified `curl` and `wget` subprocess calls like `/usr/bin/curl` and `C:/Tools/wget.exe`.
 

@@ -9,6 +9,7 @@ import pytest
 from watchdog.events import FileMovedEvent
 
 from eodinga.common import WatchEvent
+import eodinga.core.watcher as watcher_module
 from eodinga.core.watcher import WatchService, _Handler
 from eodinga.observability import recent_snapshots, reset_metrics, snapshot_metrics
 
@@ -995,3 +996,29 @@ def test_watcher_restore_preserves_undelivered_flush_tail(tmp_path: Path) -> Non
     }
     assert second in service._timestamps
     assert third in service._timestamps
+
+
+def test_watcher_created_event_waits_for_extended_settle_window(tmp_path: Path, monkeypatch) -> None:
+    service = WatchService()
+    created = WatchEvent(
+        event_type="created",
+        path=tmp_path / "draft.txt",
+        root_path=tmp_path,
+        happened_at=1.0,
+    )
+    service.record(created)
+    recorded_at = service._timestamps[created.path]
+
+    monkeypatch.setattr(watcher_module, "monotonic", lambda: recorded_at + 0.14)
+    service._flush_ready(force=False)
+
+    assert service._pending == {created.path: created}
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
+
+    monkeypatch.setattr(watcher_module, "monotonic", lambda: recorded_at + 0.16)
+    service._flush_ready(force=False)
+
+    flushed = service.queue.get_nowait()
+    assert flushed.event_type == "created"
+    assert flushed.path == created.path

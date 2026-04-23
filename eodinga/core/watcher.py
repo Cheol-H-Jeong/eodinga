@@ -15,6 +15,7 @@ from eodinga.common import WatchEvent
 from eodinga.observability import get_logger, increment_counter, record_histogram, record_snapshot
 
 _DEBOUNCE_SECONDS = 0.1
+_CREATE_DEBOUNCE_SECONDS = 0.15
 _FLUSH_LIMIT = 500
 _QUEUE_PUT_TIMEOUT_SECONDS = 0.05
 _DEFAULT_QUEUE_MAXSIZE = 2048
@@ -50,6 +51,12 @@ class _ManagedObserver(Protocol):
 
 def _spawn_thread(target: Callable[[], None]) -> Thread:
     return Thread(target=target, daemon=True)
+
+
+def _debounce_seconds_for(event: WatchEvent, *, has_followup: bool) -> float:
+    if event.event_type == "created" and not has_followup:
+        return _CREATE_DEBOUNCE_SECONDS
+    return _DEBOUNCE_SECONDS
 
 
 class _Handler(FileSystemEventHandler):
@@ -118,6 +125,7 @@ class WatchService:
     def __init__(self, *, queue_maxsize: int = _DEFAULT_QUEUE_MAXSIZE) -> None:
         self.queue: Queue[WatchEvent] = Queue(maxsize=max(1, queue_maxsize))
         self._pending: dict[Path, WatchEvent] = {}
+        self._created_with_followup: set[Path] = set()
         self._retired_sources: dict[Path, set[Path]] = {}
         self._flushed_retired_sources: set[Path] = set()
         self._timestamps: dict[Path, float] = {}
@@ -206,10 +214,14 @@ class WatchService:
         with self._lock:
             if event.event_type in {"created", "modified"}:
                 self._flushed_retired_sources.discard(event.path)
+            if event.event_type != "modified":
+                self._created_with_followup.discard(event.path)
             existing = self._pending.get(event.path)
             moved_retired_sources: set[Path] = set()
             if event.event_type == "moved" and event.src_path is not None:
+                source_had_followup = event.src_path in self._created_with_followup
                 source_existing = self._pending.pop(event.src_path, None)
+                self._created_with_followup.discard(event.src_path)
                 moved_retired_sources = self._retired_sources.pop(event.src_path, set())
                 self._flushed_retired_sources.discard(event.path)
                 self._flushed_retired_sources.discard(event.src_path)
@@ -217,9 +229,16 @@ class WatchService:
                 if source_existing is not None and source_existing.event_type in {"created", "moved"}:
                     moved_retired_sources.add(event.src_path)
                 event = self._merge_move(source_existing, event)
+                if source_had_followup and event.event_type == "created":
+                    self._created_with_followup.add(event.path)
                 existing = self._pending.get(event.path)
             if event.event_type == "deleted" and existing is None and self._is_retired_move_source(event.path):
                 return
+            created_followup = (
+                existing is not None
+                and existing.event_type == "created"
+                and event.event_type == "modified"
+            )
             if (
                 existing is not None
                 and existing.event_type == "moved"
@@ -227,15 +246,21 @@ class WatchService:
             ):
                 immediate_emit = existing
                 self._pending[event.path] = event
+                self._created_with_followup.discard(event.path)
                 self._timestamps[event.path] = monotonic()
             else:
                 merged = self._coalesce(existing, event)
                 if merged is None:
                     self._pending.pop(event.path, None)
+                    self._created_with_followup.discard(event.path)
                     self._retired_sources.pop(event.path, None)
                     self._timestamps.pop(event.path, None)
                 else:
                     self._pending[event.path] = merged
+                    if created_followup:
+                        self._created_with_followup.add(event.path)
+                    elif merged.event_type != "created":
+                        self._created_with_followup.discard(event.path)
                     if moved_retired_sources:
                         moved_retired_sources.update(self._retired_sources.get(event.path, set()))
                         self._retired_sources[event.path] = moved_retired_sources
@@ -329,10 +354,19 @@ class WatchService:
             ready_paths = [
                 path
                 for path, timestamp in self._timestamps.items()
-                if force or (now - timestamp) >= _DEBOUNCE_SECONDS
+                if force
+                or (
+                    (event := self._pending.get(path)) is not None
+                    and (now - timestamp)
+                    >= _debounce_seconds_for(
+                        event,
+                        has_followup=path in self._created_with_followup,
+                    )
+                )
             ]
             for path in ready_paths:
                 event = self._pending.pop(path, None)
+                self._created_with_followup.discard(path)
                 retired_sources = self._retired_sources.pop(path, set())
                 self._timestamps.pop(path, None)
                 if event is not None:
@@ -426,6 +460,7 @@ class WatchService:
     def _reset_state(self) -> None:
         with self._lock:
             self._pending.clear()
+            self._created_with_followup.clear()
             self._retired_sources.clear()
             self._flushed_retired_sources.clear()
             self._timestamps.clear()
