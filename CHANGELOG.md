@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.866 - 2026-04-23
+
+- Added compact `stats --json` summaries for file log sink sources and disable reasons, so runtime sink selection is visible without spelunking raw counters.
+- Surfaced watcher observer failure totals, startup rollback counts, and per-stage cleanup failure summaries in stats output, making startup and teardown issues easier to diagnose.
+- Counted parser resolution outcomes for no-extension files, unsupported extensions, and parser entry-point load failures, and exposed them directly in the stats payload.
+
 ## 0.1.863 - 2026-04-23
 
 - Expanded the launcher’s inline and empty-state keyboard guidance to cover both `Alt+Up` and `Alt+Down`, so recent-query browsing is explained consistently anywhere the user can get stuck.
