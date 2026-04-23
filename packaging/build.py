@@ -162,6 +162,12 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             and 'Tasks: autostart' in inno_text,
             "rendered_autostart_registry_matches_gui_exe": f'ValueData: """{{app}}\\\\{gui_exe_name}"""' in rendered_text,
             "contains_uninstall_purge_prompt": _inno_contains(rendered_text, r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);"),
+            "purge_prompt_mentions_opt_in": _inno_contains(rendered_text, "if MsgBox('Purge %LOCALAPPDATA%\\\\eodinga\\\\ data?"),
+            "purge_targets_only_localappdata": r"DelTree(ExpandConstant('{appdata}" not in rendered_text
+            and r"DelTree(ExpandConstant('{userappdata}" not in rendered_text
+            and r"DelTree(ExpandConstant('{app}" not in rendered_text,
+            "preserves_user_config_by_default": "[UninstallDelete]" not in inno_text
+            and "deleteafterinstall" not in inno_text.lower(),
         },
     }
 
@@ -205,6 +211,9 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         "contains_autostart_registry": "Inno autostart registry entry is missing",
         "rendered_autostart_registry_matches_gui_exe": "Rendered Inno autostart registry entry does not point at the GUI executable",
         "contains_uninstall_purge_prompt": "Inno uninstall purge prompt is missing",
+        "purge_prompt_mentions_opt_in": "Inno uninstall purge prompt is no longer opt-in",
+        "purge_targets_only_localappdata": "Inno uninstall purge targets drifted beyond LocalAppData",
+        "preserves_user_config_by_default": "Inno uninstall no longer preserves user state by default",
     }
     for key, message in required_flags.items():
         if not inno_payload.get(key):

@@ -19,3 +19,5 @@ def test_inno_script_contains_required_fields() -> None:
     assert '@@GUI_EXE_NAME@@' in script
     assert 'Subkey: "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run"' in script
     assert 'ValueName: "eodinga"' in script
+    assert "[UninstallDelete]" not in script
+    assert "Purge %LOCALAPPDATA%\\\\eodinga\\\\ data?" in script
