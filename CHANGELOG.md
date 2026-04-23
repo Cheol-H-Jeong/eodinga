@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.862 - 2026-04-23
+## 0.1.863 - 2026-04-23
 
 - Expanded the launcher’s inline and empty-state keyboard guidance to cover both `Alt+Up` and `Alt+Down`, so recent-query browsing is explained consistently anywhere the user can get stuck.
 - Added dynamic accessibility summaries for pinned and recent query chips, including when those rows are empty, so keyboard and screen-reader users get the same launcher history context as mouse users.
