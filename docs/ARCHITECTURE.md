@@ -62,6 +62,17 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 | Content extraction | `eodinga.content.*` | Parse supported document formats into searchable text. |
 | UI + CLI | `eodinga.__main__`, `eodinga.gui.*`, `eodinga.launcher.*` | Expose the same engine through commands, the main window, and the hotkey launcher. |
 
+## Command Ownership Map
+
+| User-facing entry point | Primary modules | State touched |
+| --- | --- | --- |
+| `eodinga index` | `eodinga.__main__`, `eodinga.core.walker`, `eodinga.index.writer`, `eodinga.index.storage` | staged database build, atomic swap, FTS refresh |
+| `eodinga watch` | `eodinga.__main__`, `eodinga.core.watcher`, `eodinga.index.writer` | incremental metadata/content updates in the live index |
+| `eodinga search` | `eodinga.query.dsl`, `eodinga.query.compiler`, `eodinga.query.executor`, `eodinga.query.ranker` | read-only query execution against the active database |
+| `eodinga stats --json` | `eodinga.observability`, `eodinga.index.reader` | counter snapshots plus active index metadata |
+| `eodinga doctor` | `eodinga.__main__`, config/path helpers, dependency probes | environment diagnostics only; no user-root writes |
+| `eodinga gui` / launcher | `eodinga.gui.app`, `eodinga.gui.launcher`, shared query/index modules | config state, search state, and the same shared index path as the CLI |
+
 ## Why The Pieces Are Split This Way
 
 - `core.*` owns contact with the real filesystem so read-only guarantees stay centralized.
@@ -242,6 +253,16 @@ runtime code / CLI / UI changes
 | Runtime settings | config file under platform app dirs | Keeps user-visible launcher/gui behavior outside the index. |
 | Derived docs assets | `docs/man/` and `docs/screenshots/` | Versioned release inputs audited by tests instead of ad-hoc notes. |
 
+## State Transition Matrix
+
+| Event | Reads | Writes | Visible result |
+| --- | --- | --- | --- |
+| Initial cold start | configured roots, parser callbacks, exclude rules | staged `.index.db.next`, then live DB swap | first queryable index snapshot |
+| Watcher update | filesystem event batch, live DB rows | live `files`/FTS rows in one transaction | next search sees changed files without a rebuild |
+| Search request | query string, config-selected DB path | none | ranked result list for CLI, GUI, or launcher |
+| Startup recovery | live DB, `.recover`, `.next`, `-wal` sidecars | staged recovery DB and final atomic rename | recovered index opens without mutating indexed roots |
+| Docs asset refresh | argparse parser or Qt docs widgets | `docs/man/eodinga.1`, `docs/screenshots/*.png` | shipped docs stay aligned with runtime surfaces |
+
 ## Operational Model
 
 - Cold start is walker-driven: discover roots, write metadata in bulk, then parse supported documents for content rows.
@@ -359,3 +380,13 @@ When an operator reports stale or surprising results, the shortest architecture-
 3. `eodinga watch` or `eodinga index --rebuild` depending on whether the issue is live-update lag or a one-shot recovery need.
 
 That sequence mirrors the architecture itself: active DB selection, environment validation, then either watcher-driven incremental repair or staged rebuild.
+
+## Symptom-To-Subsystem Map
+
+| Symptom | Start with | Likely owner |
+| --- | --- | --- |
+| CLI and launcher disagree on the same query | compare active DB paths via `eodinga stats --json` | shared query/index stack, unless the surfaces point at different config or DB paths |
+| Results stay stale after filesystem edits | inspect watcher state, then rebuild if needed | `eodinga.core.watcher` or `eodinga.index.writer` |
+| Startup reports recovery work repeatedly | inspect `.next`, `.recover`, and WAL handling | `eodinga.index.storage` |
+| Query shape parses but ranking feels wrong | inspect compiler fallback and rank fusion | `eodinga.query.compiler` plus `eodinga.query.ranker` |
+| Docs/man page drift from the runtime | regenerate docs assets and rerun docs tests | `scripts/generate_manpage.py`, `scripts/render_docs_screenshots.py`, `tests/unit/test_docs_assets.py` |

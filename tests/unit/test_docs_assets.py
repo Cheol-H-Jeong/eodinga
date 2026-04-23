@@ -116,6 +116,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Runtime Flow" in architecture
     assert "## Data Flow Diagram" in architecture
     assert "## Module Map" in architecture
+    assert "## Command Ownership Map" in architecture
     assert "## Index Storage" in architecture
     assert "## SQLite Schema Snapshot" in architecture
     assert "## Index Lifecycle Sequence" in architecture
@@ -127,8 +128,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Documentation Asset Flow" in architecture
     assert "## Release Input Map" in architecture
     assert "## State Ownership" in architecture
+    assert "## State Transition Matrix" in architecture
     assert "## Failure Domains" in architecture
     assert "## Operator Debug Path" in architecture
+    assert "## Symptom-To-Subsystem Map" in architecture
     assert "## Packaging Surfaces" in architecture
     assert "## Packaging Review Path" in architecture
     assert "compressed changelog" in architecture
@@ -136,6 +139,8 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "scripts/render_docs_screenshots.py" in architecture
     assert "tests/unit/test_docs_assets.py" in architecture
     assert "packaging/dist/" in architecture
+    assert "eodinga stats --json" in architecture
+    assert "CLI and launcher disagree on the same query" in architecture
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
