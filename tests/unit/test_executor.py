@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import unicodedata
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, tzinfo
 from pathlib import Path
 from typing import Mapping
 from zoneinfo import ZoneInfo
@@ -706,7 +706,7 @@ def test_execute_open_ended_relative_date_ranges(
 
     class _FrozenDateTime(datetime):
         @classmethod
-        def now(cls, tz: object | None = None) -> datetime:
+        def now(cls, tz: tzinfo | None = None) -> datetime:
             current = cls(2026, 4, 23, 9, 30, tzinfo=seoul)
             return current if tz is None else current.astimezone(tz)
 
