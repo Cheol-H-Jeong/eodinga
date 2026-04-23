@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import cast
+from typing import Any, cast
 
 from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
 from PySide6.QtGui import QKeyEvent, QKeySequence, QShortcut
@@ -161,6 +161,15 @@ class LauncherPanel(QWidget):
             shortcut = QShortcut(QKeySequence(f"Alt+{index + 1}"), self)
             shortcut.activated.connect(lambda row=index: self.activate_result_at(row))
             self._quick_pick_shortcuts.append(shortcut)
+        self._action_buttons = [
+            self.action_bar.open_button,
+            self.action_bar.reveal_button,
+            self.action_bar.copy_path_button,
+            self.action_bar.copy_name_button,
+            self.action_bar.properties_button,
+        ]
+        for button in self._action_buttons:
+            button.installEventFilter(self)
         if self._state is not None:
             self._state.recent_queries_changed.connect(self.set_recent_queries)
             self._state.pinned_queries_changed.connect(self.set_pinned_queries)
@@ -179,11 +188,13 @@ class LauncherPanel(QWidget):
     def set_recent_queries(self, queries: list[str]) -> None:
         self._recent_queries = queries
         self.recent_queries_row.set_queries(queries[:5])
+        self._install_chip_button_filters()
         self._refresh_empty_state()
 
     def set_pinned_queries(self, queries: list[str]) -> None:
         self._pinned_queries = queries
         self.pinned_queries_row.set_queries(queries[:5])
+        self._install_chip_button_filters()
         self._refresh_empty_state()
 
     def set_indexing_status(self, status: IndexingStatus) -> None:
@@ -206,7 +217,7 @@ class LauncherPanel(QWidget):
         self.result_activated.emit(hit)
 
     def focus_query_field(self) -> None:
-        self.query_field.setFocus()
+        self.query_field.setFocus(Qt.FocusReason.TabFocusReason)
         self.query_field.selectAll()
 
     def select_query_text(self) -> None:
@@ -243,9 +254,9 @@ class LauncherPanel(QWidget):
         self._navigate_recent_queries(1)
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusIn:
+        if watched in {self.query_field, self.result_list, *self._action_buttons, *self._chip_buttons()} and event.type() == QEvent.Type.FocusIn:
             self._refresh_shortcut_hint()
-        if watched in {self.query_field, self.result_list} and event.type() == QEvent.Type.FocusOut:
+        if watched in {self.query_field, self.result_list, *self._action_buttons, *self._chip_buttons()} and event.type() == QEvent.Type.FocusOut:
             QTimer.singleShot(0, self._refresh_shortcut_hint)
         if event.type() != QEvent.Type.KeyPress:
             return super().eventFilter(watched, event)
@@ -254,6 +265,10 @@ class LauncherPanel(QWidget):
             return self._handle_query_field_keypress(key_event)
         if watched is self.result_list:
             return self._handle_result_list_keypress(key_event)
+        if watched in self._chip_buttons():
+            return self._handle_chip_button_keypress(watched, key_event)
+        if watched in self._action_buttons:
+            return self._handle_action_button_keypress(watched, key_event)
         return super().eventFilter(watched, event)
 
     def _emit_activation(self, row: int) -> None:
@@ -333,10 +348,14 @@ class LauncherPanel(QWidget):
                 hint = "Refine with ext:, date:, size:, or content: filters. Alt+Up recalls recent queries."
             else:
                 hint = "Type a filename, path, or content term. Alt+Up recalls recent queries."
+        elif any(button.hasFocus() for button in self._chip_buttons()):
+            hint = "Enter applies the focused chip. Tab moves through chips, then results. Shift+Tab returns to the filter. Alt+Up recalls recent queries."
+        elif any(button.hasFocus() for button in self._action_buttons):
+            hint = "Enter presses the focused action. Tab moves across actions. Shift+Tab returns to results. Alt+C copies path. Alt+N copies name. Ctrl+L returns to the filter."
         elif self.result_list.hasFocus():
-            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
+            hint = "Enter opens. Shift+Enter shows properties. Ctrl+Enter reveals. Tab moves to actions. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Up/Down wraps. Home/End and PgUp/PgDn jump. Ctrl+A or Ctrl+L returns to filter."
         else:
-            hint = "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
+            hint = "Tab moves through chips, then results. Down/Up navigate. Home/End and PgUp/PgDn jump. Enter opens the top hit. Shift+Enter shows properties. Alt+C copies path. Alt+N copies name. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
         self.shortcut_label.setText(hint)
 
     def _current_hit(self) -> SearchHit | None:
@@ -345,7 +364,20 @@ class LauncherPanel(QWidget):
         return self.model.item_at(row)
 
     def _handle_query_field_keypress(self, event: QKeyEvent) -> bool:
-        if self.model.rowCount() == 0:
+        has_results = self.model.rowCount() > 0
+        if event.key() == Qt.Key.Key_Tab:
+            chip = self._first_visible_chip_button()
+            if chip is not None:
+                chip.setFocus(Qt.FocusReason.TabFocusReason)
+                return True
+            if not has_results:
+                return False
+            self.result_list.setFocus(Qt.FocusReason.TabFocusReason)
+            current_index = self.result_list.currentIndex()
+            if not current_index.isValid() and self.model.rowCount() > 0:
+                self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
+            return True
+        if not has_results:
             return False
         if event.key() == Qt.Key.Key_Down:
             self.result_list.setFocus()
@@ -377,8 +409,8 @@ class LauncherPanel(QWidget):
             self.result_list.setFocus()
             self._move_selection(-self._page_step())
             return True
-        if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
-            self.result_list.setFocus()
+        if event.key() == Qt.Key.Key_Backtab:
+            self.result_list.setFocus(Qt.FocusReason.BacktabFocusReason)
             current_index = self.result_list.currentIndex()
             if not current_index.isValid() and self.model.rowCount() > 0:
                 self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(0, 0)))
@@ -386,8 +418,19 @@ class LauncherPanel(QWidget):
         return False
 
     def _handle_result_list_keypress(self, event: QKeyEvent) -> bool:
-        if event.key() in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
-            self.query_field.setFocus()
+        if event.key() == Qt.Key.Key_Tab:
+            action = self._first_enabled_action_button()
+            if action is not None:
+                action.setFocus(Qt.FocusReason.TabFocusReason)
+                return True
+            self.query_field.setFocus(Qt.FocusReason.TabFocusReason)
+            return True
+        if event.key() == Qt.Key.Key_Backtab:
+            chip = self._last_visible_chip_button()
+            if chip is not None:
+                chip.setFocus(Qt.FocusReason.BacktabFocusReason)
+                return True
+            self.query_field.setFocus(Qt.FocusReason.BacktabFocusReason)
             return True
         if event.key() == Qt.Key.Key_Down:
             self._move_selection(1, wrap=True)
@@ -408,6 +451,54 @@ class LauncherPanel(QWidget):
             self._move_selection(-self._page_step())
             return True
         return False
+
+    def _handle_action_button_keypress(self, watched: QObject, event: QKeyEvent) -> bool:
+        if event.key() not in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
+            return False
+        try:
+            index = self._action_buttons.index(cast(Any, watched))
+        except ValueError:
+            return False
+        if event.key() == Qt.Key.Key_Tab:
+            next_button = self._next_enabled_action_button(index + 1)
+            if next_button is not None:
+                next_button.setFocus(Qt.FocusReason.TabFocusReason)
+                return True
+            self.query_field.setFocus(Qt.FocusReason.TabFocusReason)
+            return True
+        previous_button = self._previous_enabled_action_button(index - 1)
+        if previous_button is not None:
+            previous_button.setFocus(Qt.FocusReason.BacktabFocusReason)
+            return True
+        self.result_list.setFocus(Qt.FocusReason.BacktabFocusReason)
+        return True
+
+    def _handle_chip_button_keypress(self, watched: QObject, event: QKeyEvent) -> bool:
+        if event.key() not in {Qt.Key.Key_Tab, Qt.Key.Key_Backtab}:
+            return False
+        buttons = self._chip_buttons()
+        try:
+            index = buttons.index(cast(Any, watched))
+        except ValueError:
+            return False
+        if event.key() == Qt.Key.Key_Tab:
+            next_button = self._next_chip_button(buttons, index + 1)
+            if next_button is not None:
+                next_button.setFocus(Qt.FocusReason.TabFocusReason)
+                return True
+            if self.model.rowCount() > 0:
+                self.result_list.setFocus(Qt.FocusReason.TabFocusReason)
+                if not self.result_list.currentIndex().isValid():
+                    self._set_selection(0)
+                return True
+            self.query_field.setFocus(Qt.FocusReason.TabFocusReason)
+            return True
+        previous_button = self._previous_chip_button(buttons, index - 1)
+        if previous_button is not None:
+            previous_button.setFocus(Qt.FocusReason.BacktabFocusReason)
+            return True
+        self.query_field.setFocus(Qt.FocusReason.BacktabFocusReason)
+        return True
 
     def _move_selection(self, delta: int, *, wrap: bool = False) -> None:
         if self.model.rowCount() == 0:
@@ -489,3 +580,51 @@ class LauncherPanel(QWidget):
         self.query_field.setFocus()
         self._set_query_from_history(query)
         self._flush_pending_query()
+
+    def _first_visible_chip_button(self):
+        for row in (self.pinned_queries_row, self.recent_queries_row):
+            button = row.first_focusable_button()
+            if button is not None:
+                return button
+        return None
+
+    def _last_visible_chip_button(self):
+        for row in (self.recent_queries_row, self.pinned_queries_row):
+            button = row.last_focusable_button()
+            if button is not None:
+                return button
+        return None
+
+    def _first_enabled_action_button(self):
+        return self._next_enabled_action_button(0)
+
+    def _install_chip_button_filters(self) -> None:
+        for button in self._chip_buttons():
+            button.installEventFilter(self)
+
+    def _chip_buttons(self):
+        return [*self.pinned_queries_row.buttons, *self.recent_queries_row.buttons]
+
+    def _next_chip_button(self, buttons, start_index: int):
+        for button in buttons[start_index:]:
+            if button.isVisible() and button.isEnabled():
+                return button
+        return None
+
+    def _previous_chip_button(self, buttons, start_index: int):
+        for button in reversed(buttons[: start_index + 1]):
+            if button.isVisible() and button.isEnabled():
+                return button
+        return None
+
+    def _next_enabled_action_button(self, start_index: int):
+        for button in self._action_buttons[start_index:]:
+            if button.isVisible() and button.isEnabled():
+                return button
+        return None
+
+    def _previous_enabled_action_button(self, start_index: int):
+        for button in reversed(self._action_buttons[: start_index + 1]):
+            if button.isVisible() and button.isEnabled():
+                return button
+        return None

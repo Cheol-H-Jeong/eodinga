@@ -24,6 +24,7 @@ class QueryChipRow(QWidget):
         self._label = QLabel(label, self)
         self._label.setProperty("role", "secondary")
         self._label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self._label.setAccessibleName(f"{label} launcher query label")
         layout.addWidget(self._label)
 
         self._chips_container = QWidget(self)
@@ -55,3 +56,15 @@ class QueryChipRow(QWidget):
     @property
     def buttons(self) -> list[SecondaryButton]:
         return list(self._buttons)
+
+    def first_focusable_button(self) -> SecondaryButton | None:
+        for button in self._buttons:
+            if button.isVisible() and button.isEnabled():
+                return button
+        return None
+
+    def last_focusable_button(self) -> SecondaryButton | None:
+        for button in reversed(self._buttons):
+            if button.isVisible() and button.isEnabled():
+                return button
+        return None

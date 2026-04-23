@@ -82,9 +82,9 @@ def test_launcher_keyboard_flow_supports_arrow_navigation_and_tab_return(qapp) -
     assert activated == ["beta.txt"]
     assert revealed == ["beta.txt"]
 
-    QTest.keyClick(launcher.result_list, Qt.Key.Key_Tab)
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Backtab)
     assert launcher.query_field.hasFocus()
-    assert "Tab moves to results" in launcher.shortcut_label.text()
+    assert "Tab moves through chips, then results" in launcher.shortcut_label.text()
 
 
 def test_launcher_tab_moves_focus_into_results_without_mouse(qapp) -> None:
@@ -108,6 +108,37 @@ def test_launcher_tab_moves_focus_into_results_without_mouse(qapp) -> None:
 
     assert launcher.result_list.hasFocus()
     assert launcher.result_list.currentIndex().row() == 0
+
+
+def test_launcher_tab_visits_visible_query_chips_before_results(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/budget.txt"), parent_path=Path("/tmp"), name="budget.txt")][:limit]
+            if query
+            else [],
+            total=1 if query else 0,
+            elapsed_ms=1.5,
+        )
+
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+    launcher = LauncherWindow(search_fn=search_fn, state=state)
+    launcher.show()
+    launcher.query_field.setText("budget")
+    _wait(60)
+    launcher.query_field.setFocus()
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Tab)
+    _wait(10)
+    assert launcher.pinned_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[0], Qt.Key.Key_Tab)
+    _wait(10)
+    assert launcher.recent_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.recent_queries_row.buttons[0], Qt.Key.Key_Tab)
+    _wait(10)
+    assert launcher.result_list.hasFocus()
 
 
 def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) -> None:
@@ -141,6 +172,41 @@ def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) ->
 
     QTest.keyClick(launcher.result_list, Qt.Key.Key_Home)
     assert launcher.result_list.currentIndex().row() == 0
+
+
+def test_launcher_tab_moves_from_results_into_action_bar_and_back(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+            ][:limit],
+            total=2,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("a")
+    _wait(60)
+    launcher.result_list.setFocus()
+
+    QTest.keyClick(launcher.result_list, Qt.Key.Key_Tab)
+    _wait(10)
+    assert launcher.action_bar.open_button.hasFocus()
+
+    QTest.keyClick(launcher.action_bar.open_button, Qt.Key.Key_Tab)
+    _wait(10)
+    assert launcher.action_bar.reveal_button.hasFocus()
+
+    QTest.keyClick(launcher.action_bar.reveal_button, Qt.Key.Key_Backtab)
+    _wait(10)
+    assert launcher.action_bar.open_button.hasFocus()
+
+    QTest.keyClick(launcher.action_bar.open_button, Qt.Key.Key_Backtab)
+    _wait(10)
+    assert launcher.result_list.hasFocus()
 
 
 def test_launcher_result_list_wraps_with_up_and_down_keys(qapp) -> None:
@@ -731,3 +797,15 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.shortcut_label.accessibleName() == "Launcher shortcut guidance"
     assert launcher.status_label.accessibleName() == "Launcher result summary"
     assert launcher.status_chip.accessibleName() == "Status"
+    assert launcher.pinned_queries_row.buttons == []
+    assert launcher.recent_queries_row.buttons == []
+
+
+def test_launcher_accessible_names_cover_query_chip_labels_and_buttons(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+
+    assert launcher.pinned_queries_row.buttons[0].accessibleName() == "Use query ext:pdf"
+    assert launcher.recent_queries_row.buttons[0].accessibleName() == "Use query budget"
