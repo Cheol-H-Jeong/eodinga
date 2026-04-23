@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.379 - 2026-04-23
+
+- Added visible numeric badges to the top nine launcher results so the existing `Alt+1` through `Alt+9` quick-pick actions are discoverable directly in the result list.
+- Exposed accessible text and descriptions for launcher result rows, including quick-pick hints and snippet text without FTS marker brackets, so screen readers do not depend on rendered HTML alone.
+
 ## 0.1.375 - 2026-04-23
 
 - Added a persisted `launcher.frameless` preference so the popup can start with or without window chrome instead of forcing the frameless shell on every launch.
