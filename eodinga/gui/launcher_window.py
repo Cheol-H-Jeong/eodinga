@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from PySide6.QtCore import QPoint, QRect, QTimer, Qt, Signal
 from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
@@ -153,7 +154,7 @@ class LauncherWindow(LauncherPanel):
         return QRect(bounded_x, bounded_y, bounded_width, bounded_height)
 
     def _available_geometry_for_point(self, x: int | None, y: int | None) -> QRect:
-        app = QApplication.instance()
+        app = cast(QApplication | None, QApplication.instance())
         screen = None
         if app is not None and x is not None and y is not None:
             screen = app.screenAt(QPoint(x, y))
