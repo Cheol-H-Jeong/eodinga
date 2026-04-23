@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.415 - 2026-04-23
+
+- Accepted spaced range syntax in query operators, so filters like `date:2026-01-01 .. 2026-01-03`, `date:.. 2026-01-03`, and `size:100 .. 500K` compile as intended instead of breaking into stray terms.
+- Normalized relative date keywords to accept case and underscore variants such as `date:Today` and `date:this_month`, and allowed relative keywords to serve as range endpoints such as `date:yesterday..today`.
+- Relaxed `is:` parsing with normalized aliases including `folder` and `link`, keeping canonical semantics while making CLI and launcher searches more forgiving.
+
 ## 0.1.410 - 2026-04-23
 
 - Expanded `stats --json` so the typed payload now exposes watcher flush/backpressure metrics and logging sink counters directly, without forcing operators to decode raw counter keys.

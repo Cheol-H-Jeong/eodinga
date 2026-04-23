@@ -230,7 +230,7 @@ def test_compile_reuses_cached_queries() -> None:
         "regex:true [a-",
         "size:>tenM report",
         "date:2026-01-01..bogus report",
-        "is:folder report",
+        "is:bundle report",
     ],
 )
 def test_compile_invalid_operator_values_raise_query_syntax_error(query: str) -> None:
