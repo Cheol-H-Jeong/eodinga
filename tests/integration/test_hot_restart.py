@@ -278,3 +278,44 @@ def test_hot_restart_reopen_multi_root_delete_stays_root_scoped(tmp_path: Path) 
     assert alpha_hits == set()
     assert beta_hits == {survivor}
     assert remaining_hits == {survivor}
+
+
+def test_hot_restart_open_index_resumes_interrupted_build_and_accepts_live_updates(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "workspace"
+    target_db = tmp_path / "database" / "index.db"
+    staged_db = tmp_path / "database" / ".index.db.next"
+    root.mkdir()
+    existing = root / "recovered.txt"
+    existing.write_text("interrupted staged build recovery\n", encoding="utf-8")
+
+    rebuild_index(target_db, [RootConfig(path=root)], content_enabled=True)
+    rebuild_index(staged_db, [RootConfig(path=root)], content_enabled=True)
+    target_db.unlink()
+    assert staged_db.exists()
+
+    reopened = open_index(target_db)
+    service = WatchService()
+    try:
+        initial_hits = [hit.file.path for hit in search(reopened, "staged build recovery", limit=3).hits]
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+
+        created = root / "after-build-resume.txt"
+        created.write_text("live update after staged resume\n", encoding="utf-8")
+        elapsed = _wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "live update after staged resume",
+            created,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert initial_hits == [existing]
+    assert elapsed <= 0.5
+    assert not staged_db.exists()
