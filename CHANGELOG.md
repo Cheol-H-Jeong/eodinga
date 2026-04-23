@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.573 - 2026-04-23
+## 0.1.576 - 2026-04-23
 
 - Expanded query phrase matching so quoted phrases now cross underscore boundaries consistently, and path-only phrase queries fall back to record filtering when FTS candidates are empty.
 - Added open-ended size range support for `size:..N` and `size:N..`, matching the existing date-range ergonomics for upper-bound-only and lower-bound-only filters.
