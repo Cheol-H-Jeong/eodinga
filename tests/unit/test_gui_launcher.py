@@ -607,6 +607,27 @@ def test_launcher_query_chips_hide_existing_terms_from_suggestions(qapp) -> None
     assert "date:this-week" in chips
 
 
+def test_launcher_query_chips_only_hide_exact_existing_terms(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState(pinned_queries=["ext:pdf"]))
+    launcher.show()
+
+    launcher.query_field.setText("notes-ext:pdfx")
+    _wait(10)
+
+    assert "ext:pdf" in launcher.query_chip_bar.chip_labels()
+
+
+def test_launcher_query_chip_click_treats_partial_matches_as_distinct_terms(qapp) -> None:
+    launcher = LauncherWindow(state=LauncherState(pinned_queries=["ext:pdf"]))
+    launcher.show()
+
+    chip = next(button for button in launcher.query_chip_bar.findChildren(QPushButton) if button.text() == "ext:pdf")
+    launcher.query_field.setText("notes-ext:pdfx")
+    QTest.mouseClick(chip, Qt.MouseButton.LeftButton)
+
+    assert launcher.query_field.text() == "notes-ext:pdfx ext:pdf"
+
+
 def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     launcher = LauncherWindow()
     launcher.show()

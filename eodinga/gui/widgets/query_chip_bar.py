@@ -10,6 +10,10 @@ from eodinga.gui.design import SPACE_4, SPACE_8
 DEFAULT_CHIPS = ("ext:pdf", "date:this-week", "size:>10M", "content:invoice")
 
 
+def _query_terms(query: str) -> set[str]:
+    return {term.casefold() for term in query.split() if term.strip()}
+
+
 class QueryChipBar(QWidget):
     chip_selected = Signal(str)
 
@@ -49,17 +53,17 @@ class QueryChipBar(QWidget):
 
 
 def suggested_chips(query: str, pinned_queries: list[str], recent_queries: list[str]) -> list[str]:
-    query_text = query.strip().casefold()
+    query_terms = _query_terms(query)
     chips: list[str] = []
     for chip in pinned_queries:
         normalized = chip.strip()
-        if normalized and normalized.casefold() not in query_text and normalized not in chips:
+        if normalized and normalized.casefold() not in query_terms and normalized not in chips:
             chips.append(normalized)
     for chip in recent_queries:
         normalized = chip.strip()
-        if normalized and normalized.casefold() not in query_text and normalized not in chips:
+        if normalized and normalized.casefold() not in query_terms and normalized not in chips:
             chips.append(normalized)
     for chip in DEFAULT_CHIPS:
-        if chip.casefold() not in query_text and chip not in chips:
+        if chip.casefold() not in query_terms and chip not in chips:
             chips.append(chip)
     return chips[:6]

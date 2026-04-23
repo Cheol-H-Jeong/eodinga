@@ -175,7 +175,7 @@ class LauncherPanel(QWidget):
         current = self.query_field.text().strip()
         if not current:
             next_query = chip
-        elif chip in current.split():
+        elif chip.casefold() in {term.casefold() for term in current.split()}:
             next_query = current
         else:
             next_query = f"{current} {chip}"
