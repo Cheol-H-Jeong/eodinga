@@ -28,6 +28,7 @@ _BANNED_CALLS = {
     "urllib.request.urlopen",
 }
 _BANNED_SUBPROCESS_COMMANDS = {"curl", "wget"}
+_SHELL_COMMAND_FLAGS = {"-c", "-lc", "/c", "/C", "-Command", "-command"}
 _SKIPPED_DIRS = {".git", ".pytest_cache", ".venv", "__pycache__"}
 _SKIPPED_PATHS = {"tests/safety/test_no_network.py"}
 _SKIPPED_PREFIXES = {"packaging/dist/", "tests/fixtures/"}
@@ -101,6 +102,22 @@ def _subprocess_command_name(node: ast.AST) -> str | None:
     return _string_literal(node)
 
 
+def _shell_wrapped_command(node: ast.AST) -> str | None:
+    if not isinstance(node, (ast.List, ast.Tuple)) or len(node.elts) < 3:
+        return None
+    executable = _string_literal(node.elts[0])
+    flag = _string_literal(node.elts[1])
+    command = _string_literal(node.elts[2])
+    if executable is None or flag not in _SHELL_COMMAND_FLAGS or command is None:
+        return None
+    executable_name = Path(executable).name.lower()
+    if executable_name.endswith(".exe"):
+        executable_name = executable_name[:-4]
+    if executable_name not in {"bash", "cmd", "dash", "ksh", "powershell", "pwsh", "sh", "zsh"}:
+        return None
+    return _shell_uses_banned_command(command)
+
+
 def _shell_uses_banned_command(command: str) -> str | None:
     try:
         tokens = shlex.split(command, posix=True)
@@ -148,6 +165,12 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
                 "subprocess.check_output",
                 "subprocess.Popen",
             } and node.args:
+                shell_wrapped_command = _shell_wrapped_command(node.args[0])
+                if shell_wrapped_command is not None:
+                    violations.append(
+                        f"{path.relative_to(root)}:{node.lineno}:subprocess {shell_wrapped_command}"
+                    )
+                    continue
                 command = _subprocess_command_name(node.args[0])
                 if command in _BANNED_SUBPROCESS_COMMANDS:
                     violations.append(
@@ -182,6 +205,25 @@ def test_python_source_scan_flags_shell_wrapped_network_commands(tmp_path: Path)
         "import subprocess\n"
         "subprocess.run('curl https://example.com', shell=True)\n"
         "subprocess.Popen('wget.exe https://example.com', shell=True)\n",
+        encoding="utf-8",
+    )
+
+    violations = _scan_python_source(source, tmp_path)
+
+    assert violations == [
+        "candidate.py:2:subprocess curl",
+        "candidate.py:3:subprocess wget",
+    ]
+
+
+def test_python_source_scan_flags_shell_interpreter_wrapped_network_commands(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "candidate.py"
+    source.write_text(
+        "import subprocess\n"
+        "subprocess.run(['/bin/sh', '-c', 'curl https://example.com'])\n"
+        "subprocess.Popen(['bash', '-lc', 'wget https://example.com'])\n",
         encoding="utf-8",
     )
 
