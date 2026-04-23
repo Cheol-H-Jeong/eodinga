@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.363 - 2026-04-23
+
+- Added query-result observability so `eodinga stats --json` now reports empty-query counts alongside a `query_result_count` histogram, making zero-hit regressions and broad-match spikes visible without parsing raw counters.
+- Enriched crash artifacts with an inline runtime metrics snapshot and exposed a recent crash-log inventory in `stats --json`, giving operators immediate context about what failed and where the latest `crash-*.log` files landed.
+- Hardened observability regressions around crash inventory isolation and the new stats fields so runtime health checks stay deterministic under real user state.
+
 ## 0.1.359 - 2026-04-23
 
 - Rendered the staged Debian `DEBIAN/control` file directly from the checked-in template, with version and architecture tokens enforced by the dry-run audit so package metadata no longer drifts from the Debian recipe.

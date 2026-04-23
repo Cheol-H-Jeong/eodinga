@@ -93,7 +93,9 @@ def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
     assert f"platform={sys.platform}" in contents
     assert f"cwd={Path.cwd()}" in contents
     assert 'argv=["search", "boom"]' in contents
-    assert 'metrics={"counters": {}, "generated_at":' in contents
+    assert "metrics=" in contents
+    assert '"generated_at":' in contents
+    assert '"histograms":' in contents
 
 
 def test_write_crash_log_uses_env_override(tmp_path: Path, monkeypatch) -> None:
