@@ -790,6 +790,38 @@ def test_open_index_raises_when_interrupted_build_resume_fails(
         open_index(path)
 
 
+def test_open_index_ignores_cleaned_uninitialized_recovery_stage(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+    staged.write_bytes(b"")
+
+    reopened = open_index(path)
+    try:
+        rows = reopened.execute("SELECT COUNT(*) FROM roots").fetchone()
+        assert rows is not None
+        assert int(rows[0]) == 0
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
+
+
+def test_open_index_ignores_cleaned_uninitialized_build_stage(tmp_path: Path) -> None:
+    path = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.next"
+    staged.write_bytes(b"")
+
+    reopened = open_index(path)
+    try:
+        rows = reopened.execute("SELECT COUNT(*) FROM roots").fetchone()
+        assert rows is not None
+        assert int(rows[0]) == 0
+    finally:
+        reopened.close()
+
+    assert not staged.exists()
+
+
 def test_open_index_cleans_orphaned_recovery_sidecars_before_open(tmp_path: Path) -> None:
     path = tmp_path / "index.db"
     staged = tmp_path / ".index.db.recover"
