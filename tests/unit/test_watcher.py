@@ -240,6 +240,24 @@ def test_watcher_drain_flushes_pending_events(tmp_path: Path) -> None:
         service.queue.get_nowait()
 
 
+def test_watcher_stop_and_drain_returns_flushed_events(tmp_path: Path) -> None:
+    service = WatchService()
+    target = tmp_path / "pending-stop.txt"
+
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=target,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+
+    drained = service.stop_and_drain()
+
+    assert [(event.event_type, event.path) for event in drained] == [("created", target)]
+
+
 def test_watcher_move_then_source_delete_keeps_single_move_event(tmp_path: Path) -> None:
     service = WatchService()
     source = tmp_path / "before.txt"

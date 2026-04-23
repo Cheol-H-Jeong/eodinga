@@ -125,6 +125,9 @@ class WatchService:
         self._observers[root] = observer
 
     def stop(self) -> None:
+        self.stop_and_drain()
+
+    def stop_and_drain(self) -> list[WatchEvent]:
         self._stop.set()
         for observer in self._observers.values():
             observer.stop()
@@ -132,9 +135,12 @@ class WatchService:
             observer.join(timeout=1)
         if self._flush_thread is not None and self._flush_thread.is_alive():
             self._flush_thread.join(timeout=1)
+        self.flush()
+        drained = self.drain()
         self._flush_thread = None
         self._observers.clear()
         self._reset_state()
+        return drained
 
     def flush(self) -> None:
         self._flush_ready(force=True)

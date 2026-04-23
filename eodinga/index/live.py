@@ -31,10 +31,11 @@ def shutdown_live_updates(
     *,
     record_loader: RecordLoader,
 ) -> LiveUpdateDrainResult:
-    try:
-        return apply_live_updates(service, writer, record_loader=record_loader, flush=True)
-    finally:
-        service.stop()
+    events = service.stop_and_drain()
+    if not events:
+        return LiveUpdateDrainResult(drained_events=0, processed_events=0)
+    processed = writer.apply_events(events, record_loader=record_loader)
+    return LiveUpdateDrainResult(drained_events=len(events), processed_events=processed)
 
 
 __all__ = ["LiveUpdateDrainResult", "apply_live_updates", "shutdown_live_updates"]

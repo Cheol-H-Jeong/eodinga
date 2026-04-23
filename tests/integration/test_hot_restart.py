@@ -3,13 +3,14 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 from queue import Empty
-from time import monotonic
+from time import monotonic, sleep
 
 from eodinga.config import RootConfig
 from eodinga.common import PathRules
 from eodinga.content.registry import parse
 from eodinga.core.watcher import WatchService
 from eodinga.index.build import rebuild_index
+from eodinga.index.live import shutdown_live_updates
 from eodinga.index.storage import has_stale_wal, open_index
 from eodinga.index.writer import IndexWriter
 from eodinga.core.walker import walk_batched
@@ -198,3 +199,69 @@ def test_hot_restart_reopen_multi_root_keeps_queries_and_accepts_live_updates(tm
     assert elapsed <= 0.5
     assert reopened_hits == {existing_a, existing_b}
     assert reopened_beta_hits == {existing_b}
+
+
+def test_hot_restart_shutdown_persists_pending_create_without_rewalk(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    existing = root / "existing.txt"
+    existing.write_text("persisted baseline\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+        sleep(0.05)
+
+        created = root / "pending-create.txt"
+        created.write_text("restart pending create\n", encoding="utf-8")
+        sleep(0.05)
+
+        drained = shutdown_live_updates(service, writer, record_loader=make_record)
+    finally:
+        conn.close()
+
+    reopened = open_index(db_path)
+    try:
+        hits = [hit.file.path for hit in search(reopened, "restart pending create", limit=3).hits]
+    finally:
+        reopened.close()
+
+    assert drained.drained_events >= 1
+    assert drained.processed_events >= 1
+    assert hits == [created]
+
+
+def test_hot_restart_shutdown_persists_pending_delete_without_rewalk(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    target = root / "pending-delete.txt"
+    target.write_text("restart pending delete\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root)
+        sleep(0.05)
+
+        target.unlink()
+        sleep(0.05)
+
+        drained = shutdown_live_updates(service, writer, record_loader=make_record)
+    finally:
+        conn.close()
+
+    reopened = open_index(db_path)
+    try:
+        hits = [hit.file.path for hit in search(reopened, "restart pending delete", limit=3).hits]
+    finally:
+        reopened.close()
+
+    assert drained.drained_events >= 1
+    assert hits == []
