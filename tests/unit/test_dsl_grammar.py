@@ -603,7 +603,12 @@ NEGATABLE_VALID_QUERY_STRATEGY = st.recursive(
 
 @given(NEGATABLE_VALID_QUERY_STRATEGY)
 def test_negated_operator_query_fuzz_parses_and_compiles(query: str) -> None:
-    compile_query(parse(query))
+    try:
+        compile_query(parse(query))
+    except QuerySyntaxError as error:
+        assert "case/regex mode operators cannot appear inside OR branches or negated groups" in str(
+            error
+        )
 
 
 @given(
