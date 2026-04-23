@@ -128,7 +128,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "date:this-week" in dsl
     assert "date:yesterday" in dsl
     assert "date:2026-04-01.." in dsl
+    assert "date:last-week..today" in dsl
     assert "created:..2026-04-23" in dsl
+    assert "modified:2026-04-01..yesterday" in dsl
     assert "modified:2026-04-23T09:15:30+00:00" in dsl
     assert "size:>10M" in dsl
     assert "is:duplicate" in dsl

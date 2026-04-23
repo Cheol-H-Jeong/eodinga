@@ -128,6 +128,8 @@ eodinga doctor
 - `size:>10M modified:today` : size and date filters
 - `size:100K..500K date:last-month` : bounded range plus date macro
 - `date:2026-04-01.. modified:..2026-04-23` : open-ended ISO ranges
+- `date:last-week..today` : macro-to-macro date range
+- `modified:2026-04-01..yesterday` : mixed ISO and macro endpoints
 - `modified:2026-04-23T09:15:30+00:00` : exact ISO datetime filter
 - `date:yesterday is:duplicate` : relative date plus duplicate detection
 - `is:empty -is:dir` : empty files only
@@ -150,6 +152,7 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Find recent files | `date:this-week` |
 | Start from an ISO date | `date:2026-04-01..` |
 | Stop at an ISO date | `created:..2026-04-23` |
+| Span relative periods | `date:last-week..today` |
 | Match one instant | `modified:2026-04-23T09:15:30+00:00` |
 | Find size ranges | `size:100K..500K` |
 | Find empty files only | `is:empty -is:dir` |
