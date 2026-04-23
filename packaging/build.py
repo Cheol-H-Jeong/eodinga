@@ -82,6 +82,16 @@ def _macro_value(text: str, macro_name: str) -> str | None:
     return match.group(1)
 
 
+def _has_pe_header(path: Path) -> bool:
+    if not path.exists() or not path.is_file():
+        return False
+    try:
+        with path.open("rb") as handle:
+            return handle.read(2) == b"MZ"
+    except OSError:
+        return False
+
+
 def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
     spec_namespace = _load_windows_spec_namespace()
     inno_text = INNO_SCRIPT.read_text(encoding="utf-8")
@@ -143,6 +153,10 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             "exe_exists": {
                 "cli": cli_exe_path.exists(),
                 "gui": gui_exe_path.exists(),
+            },
+            "exe_has_pe_header": {
+                "cli": _has_pe_header(cli_exe_path),
+                "gui": _has_pe_header(gui_exe_path),
             },
             "required_hiddenimports": spec_namespace.get("REQUIRED_HIDDEN_IMPORTS", []),
             "discovered_source_hiddenimports": spec_namespace.get("DISCOVERED_SOURCE_HIDDEN_IMPORTS", []),
@@ -251,6 +265,11 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
             errors.append("Windows build is missing the staged GUI executable")
         if not exe_exists.get("cli"):
             errors.append("Windows build is missing the staged CLI executable")
+        exe_has_pe_header = spec_payload.get("exe_has_pe_header", {})
+        if exe_exists.get("gui") and not exe_has_pe_header.get("gui"):
+            errors.append("Windows build GUI executable is not a valid PE artifact")
+        if exe_exists.get("cli") and not exe_has_pe_header.get("cli"):
+            errors.append("Windows build CLI executable is not a valid PE artifact")
     inno_payload = payload.get("inno_setup", {})
     required_flags = {
         "app_id_is_guid_macro": "Inno AppId macro is not a GUID template",
