@@ -866,6 +866,32 @@ def test_plain_query_caches_content_presence_probe_until_connection_changes(
     assert sum("SELECT 1 FROM content_map LIMIT 1" in statement for statement in statements) == 1
 
 
+def test_fetch_content_texts_chunks_and_deduplicates_ids(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/projects/alpha.txt", 1024, now, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, "/workspace/projects/beta.txt", 1024, now - 60, "txt", body_text="beta")
+    _insert_file(tmp_db, 3, "/workspace/projects/gamma.txt", 1024, now - 120, "txt", body_text="gamma")
+    tmp_db.commit()
+
+    monkeypatch.setattr(executor_module, "_CONTENT_TEXT_BATCH_SIZE", 2)
+
+    statements: list[str] = []
+    tmp_db.set_trace_callback(statements.append)
+    try:
+        texts = executor_module._fetch_content_texts(tmp_db, [1, 2, 2, 3])
+    finally:
+        tmp_db.set_trace_callback(None)
+
+    assert texts == {
+        1: "alpha.txt alpha alpha",
+        2: "beta.txt beta beta",
+        3: "gamma.txt gamma gamma",
+    }
+    assert sum("FROM content_map" in statement for statement in statements) == 2
+
+
 def test_plain_ascii_query_skips_substring_scan_when_fts_already_hits(
     tmp_db: sqlite3.Connection,
 ) -> None:

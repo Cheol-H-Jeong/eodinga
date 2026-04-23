@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict
 
 from eodinga.common import FileRecord
 from eodinga.observability import increment_counter, record_histogram
-from eodinga.query.compiler import CompiledBranch, CompiledQuery
+from eodinga.query.compiler import CompiledBranch, CompiledQuery, CompiledTextTerm
 from eodinga.query.ranker import rank_results
 
 
@@ -39,6 +39,67 @@ class _ContentPresenceCache(NamedTuple):
 
 
 _CONTENT_PRESENCE_BY_CONNECTION: dict[int, _ContentPresenceCache] = {}
+_CONTENT_TEXT_BATCH_SIZE = 256
+
+
+def _chunked_ids(
+    ids: tuple[int, ...],
+    size: int | None = None,
+) -> Iterable[tuple[int, ...]]:
+    chunk_size = size or _CONTENT_TEXT_BATCH_SIZE
+    for start in range(0, len(ids), chunk_size):
+        yield ids[start : start + chunk_size]
+
+
+@lru_cache(maxsize=256)
+def _positive_text_terms(
+    terms: tuple["CompiledTextTerm", ...],
+) -> tuple["CompiledTextTerm", ...]:
+    return tuple(term for term in terms if not term.negated)
+
+
+@lru_cache(maxsize=256)
+def _has_non_ascii_terms(
+    terms: tuple["CompiledTextTerm", ...],
+) -> bool:
+    return any(any(ord(char) > 127 for char in term.value) for term in terms)
+
+
+@lru_cache(maxsize=512)
+def _normalized_needles(
+    values: tuple[str, ...],
+    case_sensitive: bool,
+) -> tuple[str, ...]:
+    return tuple(_normalize_search_text(value, case_sensitive=case_sensitive) for value in values)
+
+
+@lru_cache(maxsize=256)
+def _content_texts_sql(chunk_size: int) -> str:
+    placeholders = ", ".join("?" for _ in range(chunk_size))
+    return f"""
+        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
+        FROM content_map
+        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
+        WHERE content_map.file_id IN ({placeholders})
+    """
+
+
+@lru_cache(maxsize=128)
+def _root_scope_variants(root_text: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    normalized = root_text.rstrip("/\\") or root_text
+    variants = tuple(
+        dict.fromkeys(
+            (
+                normalized,
+                normalized.replace("\\", "/"),
+                normalized.replace("/", "\\"),
+            )
+        )
+    )
+    like_variants = tuple(f"{variant}/%" for variant in variants) + tuple(
+        f"{variant}\\%" for variant in variants
+    )
+    return variants, like_variants
 
 
 @lru_cache(maxsize=256)
@@ -272,21 +333,7 @@ def _fetch_record_batch(
 def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     if root is None:
         return "", ()
-    root_text = str(root)
-    normalized = root_text.rstrip("/\\") or root_text
-    variants = tuple(
-        dict.fromkeys(
-            (
-                normalized,
-                normalized.replace("\\", "/"),
-                normalized.replace("/", "\\"),
-            )
-        )
-    )
-    exact_params = variants
-    like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
-        f"{variant}\\%" for variant in variants
-    )
+    exact_params, like_params = _root_scope_variants(str(root))
     exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
     like_clause = " OR ".join("files.path LIKE ?" for _ in like_params)
     return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
@@ -324,19 +371,19 @@ def _fetch_path_candidates(
 
 
 def _should_scan_path_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_terms = _positive_text_terms(branch.path_terms)
     if not positive_terms:
         return False
     if not fts_ids:
         return True
     # Keep the scan supplement for scripts where unicode token boundaries are less predictable.
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return _has_non_ascii_terms(positive_terms)
 
 
 def _fetch_path_candidates_fts(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
 ) -> tuple[list[int], dict[int, FileRecord]]:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_terms = _positive_text_terms(branch.path_terms)
     if not positive_terms:
         return [], {}
     path_query = " ".join(_fts_prefix_literal(term.value) for term in positive_terms)
@@ -361,10 +408,10 @@ def _fetch_path_candidates_fts(
 def _fetch_path_candidates_scan(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
 ) -> tuple[list[int], dict[int, FileRecord]]:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_terms = _positive_text_terms(branch.path_terms)
     if not positive_terms:
         return [], {}
-    if any(any(ord(char) > 127 for char in term.value) for term in positive_terms):
+    if _has_non_ascii_terms(positive_terms):
         return _fetch_path_candidates_python_scan(conn, branch, limit)
     params: list[object] = []
     prefix_term = positive_terms[0].value if positive_terms else ""
@@ -387,7 +434,7 @@ def _fetch_path_candidates_scan(
 def _fetch_path_candidates_python_scan(
     conn: sqlite3.Connection, branch: CompiledBranch, limit: int
 ) -> tuple[list[int], dict[int, FileRecord]]:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_terms = _positive_text_terms(branch.path_terms)
     if not positive_terms:
         return [], {}
     records = _fetch_records(conn, branch.where_sql, branch.where_params, limit=100_000)
@@ -400,15 +447,19 @@ def _fetch_path_candidates_python_scan(
             for term in positive_terms
         )
     }
+    normalized_positive_terms = _normalized_needles(
+        tuple(term.value for term in positive_terms),
+        branch.case_sensitive,
+    )
     ordered = sorted(
         matched.values(),
         key=lambda record: (
             0
             if any(
                 _normalize_search_text(record.name, case_sensitive=branch.case_sensitive).startswith(
-                    _normalize_search_text(term.value, case_sensitive=branch.case_sensitive)
+                    needle
                 )
-                for term in positive_terms
+                for needle in normalized_positive_terms
             )
             else 1,
             record.name if branch.case_sensitive else record.name_lower,
@@ -478,21 +529,21 @@ def _fetch_auto_content_candidates(
 
 
 def _should_scan_content_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
-    positive_terms = [term for term in branch.content_terms if not term.negated]
+    positive_terms = _positive_text_terms(branch.content_terms)
     if not positive_terms:
         return False
     if not fts_ids:
         return True
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return _has_non_ascii_terms(positive_terms)
 
 
 def _should_scan_auto_content_candidates(branch: CompiledBranch, fts_ids: list[int]) -> bool:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_terms = _positive_text_terms(branch.path_terms)
     if not positive_terms:
         return False
     if not fts_ids:
         return True
-    return any(any(ord(char) > 127 for char in term.value) for term in positive_terms)
+    return _has_non_ascii_terms(positive_terms)
 
 
 def _has_indexed_content(conn: sqlite3.Connection) -> bool:
@@ -511,20 +562,18 @@ def _fetch_content_texts(conn: sqlite3.Connection, ids: Iterable[int]) -> dict[i
     id_list = tuple(dict.fromkeys(ids))
     if not id_list:
         return {}
-    placeholders = ", ".join("?" for _ in id_list)
-    sql = f"""
-        SELECT content_map.file_id, content_fts.title, content_fts.head_text, content_fts.body_text
-        FROM content_map
-        JOIN content_fts ON content_fts.rowid = content_map.fts_rowid
-        WHERE content_map.file_id IN ({placeholders})
-    """
-    rows = conn.execute(sql, id_list).fetchall()
-    return {
-        row["file_id"]: " ".join(
-            part for part in (row["title"], row["head_text"], row["body_text"]) if part
+    content_texts: dict[int, str] = {}
+    for chunk in _chunked_ids(id_list):
+        rows = conn.execute(_content_texts_sql(len(chunk)), chunk).fetchall()
+        content_texts.update(
+            {
+                row["file_id"]: " ".join(
+                    part for part in (row["title"], row["head_text"], row["body_text"]) if part
+                )
+                for row in rows
+            }
         )
-        for row in rows
-    }
+    return content_texts
 
 
 def _fetch_content_backfill(
@@ -604,7 +653,7 @@ def _scan_auto_content_candidates(
     branch: CompiledBranch,
     limit: int,
 ) -> dict[int, FileRecord]:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_terms = _positive_text_terms(branch.path_terms)
     if not positive_terms:
         return {}
     target = max(limit, 1)
@@ -631,14 +680,14 @@ def _scan_auto_content_candidates(
 
 
 def _prefix_hits(records: Mapping[int, FileRecord], branch: CompiledBranch) -> list[int]:
-    positives = [term.value for term in branch.path_terms if not term.negated]
+    positives = tuple(term.value for term in _positive_text_terms(branch.path_terms))
     if not positives:
         return []
+    normalized_positives = _normalized_needles(positives, branch.case_sensitive)
     hits: list[int] = []
     for file_id, record in records.items():
         check_name = _normalize_search_text(record.name, case_sensitive=branch.case_sensitive)
-        for term in positives:
-            needle = _normalize_search_text(term, case_sensitive=branch.case_sensitive)
+        for needle in normalized_positives:
             if check_name.startswith(needle):
                 hits.append(file_id)
                 break
@@ -686,7 +735,7 @@ def _metadata_only_total_estimate(
 def _derive_name_path_hits(
     records: Mapping[int, FileRecord], branch: CompiledBranch
 ) -> tuple[list[int], list[int]]:
-    positive_terms = [term for term in branch.path_terms if not term.negated]
+    positive_terms = _positive_text_terms(branch.path_terms)
     name_hits: list[int] = []
     path_hits: list[int] = []
     if not positive_terms:
