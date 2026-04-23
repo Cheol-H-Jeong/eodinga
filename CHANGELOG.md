@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.548 - 2026-04-23
+## 0.1.554 - 2026-04-23
 
 - Locked the Windows Inno Setup installer to x64-compatible systems explicitly and audited that the rendered installer keeps 64-bit install mode enabled instead of relying on the output filename alone.
 - Added SHA-256 companion files for staged AppImage archives and made the Linux AppImage packaging audit fail if the checksum sidecar is missing or no longer matches the generated archive.
