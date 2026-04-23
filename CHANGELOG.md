@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.583 - 2026-04-23
+## 0.1.588 - 2026-04-23
 
 - Taught the PyInstaller packaging audit to infer hidden imports that flow through simple local helper functions and string assignments, so dynamically selected modules like the platform hotkey backends no longer depend on a duplicated manual allowlist.
 - Locked the Windows Inno Setup installer to x64-compatible systems and added dry-run audit coverage for the 64-bit install-mode directives, preventing 32-bit packaging drift from slipping through release validation.
