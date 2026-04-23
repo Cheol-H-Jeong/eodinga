@@ -178,6 +178,7 @@ class LauncherPanel(QWidget):
         self._refresh_shortcut_hint()
         self.active_filter_row.set_query(self.query_field.text())
         self._refresh_preview()
+        self._refresh_result_list_accessibility()
 
     def set_search_fn(self, search_fn: SearchFn) -> None:
         self._search_fn = search_fn
@@ -292,6 +293,7 @@ class LauncherPanel(QWidget):
         self._refresh_empty_state()
         self._refresh_shortcut_hint()
         self._refresh_preview()
+        self._refresh_result_list_accessibility()
         self.results_updated.emit(self._latest_result)
         get_logger().debug("launcher query '{}' returned {}", query, self._latest_result.total)
 
@@ -443,6 +445,7 @@ class LauncherPanel(QWidget):
     def _set_selection(self, row: int) -> None:
         self.result_list.setCurrentIndex(cast(QModelIndex, self.model.index(row, 0)))
         self.result_list.scrollTo(self.result_list.currentIndex())
+        self._refresh_result_list_accessibility()
 
     def _sync_preview_to_current_index(self, current: QModelIndex, previous: QModelIndex) -> None:
         del previous
@@ -456,9 +459,21 @@ class LauncherPanel(QWidget):
     def _sync_preview_to_index(self, index: QModelIndex) -> None:
         self.preview_pane.set_hit(self.model.item_at(index.row()) if index.isValid() else None)
         self.action_bar.set_enabled(index.isValid())
+        self._refresh_result_list_accessibility()
 
     def _refresh_preview(self) -> None:
         self._sync_preview_to_index(self.result_list.currentIndex())
+
+    def _refresh_result_list_accessibility(self) -> None:
+        count = self.model.rowCount()
+        if count == 0:
+            self.result_list.setAccessibleDescription("No launcher results are available.")
+            return
+        current_hit = self._current_hit()
+        description = f"{count} launcher results."
+        if current_hit is not None:
+            description = f"{description} Selected {current_hit.name}."
+        self.result_list.setAccessibleDescription(f"{description} Use Up and Down to move between results.")
 
     def _navigate_recent_queries(self, direction: int) -> None:
         if not self._recent_queries:

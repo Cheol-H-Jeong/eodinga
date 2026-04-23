@@ -63,6 +63,14 @@ class LauncherPreviewPane(QWidget):
         self.title_label.setText(title)
         self.path_label.setText(path_text)
         self.snippet_label.setText(snippet)
+        if resolved_hit is None:
+            self.setAccessibleDescription("No launcher result is selected for preview.")
+            return
+        snippet_text = (resolved_hit.snippet or "").replace("[", "").replace("]", "").strip()
+        summary = f"Previewing {resolved_hit.name} at {resolved_hit.path}."
+        if snippet_text:
+            summary = f"{summary} Snippet: {snippet_text}"
+        self.setAccessibleDescription(summary)
 
 
 class LauncherActionBar(QWidget):

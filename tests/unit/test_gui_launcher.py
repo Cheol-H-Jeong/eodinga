@@ -822,6 +822,8 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.shortcut_label.accessibleName() == "Launcher shortcut guidance"
     assert launcher.status_label.accessibleName() == "Launcher result summary"
     assert launcher.status_chip.accessibleName() == "Launcher status"
+    assert launcher.result_list.accessibleDescription() == "No launcher results are available."
+    assert launcher.preview_pane.accessibleDescription() == "No launcher result is selected for preview."
 
 
 def test_launcher_query_chips_expose_accessible_context(qapp) -> None:
@@ -860,3 +862,38 @@ def test_launcher_result_markup_surfaces_top_nine_quick_pick_badges(qapp) -> Non
     assert "Alt+1" in first_html
     assert "Alt+9" in ninth_html
     assert "Alt+10" not in tenth_html
+
+
+def test_launcher_results_expose_accessible_text_and_preview_summary(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/release-notes.txt"),
+                    parent_path=Path("/tmp"),
+                    name="release-notes.txt",
+                    ext="txt",
+                    snippet="...the [release notes] are attached...",
+                )
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(60)
+
+    accessible_text = cast(str, launcher.model.data(launcher.model.index(0, 0), Qt.ItemDataRole.AccessibleTextRole))
+    tooltip = cast(str, launcher.model.data(launcher.model.index(0, 0), Qt.ItemDataRole.ToolTipRole))
+
+    assert "Quick pick Alt+1." in accessible_text
+    assert "Path /tmp/release-notes.txt." in accessible_text
+    assert tooltip == accessible_text
+    assert launcher.result_list.accessibleDescription() == (
+        "1 launcher results. Selected release-notes.txt. Use Up and Down to move between results."
+    )
+    assert "Previewing release-notes.txt at /tmp/release-notes.txt." in launcher.preview_pane.accessibleDescription()
+    assert "Snippet: ...the release notes are attached..." in launcher.preview_pane.accessibleDescription()

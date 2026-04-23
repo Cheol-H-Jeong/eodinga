@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from eodinga.common import SearchHit
-from eodinga.gui.widgets.result_item import format_hit_html, format_preview_html, highlight_text
+from eodinga.gui.widgets.result_item import format_hit_accessible_text, format_hit_html, format_preview_html, highlight_text
 
 
 def test_highlight_text_marks_all_case_insensitive_matches() -> None:
@@ -163,3 +163,23 @@ def test_format_preview_html_highlights_path_and_snippet_matches() -> None:
     assert title == "release-notes.txt"
     assert "workspace/<mark style='font-weight:700; background-color:#FDE68A; color:#111827'>reports</mark>" in path_html
     assert ">release notes</mark>" in snippet_html
+
+
+def test_format_hit_accessible_text_describes_quick_pick_path_and_snippet() -> None:
+    rendered = format_hit_accessible_text(
+        SearchHit(
+            path=Path("/workspace/reports/release-notes.txt"),
+            parent_path=Path("/workspace/reports"),
+            name="release-notes.txt",
+            ext="txt",
+            snippet="...the [release notes] are attached...",
+        ),
+        "release",
+        quick_pick_number=2,
+    )
+
+    assert "Quick pick Alt+2." in rendered
+    assert "Name release-notes.txt." in rendered
+    assert "Path /workspace/reports/release-notes.txt." in rendered
+    assert "Extension txt." in rendered
+    assert "Snippet ...the release notes are attached..." in rendered

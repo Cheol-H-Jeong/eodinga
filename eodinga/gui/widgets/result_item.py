@@ -276,6 +276,22 @@ def format_preview_html(hit: SearchHit | None, query: str) -> tuple[str, str, st
     return title, path_html, snippet_html
 
 
+def format_hit_accessible_text(hit: SearchHit, query: str, *, quick_pick_number: int | None = None) -> str:
+    parts: list[str] = []
+    if quick_pick_number is not None and 1 <= quick_pick_number <= 9:
+        parts.append(f"Quick pick Alt+{quick_pick_number}.")
+    parts.append(f"Name {hit.name}.")
+    parts.append(f"Path {hit.path}.")
+    if hit.ext:
+        parts.append(f"Extension {hit.ext}.")
+    snippet = (hit.snippet or "").replace("[", "").replace("]", "").strip()
+    if snippet:
+        parts.append(f"Snippet {snippet}.")
+    elif query.strip():
+        parts.append("No indexed content snippet is available.")
+    return " ".join(parts)
+
+
 class ResultItemDelegate(QStyledItemDelegate):
     def paint(self, painter, option: QStyleOptionViewItem, index) -> None:
         doc = QTextDocument()
