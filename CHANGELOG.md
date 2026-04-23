@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.937 - 2026-04-24
+## 0.1.940 - 2026-04-24
 
 - Made Windows root-scoped search treat exact root directory records the same way as descendant matches, so plain, extended-length, and UNC paths still match when only path segment case differs.
 - Normalized watcher root containment checks for Windows-style paths across plain and extended prefixes, preventing equivalent roots from being treated as outside the watch set because of case or prefix spelling alone.
