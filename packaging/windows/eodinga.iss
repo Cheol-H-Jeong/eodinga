@@ -38,19 +38,25 @@ Root: HKCU; Subkey: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"; ValueTy
 
 [Icons]
 Name: "{group}\\eodinga"; Filename: "{app}\\@@GUI_EXE_NAME@@"
-Name: "{commondesktop}\\eodinga"; Filename: "{app}\\@@GUI_EXE_NAME@@"; Tasks: desktopicon
+Name: "{userdesktop}\\eodinga"; Filename: "{app}\\@@GUI_EXE_NAME@@"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\\@@GUI_EXE_NAME@@"; Description: "{cm:LaunchProgram,eodinga}"; Flags: nowait postinstall skipifsilent
 
 [Code]
+procedure PurgeUserState();
+begin
+  DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);
+  DelTree(ExpandConstant('{userappdata}\\eodinga'), True, True, True);
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usPostUninstall then
   begin
-    if MsgBox('Purge %LOCALAPPDATA%\\eodinga\\ data? / %LOCALAPPDATA%\\eodinga\\ 데이터를 삭제할까요?', mbConfirmation, MB_YESNO) = IDYES then
+    if MsgBox('Purge %LOCALAPPDATA%\\eodinga and %APPDATA%\\eodinga? / %LOCALAPPDATA%\\eodinga 및 %APPDATA%\\eodinga 데이터를 삭제할까요?', mbConfirmation, MB_YESNO) = IDYES then
     begin
-      DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);
+      PurgeUserState();
     end;
   end;
 end;

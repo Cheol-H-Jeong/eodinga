@@ -17,5 +17,10 @@ def test_inno_script_contains_required_fields() -> None:
     assert '@@GUI_DIST_NAME@@' in script
     assert '@@CLI_DIST_NAME@@' in script
     assert '@@GUI_EXE_NAME@@' in script
+    assert 'Name: "{userdesktop}\\\\eodinga"; Filename: "{app}\\\\@@GUI_EXE_NAME@@"; Tasks: desktopicon' in script
+    assert "{commondesktop}" not in script
     assert 'Subkey: "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run"' in script
     assert 'ValueName: "eodinga"' in script
+    assert "procedure PurgeUserState();" in script
+    assert "DelTree(ExpandConstant('{localappdata}\\\\eodinga'), True, True, True);" in script
+    assert "DelTree(ExpandConstant('{userappdata}\\\\eodinga'), True, True, True);" in script

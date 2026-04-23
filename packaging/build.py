@@ -149,9 +149,10 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
                 f'Name: "{{group}}\\\\eodinga"; Filename: "{{app}}\\\\{gui_exe_name}"',
             ),
             "contains_desktop_shortcut_task": _inno_contains(inno_text, 'Name: "desktopicon"'),
+            "contains_user_desktop_shortcut": _inno_contains(inno_text, 'Name: "{userdesktop}\\\\eodinga"; Filename: "{app}\\\\@@GUI_EXE_NAME@@"; Tasks: desktopicon'),
             "contains_rendered_desktop_shortcut": _inno_contains(
                 rendered_text,
-                f'Name: "{{commondesktop}}\\\\eodinga"; Filename: "{{app}}\\\\{gui_exe_name}"; Tasks: desktopicon',
+                f'Name: "{{userdesktop}}\\\\eodinga"; Filename: "{{app}}\\\\{gui_exe_name}"; Tasks: desktopicon',
             ),
             "contains_postinstall_launch": _inno_contains(
                 rendered_text,
@@ -167,10 +168,13 @@ def _audit_windows_inputs(version: str, package_version: str) -> dict[str, Any]:
             and f'ValueData: """{{app}}\\\\{INNO_GUI_EXE_TOKEN}"""' in inno_text
             and 'Tasks: autostart' in inno_text,
             "rendered_autostart_registry_matches_gui_exe": f'ValueData: """{{app}}\\\\{gui_exe_name}"""' in rendered_text,
-            "contains_uninstall_purge_prompt": _inno_contains(rendered_text, r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);"),
+            "contains_uninstall_purge_prompt": _inno_contains(rendered_text, "procedure PurgeUserState();")
+            and _inno_contains(rendered_text, r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);")
+            and _inno_contains(rendered_text, r"DelTree(ExpandConstant('{userappdata}\\eodinga'), True, True, True);"),
             "purge_prompt_is_opt_in": "MB_YESNO" in rendered_text and "if MsgBox(" in rendered_text and "= IDYES then" in rendered_text,
-            "purge_targets_local_data_dir_only": r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);" in rendered_text
-            and "{appdata}" not in rendered_text,
+            "purge_targets_local_and_roaming_user_state": r"DelTree(ExpandConstant('{localappdata}\\eodinga'), True, True, True);" in rendered_text
+            and r"DelTree(ExpandConstant('{userappdata}\\eodinga'), True, True, True);" in rendered_text
+            and "{commonappdata}" not in rendered_text,
         },
     }
 
@@ -211,13 +215,14 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
         "rendered_source_entries_match_pyinstaller_dist": "Rendered Inno source entries drifted from PyInstaller dist names",
         "contains_rendered_uninstall_display_icon": "Rendered Inno uninstall icon does not point at the GUI executable",
         "contains_start_menu_shortcut": "Rendered Inno start menu shortcut is missing",
+        "contains_user_desktop_shortcut": "Inno desktop shortcut no longer targets the per-user desktop",
         "contains_rendered_desktop_shortcut": "Rendered Inno desktop shortcut does not point at the GUI executable",
         "contains_postinstall_launch": "Rendered Inno postinstall launch action is missing",
         "contains_autostart_registry": "Inno autostart registry entry is missing",
         "rendered_autostart_registry_matches_gui_exe": "Rendered Inno autostart registry entry does not point at the GUI executable",
         "contains_uninstall_purge_prompt": "Inno uninstall purge prompt is missing",
         "purge_prompt_is_opt_in": "Inno uninstall purge prompt is no longer opt-in",
-        "purge_targets_local_data_dir_only": "Inno uninstall purge path no longer preserves roaming config by default",
+        "purge_targets_local_and_roaming_user_state": "Inno uninstall purge no longer targets both local data and roaming config",
     }
     for key, message in required_flags.items():
         if not inno_payload.get(key):
