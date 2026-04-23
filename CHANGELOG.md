@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.279 - 2026-04-23
+
+- Tightened the contributor and release guides around parallel worker worktrees, one-commit-at-a-time unit gates, and the final local-tag handoff flow so docs rounds remain reproducible under concurrent landing.
+- Expanded the performance guide with the checked-in perf-harness defaults and a repeatable baseline-capture checklist, making documented numbers easier to audit against actual `tests/perf` output.
+- Enriched the generated CLI man page with real option descriptions, command summaries, a headless GUI smoke example, and environment-variable notes instead of shipping mostly empty argparse stubs.
+
 ## 0.1.277 - 2026-04-23
 
 - Reused `os.scandir()` metadata during tree walks so discovered children no longer pay an extra `lstat()` before indexing, while preserving the existing fallback path for entries whose metadata cannot be read during directory enumeration.
