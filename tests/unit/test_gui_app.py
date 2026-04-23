@@ -114,6 +114,34 @@ def test_launcher_state_is_shared_between_popup_and_search_tab(qapp) -> None:
     assert "release" in window.search_tab.launcher_panel.empty_state.body_label.text()
 
 
+def test_pinned_queries_persist_when_toggled_from_launcher(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    window.show()
+
+    window.launcher_window.query_field.setText("ext:pdf")
+    QTest.qWait(50)
+    window.launcher_window.pin_query_button.click()
+
+    saved = load(temp_config_path)
+    assert saved.launcher.pinned_queries == ["ext:pdf"]
+    assert window.search_tab.launcher_panel.pinned_queries_row.buttons[0].text() == "ext:pdf"
+
+
+def test_pinned_queries_persist_when_toggled_from_search_tab(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    window.show()
+
+    window.search_tab.launcher_panel.query_field.setText("date:this-week")
+    QTest.qWait(50)
+    window.search_tab.launcher_panel.pin_query_button.click()
+
+    saved = load(temp_config_path)
+    assert saved.launcher.pinned_queries == ["date:this-week"]
+    assert window.launcher_window.pinned_queries_row.buttons[0].text() == "date:this-week"
+
+
 def test_launchers_respect_configured_limit_and_debounce(qapp) -> None:
     calls: list[tuple[str, int]] = []
 
