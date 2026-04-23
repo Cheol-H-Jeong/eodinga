@@ -220,6 +220,15 @@ def _style_marks(html: str) -> str:
     return html.replace("<mark>", MARK_OPEN)
 
 
+def format_preview_html(text: str, query: str, *, target: str) -> str:
+    return _style_marks(highlight_text(text, query, target=target))
+
+
+def format_preview_snippet_html(snippet: str, query: str) -> str:
+    rendered = _highlight_fts_snippet(snippet) if "[" in snippet and "]" in snippet else highlight_text(snippet, query, target="snippet")
+    return _style_marks(rendered)
+
+
 def format_hit_html(hit: SearchHit, query: str) -> str:
     primary = _style_marks(hit.highlighted_name or highlight_text(hit.name, query, target="name"))
     secondary = _style_marks(hit.highlighted_path or highlight_text(str(hit.parent_path), query, target="path"))
@@ -268,3 +277,6 @@ class ResultItemDelegate(QStyledItemDelegate):
         doc = QTextDocument()
         doc.setHtml(index.data(Qt.ItemDataRole.DisplayRole) or "")
         return QSize(option.rect.width(), int(doc.size().height()) + (HTML_MARGIN * 2))
+
+
+__all__ = ["ResultItemDelegate", "format_hit_html", "format_preview_html", "format_preview_snippet_html", "highlight_text"]

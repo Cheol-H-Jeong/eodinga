@@ -6,20 +6,21 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from eodinga.common import SearchHit
 from eodinga.gui.design import SPACE_4, SPACE_8, SPACE_16
 from eodinga.gui.widgets.button import SecondaryButton
+from eodinga.gui.widgets.result_item import format_preview_html, format_preview_snippet_html
 
 
-def _preview_text(hit: SearchHit | None) -> tuple[str, str, str]:
+def _preview_text(hit: SearchHit | None, query: str) -> tuple[str, str, str]:
     if hit is None:
         return (
             "No preview yet",
             "Hover a result or move the selection to inspect it before opening.",
             "Snippets and target paths appear here when a result is available.",
         )
-    path_text = str(hit.path)
+    path_text = format_preview_html(str(hit.path), query, target="path")
     snippet = (hit.snippet or "").strip()
     if not snippet:
         snippet = "No indexed content snippet is available for this result."
-    return hit.name, path_text, snippet
+    return format_preview_html(hit.name, query, target="name"), path_text, format_preview_snippet_html(snippet, query)
 
 
 class LauncherPreviewPane(QWidget):
@@ -35,15 +36,18 @@ class LauncherPreviewPane(QWidget):
         eyebrow.setAccessibleName("Launcher preview heading")
         self.title_label = QLabel(self)
         self.title_label.setWordWrap(True)
+        self.title_label.setTextFormat(Qt.TextFormat.RichText)
         self.title_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.title_label.setAccessibleName("Previewed result name")
         self.path_label = QLabel(self)
         self.path_label.setProperty("role", "secondary")
         self.path_label.setWordWrap(True)
+        self.path_label.setTextFormat(Qt.TextFormat.RichText)
         self.path_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.path_label.setAccessibleName("Previewed result path")
         self.snippet_label = QLabel(self)
         self.snippet_label.setWordWrap(True)
+        self.snippet_label.setTextFormat(Qt.TextFormat.RichText)
         self.snippet_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.snippet_label.setMinimumWidth(220)
         self.snippet_label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
@@ -56,8 +60,8 @@ class LauncherPreviewPane(QWidget):
 
         self.set_hit(None)
 
-    def set_hit(self, hit: SearchHit | None) -> None:
-        title, path_text, snippet = _preview_text(hit)
+    def set_hit(self, hit: SearchHit | None, query: str = "") -> None:
+        title, path_text, snippet = _preview_text(hit, query)
         self.title_label.setText(title)
         self.path_label.setText(path_text)
         self.snippet_label.setText(snippet)
