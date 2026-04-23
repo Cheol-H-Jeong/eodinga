@@ -671,6 +671,44 @@ def test_watcher_start_ignores_duplicate_root_registration(
     assert metrics["counters"]["watcher_observers_stopped"] == 1
 
 
+def test_watcher_start_normalizes_equivalent_root_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import eodinga.core.watcher as watcher_module
+
+    started: list[Path] = []
+
+    class FakeObserver:
+        def __init__(self) -> None:
+            self.root: Path | None = None
+
+        def schedule(self, _handler: object, root_text: str, recursive: bool = True) -> None:
+            assert recursive is True
+            self.root = Path(root_text)
+
+        def start(self) -> None:
+            assert self.root is not None
+            started.append(self.root)
+
+        def stop(self) -> None:
+            return None
+
+        def join(self, timeout: float | None = None) -> None:
+            assert timeout == 1
+
+    monkeypatch.setattr(watcher_module, "Observer", FakeObserver)
+
+    monkeypatch.chdir(tmp_path.parent)
+    relative_root = Path(tmp_path.name)
+    service = WatchService()
+
+    service.start(relative_root)
+    service.start(tmp_path)
+    service.stop()
+
+    assert started == [tmp_path]
+
+
 @pytest.mark.parametrize("failure_stage", ["schedule", "start"])
 def test_watcher_start_cleans_up_flush_thread_after_observer_failure(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure_stage: str

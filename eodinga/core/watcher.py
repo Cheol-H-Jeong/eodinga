@@ -38,6 +38,10 @@ def _is_within_root(path: Path, root: Path) -> bool:
     return True
 
 
+def _normalize_root(root: Path) -> Path:
+    return root.expanduser().resolve(strict=False)
+
+
 class _ManagedObserver(Protocol):
     def start(self) -> None: ...
     def stop(self) -> None: ...
@@ -51,7 +55,7 @@ def _spawn_thread(target: Callable[[], None]) -> Thread:
 class _Handler(FileSystemEventHandler):
     def __init__(self, service: WatchService, root: Path) -> None:
         self._service = service
-        self._root = root
+        self._root = _normalize_root(root)
 
     def on_any_event(self, event: FileSystemEvent) -> None:
         if event.is_directory:
@@ -124,6 +128,7 @@ class WatchService:
         self._logger = get_logger("core.watcher")
 
     def start(self, root: Path) -> None:
+        root = _normalize_root(root)
         if root in self._observers:
             return
         if self._stop.is_set():
