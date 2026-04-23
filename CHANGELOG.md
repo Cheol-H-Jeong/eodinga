@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.841 - 2026-04-23
+
+- Hardened the read-only filesystem guard so malformed or ambiguous modes now fail fast through `open_readonly`, instead of relying on lower-level `pathlib` mode parsing.
+- Broadened the no-network source audit to catch `os.system`, `os.popen`, and `asyncio` subprocess wrappers that shell out to `curl` or `wget`, tightening the repository’s offline contract.
+- Canonicalized watcher root registration before observer startup, preventing duplicate live-watchers when the same directory is passed in through equivalent relative and absolute paths.
+
 ## 0.1.840 - 2026-04-23
 
 - Preserved the launcher popup geometry when toggling `always_on_top` or `frameless` while the window is hidden, so the next show no longer jumps back to a default Qt position.
