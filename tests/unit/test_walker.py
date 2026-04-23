@@ -181,6 +181,27 @@ def test_walk_batched_uses_fs_wrapper_to_detect_symlinked_directories(
     assert follow_calls == [alias]
 
 
+def test_walk_batched_reuses_compiled_rule_specs_across_visited_paths(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "tree"
+    nested = root / "nested"
+    nested.mkdir(parents=True)
+    for name in ("alpha.txt", "beta.txt", "gamma.txt"):
+        (nested / name).write_text(name, encoding="utf-8")
+
+    compile_fn = walker_module.should_index.__globals__["_compile"]
+    compile_fn.cache_clear()
+
+    rules = PathRules(root=root, include=(str(root), f"{root}/**"), exclude=("**/*.bak",))
+    records = [record for batch in walk_batched(root, rules) for record in batch]
+
+    assert {record.path.name for record in records} >= {"tree", "nested", "alpha.txt", "beta.txt", "gamma.txt"}
+    cache_info = compile_fn.cache_info()
+    assert cache_info.misses == 2
+    assert cache_info.hits >= 2
+
+
 def test_walk_batched_keeps_distinct_hardlink_paths(tmp_path: Path) -> None:
     root = tmp_path / "tree"
     root.mkdir()
