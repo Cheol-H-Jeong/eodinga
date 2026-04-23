@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.523 - 2026-04-23
+
+- Taught the Windows PyInstaller spec to derive package data from `importlib.resources.files(...)` usage under `eodinga/`, so resource-backed payloads stop depending on a hand-maintained `DATAS` list.
+- Added a Windows packaging audit contract for those source-derived package data files, causing `packaging/build.py --target windows-dry-run` to fail if discovered resource payloads drop out of the bundle inputs.
+- Hardened the package-data discovery pass to recognize both direct `files(...)` imports and `importlib.resources.files(...)` attribute calls, with focused regressions for both styles.
+
 ## 0.1.518 - 2026-04-23
 
 - Scoped the Windows installer desktop shortcut to the per-user desktop so it matches the existing lowest-privilege install model instead of targeting a machine-wide desktop alias.
