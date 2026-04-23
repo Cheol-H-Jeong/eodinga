@@ -153,6 +153,30 @@ def resolve_crash_dir(crash_dir: Path | None = None) -> Path:
     return default_crash_dir()
 
 
+def inspect_log_file(log_path: Path | None = None) -> tuple[bool, int | None]:
+    target = resolve_log_path(log_path)
+    if target is None:
+        return False, None
+    try:
+        stat_result = target.stat()
+    except OSError:
+        return False, None
+    if not target.is_file():
+        return False, None
+    return True, stat_result.st_size
+
+
+def inspect_crash_logs(crash_dir: Path | None = None) -> tuple[int, Path | None]:
+    target_dir = resolve_crash_dir(crash_dir)
+    try:
+        crash_logs = sorted(target_dir.glob("crash-*.log"))
+    except OSError:
+        return 0, None
+    if not crash_logs:
+        return 0, None
+    return len(crash_logs), crash_logs[-1]
+
+
 def resolve_log_rotation() -> str | int:
     override = os.environ.get("EODINGA_LOG_ROTATION")
     if not override:

@@ -18,6 +18,8 @@ from eodinga.observability import (
     default_log_path,
     file_logging_enabled,
     increment_counter,
+    inspect_crash_logs,
+    inspect_log_file,
     install_crash_handlers,
     recent_snapshots,
     record_histogram,
@@ -140,6 +142,33 @@ def test_log_resolution_reports_pytest_disable_reason(monkeypatch) -> None:
     assert log_target.path is None
     assert log_target.source is None
     assert log_target.disabled_reason == "disabled_pytest"
+
+
+def test_inspect_log_file_reports_absent_and_present_targets(tmp_path: Path) -> None:
+    log_path = tmp_path / "logs" / "eodinga.log"
+
+    assert inspect_log_file(log_path) == (False, None)
+
+    log_path.parent.mkdir(parents=True)
+    log_path.write_text("hello log\n", encoding="utf-8")
+
+    exists, size_bytes = inspect_log_file(log_path)
+    assert exists is True
+    assert size_bytes == len("hello log\n".encode("utf-8"))
+
+
+def test_inspect_crash_logs_reports_latest_entry(tmp_path: Path) -> None:
+    assert inspect_crash_logs(tmp_path) == (0, None)
+
+    first = tmp_path / "crash-20260424T010101.000000Z.log"
+    second = tmp_path / "crash-20260424T010102.000000Z.log"
+    first.write_text("first\n", encoding="utf-8")
+    second.write_text("second\n", encoding="utf-8")
+    (tmp_path / "note.txt").write_text("ignore\n", encoding="utf-8")
+
+    count, latest = inspect_crash_logs(tmp_path)
+    assert count == 2
+    assert latest == second
 
 
 def test_write_crash_log_captures_traceback(tmp_path: Path) -> None:
