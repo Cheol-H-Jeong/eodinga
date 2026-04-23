@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.405 - 2026-04-23
+## 0.1.410 - 2026-04-23
 
 - Extended launcher keyboard traversal so the action bar is reachable from the results list and can be cycled without leaving the keyboard.
 - Split empty-state guidance into contextual status copy plus a dedicated shortcut hint line, making quick-pick, recall, and escape actions easier to scan.
