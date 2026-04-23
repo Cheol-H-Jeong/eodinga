@@ -59,3 +59,9 @@ class QueryChipRow(QWidget):
     @property
     def buttons(self) -> list[SecondaryButton]:
         return list(self._buttons)
+
+    def first_button(self) -> SecondaryButton | None:
+        return self._buttons[0] if self._buttons else None
+
+    def last_button(self) -> SecondaryButton | None:
+        return self._buttons[-1] if self._buttons else None

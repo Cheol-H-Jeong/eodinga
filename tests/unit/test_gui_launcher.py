@@ -111,6 +111,36 @@ def test_launcher_tab_moves_focus_into_results_without_mouse(qapp) -> None:
     assert launcher.result_list.currentIndex().row() == 0
 
 
+def test_launcher_tab_moves_through_query_chips_before_results_when_empty(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+    launcher.query_field.setFocus()
+    qapp.processEvents()
+
+    assert launcher.query_field.hasFocus()
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Tab)
+    assert launcher.pinned_queries_row.buttons[0].hasFocus()
+
+    QTest.keyClick(launcher.pinned_queries_row.buttons[0], Qt.Key.Key_Tab)
+    assert launcher.recent_queries_row.buttons[0].hasFocus()
+
+
+def test_launcher_backtab_reaches_last_visible_query_chip_when_empty(qapp) -> None:
+    state = LauncherState(pinned_queries=["ext:pdf"])
+    state.remember_query("budget")
+    launcher = LauncherWindow(state=state)
+    launcher.show()
+    launcher.query_field.setFocus()
+    qapp.processEvents()
+
+    QTest.keyClick(launcher.query_field, Qt.Key.Key_Backtab)
+
+    assert launcher.recent_queries_row.buttons[0].hasFocus()
+
+
 def test_launcher_backtab_and_home_end_support_keyboard_only_navigation(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
@@ -405,7 +435,7 @@ def test_launcher_empty_state_reflects_query_results(qapp) -> None:
     assert "(20%)" in launcher.empty_state.details_label.text()
     assert launcher.status_chip.text() == "Indexing"
     assert launcher.status_label.text() == "24/120 files · 20% indexed"
-    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Alt+Up recalls recent queries."
+    assert launcher.shortcut_label.text() == "Type a filename, path, or content term. Tab reaches query chips. Alt+Up recalls recent queries."
 
     launcher.query_field.setText("missing")
     _wait(60)
