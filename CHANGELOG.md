@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.738 - 2026-04-23
+## 0.1.739 - 2026-04-23
 
 - Added spaced temporal query parsing so `date:this month`, `date:last week`, and spaced ISO datetime endpoints now stay attached to the `date:`, `modified:`, and `created:` operators instead of breaking into stray terms.
 - Extended datetime range parsing to keep spaced endpoints like `modified:2026-01-03 09:15:30 .. 2026-01-03 09:16:00` intact through DSL parsing, compilation, executor matching, and CLI JSON output.
