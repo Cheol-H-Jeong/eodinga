@@ -13,7 +13,7 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 | size filter | Compare byte size with `B/K/M/G/T` suffixes | `size:>10M` |
 | date filter | Relative or ISO date windows | `date:this-week` |
 | timestamp alias | Target modified or created timestamps directly | `modified:today`, `created:2026-04-23` |
-| type filter | File, dir, symlink, or duplicate | `is:duplicate` |
+| type filter | File, dir, symlink, empty, or duplicate | `is:empty` |
 | case mode | Toggle case-sensitive matching | `case:true README` |
 | regex mode | Promote plain terms into regex path/name filters | `regex:true report-\\d+` |
 | negation | Exclude a term or operator | `-path:node_modules` |
@@ -24,7 +24,9 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 - `date:today`
 - `date:yesterday`
 - `date:this-week`
+- `date:last-week`
 - `date:this-month`
+- `date:last-month`
 - `date:2026-04-23`
 - `date:2026-04-01..2026-04-23`
 - `date:2026-04-01..`
@@ -52,6 +54,7 @@ regex:/launch|ship/i path:docs
 - `date:`, `modified:`, and `created:` accept `today`, `yesterday`, `this-week`, `this-month`, a single ISO date, open-ended ISO ranges, full ISO ranges, and exact ISO datetimes.
 - `size:` comparisons use binary suffixes, so `10M` means `10 * 1024 * 1024` bytes.
 - `is:duplicate` matches entries that share a content hash with at least one other indexed file.
+- `is:file`, `is:dir`, `is:symlink`, and `is:empty` are also available for structural filtering.
 - `regex:true` only changes how plain terms are interpreted; explicit `/pattern/flags` literals still work without it.
 - Negation applies to the next term or the entire parenthesized group.
 
