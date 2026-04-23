@@ -368,6 +368,69 @@ def test_hot_restart_resumes_interrupted_multi_root_build_with_root_scoped_queri
     assert not staged_db.exists()
 
 
+def test_hot_restart_resumed_multi_root_build_can_drop_removed_root_and_keep_scope(
+    tmp_path: Path,
+) -> None:
+    root_a = tmp_path / "alpha-root"
+    root_b = tmp_path / "beta-root"
+    target_db = tmp_path / "database" / "index.db"
+    staged_db = tmp_path / "database" / ".index.db.next"
+    root_a.mkdir()
+    root_b.mkdir()
+    alpha = root_a / "alpha-keep.txt"
+    beta = root_b / "beta-drop.txt"
+    alpha.write_text("resumed build alpha survivor\n", encoding="utf-8")
+    beta.write_text("resumed build beta removed root\n", encoding="utf-8")
+
+    rebuild_index(
+        target_db,
+        [RootConfig(path=root_a), RootConfig(path=root_b)],
+        content_enabled=True,
+    )
+    rebuild_index(staged_db, [RootConfig(path=root_a)], content_enabled=True)
+    target_db.unlink()
+    assert staged_db.exists()
+
+    reopened = open_index(target_db)
+    service = WatchService()
+    try:
+        hits = {hit.file.path for hit in search(reopened, "resumed build", limit=5).hits}
+        alpha_hits = {
+            hit.file.path
+            for hit in search(reopened, "resumed build", limit=5, root=root_a).hits
+        }
+        beta_hits = {
+            hit.file.path
+            for hit in search(reopened, "resumed build", limit=5, root=root_b).hits
+        }
+        stored_roots = {
+            Path(row[0]) for row in reopened.execute("SELECT path FROM roots ORDER BY id").fetchall()
+        }
+
+        writer = IndexWriter(reopened, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        service.start(root_a)
+        created = root_a / "after-resume.txt"
+        created.write_text("resumed build live survivor\n", encoding="utf-8")
+        elapsed = _wait_for_query_hit(
+            reopened,
+            service,
+            writer,
+            "resumed build live survivor",
+            created,
+            deadline_seconds=0.5,
+        )
+    finally:
+        service.stop()
+        reopened.close()
+
+    assert hits == {alpha}
+    assert alpha_hits == {alpha}
+    assert beta_hits == set()
+    assert stored_roots == {root_a}
+    assert elapsed <= 0.5
+    assert not staged_db.exists()
+
+
 def test_hot_restart_reopen_multi_root_modify_updates_root_scoped_queries(tmp_path: Path) -> None:
     root_a = tmp_path / "alpha-root"
     root_b = tmp_path / "beta-root"
