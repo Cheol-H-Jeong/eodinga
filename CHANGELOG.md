@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.216 - 2026-04-23
+
+- Reduced full-tree walk syscall overhead by carrying `os.scandir()` child `lstat` results into the traversal queue, so discovered entries no longer pay an immediate second stat before indexing.
+- Moved SQLite `synchronous=NORMAL` to the staged rebuild fast path only, while keeping regular opened connections at `FULL` durability once the index is idle.
+
 ## 0.1.209 - 2026-04-23
 
 - Expanded the PyInstaller spec to discover dynamic hidden imports loaded through `importlib.import_module(...)`, aliased `importlib` module handles, and direct `__import__(...)` calls, reducing manual packaging drift for optional runtime modules.
