@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.733 - 2026-04-23
+
+- Expanded the README with clearer indexing-mode guidance, a first-index checklist, and troubleshooting recipes that distinguish content-indexing misses, root scoping, duplicate queries, and live-update issues.
+- Tightened `docs/ACCEPTANCE.md` and `docs/RELEASE.md` around docs-only validation, release-asset review order, and cheap metadata retargeting when another worker lands the candidate patch version first.
+- Added routing guidance in `docs/ARCHITECTURE.md`, `docs/CONTRIBUTING.md`, and `docs/PERFORMANCE.md` so contributors can update the right shipped guide for each runtime surface and avoid refreshing perf baselines without same-round evidence.
+
 ## 0.1.718 - 2026-04-23
 
 - Let `size:` filters accept comparator-separated values like `size:> 10M`, so spaced numeric input now parses the same way as the compact form.
