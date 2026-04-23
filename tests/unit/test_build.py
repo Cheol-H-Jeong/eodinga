@@ -154,24 +154,59 @@ def test_rebuild_index_uses_fast_bulk_write_pragmas(
     db_path = tmp_path / "index.db"
     synchronous_states: list[int] = []
     cache_sizes: list[int] = []
-    original_bulk_upsert = build_module.IndexWriter.bulk_upsert
+    original_upsert_records = build_module.IndexWriter._upsert_records
 
-    def recording_bulk_upsert(self, records):  # type: ignore[no-untyped-def]
+    def recording_upsert_records(self, records):  # type: ignore[no-untyped-def]
         synchronous = self._conn.execute("PRAGMA synchronous;").fetchone()
         cache_size = self._conn.execute("PRAGMA cache_size;").fetchone()
         assert synchronous is not None
         assert cache_size is not None
         synchronous_states.append(int(synchronous[0]))
         cache_sizes.append(int(cache_size[0]))
-        return original_bulk_upsert(self, records)
+        return original_upsert_records(self, records)
 
-    monkeypatch.setattr(build_module.IndexWriter, "bulk_upsert", recording_bulk_upsert)
+    monkeypatch.setattr(build_module.IndexWriter, "_upsert_records", recording_upsert_records)
 
     result = rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
 
     assert result.files_indexed == 2
     assert synchronous_states == [1]
     assert cache_sizes == [-128000]
+
+
+def test_rebuild_index_restores_default_pragmas_before_walk_iteration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    seen_states: list[tuple[int, int]] = []
+    original_connect_database = build_module.connect_database
+    original_walk_batched = build_module.walk_batched
+    current_conn: sqlite3.Connection | None = None
+
+    def recording_connect_database(path: Path) -> sqlite3.Connection:
+        nonlocal current_conn
+        current_conn = original_connect_database(path)
+        return current_conn
+
+    def recording_walk_batched(root_path: Path, rules, root_id: int = 0):  # type: ignore[no-untyped-def]
+        assert current_conn is not None
+        synchronous = current_conn.execute("PRAGMA synchronous;").fetchone()
+        cache_size = current_conn.execute("PRAGMA cache_size;").fetchone()
+        assert synchronous is not None
+        assert cache_size is not None
+        seen_states.append((int(synchronous[0]), int(cache_size[0])))
+        yield from original_walk_batched(root_path, rules, root_id=root_id)
+
+    monkeypatch.setattr(build_module, "connect_database", recording_connect_database)
+    monkeypatch.setattr(build_module, "walk_batched", recording_walk_batched)
+
+    result = rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    assert result.files_indexed == 2
+    assert seen_states == [(2, -64000)]
 
 
 def test_rebuild_index_interrupt_preserves_staged_database_for_resume(

@@ -98,14 +98,15 @@ def _insert_roots(conn, roots: list[RootConfig]) -> None:
         )
         for root_id, root in enumerate(roots, start=1)
     ]
-    with conn:
-        conn.executemany(
-            """
-            INSERT INTO roots(id, path, include, exclude, added_at)
-            VALUES (?, ?, ?, ?, strftime('%s', 'now'))
-            """,
-            rows,
-        )
+    with temporary_pragmas(conn, _BULK_WRITE_PRAGMAS):
+        with conn:
+            conn.executemany(
+                """
+                INSERT INTO roots(id, path, include, exclude, added_at)
+                VALUES (?, ?, ?, ?, strftime('%s', 'now'))
+                """,
+                rows,
+            )
 
 
 def rebuild_index(
@@ -135,29 +136,28 @@ def rebuild_index(
     try:
         writer = IndexWriter(conn, parser_callback=parser_callback)
         _insert_roots(conn, effective_roots)
-        with temporary_pragmas(conn, _BULK_WRITE_PRAGMAS):
-            with _SignalStop() as stop:
-                for root_id, root in enumerate(effective_roots, start=1):
-                    stop.raise_if_requested()
-                    rules = PathRules(
-                        root=root.path,
-                        include=tuple(root.include),
-                        exclude=tuple(root.exclude),
-                    )
-                    for batch in walk_batched(root.path, rules, root_id=root_id):
-                        stop.raise_if_requested()
-                        indexed = writer.bulk_upsert(batch)
-                        if batch:
-                            record_histogram(
-                                "index_batch_size",
-                                float(len(batch)),
-                                root=str(root.path),
-                            )
-                        files_indexed += indexed
-                        if indexed:
-                            increment_counter("files_indexed", indexed, root=str(root.path))
-                        stop.raise_if_requested()
+        with _SignalStop() as stop:
+            for root_id, root in enumerate(effective_roots, start=1):
                 stop.raise_if_requested()
+                rules = PathRules(
+                    root=root.path,
+                    include=tuple(root.include),
+                    exclude=tuple(root.exclude),
+                )
+                for batch in walk_batched(root.path, rules, root_id=root_id):
+                    stop.raise_if_requested()
+                    indexed = writer.bulk_upsert(batch)
+                    if batch:
+                        record_histogram(
+                            "index_batch_size",
+                            float(len(batch)),
+                            root=str(root.path),
+                        )
+                    files_indexed += indexed
+                    if indexed:
+                        increment_counter("files_indexed", indexed, root=str(root.path))
+                    stop.raise_if_requested()
+            stop.raise_if_requested()
     except KeyboardInterrupt:
         conn.close()
         raise
