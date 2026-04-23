@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, tzinfo
 
@@ -21,6 +22,10 @@ def _day_bounds(day: date) -> DateRange:
     start = datetime.combine(day, time.min, tzinfo=local_tz)
     end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=local_tz)
     return DateRange(start=int(start.timestamp()), end=int(end.timestamp()))
+
+
+def _span_bounds(start_day: date, end_day: date) -> DateRange:
+    return DateRange(start=_day_bounds(start_day).start, end=_day_bounds(end_day).start)
 
 
 def _month_start(day: date) -> date:
@@ -46,6 +51,20 @@ def _parse_iso_day(value: str) -> date:
         raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
 
 
+def _parse_iso_span(value: str) -> DateRange | None:
+    if re.fullmatch(r"\d{4}", value):
+        start = date(int(value), 1, 1)
+        return _span_bounds(start, _next_year_start(start))
+    month_match = re.fullmatch(r"(?P<year>\d{4})-(?P<month>\d{2})", value)
+    if month_match is None:
+        return None
+    try:
+        start = date(int(month_match.group("year")), int(month_match.group("month")), 1)
+    except ValueError as error:
+        raise QuerySyntaxError(f"invalid date literal: {value}", 0) from error
+    return _span_bounds(start, _next_month_start(start))
+
+
 def _instant_bounds(moment: datetime) -> DateRange:
     localized = moment if moment.tzinfo is not None else moment.replace(tzinfo=_local_tzinfo())
     start = int(localized.timestamp())
@@ -53,6 +72,9 @@ def _instant_bounds(moment: datetime) -> DateRange:
 
 
 def _parse_iso_endpoint(value: str) -> DateRange:
+    span = _parse_iso_span(value)
+    if span is not None:
+        return span
     try:
         return _day_bounds(_parse_iso_day(value))
     except QuerySyntaxError:

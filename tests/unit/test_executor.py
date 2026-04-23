@@ -416,6 +416,27 @@ def test_execute_date_ranges_accept_relative_keywords(
     assert hits == ["today.txt", "yesterday.txt"]
 
 
+def test_execute_iso_year_and_month_date_literals(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    jan_hit = int(datetime(2026, 1, 8, 12, 0).astimezone().timestamp())
+    feb_hit = int(datetime(2026, 2, 9, 12, 0).astimezone().timestamp())
+    next_year_hit = int(datetime(2027, 1, 3, 12, 0).astimezone().timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/january-note.txt", 512, jan_hit, "txt", body_text="january note")
+    _insert_file(tmp_db, 2, "/workspace/february-note.txt", 512, feb_hit, "txt", body_text="february note")
+    _insert_file(tmp_db, 3, "/workspace/next-year-note.txt", 512, next_year_hit, "txt", body_text="next year")
+    tmp_db.commit()
+
+    year_hits = [hit.file.name for hit in search(tmp_db, "date:2026", limit=10).hits]
+    month_hits = [hit.file.name for hit in search(tmp_db, "date:2026-02", limit=10).hits]
+    range_hits = [hit.file.name for hit in search(tmp_db, "date:2026..2026-02", limit=10).hits]
+
+    assert year_hits == ["february-note.txt", "january-note.txt"]
+    assert month_hits == ["february-note.txt"]
+    assert range_hits == ["february-note.txt", "january-note.txt"]
+
+
 def test_execute_negated_case_true_restores_case_insensitive_matching(
     tmp_db: sqlite3.Connection,
 ) -> None:

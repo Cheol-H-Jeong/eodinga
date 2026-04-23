@@ -178,6 +178,32 @@ def test_compile_datetime_literals_accept_lowercase_utc_suffix() -> None:
     assert end - start == 1
 
 
+@pytest.mark.parametrize("query", ["date:2026", "modified:2026-02"])
+def test_compile_iso_year_and_month_literals_expand_to_spans(query: str) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+    start, end = branch.where_params
+
+    assert branch.where_sql in {
+        "files.mtime >= ? AND files.mtime < ?",
+        "files.ctime >= ? AND files.ctime < ?",
+    }
+    assert isinstance(start, int)
+    assert isinstance(end, int)
+    assert start < end
+
+
+def test_compile_iso_year_month_range_keeps_outer_bounds() -> None:
+    compiled = compile_query(parse("date:2026..2026-03"))
+    branch = compiled.branches[0]
+    start, end = branch.where_params
+
+    assert branch.where_sql == "files.mtime >= ? AND files.mtime < ?"
+    assert isinstance(start, int)
+    assert isinstance(end, int)
+    assert start < end
+
+
 def test_compile_datetime_ranges_preserve_exact_endpoints() -> None:
     compiled = compile_query(parse("created:2026-01-03T09:15:30..2026-01-03T09:16:00"))
     branch = compiled.branches[0]
