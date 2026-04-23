@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.736 - 2026-04-23
+## 0.1.740 - 2026-04-23
 
 - Added parser workload observability to `stats --json`, including parsed-document and byte counters plus parser input/body/latency histograms and per-parser volume summaries.
 - Added watcher backlog visibility with queue-retry counters and pending/queue-depth histograms so coalescing pressure and queue saturation are inspectable without debug logging.
