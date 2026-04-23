@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.931 - 2026-04-24
+
+- Cached the query executor's fully formatted SQL statements behind a 128-entry LRU, reducing repeated string formatting and keeping SQLite statement reuse stable across repeated search shapes.
+- Widened writer-side delete, content lookup, and content row cleanup batches from the old 500-row default to 2048 rows, trimming round-trips during large bulk upserts and delete-heavy watcher event bursts.
+- Added unit coverage that pins both the executor statement cache reuse and the larger writer batching behavior.
+
 ## 0.1.926 - 2026-04-24
 
 - Batched the query executor's Python fallback scan for phrase and Unicode path searches, avoiding the previous one-shot `100000`-row materialization and keeping the slower correctness path bounded in memory.
