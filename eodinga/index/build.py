@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import signal
+import threading
+from contextlib import AbstractContextManager
 from pathlib import Path
 from time import perf_counter
 from typing import NamedTuple
@@ -20,6 +23,38 @@ class RebuildResult(NamedTuple):
     db_path: Path
     files_indexed: int
     roots_indexed: int
+
+
+class _SignalStop(AbstractContextManager["_SignalStop"]):
+    def __init__(self) -> None:
+        self._requested = False
+        self._received_signal: signal.Signals | None = None
+        self._handlers: dict[signal.Signals, signal.Handlers] = {}
+        self._active = False
+
+    def __enter__(self) -> _SignalStop:
+        if threading.current_thread() is not threading.main_thread():
+            return self
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            self._handlers[signum] = signal.getsignal(signum)
+            signal.signal(signum, self._handle_signal)
+        self._active = True
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        if self._active:
+            for signum, handler in self._handlers.items():
+                signal.signal(signum, handler)
+        return False
+
+    def _handle_signal(self, signum: int, _frame) -> None:
+        self._requested = True
+        self._received_signal = signal.Signals(signum)
+
+    def raise_if_requested(self) -> None:
+        if self._requested:
+            signum = signal.SIGINT if self._received_signal is None else self._received_signal
+            raise KeyboardInterrupt(signum)
 
 
 def _staged_build_path(db_path: Path) -> Path:
@@ -56,36 +91,45 @@ def rebuild_index(
     )
     try:
         writer = IndexWriter(conn, parser_callback=parser_callback)
-        with conn:
+        with _SignalStop() as stop:
             for root_id, root in enumerate(effective_roots, start=1):
-                conn.execute(
-                    """
-                    INSERT INTO roots(id, path, include, exclude, added_at)
-                    VALUES (?, ?, ?, ?, strftime('%s', 'now'))
-                    """,
-                    (
-                        root_id,
-                        str(root.path),
-                        json.dumps(root.include),
-                        json.dumps(root.exclude),
-                    ),
-                )
+                stop.raise_if_requested()
+                with conn:
+                    conn.execute(
+                        """
+                        INSERT INTO roots(id, path, include, exclude, added_at)
+                        VALUES (?, ?, ?, ?, strftime('%s', 'now'))
+                        """,
+                        (
+                            root_id,
+                            str(root.path),
+                            json.dumps(root.include),
+                            json.dumps(root.exclude),
+                        ),
+                    )
                 rules = PathRules(
                     root=root.path,
                     include=tuple(root.include),
                     exclude=tuple(root.exclude),
                 )
                 for batch in walk_batched(root.path, rules, root_id=root_id):
-                    indexed = writer.bulk_upsert(batch)
-                    if batch:
-                        record_histogram(
-                            "index_batch_size",
-                            float(len(batch)),
-                            root=str(root.path),
-                        )
+                    stop.raise_if_requested()
+                    with conn:
+                        indexed = writer.bulk_upsert(batch)
+                        if batch:
+                            record_histogram(
+                                "index_batch_size",
+                                float(len(batch)),
+                                root=str(root.path),
+                            )
                     files_indexed += indexed
                     if indexed:
                         increment_counter("files_indexed", indexed, root=str(root.path))
+                    stop.raise_if_requested()
+            stop.raise_if_requested()
+    except KeyboardInterrupt:
+        conn.close()
+        raise
     except Exception:
         conn.close()
         _cleanup_index_files(staged_path)

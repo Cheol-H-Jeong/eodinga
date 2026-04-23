@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import signal
 import sqlite3
 from pathlib import Path
 from typing import cast
@@ -96,3 +97,82 @@ def test_rebuild_index_records_runtime_metrics(tmp_path: Path) -> None:
     assert metrics["counters"]["files_indexed"] == 3
     assert metrics["histograms"]["index_rebuild_latency_ms"]["count"] == 1
     assert cast(int, batch_histogram["count"]) >= 1
+
+
+def test_rebuild_index_interrupt_preserves_staged_database_for_resume(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha\n", encoding="utf-8")
+    (root / "beta.txt").write_text("beta\n", encoding="utf-8")
+    db_path = tmp_path / "index.db"
+    staged_path = db_path.with_name(".index.db.next")
+
+    original_walk_batched = build_module.walk_batched
+
+    def interrupting_walk_batched(root_path: Path, rules, root_id: int = 0):
+        yielded_first = False
+        for batch in original_walk_batched(root_path, rules, root_id=root_id):
+            yield batch
+            if not yielded_first:
+                yielded_first = True
+                stop = current_stop
+                assert stop is not None
+                stop._handle_signal(signal.SIGTERM, None)
+
+    current_stop: build_module._SignalStop | None = None
+    original_enter = build_module._SignalStop.__enter__
+
+    def recording_enter(self: build_module._SignalStop) -> build_module._SignalStop:
+        nonlocal current_stop
+        current_stop = self
+        return original_enter(self)
+
+    monkeypatch.setattr(build_module, "walk_batched", interrupting_walk_batched)
+    monkeypatch.setattr(build_module._SignalStop, "__enter__", recording_enter)
+
+    with pytest.raises(KeyboardInterrupt):
+        rebuild_index(db_path, [RootConfig(path=root)], content_enabled=False)
+
+    assert staged_path.exists()
+    resumed = sqlite3.connect(staged_path)
+    try:
+        rows = resumed.execute("SELECT path FROM files ORDER BY path").fetchall()
+        assert [str(row[0]) for row in rows] == [
+            str(root),
+            str(root / "alpha.txt"),
+            str(root / "beta.txt"),
+        ]
+    finally:
+        resumed.close()
+
+
+def test_rebuild_index_installs_sigint_and_sigterm_handlers_on_main_thread(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    installed: list[signal.Signals] = []
+    restored: list[signal.Signals] = []
+    previous_handlers: dict[signal.Signals, object] = {
+        signal.SIGINT: object(),
+        signal.SIGTERM: object(),
+    }
+
+    def fake_getsignal(signum: signal.Signals) -> object:
+        return previous_handlers[signum]
+
+    def fake_signal(signum: signal.Signals, handler: object) -> object:
+        if handler in previous_handlers.values():
+            restored.append(signum)
+        else:
+            installed.append(signum)
+        return handler
+
+    monkeypatch.setattr(build_module.signal, "getsignal", fake_getsignal)
+    monkeypatch.setattr(build_module.signal, "signal", fake_signal)
+
+    with build_module._SignalStop():
+        pass
+
+    assert installed == [signal.SIGINT, signal.SIGTERM]
+    assert restored == [signal.SIGINT, signal.SIGTERM]
