@@ -225,6 +225,17 @@ index / watch / search command
 | launcher/hotkey mismatch | `eodinga doctor` plus config path | confirms backend detection and launcher-specific settings before blaming query logic |
 | release-doc drift | `tests/unit/test_docs_assets.py` and `packaging/dist/` | catches mismatches between runtime docs, generated assets, and packaged payloads |
 
+## Operator Triage Ladder
+
+Use this order when you need to prove where a user-facing problem lives:
+
+1. confirm the active config and database paths with `eodinga doctor` or `eodinga stats --json`
+2. reproduce the symptom in the narrowest surface available, usually `eodinga search ... --json`
+3. inspect the owning derived asset or package manifest only after the runtime surface is understood
+4. cut or retarget release metadata last, after the evidence stack is already green
+
+This keeps packaging or docs review from becoming a substitute for proving which runtime state is actually in use.
+
 ## Documentation Asset Flow
 
 ```text
@@ -255,6 +266,17 @@ runtime surface changes
 - The release workflow depends on these generated assets because prose alone cannot prove that the CLI, GUI, and packaging surfaces still match the current code.
 - Treating them as first-class architecture outputs keeps docs-only rounds aligned with the same derivation boundaries as runtime changes.
 
+## Release Evidence Ownership
+
+| Evidence artifact | Primary owner | Secondary review surface |
+| --- | --- | --- |
+| `tests/unit/test_docs_assets.py` result | shipped docs contract | `README.md` plus `docs/*.md` headings and links |
+| offscreen GUI smoke | Qt launcher and main-window surfaces | rendered screenshots under `docs/screenshots/` |
+| `packaging/dist/*` dry-run manifests | packaging recipes and staged payloads | `docs/RELEASE.md`, `docs/ACCEPTANCE.md`, and README packaging claims |
+| local tag `v0.1.N` | release metadata commit | `CHANGELOG.md`, `pyproject.toml`, `eodinga/__init__.py` |
+
+The ownership split matters because each artifact answers a different review question: runtime health, docs drift, packaged payload accuracy, or release provenance.
+
 ## Release Input Map
 
 ```text
@@ -271,6 +293,26 @@ runtime code / CLI / UI changes
 
 - The release flow treats documentation, generated assets, and packaging manifests as part of the same shipped surface.
 - This is why docs-only rounds still run `tests/unit/test_docs_assets.py` and the matching dry-run or GUI smoke command instead of stopping at markdown edits.
+
+## Docs-To-Artifact Decision Path
+
+```text
+docs claim changed
+    |
+    +--> does it describe CLI help?
+    |       |
+    |       +--> yes: regenerate docs/man/eodinga.1
+    |
+    +--> does it describe visible Qt text or flow?
+    |       |
+    |       +--> yes: regenerate docs/screenshots/*.png and rerun GUI smoke
+    |
+    +--> does it describe packaged artifacts or release payloads?
+            |
+            +--> yes: rerun the matching packaging dry-run and inspect packaging/dist/
+```
+
+That decision path keeps docs-only rounds from either under-validating or refreshing unrelated assets without evidence.
 
 ## Release Failure Isolation
 
@@ -324,6 +366,17 @@ docs edit
 - Writer and storage failures are handled at the database boundary so startup recovery can reason about `.next`, `.recover`, and stale WAL artifacts explicitly.
 - Query fallback failures must not mutate state; they only affect one search invocation and are observable through `eodinga stats --json` and runtime logs.
 - Docs or packaging drift is treated as a release-input failure, caught by `tests/unit/test_docs_assets.py` and the packaging dry-run audits before a tag is cut.
+
+## Documentation Failure Domain
+
+| Drift type | First command | Repair boundary |
+| --- | --- | --- |
+| README or guide wording disagrees with shipped behavior | `pytest -q tests/unit/test_docs_assets.py` | markdown plus generated references only |
+| generated man page version or command surface is stale | `python scripts/generate_manpage.py` | `docs/man/eodinga.1` only unless argparse changed |
+| screenshot-backed UI text is stale | `python scripts/render_docs_screenshots.py` | `docs/screenshots/*.png` plus GUI-review wording |
+| packaging claim is wrong | `python packaging/build.py --target ...-dry-run` | packaging recipe/docs pair that made the claim |
+
+The intent is to keep docs repairs local to the asset family that drifted, rather than reopening unrelated runtime surfaces.
 
 ## Live Update Sequence
 
@@ -395,6 +448,16 @@ startup
 2. Inspect the emitted manifest or staged payload summary under `packaging/dist/`.
 3. Compare the staged docs payload with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 4. Cut the local tag only after the dry-run output and shipped docs agree.
+
+## Release Metadata Boundary
+
+Keep the final metadata/tag cut deliberately narrow:
+
+- earlier commits should carry the docs, runtime, or packaging substance
+- the final metadata commit should explain release provenance through `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py`
+- the local tag should point at that metadata commit, not at an earlier feature or docs patch
+
+That boundary is what makes parallel version retargeting small and auditable.
 
 ## Release Evidence Sequence
 
