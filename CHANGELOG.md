@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.986 - 2026-04-24
+
+- Required a `.next.ready` marker before startup can publish an interrupted staged rebuild, so partial staged databases are discarded instead of replacing the live index after a crash or signal.
+- Added startup and doctor coverage for incomplete staged-build cleanup, plus one-shot watcher warnings when shutdown aborts queued event delivery under backpressure.
+
 ## 0.1.979 - 2026-04-24
 
 - Hardened the Windows packaging dry-run audit so it now rejects missing CLI/GUI entrypoints, missing required hidden imports, dropped runtime modules, and staged data drift before those regressions can leak into a release build.
