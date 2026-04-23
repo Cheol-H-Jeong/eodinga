@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.842 - 2026-04-23
+## 0.1.845 - 2026-04-23
 
 - Added a compact inline filter summary inside the launcher search field so active `ext:`, `date:`, `size:`, and similar DSL filters stay visible while you keep typing.
 - Made the launcher's active-filter chips actionable: clicking a visible chip now returns focus to the query field and selects that exact filter token for fast editing.
