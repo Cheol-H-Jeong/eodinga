@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.568 - 2026-04-23
+
+- Preserved quoted phrase matches across punctuation boundaries by broadening FTS candidate generation and keeping phrase queries on the scan supplement path when tokenization would otherwise hide `hello-world` or `release-notes` hits.
+- Normalized operator names case-insensitively in the DSL parser, so mixed-case queries like `DATE:today`, `EXT:txt`, and `Content:"launch note"` now compile and execute the same as lowercase forms.
+- Added open-ended `size:` ranges, so queries such as `size:..500K`, `size:100..`, and their negated forms compile to the expected bounds and execute correctly.
+
 ## 0.1.562 - 2026-04-23
 
 - Expanded the top-level README with a validation-path matrix, release-input map, and docs-asset drift runbook entry so operators can pick the right verification path faster.
