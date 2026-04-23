@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.961 - 2026-04-24
+
+- Made Linux AppImage dry-run archives reproducible at the gzip-wrapper level, not just the tar-member level, and extended the packaging audit to verify the gzip timestamp and filename fields stay deterministic.
+- Applied the same reproducible gzip-header contract to Linux Debian dry-run archives so both audited Linux packaging paths now produce stable review artifacts.
+- Realigned the Debian package description with the canonical project metadata from `pyproject.toml`, removing a stale control-file summary that had already drifted from the release source of truth.
+
 ## 0.1.953 - 2026-04-24
 
 - Fixed open-ended relative date filters so queries like `date:today..` and `date:..yesterday` work the same way as closed relative ranges instead of falling through the ISO-only parser.
