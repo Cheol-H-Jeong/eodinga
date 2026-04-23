@@ -256,9 +256,11 @@ class _Parser:
             suffix = value[last + 1 :]
             if suffix and (len(suffix) > 3 or not suffix.isalpha()):
                 return value, "word", ""
-            if name == "path" and value.startswith("/") and (len(delimiters) < 3 or not suffix):
+            if name == "path" and value.startswith("/") and not suffix:
                 return value, "word", ""
             if name == "path" and suffix:
+                if len(delimiters) < 3 and "\\/" not in pattern:
+                    return value, "word", ""
                 try:
                     self._validate_regex_flags(suffix, self.index - len(value) + last + 1)
                 except QuerySyntaxError:

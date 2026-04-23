@@ -208,6 +208,19 @@ def test_execute_negated_regex_true_restores_literal_term_matching(
     assert literal_hits == ["report-[0-9]+.txt"]
 
 
+def test_execute_path_regex_with_escaped_separator_matches_paths(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, "/workspace/tmp/IMS/report.txt", 512, now, "txt", body_text="match")
+    _insert_file(tmp_db, 2, "/workspace/tmp/log/report.txt", 512, now - 60, "txt", body_text="miss")
+    tmp_db.commit()
+
+    hits = [hit.file.path.as_posix() for hit in search(tmp_db, r"path:/tmp\/ims/i", limit=5).hits]
+
+    assert hits == ["/workspace/tmp/IMS/report.txt"]
+
+
 def test_execute_escaped_phrase_query_matches_literal_quotes_and_backslashes(
     tmp_db: sqlite3.Connection,
 ) -> None:
