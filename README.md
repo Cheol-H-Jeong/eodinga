@@ -182,6 +182,17 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Exclude noisy trees | `-path:node_modules` |
 | Run regex | `regex:/todo|fixme/i` |
 
+## Capability Matrix
+
+| Need | Works without extras | Requires extra or packaged surface | Primary command or surface |
+| --- | --- | --- | --- |
+| Filename and path search | Yes | No | `eodinga search 'term'` |
+| Parsed document-body search | No | `.[parsers]` | `eodinga search 'content:\"phrase\"'` |
+| Main desktop UI | No | `.[gui]` or packaged app | `eodinga gui` |
+| Global launcher hotkey | No | packaged app or GUI-capable install | launcher window / `Ctrl+Shift+Space` |
+| Packaging audits | No | `.[packaging]` | `python packaging/build.py --target ...-dry-run` |
+| Full local release gate | No | `.[all]` | one-command pass in `docs/ACCEPTANCE.md` |
+
 ## Supported Content Types
 
 - Plain text and source code: `.txt`, `.md`, `.py`, and similar text-first formats.
@@ -264,6 +275,16 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - `docs/RELEASE.md` is the local release-cut and handoff procedure.
 - `docs/man/eodinga.1` is the generated CLI reference derived from the real argparse surface.
 
+## Validation Paths
+
+| Goal | Smallest useful command | When to use it |
+| --- | --- | --- |
+| Confirm docs assets still match the repo | `pytest -q tests/unit/test_docs_assets.py` | after README, guide, screenshot, or man-page changes |
+| Confirm the default repo gate | `source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)"` | before wider GUI or packaging smoke checks |
+| Confirm the GUI can boot offscreen | `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` | after visible Qt changes or screenshot refreshes |
+| Confirm release packaging inputs | `python packaging/build.py --target windows-dry-run` | before release handoff or after packaging-doc changes |
+| Confirm full release readiness | one-command pass from `docs/ACCEPTANCE.md` | immediately before the metadata commit and local tag |
+
 ## Package Artifacts
 
 - Windows release builds emit a PyInstaller bundle plus an Inno Setup installer audit under `packaging/dist/`.
@@ -334,6 +355,16 @@ If those are clean but the packaged app still looks wrong, continue with the rel
 - [docs/PERFORMANCE.md](/home/cheol/projects/eodinga/docs/PERFORMANCE.md): opt-in perf suite, current baselines, and profiling workflow.
 - [docs/CONTRIBUTING.md](/home/cheol/projects/eodinga/docs/CONTRIBUTING.md): local workflow, guardrails, and doc/screenshot expectations for contributors.
 - [docs/RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md): release-candidate workflow, tagging, packaging validation, and handoff.
+
+## Docs Asset Workflow
+
+The shipped docs set is treated as a release input, not as incidental notes:
+
+1. Update `README.md` first when the user-facing contract changes.
+2. Update the deeper guide under `docs/` that explains the same behavior.
+3. Regenerate `docs/man/eodinga.1` if the argparse surface changed.
+4. Regenerate `docs/screenshots/*.png` if the visible Qt docs surfaces changed.
+5. Re-run `pytest -q tests/unit/test_docs_assets.py` before the broader acceptance pass.
 
 ## Contributing
 
