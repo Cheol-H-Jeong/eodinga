@@ -144,6 +144,7 @@ def test_writer_bulk_upsert_parses_duplicate_paths_once(tmp_db: Path, tmp_path: 
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         (str(tmp_path), "[]", "[]", 1),
     )
+    conn.commit()
     record = _synthetic_record(1, tmp_path)
     calls: list[Path] = []
 
@@ -261,6 +262,7 @@ def test_writer_bulk_upsert_reuses_existing_content_rowids(tmp_db: Path, tmp_pat
         "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
         (str(tmp_path), "[]", "[]", 1),
     )
+    conn.commit()
     record = _synthetic_record(1, tmp_path)
     initial = ParsedContent(
         title=record.name,
@@ -296,6 +298,37 @@ def test_writer_bulk_upsert_reuses_existing_content_rowids(tmp_db: Path, tmp_pat
     assert after[2] == "body two"
     file_hash = conn.execute("SELECT content_hash FROM files WHERE path = ?", (str(record.path),)).fetchone()
     assert file_hash == (b"sha-two",)
+
+
+def test_writer_bulk_upsert_uses_normal_synchronous_only_during_bulk_work(
+    tmp_db: Path, tmp_path: Path
+) -> None:
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        (str(tmp_path), "[]", "[]", 1),
+    )
+    conn.commit()
+    record = _synthetic_record(1, tmp_path)
+    seen_modes: list[int] = []
+
+    def parsed_for(_path: Path) -> ParsedContent:
+        row = conn.execute("PRAGMA synchronous;").fetchone()
+        assert row is not None
+        seen_modes.append(int(row[0]))
+        return ParsedContent(
+            title=record.name,
+            head_text="head one",
+            body_text="body one",
+            content_sha=b"sha-one",
+        )
+
+    writer = IndexWriter(conn, parser_callback=parsed_for)
+
+    assert conn.execute("PRAGMA synchronous;").fetchone() == (2,)
+    assert writer.bulk_upsert([record]) == 1
+    assert seen_modes == [1]
+    assert conn.execute("PRAGMA synchronous;").fetchone() == (2,)
 
 
 def test_writer_bulk_upsert_skips_unchanged_content_rewrite(tmp_db: Path, tmp_path: Path) -> None:

@@ -9,6 +9,7 @@ def test_schema_apply_and_fts_triggers_and_cascade() -> None:
     conn = sqlite3.connect(":memory:")
     apply_schema(conn)
     assert current_schema_version(conn) == 2
+    assert conn.execute("PRAGMA synchronous;").fetchone() == (2,)
     assert (
         conn.execute(
             "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_files_content_hash'"

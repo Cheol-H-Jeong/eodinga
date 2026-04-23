@@ -22,6 +22,9 @@ class ExistingContentRow(NamedTuple):
     content_sha: bytes | None
 
 
+_SQLITE_SYNCHRONOUS_NORMAL = 1
+
+
 def _record_tuple(record: FileRecord) -> tuple[object, ...]:
     return (
         record.root_id,
@@ -93,6 +96,7 @@ class IndexWriter:
         self._parser_callback = parser_callback
         self._savepoint_index = 0
         self._next_content_rowid_cache: int | None = None
+        self._bulk_pragma_depth = 0
         if current_schema_version(self._conn) == 0:
             apply_schema(self._conn)
 
@@ -136,20 +140,41 @@ class IndexWriter:
 
     @contextmanager
     def _transaction(self) -> Iterator[None]:
-        if not self._conn.in_transaction:
-            with self._conn:
+        with self._bulk_write_optimized():
+            if not self._conn.in_transaction:
+                with self._conn:
+                    yield
+                return
+            self._savepoint_index += 1
+            savepoint_name = f"eodinga_writer_{self._savepoint_index}"
+            self._conn.execute(f"SAVEPOINT {savepoint_name}")
+            try:
                 yield
-            return
-        self._savepoint_index += 1
-        savepoint_name = f"eodinga_writer_{self._savepoint_index}"
-        self._conn.execute(f"SAVEPOINT {savepoint_name}")
+            except Exception:
+                self._conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint_name}")
+                self._conn.execute(f"RELEASE SAVEPOINT {savepoint_name}")
+                raise
+            self._conn.execute(f"RELEASE SAVEPOINT {savepoint_name}")
+
+    @contextmanager
+    def _bulk_write_optimized(self) -> Iterator[None]:
+        self._bulk_pragma_depth += 1
+        previous_synchronous: int | None = None
+        if self._bulk_pragma_depth == 1 and not self._conn.in_transaction:
+            row = self._conn.execute("PRAGMA synchronous;").fetchone()
+            previous_synchronous = int(row[0]) if row is not None else None
+            if previous_synchronous != _SQLITE_SYNCHRONOUS_NORMAL:
+                self._conn.execute("PRAGMA synchronous=NORMAL;")
         try:
             yield
-        except Exception:
-            self._conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint_name}")
-            self._conn.execute(f"RELEASE SAVEPOINT {savepoint_name}")
-            raise
-        self._conn.execute(f"RELEASE SAVEPOINT {savepoint_name}")
+        finally:
+            self._bulk_pragma_depth -= 1
+            if (
+                self._bulk_pragma_depth == 0
+                and previous_synchronous is not None
+                and previous_synchronous != _SQLITE_SYNCHRONOUS_NORMAL
+            ):
+                self._conn.execute(f"PRAGMA synchronous={previous_synchronous};")
 
     def _upsert_records(self, records: Sequence[FileRecord]) -> None:
         self._conn.executemany(
