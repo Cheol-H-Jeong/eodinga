@@ -9,6 +9,7 @@ This document expands the short checklist in [ACCEPTANCE.md](/home/cheol/project
 3. Bump both `pyproject.toml` and `eodinga/__init__.py` to that version.
 4. Keep that version bump isolated to the release metadata commit for the round.
 5. Confirm the candidate tag does not already exist locally before creating it.
+6. In worker worktrees, fetch and reset to `origin/main` before starting the round so the chosen patch number is based on the latest landed tags.
 
 ## Refresh Release Notes
 
@@ -40,6 +41,8 @@ One-command local release pass:
 source .venv/bin/activate && pytest -q tests && ruff check eodinga tests && pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summary']; print('pyright', s)" && QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)" && python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run && yamllint .github/workflows/release-windows.yml && yamllint .github/workflows/release-linux.yml
 ```
 
+For worker rounds, keep the release pass single-shot and non-interactive so a pasted command either finishes cleanly or stops on the first failing stage.
+
 Recommended order:
 
 1. `pytest -q tests/unit` after every logical commit.
@@ -66,6 +69,14 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Worker Handoff Rules
+
+1. Keep feature or docs commits separate from the final metadata commit.
+2. Make the final commit contain the version bump and changelog update only, unless a last-minute docs asset regeneration is required to match the same round.
+3. Create the local tag after that final commit.
+4. Do not push tags or release branches from a worker worktree.
+5. Hand the orchestrator a clean branch plus the final local tag to rebase and publish.
+
 ## Docs-Only Rounds
 
 Use the same release discipline for docs-only changes when the shipped operator contract moved:
@@ -91,6 +102,12 @@ git tag v0.1.N
 
 If `git tag -l "v0.1.N"` already returns a result, stop and pick the next unused patch version instead of moving the existing tag.
 
+Collision check example:
+
+```bash
+if git tag -l "v0.1.N" | grep -q .; then echo "tag exists"; exit 1; fi
+```
+
 ## Handoff Checklist
 
 - Working tree clean except for intended release artifacts.
@@ -98,3 +115,4 @@ If `git tag -l "v0.1.N"` already returns a result, stop and pick the next unused
 - Full repository gate green before final handoff.
 - `CHANGELOG.md`, `pyproject.toml`, and `eodinga/__init__.py` all agree on `0.1.N`.
 - The local tag points at the final commit for the round, not an earlier docs or feature commit.
+- The final release commit remains reviewable on its own and does not hide unrelated feature edits.

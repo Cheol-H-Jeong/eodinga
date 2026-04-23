@@ -153,12 +153,15 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
     assert "## Verify Shipped Docs" in release
+    assert "## Worker Handoff Rules" in release
     assert "## Docs-Only Rounds" in release
     assert "## Cut The Local Release" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release
     assert "python scripts/generate_manpage.py" in release
     assert "git tag -l \"v0.1.N\"" in release
+    assert "Collision check example" in release
+    assert "Do not push tags or release branches from a worker worktree." in release
 
     assert ".TH EODINGA 1" in manpage
     assert ".SH COMMANDS" in manpage
