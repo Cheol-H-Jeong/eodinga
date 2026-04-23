@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.718 - 2026-04-23
+
+- Clarified the top-level README with a release-evidence matrix, docs-asset ownership table, and a least-invasive operator recovery order so release and support checks start from the smallest matching proof.
+- Added a contributor worker-round playbook and explicit metadata-retarget flow, making parallel worktree rounds easier to rebase without rewriting earlier substantive commits.
+- Expanded architecture and release docs with shipped-doc ownership and release-evidence maps so generated docs, packaging audits, and the final metadata cut are treated as audited release inputs.
+
 ## 0.1.714 - 2026-04-23
 
 - Clarified the README around surface selection, launcher keyboard flow, live-update expectations, and launcher-specific config so operators can pick the right entry point faster.
