@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.243 - 2026-04-23
+
+- Hardened crash logging by avoiding same-second filename collisions and by tracking both the last written crash log path and the total number of crash logs emitted in-process.
+- Expanded runtime stats with query-outcome counters, including total results returned and zero-result queries, so operators can distinguish slow searches from empty ones.
+- Added session metadata to `eodinga stats --json`, exposing the process start time and uptime alongside the existing counter and histogram snapshots.
+
 ## 0.1.238 - 2026-04-23
 
 - Fixed inline quoted operator values so escaped quotes and backslashes decode consistently whether or not the phrase contains whitespace.
