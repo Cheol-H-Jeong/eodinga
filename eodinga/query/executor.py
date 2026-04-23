@@ -274,6 +274,7 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
         return "", ()
     root_text = str(root)
     normalized = root_text.rstrip("/\\") or root_text
+    windows_style = (len(normalized) >= 2 and normalized[1] == ":") or normalized.startswith("\\\\")
     variants = tuple(
         dict.fromkeys(
             (
@@ -287,8 +288,10 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
     like_params = tuple(f"{variant}/%" for variant in variants) + tuple(
         f"{variant}\\%" for variant in variants
     )
-    exact_clause = " OR ".join("files.path = ?" for _ in exact_params)
-    like_clause = " OR ".join("files.path LIKE ?" for _ in like_params)
+    exact_sql = "files.path = ? COLLATE NOCASE" if windows_style else "files.path = ?"
+    like_sql = "files.path LIKE ? COLLATE NOCASE" if windows_style else "files.path LIKE ?"
+    exact_clause = " OR ".join(exact_sql for _ in exact_params)
+    like_clause = " OR ".join(like_sql for _ in like_params)
     return f"({exact_clause} OR {like_clause})", (*exact_params, *like_params)
 
 
