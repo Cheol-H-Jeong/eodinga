@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.243 - 2026-04-23
+## 0.1.244 - 2026-04-23
 
 - Marked staged rebuild databases as complete only after the full rebuild transaction finishes, so startup no longer promotes interrupted `.next` files into the live index.
 - Hardened `open_index()` recovery to discard incomplete staged builds and keep the last known-good index queryable instead of failing or swapping in partial state.
