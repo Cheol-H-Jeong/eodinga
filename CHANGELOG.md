@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.812 - 2026-04-23
+
+- Fixed scoped Windows searches so `--root` and internal root filters now normalize extended-length drive paths like `\\?\C:\workspace\reports` before matching indexed records.
+- Made Windows UNC root scoping case-insensitive across the full share path and normalized `\\?\UNC\server\share\...` inputs to the same stored-path form as ordinary UNC records.
+- Added executor and CLI regression coverage for drive-letter, UNC, and extended-prefix root filters so Windows path normalization stays pinned end-to-end.
+
 ## 0.1.806 - 2026-04-23
 
 - Preserved watcher move-source suppression across queue backpressure, so a delayed `moved` flush no longer leaks a false follow-up `deleted` event for the retired source path.
