@@ -292,7 +292,7 @@ LauncherWindow opens with shared LauncherState
 ```
 
 - `LauncherState` keeps recent queries, pinned queries, and indexing status shared between the popup launcher and the embedded launcher panel in the main window.
-- The preview pane is read-only: it mirrors the currently selected or hovered hit, but it does not issue its own search requests.
+- The preview pane is read-only: it mirrors the currently selected or hovered hit, but it does not trigger its own search calls.
 - Keyboard actions stay above the search engine boundary; they only choose which already-ranked hit to open, reveal, copy, or inspect.
 
 ## Recovery Decision Tree
