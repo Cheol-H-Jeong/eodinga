@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.821 - 2026-04-23
+
+- Tightened the Windows release audit so checked-in `dist/` placeholders no longer satisfy the real build target without the versioned installer artifact, restoring a deterministic packaging gate on clean worktrees.
+- Added integration coverage that proves watcher-applied create, delete, and same-root move events survive a database reopen without requiring a rebuild.
+- Added multi-root reopen coverage for watcher-applied changes, ensuring root-scoped queries still reflect live updates after the index is closed and reopened.
+
 ## 0.1.810 - 2026-04-23
 
 - Escaped literal `%`, `_`, and `^` characters in the query compiler's `path:` SQL fast path, so wildcard-like path fragments now stay literal without falling back to slower broad matches.
