@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.377 - 2026-04-23
+
+- Returned a clean `130` exit code for interrupted CLI commands, recording them as interrupted instead of crashed so Ctrl+C and signal stops no longer surface as unhandled failures.
+- Scrubbed orphan live `index.db-wal` and `index.db-shm` sidecars during `open_index()` when the main database file is missing, preventing stale SQLite residue from lingering across restarts.
+- Hardened the source safety audits to catch shell-wrapped `curl` and `wget` subprocess calls plus low-level `os.open(..., O_WRONLY|...)` write paths in the read-only filesystem wrapper.
+
 ## 0.1.375 - 2026-04-23
 
 - Added a persisted `launcher.frameless` preference so the popup can start with or without window chrome instead of forcing the frameless shell on every launch.
