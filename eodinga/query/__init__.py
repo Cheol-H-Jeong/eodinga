@@ -5,6 +5,7 @@ from pathlib import Path
 from sqlite3 import Connection
 
 from eodinga.query.compiler import CompiledQuery, compile_query
+from eodinga.query.date_range import RELATIVE_DATE_KEYWORDS
 from eodinga.query.dsl import (
     AndNode,
     AstNode,
@@ -16,31 +17,12 @@ from eodinga.query.dsl import (
 )
 from eodinga.query.executor import QueryResult, execute
 
-_RELATIVE_DATE_KEYWORDS = {
-    "today",
-    "yesterday",
-    "tomorrow",
-    "week",
-    "this-week",
-    "last-week",
-    "prev-week",
-    "previous-week",
-    "month",
-    "this-month",
-    "last-month",
-    "prev-month",
-    "previous-month",
-    "year",
-    "this-year",
-    "last-year",
-    "prev-year",
-    "previous-year",
-}
+_RELATIVE_DATE_KEYWORDS = RELATIVE_DATE_KEYWORDS
 
 
 def _is_relative_date_value(value: str) -> bool:
     for part in value.split("..", 1):
-        normalized = part.strip().casefold().replace("_", "-")
+        normalized = part.strip().casefold()
         if normalized in _RELATIVE_DATE_KEYWORDS:
             return True
     return False

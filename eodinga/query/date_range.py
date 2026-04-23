@@ -13,6 +13,39 @@ class DateRange:
     end: int | None = None
 
 
+def _relative_aliases(*keywords: str) -> frozenset[str]:
+    aliases: set[str] = set()
+    for keyword in keywords:
+        normalized = keyword.casefold()
+        aliases.add(normalized)
+        aliases.add(normalized.replace("-", "_"))
+        aliases.add(normalized.replace("-", ""))
+    return frozenset(aliases)
+
+
+_TODAY_KEYWORDS = _relative_aliases("today")
+_YESTERDAY_KEYWORDS = _relative_aliases("yesterday")
+_TOMORROW_KEYWORDS = _relative_aliases("tomorrow")
+_THIS_WEEK_KEYWORDS = _relative_aliases("this-week", "week")
+_LAST_WEEK_KEYWORDS = _relative_aliases("last-week", "prev-week", "previous-week")
+_THIS_MONTH_KEYWORDS = _relative_aliases("this-month", "month")
+_LAST_MONTH_KEYWORDS = _relative_aliases("last-month", "prev-month", "previous-month")
+_THIS_YEAR_KEYWORDS = _relative_aliases("this-year", "year")
+_LAST_YEAR_KEYWORDS = _relative_aliases("last-year", "prev-year", "previous-year")
+
+RELATIVE_DATE_KEYWORDS = frozenset().union(
+    _TODAY_KEYWORDS,
+    _YESTERDAY_KEYWORDS,
+    _TOMORROW_KEYWORDS,
+    _THIS_WEEK_KEYWORDS,
+    _LAST_WEEK_KEYWORDS,
+    _THIS_MONTH_KEYWORDS,
+    _LAST_MONTH_KEYWORDS,
+    _THIS_YEAR_KEYWORDS,
+    _LAST_YEAR_KEYWORDS,
+)
+
+
 def _local_tzinfo() -> tzinfo | None:
     return datetime.now().astimezone().tzinfo
 
@@ -95,33 +128,33 @@ def _parse_iso_endpoint(value: str) -> DateRange:
 
 def _relative_range(value: str) -> DateRange | None:
     today = datetime.now().astimezone().date()
-    normalized = value.strip().casefold().replace("_", "-")
-    if normalized == "today":
+    normalized = value.strip().casefold()
+    if normalized in _TODAY_KEYWORDS:
         return _day_bounds(today)
-    if normalized == "yesterday":
+    if normalized in _YESTERDAY_KEYWORDS:
         return _day_bounds(today - timedelta(days=1))
-    if normalized == "tomorrow":
+    if normalized in _TOMORROW_KEYWORDS:
         return _day_bounds(today + timedelta(days=1))
-    if normalized in {"this-week", "week"}:
+    if normalized in _THIS_WEEK_KEYWORDS:
         start = today - timedelta(days=today.weekday())
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(start + timedelta(days=7)).start)
-    if normalized in {"last-week", "prev-week", "previous-week"}:
+    if normalized in _LAST_WEEK_KEYWORDS:
         end = today - timedelta(days=today.weekday())
         start = end - timedelta(days=7)
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(end).start)
-    if normalized in {"this-month", "month"}:
+    if normalized in _THIS_MONTH_KEYWORDS:
         start = _month_start(today)
         next_month = _next_month_start(start)
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(next_month).start)
-    if normalized in {"last-month", "prev-month", "previous-month"}:
+    if normalized in _LAST_MONTH_KEYWORDS:
         this_month = _month_start(today)
         last_month = _month_start(this_month - timedelta(days=1))
         return DateRange(start=_day_bounds(last_month).start, end=_day_bounds(this_month).start)
-    if normalized in {"this-year", "year"}:
+    if normalized in _THIS_YEAR_KEYWORDS:
         start = _year_start(today)
         next_year = _next_year_start(start)
         return DateRange(start=_day_bounds(start).start, end=_day_bounds(next_year).start)
-    if normalized in {"last-year", "prev-year", "previous-year"}:
+    if normalized in _LAST_YEAR_KEYWORDS:
         this_year = _year_start(today)
         last_year = this_year.replace(year=this_year.year - 1)
         return DateRange(start=_day_bounds(last_year).start, end=_day_bounds(this_year).start)

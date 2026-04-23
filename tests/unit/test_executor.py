@@ -374,6 +374,38 @@ def test_execute_extended_relative_date_aliases_use_local_boundaries(
     assert previous_year_hits == ["last-year.txt"]
 
 
+def test_execute_compact_relative_date_aliases_match_hyphenated_forms(
+    tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    frozen_now = datetime(2026, 4, 23, 9, 0, tzinfo=seoul)
+    this_week_hit = int(datetime(2026, 4, 20, 12, 0, tzinfo=seoul).timestamp())
+    last_month_hit = int(datetime(2026, 3, 15, 12, 0, tzinfo=seoul).timestamp())
+    last_year_hit = int(datetime(2025, 8, 10, 12, 0, tzinfo=seoul).timestamp())
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+
+    _insert_file(tmp_db, 1, "/workspace/this-week.txt", 512, this_week_hit, "txt", body_text="week note")
+    _insert_file(tmp_db, 2, "/workspace/last-month.txt", 512, last_month_hit, "txt", body_text="month note")
+    _insert_file(tmp_db, 3, "/workspace/last-year.txt", 512, last_year_hit, "txt", body_text="year note")
+    tmp_db.commit()
+
+    compact_week_hits = [hit.file.name for hit in search(tmp_db, "date:thisweek", limit=10).hits]
+    compact_month_hits = [hit.file.name for hit in search(tmp_db, "date:lastmonth", limit=10).hits]
+    compact_year_hits = [hit.file.name for hit in search(tmp_db, "date:previousyear", limit=10).hits]
+
+    assert compact_week_hits == ["this-week.txt"]
+    assert compact_month_hits == ["last-month.txt"]
+    assert compact_year_hits == ["last-year.txt"]
+
+
 def test_execute_date_keywords_are_case_insensitive_and_allow_underscores(
     tmp_db: sqlite3.Connection,
 ) -> None:
