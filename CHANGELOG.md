@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.847 - 2026-04-23
+
+- Added ISO year period literals to the query date parser, so `date:2026` now covers the full calendar year without spelling out explicit day endpoints.
+- Added ISO month period literals, enabling compact filters like `date:2026-04` across `date:`, `modified:`, and `created:` operators.
+- Added ISO week period literals with strict ISO-week validation, so `date:2026-W17` resolves to a full Monday-through-Sunday range and rejects invalid week numbers cleanly.
+
 ## 0.1.841 - 2026-04-23
 
 - Hardened the read-only filesystem guard so malformed or ambiguous modes now fail fast through `open_readonly`, instead of relying on lower-level `pathlib` mode parsing.
