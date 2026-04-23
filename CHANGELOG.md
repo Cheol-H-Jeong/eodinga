@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.810 - 2026-04-23
+## 0.1.812 - 2026-04-23
 
 - Tightened the contributor and acceptance guides around single-shot validation, evidence-first failure handling, and explicit review of generated release inputs such as `packaging/dist/`, screenshots, and the generated man page.
 - Documented how to handle mixed or failing perf-suite reruns without corrupting the checked-in baseline, including a copy-ready capture command, an example mixed-result summary, and a failure-note template.
