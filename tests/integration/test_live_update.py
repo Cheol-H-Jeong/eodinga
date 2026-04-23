@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from time import sleep
 
 from eodinga.config import RootConfig
 from eodinga.content.registry import parse
@@ -110,6 +111,45 @@ def test_live_modify_replaces_query_visibility_within_500ms(tmp_path: Path) -> N
     assert elapsed <= 0.5
     assert previous_hits == []
     assert current_hits == [target]
+
+
+def test_live_move_into_watched_root_becomes_query_visible_within_500ms(tmp_path: Path) -> None:
+    root = tmp_path / "workspace"
+    outside = tmp_path / "outside"
+    db_path = tmp_path / "database" / "index.db"
+    root.mkdir()
+    outside.mkdir()
+    incoming = outside / "incoming-note.txt"
+    incoming.write_text("incoming root boundary visibility\n", encoding="utf-8")
+    rebuild_index(db_path, [RootConfig(path=root)], content_enabled=True)
+
+    conn = open_index(db_path)
+    service = WatchService()
+    try:
+        writer = IndexWriter(conn, parser_callback=lambda path: parse(path, max_body_chars=2048))
+        initial_hits = [hit.file.path for hit in search(conn, "root boundary visibility", limit=5).hits]
+        service.start(root)
+        sleep(0.2)
+
+        destination = root / incoming.name
+        incoming.rename(destination)
+
+        elapsed = wait_for_query_hit(
+            conn,
+            service,
+            writer,
+            "root boundary visibility",
+            destination,
+            deadline_seconds=0.5,
+        )
+        current_hits = [hit.file.path for hit in search(conn, "root boundary visibility", limit=5).hits]
+    finally:
+        service.stop()
+        conn.close()
+
+    assert initial_hits == []
+    assert elapsed <= 0.5
+    assert current_hits == [destination]
 
 
 def test_live_update_visible_with_multi_root_watchers_and_root_scope(tmp_path: Path) -> None:
