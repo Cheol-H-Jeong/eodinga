@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.542 - 2026-04-23
+## 0.1.547 - 2026-04-23
 
 - Tightened the top-level README with a release audit map, a validation ladder, and docs-only rerun guidance so operators can pick the smallest trustworthy check before escalating to the full gate.
 - Expanded the architecture guide with failure-containment tables, packaging decision flow, and operator symptom mapping so stale-result, recovery, and packaging issues point to the right evidence surface faster.
