@@ -241,6 +241,8 @@ def _validate_windows_audit(payload: dict[str, Any]) -> list[str]:
     if not spec_payload.get("datas"):
         errors.append("PyInstaller data files are empty")
     if payload.get("target") == "windows":
+        if not spec_payload.get("build_produced_artifacts", False):
+            errors.append("Windows build target did not stage fresh artifacts in this run")
         dist_exists = spec_payload.get("dist_exists", {})
         exe_exists = spec_payload.get("exe_exists", {})
         if not dist_exists.get("gui"):
@@ -544,6 +546,7 @@ def _run_windows() -> int:
     payload = _audit_windows_inputs(version, package_version)
     payload["target"] = "windows"
     payload["platform_tools"] = ["pyinstaller", "iscc"]
+    payload["pyinstaller_spec"]["build_produced_artifacts"] = False
     _write_audit(payload)
     return _report_validation_errors("windows", _validate_windows_audit(payload))
 
