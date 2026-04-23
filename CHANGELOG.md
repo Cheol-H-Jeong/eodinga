@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.804 - 2026-04-23
+
+- Counted recorded and evicted recent snapshots, and surfaced per-snapshot activity in `stats --json` so command/search/version snapshot flow is auditable instead of opaque.
+- Added runtime artifact inventory to `stats --json`, including resolved log presence and size plus crash-log count and total bytes under the active crash directory.
+- Expanded observability coverage around snapshot churn and artifact inventory, keeping the new telemetry visible in both crash logs and the stats surface.
+
 ## 0.1.801 - 2026-04-23
 
 - Expanded the shipped operator docs with a packaging audit checklist, state-directory summary, and FAQ entries for logs, crash reports, docs-only release checks, and packaged payload review.
