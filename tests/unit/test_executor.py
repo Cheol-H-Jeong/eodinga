@@ -586,6 +586,15 @@ def test_execute_reuses_cached_sql_shapes_for_content_queries(
     assert executor_module._content_candidates_sql.cache_info().hits >= 1
 
 
+def test_execute_reuses_cached_sql_shapes_for_content_text_batches() -> None:
+    executor_module._content_texts_sql.cache_clear()
+
+    executor_module._content_texts_sql(3)
+    executor_module._content_texts_sql(3)
+
+    assert executor_module._content_texts_sql.cache_info().hits >= 1
+
+
 def test_execute_path_filter_with_short_unix_basename_literal(tmp_db: sqlite3.Connection) -> None:
     now = 1_713_528_000
     _insert_file(tmp_db, 1, "/tmp/log", 512, now, "", body_text="system log")
