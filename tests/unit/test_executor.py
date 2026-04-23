@@ -416,6 +416,64 @@ def test_execute_date_ranges_accept_relative_keywords(
     assert hits == ["today.txt", "yesterday.txt"]
 
 
+def test_execute_boolean_truth_table_negated_or_matches_de_morgan_form(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    rows = [
+        ("launch-plan.txt", "txt", "launch"),
+        ("meeting-notes.txt", "txt", "notes"),
+        ("launch-plan.pdf", "pdf", "launch"),
+        ("archive.pdf", "pdf", "archive"),
+    ]
+    for file_id, (name, ext, body_text) in enumerate(rows, start=1):
+        _insert_file(
+            tmp_db,
+            file_id,
+            f"/workspace/{name}",
+            512,
+            now - file_id,
+            ext,
+            body_text=body_text,
+        )
+    tmp_db.commit()
+
+    negated_or = [hit.file.name for hit in search(tmp_db, "-(ext:pdf | content:launch)", limit=10).hits]
+    de_morgan = [hit.file.name for hit in search(tmp_db, "-ext:pdf -content:launch", limit=10).hits]
+
+    assert negated_or == ["meeting-notes.txt"]
+    assert de_morgan == negated_or
+
+
+def test_execute_boolean_truth_table_negated_and_matches_de_morgan_form(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    rows = [
+        ("launch-plan.txt", "txt", "launch"),
+        ("meeting-notes.txt", "txt", "notes"),
+        ("launch-plan.pdf", "pdf", "launch"),
+        ("archive.pdf", "pdf", "archive"),
+    ]
+    for file_id, (name, ext, body_text) in enumerate(rows, start=1):
+        _insert_file(
+            tmp_db,
+            file_id,
+            f"/workspace/{name}",
+            512,
+            now - file_id,
+            ext,
+            body_text=body_text,
+        )
+    tmp_db.commit()
+
+    negated_and = [hit.file.name for hit in search(tmp_db, "-(ext:pdf content:launch)", limit=10).hits]
+    de_morgan = [hit.file.name for hit in search(tmp_db, "-ext:pdf | -content:launch", limit=10).hits]
+
+    assert negated_and == ["archive.pdf", "launch-plan.txt", "meeting-notes.txt"]
+    assert de_morgan == negated_and
+
+
 def test_execute_negated_case_true_restores_case_insensitive_matching(
     tmp_db: sqlite3.Connection,
 ) -> None:
