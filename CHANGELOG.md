@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.851 - 2026-04-23
+## 0.1.853 - 2026-04-23
 
 - Restored the watcher flush tail when queue backpressure interrupts a multi-event delivery, so undelivered ready events stay pending instead of disappearing after the first blocked enqueue.
 - Gave pure create bursts a slightly longer watcher settle window without delaying create-followed-by-write traffic, reducing flaky create-to-rename races while preserving create/move/delete sequences for real edits.
