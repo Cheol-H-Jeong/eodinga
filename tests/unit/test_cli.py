@@ -9,6 +9,10 @@ import pytest
 
 from eodinga import __version__
 from eodinga.__main__ import main
+from eodinga.common import WatchEvent
+from eodinga.config import RootConfig
+from eodinga.core.watcher import WatchService
+from eodinga.index.build import rebuild_index
 from eodinga.index.schema import apply_schema
 from eodinga.observability import reset_metrics
 
@@ -469,4 +473,31 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["watcher_events"] == 0
     assert payload["query_latency_histogram"]["count"] == 1
     assert payload["counters"]["queries_served"] == 1
+    assert payload["histograms"]["query_latency_ms"]["count"] == 1
+
+
+def test_stats_json_reports_end_to_end_runtime_metrics(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "index.db"
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "alpha.txt").write_text("alpha launch note\n", encoding="utf-8")
+    (root / "beta.txt").write_text("beta launch note\n", encoding="utf-8")
+    reset_metrics()
+
+    rebuild = rebuild_index(db_path, [RootConfig(path=root)])
+    search_exit = main(["--db", str(db_path), "search", "launch", "--json"])
+    search_output = capsys.readouterr()
+    assert search_exit == 0
+    assert json.loads(search_output.out)["returned"] == 2
+
+    service = WatchService()
+    service.record(WatchEvent(event_type="created", path=root / "gamma.txt", root_path=root))
+
+    stats_exit = main(["--db", str(db_path), "stats", "--json"])
+    stats_output = capsys.readouterr()
+    assert stats_exit == 0
+    payload = json.loads(stats_output.out)
+    assert payload["counters"]["files_indexed"] == rebuild.files_indexed
+    assert payload["counters"]["queries_served"] == 1
+    assert payload["counters"]["watcher_events"] == 1
     assert payload["histograms"]["query_latency_ms"]["count"] == 1
