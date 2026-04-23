@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.151 - 2026-04-23
+## 0.1.157 - 2026-04-23
 
 - Expanded live-update integration coverage so editing an already indexed file through a real watched directory must replace its searchable content within 500 ms, not just add or remove rows.
 - Added an end-to-end hot-restart regression for interrupted `.next` staged builds, proving startup resumes the staged database swap, replays WAL sidecars, and restores queryability without a rebuild.
