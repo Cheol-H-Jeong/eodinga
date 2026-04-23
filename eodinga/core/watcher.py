@@ -290,6 +290,8 @@ class WatchService:
         delivered: list[WatchEvent] = []
         for event in flushed:
             if not self._enqueue_event(event):
+                if self._stop.is_set():
+                    break
                 with self._lock:
                     self._pending[event.path] = event
                     self._timestamps[event.path] = now

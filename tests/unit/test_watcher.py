@@ -698,3 +698,31 @@ def test_watcher_queue_backpressure_blocks_until_consumer_drains(tmp_path: Path)
 
     second_event = service.queue.get_nowait()
     assert second_event.path == second
+
+
+def test_watcher_stop_does_not_requeue_failed_flush_event(tmp_path: Path, monkeypatch) -> None:
+    service = WatchService()
+    blocked = tmp_path / "blocked.txt"
+
+    reset_metrics()
+    service.record(
+        WatchEvent(
+            event_type="created",
+            path=blocked,
+            root_path=tmp_path,
+            happened_at=1.0,
+        )
+    )
+    service._stop.set()
+
+    monkeypatch.setattr(service, "_enqueue_event", lambda _event: False)
+
+    service._flush_ready(force=True)
+
+    metrics = snapshot_metrics()
+    assert "watcher_flushes" not in metrics["counters"]
+    assert service._pending == {}
+    assert service._timestamps == {}
+
+    with pytest.raises(Empty):
+        service.queue.get_nowait()
