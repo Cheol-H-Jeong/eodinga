@@ -162,6 +162,7 @@ class StatsSnapshot(BaseModel):
     watcher_failures: dict[str, dict[str, int]] = Field(default_factory=dict)
     log_sink_file_sources: dict[str, int] = Field(default_factory=dict)
     log_sink_file_disabled_reasons: dict[str, int] = Field(default_factory=dict)
+    recent_snapshot_counts: dict[str, int] = Field(default_factory=dict)
     counters: dict[str, int] = Field(default_factory=dict)
     histograms: dict[str, dict[str, object]] = Field(default_factory=dict)
     recent_snapshots: list[dict[str, object]] = Field(default_factory=list)

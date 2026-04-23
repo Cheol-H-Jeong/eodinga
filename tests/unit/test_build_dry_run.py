@@ -173,11 +173,15 @@ def test_build_preflight_reports_missing_windows_tool(monkeypatch) -> None:
 
 def test_windows_build_target_relabels_audit_and_requires_built_artifacts(monkeypatch) -> None:
     module = _load_build_module()
+    payload = module._audit_windows_inputs(__version__, __version__)
+    payload["pyinstaller_spec"]["dist_exists"] = {"cli": False, "gui": False}
+    payload["pyinstaller_spec"]["exe_exists"] = {"cli": False, "gui": False}
 
     def fake_which(command: str) -> str | None:
         return f"/usr/bin/{command}"
 
     monkeypatch.setattr(module.shutil, "which", fake_which)
+    monkeypatch.setattr(module, "_audit_windows_inputs", lambda *_args: payload)
 
     result = module._run_windows()
 

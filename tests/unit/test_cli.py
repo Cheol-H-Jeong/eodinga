@@ -548,6 +548,7 @@ def test_stats_json_emits_runtime_counters(tmp_path: Path, capsys) -> None:
     assert payload["log_sink_file_sources"] == {}
     assert payload["log_sink_file_disabled_reasons"] == {"disabled_pytest": 2}
     assert len(payload["recent_snapshots"]) == 1
+    assert payload["recent_snapshot_counts"] == {"command.search": 1}
     assert payload["recent_snapshots"][0]["name"] == "command.search"
     assert payload["recent_snapshots"][0]["payload"]["query"] == "duplicate"
     assert payload["file_logging_enabled"] is True
@@ -728,6 +729,7 @@ def test_stats_json_exposes_end_to_end_runtime_metrics(
     assert payload["index_rebuild_latency_avg_ms"] == payload["index_rebuild_latency_histogram"]["sum_ms"]
     assert payload["index_batch_size_histogram"]["count"] >= 1
     assert payload["index_batch_size_avg"] is not None
+    assert payload["recent_snapshot_counts"] == {"command.index": 1, "command.search": 1}
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
         "command.index",
         "command.search",
@@ -889,6 +891,7 @@ def test_stats_json_structures_failed_command_and_exit_code_counts(tmp_path: Pat
     assert payload["commands"]["version"]["started"] == 1
     assert payload["exit_codes"]["1"] == 1
     assert payload["crash_types"] == {"RuntimeError": 1}
+    assert payload["recent_snapshot_counts"] == {"command.crash": 1, "command.failure": 1}
     assert [entry["name"] for entry in payload["recent_snapshots"]] == [
         "command.failure",
         "command.crash",
@@ -989,6 +992,7 @@ def test_stats_json_structures_interrupted_command_counts(
     assert payload["commands"]["version"]["interrupted"] == 1
     assert payload["commands"]["version"]["started"] == 1
     assert payload["exit_codes"]["130"] == 1
+    assert payload["recent_snapshot_counts"] == {"command.failure": 1}
     assert payload["recent_snapshots"] == [
         {
             "name": "command.failure",
@@ -1020,6 +1024,7 @@ def test_stats_json_structures_nonzero_exit_failures(tmp_path: Path, capsys) -> 
     assert payload["commands"]["search"]["failed"] == 1
     assert payload["commands"]["search"]["started"] == 1
     assert payload["exit_codes"]["2"] == 1
+    assert payload["recent_snapshot_counts"] == {"command.failure": 1}
     assert len(payload["recent_snapshots"]) == 1
     assert payload["recent_snapshots"][0]["name"] == "command.failure"
     assert payload["recent_snapshots"][0]["payload"]["command"] == "search"

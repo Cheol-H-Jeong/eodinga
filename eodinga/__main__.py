@@ -44,6 +44,7 @@ from eodinga.stats_summary import (
     log_sink_file_disabled_reason_summary,
     log_sink_file_source_summary,
     parser_activity_summary,
+    recent_snapshot_summary,
     ratio_summary,
     watcher_failure_summary,
     watcher_event_type_summary,
@@ -210,6 +211,7 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     metrics = snapshot_metrics()
     counters = metrics["counters"]
     log_target = resolve_log_target()
+    snapshot_entries = [dict(entry) for entry in recent_snapshots()]
     query_latency_histogram = histogram_snapshot("query_latency_ms")
     query_result_count_histogram = histogram_snapshot("query_result_count")
     command_latency_histogram = histogram_snapshot("command_latency_ms")
@@ -296,9 +298,10 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         watcher_failures=watcher_failure_summary(counters),
         log_sink_file_sources=log_sink_file_source_summary(counters),
         log_sink_file_disabled_reasons=log_sink_file_disabled_reason_summary(counters),
+        recent_snapshot_counts=recent_snapshot_summary(snapshot_entries),
         counters=counters,
         histograms=metrics["histograms"],
-        recent_snapshots=[dict(entry) for entry in recent_snapshots()],
+        recent_snapshots=snapshot_entries,
         roots=list(index_snapshot.roots) or [root.path for root in config.roots],
         db_path=db_path,
         log_path=log_target.path,

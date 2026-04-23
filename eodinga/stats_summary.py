@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 
 def command_summary(counters: dict[str, int]) -> dict[str, dict[str, int]]:
@@ -82,6 +82,16 @@ def log_sink_file_source_summary(counters: dict[str, int]) -> dict[str, int]:
 
 def log_sink_file_disabled_reason_summary(counters: dict[str, int]) -> dict[str, int]:
     return _suffix_summary(counters, "log_sinks.file.disabled.")
+
+
+def recent_snapshot_summary(entries: Sequence[Mapping[str, object]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for entry in entries:
+        name = entry.get("name")
+        if not isinstance(name, str) or not name:
+            continue
+        counts[name] = counts.get(name, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 def histogram_average(summary: Mapping[str, object]) -> float | None:
