@@ -128,6 +128,7 @@ eodinga doctor
 - `size:>10M modified:today` : size and date filters
 - `size:100K..500K date:last-month` : bounded range plus date macro
 - `date:2026-04-01.. modified:..2026-04-23` : open-ended ISO ranges
+- `date:last-week..today` : relative macro endpoints inside ranges
 - `modified:2026-04-23T09:15:30+00:00` : exact ISO datetime filter
 - `date:yesterday is:duplicate` : relative date plus duplicate detection
 - `is:empty -is:dir` : empty files only
@@ -148,7 +149,10 @@ Full DSL coverage and examples live in [docs/DSL.md](/home/cheol/projects/eoding
 | Restrict by extension | `ext:pdf invoice` |
 | Restrict by path | `path:projects content:"design review"` |
 | Find recent files | `date:this-week` |
+| Find the previous week | `date:last-week` |
+| Find the previous month | `date:last-month ext:pdf` |
 | Start from an ISO date | `date:2026-04-01..` |
+| Combine relative endpoints | `date:yesterday..today` |
 | Stop at an ISO date | `created:..2026-04-23` |
 | Match one instant | `modified:2026-04-23T09:15:30+00:00` |
 | Find size ranges | `size:100K..500K` |
@@ -187,6 +191,7 @@ eodinga index --root ~/projects --root ~/docs && eodinga watch
 
 ```bash
 eodinga search 'date:this-week ext:md roadmap' --limit 20
+eodinga search 'date:last-week..today ext:md' --limit 20
 eodinga search 'regex:/todo|fixme/i path:src' --json
 eodinga search 'is:duplicate size:>10M' --limit 50
 ```

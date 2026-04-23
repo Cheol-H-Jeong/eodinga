@@ -24,10 +24,14 @@ The v0.1 parser is lexical and local-only. Spaces mean `AND`, `|` means `OR`, an
 - `date:today`
 - `date:yesterday`
 - `date:this-week`
+- `date:last-week`
 - `date:this-month`
+- `date:last-month`
 - `date:2026-04-23`
+- `date:yesterday..today`
 - `date:2026-04-01..2026-04-23`
 - `date:2026-04-01..`
+- `date:last-week..today`
 - `created:..2026-04-23`
 - `modified:2026-04-23T09:15:30+00:00`
 
@@ -38,6 +42,7 @@ ext:pdf content:"release notes"
 size:>10M date:this-month
 modified:today created:2026-04-23
 date:2026-04-01.. modified:..2026-04-23
+date:last-week..today ext:md
 modified:2026-04-23T09:15:30+00:00
 regex:true report-\d+
 -is:duplicate -path:node_modules
@@ -49,7 +54,7 @@ regex:/launch|ship/i path:docs
 
 - Path/name terms are case-insensitive unless `case:true` is set.
 - Content operators only match indexed document text; unsupported files fall back to filename/path search.
-- `date:`, `modified:`, and `created:` accept `today`, `yesterday`, `this-week`, `this-month`, a single ISO date, open-ended ISO ranges, full ISO ranges, and exact ISO datetimes.
+- `date:`, `modified:`, and `created:` accept `today`, `yesterday`, `this-week`, `last-week`, `this-month`, `last-month`, a single ISO date, open-ended ISO ranges, full ISO ranges, relative macro endpoints inside ranges, and exact ISO datetimes.
 - `size:` comparisons use binary suffixes, so `10M` means `10 * 1024 * 1024` bytes.
 - `is:duplicate` matches entries that share a content hash with at least one other indexed file.
 - `regex:true` only changes how plain terms are interpreted; explicit `/pattern/flags` literals still work without it.
