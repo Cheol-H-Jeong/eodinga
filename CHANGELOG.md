@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.303 - 2026-04-23
+## 0.1.354 - 2026-04-23
 
 - Fixed sibling multi-root watcher coverage so a file moved from one watched root into another now clears the source-side hit instead of leaving a ghost row behind.
 - Added live-update integration coverage for cross-root moves, proving the destination becomes queryable within 500 ms and root-scoped searches follow the file to its new root.
