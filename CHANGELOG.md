@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.186 - 2026-04-23
+
+- Split SQLite connection setup into explicit idle and bulk-write profiles so staged rebuilds keep `synchronous=NORMAL` while steady-state opens restore `synchronous=FULL`.
+- Reused `os.scandir()` child metadata during walker traversal, which removes follow-up `lstat()` calls for directory entries without changing traversal semantics.
+- Updated the opt-in perf harness so write-heavy benchmarks populate with the bulk profile and query-latency benchmarks reopen the same database under the idle profile before measurement.
+
 ## 0.1.178 - 2026-04-23
 
 - Enriched `crash-<ts>.log` artifacts with stable runtime metadata including version, platform, current working directory, and argv so unhandled failures are easier to reproduce from one file.
