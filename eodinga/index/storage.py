@@ -204,17 +204,20 @@ def recover_stale_wal(path: Path) -> bool:
     logger = get_logger("index.storage")
     logger.warning("recovering stale WAL for {}", path)
     staged_path = _staged_recovery_path(path)
+    cleanup_stage = True
     _cleanup_partial_copy_artifacts(staged_path)
     try:
         _copy_index_with_sidecars(path, staged_path)
         if not _replay_stale_wal(staged_path):
             return False
+        cleanup_stage = False
         atomic_replace_index(staged_path, path)
     except (OSError, sqlite3.DatabaseError):
         logger.exception("failed staged stale WAL recovery for {}", path)
         return False
     finally:
-        _cleanup_index_files(staged_path)
+        if cleanup_stage:
+            _cleanup_index_files(staged_path)
         _cleanup_index_files(_partial_copy_path(staged_path))
     return not has_stale_wal(path)
 

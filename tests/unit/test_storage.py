@@ -403,6 +403,37 @@ def test_recover_stale_wal_cleans_orphaned_partial_stage_before_retry(tmp_path: 
     assert not partial.with_name(".index.db.recover.partial-shm").exists()
 
 
+def test_recover_stale_wal_preserves_replayed_stage_when_swap_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source.db"
+    path = tmp_path / "index.db"
+    staged = tmp_path / ".index.db.recover"
+
+    conn = sqlite3.connect(source)
+    apply_schema(conn)
+    conn.execute("PRAGMA wal_autocheckpoint=0;")
+    conn.execute(
+        "INSERT INTO roots(path, include, exclude, added_at) VALUES (?, ?, ?, ?)",
+        ("/resumable-after-swap-failure", "[]", "[]", 1),
+    )
+    conn.commit()
+    _make_recovery_snapshot(source, path)
+    conn.close()
+
+    def fail_swap(_staged_path: Path, _target_path: Path) -> None:
+        raise OSError("simulated recovery swap failure")
+
+    monkeypatch.setattr("eodinga.index.storage.atomic_replace_index", fail_swap)
+
+    assert recover_stale_wal(path) is False
+    assert staged.exists()
+    assert _read_root_paths(staged) == ["/resumable-after-swap-failure"]
+    assert not staged.with_name(".index.db.recover-wal").exists()
+    assert not staged.with_name(".index.db.recover-shm").exists()
+    assert has_stale_wal(path)
+
+
 def test_open_index_raises_when_stale_wal_recovery_fails(tmp_path: Path, monkeypatch) -> None:
     path = tmp_path / "index.db"
     conn = sqlite3.connect(path)
