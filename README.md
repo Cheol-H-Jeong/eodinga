@@ -114,6 +114,17 @@ The full SPEC §9 checklist, expected commands, and release-tag workflow live in
 
 If the quickcheck fails, stop at the first failing command and continue with the matching recovery path from `docs/ACCEPTANCE.md` instead of retrying the whole chain blindly.
 
+## Validation Paths
+
+Use the smallest path that matches the work you changed:
+
+| If you changed... | First command | Follow with |
+| --- | --- | --- |
+| docs only | `pytest -q tests/unit/test_docs_assets.py` | regenerate screenshots or man page only if the UI or CLI surface changed |
+| query or indexing logic | `pytest -q tests/unit/test_compiler.py tests/unit/test_executor.py tests/unit/test_storage.py` | `pytest -q tests` before a release handoff |
+| launcher or GUI text/layout | `pytest -q tests/unit/test_gui_app.py tests/unit/test_gui_launcher.py tests/unit/test_docs_assets.py` | `QT_QPA_PLATFORM=offscreen python -c "from eodinga.gui.app import launch_gui; launch_gui(test_mode=True)"` |
+| packaging docs or recipes | `python packaging/build.py --target windows-dry-run` | the matching Linux dry run plus workflow lint from `docs/ACCEPTANCE.md` |
+
 ## CLI
 
 ```bash
@@ -271,6 +282,16 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, and compressed changelog into the package root.
 - The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
 
+## Release Inputs
+
+Treat these as part of the shipped surface, not incidental repository files:
+
+- `README.md` for install, operator, and launcher behavior.
+- `docs/ACCEPTANCE.md`, `docs/ARCHITECTURE.md`, `docs/PERFORMANCE.md`, `docs/CONTRIBUTING.md`, and `docs/RELEASE.md` for deeper operator guidance.
+- `docs/man/eodinga.1` for the generated CLI reference.
+- `docs/screenshots/*.png` for offscreen-rendered evidence of the current Qt surfaces.
+- `packaging/dist/` for the reviewable dry-run manifests and staged payload summaries.
+
 ## Release Handoff
 
 1. Finish the docs, code, or packaging slice and keep each logical commit green with `pytest -q tests/unit`.
@@ -294,6 +315,7 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 | Startup mentions recovery | `eodinga doctor` | check that the live DB path is writable and recovery sidecars are gone after startup |
 | Hotkey or launcher looks wrong | `eodinga doctor` | inspect detected hotkey backend and then re-open `eodinga gui` for settings/state |
 | Packaging audit failed | `python packaging/build.py --target windows-dry-run` | re-run the matching Linux dry run and workflow lint from `docs/ACCEPTANCE.md` |
+| Docs asset drift after CLI or UI changes | `pytest -q tests/unit/test_docs_assets.py` | regenerate `docs/man/eodinga.1` or `docs/screenshots/*.png`, then rerun the docs-assets test |
 
 ## Config and Data Paths
 

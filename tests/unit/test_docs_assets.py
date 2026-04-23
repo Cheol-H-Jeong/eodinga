@@ -45,11 +45,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Feature Inventory" in readme
     assert "## Surface Matrix" in readme
     assert "## Acceptance Quickcheck" in readme
+    assert "## Validation Paths" in readme
     assert "## DSL Cheatsheet" in readme
     assert "## Supported Content Types" in readme
     assert "## Hotkey" in readme
     assert "## Task Recipes" in readme
     assert "## Package Artifacts" in readme
+    assert "## Release Inputs" in readme
     assert "## Config and Data Paths" in readme
     assert "## Operator Checklist" in readme
     assert "## Recovery and Troubleshooting" in readme
@@ -77,6 +79,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "Windows packaging tooling" in readme
     assert ".[dev,parsers,gui,packaging]" in readme
     assert "Refresh shipped docs assets" in readme
+    assert "docs only" in readme
+    assert "packaging/dist/" in readme
+    assert "Docs asset drift after CLI or UI changes" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance
