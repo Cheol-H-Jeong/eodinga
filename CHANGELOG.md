@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.502 - 2026-04-23
+## 0.1.506 - 2026-04-23
 
 - Bridged quoted phrase queries across underscore and mixed separator boundaries, so searches like `"launch checklist"` and `content:"release candidate notes"` now match `launch_checklist` and newline-joined content instead of silently dropping those results.
 - Broadened phrase-query candidate selection and scoring to use the same separator-aware semantics as the final record filter, keeping path searches reliable even when SQLite tokenization does not split on underscores.
