@@ -151,6 +151,24 @@ raw query string
                                             +--> normalized result objects
 ```
 
+## Launcher Query Sequence
+
+```text
+global hotkey / launcher show
+    |
+    +--> LauncherWindow query field
+            |
+            +--> shared query model state
+                    |
+                    +--> executor.search()
+                            |
+                            +--> result list model + hover/selection preview
+                                    |
+                                    +--> open / reveal / copy-name / copy-path actions
+```
+
+The launcher is intentionally a thin shell over the shared query stack. Recent-query recall, pinned-query chips, and the preview pane all reflect the same result model rather than running a separate search path.
+
 ## Search Decision Path
 
 ```text
@@ -180,6 +198,15 @@ index / watch / search command
             |
             +--> rotating runtime logs / crash-<ts>.log
 ```
+
+## Stats Payload Landmarks
+
+- `queries_served`, `query_latency_histogram`, and recent command snapshots describe read-path behavior.
+- `files_indexed`, rebuild histograms, and parser counters describe cold-start or rebuild throughput.
+- `watcher_events`, `watcher_flushes`, `watcher_queue_full`, and watcher histograms describe live-update pressure.
+- Process metadata, log-sink policy, and crash counters explain which runtime produced the payload and how it was configured.
+
+That split matters when triaging: a stale-result report with healthy query counters but zero watcher activity points at the live-update path, not the ranker or DSL.
 
 ## Documentation Asset Flow
 
@@ -295,6 +322,19 @@ startup
 2. Inspect the emitted manifest or staged payload summary under `packaging/dist/`.
 3. Compare the staged docs payload with `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1`.
 4. Cut the local tag only after the dry-run output and shipped docs agree.
+
+## Packaging Dry-Run Sequence
+
+```text
+packaging/build.py --target ...-dry-run
+    |
+    +--> render versioned packaging inputs
+    +--> stage launchers / desktop metadata / docs payload
+    +--> emit manifest or audit summary into packaging/dist/
+    +--> compare staged payload with checked-in release docs
+```
+
+Dry runs are treated as architecture inputs, not post-hoc packaging chores. The release docs and `packaging/dist/` artifacts together define what an operator should expect to ship.
 
 ## Platform Surface Summary
 

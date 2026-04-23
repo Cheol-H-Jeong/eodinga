@@ -116,6 +116,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Startup Recovery" in architecture
     assert "## Rebuild Sequence" in architecture
     assert "## Query Execution" in architecture
+    assert "## Launcher Query Sequence" in architecture
     assert "## Search Decision Path" in architecture
     assert "## Live Update Sequence" in architecture
     assert "## Documentation Asset Flow" in architecture
@@ -123,8 +124,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## State Ownership" in architecture
     assert "## Failure Domains" in architecture
     assert "## Operator Debug Path" in architecture
+    assert "## Stats Payload Landmarks" in architecture
     assert "## Packaging Surfaces" in architecture
     assert "## Packaging Review Path" in architecture
+    assert "## Packaging Dry-Run Sequence" in architecture
     assert "compressed changelog" in architecture
     assert "scripts/generate_manpage.py" in architecture
     assert "scripts/render_docs_screenshots.py" in architecture
