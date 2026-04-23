@@ -133,10 +133,11 @@ def rebuild_index(
         else (lambda _path: None)
     )
     try:
-        writer = IndexWriter(conn, parser_callback=parser_callback)
-        _insert_roots(conn, effective_roots)
-        with temporary_pragmas(conn, _BULK_WRITE_PRAGMAS):
-            with _SignalStop() as stop:
+        with _SignalStop() as stop:
+            writer = IndexWriter(conn, parser_callback=parser_callback)
+            _insert_roots(conn, effective_roots)
+            stop.raise_if_requested()
+            with temporary_pragmas(conn, _BULK_WRITE_PRAGMAS):
                 for root_id, root in enumerate(effective_roots, start=1):
                     stop.raise_if_requested()
                     rules = PathRules(
