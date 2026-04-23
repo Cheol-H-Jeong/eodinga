@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.159 - 2026-04-23
+
+- Split the launcher popup shell into its own module so the main launcher panel stays within the repository's module-size limit while keeping the existing geometry persistence and always-on-top behavior unchanged.
+- Added an explicit launcher action bar with `Open`, `Reveal`, `Copy path`, `Copy name`, and `Properties` buttons, wired to the current hit and covered by GUI regressions for enablement and click behavior.
+- Added a launcher preview pane that follows the selected or hovered result and surfaces highlighted filename, full path, and snippet context directly inside the popup.
+
 ## 0.1.155 - 2026-04-23
 
 - Fixed the default observability paths on macOS so rotating logs now land under `~/Library/Logs/eodinga` and crash reports follow the same platform-native log root instead of falling back to Linux-style state directories.

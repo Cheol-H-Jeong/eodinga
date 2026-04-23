@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 from typing import cast
 
 from PySide6.QtCore import QEvent, QModelIndex, QObject, QTimer, Qt, Signal
@@ -14,6 +15,9 @@ from eodinga.gui.widgets import EmptyState, LauncherActionBar, LauncherPreviewPa
 from eodinga.observability import get_logger
 
 SearchFn = Callable[[str, int], QueryResult]
+
+if TYPE_CHECKING:
+    from eodinga.gui.launcher_window import LauncherWindow
 
 
 class LauncherPanel(QWidget):
@@ -445,7 +449,12 @@ class LauncherPanel(QWidget):
         finally:
             self._applying_history_query = False
 
-
-from eodinga.gui.launcher_window import LauncherWindow
-
 __all__ = ["LauncherPanel", "LauncherState", "LauncherWindow", "SearchFn", "format_indexing_status"]
+
+
+def __getattr__(name: str):
+    if name == "LauncherWindow":
+        from eodinga.gui.launcher_window import LauncherWindow
+
+        return LauncherWindow
+    raise AttributeError(name)
