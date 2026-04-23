@@ -154,14 +154,42 @@ def _validate_regex_pattern(pattern: str, flags: str = "") -> None:
         raise QuerySyntaxError(f"invalid regex: {error}", 0) from error
 
 
+_SIZE_LITERAL_RE = re.compile(
+    r"^(?P<number>(?:\d+(?:\.\d+)?)|(?:\.\d+))\s*(?P<unit>(?:[KMGT]i?B?|B)?)$",
+    re.IGNORECASE,
+)
+
+
 def _parse_size_number(number_text: str, unit: str, original: str) -> int:
-    factor = {"B": 1, "K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}.get(unit)
+    factor = {
+        "B": 1,
+        "K": 1024,
+        "KB": 1024,
+        "KIB": 1024,
+        "M": 1024**2,
+        "MB": 1024**2,
+        "MIB": 1024**2,
+        "G": 1024**3,
+        "GB": 1024**3,
+        "GIB": 1024**3,
+        "T": 1024**4,
+        "TB": 1024**4,
+        "TIB": 1024**4,
+    }.get(unit)
     if factor is None:
         raise QuerySyntaxError(f"invalid size literal: {original}", 0)
     try:
         return int(float(number_text) * factor)
     except ValueError as error:
         raise QuerySyntaxError(f"invalid size literal: {original}", 0) from error
+
+
+def _split_size_literal(value: str, original: str) -> tuple[str, str]:
+    match = _SIZE_LITERAL_RE.fullmatch(value.strip())
+    if match is None:
+        raise QuerySyntaxError(f"invalid size literal: {original}", 0)
+    unit = match.group("unit").upper() or "B"
+    return match.group("number"), unit
 
 
 def _size_to_bytes(value: str) -> tuple[str, int]:
@@ -172,8 +200,7 @@ def _size_to_bytes(value: str) -> tuple[str, int]:
             comparator = prefix
             text = text[len(prefix) :]
             break
-    unit = text[-1].upper() if text and text[-1].isalpha() else "B"
-    number_text = text[:-1] if unit != "B" or (text and text[-1].isalpha()) else text
+    number_text, unit = _split_size_literal(text, value)
     return comparator, _parse_size_number(number_text, unit, value)
 
 
@@ -183,10 +210,8 @@ def _size_to_range(value: str) -> tuple[int, int] | None:
     left, right = (part.strip() for part in value.split("..", 1))
     if not left or not right:
         raise QuerySyntaxError(f"invalid size literal: {value}", 0)
-    left_unit = left[-1].upper() if left[-1].isalpha() else "B"
-    right_unit = right[-1].upper() if right[-1].isalpha() else "B"
-    left_number = left[:-1] if left[-1].isalpha() else left
-    right_number = right[:-1] if right[-1].isalpha() else right
+    left_number, left_unit = _split_size_literal(left, value)
+    right_number, right_unit = _split_size_literal(right, value)
     start = _parse_size_number(left_number, left_unit, value)
     end = _parse_size_number(right_number, right_unit, value)
     if end < start:

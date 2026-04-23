@@ -176,6 +176,24 @@ def test_compile_size_range_normalizes_bounds() -> None:
     assert branch.where_params == (100, 500 * 1024)
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_bytes"),
+    [
+        ("size:1KB", 1024),
+        ("size:1MiB", 1024 * 1024),
+        ("size:>=1.5MB", int(1.5 * 1024 * 1024)),
+    ],
+)
+def test_compile_size_accepts_multiletter_and_decimal_units(
+    query: str,
+    expected_bytes: int,
+) -> None:
+    compiled = compile_query(parse(query))
+    branch = compiled.branches[0]
+
+    assert branch.where_params == (expected_bytes,)
+
+
 def test_compile_duplicate_filter_shape() -> None:
     compiled = compile_query(parse("is:duplicate -is:symlink"))
     branch = compiled.branches[0]
