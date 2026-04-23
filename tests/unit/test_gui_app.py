@@ -4,7 +4,7 @@ from pathlib import Path
 import sqlite3
 from typing import cast
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRect, Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QSystemTrayIcon
 
@@ -208,6 +208,26 @@ def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_pat
     qapp.processEvents()
 
 
+def test_launcher_centers_when_no_saved_geometry(qapp, temp_config_path: Path) -> None:
+    config = AppConfig()
+    _, window, launcher = cast(
+        tuple[object, EodingaWindow, LauncherWindow],
+        launch_gui(test_mode=True, config=config, config_path=temp_config_path),
+    )
+
+    launcher.show()
+    qapp.processEvents()
+
+    available = launcher.screen().availableGeometry()
+    center = launcher.geometry().center()
+
+    assert abs(center.x() - available.center().x()) <= 1
+    assert abs(center.y() - available.center().y()) <= 1
+
+    window.close()
+    qapp.processEvents()
+
+
 def test_launcher_clamps_restored_geometry_to_available_screen(qapp, temp_config_path: Path) -> None:
     config = AppConfig()
     config.launcher = config.launcher.model_copy(
@@ -233,6 +253,39 @@ def test_launcher_clamps_restored_geometry_to_available_screen(qapp, temp_config
 
     window.close()
     qapp.processEvents()
+
+
+def test_launcher_restores_geometry_on_intersecting_secondary_screen(monkeypatch, qapp, temp_config_path: Path) -> None:
+    class _FakeScreen:
+        def __init__(self, rect: QRect) -> None:
+            self._rect = rect
+
+        def availableGeometry(self) -> QRect:
+            return QRect(self._rect)
+
+    primary = _FakeScreen(QRect(0, 0, 800, 600))
+    secondary = _FakeScreen(QRect(900, 0, 700, 500))
+    monkeypatch.setattr("eodinga.gui.launcher_window.QGuiApplication.primaryScreen", staticmethod(lambda: primary))
+    monkeypatch.setattr("eodinga.gui.launcher_window.QGuiApplication.screens", staticmethod(lambda: [primary, secondary]))
+
+    config = AppConfig()
+    config.launcher = config.launcher.model_copy(
+        update={
+            "window_x": 960,
+            "window_y": 40,
+            "window_width": 640,
+            "window_height": 420,
+        }
+    )
+    launcher = LauncherWindow(config=config, config_path=temp_config_path)
+    monkeypatch.setattr(launcher, "screen", lambda: primary)
+
+    launcher._restore_visible_geometry()
+
+    assert launcher.geometry().x() == 960
+    assert launcher.geometry().y() == 40
+    assert launcher.geometry().width() == 640
+    assert launcher.geometry().height() == 420
 
 
 def test_launcher_respects_always_on_top_config(qapp, temp_config_path: Path) -> None:

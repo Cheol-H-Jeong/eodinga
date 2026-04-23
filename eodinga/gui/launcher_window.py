@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt, Signal
+from PySide6.QtCore import QRect, QTimer, Qt, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
 
@@ -123,10 +123,9 @@ class LauncherWindow(LauncherPanel):
     def _restore_visible_geometry(self) -> None:
         if self._config is None:
             return
-        screen = self.screen() or QGuiApplication.primaryScreen()
-        if screen is None:
+        available = self._target_available_geometry()
+        if available is None:
             return
-        available = screen.availableGeometry()
         saved_width = max(self.width(), 1)
         saved_height = max(self.height(), 1)
         width = min(saved_width, available.width())
@@ -134,14 +133,44 @@ class LauncherWindow(LauncherPanel):
         x = self._config.launcher.window_x
         y = self._config.launcher.window_y
         if x is None or y is None:
-            self.resize(width, height)
+            self.setGeometry(self._centered_rect(available, width, height))
             return
-        saved_rect = available.__class__(x, y, saved_width, saved_height)
-        if saved_rect.intersects(available):
+        saved_rect = QRect(x, y, saved_width, saved_height)
+        target = self._best_available_geometry(saved_rect) or available
+        width = min(saved_width, target.width())
+        height = min(saved_height, target.height())
+        if saved_rect.intersects(target):
             self.setGeometry(x, y, width, height)
             return
-        max_x = available.x() + max(available.width() - width, 0)
-        max_y = available.y() + max(available.height() - height, 0)
-        clamped_x = min(max(x, available.x()), max_x)
-        clamped_y = min(max(y, available.y()), max_y)
+        max_x = target.x() + max(target.width() - width, 0)
+        max_y = target.y() + max(target.height() - height, 0)
+        clamped_x = min(max(x, target.x()), max_x)
+        clamped_y = min(max(y, target.y()), max_y)
         self.setGeometry(clamped_x, clamped_y, width, height)
+
+    def _target_available_geometry(self) -> QRect | None:
+        screen = self.screen() or QGuiApplication.primaryScreen()
+        if screen is None:
+            return None
+        return screen.availableGeometry()
+
+    def _best_available_geometry(self, rect: QRect) -> QRect | None:
+        best_geometry: QRect | None = None
+        best_area = -1
+        for screen in QGuiApplication.screens():
+            available = screen.availableGeometry()
+            intersection = rect.intersected(available)
+            area = max(intersection.width(), 0) * max(intersection.height(), 0)
+            if area <= best_area:
+                continue
+            best_area = area
+            best_geometry = available
+        return best_geometry
+
+    def _centered_rect(self, available: QRect, width: int, height: int) -> QRect:
+        return QRect(
+            available.x() + max((available.width() - width) // 2, 0),
+            available.y() + max((available.height() - height) // 2, 0),
+            width,
+            height,
+        )
