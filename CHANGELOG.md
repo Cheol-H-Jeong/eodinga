@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.823 - 2026-04-23
+
+- Added a paused indexing presentation state across the launcher, tray, and Index tab, so idle-query surfaces now show paused progress explicitly instead of falling back to generic idle wording.
+- Added tray pause/resume controls whose label and enabled state follow the current indexing phase, while emitting explicit window-level pause/resume signals for later backend wiring.
+- Refreshed the checked-in generated manpage asset so the derived CLI reference matches the current release metadata again.
+
 ## 0.1.821 - 2026-04-23
 
 - Added a bounded filesystem-backed launcher preview fallback for text results that do not yet have an indexed snippet, while still skipping binary content and preserving indexed snippets when they exist.
