@@ -18,15 +18,19 @@ _BANNED_IMPORTS = {
     "websockets",
 }
 _BANNED_CALLS = {
+    "asyncio.create_subprocess_shell",
     "asyncio.open_connection",
     "http.client.HTTPConnection",
     "http.client.HTTPSConnection",
     "httpx.Client",
     "httpx.AsyncClient",
+    "os.popen",
+    "os.system",
     "socket.create_connection",
     "socket.socket",
     "urllib.request.urlopen",
 }
+_BANNED_EXEC_CALLS = {"asyncio.create_subprocess_exec"}
 _BANNED_SUBPROCESS_COMMANDS = {"curl", "wget"}
 _SKIPPED_DIRS = {".git", ".pytest_cache", ".venv", "__pycache__"}
 _SKIPPED_PATHS = {"tests/safety/test_no_network.py"}
@@ -115,6 +119,13 @@ def _shell_uses_banned_command(command: str) -> str | None:
     return None
 
 
+def _normalize_command_name(command: str) -> str:
+    base = Path(command).name.lower()
+    if base.endswith(".exe"):
+        return base[:-4]
+    return base
+
+
 def _scan_python_source(path: Path, root: Path) -> list[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     aliases = _collect_import_aliases(tree)
@@ -140,7 +151,23 @@ def _scan_python_source(path: Path, root: Path) -> list[str]:
         elif isinstance(node, ast.Call):
             dotted = _resolve_dotted_name(node.func, aliases)
             if dotted in _BANNED_CALLS:
+                if node.args:
+                    command = _subprocess_command_name(node.args[0])
+                    if command is not None:
+                        shell_command = _shell_uses_banned_command(command)
+                        if shell_command is not None:
+                            violations.append(
+                                f"{path.relative_to(root)}:{node.lineno}:subprocess {shell_command}"
+                            )
+                            continue
                 violations.append(f"{path.relative_to(root)}:{node.lineno}:{dotted}")
+            if dotted in _BANNED_EXEC_CALLS and node.args:
+                command = _subprocess_command_name(node.args[0])
+                if command is not None and _normalize_command_name(command) in _BANNED_SUBPROCESS_COMMANDS:
+                    violations.append(
+                        f"{path.relative_to(root)}:{node.lineno}:subprocess {_normalize_command_name(command)}"
+                    )
+                    continue
             if dotted in {
                 "subprocess.run",
                 "subprocess.call",
@@ -182,6 +209,45 @@ def test_python_source_scan_flags_shell_wrapped_network_commands(tmp_path: Path)
         "import subprocess\n"
         "subprocess.run('curl https://example.com', shell=True)\n"
         "subprocess.Popen('wget.exe https://example.com', shell=True)\n",
+        encoding="utf-8",
+    )
+
+    violations = _scan_python_source(source, tmp_path)
+
+    assert violations == [
+        "candidate.py:2:subprocess curl",
+        "candidate.py:3:subprocess wget",
+    ]
+
+
+def test_python_source_scan_flags_shell_wrapped_network_commands_outside_subprocess(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "candidate.py"
+    source.write_text(
+        "import asyncio\n"
+        "import os\n"
+        "os.system('curl https://example.com')\n"
+        "os.popen('wget https://example.com')\n"
+        "asyncio.create_subprocess_shell('curl https://example.com')\n",
+        encoding="utf-8",
+    )
+
+    violations = _scan_python_source(source, tmp_path)
+
+    assert violations == [
+        "candidate.py:3:subprocess curl",
+        "candidate.py:4:subprocess wget",
+        "candidate.py:5:subprocess curl",
+    ]
+
+
+def test_python_source_scan_flags_exec_style_network_commands(tmp_path: Path) -> None:
+    source = tmp_path / "candidate.py"
+    source.write_text(
+        "import asyncio\n"
+        "asyncio.create_subprocess_exec('curl', 'https://example.com')\n"
+        "asyncio.create_subprocess_exec('wget.exe', 'https://example.com')\n",
         encoding="utf-8",
     )
 

@@ -166,3 +166,12 @@ def test_open_readonly_rejects_all_write_capable_modes(tmp_path: Path, mode: str
 
     with pytest.raises(ValueError):
         fs.open_readonly(target, mode=mode)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("mode", ["", "b", "t", "rr", "rbb", "rtt", "rbt", "rtb"])
+def test_open_readonly_rejects_ambiguous_non_read_modes(tmp_path: Path, mode: str) -> None:
+    target = tmp_path / "fixture.txt"
+    target.write_text("hello", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        fs.open_readonly(target, mode=mode)  # type: ignore[arg-type]

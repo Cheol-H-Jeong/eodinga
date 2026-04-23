@@ -32,8 +32,22 @@ class ScanEntry(NamedTuple):
     stat_result: os.stat_result | None
 
 
+def _is_supported_read_mode(mode: str) -> bool:
+    if not mode or any(flag in mode for flag in ("w", "a", "+", "x", "U")):
+        return False
+    if mode.count("r") != 1:
+        return False
+    binary_count = mode.count("b")
+    text_count = mode.count("t")
+    if binary_count > 1 or text_count > 1:
+        return False
+    if binary_count and text_count:
+        return False
+    return set(mode) <= {"r", "b", "t"}
+
+
 def open_readonly(path: Path, mode: str = "rb", encoding: str | None = None) -> IO[str] | IO[bytes]:
-    if any(flag in mode for flag in ("w", "a", "+", "x")):
+    if not _is_supported_read_mode(mode):
         raise ValueError("open_readonly only supports read modes")
     return path.open(mode=mode, encoding=encoding)
 

@@ -24,3 +24,12 @@ def test_open_readonly_rejects_write_mode(tmp_path: Path) -> None:
     target.write_text("hello", encoding="utf-8")
     with pytest.raises(ValueError):
         fs.open_readonly(target, mode="w")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("mode", ["", "b", "t", "rr", "rbb", "rtt", "rbt", "rtb", "rb+"])
+def test_open_readonly_rejects_malformed_read_modes(tmp_path: Path, mode: str) -> None:
+    target = tmp_path / "file.txt"
+    target.write_text("hello", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        fs.open_readonly(target, mode=mode)  # type: ignore[arg-type]
