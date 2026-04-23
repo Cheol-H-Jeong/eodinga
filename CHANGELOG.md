@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.401 - 2026-04-23
+## 0.1.403 - 2026-04-23
 
 - Expanded the README with a one-command validation pass, a package-artifact matrix, an extra troubleshooting runbook entry for docs-asset drift, and clearer FAQ coverage around `index`, `watch`, and on-disk writes.
 - Deepened `docs/ARCHITECTURE.md` with the watcher-to-query incremental update path, explicit transaction boundaries, a packaging audit sequence, and a release-input boundary that explains why docs assets and the compressed changelog block tags.
