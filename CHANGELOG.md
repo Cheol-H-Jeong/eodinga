@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.216 - 2026-04-23
+
+- Added open-ended `size:` ranges to the query compiler and executor, so queries like `size:100K..` and `size:..500K` now compile into one-sided byte filters alongside the existing bounded form.
+- Expanded query regressions across executor, integration, and CLI layers to pin the new size-window behavior from compiler output through `eodinga search --json`.
+- Added executor coverage for multiline and dotall regex flags plus explicit `is:file`, `is:dir`, and `is:symlink` filtering so the shipped query operators stay pinned end-to-end.
+
 ## 0.1.209 - 2026-04-23
 
 - Expanded the PyInstaller spec to discover dynamic hidden imports loaded through `importlib.import_module(...)`, aliased `importlib` module handles, and direct `__import__(...)` calls, reducing manual packaging drift for optional runtime modules.
