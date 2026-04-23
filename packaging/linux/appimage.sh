@@ -24,6 +24,8 @@ PY
 )"
 ARCH="${TARGET_ARCH:-$(uname -m)}"
 ARCHIVE_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-${ARCH}-appdir.tar.gz"
+APPIMAGE_PATH="${DIST_DIR}/eodinga-${VERSION}-linux-${ARCH}.AppImage"
+APPIMAGE_TOOL="${APPIMAGE_TOOL:-appimagetool}"
 DRY_RUN=0
 
 if [[ "${1:-}" == "--dry-run" ]]; then
@@ -31,6 +33,7 @@ if [[ "${1:-}" == "--dry-run" ]]; then
 fi
 
 rm -rf "${APPDIR}"
+rm -f "${APPIMAGE_PATH}"
 mkdir -p "${APPDIR}/usr/bin" "${APPDIR}/usr/share/applications"
 mkdir -p "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
 mkdir -p "${RUNTIME_ROOT}"
@@ -124,6 +127,7 @@ payload = {
     "arch": "${ARCH}",
     "appdir": "${APPDIR}",
     "archive": "${ARCHIVE_PATH}",
+    "appimage_path": "${APPIMAGE_PATH}",
     "archive_entries_sorted": [member.name for member in members] == sorted(member.name for member in members),
     "archive_mtime_zero": all(member.mtime == 0 for member in members),
     "archive_numeric_owner_zero": all(member.uid == 0 and member.gid == 0 for member in members),
@@ -132,6 +136,14 @@ payload = {
         "exists": archive_path.exists(),
         "size_bytes": archive_path.stat().st_size if archive_path.exists() else None,
         "sha256": hashlib.sha256(archive_path.read_bytes()).hexdigest() if archive_path.exists() else None,
+    },
+    "appimage_artifact": {
+        "path": "${APPIMAGE_PATH}",
+        "exists": False,
+        "size_bytes": None,
+        "sha256": None,
+        "is_executable": False,
+        "build_tool": "${APPIMAGE_TOOL}",
     },
     "dry_run": bool(${DRY_RUN}),
     "desktop_entry": {
@@ -198,4 +210,25 @@ if [[ "${DRY_RUN}" -eq 1 ]]; then
   exit 0
 fi
 
-echo "staged source-backed AppDir at ${APPDIR}"
+ARCH="${ARCH}" "${APPIMAGE_TOOL}" "${APPDIR}" "${APPIMAGE_PATH}"
+python3 - <<PY
+import hashlib
+import json
+import os
+from pathlib import Path
+
+audit_path = Path("${AUDIT_PATH}")
+payload = json.loads(audit_path.read_text(encoding="utf-8"))
+appimage_path = Path("${APPIMAGE_PATH}")
+payload["appimage_artifact"] = {
+    "path": str(appimage_path),
+    "exists": appimage_path.exists(),
+    "size_bytes": appimage_path.stat().st_size if appimage_path.exists() else None,
+    "sha256": hashlib.sha256(appimage_path.read_bytes()).hexdigest() if appimage_path.exists() else None,
+    "is_executable": os.access(appimage_path, os.X_OK),
+    "build_tool": "${APPIMAGE_TOOL}",
+}
+audit_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+PY
+
+echo "staged AppImage at ${APPIMAGE_PATH}"
