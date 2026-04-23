@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.160 - 2026-04-23
+## 0.1.161 - 2026-04-23
 
 - Expanded `date:` macros with `last-week` and `last-month`, and pinned their local-time behavior in compiler and executor regressions.
 - Added bounded `size:` windows like `100..500K`, including reversed-range normalization and negated-range execution coverage.
