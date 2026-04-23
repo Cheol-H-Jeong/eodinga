@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.974 - 2026-04-24
+
+- Added launcher-side pin and unpin controls for the current query, including shared popup/search-tab state, config persistence, and keyboard coverage for the new workflow.
+- Kept the launcher resize contract intact while adding the new control by refactoring the launcher interaction helpers, hardening debounce timing, and preserving the existing geometry persistence behavior.
+- Expanded main-window accessibility copy with richer control descriptions and clearer tray action hints, so launcher and tray affordances are easier to understand without visual guesswork.
+
 ## 0.1.970 - 2026-04-24
 
 - Hardened the Windows release audit so the non-dry-run packaging target now fails on non-Windows hosts instead of going green from whatever stale staged artifacts happen to be present locally.
