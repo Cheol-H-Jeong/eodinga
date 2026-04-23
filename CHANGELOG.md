@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.568 - 2026-04-23
+## 0.1.569 - 2026-04-23
 
 - Added live watcher integration coverage for deleting and recreating the same path, asserting the new content becomes searchable within 500ms and the stale content immediately disappears.
 - Added reopened multi-root integration coverage for newly created files, pinning both global and root-scoped query visibility after a restart boundary.
