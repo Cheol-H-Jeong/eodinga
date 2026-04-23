@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.418 - 2026-04-23
+## 0.1.419 - 2026-04-23
 
 - Clamped persisted launcher popup geometry to the active screen before restore, so saved positions and sizes recover cleanly after monitor-layout changes instead of reopening partially or fully off-screen.
 - Hardened launcher hotkey binding so an invalid configured combo no longer blocks the GUI from starting, and failed runtime rebinds roll back to the previous working accelerator.
