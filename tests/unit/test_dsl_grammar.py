@@ -331,6 +331,24 @@ def test_slash_prefixed_path_literal_with_regex_like_basename_fuzz_stays_word(
     assert node.value_kind == "word"
 
 
+def test_bare_hyphen_before_trailing_whitespace_parses_as_word() -> None:
+    node = parse("-\r")
+
+    assert isinstance(node, WordNode)
+    assert node.value == "-"
+    assert not node.negated
+
+
+def test_bare_hyphen_inside_group_before_trailing_whitespace_parses_as_word() -> None:
+    node = parse("0 (-\r)")
+
+    assert isinstance(node, AndNode)
+    assert isinstance(node.clauses[0], WordNode)
+    assert node.clauses[0].value == "0"
+    assert isinstance(node.clauses[1], WordNode)
+    assert node.clauses[1].value == "-"
+
+
 INVALID_REGEX_FLAGS = st.text(
     alphabet=st.characters(min_codepoint=97, max_codepoint=122),
     min_size=1,

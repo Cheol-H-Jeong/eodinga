@@ -120,9 +120,14 @@ class _Parser:
         self._skip_ws()
         negated = False
         if self._peek() == "-":
+            token_start = self.index
             negated = True
             self.index += 1
-            self._skip_ws()
+            skipped_whitespace = self._skip_ws()
+            preceded_by_whitespace = token_start > 0 and self.source[token_start - 1].isspace()
+            if self._peek() in (None, "|", ")") and (skipped_whitespace or preceded_by_whitespace):
+                self.index = token_start + 1
+                return WordNode(value="-")
         char = self._peek()
         if char is None:
             raise QuerySyntaxError("expected term", self.index)
