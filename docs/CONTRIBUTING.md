@@ -51,6 +51,20 @@ pyright --outputjson | python3 -c "import sys,json; s=json.load(sys.stdin)['summ
 
 After the focused slice is green, run the broader acceptance gate before release handoff.
 
+## Worker Round Playbook
+
+Use this when you are landing one isolated round in a parallel worktree:
+
+1. `git fetch origin main && git reset --hard origin/main`
+2. Refresh the virtualenv and install the extras that match the theme.
+3. Run the mandatory gate once before new work so you start from a known-good baseline.
+4. Keep changes inside one theme and one logical commit at a time.
+5. Re-run `pytest -q tests/unit` before every commit.
+6. Leave `pyproject.toml`, `eodinga/__init__.py`, `CHANGELOG.md`, and the local tag untouched until the final metadata commit.
+7. After the substantive commits are done, run the full release pass, then cut the metadata commit and local tag.
+
+The point of this order is rebase safety: if another worker lands first, only the final metadata commit should need retargeting.
+
 ## Quality Gates
 
 Default repository gate:
@@ -113,6 +127,19 @@ pytest -q tests/unit
 | README or guide wording only | `pytest -q tests/unit/test_docs_assets.py` |
 | Packaging or release docs | the matching `packaging/build.py --target ...-dry-run` command plus `pytest -q tests/unit/test_docs_assets.py` |
 
+## Evidence-First Editing
+
+Before updating prose that describes runtime behavior, collect the matching evidence first:
+
+| If the doc claims something about... | Check this first |
+| --- | --- |
+| CLI flags or command names | `eodinga --help` or `docs/man/eodinga.1` regenerated from `scripts/generate_manpage.py` |
+| launcher or GUI behavior | offscreen GUI smoke or refreshed screenshots from `scripts/render_docs_screenshots.py` |
+| packaging artifacts | `packaging/build.py --target ...-dry-run` output under `packaging/dist/` |
+| release order or validation commands | `docs/ACCEPTANCE.md` and `docs/RELEASE.md` kept in sync, then verified by the one-command release pass |
+
+Do not "fix" a docs mismatch by softening the wording if the runtime or packaging evidence says otherwise. Update the implementation or regenerate the derived artifact first, then edit the prose to match the real state.
+
 ## Theme-Sized Test Guide
 
 Use the smallest green slice that proves the change:
@@ -152,6 +179,19 @@ Use this when the round is docs-only but still release-bearing:
 - If the patch number changes because another worker landed first, retarget just that final metadata commit instead of rewriting earlier docs or feature commits.
 - Re-run `pytest -q tests/unit` after retargeting the metadata commit so the branch tip stays demonstrably green.
 
+## Metadata Retarget Flow
+
+If another worker lands the same patch version before your final cut:
+
+1. `git fetch origin main --tags`
+2. Inspect `git tag -l | sort -V | tail -5`
+3. Pick the next unused `0.1.N`
+4. Update only `pyproject.toml`, `eodinga/__init__.py`, and the new top `CHANGELOG.md` entry
+5. Re-run `pytest -q tests/unit`
+6. Commit the metadata retarget and recreate the local tag on the new tip
+
+If retargeting requires touching earlier docs or feature commits, stop and inspect why. The earlier commits should remain stable even when the release number moves.
+
 ## Test Selection Guide
 
 - Query/compiler changes: `pytest -q tests/unit/test_dsl_grammar.py tests/unit/test_compiler.py tests/unit/test_executor.py`
@@ -176,3 +216,4 @@ Use this when the round is docs-only but still release-bearing:
 - README examples use the current query surface and current operator names.
 - Derived docs assets are regenerated from code, not edited by hand.
 - The final release metadata commit contains only the version/changelog/tag cut unless a same-round asset refresh is required.
+- Parallel-worker instructions still let another contributor retarget only the metadata commit when tags move during the round.
