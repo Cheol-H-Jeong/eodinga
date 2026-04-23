@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.867 - 2026-04-23
+## 0.1.869 - 2026-04-23
 
 - Hardened the offline source audit so it now catches `subprocess` network launches passed via `args=` and absolute executable paths like `/usr/bin/curl` or `wget.exe`.
 - Tightened the read-only filesystem safety check to treat `os.fdopen` without a proven read-only literal mode as write-capable, closing another future regression path in `fs.py`.
