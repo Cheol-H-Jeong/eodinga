@@ -110,6 +110,17 @@ user / startup
 - `eodinga doctor` reports both resumed staged rebuild/recovery work and unrecoverable stale-WAL failures so the operator sees the same startup path the runtime takes.
 - This keeps crash recovery local to the database directory and avoids mutating indexed user roots.
 
+## Recovery Invariants
+
+The recovery path is intentionally narrow. These are the rules the runtime is trying to preserve:
+
+| Invariant | Why it matters |
+| --- | --- |
+| Live indexed roots remain read-only inputs | recovery may replace the local index database, but it never writes back into scanned user content |
+| Staged `.next` and `.recover` files must be validated before promotion | prevents empty or half-built SQLite files from replacing a known-good live index |
+| WAL replay happens against a staged copy before rename | keeps crash recovery atomic instead of mutating the live database in place |
+| Recovery residue should disappear after a successful open | leftover sidecars or partial files are treated as a storage bug, not normal steady-state |
+
 ## Rebuild Sequence
 
 ```text
@@ -168,6 +179,13 @@ query term or operator
     |
     +--> fuse scores and emit normalized hits
 ```
+
+## Query Consistency Invariants
+
+- The same DSL parser, compiler, executor, and ranker serve CLI, GUI, and launcher queries; a result mismatch across surfaces should be treated as a bug.
+- SQLite/FTS handles the cheap lexical narrowing first, and Python fallback logic only runs on the reduced candidate set for regex, mixed path/content, or negation edge cases.
+- Ranking uses stable tie handling, so repeated runs against the same index should not reshuffle equal-score hits unexpectedly.
+- `eodinga stats --json` and runtime logs are the first places to check when operators report “the same query behaved differently” across surfaces.
 
 ## Observability Flow
 
@@ -272,6 +290,20 @@ startup
 - Documentation screenshots are rendered from the real Qt surfaces through `eodinga.gui.docs` and `scripts/render_docs_screenshots.py`.
 - Release docs also ship a generated CLI man page under `docs/man/` so packaged audits can verify the command surface without importing the project interactively.
 
+## Packaging Audit Path
+
+```text
+release-facing docs or packaging change
+    |
+    +--> packaging/build.py --target windows-dry-run
+    |
+    +--> packaging/build.py --target linux-appimage-dry-run
+    |
+    +--> packaging/build.py --target linux-deb-dry-run
+    |
+    +--> docs/ACCEPTANCE.md / docs/RELEASE.md stay aligned with staged artifacts
+```
+
 ## Platform Surface Summary
 
 | Surface | Entry point | Purpose |
@@ -304,3 +336,14 @@ When an operator reports stale or surprising results, the shortest architecture-
 3. `eodinga watch` or `eodinga index --rebuild` depending on whether the issue is live-update lag or a one-shot recovery need.
 
 That sequence mirrors the architecture itself: active DB selection, environment validation, then either watcher-driven incremental repair or staged rebuild.
+
+## Symptom To Subsystem Map
+
+| Symptom | Likely boundary to inspect first | First command |
+| --- | --- | --- |
+| Query returns old results after edits | watcher debounce / writer commit path | `eodinga stats --json` |
+| Startup mentions recovery or WAL | storage open/recovery path | `eodinga doctor` |
+| CLI and launcher disagree on results | shared query executor or config/db selection | `eodinga search 'query' --json` |
+| Packaged app behavior differs from editable install | packaging surface or generated docs assets | `python packaging/build.py --target windows-dry-run` |
+
+Use the map to keep debugging aligned with the architecture rather than jumping directly to UI-only or installer-only guesses.

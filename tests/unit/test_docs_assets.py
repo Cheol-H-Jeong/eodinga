@@ -112,19 +112,25 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## SQLite Schema Snapshot" in architecture
     assert "## Index Lifecycle Sequence" in architecture
     assert "## Startup Recovery" in architecture
+    assert "## Recovery Invariants" in architecture
     assert "## Rebuild Sequence" in architecture
     assert "## Query Execution" in architecture
     assert "## Search Decision Path" in architecture
+    assert "## Query Consistency Invariants" in architecture
     assert "## Live Update Sequence" in architecture
     assert "## Documentation Asset Flow" in architecture
     assert "## State Ownership" in architecture
     assert "## Failure Domains" in architecture
     assert "## Operator Debug Path" in architecture
     assert "## Packaging Surfaces" in architecture
+    assert "## Packaging Audit Path" in architecture
+    assert "## Symptom To Subsystem Map" in architecture
     assert "compressed changelog" in architecture
     assert "scripts/generate_manpage.py" in architecture
     assert "scripts/render_docs_screenshots.py" in architecture
     assert "tests/unit/test_docs_assets.py" in architecture
+    assert "WAL replay happens against a staged copy before rename" in architecture
+    assert "same DSL parser, compiler, executor, and ranker serve CLI, GUI, and launcher queries" in architecture
 
     assert "## Local Setup" in contributing
     assert "## Daily Workflow" in contributing
