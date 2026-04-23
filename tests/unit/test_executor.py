@@ -388,6 +388,43 @@ def test_execute_open_ended_date_ranges(tmp_db: sqlite3.Connection) -> None:
     assert older_hits == ["jan-1.txt", "jan-2.txt"]
 
 
+def test_execute_relative_macro_date_ranges(tmp_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch) -> None:
+    seoul = ZoneInfo("Asia/Seoul")
+    frozen_now = datetime(2026, 4, 23, 12, 0, tzinfo=seoul)
+
+    class _FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):  # type: ignore[override]
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr("eodinga.query.date_range.datetime", _FrozenDateTime)
+
+    apr_16 = int(datetime(2026, 4, 16, 12, 0, tzinfo=seoul).timestamp())
+    apr_20 = int(datetime(2026, 4, 20, 12, 0, tzinfo=seoul).timestamp())
+    apr_22 = int(datetime(2026, 4, 22, 12, 0, tzinfo=seoul).timestamp())
+    apr_23 = int(datetime(2026, 4, 23, 12, 0, tzinfo=seoul).timestamp())
+
+    _insert_file(tmp_db, 1, "/workspace/last-week.txt", 512, apr_16, "txt", body_text="last week")
+    _insert_file(tmp_db, 2, "/workspace/this-week.txt", 512, apr_20, "txt", body_text="this week")
+    _insert_file(tmp_db, 3, "/workspace/yesterday.txt", 512, apr_22, "txt", body_text="yesterday")
+    _insert_file(tmp_db, 4, "/workspace/today.txt", 512, apr_23, "txt", body_text="today")
+    tmp_db.commit()
+
+    closed_hits = [
+        hit.file.name for hit in search(tmp_db, "date:yesterday..today", limit=10).hits
+    ]
+    mixed_hits = [
+        hit.file.name for hit in search(tmp_db, "date:last-week..2026-04-23", limit=10).hits
+    ]
+    open_hits = [hit.file.name for hit in search(tmp_db, "date:..last-week", limit=10).hits]
+
+    assert closed_hits == ["today.txt", "yesterday.txt"]
+    assert mixed_hits == ["last-week.txt", "this-week.txt", "today.txt", "yesterday.txt"]
+    assert open_hits == ["last-week.txt"]
+
+
 def test_execute_datetime_literal_and_range_queries(tmp_db: sqlite3.Connection) -> None:
     base = int(datetime(2026, 1, 3, 9, 15, 30, tzinfo=UTC).timestamp())
     _insert_file(tmp_db, 1, "/workspace/exact-second.txt", 512, base, "txt", body_text="exact")
