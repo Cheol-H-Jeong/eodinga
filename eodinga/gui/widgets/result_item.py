@@ -220,6 +220,15 @@ def _style_marks(html: str) -> str:
     return html.replace("<mark>", MARK_OPEN)
 
 
+def format_hit_accessible_text(hit: SearchHit, *, rank: int | None = None) -> str:
+    parts = [hit.name, str(hit.path)]
+    if rank is not None and 0 <= rank < 9:
+        parts.append(f"Quick pick Alt+{rank + 1}.")
+    if hit.snippet:
+        parts.append(hit.snippet.replace("[", "").replace("]", "").strip())
+    return " ".join(part for part in parts if part)
+
+
 def _quick_pick_badge(rank: int | None) -> str:
     if rank is None or not 0 <= rank < 9:
         return ""

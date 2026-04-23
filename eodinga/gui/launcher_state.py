@@ -6,7 +6,7 @@ from pathlib import Path
 from PySide6.QtCore import QAbstractListModel, QModelIndex, QObject, Qt, Signal
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
-from eodinga.gui.widgets.result_item import format_hit_html
+from eodinga.gui.widgets.result_item import format_hit_accessible_text, format_hit_html
 
 
 def default_search(query: str, limit: int) -> QueryResult:
@@ -117,6 +117,10 @@ class ResultListModel(QAbstractListModel):
         item = self._items[index.row()]
         if role == Qt.ItemDataRole.DisplayRole:
             return format_hit_html(item, self._query, rank=index.row())
+        if role == Qt.ItemDataRole.AccessibleTextRole:
+            return format_hit_accessible_text(item, rank=index.row())
+        if role == Qt.ItemDataRole.AccessibleDescriptionRole:
+            return "Launcher search result"
         if role == Qt.ItemDataRole.UserRole:
             return item
         return None

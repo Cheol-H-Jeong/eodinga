@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from eodinga.common import SearchHit
-from eodinga.gui.widgets.result_item import format_hit_html, highlight_text
+from eodinga.gui.widgets.result_item import format_hit_accessible_text, format_hit_html, highlight_text
 
 
 def test_highlight_text_marks_all_case_insensitive_matches() -> None:
@@ -113,6 +113,25 @@ def test_format_hit_html_omits_quick_pick_badge_after_top_nine() -> None:
     )
 
     assert "background:#DBEAFE" not in rendered
+
+
+def test_format_hit_accessible_text_includes_quick_pick_and_snippet() -> None:
+    rendered = format_hit_accessible_text(
+        SearchHit(
+            path=Path("/tmp/release-notes.txt"),
+            parent_path=Path("/tmp"),
+            name="release-notes.txt",
+            ext="txt",
+            snippet="...the [release notes] are attached...",
+        ),
+        rank=1,
+    )
+
+    assert "release-notes.txt" in rendered
+    assert "/tmp/release-notes.txt" in rendered
+    assert "Quick pick Alt+2." in rendered
+    assert "[release notes]" not in rendered
+    assert "release notes" in rendered
 
 
 def test_format_hit_html_renders_highlighted_snippet() -> None:

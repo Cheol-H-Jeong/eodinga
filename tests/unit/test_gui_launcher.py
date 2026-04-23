@@ -281,6 +281,37 @@ def test_launcher_preserves_selected_result_when_query_refines(qapp) -> None:
     assert result.name == "gamma.txt"
 
 
+def test_launcher_results_expose_accessible_text_for_screen_readers(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(
+                    path=Path("/tmp/release-notes.txt"),
+                    parent_path=Path("/tmp"),
+                    name="release-notes.txt",
+                    snippet="...the [release notes] are attached...",
+                )
+            ][:limit],
+            total=1,
+            elapsed_ms=1.5,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(60)
+
+    index = launcher.model.index(0, 0)
+    assert index.data(Qt.ItemDataRole.AccessibleDescriptionRole) == "Launcher search result"
+    accessible_text = index.data(Qt.ItemDataRole.AccessibleTextRole)
+    assert accessible_text is not None
+    assert "release-notes.txt" in accessible_text
+    assert "/tmp/release-notes.txt" in accessible_text
+    assert "Quick pick Alt+1." in accessible_text
+    assert "[release notes]" not in accessible_text
+
+
 def test_launcher_activation_flushes_debounced_query_before_opening(qapp) -> None:
     activated: list[str] = []
 
