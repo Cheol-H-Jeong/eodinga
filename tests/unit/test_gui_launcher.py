@@ -18,6 +18,10 @@ def _wait(milliseconds: int) -> None:
     loop.exec()
 
 
+def _menu_action(menu, text: str):
+    return next(action for action in menu.actions() if action.text() == text)
+
+
 def test_launcher_debounces_and_updates_results(qapp) -> None:
     def search_fn(query: str, limit: int) -> QueryResult:
         return QueryResult(
@@ -727,6 +731,97 @@ def test_launcher_action_bar_triggers_result_actions(qapp) -> None:
     assert copied_paths == ["/tmp/release-notes.txt"]
     assert copied_names == ["release-notes.txt"]
     assert properties == ["release-notes.txt"]
+
+
+def test_launcher_result_context_menu_triggers_result_actions(qapp) -> None:
+    activated: list[str] = []
+    revealed: list[str] = []
+    copied_paths: list[str] = []
+    copied_names: list[str] = []
+    properties: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/release-notes.txt"), parent_path=Path("/tmp"), name="release-notes.txt")
+            ][:limit],
+            total=1,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.result_activated.connect(lambda hit: activated.append(hit.name))
+    launcher.open_containing_folder.connect(lambda hit: revealed.append(hit.name))
+    launcher.copy_path_requested.connect(lambda hit: copied_paths.append(str(hit.path)))
+    launcher.copy_name_requested.connect(lambda hit: copied_names.append(hit.name))
+    launcher.show_properties.connect(lambda hit: properties.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    _wait(60)
+    menu = launcher._build_result_context_menu()
+
+    assert menu is not None
+    _menu_action(menu, "Open").trigger()
+    _menu_action(menu, "Reveal").trigger()
+    _menu_action(menu, "Copy Path").trigger()
+    _menu_action(menu, "Copy Name").trigger()
+    _menu_action(menu, "Properties").trigger()
+
+    assert activated == ["release-notes.txt"]
+    assert revealed == ["release-notes.txt"]
+    assert copied_paths == ["/tmp/release-notes.txt"]
+    assert copied_names == ["release-notes.txt"]
+    assert properties == ["release-notes.txt"]
+
+
+def test_launcher_result_context_menu_targets_the_clicked_row(qapp) -> None:
+    copied_names: list[str] = []
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[
+                SearchHit(path=Path("/tmp/alpha.txt"), parent_path=Path("/tmp"), name="alpha.txt"),
+                SearchHit(path=Path("/tmp/beta.txt"), parent_path=Path("/tmp"), name="beta.txt"),
+            ][:limit],
+            total=2,
+            elapsed_ms=2.0,
+        )
+
+    launcher = LauncherWindow(search_fn=search_fn)
+    launcher.copy_name_requested.connect(lambda hit: copied_names.append(hit.name))
+    launcher.show()
+
+    launcher.query_field.setText("txt")
+    _wait(60)
+    menu = launcher._build_result_context_menu(1)
+
+    assert menu is not None
+    _menu_action(menu, "Copy Name").trigger()
+
+    assert launcher.result_list.currentIndex().row() == 1
+    assert copied_names == ["beta.txt"]
+
+
+def test_launcher_close_cancels_pending_debounced_query(qapp) -> None:
+    calls: list[str] = []
+    state = LauncherState()
+
+    def search_fn(query: str, limit: int) -> QueryResult:
+        del limit
+        calls.append(query)
+        return QueryResult(items=[], total=0, elapsed_ms=1.0)
+
+    launcher = LauncherWindow(search_fn=search_fn, state=state, debounce_ms=90)
+    launcher.show()
+
+    launcher.query_field.setText("release")
+    launcher.close()
+    state.deleteLater()
+    qapp.processEvents()
+    _wait(120)
+
+    assert calls == []
 
 
 def test_launcher_alt_number_quick_picks_results(qapp) -> None:
