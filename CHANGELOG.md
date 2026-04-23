@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.410 - 2026-04-23
+
+- Added parser runtime metrics for attempts, successes, oversize skips, input bytes, and parse latency so slow or failing formats show up directly in `stats --json`.
+- Added watcher flush-duration and queue-depth histograms on top of the existing backpressure counters, making event-pipeline saturation easier to diagnose from runtime metrics alone.
+- Embedded the live metrics snapshot into each crash log so a single `crash-*.log` now captures the counters and histograms that were active at failure time.
+
 ## 0.1.406 - 2026-04-23
 
 - Exposed the effective file log sink policy in `stats --json`, including rotation, retention, compression, and whether file logging is active for the current process.
