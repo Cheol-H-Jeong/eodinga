@@ -312,12 +312,25 @@ def _root_scope_clause(root: Path | None) -> tuple[str, tuple[object, ...]]:
         return "", ()
     root_text = str(root)
     normalized = root_text.rstrip("/\\") or root_text
+    drive_variants = (normalized,)
+    if len(normalized) >= 2 and normalized[1] == ":" and normalized[0].isalpha():
+        drive_variants = tuple(
+            dict.fromkeys(
+                (
+                    normalized,
+                    normalized[0].lower() + normalized[1:],
+                    normalized[0].upper() + normalized[1:],
+                )
+            )
+        )
     variants = tuple(
         dict.fromkeys(
-            (
-                normalized,
-                normalized.replace("\\", "/"),
-                normalized.replace("/", "\\"),
+            variant
+            for drive_variant in drive_variants
+            for variant in (
+                drive_variant,
+                drive_variant.replace("\\", "/"),
+                drive_variant.replace("/", "\\"),
             )
         )
     )

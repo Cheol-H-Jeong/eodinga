@@ -140,6 +140,22 @@ def test_execute_breaks_equal_score_ties_by_path_not_file_id(
     assert hits == ["/workspace/alpha/report.txt", "/workspace/zeta/report.txt"]
 
 
+def test_execute_root_scope_matches_windows_drive_letter_case_insensitively(
+    tmp_db: sqlite3.Connection,
+) -> None:
+    now = 1_713_528_000
+    _insert_file(tmp_db, 1, r"C:\workspace\reports\alpha.txt", 512, now, "txt", body_text="alpha")
+    _insert_file(tmp_db, 2, r"C:\workspace\archive\alpha.txt", 512, now - 60, "txt", body_text="alpha")
+    tmp_db.commit()
+
+    hits = [
+        str(hit.file.path)
+        for hit in search(tmp_db, "alpha", limit=10, root=Path(r"c:/workspace/reports")).hits
+    ]
+
+    assert hits == [r"C:\workspace\reports\alpha.txt"]
+
+
 def test_content_snippet_is_present(populated_db: sqlite3.Connection) -> None:
     result = search(populated_db, "content:launch", limit=5)
     assert result.hits[0].snippet is not None
