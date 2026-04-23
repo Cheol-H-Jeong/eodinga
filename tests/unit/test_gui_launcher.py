@@ -411,22 +411,34 @@ def test_launcher_empty_state_shows_pinned_queries_from_shared_state(qapp) -> No
 
 
 def test_launcher_clicking_pinned_chip_applies_query(qapp) -> None:
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(
+            items=[SearchHit(path=Path("/tmp/note.md"), parent_path=Path("/tmp"), name="note.md")][:limit] if query else [],
+            total=1 if query else 0,
+            elapsed_ms=2.0,
+        )
+
     state = LauncherState()
     state.set_pinned_queries(["ext:md"])
-    launcher = LauncherWindow(state=state)
+    launcher = LauncherWindow(search_fn=search_fn, state=state)
     launcher.show()
 
     launcher.query_chip_row.buttons[0].click()
 
     assert launcher.query_field.text() == "ext:md"
+    assert launcher.model.rowCount() == 1
+    assert launcher.status_chip.text() == "Ready"
 
 
 def test_launcher_query_chip_row_surfaces_active_filters(qapp) -> None:
-    launcher = LauncherWindow(state=LauncherState())
+    def search_fn(query: str, limit: int) -> QueryResult:
+        return QueryResult(items=[], total=0, elapsed_ms=2.0)
+
+    launcher = LauncherWindow(search_fn=search_fn, state=LauncherState())
     launcher.show()
 
     launcher.query_field.setText('report ext:pdf date:this-week -path:"archive"')
-    _wait(10)
+    _wait(60)
 
     assert launcher.query_chip_row.isVisible()
     assert [button.text() for button in launcher.query_chip_row.buttons] == [
@@ -435,6 +447,7 @@ def test_launcher_query_chip_row_surfaces_active_filters(qapp) -> None:
         '-path:"archive"',
     ]
     assert launcher.shortcut_label.text() == "Active filters stay visible above results. Alt+Up recalls recent queries."
+    assert launcher.status_label.text() == "0 results · 2.0 ms · 3 filters"
 
 
 def test_launcher_ctrl_l_returns_focus_to_query_field_and_selects_text(qapp) -> None:

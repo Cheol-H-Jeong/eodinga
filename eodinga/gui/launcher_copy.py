@@ -30,3 +30,11 @@ def build_shortcut_hint(*, has_results: bool, results_focused: bool, query: str,
         "Tab moves to results. Down/Up navigate. Home/End and PgUp/PgDn jump. "
         "Enter opens the top hit. Alt+1..9 quick-picks. Alt+Up recalls recent queries."
     )
+
+
+def format_query_status(total: int, elapsed_ms: float, active_filter_count: int) -> str:
+    status = f"{total} results · {elapsed_ms:.1f} ms"
+    if active_filter_count > 0:
+        suffix = "filter" if active_filter_count == 1 else "filters"
+        return f"{status} · {active_filter_count} {suffix}"
+    return status

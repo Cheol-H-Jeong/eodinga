@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QListView, QVBoxLayout, QWidg
 
 from eodinga.common import IndexingStatus, QueryResult, SearchHit
 from eodinga.config import AppConfig
-from eodinga.gui.launcher_copy import build_empty_state_body, build_shortcut_hint
+from eodinga.gui.launcher_copy import build_empty_state_body, build_shortcut_hint, format_query_status
 from eodinga.gui.design import MOTION_DEBOUNCE_MS, SPACE_16, SPACE_8
 from eodinga.gui.launcher_query import QueryChip, collect_query_chips
 from eodinga.gui.launcher_state import LauncherState, ResultListModel, default_search, format_indexing_footer, format_indexing_status
@@ -229,7 +229,13 @@ class LauncherPanel(QWidget):
                 self.status_chip.setText("Idle")
                 self.status_label.setText("0 results · 0.0 ms")
             return
-        self.status_label.setText(f"{self._latest_result.total} results · {self._latest_result.elapsed_ms:.1f} ms")
+        self.status_label.setText(
+            format_query_status(
+                self._latest_result.total,
+                self._latest_result.elapsed_ms,
+                len(collect_query_chips(query)),
+            )
+        )
         if self._latest_result.total > 0:
             self.status_chip.setText("Ready")
         else:
@@ -280,6 +286,7 @@ class LauncherPanel(QWidget):
         self.query_field.setFocus()
         self.query_field.setText(query)
         self.query_field.setCursorPosition(len(query))
+        self._flush_pending_query()
     def _current_hit(self) -> SearchHit | None:
         index = self.result_list.currentIndex()
         row = index.row() if index.isValid() else 0
