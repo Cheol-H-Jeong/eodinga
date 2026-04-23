@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.270 - 2026-04-23
+## 0.1.272 - 2026-04-23
 
 - Made staged index rebuilds stop cleanly on `SIGINT` and `SIGTERM` batch boundaries, preserving the `.next` snapshot for later resume instead of discarding already committed work mid-rebuild.
 - Expanded rebuild regressions to prove interrupted staged databases remain queryable and that the temporary signal handlers are installed and restored around rebuild execution.
