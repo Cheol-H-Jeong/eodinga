@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.275 - 2026-04-23
+## 0.1.277 - 2026-04-23
 
 - Query date ranges now accept relative macro endpoints inside open-ended and bounded windows, so searches like `date:last-week..today`, `date:..yesterday`, and `modified:2026-04-01..yesterday` compile and execute correctly.
 - Added compiler and executor regressions for mixed macro/ISO date ranges to keep local-time window semantics stable across future parser changes.
