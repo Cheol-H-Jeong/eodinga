@@ -6,6 +6,7 @@ from pathlib import Path
 from queue import Empty
 from time import monotonic
 
+from eodinga.common import FileRecord
 from eodinga.core.watcher import WatchService
 from eodinga.index.writer import IndexWriter
 from tests.conftest import make_record
@@ -15,7 +16,7 @@ def wait_for_applied_event(
     service: WatchService,
     writer: IndexWriter,
     *,
-    record_loader: Callable[[Path], object | None],
+    record_loader: Callable[[Path], FileRecord | None],
     deadline_seconds: float,
     predicate: Callable[[], bool],
 ) -> float:
@@ -32,13 +33,13 @@ def wait_for_applied_event(
     raise AssertionError(f"condition not satisfied within {deadline_seconds:.3f}s")
 
 
-def root_aware_record_loader(conn: sqlite3.Connection) -> Callable[[Path], object | None]:
+def root_aware_record_loader(conn: sqlite3.Connection) -> Callable[[Path], FileRecord | None]:
     root_rows = [
         (Path(str(row[0])), int(row[1]))
         for row in conn.execute("SELECT path, id FROM roots ORDER BY LENGTH(path) DESC, id ASC")
     ]
 
-    def load(path: Path) -> object | None:
+    def load(path: Path) -> FileRecord | None:
         for root_path, root_id in root_rows:
             try:
                 path.relative_to(root_path)

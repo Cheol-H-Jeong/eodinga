@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.284 - 2026-04-23
+
+- Made the live watcher integration harness root-aware, so multi-root event application now uses the same root mapping the on-disk index expects instead of silently forcing every live file into root `1`.
+- Added end-to-end coverage for real cross-root renames, proving that live watcher updates eventually converge to the destination root and persist the destination `root_id` in the index.
+- Added the same cross-root move regression after a hot restart, keeping multi-root reopen flows honest when the watcher resumes against an existing index.
+
 ## 0.1.277 - 2026-04-23
 
 - Reused `os.scandir()` metadata during tree walks so discovered children no longer pay an extra `lstat()` before indexing, while preserving the existing fallback path for entries whose metadata cannot be read during directory enumeration.
