@@ -792,3 +792,26 @@ def test_watcher_flush_backpressure_requeues_all_undelivered_events(tmp_path: Pa
 
     third_event = service.queue.get(timeout=1)
     assert third_event.path == third
+
+
+def test_watcher_start_failure_does_not_leave_flush_thread_running(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import eodinga.core.watcher as watcher_module
+
+    class BrokenObserver:
+        def schedule(self, _handler: object, _root_text: str, recursive: bool = True) -> None:
+            assert recursive is True
+
+        def start(self) -> None:
+            raise RuntimeError("observer boom")
+
+    monkeypatch.setattr(watcher_module, "Observer", BrokenObserver)
+
+    service = WatchService()
+
+    with pytest.raises(RuntimeError, match="observer boom"):
+        service.start(tmp_path)
+
+    assert service._observers == {}
+    assert service._flush_thread is None
