@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.142 - 2026-04-23
+## 0.1.146 - 2026-04-23
 
 - Accepted persisted `launcher.pinned_queries` in the config schema so existing local configs no longer crash CLI commands or test runs before the requested action starts.
 - Added a generated CLI man page at `docs/eodinga.1`, linked it from the README, and documented the regeneration step in the contributor and release workflows.
