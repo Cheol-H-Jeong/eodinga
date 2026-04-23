@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.129 - 2026-04-23
+## 0.1.131 - 2026-04-23
 
 - Added `last-week` and `last-month` query macros so relative date filtering can target the previous calendar week and month without requiring manual ISO ranges.
 - Added inclusive `size:min..max` filtering with normalized reversed bounds, so queries such as `size:100K..500K` and `-size:500K..100K` compile and execute predictably.
