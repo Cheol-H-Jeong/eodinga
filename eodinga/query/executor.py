@@ -90,7 +90,7 @@ def _path_candidates_scan_sql(
         if case_sensitive:
             filters.append("(instr(files.name, ?) > 0 OR instr(files.path, ?) > 0)")
         else:
-            filters.append("(instr(lower(files.name), ?) > 0 OR instr(lower(files.path), ?) > 0)")
+            filters.append("(instr(files.name_lower, ?) > 0 OR instr(lower(files.path), ?) > 0)")
     if has_where_sql:
         filters.append("{where_sql}")
     if filters:

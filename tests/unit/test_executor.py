@@ -181,6 +181,17 @@ def test_content_snippet_is_present(populated_db: sqlite3.Connection) -> None:
     assert "launch" in result.hits[0].snippet.lower()
 
 
+def test_path_candidate_scan_sql_reuses_name_lower_for_casefolded_name_checks() -> None:
+    sql = executor_module._path_candidates_scan_sql(
+        positive_term_count=2,
+        has_where_sql=False,
+        case_sensitive=False,
+    )
+
+    assert "instr(files.name_lower, ?)" in sql
+    assert "lower(files.name)" not in sql
+
+
 def test_fetch_content_texts_uses_fixed_size_batches(
     populated_db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
 ) -> None:
