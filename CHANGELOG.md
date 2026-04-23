@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.406 - 2026-04-23
+
+- Surfaced active launcher filter chips directly beneath the search field so structured query terms stay visible while typing and navigating results.
+- Added launcher-side pin and unpin controls, including `Alt+P` and config persistence, so shared pinned queries can be curated from either launcher surface without editing config files.
+- Made active filter chips actionable: clicking a chip now removes just that filter from the query and reruns the search with the remaining terms.
+
 ## 0.1.401 - 2026-04-23
 
 - Hardened the AppImage dry-run audit so staged desktop and icon payloads must remain byte-for-byte aligned with the shipped Linux assets instead of only existing in the AppDir.
