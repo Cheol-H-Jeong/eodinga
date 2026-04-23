@@ -15,6 +15,7 @@ class SettingsTab(QWidget):
         super().__init__(parent)
         self.setAccessibleName("Settings tab")
         self._hotkey_combo = "ctrl+shift+space"
+        self._hotkey_available = True
         layout = QVBoxLayout(self)
         title = QLabel("Settings", self)
         title.setProperty("role", "title")
@@ -34,7 +35,7 @@ class SettingsTab(QWidget):
         self.remap_hotkey_button.clicked.connect(self._prompt_hotkey_combo)
         self.frameless_checkbox.toggled.connect(self.frameless_changed.emit)
         self.always_on_top_checkbox.toggled.connect(self.always_on_top_changed.emit)
-        self.set_hotkey_combo(self._hotkey_combo)
+        self.set_hotkey_state(self._hotkey_combo, available=True)
 
         layout.addWidget(title)
         layout.addWidget(body)
@@ -46,8 +47,23 @@ class SettingsTab(QWidget):
         layout.addStretch(1)
 
     def set_hotkey_combo(self, combo: str) -> None:
+        self.set_hotkey_state(combo, available=self._hotkey_available)
+
+    def set_hotkey_state(self, combo: str, *, available: bool) -> None:
         self._hotkey_combo = combo
-        self.hotkey_label.setText(f"Launcher hotkey: {combo or 'disabled'}")
+        self._hotkey_available = available
+        status = combo or "disabled"
+        suffix = "" if available else " (saved only)"
+        self.hotkey_label.setText(f"Launcher hotkey: {status}{suffix}")
+        if available:
+            description = "Launcher hotkey changes apply immediately."
+            button_tooltip = "Enter a global launcher hotkey."
+        else:
+            description = "Global launcher hotkeys are unavailable in this session. Saved changes apply when supported."
+            button_tooltip = "Save a launcher hotkey for a supported session."
+        self.hotkey_label.setAccessibleDescription(description)
+        self.hotkey_label.setToolTip(description)
+        self.remap_hotkey_button.setToolTip(button_tooltip)
 
     def set_always_on_top(self, enabled: bool) -> None:
         self.always_on_top_checkbox.blockSignals(True)

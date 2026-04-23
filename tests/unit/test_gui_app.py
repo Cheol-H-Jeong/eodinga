@@ -458,6 +458,39 @@ def test_settings_tab_can_disable_hotkey_without_restart(
     assert load(temp_config_path).launcher.hotkey == ""
 
 
+def test_settings_tab_marks_saved_hotkey_when_backend_is_unavailable(monkeypatch, qapp) -> None:
+    monkeypatch.setattr("eodinga.gui.hotkey_controller.LauncherHotkeyController._build_service", lambda self: None)
+
+    window = EodingaWindow()
+    window.show()
+
+    assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+shift+space (saved only)"
+    assert (
+        window.settings_tab.hotkey_label.accessibleDescription()
+        == "Global launcher hotkeys are unavailable in this session. Saved changes apply when supported."
+    )
+    assert window.settings_tab.remap_hotkey_button.toolTip() == "Save a launcher hotkey for a supported session."
+
+
+def test_settings_tab_persists_hotkey_even_when_backend_is_unavailable(
+    monkeypatch,
+    qapp,
+    temp_config_path: Path,
+) -> None:
+    monkeypatch.setattr("eodinga.gui.hotkey_controller.LauncherHotkeyController._build_service", lambda self: None)
+    monkeypatch.setattr(
+        "eodinga.gui.tabs.settings.QInputDialog.getText",
+        lambda *args, **kwargs: ("ctrl+alt+k", True),
+    )
+
+    window = EodingaWindow(config=AppConfig(), config_path=temp_config_path)
+    window.settings_tab.remap_hotkey_button.click()
+    qapp.processEvents()
+
+    assert window.settings_tab.hotkey_label.text() == "Launcher hotkey: ctrl+alt+k (saved only)"
+    assert load(temp_config_path).launcher.hotkey == "ctrl+alt+k"
+
+
 def test_settings_tab_toggles_always_on_top_without_restart(qapp, temp_config_path: Path) -> None:
     config = AppConfig()
     config.launcher = config.launcher.model_copy(update={"always_on_top": False})
