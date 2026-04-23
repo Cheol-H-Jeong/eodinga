@@ -644,7 +644,10 @@ def test_launcher_active_filter_row_shows_overflow_count_for_many_filters(qapp) 
     _wait(10)
 
     assert "+1 more" in launcher.active_filter_row.chips_label.text()
-    assert launcher.active_filter_row.accessibleDescription() == "Showing 5 of 6 active launcher filters."
+    assert launcher.active_filter_row.accessibleDescription() == (
+        "Showing 5 of 6 active launcher filters: ext:pdf, date:today, size:>10M, path:reports, is:file, regex:true."
+    )
+    assert launcher.active_filter_row.toolTip() == "ext:pdf, date:today, size:>10M, path:reports, is:file, regex:true"
 
 
 def test_launcher_hovered_result_becomes_action_target(qapp) -> None:
@@ -824,6 +827,9 @@ def test_launcher_accessible_names_cover_keyboard_surface(qapp) -> None:
     assert launcher.status_chip.accessibleName() == "Launcher status"
     assert launcher.result_list.accessibleDescription() == "No launcher results are available."
     assert launcher.preview_pane.accessibleDescription() == "No launcher result is selected for preview."
+    assert launcher.active_filter_row.accessibleName() == "Active launcher filters"
+    assert launcher.active_filter_row.accessibleDescription() == "No active launcher filters."
+    assert launcher.active_filter_row.chips_label.accessibleName() == "Active filter chips"
 
 
 def test_launcher_query_chips_expose_accessible_context(qapp) -> None:
@@ -897,3 +903,21 @@ def test_launcher_results_expose_accessible_text_and_preview_summary(qapp) -> No
     )
     assert "Previewing release-notes.txt at /tmp/release-notes.txt." in launcher.preview_pane.accessibleDescription()
     assert "Snippet: ...the release notes are attached..." in launcher.preview_pane.accessibleDescription()
+
+
+def test_launcher_active_filter_row_exposes_full_filter_summary_in_tooltip(qapp) -> None:
+    launcher = LauncherWindow()
+    launcher.show()
+
+    launcher.query_field.setText('ext:pdf date:this-week size:>10M path:docs content:"release notes" is:empty')
+    _wait(60)
+
+    expected = 'ext:pdf, date:this-week, size:>10M, path:docs, content:"release notes", is:empty'
+
+    assert launcher.active_filter_row.isVisible()
+    assert launcher.active_filter_row.toolTip() == expected
+    assert launcher.active_filter_row.chips_label.toolTip() == expected
+    assert launcher.active_filter_row.accessibleDescription() == (
+        f"Showing 5 of 6 active launcher filters: {expected}."
+    )
+    assert "+1 more" in launcher.active_filter_row.chips_label.text()
