@@ -260,6 +260,32 @@ def test_parse_inline_or_without_surrounding_spaces() -> None:
     assert [clause.value for clause in node.clauses] == ["pdf", "txt"]  # type: ignore[attr-defined]
 
 
+def test_compile_negated_and_group_distributes_to_or_branches() -> None:
+    compiled = compile_query(parse("-(alpha beta)"))
+
+    assert len(compiled.branches) == 2
+    branch_terms = [tuple((term.value, term.negated) for term in branch.path_terms) for branch in compiled.branches]
+    assert branch_terms == [(("alpha", True),), (("beta", True),)]
+
+
+def test_compile_negated_or_group_distributes_to_single_and_branch() -> None:
+    compiled = compile_query(parse("-(alpha | beta)"))
+
+    assert len(compiled.branches) == 1
+    assert tuple((term.value, term.negated) for term in compiled.branches[0].path_terms) == (
+        ("alpha", True),
+        ("beta", True),
+    )
+
+
+def test_compile_double_negated_group_restores_positive_or_branches() -> None:
+    compiled = compile_query(parse("-(-(alpha | beta))"))
+
+    assert len(compiled.branches) == 2
+    branch_terms = [tuple((term.value, term.negated) for term in branch.path_terms) for branch in compiled.branches]
+    assert branch_terms == [(("alpha", False),), (("beta", False),)]
+
+
 @pytest.mark.parametrize(
     "query",
     [
