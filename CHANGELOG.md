@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.157 - 2026-04-23
+
+- Added pinned launcher queries backed by shared launcher state and persisted config, plus keyboard-driven recall so saved filters stay one shortcut away in both the popup and the Search tab.
+- Refined the launcher empty state and shortcut guidance to surface pinned queries, recent queries, and the new pinning flow without requiring mouse exploration.
+- Strengthened launcher result emphasis so highlighted matches render with bolder visual weight while preserving the existing HTML highlight contract used by the regression suite.
+
 ## 0.1.155 - 2026-04-23
 
 - Fixed the default observability paths on macOS so rotating logs now land under `~/Library/Logs/eodinga` and crash reports follow the same platform-native log root instead of falling back to Linux-style state directories.
