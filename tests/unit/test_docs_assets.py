@@ -130,7 +130,9 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Docs Refresh Order" in contributing
     assert "## Test Selection Guide" in contributing
     assert "## Commit and Release Notes" in contributing
+    assert "## Ready To Hand Off" in contributing
     assert "Docs-only rounds still require a changelog entry and local tag" in contributing
+    assert "Leave the release metadata commit for last" in contributing
 
     assert "modified:today" in dsl
     assert "created:2026-04-23" in dsl
@@ -161,10 +163,13 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Refresh Release Notes" in release
     assert "## Run The Gate" in release
     assert "## Verify Shipped Docs" in release
+    assert "## Release Evidence Bundle" in release
     assert "## Docs-Only Rounds" in release
     assert "## Cut The Local Release" in release
+    assert "## Local Tag Safety" in release
     assert "## Handoff Checklist" in release
     assert "git tag v0.1.N" in release
+    assert "git show --stat --oneline v0.1.N" in release
     assert "python scripts/generate_manpage.py" in release
     assert "git tag -l \"v0.1.N\"" in release
 

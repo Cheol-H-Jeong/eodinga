@@ -66,6 +66,18 @@ pytest -q tests/unit/test_docs_assets.py
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
 
+## Release Evidence Bundle
+
+Capture these release-side facts in the commit set or handoff note before the orchestrator rebases and publishes:
+
+- final `pytest -q tests/unit` result for the last intermediate commit
+- full gate result for the final candidate (`pytest -q tests`, `ruff`, `pyright`, GUI smoke, packaging dry-runs, workflow lint)
+- the chosen version and the exact tag name
+- whether screenshots or `docs/man/eodinga.1` were intentionally unchanged, regenerated, or revalidated only
+- any docs-only scope note explaining why runtime code did not change
+
+The goal is not ceremony; it is to make the next person able to see why the tag is safe without reconstructing terminal history.
+
 ## Docs-Only Rounds
 
 Use the same release discipline for docs-only changes when the shipped operator contract moved:
@@ -74,6 +86,8 @@ Use the same release discipline for docs-only changes when the shipped operator 
 2. Regenerate any derived docs assets touched by the round.
 3. Re-run `pytest -q tests/unit/test_docs_assets.py` plus the matching packaging dry-run or GUI smoke command.
 4. Add a changelog entry that names the docs surface changed and why it matters.
+
+If the docs round cites fresh performance numbers, refresh `docs/PERFORMANCE.md` from a same-day perf run instead of carrying forward the prior baseline table unchanged.
 
 ## Cut The Local Release
 
@@ -90,6 +104,14 @@ git tag v0.1.N
 ```
 
 If `git tag -l "v0.1.N"` already returns a result, stop and pick the next unused patch version instead of moving the existing tag.
+
+## Local Tag Safety
+
+Before stopping:
+
+1. Confirm `git rev-parse HEAD` is the commit you intend to tag.
+2. Run `git tag -l "v0.1.N"` again immediately before `git tag v0.1.N`.
+3. Verify `git show --stat --oneline v0.1.N` points at the release metadata commit rather than an earlier docs/content commit.
 
 ## Handoff Checklist
 

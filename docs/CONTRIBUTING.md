@@ -103,3 +103,13 @@ When a change affects the shipped contract, refresh docs in this order:
 - Local tags are created during the release-cut handoff flow documented in [RELEASE.md](/home/cheol/projects/eodinga/docs/RELEASE.md).
 - Docs-only rounds still require a changelog entry and local tag when the shipped contract changed.
 - If a change cannot stay inside one theme or one logical commit, stop and split it before proceeding.
+
+## Ready To Hand Off
+
+Before you stop a round:
+
+1. Check `git status --short` and make sure only intended files changed.
+2. Re-run `pytest -q tests/unit` after the last logical commit.
+3. If the shipped contract changed, re-run `pytest -q tests/unit/test_docs_assets.py` even when runtime code did not.
+4. If you refreshed perf docs, keep the command output or summary values close enough at hand to justify the new table.
+5. Leave the release metadata commit for last so the local tag can point at the final round state.
