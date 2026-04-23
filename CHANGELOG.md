@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.982 - 2026-04-24
+## 0.1.983 - 2026-04-24
 
 - Promoted runtime observability into `eodinga stats --json` with first-class snapshot fields for `files_indexed`, recent snapshot counts, activity summaries, latest snapshot metadata, and retention-window size so callers no longer need to reverse-engineer the raw counters and snapshot array.
 - Counted recent snapshot drops once the in-memory retention window rolls over, making snapshot truncation visible in stats output instead of silently hiding lost activity.
