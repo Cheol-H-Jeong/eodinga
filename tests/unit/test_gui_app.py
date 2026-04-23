@@ -553,6 +553,34 @@ def test_launcher_visible_flag_toggles_persist_geometry_immediately(monkeypatch,
     assert len(persisted) >= 2
 
 
+def test_launcher_persists_screen_name_from_geometry_when_screen_name_is_missing(
+    monkeypatch,
+    qapp,
+    temp_config_path: Path,
+) -> None:
+    primary = _FakeScreen("primary", QRect(0, 0, 1280, 800))
+    secondary = _FakeScreen("secondary", QRect(1280, 0, 1280, 800))
+    monkeypatch.setattr(LauncherWindow, "_screens", lambda self: [primary, secondary])
+    monkeypatch.setattr(LauncherWindow, "_primary_screen", lambda self: primary)
+    monkeypatch.setattr(LauncherWindow, "_screen_at_cursor", lambda self: primary)
+    config = AppConfig()
+    window = EodingaWindow(config=config, config_path=temp_config_path)
+    launcher = window.launcher_window
+
+    launcher.show()
+    launcher.move(1500, 120)
+    launcher.resize(720, 520)
+    qapp.processEvents()
+    launcher.hide()
+    qapp.processEvents()
+
+    stored = load(temp_config_path)
+    assert stored.launcher.window_screen == "secondary"
+
+    window.close()
+    qapp.processEvents()
+
+
 class _ActionSpy:
     def __init__(self) -> None:
         self.opened: list[str] = []

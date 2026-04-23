@@ -107,10 +107,8 @@ class LauncherWindow(LauncherPanel):
     def _persist_geometry(self) -> None:
         if self._config is None or self._config_path is None or not self._geometry_restored:
             return
-        screen = self.screen()
-        screen_name = screen.name() if screen is not None and screen.name() else self._last_screen_name
         geometry = {
-            "window_screen": screen_name,
+            "window_screen": self._current_screen_name(),
             "window_x": self.x(),
             "window_y": self.y(),
             "window_width": self.width(),
@@ -213,3 +211,13 @@ class LauncherWindow(LauncherPanel):
 
     def _screen_at_cursor(self):
         return QGuiApplication.screenAt(QCursor.pos())
+
+    def _current_screen_name(self) -> str | None:
+        screen = self.screen()
+        if screen is not None and screen.name():
+            self._last_screen_name = screen.name()
+            return self._last_screen_name
+        derived_screen = self._screen_for_saved_rect(self.frameGeometry())
+        if derived_screen is not None and derived_screen.name():
+            self._last_screen_name = derived_screen.name()
+        return self._last_screen_name
