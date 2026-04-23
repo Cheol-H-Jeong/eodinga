@@ -220,6 +220,9 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         watcher_enqueue_aborted=counter_value("watcher_enqueue_aborted"),
         watcher_observers_started=counter_value("watcher_observers_started"),
         watcher_observers_stopped=counter_value("watcher_observers_stopped"),
+        watcher_observer_failures=counter_value("watcher_observer_failures"),
+        watcher_observer_cleanup_failures=counter_value("watcher_observer_cleanup_failures"),
+        watcher_startup_rollbacks=counter_value("watcher_startup_rollbacks"),
         index_rebuilds_completed=counter_value("index_rebuilds_completed"),
         commands_started=counter_value("commands_started"),
         commands_completed=counter_value("commands_completed"),
@@ -246,6 +249,8 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         crash_types=_crash_type_summary(counters),
         parser_activity=_parser_activity_summary(counters),
         watcher_event_types=_watcher_event_type_summary(counters),
+        watcher_failure_stages=_watcher_failure_stage_summary(counters),
+        watcher_cleanup_failure_stages=_watcher_cleanup_failure_stage_summary(counters),
         counters=counters,
         histograms=metrics["histograms"],
         recent_snapshots=[dict(entry) for entry in recent_snapshots()],
@@ -416,6 +421,22 @@ def _watcher_event_type_summary(counters: dict[str, int]) -> dict[str, int]:
         if name.startswith(prefix)
     }
     return dict(sorted(event_types.items()))
+
+
+def _watcher_failure_stage_summary(counters: dict[str, int]) -> dict[str, int]:
+    prefix = "watcher_observer_failures."
+    stages = {
+        name[len(prefix) :]: value for name, value in counters.items() if name.startswith(prefix)
+    }
+    return dict(sorted(stages.items()))
+
+
+def _watcher_cleanup_failure_stage_summary(counters: dict[str, int]) -> dict[str, int]:
+    prefix = "watcher_observer_cleanup_failures."
+    stages = {
+        name[len(prefix) :]: value for name, value in counters.items() if name.startswith(prefix)
+    }
+    return dict(sorted(stages.items()))
 
 
 def _log_sink_source_summary(counters: dict[str, int]) -> dict[str, int]:
