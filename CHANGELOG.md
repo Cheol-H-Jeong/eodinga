@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.187 - 2026-04-23
+
+- Added a dedicated launcher suggestion-chip row that surfaces pinned queries, recent searches, and common filter macros directly beneath the search box, so the popup advertises reusable searches instead of only describing them in text.
+- Expanded launcher accessibility labels across the empty state, status/footer copy, and chip row, and split the popup shell into its own module so the keyboard-heavy panel stays under the repository module-size cap while keeping the same import surface for the rest of the GUI.
+- Tightened chip matching to exact query terms, so partial strings like `notes-ext:pdfx` no longer suppress or de-duplicate the real `ext:pdf` suggestion.
+
 ## 0.1.184 - 2026-04-23
 
 - Wired `launcher.debounce_ms` and `launcher.max_results` into both launcher surfaces, so the popup and embedded search panel now respect the configured debounce window and result cap instead of hard-coded defaults.
