@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.402 - 2026-04-23
+
+- Exposed the effective file log sink policy in `stats --json`, including rotation, retention, compression, and whether file logging is active for the current process.
+- Enriched crash logs with runtime context such as thread name, executable path, argv, resolved log path, and crash directory so a single artifact is enough to reconstruct failure conditions.
+- Added observability counters for logging configuration itself, including stderr/file sink activation and file-log-disabled runs, with end-to-end coverage through the CLI stats surface.
+
 ## 0.1.401 - 2026-04-23
 
 - Hardened the AppImage dry-run audit so staged desktop and icon payloads must remain byte-for-byte aligned with the shipped Linux assets instead of only existing in the AppDir.
