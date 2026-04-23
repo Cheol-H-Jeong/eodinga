@@ -53,6 +53,18 @@ walker / watcher ---> read-only fs wrappers ---> metadata + optional parsed cont
 | Content extraction | `eodinga.content.*` | Parse supported document formats into searchable text. |
 | UI + CLI | `eodinga.__main__`, `eodinga.gui.*`, `eodinga.launcher.*` | Expose the same engine through commands, the main window, and the hotkey launcher. |
 
+## Command To Runtime Map
+
+| User entry point | First runtime layer | Downstream path |
+| --- | --- | --- |
+| `eodinga index` | `eodinga.__main__` CLI parser | walker -> writer -> storage swap |
+| `eodinga watch` | `eodinga.__main__` CLI parser | watcher -> writer -> committed index updates |
+| `eodinga search` | `eodinga.__main__` CLI parser | DSL parse -> compile -> executor -> ranker |
+| `eodinga stats --json` | `eodinga.__main__` CLI parser | observability snapshot -> JSON render |
+| `eodinga doctor` | `eodinga.__main__` CLI parser | config/db/root/backend diagnostics |
+| `eodinga gui` | `eodinga.gui.app` | settings shell -> shared index/search services |
+| Launcher popup | `eodinga.gui.launcher` | shared query models -> executor -> quick actions |
+
 ## Why The Pieces Are Split This Way
 
 - `core.*` owns contact with the real filesystem so read-only guarantees stay centralized.
@@ -130,6 +142,17 @@ eodinga index --rebuild
 - Regex and mixed path/content terms are finalized in Python against the candidate set so the CLI and GUI share identical behavior.
 - `eodinga.query.ranker` applies reciprocal rank fusion, filename prefix boosts, and path deboosting for noisy trees such as `node_modules`.
 
+## Search Pipeline Stages
+
+| Stage | Main module | Why it exists |
+| --- | --- | --- |
+| Parse | `eodinga.query.dsl` | Normalize raw query text into an AST with terms, groups, filters, and regex nodes. |
+| Compile | `eodinga.query.compiler` | Push as much of the query as possible into SQLite predicates and FTS probes. |
+| Candidate fetch | `eodinga.query.executor` + `eodinga.index.reader` | Read a reduced set of possible hits from `files`, `paths_fts`, and `content_fts`. |
+| Fallback evaluation | `eodinga.query.executor` | Apply regex, mixed path/content, and negation edges that SQLite cannot express directly. |
+| Ranking | `eodinga.query.ranker` | Fuse name/path/content scores and apply stable tie behavior for final ordering. |
+| Surface render | CLI/GUI/launcher adapters | Convert normalized hits into rows, JSON objects, or quick-action models. |
+
 ## Query Sequence
 
 ```text
@@ -200,6 +223,18 @@ runtime surface changes
 - `scripts/render_docs_screenshots.py` renders offscreen Qt widgets through `eodinga.gui.docs`, keeping screenshots tied to real UI state instead of mock assets.
 - `tests/unit/test_docs_assets.py` pins the presence of the shipped sections and checks that the derived man page still matches the checked-in artifact.
 
+## Docs Ownership Map
+
+| Doc asset | Primary question it answers | Regeneration or validation path |
+| --- | --- | --- |
+| `README.md` | What ships, how to install it, and which commands/operators matter first | `pytest -q tests/unit/test_docs_assets.py` |
+| `docs/DSL.md` | What the query grammar accepts | `pytest -q tests/unit/test_docs_assets.py` plus matching query tests when behavior changed |
+| `docs/ARCHITECTURE.md` | How index/search/recovery/packaging layers fit together | `pytest -q tests/unit/test_docs_assets.py` |
+| `docs/CONTRIBUTING.md` | How to land a worker round safely | `pytest -q tests/unit/test_docs_assets.py` |
+| `docs/RELEASE.md` | How to cut a local tag and verify release inputs | `pytest -q tests/unit/test_docs_assets.py` plus packaging dry-runs |
+| `docs/man/eodinga.1` | What the argparse surface exposes in packaged form | `python scripts/generate_manpage.py` |
+| `docs/screenshots/*.png` | What the current Qt surfaces actually look like | `python scripts/render_docs_screenshots.py` |
+
 ## Release Input Map
 
 ```text
@@ -259,6 +294,15 @@ IndexWriter.apply_events()
     v
 next query sees updated results
 ```
+
+## Surface-Specific Debug Entry Points
+
+| Symptom | First check | Why that comes first |
+| --- | --- | --- |
+| CLI returns stale results | `eodinga stats --json` | Confirms the active DB path before blaming ranking or parsing. |
+| Launcher misses a fresh file | `eodinga watch` state and watcher backend in `eodinga doctor` | Live visibility depends on watcher delivery and commit timing. |
+| Reopen after crash looks wrong | startup recovery path in `open_index()` | `.next`, `.recover`, and stale WAL handling run before any normal query flow. |
+| Packaged build docs look inconsistent | compare `packaging/dist/` with README/man page | Packaging audits treat docs as shipped inputs, not commentary. |
 
 ## Recovery Decision Tree
 
