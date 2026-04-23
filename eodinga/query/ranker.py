@@ -37,8 +37,14 @@ def reciprocal_rank_fusion(
     }
     for channel, ranking in rank_sets.items():
         channel_weight = channel_weights.get(channel, 0.0)
-        for index, file_id in enumerate(ranking, start=1):
-            score_map[file_id] = score_map.get(file_id, 0.0) + channel_weight / (weights.k + index)
+        seen_ids: set[int] = set()
+        rank = 0
+        for file_id in ranking:
+            if file_id in seen_ids:
+                continue
+            seen_ids.add(file_id)
+            rank += 1
+            score_map[file_id] = score_map.get(file_id, 0.0) + channel_weight / (weights.k + rank)
     return score_map
 
 

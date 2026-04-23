@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from eodinga.query.ranker import (
     RankingWeights,
     apply_path_deboost,
@@ -57,3 +59,12 @@ def test_rank_results_combines_rrf_boost_and_deboost() -> None:
         paths={1: "/repo/src/app.py", 2: "/repo/node_modules/app.js"},
     )
     assert scores[1] > scores[2]
+
+
+def test_rrf_ignores_duplicate_ids_within_single_channel() -> None:
+    weights = RankingWeights()
+
+    scores = reciprocal_rank_fusion({"name": [1, 1, 2], "path": [], "content": []}, weights=weights)
+
+    assert scores[1] == pytest.approx(weights.name / (weights.k + 1))
+    assert scores[2] == pytest.approx(weights.name / (weights.k + 2))
