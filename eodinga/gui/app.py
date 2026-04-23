@@ -4,6 +4,7 @@ from contextlib import closing
 import sys
 from typing import Literal, Protocol, cast, overload
 
+from PySide6.QtCore import QEvent, QObject
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QMessageBox, QStyle, QSystemTrayIcon, QTabWidget, QVBoxLayout, QWidget
 
@@ -27,35 +28,42 @@ class _DesktopActionsLike(Protocol):
     def copy_hit_name(self, hit: SearchHit) -> None: ...
 
 
-class TrayIndicatorController:
+class TrayIndicatorController(QObject):
     def __init__(self, app: QApplication, launcher_window: LauncherWindow, parent: QWidget) -> None:
+        super().__init__(parent)
         self._app = app
         self._launcher_window = launcher_window
+        self._main_window = parent.window() if parent is not None else parent
         self._tray: QSystemTrayIcon | None = None
         self.tooltip = format_indexing_status(IndexingStatus())
         self.status_text = self.tooltip
         self.icon_state = "idle"
+        menu = QMenu(parent)
+        self._status_action = QAction(self.status_text, menu)
+        self._status_action.setEnabled(False)
+        self.open_app_action = QAction("Open eodinga", menu)
+        self.open_app_action.triggered.connect(self.show_main_window)
+        self.show_launcher_action = QAction("Show launcher", menu)
+        self.show_launcher_action.triggered.connect(self.toggle_launcher)
+        self.quit_action = QAction("Quit", menu)
+        self.quit_action.triggered.connect(self._app.quit)
+        self._refresh_launcher_action()
         if not QSystemTrayIcon.isSystemTrayAvailable():
             return
         icon = self._icon_for_state(self.icon_state)
         tray = QSystemTrayIcon(icon, parent)
-        menu = QMenu(parent)
-        self._status_action = QAction(self.status_text, menu)
-        self._status_action.setEnabled(False)
         menu.addAction(self._status_action)
         menu.addSeparator()
-        show_launcher = QAction("Show launcher", menu)
-        show_launcher.triggered.connect(self.show_launcher)
-        menu.addAction(show_launcher)
-        quit_action = QAction("Quit", menu)
-        quit_action.triggered.connect(self._app.quit)
-        menu.addAction(quit_action)
+        menu.addAction(self.open_app_action)
+        menu.addAction(self.show_launcher_action)
+        menu.addAction(self.quit_action)
         tray.setContextMenu(menu)
         tray.setToolTip(self.tooltip)
         tray.activated.connect(self._handle_activation)
         tray.show()
         self._tray = tray
-        self.quit_action = quit_action
+        self._launcher_window.installEventFilter(self)
+        self._refresh_launcher_action()
 
     @property
     def visible(self) -> bool:
@@ -76,22 +84,47 @@ class TrayIndicatorController:
             self._tray.setIcon(self._icon_for_state(self.icon_state))
             self._tray.setToolTip(self.tooltip)
 
+    def eventFilter(self, watched, event) -> bool:
+        if watched is self._launcher_window and event.type() in {QEvent.Type.Show, QEvent.Type.Hide}:
+            self._refresh_launcher_action()
+        return False
+
+    def _refresh_launcher_action(self) -> None:
+        if hasattr(self, "show_launcher_action"):
+            label = "Hide launcher" if self._launcher_window.isVisible() else "Show launcher"
+            self.show_launcher_action.setText(label)
+
+    def show_main_window(self) -> None:
+        if self._main_window is None:
+            return
+        self._main_window.show()
+        self._main_window.raise_()
+        self._main_window.activateWindow()
+
     def show_launcher(self) -> None:
         self._launcher_window.show()
         self._launcher_window.raise_()
         self._launcher_window.activateWindow()
         self._launcher_window.query_field.setFocus()
         self._launcher_window.query_field.selectAll()
+        self._refresh_launcher_action()
+
+    def hide_launcher(self) -> None:
+        self._launcher_window.hide()
+        self._refresh_launcher_action()
+
+    def toggle_launcher(self) -> None:
+        if self._launcher_window.isVisible():
+            self.hide_launcher()
+            return
+        self.show_launcher()
 
     def _handle_activation(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason in {
             QSystemTrayIcon.ActivationReason.Trigger,
             QSystemTrayIcon.ActivationReason.DoubleClick,
         }:
-            if self._launcher_window.isVisible():
-                self._launcher_window.hide()
-                return
-            self.show_launcher()
+            self.toggle_launcher()
 
 
 class EodingaWindow(QMainWindow):

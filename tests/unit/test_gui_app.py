@@ -139,6 +139,17 @@ def test_tray_indicator_can_show_launcher_without_tray_backend(qapp) -> None:
     assert window.launcher_window.isVisible()
 
 
+def test_tray_indicator_can_show_main_window_without_tray_backend(qapp) -> None:
+    window = EodingaWindow()
+    window.hide()
+    qapp.processEvents()
+
+    window.tray_indicator.show_main_window()
+    qapp.processEvents()
+
+    assert window.isVisible()
+
+
 def test_launcher_geometry_persists_to_config_and_restores(qapp, temp_config_path: Path) -> None:
     config = AppConfig()
     _, window, launcher = cast(
@@ -205,13 +216,27 @@ def test_launcher_respects_always_on_top_config(qapp, temp_config_path: Path) ->
 def test_tray_activation_toggles_launcher_visibility(qapp) -> None:
     window = EodingaWindow()
 
+    assert window.tray_indicator.show_launcher_action.text() == "Show launcher"
     window.tray_indicator._handle_activation(QSystemTrayIcon.ActivationReason.Trigger)
     qapp.processEvents()
     assert window.launcher_window.isVisible()
+    assert window.tray_indicator.show_launcher_action.text() == "Hide launcher"
 
     window.tray_indicator._handle_activation(QSystemTrayIcon.ActivationReason.Trigger)
     qapp.processEvents()
     assert not window.launcher_window.isVisible()
+    assert window.tray_indicator.show_launcher_action.text() == "Show launcher"
+
+
+def test_tray_open_app_action_shows_hidden_main_window(qapp) -> None:
+    window = EodingaWindow()
+    window.hide()
+    qapp.processEvents()
+
+    window.tray_indicator.open_app_action.trigger()
+    qapp.processEvents()
+
+    assert window.isVisible()
 
 
 def test_tray_quit_action_calls_application_quit(monkeypatch, qapp) -> None:
