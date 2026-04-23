@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.264 - 2026-04-23
+## 0.1.265 - 2026-04-23
 
 - Extended `date:`, `modified:`, and `created:` range parsing so relative macros like `today`, `yesterday`, `this-week`, and `last-month` now work anywhere an endpoint is accepted, including open-ended and mixed ISO-relative windows.
 - Added executor regressions for macro-backed ranges such as `date:yesterday..today`, `date:..today`, `date:last-week..`, and `date:2026-04-22..today` to keep the user-visible query surface stable.
