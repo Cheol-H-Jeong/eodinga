@@ -314,6 +314,10 @@ def _report_validation_errors(target: str, errors: list[str]) -> int:
     return 1
 
 
+def _prefixed_errors(prefix: str, errors: list[str]) -> list[str]:
+    return [f"{prefix}: {error}" for error in errors]
+
+
 def _run_windows_dry_run() -> int:
     version = _read_project_version()
     package_version = _read_package_version()
@@ -331,72 +335,125 @@ def _run_windows() -> int:
     return _report_validation_errors("windows", _validate_windows_audit(payload))
 
 
-def _run_linux_appimage_dry_run() -> int:
-    result = subprocess.run(
-        ["bash", str(APPIMAGE_SCRIPT), "--dry-run"],
-        cwd=PROJECT_ROOT,
-        check=False,
-    )
+def _run_linux_target(
+    target: str,
+    script: Path,
+    audit_name: str,
+    validator: Any,
+    *,
+    dry_run: bool,
+) -> int:
+    command = ["bash", str(script)]
+    if dry_run:
+        command.append("--dry-run")
+    result = subprocess.run(command, cwd=PROJECT_ROOT, check=False)
     if result.returncode != 0:
         return result.returncode
-    payload = _load_audit(DIST_DIR / "linux-appimage-audit.json")
+    payload = _load_audit(DIST_DIR / audit_name)
     project_version = _read_project_version()
     package_version = _read_package_version()
-    return _report_validation_errors(
+    return _report_validation_errors(target, validator(payload, project_version, package_version))
+
+
+def _run_linux_dry_run() -> int:
+    appimage_code = _run_linux_target(
         "linux-appimage-dry-run",
-        _validate_linux_appimage_audit(payload, project_version, package_version),
+        APPIMAGE_SCRIPT,
+        "linux-appimage-audit.json",
+        _validate_linux_appimage_audit,
+        dry_run=True,
     )
-
-
-def _run_linux_appimage() -> int:
-    result = subprocess.run(
-        ["bash", str(APPIMAGE_SCRIPT)],
-        cwd=PROJECT_ROOT,
-        check=False,
-    )
-    if result.returncode != 0:
-        return result.returncode
-    payload = _load_audit(DIST_DIR / "linux-appimage-audit.json")
-    project_version = _read_project_version()
-    package_version = _read_package_version()
-    return _report_validation_errors(
-        "linux-appimage",
-        _validate_linux_appimage_audit(payload, project_version, package_version),
-    )
-
-
-def _run_linux_deb_dry_run() -> int:
-    result = subprocess.run(
-        ["bash", str(DEB_SCRIPT), "--dry-run"],
-        cwd=PROJECT_ROOT,
-        check=False,
-    )
-    if result.returncode != 0:
-        return result.returncode
-    payload = _load_audit(DIST_DIR / "linux-deb-audit.json")
-    project_version = _read_project_version()
-    package_version = _read_package_version()
-    return _report_validation_errors(
+    deb_code = _run_linux_target(
         "linux-deb-dry-run",
-        _validate_linux_deb_audit(payload, project_version, package_version),
+        DEB_SCRIPT,
+        "linux-deb-audit.json",
+        _validate_linux_deb_audit,
+        dry_run=True,
     )
-
-
-def _run_linux_deb() -> int:
-    result = subprocess.run(
-        ["bash", str(DEB_SCRIPT)],
-        cwd=PROJECT_ROOT,
-        check=False,
-    )
-    if result.returncode != 0:
-        return result.returncode
-    payload = _load_audit(DIST_DIR / "linux-deb-audit.json")
+    appimage_payload = _load_audit(DIST_DIR / "linux-appimage-audit.json")
+    deb_payload = _load_audit(DIST_DIR / "linux-deb-audit.json")
     project_version = _read_project_version()
     package_version = _read_package_version()
-    return _report_validation_errors(
-        "linux-deb",
-        _validate_linux_deb_audit(payload, project_version, package_version),
+    payload = {
+        "target": "linux-dry-run",
+        "version": project_version,
+        "package_version": package_version,
+        "version_matches_package": project_version == package_version,
+        "targets": {
+            "linux-appimage-dry-run": appimage_payload,
+            "linux-deb-dry-run": deb_payload,
+        },
+    }
+    _write_audit(payload)
+    errors: list[str] = []
+    if appimage_code != 0:
+        errors.append("linux-appimage-dry-run command failed")
+    if deb_code != 0:
+        errors.append("linux-deb-dry-run command failed")
+    if not payload["version_matches_package"]:
+        errors.append("project and package versions do not match")
+    errors.extend(
+        _prefixed_errors(
+            "linux-appimage-dry-run",
+            _validate_linux_appimage_audit(appimage_payload, project_version, package_version),
+        )
     )
+    errors.extend(
+        _prefixed_errors(
+            "linux-deb-dry-run",
+            _validate_linux_deb_audit(deb_payload, project_version, package_version),
+        )
+    )
+    return _report_validation_errors("linux-dry-run", errors)
+
+
+def _run_release_dry_run() -> int:
+    windows_code = _run_windows_dry_run()
+    linux_code = _run_linux_dry_run()
+    windows_payload = _load_audit(DIST_DIR / "windows-dry-run-audit.json")
+    linux_payload = _load_audit(DIST_DIR / "linux-dry-run-audit.json")
+    project_version = _read_project_version()
+    package_version = _read_package_version()
+    payload = {
+        "target": "release-dry-run",
+        "version": project_version,
+        "package_version": package_version,
+        "version_matches_package": project_version == package_version,
+        "targets": {
+            "windows-dry-run": windows_payload,
+            "linux-dry-run": linux_payload,
+        },
+    }
+    _write_audit(payload)
+    errors: list[str] = []
+    if windows_code != 0:
+        errors.append("windows-dry-run command failed")
+    if linux_code != 0:
+        errors.append("linux-dry-run command failed")
+    if not payload["version_matches_package"]:
+        errors.append("project and package versions do not match")
+    errors.extend(
+        _prefixed_errors(
+            "windows-dry-run",
+            _validate_windows_audit(windows_payload),
+        )
+    )
+    linux_targets = linux_payload.get("targets", {})
+    appimage_payload = linux_targets.get("linux-appimage-dry-run", {})
+    deb_payload = linux_targets.get("linux-deb-dry-run", {})
+    errors.extend(
+        _prefixed_errors(
+            "linux-appimage-dry-run",
+            _validate_linux_appimage_audit(appimage_payload, project_version, package_version),
+        )
+    )
+    errors.extend(
+        _prefixed_errors(
+            "linux-deb-dry-run",
+            _validate_linux_deb_audit(deb_payload, project_version, package_version),
+        )
+    )
+    return _report_validation_errors("release-dry-run", errors)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -404,26 +461,33 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--target",
         choices=(
+            "linux-dry-run",
             "linux-appimage-dry-run",
             "linux-appimage",
             "linux-deb-dry-run",
             "linux-deb",
+            "release-dry-run",
             "windows-dry-run",
             "windows",
         ),
         required=True,
     )
     args = parser.parse_args(argv)
-    if args.target == "linux-appimage-dry-run":
-        return _run_linux_appimage_dry_run()
-    if args.target == "linux-appimage":
-        return _run_linux_appimage()
-    if args.target == "linux-deb-dry-run":
-        return _run_linux_deb_dry_run()
-    if args.target == "linux-deb":
-        return _run_linux_deb()
+    if args.target == "linux-dry-run":
+        return _run_linux_dry_run()
+    if args.target == "release-dry-run":
+        return _run_release_dry_run()
     if args.target == "windows-dry-run":
         return _run_windows_dry_run()
+    linux_targets = {
+        "linux-appimage-dry-run": (APPIMAGE_SCRIPT, "linux-appimage-audit.json", _validate_linux_appimage_audit, True),
+        "linux-appimage": (APPIMAGE_SCRIPT, "linux-appimage-audit.json", _validate_linux_appimage_audit, False),
+        "linux-deb-dry-run": (DEB_SCRIPT, "linux-deb-audit.json", _validate_linux_deb_audit, True),
+        "linux-deb": (DEB_SCRIPT, "linux-deb-audit.json", _validate_linux_deb_audit, False),
+    }
+    if args.target in linux_targets:
+        script, audit_name, validator, dry_run = linux_targets[args.target]
+        return _run_linux_target(args.target, script, audit_name, validator, dry_run=dry_run)
     return _run_windows()
 
 
