@@ -448,6 +448,24 @@ def test_snapshot_metrics_exposes_runtime_generation_metadata() -> None:
     assert metrics["uptime_ms"] >= 0
 
 
+def test_histogram_snapshot_reports_average_and_zero_hit_buckets() -> None:
+    reset_metrics()
+
+    record_histogram("query_latency_ms", 12.5)
+    snapshot = snapshot_metrics()["histograms"]["query_latency_ms"]
+    buckets = cast(dict[str, int], snapshot["buckets"])
+
+    assert snapshot["count"] == 1
+    assert snapshot["sum_ms"] == 12.5
+    assert snapshot["avg_ms"] == 12.5
+    assert snapshot["min_ms"] == 12.5
+    assert snapshot["max_ms"] == 12.5
+    assert buckets["<= 1ms"] == 0
+    assert buckets["<= 10ms"] == 0
+    assert buckets["<= 25ms"] == 1
+    assert buckets["> 1000ms"] == 0
+
+
 def test_record_snapshot_keeps_recent_entries_bounded() -> None:
     reset_metrics()
 

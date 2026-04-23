@@ -48,12 +48,16 @@ class _HistogramState:
         self.bucket_hits[label] = self.bucket_hits.get(label, 0) + 1
 
     def snapshot(self) -> dict[str, object]:
+        bucket_counts = {
+            label: self.bucket_hits.get(label, 0) for label in _bucket_labels(self.buckets_ms)
+        }
         return {
             "count": self.count,
             "sum_ms": round(self.sum_ms, 3),
+            "avg_ms": round(self.sum_ms / self.count, 3) if self.count else 0.0,
             "min_ms": round(self.min_ms, 3) if self.min_ms is not None else 0.0,
             "max_ms": round(self.max_ms, 3) if self.max_ms is not None else 0.0,
-            "buckets": dict(sorted(self.bucket_hits.items())),
+            "buckets": bucket_counts,
         }
 
 
@@ -84,6 +88,12 @@ def _bucket_label(value_ms: float, buckets_ms: tuple[float, ...]) -> str:
         if value_ms <= upper_bound:
             return f"<= {upper_bound:g}ms"
     return f"> {buckets_ms[-1]:g}ms"
+
+
+def _bucket_labels(buckets_ms: tuple[float, ...]) -> tuple[str, ...]:
+    labels = [f"<= {upper_bound:g}ms" for upper_bound in buckets_ms]
+    labels.append(f"> {buckets_ms[-1]:g}ms")
+    return tuple(labels)
 
 
 def default_state_dir() -> Path:
