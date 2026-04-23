@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.125 - 2026-04-23
+## 0.1.129 - 2026-04-23
 
 - Reduced filesystem walk overhead by carrying `os.scandir()` child stat metadata into the queue, so discovered entries no longer immediately pay for a second `lstat()` before record creation.
 - Cached the executor SQL used to fetch indexed content text for variable-width `IN (...)` batches, removing repeated placeholder-string construction during filtered content scans.
