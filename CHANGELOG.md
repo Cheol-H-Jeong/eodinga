@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.978 - 2026-04-24
+## 0.1.981 - 2026-04-24
 
 - Raised the SQLite connection statement-cache budget to `512`, reducing SQL re-prepare churn during repeated searches and mixed index/query sessions.
 - Optimized staged rebuild databases with an explicit `PRAGMA optimize` pass before the final atomic swap so the promoted index lands with refreshed planner metadata.
