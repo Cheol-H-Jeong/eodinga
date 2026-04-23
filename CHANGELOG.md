@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.203 - 2026-04-23
+## 0.1.209 - 2026-04-23
 
 - Expanded the PyInstaller spec to discover dynamic hidden imports loaded through `importlib.import_module(...)`, aliased `importlib` module handles, and direct `__import__(...)` calls, reducing manual packaging drift for optional runtime modules.
 - Tightened the packaging audit validators so Linux AppImage and Debian dry runs now fail if project/package versions diverge or artifact filenames stop matching the expected versioned release naming scheme.
