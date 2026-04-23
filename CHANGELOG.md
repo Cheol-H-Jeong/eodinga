@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.388 - 2026-04-23
+
+- Expanded the README and DSL guide with goal-oriented query examples, regex-flag notes, structural-filter coverage, and clearer operator runbooks so the shipped search contract is easier to audit from the docs alone.
+- Deepened the architecture guide with explicit documentation layering, release-input boundaries, and clearer explanations of where SQLite ends and Python fallback begins during query execution.
+- Tightened the contributor and release playbooks around docs-only rounds, docs asset regression checks, and final handoff expectations so parallel worker rounds stay easier to verify and cut.
+
 ## 0.1.385 - 2026-04-23
 
 - Fixed slash-delimited query parsing so top-level regex literals and spaced operator regex values now close correctly when the pattern ends with an even run of backslashes before the delimiter.
