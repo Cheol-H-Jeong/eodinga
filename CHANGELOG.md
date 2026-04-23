@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.278 - 2026-04-23
+## 0.1.279 - 2026-04-23
 
 - Made file-log sinks operationally tunable through resolved rotation, retention, and compression settings, and surfaced those exact values in `eodinga stats --json` so operators can confirm the active sink policy without reading environment state.
 - Added rebuild lifecycle telemetry for started, completed, failed, and interrupted runs plus indexed-root and file-count metrics, giving staged index rebuilds a fuller health trail in runtime stats.
