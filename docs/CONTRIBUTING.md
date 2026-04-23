@@ -36,6 +36,12 @@ pytest -q tests
 ruff check eodinga tests
 ```
 
+Single-line variant for terminal relays that paste poorly with multi-line shells:
+
+```bash
+git fetch origin main && git reset --hard origin/main && source .venv/bin/activate 2>/dev/null || python3 -m venv .venv && source .venv/bin/activate && pip install -e .[dev,parsers,gui] && pytest -q tests && ruff check eodinga tests
+```
+
 ## Suggested Command Order
 
 Use one clean pass instead of ad-hoc retries:
@@ -137,12 +143,14 @@ Use this when the round is docs-only but still release-bearing:
 4. Re-run `pytest -q tests/unit/test_docs_assets.py`.
 5. Re-run the matching packaging dry-run or GUI smoke command when the docs describe those artifacts.
 6. Leave the version bump, changelog entry, and local tag for the final metadata commit only.
+7. If you rerun `tests/perf`, record failed thresholds explicitly in `docs/PERFORMANCE.md` instead of pretending the old baseline still describes the new run.
 
 ## Metadata Commit Discipline
 
 - Keep the final metadata commit reviewable: version bump, changelog entry, and local tag cut only.
 - If the patch number changes because another worker landed first, retarget just that final metadata commit instead of rewriting earlier docs or feature commits.
 - Re-run `pytest -q tests/unit` after retargeting the metadata commit so the branch tip stays demonstrably green.
+- Refresh tags with `git fetch origin main --tags` immediately before choosing the final patch number so a stale worktree does not reuse a version another worker already took.
 
 ## Test Selection Guide
 

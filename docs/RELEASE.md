@@ -22,6 +22,7 @@ git fetch origin main --tags && git tag -l | sort -V | tail -5
 - Pick `0.1.N` only after that tag refresh, not from a stale local clone.
 - If another worker lands the same patch version before you tag, choose the next unused patch number and update the metadata commit instead of moving an existing tag.
 - Keep the version bump and changelog update in the last commit of the round so retargeting from `0.1.N` to `0.1.N+1` stays small and auditable.
+- In parallel worker rounds, do the tag refresh again right before the metadata commit, not only at the start of the branch.
 
 ## Refresh Release Notes
 
@@ -63,6 +64,8 @@ Recommended order:
 2. `pytest -q tests` once the candidate release branch is assembled.
 3. `ruff`, `pyright`, GUI smoke, packaging dry-runs, and workflow lint after the full test pass.
 
+If you also rerun `tests/perf`, treat that as a separate, opt-in evidence pass. A failed perf threshold should be documented accurately in `docs/PERFORMANCE.md`; it should not be hidden by leaving an older baseline table in place.
+
 ## Artifact Inventory
 
 Before tagging, know which release inputs this repository expects to exist:
@@ -89,6 +92,12 @@ Documentation refresh commands:
 python scripts/generate_manpage.py
 python scripts/render_docs_screenshots.py
 pytest -q tests/unit/test_docs_assets.py
+```
+
+Single-line docs refresh variant:
+
+```bash
+python scripts/generate_manpage.py && python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py
 ```
 
 Treat docs assets as versioned release inputs: do not cut a tag when the checked-in man page or screenshot set no longer matches the current runtime surface.
@@ -140,6 +149,12 @@ Single-shot metadata cut:
 
 ```bash
 git add CHANGELOG.md pyproject.toml eodinga/__init__.py && git commit -m "chore(release): bump to v0.1.N" && git tag v0.1.N
+```
+
+Safer parallel-worker variant with an explicit tag refresh:
+
+```bash
+git fetch origin main --tags && git tag -l | sort -V | tail -5 && git add CHANGELOG.md pyproject.toml eodinga/__init__.py && git commit -m "chore(release): bump to v0.1.N" && git tag v0.1.N
 ```
 
 Example:
