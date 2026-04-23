@@ -196,16 +196,33 @@ def _text_matches(value: str, needle: str, case_sensitive: bool) -> bool:
     return normalized_needle in haystack
 
 
+def _normalize_phrase_boundary_text(value: str, case_sensitive: bool) -> str:
+    normalized = unicodedata.normalize("NFC", value)
+    pieces: list[str] = []
+    previous: str | None = None
+    for char in normalized:
+        if previous is not None:
+            lower_to_upper = previous.islower() and char.isupper()
+            alpha_numeric = previous.isalpha() and char.isdigit()
+            numeric_alpha = previous.isdigit() and char.isalpha()
+            if lower_to_upper or alpha_numeric or numeric_alpha:
+                pieces.append(" ")
+        pieces.append(char)
+        previous = char
+    collapsed = re.sub(r"[\W_]+", " ", "".join(pieces)).strip()
+    return collapsed if case_sensitive else collapsed.casefold()
+
+
 def _phrase_matches(value: str, phrase: str, case_sensitive: bool) -> bool:
     normalized_phrase = _normalize_search_text(phrase, case_sensitive=case_sensitive)
     normalized_value = _normalize_search_text(value, case_sensitive=case_sensitive)
     if normalized_phrase in normalized_value:
         return True
-    tokens = tuple(token for token in re.split(r"[\W_]+", normalized_phrase) if token)
-    if len(tokens) < 2:
+    boundary_normalized_phrase = _normalize_phrase_boundary_text(phrase, case_sensitive=case_sensitive)
+    if " " not in boundary_normalized_phrase:
         return False
-    pattern = r"[\W_]+".join(re.escape(token) for token in tokens)
-    return bool(re.search(pattern, normalized_value))
+    boundary_normalized_value = _normalize_phrase_boundary_text(value, case_sensitive=case_sensitive)
+    return boundary_normalized_phrase in boundary_normalized_value
 
 
 def _term_matches(
