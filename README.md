@@ -209,6 +209,14 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 - Validate Linux AppImage packaging with `python packaging/build.py --target linux-appimage-dry-run`.
 - Validate Linux Debian packaging with `python packaging/build.py --target linux-deb-dry-run`.
 
+## Release Artifacts
+
+| Platform | Artifact | Validation path | Notes |
+| --- | --- | --- | --- |
+| Windows | `eodinga-0.1.x-win-x64-setup.exe` | `python packaging/build.py --target windows-dry-run` | Per-user Inno Setup installer built from the PyInstaller bundle. |
+| Linux | `eodinga-0.1.x-linux-x86_64.AppImage` | `python packaging/build.py --target linux-appimage-dry-run` | Portable single-file launcher for local runs without system install. |
+| Linux | `eodinga_0.1.x_amd64.deb` | `python packaging/build.py --target linux-deb-dry-run` | Installs the launcher, desktop entry, SVG icon, and packaged changelog. |
+
 ## Operator References
 
 - `docs/DSL.md` is the complete query reference.
@@ -244,6 +252,16 @@ eodinga doctor
 The doctor command checks Python compatibility, importable dependencies, database writability, readable roots, the detectable hotkey backend, and the default safe excludes.
 
 If search looks stale, run `eodinga stats` to confirm the active database path, then either `eodinga watch` for live updates or `eodinga index --rebuild` to rebuild once.
+
+## Troubleshooting Quick Reference
+
+| Symptom | Check first | Next command |
+| --- | --- | --- |
+| Search results look stale | Confirm the active database path and counters. | `eodinga stats --json` |
+| Reindexed files never appear after editing | Verify a watcher process is running for live updates. | `eodinga watch` |
+| Startup follows an interrupted rebuild or swap | Let startup recovery complete, then inspect health. | `eodinga doctor` |
+| CLI or GUI fails after dependency drift | Re-check imports and writable paths. | `eodinga doctor` |
+| Packaging input audit fails | Run the platform dry-run directly before a release build. | `python packaging/build.py --target windows-dry-run` or `python packaging/build.py --target linux-appimage-dry-run` |
 
 ## Docs Map
 
