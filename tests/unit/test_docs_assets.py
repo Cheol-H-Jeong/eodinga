@@ -54,6 +54,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "## Operator Checklist" in readme
     assert "## Recovery and Troubleshooting" in readme
     assert "### Quick Runbook" in readme
+    assert "### Release-side checks" in readme
     assert "## Limitations" in readme
     assert "## Packaging" in readme
     assert "## Contributing" in readme
@@ -61,6 +62,10 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "linux-deb-dry-run" in readme
     assert "Launcher | global hotkey" in readme
     assert "Packaging audit failed" in readme
+    assert "Expected staging result" in readme
+    assert "packaging/dist/windows/" in readme
+    assert "packaging/dist/linux-appimage/" in readme
+    assert "packaging/dist/linux-deb/" in readme
     assert "eodinga search 'date:this-week ext:md' --limit 10" in readme
     assert "docs/DSL.md" in readme
     assert "docs/ACCEPTANCE.md" in readme
@@ -75,6 +80,7 @@ def test_docs_reference_expected_assets_and_guides() -> None:
     assert "rendered offscreen from the real Qt surfaces" in readme
     assert "CLI-only hacking" in readme
     assert "Refresh shipped docs assets" in readme
+    assert "Which packaging command should I run first?" in readme
 
     assert "## Required Commands" in acceptance
     assert "pip install -e .[all]" in acceptance

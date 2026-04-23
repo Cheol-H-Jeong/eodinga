@@ -260,10 +260,13 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 
 ## Package Artifacts
 
-- Windows release builds emit a PyInstaller bundle plus an Inno Setup installer audit under `packaging/dist/`.
-- Linux AppImage dry runs render `packaging/linux/appimage-builder.yml` from the current package version before building.
-- Linux `.deb` dry runs stage the launcher, desktop entry, SVG icon, license, and compressed changelog into the package root.
-- The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
+| Target | Validation command | Expected staging result | Notes |
+| --- | --- | --- | --- |
+| Windows installer | `python packaging/build.py --target windows-dry-run` | PyInstaller bundle plus Inno Setup audit files under `packaging/dist/windows/` | per-user install; uninstall preserves `%LOCALAPPDATA%\\eodinga\\` unless purge is chosen |
+| Linux AppImage | `python packaging/build.py --target linux-appimage-dry-run` | rendered `packaging/linux/appimage-builder.yml` plus AppImage staging manifest under `packaging/dist/linux-appimage/` | good fit when you want a portable desktop build without a system package |
+| Linux `.deb` | `python packaging/build.py --target linux-deb-dry-run` | staged package root with launcher, desktop entry, SVG icon, license, and compressed changelog under `packaging/dist/linux-deb/` | best fit when you want menu integration and packaged docs on Debian-family systems |
+
+The packaged docs surface includes `README.md`, `docs/ACCEPTANCE.md`, and `docs/man/eodinga.1` as operator references for shipped builds.
 
 ## Recovery and Troubleshooting
 
@@ -281,6 +284,15 @@ Current local-dev baseline: cold start at roughly 6.0k files/sec, 50k-file name/
 | Startup mentions recovery | `eodinga doctor` | check that the live DB path is writable and recovery sidecars are gone after startup |
 | Hotkey or launcher looks wrong | `eodinga doctor` | inspect detected hotkey backend and then re-open `eodinga gui` for settings/state |
 | Packaging audit failed | `python packaging/build.py --target windows-dry-run` | re-run the matching Linux dry run and workflow lint from `docs/ACCEPTANCE.md` |
+
+### Release-side checks
+
+| If you changed... | Re-run... | Why |
+| --- | --- | --- |
+| README, guides, or screenshots | `pytest -q tests/unit/test_docs_assets.py` | keeps shipped docs and derived assets pinned |
+| CLI flags or command help | `python scripts/generate_manpage.py && pytest -q tests/unit/test_docs_assets.py` | refreshes the generated man page and proves it still matches the parser |
+| GUI text or docs screenshots | `python scripts/render_docs_screenshots.py && pytest -q tests/unit/test_docs_assets.py` | keeps screenshot assets tied to the real Qt surfaces |
+| Packaging docs or installer expectations | `python packaging/build.py --target windows-dry-run && python packaging/build.py --target linux-appimage-dry-run && python packaging/build.py --target linux-deb-dry-run` | makes sure the documented artifacts exist in the dry-run outputs |
 
 ## Config and Data Paths
 
@@ -312,6 +324,14 @@ eodinga search 'date:this-week ext:md' --limit 10
 ```
 
 If those are clean but the packaged app still looks wrong, continue with the release-gate commands in `docs/ACCEPTANCE.md`.
+
+When the issue is specifically packaging or installer drift, follow with:
+
+```bash
+python packaging/build.py --target windows-dry-run
+python packaging/build.py --target linux-appimage-dry-run
+python packaging/build.py --target linux-deb-dry-run
+```
 
 ## Docs Map
 
@@ -347,6 +367,10 @@ No. Filename and path indexing work without parser extras. The `parsers` extra o
 ### Which commands are most useful for a quick health check?
 
 Use `eodinga doctor` for dependency and writable-path checks, `eodinga stats --json` for the active database and counters, and `eodinga search 'query' --json` when you want scriptable result inspection.
+
+### Which packaging command should I run first?
+
+Run the dry run that matches the artifact you care about: `windows-dry-run` for the Windows installer, `linux-appimage-dry-run` for the portable Linux bundle, and `linux-deb-dry-run` for the Debian package layout.
 
 ### Which files are skipped by default?
 
