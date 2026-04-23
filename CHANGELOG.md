@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.540 - 2026-04-23
+## 0.1.542 - 2026-04-23
 
 - Clarified the README and DSL guide around query scoping, grouped negation, and regex-versus-structured-operator behavior, giving operators more precise recipes for narrowing ambiguous searches.
 - Expanded the architecture guide with storage responsibilities, query cost notes, and explicit release-input review roles so docs, generated assets, and packaging audits read as one shipped surface.
