@@ -736,6 +736,15 @@ def test_execute_reuses_cached_sql_shapes_for_name_queries(populated_db: sqlite3
     assert executor_module._path_candidates_fts_sql.cache_info().hits >= 1
 
 
+def test_execute_path_candidate_sql_escapes_prefix_like_patterns() -> None:
+    fts_sql = executor_module._path_candidates_fts_sql(True, False, False)
+    scan_sql = executor_module._path_candidates_scan_sql(1, False, False)
+
+    assert "files.name_lower LIKE ? ESCAPE '^'" in fts_sql
+    assert "files.name_lower LIKE ? ESCAPE '^'" in scan_sql
+    assert executor_module._prefix_like_param("100%_complete^notes") == r"100^%^_complete^^notes%"
+
+
 def test_execute_reuses_cached_sql_shapes_for_content_queries(
     populated_db: sqlite3.Connection,
 ) -> None:

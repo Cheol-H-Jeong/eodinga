@@ -69,7 +69,11 @@ def _path_candidates_fts_sql(
     if filters:
         sql += " WHERE " + " AND ".join(filters)
     order_expr = "files.name" if case_sensitive else "files.name_lower"
-    prefix_expr = "files.name LIKE ?" if case_sensitive else "files.name_lower LIKE ?"
+    prefix_expr = (
+        "files.name LIKE ? ESCAPE '^'"
+        if case_sensitive
+        else "files.name_lower LIKE ? ESCAPE '^'"
+    )
     sql += (
         f" ORDER BY CASE WHEN {prefix_expr} THEN 0 ELSE 1 END,"
         f" bm25(paths_fts, 8.0, 2.0, 1.0) ASC, {order_expr} ASC, files.path ASC, files.id ASC LIMIT ?"
@@ -95,7 +99,11 @@ def _path_candidates_scan_sql(
     if filters:
         sql += " WHERE " + " AND ".join(filters)
     order_expr = "files.name" if case_sensitive else "files.name_lower"
-    prefix_expr = "files.name LIKE ?" if case_sensitive else "files.name_lower LIKE ?"
+    prefix_expr = (
+        "files.name LIKE ? ESCAPE '^'"
+        if case_sensitive
+        else "files.name_lower LIKE ? ESCAPE '^'"
+    )
     sql += (
         f" ORDER BY CASE WHEN {prefix_expr} THEN 0 ELSE 1 END,"
         f" {order_expr} ASC, files.path ASC, files.id ASC LIMIT ?"
@@ -347,6 +355,10 @@ def _escape_like_pattern(value: str) -> str:
     return value.replace("^", "^^").replace("%", "^%").replace("_", "^_")
 
 
+def _prefix_like_param(value: str) -> str:
+    return f"{_escape_like_pattern(value)}%"
+
+
 def _root_variants(root_text: str) -> tuple[str, ...]:
     candidates = (
         root_text,
@@ -424,7 +436,7 @@ def _fetch_path_candidates_fts(
         path_match_sql=branch.path_match_sql or "",
         where_sql=branch.where_sql,
     )
-    params.append(f"{prefix_term}%")
+    params.append(_prefix_like_param(prefix_term))
     rows = conn.execute(sql, (*params, limit)).fetchall()
     records = {row["id"]: _row_to_record(row) for row in rows}
     return [row["id"] for row in rows], records
@@ -450,7 +462,7 @@ def _fetch_path_candidates_scan(
         bool(branch.where_sql),
         branch.case_sensitive,
     ).format(where_sql=branch.where_sql)
-    params.append(f"{prefix_term}%")
+    params.append(_prefix_like_param(prefix_term))
     rows = conn.execute(sql, (*params, limit)).fetchall()
     records = {row["id"]: _row_to_record(row) for row in rows}
     return [row["id"] for row in rows], records
