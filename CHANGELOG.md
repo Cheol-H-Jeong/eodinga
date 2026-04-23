@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.834 - 2026-04-23
+## 0.1.839 - 2026-04-23
 
 - Added a reusable SQLite prepared-statement cache helper and routed executor hot-path reads through it, reducing repeated cursor setup on repeated query shapes.
 - Cached compiled regex patterns in the query executor so regex searches no longer recompile the same pattern for every candidate record.
