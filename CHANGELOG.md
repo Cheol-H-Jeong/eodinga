@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.377 - 2026-04-23
+
+- Rolled back watcher startup cleanly when the filesystem observer fails during bootstrap, avoiding a leaked flush thread and leaving the watch service restartable after the failed start attempt.
+- Made index-storage directory `fsync` best-effort on platforms that cannot open or sync directory handles, so staged index swaps and stale-WAL recovery no longer fail only because directory sync is unsupported.
+
 ## 0.1.375 - 2026-04-23
 
 - Added a persisted `launcher.frameless` preference so the popup can start with or without window chrome instead of forcing the frameless shell on every launch.
