@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, Qt, Signal
+from PySide6.QtCore import QRect, QTimer, Qt, Signal
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtGui import QCloseEvent, QHideEvent, QMoveEvent, QResizeEvent, QShowEvent
 
 from eodinga.config import AppConfig
@@ -52,8 +53,9 @@ class LauncherWindow(LauncherPanel):
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
         if not self._geometry_restored and self._config is not None:
-            if self._config.launcher.window_x is not None and self._config.launcher.window_y is not None:
-                self.move(self._config.launcher.window_x, self._config.launcher.window_y)
+            geometry = self._restored_geometry()
+            if geometry is not None:
+                self.setGeometry(geometry)
             self._geometry_restored = True
         self.query_field.setFocus()
         self.query_field.selectAll()
@@ -119,3 +121,38 @@ class LauncherWindow(LauncherPanel):
             return
         self._config.launcher = self._config.launcher.model_copy(update=geometry)
         self._config.save(self._config_path)
+
+    def _restored_geometry(self) -> QRect | None:
+        if self._config is None:
+            return None
+        launcher = self._config.launcher
+        if launcher.window_x is None or launcher.window_y is None:
+            return None
+        return self._screen_safe_geometry(
+            QRect(
+                launcher.window_x,
+                launcher.window_y,
+                launcher.window_width,
+                launcher.window_height,
+            )
+        )
+
+    def _screen_safe_geometry(self, geometry: QRect) -> QRect:
+        available = self._available_geometry()
+        if not available.isValid():
+            return geometry
+        width = min(max(geometry.width(), 1), available.width())
+        height = min(max(geometry.height(), 1), available.height())
+        max_x = available.x() + max(available.width() - width, 0)
+        max_y = available.y() + max(available.height() - height, 0)
+        clamped_x = min(max(geometry.x(), available.x()), max_x)
+        clamped_y = min(max(geometry.y(), available.y()), max_y)
+        return QRect(clamped_x, clamped_y, width, height)
+
+    def _available_geometry(self) -> QRect:
+        screen = self.screen()
+        if screen is None:
+            screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            return QRect()
+        return screen.availableGeometry()
