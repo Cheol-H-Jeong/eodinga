@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import platform
 import re
 import shutil
 import subprocess
@@ -52,6 +54,22 @@ def _read_release_version() -> str:
             f"pyproject.toml={project_version}, eodinga/__init__.py={package_version}"
         )
     return project_version
+
+
+def _normalize_debian_arch(raw_arch: str) -> str:
+    normalized = raw_arch.strip().lower()
+    aliases = {
+        "amd64": "amd64",
+        "x86_64": "amd64",
+        "arm64": "arm64",
+        "aarch64": "arm64",
+    }
+    return aliases.get(normalized, normalized)
+
+
+def _read_debian_arch() -> str:
+    raw_arch = os.environ.get("TARGET_ARCH") or platform.machine() or "amd64"
+    return _normalize_debian_arch(raw_arch)
 
 
 def _load_windows_spec_namespace() -> dict[str, Any]:
@@ -463,6 +481,11 @@ def main(argv: list[str] | None = None) -> int:
         help=argparse.SUPPRESS,
     )
     parser.add_argument(
+        "--print-deb-arch",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
         "--target",
         choices=(
             "linux-appimage-dry-run",
@@ -478,8 +501,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.print_release_version:
         print(_read_release_version())
         return 0
+    if args.print_deb_arch:
+        print(_read_debian_arch())
+        return 0
     if args.target is None:
-        parser.error("--target is required unless --print-release-version is set")
+        parser.error("--target is required unless a print flag is set")
     if args.target == "linux-appimage-dry-run":
         return _run_linux_appimage_dry_run()
     if args.target == "linux-appimage":

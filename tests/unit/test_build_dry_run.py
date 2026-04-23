@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import importlib.util
+import os
 import re
 import subprocess
 import sys
@@ -119,6 +120,29 @@ def test_print_release_version_matches_package_version() -> None:
 
     assert result.returncode == 0
     assert result.stdout.strip() == __version__
+
+
+def test_normalize_debian_arch_maps_common_aliases() -> None:
+    module = _load_build_module()
+
+    assert module._normalize_debian_arch("amd64") == "amd64"
+    assert module._normalize_debian_arch("AMD64") == "amd64"
+    assert module._normalize_debian_arch("x86_64") == "amd64"
+    assert module._normalize_debian_arch("aarch64") == "arm64"
+    assert module._normalize_debian_arch("arm64") == "arm64"
+
+
+def test_print_deb_arch_normalizes_target_arch_env() -> None:
+    result = subprocess.run(
+        [sys.executable, "packaging/build.py", "--print-deb-arch"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "TARGET_ARCH": "x86_64"},
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.strip() == "amd64"
 
 
 def test_windows_audit_validator_rejects_missing_source_hidden_import_contract() -> None:
