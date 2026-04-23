@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.934 - 2026-04-24
+## 0.1.939 - 2026-04-24
 
 - Tightened the Windows release-target audit so it can no longer pass on stale local `dist/` directories; the non-dry-run path now explicitly requires fresh staged build artifacts from the current run.
 - Expanded observability metrics with histogram averages plus crash-log byte and write-latency tracking, making crash reporting costs visible in both raw counters and `stats --json`.
