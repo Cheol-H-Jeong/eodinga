@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.404 - 2026-04-23
+## 0.1.405 - 2026-04-23
 
 - Cached and chunked large `content_map` text fetches in the query executor, reducing repeated SQL-shape churn while keeping large filter and ranking passes on reusable prepared statements.
 - Normalized unicode path and content needles once per fallback scan instead of re-normalizing every term-match probe, trimming work on Korean and other non-ASCII query paths.
